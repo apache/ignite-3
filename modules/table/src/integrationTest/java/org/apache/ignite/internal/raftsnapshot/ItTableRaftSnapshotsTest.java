@@ -106,7 +106,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -225,7 +224,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
         return mvPartitionAtNode(clusterNode).estimatedSize();
     }
 
-    private @NotNull MvPartitionStorage mvPartitionAtNode(int clusterNode) {
+    private MvPartitionStorage mvPartitionAtNode(int clusterNode) {
         InternalTable internalTable = unwrapTableImpl(tableAt(clusterNode)).internalTable();
         MvPartitionStorage mvPartition = internalTable.storage().getMvPartition(PARTITION_ID);
 
