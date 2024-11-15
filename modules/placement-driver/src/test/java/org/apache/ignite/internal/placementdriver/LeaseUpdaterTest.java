@@ -98,7 +98,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     private final Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
     /** Cluster nodes. */
     private final LogicalNode stableNode = new LogicalNode(randomUUID(), "test-node-stable", NetworkAddress.from("127.0.0.1:10000"));
-    private final LogicalNode pendingNode = new LogicalNode(randomUUID(), "test-node-Pending", NetworkAddress.from("127.0.0.1:10001"));
+    private final LogicalNode pendingNode = new LogicalNode(randomUUID(), "test-node-pending", NetworkAddress.from("127.0.0.1:10001"));
     @Mock
     private ClusterService clusterService;
     @Mock
