@@ -57,10 +57,12 @@ public class PrimitivePartitionMeta {
         return leaseStartTime;
     }
 
+    /** Returns primary replica node ID (or {@code null} if no primary replica node is known). */
     public @Nullable UUID primaryReplicaNodeId() {
         return primaryReplicaNodeId;
     }
 
+    /** Returns primary replica node name (or {@code null} if no primary replica node is known). */
     public @Nullable String primaryReplicaNodeName() {
         return primaryReplicaNodeName;
     }
