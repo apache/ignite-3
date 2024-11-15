@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,26 +27,30 @@ import org.jetbrains.annotations.Nullable;
  * Hybrid timestamp tracker.
  */
 public class HybridTimestampTracker {
+    private static final AtomicLongFieldUpdater<HybridTimestampTracker> TIMESTAMP = AtomicLongFieldUpdater.newUpdater(
+            HybridTimestampTracker.class,
+            "timestamp");
+
     /** Timestamp. */
-    private final AtomicLong timestamp = new AtomicLong(NULL_HYBRID_TIMESTAMP);
+    private volatile long timestamp = NULL_HYBRID_TIMESTAMP;
 
     /**
-     * Get current tracked timestamp.
+     * Get current timestamp.
      *
      * @return Timestamp or {@code null} if the tracker has never updated.
      */
     public @Nullable HybridTimestamp get() {
-        return HybridTimestamp.nullableHybridTimestamp(timestamp.get());
+        return HybridTimestamp.nullableHybridTimestamp(TIMESTAMP.get(this));
     }
 
     /**
-     * Updates the tracked timestamp if a provided timestamp is greater.
+     * Updates the timestamp if a provided timestamp is greater.
      *
      * @param ts Timestamp to use for update.
      */
     public void update(@Nullable HybridTimestamp ts) {
         long tsVal = HybridTimestamp.hybridTimestampToLong(ts);
 
-        timestamp.updateAndGet(x -> Math.max(x, tsVal));
+        TIMESTAMP.updateAndGet(this, x -> Math.max(x, tsVal));
     }
 }

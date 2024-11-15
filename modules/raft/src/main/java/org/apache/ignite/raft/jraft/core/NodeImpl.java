@@ -2243,9 +2243,9 @@ public class NodeImpl implements Node, RaftServerService {
                         .success(false)
                         .term(this.currTerm);
 
-                if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
-                }
+//                if (request.timestamp() != null) {
+//                    rb.timestamp(clock.update(request.timestamp()));
+//                }
 
                 return rb.build();
             }
@@ -2264,9 +2264,9 @@ public class NodeImpl implements Node, RaftServerService {
                         .success(false) //
                         .term(request.term() + 1);
 
-                if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
-                }
+//                if (request.timestamp() != null) {
+//                    rb.timestamp(clock.update(request.timestamp()));
+//                }
 
                 return rb.build();
             }
@@ -2297,9 +2297,9 @@ public class NodeImpl implements Node, RaftServerService {
                         .term(this.currTerm)
                         .lastLogIndex(lastLogIndex);
 
-                if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
-                }
+//                if (request.timestamp() != null) {
+//                    rb.timestamp(clock.update(request.timestamp()));
+//                }
 
                 return rb.build();
             }
@@ -2311,9 +2311,9 @@ public class NodeImpl implements Node, RaftServerService {
                     .success(true)
                     .term(this.currTerm)
                     .lastLogIndex(this.logManager.getLastLogIndex());
-                if (request.timestamp() != null) {
-                    respBuilder.timestamp(clock.update(request.timestamp()));
-                }
+//                if (request.timestamp() != null) {
+//                    respBuilder.timestamp(clock.update(request.timestamp()));
+//                }
                 doUnlock = false;
                 this.writeLock.unlock();
                 // see the comments at FollowerStableClosure#run()
@@ -2332,9 +2332,9 @@ public class NodeImpl implements Node, RaftServerService {
                         .errorMsg(String.format("Node %s:%s log manager is busy.", this.groupId, this.serverId))
                         .term(this.currTerm);
 
-                if (request.timestamp() != null) {
-                    rb.timestamp(clock.update(request.timestamp()));
-                }
+//                if (request.timestamp() != null) {
+//                    rb.timestamp(clock.update(request.timestamp()));
+//                }
 
                 return rb.build();
             }

@@ -743,7 +743,7 @@ public class Replicator implements ThreadId.OnError {
     private void sendEmptyEntries(final boolean isHeartbeat,
         final RpcResponseClosure<AppendEntriesResponse> heartBeatClosure) {
         final AppendEntriesRequestBuilder rb = raftOptions.getRaftMessagesFactory().appendEntriesRequest();
-        rb.timestamp(options.getNode().clockNow());
+        //rb.timestamp(options.getNode().clockNow());
         if (!fillCommonFields(rb, this.nextIndex - 1, isHeartbeat)) {
             // id is unlock in installSnapshot
             installSnapshot();
@@ -1163,9 +1163,9 @@ public class Replicator implements ThreadId.OnError {
         if ((r = (Replicator) id.lock()) == null) {
             return;
         }
-        if (response != null && response.timestamp() != null) {
-            r.options.getNode().clockUpdate(response.timestamp());
-        }
+//        if (response != null && response.timestamp() != null) {
+//            r.options.getNode().clockUpdate(response.timestamp());
+//        }
         boolean doUnlock = true;
         try {
             final boolean isLogDebugEnabled = LOG.isDebugEnabled();
@@ -1671,7 +1671,7 @@ public class Replicator implements ThreadId.OnError {
             RecycleUtil.recycle(byteBufList);
         }
 
-        rb.timestamp(this.options.getNode().clockNow());
+        //rb.timestamp(this.options.getNode().clockNow());
 
         final AppendEntriesRequest request = rb.build();
         if (LOG.isDebugEnabled()) {

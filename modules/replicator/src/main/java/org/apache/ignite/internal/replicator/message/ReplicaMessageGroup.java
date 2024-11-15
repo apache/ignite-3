@@ -49,6 +49,9 @@ public interface ReplicaMessageGroup {
     /** Message type for {@link AwaitReplicaResponse}. */
     short AWAIT_REPLICA_RESPONSE = 7;
 
+    /** Message type for {@link org.apache.ignite.internal.replicator.CommitReplicaResponse}. */
+    short COMMIT_REPLICA_RESPONSE = 8;
+
     /** Message type for {@link SafeTimeSyncCommand}. */
     short SAFE_TIME_SYNC_COMMAND = 40;
 

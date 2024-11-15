@@ -17,44 +17,26 @@
 
 package org.apache.ignite.internal.replicator;
 
-import org.jetbrains.annotations.Nullable;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
- * Represents replica execution result.
+ * Replication command application result.
  */
-public class ReplicaResult {
-    /** The result. */
-    private final Object res;
+public final class ApplyResult {
+    private final HybridTimestamp commitTs;
+    private final CompletableFuture<?> repFut;
 
-    /** The replication future. */
-    private final ApplyResult applyResult;
-
-    /**
-     * Construct a replica result.
-     *
-     * @param res The result.
-     * @param applyResult The replication result.
-     */
-    public ReplicaResult(@Nullable Object res, @Nullable ApplyResult applyResult) {
-        this.res = res;
-        this.applyResult = applyResult == null ? new ApplyResult(null, null) : applyResult;
+    public ApplyResult(HybridTimestamp commitTs, CompletableFuture<?> repFut) {
+        this.commitTs = commitTs;
+        this.repFut = repFut;
     }
 
-    /**
-     * Get the result.
-     *
-     * @return The result.
-     */
-    public @Nullable Object result() {
-        return res;
+    public HybridTimestamp getCommitTimestamp() {
+        return commitTs;
     }
 
-    /**
-     * Get the replication future.
-     *
-     * @return The replication future.
-     */
-    public ApplyResult applyResult() {
-        return applyResult;
+    public CompletableFuture<?> replicationFuture() {
+        return repFut;
     }
 }

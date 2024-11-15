@@ -136,6 +136,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
+import org.apache.ignite.internal.replicator.ApplyResult;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
@@ -642,11 +643,11 @@ public class PartitionReplicaListener implements ReplicaListener {
         HybridTimestamp opStartTs;
 
         if (request instanceof ReadWriteReplicaRequest) {
-            opStartTs = clockService.now();
+            opStartTs = clockService.current();
         } else if (request instanceof ReadOnlyReplicaRequest) {
             opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
         } else if (request instanceof ReadOnlyDirectReplicaRequest) {
-            opStartTs = clockService.now();
+            opStartTs = clockService.current();
         } else {
             opStartTs = null;
         }
@@ -1812,7 +1813,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                                     catalogVersion
                                             );
 
-                                    return new ReplicaResult(null, commandReplicatedFuture);
+                                    return new ReplicaResult(null, new ApplyResult(null, commandReplicatedFuture));
                                 });
                     } else {
                         return completedFuture(
@@ -2052,8 +2053,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 if (v instanceof ReplicaResult) {
                     ReplicaResult res = (ReplicaResult) v;
 
-                    if (res.replicationFuture() != null) {
-                        res.replicationFuture().whenComplete((v0, th0) -> {
+                    if (res.applyResult().replicationFuture() != null) {
+                        res.applyResult().replicationFuture().whenComplete((v0, th0) -> {
                             if (th0 != null) {
                                 cleanupReadyFut.completeExceptionally(th0);
                             } else {
@@ -2619,7 +2620,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param cmd Raft command.
      * @return Raft future or raft decorated future with command that was processed.
      */
-    private <T> CompletableFuture<T> applyCmdWithExceptionHandling(Command cmd, CompletableFuture<T> resultFuture) {
+    private CompletableFuture<ApplyCommandResult<Object>> applyCmdWithExceptionHandling(Command cmd) {
+        CompletableFuture<ApplyCommandResult<Object>> resultFuture = new CompletableFuture<>();
+
         applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture);
 
         return resultFuture.exceptionally(throwable -> {
@@ -2692,7 +2695,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param catalogVersion Validated catalog version associated with given operation.
      * @return A local update ready future, possibly having a nested replication future as a result for delayed ack purpose.
      */
-    private CompletableFuture<CompletableFuture<?>> applyUpdateCommand(
+    private CompletableFuture<ApplyResult> applyUpdateCommand(
             TablePartitionId tablePartId,
             UUID rowUuid,
             @Nullable BinaryRow row,
@@ -2735,16 +2738,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                     );
                 }
 
-                CompletableFuture<UUID> fut = applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
-                        .thenApply(res -> cmd.txId());
+                CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).thenApply(res -> cmd.txId());
 
-                return completedFuture(fut);
+                return completedFuture(new ApplyResult(null, repFut));
             } else {
-                CompletableFuture<ApplyCommandResult<Object>> resultFuture = new CompletableFuture<>();
-
-                applyCmdWithExceptionHandling(cmd, resultFuture);
-
-                return resultFuture.thenCompose(res -> {
+                return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
                     UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
 
                     if (updateCommandResult != null && !updateCommandResult.isPrimaryReplicaMatch()) {
@@ -2752,7 +2750,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     if (updateCommandResult != null && updateCommandResult.isPrimaryInPeersAndLearners()) {
-                        return safeTime.waitFor(((UpdateCommand) res.getCommand()).safeTime()).thenApply(ignored -> null);
+                        return safeTime.waitFor(((UpdateCommand) res.getCommand()).safeTime()).thenApply(ignored -> null)
+                                .thenApply(ret -> new ApplyResult(cmd.safeTime(), null));
                     } else {
                         if (!SKIP_UPDATES) {
                             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
@@ -2769,7 +2768,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             );
                         }
 
-                        return nullCompletedFuture();
+                        return completedFuture(new ApplyResult(cmd.safeTime(), null));
                     }
                 });
             }
@@ -2787,7 +2786,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param leaseStartTime Lease start time.
      * @return A local update ready future, possibly having a nested replication future as a result for delayed ack purpose.
      */
-    private CompletableFuture<CompletableFuture<?>> applyUpdateCommand(
+    private CompletableFuture<ApplyResult> applyUpdateCommand(
             ReadWriteSingleRowReplicaRequest request,
             UUID rowUuid,
             @Nullable BinaryRow row,
@@ -2818,9 +2817,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param txCoordinatorId Transaction coordinator id.
      * @param catalogVersion Validated catalog version associated with given operation.
      * @param skipDelayedAck {@code true} to disable the delayed ack optimization.
-     * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command, CompletableFuture)}.
+     * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command)}.
      */
-    private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
+    private CompletableFuture<ApplyResult> applyUpdateAllCommand(
             Map<UUID, TimedBinaryRowMessage> rowsToUpdate,
             TablePartitionIdMessage commitPartitionId,
             UUID txId,
@@ -2857,7 +2856,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                             indexIdsAtRwTxBeginTs(txId)
                     );
 
-                    return applyCmdWithExceptionHandling(cmd, new CompletableFuture<>()).thenApply(res -> null);
                 } else {
                     // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                     storageUpdateHandler.handleUpdateAll(
@@ -2869,41 +2867,40 @@ public class PartitionReplicaListener implements ReplicaListener {
                             null,
                             indexIdsAtRwTxBeginTs(txId)
                     );
-
-                    CompletableFuture<Object> fut = applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
-                            .thenApply(res -> cmd.txId());
-
-                    return completedFuture(fut);
                 }
+
+                CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).thenApply(res -> cmd.txId());
+
+                return completedFuture(new ApplyResult(null, repFut));
             } else {
-                return applyCmdWithExceptionHandling(cmd, new CompletableFuture<ApplyCommandResult<Object>>())
-                        .thenCompose(res -> {
-                            UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
+                return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
+                    UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
 
-                            if (!updateCommandResult.isPrimaryReplicaMatch()) {
-                                throw new PrimaryReplicaMissException(
-                                        cmd.txId(),
-                                        cmd.leaseStartTime(),
-                                        updateCommandResult.currentLeaseStartTime()
-                                );
-                            }
-                            if (updateCommandResult.isPrimaryInPeersAndLearners()) {
-                                return safeTime.waitFor(((UpdateAllCommand) res.getCommand()).safeTime()).thenApply(ignored -> null);
-                            } else {
-                                // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                                storageUpdateHandler.handleUpdateAll(
-                                        cmd.txId(),
-                                        cmd.rowsToUpdate(),
-                                        cmd.tablePartitionId().asTablePartitionId(),
-                                        false,
-                                        null,
-                                        cmd.safeTime(),
-                                        indexIdsAtRwTxBeginTs(txId)
-                                );
+                    if (!updateCommandResult.isPrimaryReplicaMatch()) {
+                        throw new PrimaryReplicaMissException(
+                                cmd.txId(),
+                                cmd.leaseStartTime(),
+                                updateCommandResult.currentLeaseStartTime()
+                        );
+                    }
+                    if (updateCommandResult.isPrimaryInPeersAndLearners()) {
+                        return safeTime.waitFor(((UpdateAllCommand) res.getCommand()).safeTime())
+                                .thenApply(ret -> new ApplyResult(cmd.safeTime(), null));
+                    } else {
+                        // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                        storageUpdateHandler.handleUpdateAll(
+                                cmd.txId(),
+                                cmd.rowsToUpdate(),
+                                cmd.tablePartitionId().asTablePartitionId(),
+                                false,
+                                null,
+                                cmd.safeTime(),
+                                indexIdsAtRwTxBeginTs(txId)
+                        );
 
-                                return null;
-                            }
-                        });
+                        return completedFuture(new ApplyResult(cmd.safeTime(), null));
+                    }
+                });
             }
         }
     }
@@ -2917,7 +2914,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param leaseStartTime Lease start time.
      * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command, CompletableFuture)}.
      */
-    private CompletableFuture<CompletableFuture<?>> applyUpdateAllCommand(
+    private CompletableFuture<ApplyResult> applyUpdateAllCommand(
             ReadWriteMultiRowReplicaRequest request,
             Map<UUID, TimedBinaryRowMessage> rowsToUpdate,
             int catalogVersion,
@@ -2981,7 +2978,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return takeLocksForDeleteExact(searchRow, rowId, row, txId)
                             .thenCompose(validatedRowId -> {
                                 if (validatedRowId == null) {
-                                    return completedFuture(new ReplicaResult(false, request.full() ? null : nullCompletedFuture()));
+                                    return completedFuture(new ReplicaResult(false, null));
                                 }
 
                                 return validateWriteAgainstSchemaAfterTakingLocks(request.transactionId())
@@ -3771,7 +3768,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future that will complete with catalog version associated with given operation though the operation timestamp.
      */
     private CompletableFuture<Integer> validateWriteAgainstSchemaAfterTakingLocks(UUID txId) {
-        HybridTimestamp operationTimestamp = clockService.now();
+        HybridTimestamp operationTimestamp = clockService.current();
 
         return reliableCatalogVersionFor(operationTimestamp)
                 .thenApply(catalogVersion -> {
@@ -3781,7 +3778,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
-    private UpdateCommand updateCommand(
+    private static UpdateCommand updateCommand(
             TablePartitionId tablePartId,
             UUID rowUuid,
             @Nullable BinaryRow row,

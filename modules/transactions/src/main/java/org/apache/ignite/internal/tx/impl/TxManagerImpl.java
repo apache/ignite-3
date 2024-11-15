@@ -433,7 +433,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public @Nullable TxStateMeta stateMeta(UUID txId) {
-        return inBusyLock(busyLock, () -> txStateVolatileStorage.state(txId));
+        return txStateVolatileStorage.state(txId);
+    }
+
+    @TestOnly
+    public Collection<TxStateMeta> states() {
+        return txStateVolatileStorage.states();
     }
 
     @Override
@@ -442,13 +447,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
+    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit) {
         TxState finalState;
 
         finishedTxs.add(1);
 
         if (commit) {
-            timestampTracker.update(clockService.current());
+            timestampTracker.update(ts);
 
             finalState = COMMITTED;
         } else {
@@ -460,7 +465,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         finalState,
                         old == null ? null : old.txCoordinatorId(),
                         old == null ? null : old.commitPartitionId(),
-                        old == null ? null : old.commitTimestamp()
+                        ts
                 ));
 
         decrementRwTxCount(txId);

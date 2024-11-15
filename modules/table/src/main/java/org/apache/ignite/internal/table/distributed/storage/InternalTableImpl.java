@@ -109,6 +109,7 @@ import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutExcepti
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -633,7 +634,18 @@ public class InternalTableImpl implements InternalTable {
                 || request instanceof SwapRowReplicaRequest;
 
         if (full) { // Full transaction retries are handled in postEnlist.
-            return replicaSvc.invoke(primaryReplicaAndConsistencyToken.get1(), request);
+            return replicaSvc.invokeRaw(primaryReplicaAndConsistencyToken.get1(), request).handle((r, e) -> {
+                assert r instanceof TimestampAware;
+
+                TimestampAware tsAware = (TimestampAware) r;
+                tx.finish(true, tsAware.timestamp(), e == null);
+
+                if (e != null) {
+                    sneakyThrow(e);
+                }
+
+                return (R) r.result();
+            });
         } else {
             if (write) { // Track only write requests from explicit transactions.
                 if (!transactionInflights.addInflight(tx.id(), false)) {
@@ -714,11 +726,7 @@ public class InternalTableImpl implements InternalTable {
         assert !(autoCommit && full) : "Invalid combination of flags";
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
-            if (full) { // Full txn is already finished remotely. Just update local state.
-                CompletableFuture<Void> finishFullTxFut = tx0.finish(e == null, null, true);
-
-                assert finishFullTxFut.isDone() : "A full-state transaction must finish synchronously.";
-
+            if (full) {
                 return e != null ? failedFuture(e) : completedFuture(r);
             }
 
@@ -877,7 +885,7 @@ public class InternalTableImpl implements InternalTable {
         }
 
         if (tx.isReadOnly()) {
-            return evaluateReadOnlyRecipientNode(partitionId(keyRow))
+            return evaluateReadOnlyRecipientNode(partitionId(keyRow), tx.readTimestamp())
                     .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
         }
 
@@ -968,7 +976,7 @@ public class InternalTableImpl implements InternalTable {
         if (tx != null && tx.isReadOnly()) {
             BinaryRowEx firstRow = keyRows.iterator().next();
 
-            return evaluateReadOnlyRecipientNode(partitionId(firstRow))
+            return evaluateReadOnlyRecipientNode(partitionId(firstRow), tx.readTimestamp())
                     .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), recipientNode));
         }
 
@@ -1107,7 +1115,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_UPSERT)
-                        .timestamp(clockService.now())
+                        .timestamp(txo.startTimestamp()) // TODO replace everythere
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1947,7 +1955,7 @@ public class InternalTableImpl implements InternalTable {
      * @return The enlist future (then will a leader become known).
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
-        HybridTimestamp now = clockService.now();
+        HybridTimestamp now = tx.startTimestamp();
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
         tx.assignCommitPartition(tablePartitionId);
@@ -2063,12 +2071,13 @@ public class InternalTableImpl implements InternalTable {
      * Evaluated cluster node for read-only request processing.
      *
      * @param partId Partition id.
+     * @param readTimestamp Read timestamp.
      * @return Cluster node to evalute read-only request.
      */
-    protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
+    protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId, @Nullable HybridTimestamp readTimestamp) {
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        return awaitPrimaryReplica(tablePartitionId, clockService.now())
+        return awaitPrimaryReplica(tablePartitionId, readTimestamp)
                 .handle((res, e) -> {
                     if (e != null) {
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
