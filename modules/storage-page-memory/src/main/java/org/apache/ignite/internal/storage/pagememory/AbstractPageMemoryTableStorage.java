@@ -35,6 +35,7 @@ import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -260,17 +261,21 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalancePartition(
-            int partitionId,
-            long lastAppliedIndex,
-            long lastAppliedTerm,
-            byte[] groupConfig
-    ) {
+    public CompletableFuture<Void> finishRebalancePartition(int partitionId, MvPartitionMeta partitionMeta) {
         return inBusyLock(busyLock, () -> mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
             mvPartitionStorage.runConsistently(locker -> {
-                mvPartitionStorage.lastAppliedOnRebalance(lastAppliedIndex, lastAppliedTerm);
+                mvPartitionStorage.lastAppliedOnRebalance(partitionMeta.lastAppliedIndex(), partitionMeta.lastAppliedTerm());
+                mvPartitionStorage.committedGroupConfigurationOnRebalance(partitionMeta.groupConfig());
 
-                mvPartitionStorage.committedGroupConfigurationOnRebalance(groupConfig);
+                if (partitionMeta.primaryReplicaNodeId() != null) {
+                    assert partitionMeta.primaryReplicaNodeName() != null;
+
+                    mvPartitionStorage.updateLeaseOnRebalance(
+                            partitionMeta.leaseStartTime(),
+                            partitionMeta.primaryReplicaNodeId(),
+                            partitionMeta.primaryReplicaNodeName()
+                    );
+                }
 
                 return null;
             });

@@ -168,9 +168,6 @@ public class OutgoingSnapshot {
     }
 
     private PartitionSnapshotMeta takeSnapshotMeta() {
-        long lastAppliedIndex = partition.maxLastAppliedIndex();
-        long lastAppliedTerm = partition.maxLastAppliedTerm();
-
         RaftGroupConfiguration config = partition.committedGroupConfiguration();
 
         assert config != null : "Configuration should never be null when installing a snapshot";
@@ -179,7 +176,16 @@ public class OutgoingSnapshot {
 
         Map<Integer, UUID> nextRowIdToBuildByIndexId = collectNextRowIdToBuildIndexes(catalogService, partition, catalogVersion);
 
-        return snapshotMetaAt(lastAppliedIndex, lastAppliedTerm, config, catalogVersion, nextRowIdToBuildByIndexId);
+        return snapshotMetaAt(
+                partition.maxLastAppliedIndex(),
+                partition.maxLastAppliedTerm(),
+                config,
+                catalogVersion,
+                nextRowIdToBuildByIndexId,
+                partition.leaseStartTime(),
+                partition.primaryReplicaNodeId(),
+                partition.primaryReplicaNodeName()
+        );
     }
 
     /**

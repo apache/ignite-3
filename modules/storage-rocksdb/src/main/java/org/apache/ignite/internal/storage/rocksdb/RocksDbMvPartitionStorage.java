@@ -79,6 +79,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.rocksdb.GarbageCollector.AddResult;
 import org.apache.ignite.internal.storage.util.LocalLocker;
@@ -1117,32 +1118,35 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 return null;
             }
 
-            AbstractWriteBatch writeBatch = requireWriteBatch();
-
-            try {
-                ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-                outputStream.write(longToBytes(leaseStartTime));
-
-                byte[] primaryReplicaNodeIdBytes = uuidToBytes(primaryReplicaNodeId);
-                outputStream.write(primaryReplicaNodeIdBytes);
-
-                byte[] primaryReplicaNodeNameBytes = stringToBytes(primaryReplicaNodeName);
-                outputStream.write(intToBytes(primaryReplicaNodeNameBytes.length));
-                outputStream.write(primaryReplicaNodeNameBytes);
-
-                writeBatch.put(meta, leaseKey, outputStream.toByteArray());
-
-                this.leaseStartTime = leaseStartTime;
-                this.primaryReplicaNodeId = primaryReplicaNodeId;
-                this.primaryReplicaNodeName = primaryReplicaNodeName;
-            } catch (IOException e) {
-                throw new StorageException(e);
-            } catch (RocksDBException e) {
-                throw new IgniteRocksDbException(e);
-            }
+            saveLease(requireWriteBatch(), leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
 
             return null;
         });
+    }
+
+    private void saveLease(AbstractWriteBatch writeBatch, long leaseStartTime, UUID primaryReplicaNodeId, String primaryReplicaNodeName) {
+        // TODO: IGNITE-23683 - switch to VersionedSerialization.
+        try {
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            outputStream.write(longToBytes(leaseStartTime));
+
+            byte[] primaryReplicaNodeIdBytes = uuidToBytes(primaryReplicaNodeId);
+            outputStream.write(primaryReplicaNodeIdBytes);
+
+            byte[] primaryReplicaNodeNameBytes = stringToBytes(primaryReplicaNodeName);
+            outputStream.write(intToBytes(primaryReplicaNodeNameBytes.length));
+            outputStream.write(primaryReplicaNodeNameBytes);
+
+            writeBatch.put(meta, leaseKey, outputStream.toByteArray());
+
+            this.leaseStartTime = leaseStartTime;
+            this.primaryReplicaNodeId = primaryReplicaNodeId;
+            this.primaryReplicaNodeName = primaryReplicaNodeName;
+        } catch (IOException e) {
+            throw new StorageException(e);
+        } catch (RocksDBException e) {
+            throw new IgniteRocksDbException(e);
+        }
     }
 
     @Override
@@ -1653,15 +1657,26 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      *
      * @throws StorageRebalanceException If there was an error when finishing the rebalance.
      */
-    void finishRebalance(WriteBatch writeBatch, long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
+    void finishRebalance(WriteBatch writeBatch, MvPartitionMeta partitionMeta) {
         if (!state.compareAndSet(StorageState.REBALANCE, StorageState.RUNNABLE)) {
             throwExceptionDependingOnStorageStateOnRebalance(state.get(), createStorageInfo());
         }
 
         try {
-            saveLastApplied(writeBatch, lastAppliedIndex, lastAppliedTerm);
+            saveLastApplied(writeBatch, partitionMeta.lastAppliedIndex(), partitionMeta.lastAppliedTerm());
 
-            saveGroupConfigurationOnRebalance(writeBatch, groupConfig);
+            saveGroupConfigurationOnRebalance(writeBatch, partitionMeta.groupConfig());
+
+            if (partitionMeta.primaryReplicaNodeId() != null) {
+                assert partitionMeta.primaryReplicaNodeName() != null;
+
+                updateLeaseOnRebalance(
+                        writeBatch,
+                        partitionMeta.leaseStartTime(),
+                        partitionMeta.primaryReplicaNodeId(),
+                        partitionMeta.primaryReplicaNodeName()
+                );
+            }
         } catch (RocksDBException e) {
             throw new StorageRebalanceException("Error when trying to abort rebalancing storage: " + createStorageInfo(), e);
         }
@@ -1694,6 +1709,19 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         saveGroupConfiguration(writeBatch, config);
 
         this.lastGroupConfig = config.clone();
+    }
+
+    private void updateLeaseOnRebalance(
+            WriteBatch writeBatch,
+            long leaseStartTime,
+            UUID primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    ) {
+        saveLease(writeBatch, leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
+
+        this.leaseStartTime = leaseStartTime;
+        this.primaryReplicaNodeId = primaryReplicaNodeId;
+        this.primaryReplicaNodeName = primaryReplicaNodeName;
     }
 
     /**

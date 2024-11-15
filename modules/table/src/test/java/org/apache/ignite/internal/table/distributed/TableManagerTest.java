@@ -683,6 +683,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             when(mvPartitionStorage.lastAppliedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
         }
 
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(new byte[0]);
+
         doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
         when(txStateStorage.clear()).thenReturn(nullCompletedFuture());
 
