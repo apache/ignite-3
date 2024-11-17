@@ -794,15 +794,15 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Only 3 nodes left.
         waitForScale(node0, 3);
 
-        // One of them has the most up to date data, the others fall behind.
+        // Unblock raft.
+        blockedNodes.clear();
+
+        // Two nodes should have the most up to date data, one falls behind.
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.READ_ONLY);
 
         // Collect nodes that will be the part of the planned assignments.
         List<String> nodesNamesForFinalAssignments = new ArrayList<>(clusterNodeNames);
         nodesNamesForFinalAssignments.removeAll(nodeNamesToStop);
-
-        // Unblock raft.
-        blockedNodes.clear();
 
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
