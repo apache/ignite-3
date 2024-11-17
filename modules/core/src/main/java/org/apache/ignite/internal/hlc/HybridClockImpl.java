@@ -136,12 +136,18 @@ public class HybridClockImpl implements HybridClock {
                 return hybridTimestamp(LATEST_TIME.incrementAndGet(this));
             }
 
-            long newLatestTime = max(requestTimeLong + 1, max(now, oldLatestTime + 1));
+            if (now > requestTimeLong) {
+                if (LATEST_TIME.compareAndSet(this, oldLatestTime, now)) {
+                    return hybridTimestamp(now);
+                }
+            } else {
+                long newLatestTime = requestTimeLong + 1;
 
-            if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
-                notifyUpdateListeners(newLatestTime);
+                if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
+                    notifyUpdateListeners(newLatestTime);
 
-                return hybridTimestamp(newLatestTime);
+                    return hybridTimestamp(newLatestTime);
+                }
             }
         }
     }

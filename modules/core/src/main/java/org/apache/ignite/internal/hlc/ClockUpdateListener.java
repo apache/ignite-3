@@ -24,7 +24,8 @@ package org.apache.ignite.internal.hlc;
 @FunctionalInterface
 public interface ClockUpdateListener {
     /**
-     * Called when the clock's current time advances due to a call to {@link HybridClock#updateAndGetNow(HybridTimestamp)}.
+     * Called when the clock's current timestamp jumps up to the value received from another node due to a call to
+     * {@link HybridClock#updateAndGetNow(HybridTimestamp)} or {@link HybridClock#update(HybridTimestamp)}.
      *
      * <p>This does NOT get called when the clock current time gets advanced by a call to
      * {@link HybridClock#now()}/{@link HybridClock#nowLong()}.
