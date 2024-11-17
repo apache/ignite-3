@@ -34,6 +34,7 @@ public class LocalPartitionStateResponse {
     private final String tableName;
     private final String nodeName;
     private final String state;
+    private final long estimatedSize;
 
     /**
      * Constructor.
@@ -46,7 +47,8 @@ public class LocalPartitionStateResponse {
             @JsonProperty("tableId") int tableId,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("partitionId") int partitionId,
-            @JsonProperty("state") String state
+            @JsonProperty("state") String state,
+            @JsonProperty("estimatedSize") long estimatedSize
     ) {
         this.partitionId = partitionId;
         this.tableId = tableId;
@@ -55,6 +57,7 @@ public class LocalPartitionStateResponse {
         this.zoneName = zoneName;
         this.nodeName = nodeName;
         this.state = state;
+        this.estimatedSize = estimatedSize;
     }
 
     @JsonGetter("partitionId")
@@ -90,5 +93,10 @@ public class LocalPartitionStateResponse {
     @JsonGetter("state")
     public String state() {
         return state;
+    }
+
+    @JsonGetter("estimatedSize")
+    public long estimatedSize() {
+        return estimatedSize;
     }
 }

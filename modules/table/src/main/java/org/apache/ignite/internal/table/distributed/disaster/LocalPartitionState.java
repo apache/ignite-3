@@ -43,13 +43,17 @@ public class LocalPartitionState {
     @IgniteToStringInclude
     public final LocalPartitionStateEnum state;
 
+    @IgniteToStringInclude
+    public final long estimatedSize;
+
     LocalPartitionState(
             String zoneName,
             String schemaName,
             int tableId,
             String tableName,
             int partitionId,
-            LocalPartitionStateEnum state
+            LocalPartitionStateEnum state,
+            long estimatedSize
     ) {
         this.tableId = tableId;
         this.schemaName = schemaName;
@@ -57,6 +61,7 @@ public class LocalPartitionState {
         this.zoneName = zoneName;
         this.partitionId = partitionId;
         this.state = state;
+        this.estimatedSize = estimatedSize;
     }
 
     @Override

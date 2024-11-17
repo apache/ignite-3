@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Comparator.comparing;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
 import static org.apache.ignite.internal.type.NativeTypes.STRING;
 
 import java.util.Comparator;
@@ -65,6 +66,7 @@ class DisasterRecoverySystemViews {
                 .addColumn("TABLE_NAME", STRING, state -> state.state.tableName)
                 .addColumn("PARTITION_ID", INT32, state -> state.state.partitionId)
                 .addColumn("STATE", STRING, state -> state.state.state.name())
+                .addColumn("ESTIMATED_SIZE", INT64, state -> state.state.estimatedSize)
                 .dataProvider(systemViewPublisher(() -> localPartitionStatesAsync(manager)))
                 .build();
     }

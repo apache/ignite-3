@@ -102,10 +102,33 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
         int tableId = getTableId(DEFAULT_SCHEMA_NAME, TABLE_NAME);
 
         assertQuery(localPartitionStatesSystemViewSql())
-                .returns(nodeName0, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name())
-                .returns(nodeName0, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 1, HEALTHY.name())
-                .returns(nodeName1, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name())
-                .returns(nodeName1, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 1, HEALTHY.name())
+                .returns(nodeName0, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name(), 0L)
+                .returns(nodeName0, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 1, HEALTHY.name(), 0L)
+                .returns(nodeName1, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name(), 0L)
+                .returns(nodeName1, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 1, HEALTHY.name(), 0L)
+                .check();
+    }
+
+    @Test
+    void testLocalPartitionStatesSystemViewWithUpdatedEstimatedSize() {
+        assertEquals(2, initialNodes());
+
+        int partitionsCount = 1;
+
+        createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
+
+        waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+
+        insertPeople(TABLE_NAME, new Person(1, "foo_name", 100.0));
+        insertPeople(TABLE_NAME, new Person(2, "bar_name", 200.0));
+
+        List<String> nodeNames = CLUSTER.runningNodes().map(Ignite::name).sorted().collect(toList());
+
+        int tableId = getTableId(DEFAULT_SCHEMA_NAME, TABLE_NAME);
+
+        assertQuery(localPartitionStatesSystemViewSql())
+                .returns(nodeNames.get(0), ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name(), 2L)
+                .returns(nodeNames.get(1), ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name(), 2L)
                 .check();
     }
 
@@ -139,7 +162,8 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     }
 
     private static String localPartitionStatesSystemViewSql() {
-        return "SELECT NODE_NAME, ZONE_NAME, TABLE_ID, SCHEMA_NAME, TABLE_NAME, PARTITION_ID, STATE FROM SYSTEM.LOCAL_PARTITION_STATES";
+        return "SELECT NODE_NAME, ZONE_NAME, TABLE_ID, SCHEMA_NAME, TABLE_NAME, PARTITION_ID, STATE, ESTIMATED_SIZE"
+                + " FROM SYSTEM.LOCAL_PARTITION_STATES";
     }
 
     private static int getTableId(String schemaName, String tableName) {

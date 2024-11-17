@@ -35,4 +35,7 @@ public interface LocalPartitionStateMessage extends NetworkMessage {
 
     /** Index of the last received log entry for this partition. */
     long logIndex();
+
+    /** Estimated number of rows for this partition. */
+    long estimatedSize();
 }
