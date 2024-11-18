@@ -248,7 +248,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             try {
                 handler.completeExceptionally(
                         new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
-            } catch (Exception ignored) {
+            } catch (Throwable ignored) {
                 // Ignore.
             }
         }
@@ -702,7 +702,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterIds, clusterName);
 
             return null;
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.warn("Failed to handle handshake response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
 
             throw e;
