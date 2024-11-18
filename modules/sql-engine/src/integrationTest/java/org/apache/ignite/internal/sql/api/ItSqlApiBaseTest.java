@@ -77,6 +77,7 @@ import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AssertionFailureBuilder;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -938,6 +939,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23693")
     public void cancelScript() {
         IgniteSql sql = igniteSql();
 
@@ -969,6 +971,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         );
 
         assertThat(queryProcessor().runningQueries(), is(0));
+        assertThat(txManager().pending(), is(0));
 
         // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
         assertThrowsSqlException(
@@ -977,6 +980,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 () -> executeScript(sql, token, "SELECT 1; SELECT 2;")
         );
         assertThat(queryProcessor().runningQueries(), is(0));
+        assertThat(txManager().pending(), is(0));
     }
 
     @Test

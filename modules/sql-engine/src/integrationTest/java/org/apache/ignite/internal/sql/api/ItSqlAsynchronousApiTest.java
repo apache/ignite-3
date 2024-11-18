@@ -56,7 +56,6 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * Tests for asynchronous SQL API.
  */
-@SuppressWarnings("ThrowableNotThrown")
 public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     @Test
     public void pageSequence() {

@@ -75,6 +75,9 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
                     .build();
 
             Transaction transaction = igniteTx().begin();
+
+            transactions.add(transaction);
+
             return sql.execute(transaction, token, statement);
         });
 
@@ -104,6 +107,9 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         // with transaction
         executeAndCancel((token) -> {
             Transaction transaction = igniteTx().begin();
+
+            transactions.add(transaction);
+
             return sql.execute(transaction, token, query);
         });
     }
