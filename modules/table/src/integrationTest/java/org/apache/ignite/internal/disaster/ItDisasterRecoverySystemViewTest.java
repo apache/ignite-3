@@ -116,7 +116,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
         int partitionsCount = 1;
 
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
-        
+
         waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
 
         insertPeople(
