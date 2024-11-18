@@ -1738,7 +1738,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);
                     }
 
-                    TransactionResult result = (TransactionResult) ((ApplyCommandResult) txOutcome).result;
+                    TransactionResult result = (TransactionResult) ((ResultWrapper) txOutcome).result;
 
                     markFinished(txId, result.transactionState(), result.commitTimestamp());
 
@@ -2620,8 +2620,8 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param cmd Raft command.
      * @return Raft future or raft decorated future with command that was processed.
      */
-    private CompletableFuture<ApplyCommandResult<Object>> applyCmdWithExceptionHandling(Command cmd) {
-        CompletableFuture<ApplyCommandResult<Object>> resultFuture = new CompletableFuture<>();
+    private CompletableFuture<ResultWrapper<Object>> applyCmdWithExceptionHandling(Command cmd) {
+        CompletableFuture<ResultWrapper<Object>> resultFuture = new CompletableFuture<>();
 
         applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture);
 
@@ -2677,7 +2677,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     resultFuture.completeExceptionally(ex);
                 }
             } else {
-                resultFuture.complete((T) new ApplyCommandResult<>(cmd, res));
+                resultFuture.complete((T) new ResultWrapper<>(cmd, res));
             }
         });
     }
@@ -2751,7 +2751,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     if (updateCommandResult != null && updateCommandResult.isPrimaryInPeersAndLearners()) {
                         return safeTime.waitFor(((UpdateCommand) res.getCommand()).safeTime()).thenApply(ignored -> null)
-                                .thenApply(ret -> new ApplyResult(cmd.safeTime(), null));
+                                .thenApply(ret -> new ApplyResult(((UpdateCommand) res.getCommand()).safeTime(), null));
                     } else {
                         if (!SKIP_UPDATES) {
                             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
@@ -2768,7 +2768,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                             );
                         }
 
-                        return completedFuture(new ApplyResult(cmd.safeTime(), null));
+                        // getCommand provides actual assigned safeTime (may be reassigned due to reorder)
+                        return completedFuture(new ApplyResult(((UpdateCommand) res.getCommand()).safeTime(), null));
                     }
                 });
             }
@@ -2885,7 +2886,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
                     if (updateCommandResult.isPrimaryInPeersAndLearners()) {
                         return safeTime.waitFor(((UpdateAllCommand) res.getCommand()).safeTime())
-                                .thenApply(ret -> new ApplyResult(cmd.safeTime(), null));
+                                .thenApply(ret -> new ApplyResult(((UpdateAllCommand) res.getCommand()).safeTime(), null));
                     } else {
                         // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                         storageUpdateHandler.handleUpdateAll(
@@ -2898,7 +2899,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 indexIdsAtRwTxBeginTs(txId)
                         );
 
-                        return completedFuture(new ApplyResult(cmd.safeTime(), null));
+                        return completedFuture(new ApplyResult(((UpdateAllCommand) res.getCommand()).safeTime(), null));
                     }
                 });
             }
@@ -4147,11 +4148,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Wrapper for the update(All)Command processing result that besides result itself stores actual command that was processed. It helps to
      * manage commands substitutions on SafeTimeReorderException where cloned command with adjusted safeTime is sent.
      */
-    private static class ApplyCommandResult<T> {
+    private static class ResultWrapper<T> {
         private final Command command;
         private final T result;
 
-        ApplyCommandResult(Command command, T result) {
+        ResultWrapper(Command command, T result) {
             this.command = command;
             this.result = result;
         }

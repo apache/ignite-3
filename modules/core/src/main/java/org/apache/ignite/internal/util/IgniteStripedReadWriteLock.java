@@ -31,7 +31,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class IgniteStripedReadWriteLock implements ReadWriteLock {
     /** Default concurrency. */
-    public static int CONCURRENCY = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+    private static final int CONCURRENCY = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
 
     /** Index generator. */
     private static final AtomicInteger IDX_GEN = new AtomicInteger();
