@@ -175,12 +175,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
-    protected void executeScript(IgniteSql sql, String query, Object... args) {
-        sql.executeScript(query, args);
-    }
-
-    @Override
-    protected void executeScript(IgniteSql sql, CancellationToken cancellationToken, String query, Object... args) {
+    protected void executeScript(CancellationToken cancellationToken, IgniteSql sql, String query, Object... args) {
         sql.executeScript(cancellationToken, query, args);
     }
 

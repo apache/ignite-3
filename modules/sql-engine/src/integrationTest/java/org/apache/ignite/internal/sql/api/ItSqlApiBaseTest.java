@@ -831,7 +831,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     public void runScriptThatCompletesSuccessfully() {
         IgniteSql sql = igniteSql();
 
-        executeScript(sql,
+        executeScript(null, sql,
                 "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
                         + "INSERT INTO test VALUES(1, 0); "
                         + "UPDATE test SET step = 1; "
@@ -847,7 +847,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     public void runScriptWithTransactionThatCompletesSuccessfully() {
         IgniteSql sql = igniteSql();
 
-        executeScript(sql,
+        executeScript(null, sql,
                 "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
                         + "START TRANSACTION; "
                         + "INSERT INTO test VALUES(1, 0); "
@@ -870,7 +870,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 Sql.RUNTIME_ERR,
                 "Division by zero",
-                () -> executeScript(sql,
+                () -> executeScript(null, sql,
                         "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
                                 + "INSERT INTO test VALUES(1, 0); "
                                 + "UPDATE test SET step = 1; "
@@ -953,7 +953,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();
 
-        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
+        CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(token, sql, script));
 
         // Wait until FIRST script statement is started to execute.
         Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueries(), greaterThan(1)));
@@ -977,7 +977,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 Sql.EXECUTION_CANCELLED_ERR,
                 expectedErrMsg,
-                () -> executeScript(sql, token, "SELECT 1; SELECT 2;")
+                () -> executeScript(token, sql, "SELECT 1; SELECT 2;")
         );
         assertThat(queryProcessor().runningQueries(), is(0));
         assertThat(txManager().pending(), is(0));
@@ -1093,9 +1093,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         return execute(null, null, sql, query, args);
     }
 
-    protected abstract void executeScript(IgniteSql sql, String query, Object... args);
-
-    protected abstract void executeScript(IgniteSql sql, CancellationToken token, String query, Object... args);
+    protected abstract void executeScript(@Nullable CancellationToken token, IgniteSql sql, String query, Object... args);
 
     protected abstract void rollback(Transaction outerTx);
 

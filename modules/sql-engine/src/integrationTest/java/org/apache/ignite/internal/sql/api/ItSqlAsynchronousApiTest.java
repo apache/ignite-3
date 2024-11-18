@@ -228,12 +228,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
-    protected void executeScript(IgniteSql sql, String query, Object... args) {
-        await(sql.executeScriptAsync(query, args));
-    }
-
-    @Override
-    protected void executeScript(IgniteSql sql, CancellationToken cancellationToken, String query, Object... args) {
+    protected void executeScript(CancellationToken cancellationToken, IgniteSql sql, String query, Object... args) {
         await(sql.executeScriptAsync(cancellationToken, query, args));
     }
 
