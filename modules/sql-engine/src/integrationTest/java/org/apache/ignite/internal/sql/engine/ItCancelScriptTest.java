@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelledInternalException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.junit.jupiter.api.AfterEach;
@@ -39,6 +41,11 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
     @BeforeAll
     void createTestTable() {
         sql("CREATE TABLE test (id INT PRIMARY KEY)");
+    }
+
+    @Override
+    protected int initialNodes() {
+        return 2;
     }
 
     @AfterEach
@@ -54,8 +61,15 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
 
         int statementsCount = 100;
 
-        for (int j = 0; j < statementsCount; j++) {
-            query.append("SELECT ").append(j).append("; ");
+        // The number of rows must be greater than the default page size,
+        // otherwise the cursor may be closed after prefetching and the
+        // exception will not be as expected.
+        int rowsPerStatement = SqlCommon.DEFAULT_PAGE_SIZE + 1;
+
+        for (int j = 0; j < rowsPerStatement * statementsCount; j += rowsPerStatement) {
+            String statement = format("SELECT x FROM TABLE(SYSTEM_RANGE({}, {}));", j, j + rowsPerStatement);
+            System.out.println(statement);
+            query.append(statement);
         }
 
         CancelHandle cancelHandle = CancelHandle.create();
