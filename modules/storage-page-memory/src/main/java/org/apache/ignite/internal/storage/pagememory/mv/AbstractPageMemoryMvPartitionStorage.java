@@ -747,6 +747,19 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     public abstract void committedGroupConfigurationOnRebalance(byte[] config);
 
     /**
+     * Updates the current lease start time in the storage on rebalance.
+     *
+     * @param leaseStartTime Lease start time.
+     * @param primaryReplicaNodeId Primary replica node id.
+     * @param primaryReplicaNodeName Primary replica node name.
+     */
+    public abstract void updateLeaseOnRebalance(
+            long leaseStartTime,
+            UUID primaryReplicaNodeId,
+            String primaryReplicaNodeName
+    );
+
+    /**
      * Prepares the storage and its indexes for cleanup.
      *
      * <p>After cleanup (successful or not), method {@link #finishCleanup()} must be called.

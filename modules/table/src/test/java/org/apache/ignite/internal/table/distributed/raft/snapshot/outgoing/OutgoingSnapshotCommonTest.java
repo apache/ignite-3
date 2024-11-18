@@ -71,9 +71,7 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
     @Test
     void sendsSnapshotMeta() {
         when(partitionAccess.maxLastAppliedIndex()).thenReturn(100L);
-
         when(partitionAccess.maxLastAppliedTerm()).thenReturn(3L);
-
         when(partitionAccess.committedGroupConfiguration()).thenReturn(new RaftGroupConfiguration(
                 List.of("peer1:3000", "peer2:3000"),
                 List.of("learner1:3000", "learner2:3000"),
@@ -82,6 +80,10 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
         ));
 
         when(catalogService.latestCatalogVersion()).thenReturn(REQUIRED_CATALOG_VERSION);
+
+        when(partitionAccess.leaseStartTime()).thenReturn(333L);
+        when(partitionAccess.primaryReplicaNodeId()).thenReturn(new UUID(1, 2));
+        when(partitionAccess.primaryReplicaNodeName()).thenReturn("primary");
 
         snapshot.freezeScopeUnderMvLock();
 
@@ -94,6 +96,9 @@ class OutgoingSnapshotCommonTest extends BaseIgniteAbstractTest {
         assertThat(response.meta().oldPeersList(), is(List.of("peer1:3000")));
         assertThat(response.meta().oldLearnersList(), is(List.of("learner1:3000")));
         assertThat(response.meta().requiredCatalogVersion(), is(REQUIRED_CATALOG_VERSION));
+        assertThat(response.meta().leaseStartTime(), is(333L));
+        assertThat(response.meta().primaryReplicaNodeId(), is(new UUID(1, 2)));
+        assertThat(response.meta().primaryReplicaNodeName(), is("primary"));
     }
 
     private SnapshotMetaResponse getSnapshotMetaResponse() {

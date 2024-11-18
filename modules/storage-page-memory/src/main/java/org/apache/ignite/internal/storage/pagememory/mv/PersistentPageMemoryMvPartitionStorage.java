@@ -321,38 +321,43 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            updateMeta((lastCheckpointId, meta) -> {
-                primaryReplicaMetaReadWriteLock.writeLock().lock();
-                try {
-                    if (leaseStartTime <= meta.leaseStartTime()) {
-                        return;
-                    }
-
-                    meta.primaryReplicaNodeId(lastCheckpointId, primaryReplicaNodeId);
-
-                    if (meta.primaryReplicaNodeNameFirstPageId() == BlobStorage.NO_PAGE_ID) {
-                        long primaryReplicaNodeNameFirstPageId = blobStorage.addBlob(stringToBytes(primaryReplicaNodeName));
-
-                        meta.primaryReplicaNodeNameFirstPageId(lastCheckpointId, primaryReplicaNodeNameFirstPageId);
-                    } else {
-                        blobStorage.updateBlob(meta.primaryReplicaNodeNameFirstPageId(), stringToBytes(primaryReplicaNodeName));
-                    }
-
-                    meta.updateLease(lastCheckpointId, leaseStartTime);
-
-                    this.primaryReplicaNodeName = primaryReplicaNodeName;
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException(
-                            "Cannot save lease meta: [tableId={}, partitionId={}]",
-                            e,
-                            tableStorage.getTableId(), partitionId
-                    );
-                } finally {
-                    primaryReplicaMetaReadWriteLock.writeLock().unlock();
-                }
-            });
+            updateLeaseBusy(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
 
             return null;
+        });
+    }
+
+    private void updateLeaseBusy(long leaseStartTime, UUID primaryReplicaNodeId, String primaryReplicaNodeName) {
+        updateMeta((lastCheckpointId, meta) -> {
+            primaryReplicaMetaReadWriteLock.writeLock().lock();
+
+            try {
+                if (leaseStartTime <= meta.leaseStartTime()) {
+                    return;
+                }
+
+                meta.primaryReplicaNodeId(lastCheckpointId, primaryReplicaNodeId);
+
+                if (meta.primaryReplicaNodeNameFirstPageId() == BlobStorage.NO_PAGE_ID) {
+                    long primaryReplicaNodeNameFirstPageId = blobStorage.addBlob(stringToBytes(primaryReplicaNodeName));
+
+                    meta.primaryReplicaNodeNameFirstPageId(lastCheckpointId, primaryReplicaNodeNameFirstPageId);
+                } else {
+                    blobStorage.updateBlob(meta.primaryReplicaNodeNameFirstPageId(), stringToBytes(primaryReplicaNodeName));
+                }
+
+                meta.updateLease(lastCheckpointId, leaseStartTime);
+
+                this.primaryReplicaNodeName = primaryReplicaNodeName;
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException(
+                        "Cannot save lease meta: [tableId={}, partitionId={}]",
+                        e,
+                        tableStorage.getTableId(), partitionId
+                );
+            } finally {
+                primaryReplicaMetaReadWriteLock.writeLock().unlock();
+            }
         });
     }
 
@@ -533,6 +538,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         committedGroupConfigurationBusy(config);
+    }
+
+    @Override
+    public void updateLeaseOnRebalance(long leaseStartTime, UUID primaryReplicaNodeId, String primaryReplicaNodeName) {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        updateLeaseBusy(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
     }
 
     private void saveFreeListMetadataBusy(RenewablePartitionStorageState localState) {
