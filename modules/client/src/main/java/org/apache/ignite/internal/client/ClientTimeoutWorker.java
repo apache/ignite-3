@@ -20,7 +20,7 @@ package org.apache.ignite.internal.client;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 
-import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -36,7 +36,7 @@ final class ClientTimeoutWorker {
 
     private @Nullable ScheduledExecutorService executor = null;
 
-    private final Map<TcpClientChannel, TcpClientChannel> channels = new ConcurrentHashMap<>();
+    private final Set<TcpClientChannel> channels = ConcurrentHashMap.newKeySet();
 
     private int emptyCount;
 
@@ -45,7 +45,7 @@ final class ClientTimeoutWorker {
     }
 
     synchronized void registerClientChannel(TcpClientChannel ch) {
-        channels.put(ch, ch);
+        channels.add(ch);
         emptyCount = 0;
 
         if (executor == null) {
@@ -78,7 +78,7 @@ final class ClientTimeoutWorker {
     private void checkTimeouts() {
         long now = coarseCurrentTimeMillis();
 
-        for (TcpClientChannel ch : channels.keySet()) {
+        for (TcpClientChannel ch : channels) {
             if (ch.closed()) {
                 channels.remove(ch);
             }
