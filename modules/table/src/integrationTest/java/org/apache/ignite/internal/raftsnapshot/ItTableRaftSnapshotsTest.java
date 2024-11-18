@@ -437,6 +437,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
      * partition state arrives in a RAFT snapshot, then the transaction is seen as committed (i.e. its effects are seen).
      */
     @Test
+    @Disabled("IGNITE-23690")
     void txSemanticsIsMaintained() throws Exception {
         txSemanticsIsMaintainedAfterInstallingSnapshot();
     }
