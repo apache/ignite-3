@@ -596,7 +596,6 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         }
     }
 
-
     /**
      * Execute SQL script.
      *
