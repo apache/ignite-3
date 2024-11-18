@@ -119,9 +119,8 @@ public class ScriptTransactionContext implements QueryTransactionContext {
             ScriptTransactionWrapperImpl wrapper0 = new ScriptTransactionWrapperImpl(tx, txTracker);
             this.wrapper = wrapper0;
 
-            // If script transaction was started - we need to add special cancellation action to rollback it.
             if (cancellationToken != null) {
-                // At this point we now that script transaction was started.
+                // If the user cancels the script, we need to rollback the script transaction.
                 CancelHandleHelper.addCancelAction(
                         cancellationToken,
                         () -> wrapper0.rollback(new QueryCancelledException()),
