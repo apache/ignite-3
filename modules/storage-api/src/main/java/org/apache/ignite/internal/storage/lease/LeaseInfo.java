@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb;
+package org.apache.ignite.internal.storage.lease;
 
 import java.util.UUID;
 
 /** Represents information about partition lease. */
-class LeaseInfo {
+public class LeaseInfo {
     private final long leaseStartTime;
     private final UUID primaryReplicaNodeId;
     private final String primaryReplicaNodeName;
 
     /** Constructor. */
-    LeaseInfo(long leaseStartTime, UUID primaryReplicaNodeId, String primaryReplicaNodeName) {
+    public LeaseInfo(long leaseStartTime, UUID primaryReplicaNodeId, String primaryReplicaNodeName) {
         this.leaseStartTime = leaseStartTime;
         this.primaryReplicaNodeId = primaryReplicaNodeId;
         this.primaryReplicaNodeName = primaryReplicaNodeName;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb;
+package org.apache.ignite.internal.storage.lease;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -26,8 +26,9 @@ import org.apache.ignite.internal.versioned.VersionedSerializer;
 /**
  * {@link VersionedSerializer} for {@link LeaseInfo} instances.
  */
-class LeaseInfoSerializer extends VersionedSerializer<LeaseInfo> {
-    static final LeaseInfoSerializer INSTANCE = new LeaseInfoSerializer();
+public class LeaseInfoSerializer extends VersionedSerializer<LeaseInfo> {
+    /** Serializer instance. */
+    public static final LeaseInfoSerializer INSTANCE = new LeaseInfoSerializer();
 
     @Override
     protected void writeExternalData(LeaseInfo leaseInfo, IgniteDataOutput out) throws IOException {
