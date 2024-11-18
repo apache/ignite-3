@@ -440,7 +440,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     @Test
-    void testLocalPartitionStatesWithUpdatedEstimatedSize() {
+    void testLocalPartitionStatesWithUpdatedEstimatedRows() {
         insertRowToAllTables(1, 1);
 
         HttpResponse<LocalPartitionStatesResponse> response = client.toBlocking().exchange(
@@ -450,9 +450,9 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         assertEquals(HttpStatus.OK, response.status());
 
-        Set<Long> estimatedSizes = response.body().states().stream().map(LocalPartitionStateResponse::estimatedSize).collect(toSet());
+        Set<Long> estimatedRows = response.body().states().stream().map(LocalPartitionStateResponse::estimatedRows).collect(toSet());
 
-        assertThat(estimatedSizes, containsInAnyOrder(0L, 1L));
+        assertThat(estimatedRows, containsInAnyOrder(0L, 1L));
     }
 
     private static void insertRowToAllTables(int id, int val) {

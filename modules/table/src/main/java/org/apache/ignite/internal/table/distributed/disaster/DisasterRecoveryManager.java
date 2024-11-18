@@ -603,7 +603,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
                             .state(localPartitionStateWithLogIndex.state)
                             .logIndex(localPartitionStateWithLogIndex.logIndex)
-                            .estimatedSize(partitionStorage.estimatedSize())
+                            .estimatedRows(partitionStorage.estimatedSize())
                             .build()
                     );
                 }
@@ -679,7 +679,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 tableDescriptor.name(),
                 tablePartitionId.partitionId(),
                 stateEnum,
-                stateMsg.estimatedSize()
+                stateMsg.estimatedRows()
         );
     }
 

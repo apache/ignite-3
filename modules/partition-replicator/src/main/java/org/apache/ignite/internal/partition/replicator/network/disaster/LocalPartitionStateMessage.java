@@ -37,5 +37,5 @@ public interface LocalPartitionStateMessage extends NetworkMessage {
     long logIndex();
 
     /** Estimated number of rows for this partition. */
-    long estimatedSize();
+    long estimatedRows();
 }

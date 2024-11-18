@@ -66,7 +66,7 @@ class DisasterRecoverySystemViews {
                 .addColumn("TABLE_NAME", STRING, state -> state.state.tableName)
                 .addColumn("PARTITION_ID", INT32, state -> state.state.partitionId)
                 .addColumn("STATE", STRING, state -> state.state.state.name())
-                .addColumn("ESTIMATED_SIZE", INT64, state -> state.state.estimatedSize)
+                .addColumn("ESTIMATED_ROWS", INT64, state -> state.state.estimatedRows)
                 .dataProvider(systemViewPublisher(() -> localPartitionStatesAsync(manager)))
                 .build();
     }

@@ -23,11 +23,14 @@ import static org.apache.ignite.internal.partition.replicator.network.disaster.L
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -36,6 +39,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.restart.RestartProofIgnite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingTable;
 import org.junit.jupiter.api.AfterEach;
@@ -110,7 +114,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    void testLocalPartitionStatesSystemViewWithUpdatedEstimatedSize() throws Exception {
+    void testLocalPartitionStatesSystemViewWithUpdatedEstimatedRows() throws Exception {
         assertEquals(2, initialNodes());
 
         int partitionsCount = 1;
@@ -131,7 +135,11 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         // Small wait is specially added so that the follower can execute the replicated "insert" command and the counter is honestly
         // increased.
-        Thread.sleep(250);
+        assertTrue(waitForCondition(
+                () -> nodeNames.stream().allMatch(nodeName -> estimatedSize(nodeName, TABLE_NAME, 0) >= 2L),
+                10,
+                1_000
+        ));
 
         assertQuery(localPartitionStatesSystemViewSql())
                 .returns(nodeNames.get(0), ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name(), 2L)
@@ -169,7 +177,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     }
 
     private static String localPartitionStatesSystemViewSql() {
-        return "SELECT NODE_NAME, ZONE_NAME, TABLE_ID, SCHEMA_NAME, TABLE_NAME, PARTITION_ID, STATE, ESTIMATED_SIZE"
+        return "SELECT NODE_NAME, ZONE_NAME, TABLE_ID, SCHEMA_NAME, TABLE_NAME, PARTITION_ID, STATE, ESTIMATED_ROWS"
                 + " FROM SYSTEM.LOCAL_PARTITION_STATES";
     }
 
@@ -177,5 +185,22 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
         CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
 
         return catalogManager.catalog(catalogManager.latestCatalogVersion()).table(schemaName, tableName).id();
+    }
+
+    private static long estimatedSize(String nodeName, String tableName, int partitionId) {
+        return CLUSTER.runningNodes()
+                .filter(ignite -> nodeName.equals(ignite.name()))
+                .map(ignite -> {
+                    IgniteImpl node = ((RestartProofIgnite) CLUSTER.node(0)).unwrap(IgniteImpl.class);
+
+                    TableImpl table = ((PublicApiThreadingTable) node.tables().table(tableName)).unwrap(TableImpl.class);
+
+                    return table.internalTable().storage().getMvPartition(partitionId);
+                })
+                .filter(Objects::nonNull)
+                .map(MvPartitionStorage::estimatedSize)
+                .findAny()
+                .orElse(-1L);
+
     }
 }
