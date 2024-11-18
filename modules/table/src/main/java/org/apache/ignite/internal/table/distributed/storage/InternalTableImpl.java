@@ -635,10 +635,11 @@ public class InternalTableImpl implements InternalTable {
 
         if (full) { // Full transaction retries are handled in postEnlist.
             return replicaSvc.invokeRaw(primaryReplicaAndConsistencyToken.get1(), request).handle((r, e) -> {
-                assert r instanceof TimestampAware;
+                boolean hasError = e != null;
+                assert hasError || r instanceof TimestampAware;
 
-                TimestampAware tsAware = (TimestampAware) r;
-                tx.finish(true, tsAware.timestamp(), e == null);
+                // timestamp is set to commit timestamp for full transactions.
+                tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true);
 
                 if (e != null) {
                     sneakyThrow(e);

@@ -167,8 +167,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         try {
             if (finishFuture == null) {
                 if (full) {
-                    assert executionTimestamp != null;
-
                     txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit);
 
                     finishFuture = nullCompletedFuture();

@@ -291,6 +291,7 @@ public class ReplicaService {
 
     /**
      * Sends a request to the given replica {@code node} and returns a future that will be completed with a raw response.
+     * This can be used to carry additional metadata to the caller.
      *
      * @param node Cluster node.
      * @param request The request.

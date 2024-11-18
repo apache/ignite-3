@@ -33,7 +33,6 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Dummy transaction that should be used as mock transaction for execution tests.

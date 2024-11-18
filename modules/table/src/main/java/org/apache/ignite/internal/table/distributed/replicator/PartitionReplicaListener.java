@@ -2857,6 +2857,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             indexIdsAtRwTxBeginTs(txId)
                     );
 
+                    return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
                 } else {
                     // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                     storageUpdateHandler.handleUpdateAll(

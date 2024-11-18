@@ -116,11 +116,11 @@ public interface TxManager extends IgniteComponent {
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
      *
      * @param timestampTracker Observable timestamp tracker. This tracker is used to track an observable timestamp and should be
-     *         updated with commit timestamp of every committed transaction.
+     *         updated with commit timestamp of every committed transaction. Not null on commit.
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
      */
-    void finishFull(HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit);
+    void finishFull(HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit);
 
     /**
      * Finishes a dependant transactions.
