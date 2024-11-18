@@ -557,9 +557,8 @@ public class IgniteUtils {
      * will be propagated to the caller, after all other objects are closed, similar to the try-with-resources block.
      *
      * @param closeables Stream of objects to close.
-     * @throws Exception If failed to close.
      */
-    public static void closeAll(Stream<? extends AutoCloseable> closeables) throws Exception {
+    public static void closeAll(Stream<? extends AutoCloseable> closeables) {
         AtomicReference<Throwable> ex = new AtomicReference<>();
 
         closeables.filter(Objects::nonNull).forEach(closeable -> {
@@ -595,7 +594,7 @@ public class IgniteUtils {
      * @throws Exception If failed to close.
      * @see #closeAll(Collection)
      */
-    public static void closeAll(AutoCloseable... closeables) throws Exception {
+    public static void closeAll(AutoCloseable... closeables) {
         closeAll(Arrays.stream(closeables));
     }
 
@@ -606,7 +605,7 @@ public class IgniteUtils {
      * @param closeables Stream of objects to close.
      * @throws Exception If failed to close.
      */
-    public static void closeAllManually(Stream<? extends ManuallyCloseable> closeables) throws Exception {
+    public static void closeAllManually(Stream<? extends ManuallyCloseable> closeables) {
         AtomicReference<Throwable> ex = new AtomicReference<>();
 
         closeables.filter(Objects::nonNull).forEach(closeable -> {

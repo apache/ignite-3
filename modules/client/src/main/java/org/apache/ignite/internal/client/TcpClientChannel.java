@@ -64,6 +64,7 @@ import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
@@ -222,38 +223,40 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * Close the channel with cause.
      */
     private void close(@Nullable Throwable cause, boolean graceful) {
-        if (closed.compareAndSet(false, true)) {
-            if (cause != null && (cause instanceof TimeoutException || cause.getCause() instanceof TimeoutException)) {
-                metrics.connectionsLostTimeoutIncrement();
-            } else if (!graceful) {
-                metrics.connectionsLostIncrement();
-            }
-
-            // Disconnect can happen before we initialize the timer.
-            var timer = heartbeatTimer;
-
-            if (timer != null) {
-                timer.cancel();
-            }
-
-            if (sock != null) {
-                sock.close();
-            }
-
-            for (TimeoutObjectImpl pendingReq : pendingReqs.values()) {
-                pendingReq.future().completeExceptionally(
-                        new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
-            }
-
-            for (CompletableFuture<PayloadInputChannel> handler : notificationHandlers.values()) {
-                try {
-                    handler.completeExceptionally(
-                            new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
-                } catch (Exception ignored) {
-                    // Ignore.
-                }
-            }
+        if (!closed.compareAndSet(false, true)) {
+            return;
         }
+
+        if (cause != null && (cause instanceof TimeoutException || cause.getCause() instanceof TimeoutException)) {
+            metrics.connectionsLostTimeoutIncrement();
+        } else if (!graceful) {
+            metrics.connectionsLostIncrement();
+        }
+
+        IgniteUtils.closeAll(
+                () -> {
+                    // Disconnect can happen before we initialize the timer.
+                    var timer = heartbeatTimer;
+                    if (timer != null) {
+                        timer.cancel();
+                    }
+                },
+                sock,
+                () -> {
+                    for (TimeoutObjectImpl pendingReq : pendingReqs.values()) {
+                        pendingReq.future().completeExceptionally(
+                                new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
+                    }
+
+                    for (CompletableFuture<PayloadInputChannel> handler : notificationHandlers.values()) {
+                        try {
+                            handler.completeExceptionally(
+                                    new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
+                        } catch (Exception ignored) {
+                            // Ignore.
+                        }
+                    }
+                });
     }
 
     /** {@inheritDoc} */
