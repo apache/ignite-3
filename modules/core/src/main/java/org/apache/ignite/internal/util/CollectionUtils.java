@@ -158,17 +158,17 @@ public final class CollectionUtils {
         boolean isSecondSetEmptyOrNull = nullOrEmpty(secondSet);
 
         if (isFirstSetEmptyOrNull && isSecondSetEmptyOrNull) {
-            return new HashSet<>();
+            return Set.of();
         } else if (isFirstSetEmptyOrNull) {
-            return new HashSet<>(secondSet);
+            return unmodifiableSet(secondSet);
         } else if (isSecondSetEmptyOrNull) {
-            return new HashSet<>(firstSet);
+            return unmodifiableSet(firstSet);
         } else {
             var union = new HashSet<>(firstSet);
 
             union.addAll(secondSet);
 
-            return union;
+            return unmodifiableSet(union);
         }
     }
 
