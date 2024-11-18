@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.copyExceptionWithCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
-import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 
@@ -33,6 +32,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
@@ -61,9 +61,7 @@ import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
-import org.apache.ignite.internal.future.timeout.TimeoutWorker;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ViewUtils;
@@ -116,9 +114,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Executor for async operation listeners. */
     private final Executor asyncContinuationExecutor;
 
-    /** Timeout worker. */
-    private final TimeoutWorker timeoutWorker;
-
     /** Connect timeout in milliseconds. */
     private final long connectTimeout;
 
@@ -159,17 +154,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
 
         log = ClientUtils.logger(cfg.clientConfiguration(), TcpClientChannel.class);
 
-        this.timeoutWorker = new TimeoutWorker(
-                log,
-                cfg.getAddress().getHostString() + cfg.getAddress().getPort(),
-                "TcpClientChannel-timeout-worker",
-                pendingReqs,
-                // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
-                // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
-                false,
-                null
-        );
-
         asyncContinuationExecutor = cfg.clientConfiguration().asyncContinuationExecutor() == null
                 ? ForkJoinPool.commonPool()
                 : cfg.clientConfiguration().asyncContinuationExecutor();
@@ -187,8 +171,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                         log.debug("Connection established [remoteAddress=" + s.remoteAddress() + ']');
                     }
 
-                    // TODO: IGNITE-23076 Start single timeout worker thread for several client in one JVM.
-                    new IgniteThread(timeoutWorker).start();
+                    ClientTimeoutWorker.INSTANCE.registerClientChannel(this);
 
                     sock = s;
 
@@ -270,8 +253,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     // Ignore.
                 }
             }
-
-            awaitForWorkersStop(List.of(timeoutWorker), true, log);
         }
     }
 
@@ -827,6 +808,19 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 log.error("Failed to handle server notification [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
             }
         });
+    }
+
+    void checkTimeouts(long now) {
+        for (Entry<Long, TimeoutObjectImpl> req : pendingReqs.entrySet()) {
+            TimeoutObject<CompletableFuture<ClientMessageUnpacker>> timeoutObject = req.getValue();
+
+            if (timeoutObject != null && timeoutObject.endTime() > 0 && now > timeoutObject.endTime()) {
+                // Client-facing future will fail with a timeout, but internal ClientRequestFuture will stay in the map -
+                // otherwise we'll fail with "protocol breakdown" error when a late response arrives from the server.
+                CompletableFuture<?> fut = timeoutObject.future();
+                fut.completeExceptionally(new TimeoutException());
+            }
+        }
     }
 
     /**
