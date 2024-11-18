@@ -56,6 +56,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests client-side metrics (see also server-side metrics tests in {@link ServerMetricsTest}).
  */
+@WithSystemProperty(key = "IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", value = "10")
 public class ClientMetricsTest extends BaseIgniteAbstractTest {
     private TestServer server;
     private IgniteClient client;
@@ -139,7 +140,6 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = "IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", value = "10")
     public void testHandshakesFailedTimeout() throws InterruptedException {
         AtomicInteger counter = new AtomicInteger();
         Function<Integer, Boolean> shouldDropConnection = requestIdx -> false;
