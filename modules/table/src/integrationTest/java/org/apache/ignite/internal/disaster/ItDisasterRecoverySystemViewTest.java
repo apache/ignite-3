@@ -110,21 +110,28 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    void testLocalPartitionStatesSystemViewWithUpdatedEstimatedSize() {
+    void testLocalPartitionStatesSystemViewWithUpdatedEstimatedSize() throws Exception {
         assertEquals(2, initialNodes());
 
         int partitionsCount = 1;
 
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
-
+        
         waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
 
-        insertPeople(TABLE_NAME, new Person(1, "foo_name", 100.0));
-        insertPeople(TABLE_NAME, new Person(2, "bar_name", 200.0));
+        insertPeople(
+                TABLE_NAME,
+                new Person(1, "foo_name", 100.0),
+                new Person(2, "bar_name", 200.0)
+        );
 
         List<String> nodeNames = CLUSTER.runningNodes().map(Ignite::name).sorted().collect(toList());
 
         int tableId = getTableId(DEFAULT_SCHEMA_NAME, TABLE_NAME);
+
+        // Small wait is specially added so that the follower can execute the replicated "insert" command and the counter is honestly
+        // increased.
+        Thread.sleep(250);
 
         assertQuery(localPartitionStatesSystemViewSql())
                 .returns(nodeNames.get(0), ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name(), 2L)
