@@ -25,6 +25,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
@@ -32,6 +33,8 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.lang.CancelHandleHelper;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,12 +46,19 @@ public class ScriptTransactionContext implements QueryTransactionContext {
 
     private final TransactionTracker txTracker;
 
+    private final @Nullable CancellationToken cancellationToken;
+
     private volatile @Nullable ScriptTransactionWrapperImpl wrapper;
 
     /** Constructor. */
-    public ScriptTransactionContext(QueryTransactionContext txContext, TransactionTracker txTracker) {
+    public ScriptTransactionContext(
+            QueryTransactionContext txContext,
+            TransactionTracker txTracker,
+            @Nullable CancellationToken cancellationToken
+    ) {
         this.txContext = txContext;
         this.txTracker = txTracker;
+        this.cancellationToken = cancellationToken;
     }
 
     /**
@@ -106,7 +116,18 @@ public class ScriptTransactionContext implements QueryTransactionContext {
             boolean readOnly = ((IgniteSqlStartTransaction) node).getMode() == IgniteSqlStartTransactionMode.READ_ONLY;
             InternalTransaction tx = txContext.getOrStartImplicit(readOnly).unwrap();
 
-            this.wrapper = new ScriptTransactionWrapperImpl(tx, txTracker);
+            ScriptTransactionWrapperImpl wrapper0 = new ScriptTransactionWrapperImpl(tx, txTracker);
+            this.wrapper = wrapper0;
+
+            // If script transaction was started - we need to add special cancellation action to rollback it.
+            if (cancellationToken != null) {
+                // At this point we now that script transaction was started.
+                CancelHandleHelper.addCancelAction(
+                        cancellationToken,
+                        () -> wrapper0.rollback(new QueryCancelledException()),
+                        nullCompletedFuture()
+                );
+            }
 
             return nullCompletedFuture();
         } else {

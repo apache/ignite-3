@@ -32,15 +32,12 @@ import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
-import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
@@ -78,7 +75,7 @@ class MultiStatementHandler {
     ) {
         this.query = query;
         this.statements = prepareStatementsQueue(parsedResults, params);
-        this.scriptTxContext = new ScriptTransactionContext(txContext, txTracker);
+        this.scriptTxContext = new ScriptTransactionContext(txContext, txTracker, cancellationToken);
         this.cancellationToken = cancellationToken;
     }
 
@@ -149,20 +146,6 @@ class MultiStatementHandler {
                                 new IteratorToDataCursorAdapter<>(Collections.emptyIterator()),
                                 nextCurFut
                         ));
-
-                // If script transaction was started - we need to add special cancellation action to rollback it.
-                if (cancellationToken != null) {
-                    QueryTransactionWrapper tx = scriptTxContext.explicitTx();
-                    // Tx can only be null after the COMMIT statement has been processed.
-                    if (tx != null) {
-                        // At this point we now that script transaction was started.
-                        CancelHandleHelper.addCancelAction(
-                                cancellationToken,
-                                () -> tx.rollback(new QueryCancelledException()),
-                                nullCompletedFuture()
-                        );
-                    }
-                }
             } else {
                 scriptTxContext.registerCursorFuture(parsedResult.queryType(), cursorFuture);
 
