@@ -403,7 +403,7 @@ public class Checkpointer extends IgniteWorker {
             if (chp.hasDelta()) {
                 if (log.isInfoEnabled()) {
                     float totalDurationInSeconds = tracker.totalDuration(MILLISECONDS) / 1000.0f;
-                    float avgWriteSpeedInBytes = pageSize * chp.dirtyPagesSize / totalDurationInSeconds;
+                    float avgWriteSpeedInBytes = ((long) pageSize * chp.dirtyPagesSize) / totalDurationInSeconds;
 
                     log.info(
                             CHECKPOINT_FINISHED_LOG_TEMPLATE,
