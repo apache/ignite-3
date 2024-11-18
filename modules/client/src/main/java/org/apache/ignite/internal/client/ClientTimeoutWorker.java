@@ -46,6 +46,7 @@ final class ClientTimeoutWorker {
 
     synchronized void registerClientChannel(TcpClientChannel ch) {
         channels.put(ch, ch);
+        emptyCount = 0;
 
         if (executor == null) {
             executor = createExecutor();
