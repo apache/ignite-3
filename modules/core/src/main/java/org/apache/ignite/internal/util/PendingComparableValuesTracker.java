@@ -30,8 +30,6 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,8 +37,6 @@ import org.jetbrains.annotations.Nullable;
  * ability to wait for certain value, see {@link #waitFor(Comparable)}.
  */
 public class PendingComparableValuesTracker<T extends Comparable<T>, R> implements ManuallyCloseable {
-    private static IgniteLogger LOG = Loggers.forClass(PendingComparableValuesTracker.class);
-
     private static final VarHandle CURRENT;
 
     private static final VarHandle CLOSE_GUARD;
@@ -133,8 +129,6 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
             if (tmp.getKey().compareTo(valueToWait) >= 0) {
                 return completedFuture(tmp.getValue());
             }
-
-            LOG.warn("Wait for schema!");
 
             return addNewWaiter(valueToWait);
         } finally {

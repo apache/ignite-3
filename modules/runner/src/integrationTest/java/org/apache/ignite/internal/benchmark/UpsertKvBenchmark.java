@@ -50,7 +50,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Threads(1)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
-@BenchmarkMode(Mode.AverageTime)
+@BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     private final Tuple tuple = Tuple.create();
