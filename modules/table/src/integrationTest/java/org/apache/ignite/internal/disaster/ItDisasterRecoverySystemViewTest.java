@@ -19,6 +19,7 @@ package org.apache.ignite.internal.disaster;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
@@ -191,9 +192,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
         return CLUSTER.runningNodes()
                 .filter(ignite -> nodeName.equals(ignite.name()))
                 .map(ignite -> {
-                    IgniteImpl node = ((RestartProofIgnite) CLUSTER.node(0)).unwrap(IgniteImpl.class);
-
-                    TableImpl table = ((PublicApiThreadingTable) node.tables().table(tableName)).unwrap(TableImpl.class);
+                    TableImpl table = unwrapTableImpl(ignite.tables().table(tableName));
 
                     return table.internalTable().storage().getMvPartition(partitionId);
                 })
@@ -201,6 +200,5 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
                 .map(MvPartitionStorage::estimatedSize)
                 .findAny()
                 .orElse(-1L);
-
     }
 }
