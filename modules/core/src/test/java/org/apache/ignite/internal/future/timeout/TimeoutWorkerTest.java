@@ -52,7 +52,7 @@ public class TimeoutWorkerTest {
     private static final IgniteLogger LOG = Loggers.forClass(TimeoutWorkerTest.class);
 
     private TimeoutWorker createTimeoutWorker(String name, ConcurrentMap reqMap, FailureProcessor failureProcessor) {
-        return new TimeoutWorker(LOG, "node", name, reqMap, true, failureProcessor);
+        return new TimeoutWorker(LOG, "node", name, reqMap, failureProcessor);
     }
 
     @Test
