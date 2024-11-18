@@ -24,6 +24,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.Benchmarks", 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.Internal.Generators", "Apache.Ignite.Internal.Generators\Apache.Ignite.Internal.Generators.csproj", "{7BC74F53-FF5F-4CBF-A559-9E4BE3A63A0F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Extensions.Cache.Ignite", "Apache.Extensions.Cache.Ignite\Apache.Extensions.Cache.Ignite.csproj", "{44DD1DDD-801A-4346-8683-B9C52A99046F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -49,5 +51,9 @@ Global
 		{7BC74F53-FF5F-4CBF-A559-9E4BE3A63A0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7BC74F53-FF5F-4CBF-A559-9E4BE3A63A0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7BC74F53-FF5F-4CBF-A559-9E4BE3A63A0F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{44DD1DDD-801A-4346-8683-B9C52A99046F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{44DD1DDD-801A-4346-8683-B9C52A99046F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{44DD1DDD-801A-4346-8683-B9C52A99046F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{44DD1DDD-801A-4346-8683-B9C52A99046F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
