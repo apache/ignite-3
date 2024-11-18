@@ -68,7 +68,7 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
 
         for (int j = 0; j < rowsPerStatement * statementsCount; j += rowsPerStatement) {
             String statement = format("SELECT x FROM TABLE(SYSTEM_RANGE({}, {}));", j, j + rowsPerStatement);
-            System.out.println(statement);
+
             query.append(statement);
         }
 

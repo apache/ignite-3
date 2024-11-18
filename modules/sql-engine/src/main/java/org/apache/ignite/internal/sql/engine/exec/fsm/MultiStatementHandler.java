@@ -63,8 +63,6 @@ class MultiStatementHandler {
 
     private final Queue<CompletableFuture<Void>> dependentQueries = new ConcurrentLinkedQueue<>();
 
-    private final @Nullable CancellationToken cancellationToken;
-
     MultiStatementHandler(
             TransactionTracker txTracker,
             Query query,
@@ -76,7 +74,6 @@ class MultiStatementHandler {
         this.query = query;
         this.statements = prepareStatementsQueue(parsedResults, params);
         this.scriptTxContext = new ScriptTransactionContext(txContext, txTracker, cancellationToken);
-        this.cancellationToken = cancellationToken;
     }
 
     /**
