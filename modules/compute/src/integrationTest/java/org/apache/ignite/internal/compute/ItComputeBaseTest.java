@@ -18,14 +18,18 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
+import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
+import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.contains;
@@ -463,6 +467,85 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(Ignite::name).map(String::length).reduce(Integer::sum).orElseThrow();
         assertThat(result, is(sumOfNodeNamesLengths));
+    }
+
+    @Test
+    void cancelsJobLocally() {
+        Ignite entryNode = node(0);
+
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units()).build();
+        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(clusterNode(entryNode)), job, Long.MAX_VALUE);
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        assertThat(execution.cancelAsync(), willBe(true));
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+    }
+
+    @Test
+    void cancelsQueuedJobLocally() {
+        Ignite entryNode = node(0);
+        var nodes = JobTarget.node(clusterNode(entryNode));
+
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units()).build();
+
+        // Start 1 task in executor with 1 thread
+        JobExecution<Void> execution1 = entryNode.compute().submit(nodes, job, Long.MAX_VALUE);
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        // Start one more task
+        JobExecution<Void> execution2 = entryNode.compute().submit(nodes, job, Long.MAX_VALUE);
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
+
+        // Task 2 is not complete, in queued state
+        assertThat(execution2.resultAsync().isDone(), is(false));
+
+        // Cancel queued task
+        assertThat(execution2.cancelAsync(), willBe(true));
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+
+        // Cancel running task
+        assertThat(execution1.cancelAsync(), willBe(true));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+    }
+
+    @Test
+    void cancelsJobRemotely() {
+        Ignite entryNode = node(0);
+
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units()).build();
+        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(clusterNode(node(1))), job, Long.MAX_VALUE);
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        assertThat(execution.cancelAsync(), willBe(true));
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+    }
+
+    @Test
+    void changeExecutingJobPriorityLocally() {
+        Ignite entryNode = node(0);
+
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units()).build();
+        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(clusterNode(entryNode)), job, Long.MAX_VALUE);
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        assertThat(execution.changePriorityAsync(2), willBe(false));
+        assertThat(execution.cancelAsync(), willBe(true));
+    }
+
+    @Test
+    void changeExecutingJobPriorityRemotely() {
+        Ignite entryNode = node(0);
+
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units()).build();
+        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(clusterNode(node(1))), job, Long.MAX_VALUE);
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        assertThat(execution.changePriorityAsync(2), willBe(false));
+        assertThat(execution.cancelAsync(), willBe(true));
     }
 
     static Ignite node(int i) {

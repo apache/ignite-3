@@ -43,6 +43,7 @@ import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.Table;
@@ -55,6 +56,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests client-side metrics (see also server-side metrics tests in {@link ServerMetricsTest}).
  */
+@WithSystemProperty(key = "IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", value = "10")
 public class ClientMetricsTest extends BaseIgniteAbstractTest {
     private TestServer server;
     private IgniteClient client;
