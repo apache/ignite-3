@@ -22,15 +22,15 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
-/** Compute job that sleeps for a number of milliseconds passed in the argument and throws a {@link RuntimeException} if interrupted. */
-public class SleepJob implements ComputeJob<Long, Void> {
+/** Compute job that sleeps for a number of milliseconds passed in the argument and completes successfully in any case. */
+public class SilentSleepJob implements ComputeJob<Long, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext jobExecutionContext, Long timeout) {
         try {
             TimeUnit.SECONDS.sleep(timeout);
-            return null;
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            // no op.
         }
+        return null;
     }
 }
