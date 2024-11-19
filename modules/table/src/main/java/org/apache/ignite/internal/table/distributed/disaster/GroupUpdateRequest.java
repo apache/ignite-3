@@ -43,11 +43,9 @@ import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.CLUSTER_NOT_IDLE_ERR;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -293,17 +291,17 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
             enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
 
+            Assignment nextAssignment = nextAssignment(partAssignments);
+
             // There are no known nodes with data, which means that we can just put new assignments into pending assignments with "forced"
             // flag.
             invokeClosure = prepareMsInvokeClosure(
                     partId,
                     longToBytesKeepingOrder(revision),
-                    Assignments.forced(partAssignments, assignmentsTimestamp).toBytes(),
-                    null
+                    Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp).toBytes(),
+                    Assignments.toBytes(partAssignments, assignmentsTimestamp)
             );
         } else {
-            assert !partAssignments.isEmpty() : "Alive nodes with data should not be empty";
-
             Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
 
             if (manualUpdate) {
@@ -324,17 +322,34 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         return metaStorageMgr.invoke(invokeClosure).thenApply(StatementResult::getAsInt);
     }
 
-    private static Assignment nextAssignment(LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
-            Set<Assignment> partAssignments) {
-        List<Assignment> nextAssignments = new ArrayList<>(partAssignments);
+    /**
+     * Returns the first assignment in the lexicographic order.
+     */
+    private static Assignment nextAssignment(Set<Assignment> assignments) {
+        assert !assignments.isEmpty() : "Alive nodes with data should not be empty";
 
-        nextAssignments.sort(
-                Comparator.<Assignment>comparingLong(
-                                node -> localPartitionStateMessageByNode.partitionState(node.consistentId()).logIndex()
+        return assignments.stream()
+                .min(Comparator.comparing(Assignment::consistentId))
+                .orElseThrow();
+    }
+
+    /**
+     * Returns an assignment with the most up to date log index, if there are more than one node with the same index,
+     * returns the first one in the lexicographic order.
+     */
+    private static Assignment nextAssignment(
+            LocalPartitionStateMessageByNode localPartitionStateByNode,
+            Set<Assignment> assignments
+    ) {
+        assert !assignments.isEmpty() : "Alive nodes with data should not be empty";
+
+        return assignments.stream()
+                .min(Comparator.<Assignment>comparingLong(
+                                node -> localPartitionStateByNode.partitionState(node.consistentId()).logIndex()
                         )
                         .reversed()
-                        .thenComparing(Assignment::consistentId));
-        return nextAssignments.get(0);
+                        .thenComparing(Assignment::consistentId))
+                .orElseThrow();
     }
 
     /**

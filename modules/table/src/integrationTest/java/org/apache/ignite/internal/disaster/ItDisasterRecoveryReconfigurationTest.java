@@ -56,7 +56,6 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -103,6 +102,7 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -640,7 +640,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         followerNodes.remove(leaderName);
 
         // The nodes that we block AppendEntriesRequest to.
-        Set<String> blockedNodes = new HashSet<>();
+        Set<String> blockedNodes = new ConcurrentHashSet<>();
 
         // Exclude one of the nodes from data(2).
         int node0IndexInFollowers = followerNodes.indexOf(node0.name());
@@ -766,7 +766,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         followerNodes.remove(leaderName);
 
         // The nodes that we block AppendEntriesRequest to.
-        Set<String> blockedNodes = new HashSet<>();
+        Set<String> blockedNodes = new ConcurrentHashSet<>();
 
         // Exclude one of the nodes from data(2).
         int node0IndexInFollowers = followerNodes.indexOf(node0.name());
@@ -838,6 +838,54 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
             assertEquals(Tuple.create(of("val", i + 10)), fut.join());
         });
+    }
+
+    @Test
+    @ZoneParams(nodes = 6, replicas = 3, partitions = 1)
+    void testTwoPhaseResetOnEmptyNodes() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+
+        awaitPrimaryReplica(node0, partId);
+
+        assertRealAssignments(node0, partId, 2, 3, 5);
+
+        Assignments blockedRebalance = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name())
+        );
+
+        blockRebalanceStableSwitch(partId, blockedRebalance);
+
+        stopNodesInParallel(2, 3, 5);
+
+        waitForScale(node0, 3);
+
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                true
+        );
+
+        assertThat(updateFuture, willCompleteSuccessfully());
+
+        awaitPrimaryReplica(node0, partId);
+
+        assertRealAssignments(node0, partId, 0, 1, 4);
+
+        Assignments assignmentForced1 = Assignments.forced(Set.of(Assignment.forPeer(node(0).name())), timestamp);
+
+        assertPendingAssignments(node0, partId, assignmentForced1);
+
+        Assignments assignments13 = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(4).name())
+        ), timestamp);
+
+        assertPlannedAssignments(node0, partId, assignments13);
     }
 
     private static String getPendingNodeName(List<String> aliveNodes, String blockedNode) {
@@ -986,13 +1034,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertTrue(
                 waitForCondition(() -> expected.equals(getPlannedAssignments(node0, partId)), 2000),
                 () -> "Expected: " + expected + ", actual: " + getPlannedAssignments(node0, partId)
-        );
-    }
-
-    private void assertStableAssignments(IgniteImpl node0, int partId, Assignments expected) throws InterruptedException {
-        assertTrue(
-                waitForCondition(() -> expected.equals(getStableAssignments(node0, partId)), 2000),
-                () -> "Expected: " + expected + ", actual: " + getStableAssignments(node0, partId)
         );
     }
 
