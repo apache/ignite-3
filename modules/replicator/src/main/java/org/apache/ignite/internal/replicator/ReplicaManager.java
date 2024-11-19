@@ -1277,20 +1277,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
                                 + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
 
-                    CompletableFuture<Replica> replicaFuture = replicaManager.replica(replicationGroupId);
-
-                    assert replicaFuture != null : "There no replica grpId=" + replicationGroupId;
-
-                    Replica replica = replicaFuture.join();
-                    onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
-                            replica,
-                            replicationGroupId,
-                            term
-                    );
-
-                    replica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback).join();
-
-                    LOG.info("!!! subscribed grpId={}", replicationGroupId);
+                    // registerFailoverCallback(replicationGroupId);
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(replicationGroupId, parameters.startTime());
 
@@ -1315,14 +1302,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        CompletableFuture<Replica> replicaFuture = replicaManager.replica(parameters.groupId());
-
-                        assert replicaFuture != null : "There no replica grpId=" + parameters.groupId();
-
-                        Replica expiredPrimaryReplica = replicaFuture.join();
-                        expiredPrimaryReplica.raftClient()
-                                .unsubscribeLeader(onLeaderElectedFailoverCallback)
-                                .join();
+                        // deregisterFailoverCallback(parameters);
 
                         context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
@@ -1339,6 +1319,34 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
 
             return falseCompletedFuture();
+        }
+
+        private void deregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
+            CompletableFuture<Replica> replicaFuture = replicaManager.replica(parameters.groupId());
+
+            assert replicaFuture != null : "There no replica grpId=" + parameters.groupId();
+
+            Replica expiredPrimaryReplica = replicaFuture.join();
+            expiredPrimaryReplica.raftClient()
+                    .unsubscribeLeader(onLeaderElectedFailoverCallback)
+                    .join();
+        }
+
+        private void registerFailoverCallback(TablePartitionId replicationGroupId) {
+            CompletableFuture<Replica> replicaFuture = replicaManager.replica(replicationGroupId);
+
+            assert replicaFuture != null : "There no replica grpId=" + replicationGroupId;
+
+            Replica replica = replicaFuture.join();
+            onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
+                    replica,
+                    replicationGroupId,
+                    term
+            );
+
+            replica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback).join();
+
+            LOG.info("!!! subscribed grpId={}", replicationGroupId);
         }
 
         private void changePeersAndLearnersAsyncIfPendingExists(

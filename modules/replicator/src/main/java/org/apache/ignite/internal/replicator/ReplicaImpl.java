@@ -147,8 +147,8 @@ public class ReplicaImpl implements Replica {
 
         raftClient.subscribeLeader(this::onLeaderElected);
 
-        // placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
-        // placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
     }
 
     @Override
@@ -303,7 +303,10 @@ public class ReplicaImpl implements Replica {
     private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters) {
         if (localNode.id().equals(parameters.leaseholderId())) {
             return raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback)
-                    .thenApply(v -> false);
+                    .thenApply(v -> {
+                        onLeaderElectedFailoverCallback = null;
+                        return false;
+                    });
         }
 
         return falseCompletedFuture();
@@ -388,8 +391,12 @@ public class ReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<Void> shutdown() {
-        //placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
-        //placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
+
+        if (onLeaderElectedFailoverCallback != null) {
+            raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback).join();
+        }
 
         listener.onShutdown();
         return raftClient.unsubscribeLeader()
