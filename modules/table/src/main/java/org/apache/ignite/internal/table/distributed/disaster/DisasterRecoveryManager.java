@@ -86,8 +86,10 @@ import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.IllegalPartitionIdException;
@@ -558,9 +560,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     private void handleLocalPartitionStatesRequest(LocalPartitionStatesRequest request, ClusterNode sender, @Nullable Long correlationId) {
-        assert correlationId != null;
+        assert correlationId != null : "request=" + request + ", sender=" + sender;
 
         int catalogVersion = request.catalogVersion();
+
         catalogManager.catalogReadyFuture(catalogVersion).thenRunAsync(() -> {
             List<LocalPartitionStateMessage> statesList = new ArrayList<>();
 
@@ -578,6 +581,21 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         return;
                     }
 
+                    // Since the raft service starts after registering a new table, we don't need to wait or write additional asynchronous
+                    // code.
+                    TableViewInternal tableViewInternal = tableManager.cachedTable(tablePartitionId.tableId());
+                    // Perhaps the table began to be stopped or destroyed.
+                    if (tableViewInternal == null) {
+                        return;
+                    }
+
+                    MvPartitionStorage partitionStorage = tableViewInternal.internalTable().storage()
+                            .getMvPartition(tablePartitionId.partitionId());
+                    // Perhaps the partition began to be stopped or destroyed.
+                    if (partitionStorage == null) {
+                        return;
+                    }
+
                     LocalPartitionStateEnumWithLogIndex localPartitionStateWithLogIndex =
                             LocalPartitionStateEnumWithLogIndex.of(raftGroupService.getRaftNode());
 
@@ -585,6 +603,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                             .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
                             .state(localPartitionStateWithLogIndex.state)
                             .logIndex(localPartitionStateWithLogIndex.logIndex)
+                            .estimatedRows(partitionStorage.estimatedSize())
                             .build()
                     );
                 }
@@ -659,7 +678,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 tableDescriptor.id(),
                 tableDescriptor.name(),
                 tablePartitionId.partitionId(),
-                stateEnum
+                stateEnum,
+                stateMsg.estimatedRows()
         );
     }
 
