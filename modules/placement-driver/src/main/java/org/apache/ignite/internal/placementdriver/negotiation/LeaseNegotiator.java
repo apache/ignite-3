@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -30,6 +31,7 @@ import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This class negotiates a lease with leaseholder. If the lease is negotiated, it is ready available to accept.
@@ -41,7 +43,7 @@ public class LeaseNegotiator {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Lease agreements which are in progress of negotiation. */
-    private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate;
+    private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate = new ConcurrentHashMap<>();;
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -53,8 +55,6 @@ public class LeaseNegotiator {
      */
     public LeaseNegotiator(ClusterService clusterService) {
         this.clusterService = clusterService;
-
-        this.leaseToNegotiate = new ConcurrentHashMap<>();
     }
 
     /**
@@ -124,9 +124,26 @@ public class LeaseNegotiator {
      *
      * @param groupId Group id.
      * @param lease Lease to negotiate.
+     * @return If there is an existing agreement, the lease from agreement is returned, otherwise the new agreement is created and
+     *      {@code null} is returned.
      */
-    public void createAgreement(ReplicationGroupId groupId, Lease lease) {
-        leaseToNegotiate.put(groupId, new LeaseAgreement(lease));
+    @Nullable
+    public Lease createAgreement(ReplicationGroupId groupId, Lease lease) {
+        LOG.info("Agreement is being created [groupId={}, leaseStartTime={}]", groupId, lease.getStartTime().longValue());
+
+        AtomicReference<LeaseAgreement> agreementRef = new AtomicReference<>();
+
+        leaseToNegotiate.compute(groupId, (k, v) -> {
+            if (v != null && v.getLease().getLeaseholderId().equals(lease.getLeaseholderId())) {
+                agreementRef.set(v);
+                return v;
+            } else {
+                LOG.info("Agreement created [groupId={}, leaseStartTime={}]", groupId, lease.getStartTime().longValue());
+                return new LeaseAgreement(lease);
+            }
+        });
+
+        return agreementRef.get() == null ? null : agreementRef.get().getLease();
     }
 
     /**

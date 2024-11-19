@@ -483,7 +483,7 @@ public class LeaseUpdater {
                 );
             }
 
-            if (Arrays.equals(leasesCurrent.leasesBytes(), renewedValue)) {
+            if (renewedLeases.isEmpty() || Arrays.equals(leasesCurrent.leasesBytes(), renewedValue)) {
                 LOG.debug("No leases to update found.");
                 return;
             }
@@ -502,13 +502,14 @@ public class LeaseUpdater {
                 }
 
                 if (!success) {
-                    LOG.warn("Lease update invocation failed because of concurrent update.");
+                    LOG.warn("Lease update invocation failed because of outdated lease data on this node.");
 
                     cancelAgreements(toBeNegotiated.keySet());
 
                     return;
                 }
 
+                LOG.info("Lease update invocation succeeded, toBeNegotiated=" + toBeNegotiated);
                 for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
                     Lease lease = renewedLeases.get(entry.getKey());
                     boolean force = entry.getValue();
@@ -584,12 +585,14 @@ public class LeaseUpdater {
 
             Lease renewedLease = new Lease(candidate.name(), candidate.id(), startTs, expirationTs, grpId);
 
-            renewedLeases.put(grpId, renewedLease);
-
             // Lease agreement should be created synchronously before negotiation begins.
-            leaseNegotiator.createAgreement(grpId, renewedLease);
+            Lease agreementLease = leaseNegotiator.createAgreement(grpId, renewedLease);
 
-            leaseUpdateStatistics.onLeaseCreate();
+            if (agreementLease == null) {
+                renewedLeases.put(grpId, renewedLease);
+
+                leaseUpdateStatistics.onLeaseCreate();
+            }
         }
 
         /**

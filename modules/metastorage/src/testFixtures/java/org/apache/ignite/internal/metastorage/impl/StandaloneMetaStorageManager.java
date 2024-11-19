@@ -25,9 +25,11 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -38,6 +40,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -77,6 +81,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static final UUID TEST_NODE_ID = UUID.randomUUID();
 
     private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
+
+    @Nullable
+    private Consumer<Boolean> afterInvokeInterceptor;
 
     /** Creates standalone MetaStorage manager. */
     public static StandaloneMetaStorageManager create() {
@@ -211,6 +218,34 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
         when(clusterState.clusterTag()).thenReturn(clusterTag);
         when(cmgManagerMock.clusterState()).thenReturn(completedFuture(clusterState));
+    }
+
+    public void setAfterInvokeInterceptor(@Nullable Consumer<Boolean> afterInvokeInterceptor) {
+        this.afterInvokeInterceptor = afterInvokeInterceptor;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> invoke(Condition cond, Operation success, Operation failure) {
+        return super.invoke(cond, success, failure)
+                .thenApply(res -> {
+                    if (afterInvokeInterceptor != null) {
+                        afterInvokeInterceptor.accept(res);
+                    }
+
+                    return res;
+                });
+    }
+
+    @Override
+    public CompletableFuture<Boolean> invoke(Condition cond, List<Operation> success, List<Operation> failure) {
+        return super.invoke(cond, success, failure)
+                .thenApply(res -> {
+                    if (afterInvokeInterceptor != null) {
+                        afterInvokeInterceptor.accept(res);
+                    }
+
+                    return res;
+                });
     }
 
     private static RaftManager mockRaftManager() {

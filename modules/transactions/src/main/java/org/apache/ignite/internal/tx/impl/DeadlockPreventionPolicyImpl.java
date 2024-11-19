@@ -55,7 +55,7 @@ public class DeadlockPreventionPolicyImpl implements DeadlockPreventionPolicy {
                 this.txIdComparator = new TxIdPriorityComparator();
                 break;
             }
-            case REVERSE: {
+            case REVERSED: {
                 this.txIdComparator = new TxIdPriorityComparator().reversed();
                 break;
             }
@@ -86,7 +86,7 @@ public class DeadlockPreventionPolicyImpl implements DeadlockPreventionPolicy {
      */
     public enum TxIdComparators {
         NATURAL,
-        REVERSE,
+        REVERSED,
         NONE
     }
 }
