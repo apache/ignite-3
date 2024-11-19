@@ -295,7 +295,7 @@ public class ReplicaImpl implements Replica {
 
         // raftClient.subscribeLeader(onLeaderElectedFailoverCallback).join();
 
-        LOG.info("!!! subscribed grpId={}", replicationGroupId);
+        // LOG.info("!!! subscribed grpId={}", replicationGroupId);
 
         return falseCompletedFuture();
     }
