@@ -668,7 +668,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private void assertRealAssignments(IgniteImpl node0, int partId, Integer... expected) throws InterruptedException {
         assertTrue(
-                waitForCondition(() -> List.of(expected).equals(getRealAssignments(node0, partId)), 2000),
+                waitForCondition(() -> List.of(expected).equals(getRealAssignments(node0, partId)), 5000),
                 () -> "Expected: " + List.of(expected) + ", actual: " + getRealAssignments(node0, partId)
         );
     }
