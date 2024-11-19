@@ -18,7 +18,6 @@
 namespace Apache.Ignite;
 
 using System;
-using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,8 +37,6 @@ public sealed class IgniteClientPool : IDisposable
     private readonly SemaphoreSlim _clientsLock = new(1);
 
     private int _disposed;
-
-    private int _clientCount;
 
     private int _clientIndex;
 
@@ -62,6 +59,11 @@ public sealed class IgniteClientPool : IDisposable
     public IgniteClientPoolConfiguration Configuration { get; }
 
     /// <summary>
+    /// Gets a value indicating whether the pool is disposed.
+    /// </summary>
+    public bool IsDisposed => Interlocked.CompareExchange(ref _disposed, 0, 0) == 1;
+
+    /// <summary>
     /// Gets an Ignite client from the pool. Creates a new one if necessary.
     /// Performs round-robin balancing across pooled instances.
     /// </summary>
@@ -69,9 +71,11 @@ public sealed class IgniteClientPool : IDisposable
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Pooled.")]
     public async Task<IIgniteClient> GetClientAsync()
     {
-        var index = Interlocked.Increment(ref _clientIndex) % _clients.Length;
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
 
-        var client = _clients[index];
+        int index = Interlocked.Increment(ref _clientIndex) % _clients.Length;
+
+        IIgniteClient? client = _clients[index];
         if (client != null)
         {
             return client;
@@ -89,6 +93,8 @@ public sealed class IgniteClientPool : IDisposable
 
             client = await CreateClientAsync().ConfigureAwait(false);
             _clients[index] = client;
+
+            return client;
         }
         finally
         {
@@ -104,10 +110,13 @@ public sealed class IgniteClientPool : IDisposable
             return;
         }
 
-        while (_clients.TryDequeue(out var client))
+        foreach (var client in _clients)
         {
-            client.Dispose();
+            // Dispose is not supposed to throw, so we expect all clients to dispose correctly.
+            client?.Dispose();
         }
+
+        _clientsLock.Dispose();
     }
 
     private async Task<IIgniteClient> CreateClientAsync() =>
