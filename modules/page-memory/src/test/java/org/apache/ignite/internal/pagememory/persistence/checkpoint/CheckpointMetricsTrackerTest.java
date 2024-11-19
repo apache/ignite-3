@@ -110,6 +110,21 @@ public class CheckpointMetricsTrackerTest {
     }
 
     @Test
+    void testSyncWal() throws Exception {
+        var tracker = new CheckpointMetricsTracker();
+
+        assertThat(tracker.syncWalDuration(NANOSECONDS), equalTo(0L));
+
+        tracker.onSyncWalStart();
+
+        waitForTimeChange();
+
+        tracker.onCheckpointEnd();
+
+        assertThat(tracker.syncWalDuration(NANOSECONDS), greaterThanOrEqualTo(1L));
+    }
+
+    @Test
     void testPagesWrite() throws Exception {
         CheckpointMetricsTracker tracker = new CheckpointMetricsTracker();
 

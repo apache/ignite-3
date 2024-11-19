@@ -66,6 +66,8 @@ public class CheckpointMetricsTracker {
 
     private long fsyncStartNanos;
 
+    private long syncWalStartNanos;
+
     private long endNanos;
 
     private long splitAndSortPagesStartNanos;
@@ -199,6 +201,15 @@ public class CheckpointMetricsTracker {
     }
 
     /**
+     * Callback on start sync write-ahead-log.
+     *
+     * <p>Not thread safe.
+     */
+    public void onSyncWalStart() {
+        syncWalStartNanos = System.nanoTime();
+    }
+
+    /**
      * Returns total checkpoint duration.
      *
      * <p>Not thread safe.
@@ -268,5 +279,14 @@ public class CheckpointMetricsTracker {
      */
     public long splitAndSortCheckpointPagesDuration(TimeUnit timeUnit) {
         return timeUnit.convert(splitAndSortPagesEndNanos - splitAndSortPagesStartNanos, NANOSECONDS);
+    }
+
+    /**
+     * Returns checkpoint sync write-ahead-log duration in the given time unit.
+     *
+     * <p>Not thread safe.
+     */
+    public long syncWalDuration(TimeUnit timeUnit) {
+        return timeUnit.convert(endNanos - syncWalStartNanos, NANOSECONDS);
     }
 }
