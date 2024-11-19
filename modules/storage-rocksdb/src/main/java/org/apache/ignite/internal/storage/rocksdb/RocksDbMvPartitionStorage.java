@@ -48,19 +48,11 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToInt;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToUuid;
-import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
-import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
-import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -81,12 +73,15 @@ import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.gc.GcEntry;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
+import org.apache.ignite.internal.storage.lease.LeaseInfoSerializer;
 import org.apache.ignite.internal.storage.rocksdb.GarbageCollector.AddResult;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.AbstractWriteBatch;
 import org.rocksdb.ColumnFamilyHandle;
@@ -159,8 +154,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Thread-local on-heap buffer able to incorporate Data ID and TX state. */
     private static final ThreadLocal<ByteBuffer> TX_STATE_BUFFER =
             withInitial(() -> allocate(DATA_ID_WITH_TX_STATE_SIZE).order(KEY_BYTE_ORDER));
-
-    private static final int UUID_LENGTH_IN_BYTES = 2 * Long.BYTES;
 
     /** Table storage instance. */
     private final RocksDbTableStorage tableStorage;
@@ -263,17 +256,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             if (leaseBytes == null) {
                 leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
             } else {
-                leaseStartTime = bytesToLong(leaseBytes);
+                LeaseInfo leaseInfo = VersionedSerialization.fromBytes(leaseBytes, LeaseInfoSerializer.INSTANCE);
 
-                primaryReplicaNodeId = bytesToUuid(leaseBytes, Long.BYTES);
-
-                int primaryReplicaNodeNameLength = bytesToInt(leaseBytes, Long.BYTES + UUID_LENGTH_IN_BYTES);
-                primaryReplicaNodeName = new String(
-                        leaseBytes,
-                        Long.BYTES + UUID_LENGTH_IN_BYTES + Integer.BYTES,
-                        primaryReplicaNodeNameLength,
-                        StandardCharsets.UTF_8
-                );
+                leaseStartTime = leaseInfo.leaseStartTime();
+                primaryReplicaNodeId = leaseInfo.primaryReplicaNodeId();
+                primaryReplicaNodeName = leaseInfo.primaryReplicaNodeName();
             }
 
             byte[] estimatedSizeBytes = db.get(meta, readOpts, estimatedSizeKey);
@@ -1125,28 +1112,18 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     private void saveLease(AbstractWriteBatch writeBatch, long leaseStartTime, UUID primaryReplicaNodeId, String primaryReplicaNodeName) {
-        // TODO: IGNITE-23683 - switch to VersionedSerialization.
+        LeaseInfo leaseInfo = new LeaseInfo(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
+        byte[] bytes = VersionedSerialization.toBytes(leaseInfo, LeaseInfoSerializer.INSTANCE);
+
         try {
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            outputStream.write(longToBytes(leaseStartTime));
-
-            byte[] primaryReplicaNodeIdBytes = uuidToBytes(primaryReplicaNodeId);
-            outputStream.write(primaryReplicaNodeIdBytes);
-
-            byte[] primaryReplicaNodeNameBytes = stringToBytes(primaryReplicaNodeName);
-            outputStream.write(intToBytes(primaryReplicaNodeNameBytes.length));
-            outputStream.write(primaryReplicaNodeNameBytes);
-
-            writeBatch.put(meta, leaseKey, outputStream.toByteArray());
-
-            this.leaseStartTime = leaseStartTime;
-            this.primaryReplicaNodeId = primaryReplicaNodeId;
-            this.primaryReplicaNodeName = primaryReplicaNodeName;
-        } catch (IOException e) {
-            throw new StorageException(e);
+            writeBatch.put(meta, leaseKey, bytes);
         } catch (RocksDBException e) {
             throw new IgniteRocksDbException(e);
         }
+
+        this.leaseStartTime = leaseStartTime;
+        this.primaryReplicaNodeId = primaryReplicaNodeId;
+        this.primaryReplicaNodeName = primaryReplicaNodeName;
     }
 
     @Override
