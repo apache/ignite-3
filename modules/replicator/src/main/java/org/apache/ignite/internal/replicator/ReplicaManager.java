@@ -1277,7 +1277,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
                                 + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
 
-                    // registerFailoverCallback(replicationGroupId);
+                    registerFailoverCallback(replicationGroupId);
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(replicationGroupId, parameters.startTime());
 
@@ -1302,7 +1302,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        // deregisterFailoverCallback(parameters);
+                        deregisterFailoverCallback(parameters);
 
                         context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
