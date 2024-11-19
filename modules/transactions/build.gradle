@@ -40,6 +40,7 @@ dependencies {
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-workers')
     implementation project(':ignite-low-watermark')
+    implementation project(':ignite-system-view-api')
     implementation libs.auto.service.annotations
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core

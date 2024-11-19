@@ -21,15 +21,14 @@ import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoin
 import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -58,19 +57,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
 
     private final CatalogService catalogService;
 
-    /**
-     * RAFT log index, min of {@link MvPartitionStorage#lastAppliedIndex()} and {@link TxStateStorage#lastAppliedIndex()}
-     * at the moment of this factory instantiation.
-     */
-    private final long lastIncludedRaftIndex;
-
-    /** Term corresponding to {@link #lastIncludedRaftIndex}. */
-    private final long lastIncludedRaftTerm;
-
-    /** RAFT configuration corresponding to {@link #lastIncludedRaftIndex}. */
-    private final RaftGroupConfiguration lastIncludedConfiguration;
-
-    private final int lastCatalogVersionAtStart;
+    private final @Nullable SnapshotMeta startupSnapshotMeta;
 
     /** Incoming snapshots executor. */
     private final Executor incomingSnapshotsExecutor;
@@ -101,12 +88,25 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
 
         // We must choose the minimum applied index for local recovery so that we don't skip the raft commands for the storage with the
         // lowest applied index and thus no data loss occurs.
-        lastIncludedRaftIndex = partition.minLastAppliedIndex();
-        lastIncludedRaftTerm = partition.minLastAppliedTerm();
+        long lastIncludedRaftIndex = partition.minLastAppliedIndex();
+        long lastIncludedRaftTerm = partition.minLastAppliedTerm();
 
-        lastIncludedConfiguration = partition.committedGroupConfiguration();
+        int lastCatalogVersionAtStart = catalogService.latestCatalogVersion();
 
-        lastCatalogVersionAtStart = catalogService.latestCatalogVersion();
+        if (lastIncludedRaftIndex == 0) {
+            startupSnapshotMeta = null;
+        } else {
+            startupSnapshotMeta = snapshotMetaAt(
+                    lastIncludedRaftIndex,
+                    lastIncludedRaftTerm,
+                    Objects.requireNonNull(partition.committedGroupConfiguration()),
+                    lastCatalogVersionAtStart,
+                    collectNextRowIdToBuildIndexesAtStart(lastCatalogVersionAtStart),
+                    partition.leaseStartTime(),
+                    partition.primaryReplicaNodeId(),
+                    partition.primaryReplicaNodeName()
+            );
+        }
     }
 
     @Override
@@ -118,26 +118,12 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                 raftOptions,
                 partition,
                 catalogService,
-                createStartupSnapshotMeta(),
+                startupSnapshotMeta,
                 incomingSnapshotsExecutor
         );
     }
 
-    private @Nullable SnapshotMeta createStartupSnapshotMeta() {
-        if (lastIncludedRaftIndex == 0) {
-            return null;
-        }
-
-        return snapshotMetaAt(
-                lastIncludedRaftIndex,
-                lastIncludedRaftTerm,
-                lastIncludedConfiguration,
-                lastCatalogVersionAtStart,
-                collectNextRowIdToBuildIndexesAtStart()
-        );
-    }
-
-    private Map<Integer, UUID> collectNextRowIdToBuildIndexesAtStart() {
+    private Map<Integer, UUID> collectNextRowIdToBuildIndexesAtStart(int lastCatalogVersionAtStart) {
         return collectNextRowIdToBuildIndexes(catalogService, partition, lastCatalogVersionAtStart);
     }
 }

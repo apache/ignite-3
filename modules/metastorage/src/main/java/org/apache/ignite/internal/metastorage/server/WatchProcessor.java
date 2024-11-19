@@ -177,6 +177,7 @@ public class WatchProcessor implements ManuallyCloseable {
     public CompletableFuture<Void> notifyWatches(List<Entry> updatedEntries, HybridTimestamp time) {
         assert time != null;
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23675
         CompletableFuture<Void> newFuture = notificationFuture
                 .thenComposeAsync(v -> {
                     // Revision must be the same for all entries.

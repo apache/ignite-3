@@ -47,6 +47,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataResponse;
@@ -61,11 +62,11 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.RaftSnapshotPartitionMeta;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotUri;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
@@ -105,7 +106,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      * @see SnapshotMetaRequest
      */
     @Nullable
-    private volatile SnapshotMeta snapshotMeta;
+    private volatile PartitionSnapshotMeta snapshotMeta;
 
     @Nullable
     private volatile CompletableFuture<Boolean> metadataSufficiencyFuture;
@@ -302,7 +303,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     private boolean metadataIsSufficientlyComplete() {
-        SnapshotMeta meta = snapshotMeta;
+        PartitionSnapshotMeta meta = snapshotMeta;
         assert meta != null;
 
         return isMetadataAvailableFor(meta.requiredCatalogVersion(), partitionSnapshotStorage.catalogService());
@@ -469,7 +470,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 return partitionSnapshotStorage.partition().abortRebalance().thenCompose(unused -> failedFuture(throwable));
             }
 
-            SnapshotMeta meta = snapshotMeta;
+            PartitionSnapshotMeta meta = snapshotMeta;
 
             RaftGroupConfiguration raftGroupConfig = new RaftGroupConfiguration(
                     meta.peersList(),
@@ -486,7 +487,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     raftGroupConfig
             );
 
-            return partitionSnapshotStorage.partition().finishRebalance(meta.lastIncludedIndex(), meta.lastIncludedTerm(), raftGroupConfig);
+            return partitionSnapshotStorage.partition().finishRebalance(RaftSnapshotPartitionMeta.fromSnapshotMeta(meta, raftGroupConfig));
         } finally {
             busyLock.leaveBusy();
         }

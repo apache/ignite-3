@@ -27,13 +27,11 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
-import org.apache.ignite.internal.sql.engine.exec.fsm.Result.Status;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
-import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,7 +39,9 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Encapsulates intermediate state populated throughout query lifecycle.
  */
-class Query implements Runnable {
+class Query {
+    final CompletableFuture<Object> resultHolder = new CompletableFuture<>();
+
     // Below are attributes the query was initialized with
     final Instant createdAt;
     final @Nullable UUID parentId;
@@ -59,7 +59,7 @@ class Query implements Runnable {
     volatile @Nullable ParsedResult parsedResult = null;
     volatile @Nullable SqlOperationContext operationContext = null;
     volatile @Nullable QueryPlan plan = null;
-    volatile @Nullable InternalTransaction usedTransaction = null;
+    volatile @Nullable QueryTransactionWrapper usedTransaction = null;
     volatile @Nullable AsyncSqlCursor<InternalSqlRow> cursor = null;
 
     // Below is volatile state for script processing
@@ -67,7 +67,6 @@ class Query implements Runnable {
 
     // Below are internal attributes
     private final ConcurrentMap<ExecutionPhase, CompletableFuture<Void>> onPhaseStartedCallback = new ConcurrentHashMap<>();
-    private final Object mux = new Object();
 
     private volatile ExecutionPhase currentPhase = ExecutionPhase.REGISTERED;
 
@@ -118,65 +117,13 @@ class Query implements Runnable {
         this.parsedResult = parsedResult;
     }
 
-    @Override
-    public void run() {
-        Result result;
-        do {
-            ExecutionPhase phaseBefore = currentPhase;
-
-            try {
-                result = phaseBefore.evaluate(this);
-            } catch (Throwable th) {
-                // handles exception from synchronous part of phase evaluation
-
-                onError(th);
-
-                return;
-            }
-
-            if (IgniteUtils.assertionsEnabled()
-                    && result.status() == Result.Status.PROCEED_IMMEDIATELY
-                    && currentPhase == phaseBefore) {
-                throw new AssertionError("Attempt to immediately execute the same state. Did you forget to move query to next state?");
-            }
-
-            if (result.status() == Status.STOP) {
-                break;
-            }
-
-            if (result.status() == Status.SCHEDULE) {
-                CompletableFuture<Void> awaitFuture = result.await();
-
-                assert awaitFuture != null;
-
-                // reschedule only if required computation has not been done yet or it was completed exceptionally
-                if (!awaitFuture.isDone() || awaitFuture.isCompletedExceptionally()) {
-                    awaitFuture
-                            .whenComplete((ignored, ex) -> {
-                                if (ex != null) {
-                                    // handles exception from asynchronous part of phase evaluation
-                                    onError(ex);
-                                }
-                            })
-                            .thenRunAsync(this, executor::execute);
-
-                    return;
-                }
-            }
-        } while (true);
-    }
-
     CompletableFuture<Void> onPhaseStarted(ExecutionPhase phase) {
         return onPhaseStartedCallback.computeIfAbsent(phase, k -> new CompletableFuture<>());
     }
 
     /** Moves the query to a given state. */
     void moveTo(ExecutionPhase newPhase) {
-        synchronized (mux) {
-            assert currentPhase.transitionAllowed(newPhase) : "currentPhase=" + currentPhase + ", newPhase=" + newPhase;
-
-            currentPhase = newPhase;
-        }
+        currentPhase = newPhase;
 
         onPhaseStartedCallback.computeIfAbsent(newPhase, k -> new CompletableFuture<>()).complete(null);
     }
@@ -186,8 +133,8 @@ class Query implements Runnable {
     }
 
     void onError(Throwable th) {
-        onPhaseStartedCallback.values().forEach(f -> f.completeExceptionally(th));
-
         moveTo(ExecutionPhase.TERMINATED);
+
+        resultHolder.completeExceptionally(th);
     }
 }

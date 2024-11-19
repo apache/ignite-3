@@ -34,6 +34,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
+import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaRequest;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMvDataRequest;
@@ -53,7 +54,6 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMetaMessage;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.jetbrains.annotations.Nullable;
 
@@ -86,7 +86,7 @@ public class OutgoingSnapshot {
 
     /** Snapshot metadata that is taken at the moment when snapshot scope is frozen. {@code null} till the freeze happens. */
     @Nullable
-    private volatile SnapshotMeta frozenMeta;
+    private volatile PartitionSnapshotMeta frozenMeta;
 
     /**
      * {@link RowId}s for which the corresponding rows were sent out of order (relative to the order in which this
@@ -167,10 +167,7 @@ public class OutgoingSnapshot {
         }
     }
 
-    private SnapshotMeta takeSnapshotMeta() {
-        long lastAppliedIndex = partition.maxLastAppliedIndex();
-        long lastAppliedTerm = partition.maxLastAppliedTerm();
-
+    private PartitionSnapshotMeta takeSnapshotMeta() {
         RaftGroupConfiguration config = partition.committedGroupConfiguration();
 
         assert config != null : "Configuration should never be null when installing a snapshot";
@@ -179,7 +176,16 @@ public class OutgoingSnapshot {
 
         Map<Integer, UUID> nextRowIdToBuildByIndexId = collectNextRowIdToBuildIndexes(catalogService, partition, catalogVersion);
 
-        return snapshotMetaAt(lastAppliedIndex, lastAppliedTerm, config, catalogVersion, nextRowIdToBuildByIndexId);
+        return snapshotMetaAt(
+                partition.maxLastAppliedIndex(),
+                partition.maxLastAppliedTerm(),
+                config,
+                catalogVersion,
+                nextRowIdToBuildByIndexId,
+                partition.leaseStartTime(),
+                partition.primaryReplicaNodeId(),
+                partition.primaryReplicaNodeName()
+        );
     }
 
     /**
@@ -187,8 +193,8 @@ public class OutgoingSnapshot {
      *
      * @return This snapshot metadata.
      */
-    public SnapshotMeta meta() {
-        SnapshotMeta meta = frozenMeta;
+    public PartitionSnapshotMeta meta() {
+        PartitionSnapshotMeta meta = frozenMeta;
 
         assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
 
@@ -208,7 +214,7 @@ public class OutgoingSnapshot {
             return logThatAlreadyClosedAndReturnNull();
         }
 
-        SnapshotMeta meta = frozenMeta;
+        PartitionSnapshotMeta meta = frozenMeta;
 
         assert meta != null : "No snapshot meta yet, probably the snapshot scope was not yet frozen";
 

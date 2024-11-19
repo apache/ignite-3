@@ -42,6 +42,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests client connection to various addresses.
  */
+@WithSystemProperty(key = "IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", value = "10")
 public class ConnectionTest extends AbstractClientTest {
     @Test
     public void testEmptyNodeAddress() {
@@ -111,9 +112,8 @@ public class ConnectionTest extends AbstractClientTest {
 
     @SuppressWarnings("ThrowableNotThrown")
     @Test
-    @WithSystemProperty(key = "IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", value = "10")
     public void testNoResponseFromServerWithinOperationTimeoutThrowsException() {
-        Function<Integer, Integer> responseDelay = x -> x > 2 ? 100 : 0;
+        Function<Integer, Integer> responseDelay = x -> x > 2 ? 600 : 0;
 
         try (var srv = new TestServer(300, new FakeIgnite(), x -> false, responseDelay, null, UUID.randomUUID(), null, null)) {
             Builder builder = IgniteClient.builder()

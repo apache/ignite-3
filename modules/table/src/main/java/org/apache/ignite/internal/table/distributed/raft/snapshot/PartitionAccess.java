@@ -136,6 +136,27 @@ public interface PartitionAccess {
     long maxLastAppliedTerm();
 
     /**
+     * Returns the start time of the known lease for this replication group.
+     *
+     * @return Lease start time.
+     */
+    long leaseStartTime();
+
+    /**
+     * Return the node ID of the known lease for this replication group.
+     *
+     * @return Primary replica node id or {@code null} if there is no information about lease in the storage.
+     */
+    @Nullable UUID primaryReplicaNodeId();
+
+    /**
+     * Return the node name of the known lease for this replication group.
+     *
+     * @return Primary replica node name or {@code null} if there is no information about lease in the storage.
+     */
+    @Nullable String primaryReplicaNodeName();
+
+    /**
      * Prepares partition storages for rebalancing.
      * <ul>
      *     <li>Cancels all current operations (including cursors) with storages and waits for their completion;</li>
@@ -158,7 +179,7 @@ public interface PartitionAccess {
      * <p>This method must be called before every rebalance and ends with a call to one of the methods:
      * <ul>
      *     <li>{@link #abortRebalance()} - in case of errors or cancellation of rebalance;</li>
-     *     <li>{@link #finishRebalance(long, long, RaftGroupConfiguration)} - in case of successful completion of rebalance.</li>
+     *     <li>{@link #finishRebalance(RaftSnapshotPartitionMeta)} - in case of successful completion of rebalance.</li>
      * </ul>
      *
      * @return Future of the operation.
@@ -191,13 +212,11 @@ public interface PartitionAccess {
      *
      * <p>If rebalance has not started, then {@link StorageRebalanceException} will be thrown.
      *
-     * @param lastAppliedIndex Last applied index.
-     * @param lastAppliedTerm Last applied term.
-     * @param raftGroupConfig RAFT group configuration.
+     * @param partitionMeta Partition metadata.
      * @return Future of the operation.
      * @throws StorageRebalanceException If there are errors when trying to finish rebalancing.
      */
-    CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig);
+    CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta partitionMeta);
 
     /**
      * Returns the row ID for which the index needs to be built, {@code null} means that the index building has completed.

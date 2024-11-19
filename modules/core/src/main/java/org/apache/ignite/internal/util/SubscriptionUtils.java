@@ -117,7 +117,7 @@ public class SubscriptionUtils {
      * @param <T> Type of the entries this publisher will emit.
      * @return Publisher created from the given iterable.
      */
-    public static <T> Publisher<T> fromIterable(CompletableFuture<Iterable<T>> iterableFuture) {
+    public static <T> Publisher<T> fromIterable(CompletableFuture<? extends Iterable<T>> iterableFuture) {
         return new IterableToPublisherAdapter<>(iterableFuture, Runnable::run, Integer.MAX_VALUE);
     }
 }

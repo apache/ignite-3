@@ -20,20 +20,29 @@ package org.apache.ignite.internal.metastorage.server;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Compaction test for the RocksDB implementation of {@link KeyValueStorage}. */
+@ExtendWith(ExecutorServiceExtension.class)
 public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyValueStorageTest {
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
+
     @Override
     public KeyValueStorage createStorage() {
         return new RocksDbKeyValueStorage(
                 NODE_NAME,
                 workDir.resolve("storage"),
                 new NoOpFailureManager(),
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                scheduledExecutorService
         );
     }
 

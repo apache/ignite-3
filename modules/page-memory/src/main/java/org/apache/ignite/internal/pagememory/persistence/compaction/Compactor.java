@@ -291,7 +291,7 @@ public class Compactor extends IgniteWorker {
 
             if (LOG.isInfoEnabled()) {
                 float totalDurationInSeconds = tracker.totalDuration(MILLISECONDS) / 1000.0f;
-                float avgWriteSpeedInBytes = pageSize * tracker.dataPagesWritten() / totalDurationInSeconds;
+                float avgWriteSpeedInBytes = ((long) pageSize * tracker.dataPagesWritten()) / totalDurationInSeconds;
 
                 LOG.info(
                         "Compaction round finished [compactionId={}, pages={}, duration={}ms, avgWriteSpeed={}MB/s]",

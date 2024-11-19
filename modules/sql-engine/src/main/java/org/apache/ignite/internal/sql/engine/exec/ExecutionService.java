@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -25,7 +26,15 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
  * SQL query plan execution interface.
  */
 public interface ExecutionService extends LifecycleAware {
-    AsyncDataCursor<InternalSqlRow> executePlan(
+    /**
+     * Executes the given plan.
+     *
+     * @param plan Plan to execute.
+     * @param operationContext Context of operation.
+     * @return Future that will be completed when cursor is successfully initialized, implying for distributed plans all fragments have been
+     *         sent successfully.
+     */
+    CompletableFuture<AsyncDataCursor<InternalSqlRow>> executePlan(
             QueryPlan plan, SqlOperationContext operationContext
     );
 }

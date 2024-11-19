@@ -206,19 +206,13 @@ public interface MvTableStorage extends ManuallyCloseable {
      *
      * <p>If rebalance has not started, then {@link StorageRebalanceException} will be thrown.
      *
-     * @param lastAppliedIndex Last applied index.
-     * @param lastAppliedTerm Last applied term.
-     * @param groupConfig Replication protocol group configuration (byte representation).
+     * @param partitionId ID of the partition.
+     * @param partitionMeta Metadata of the partition.
      * @return Future of the finish rebalance for a multi-version partition storage and its indexes.
      * @throws IllegalArgumentException If Partition ID is out of bounds.
      * @throws StorageRebalanceException If there is an error when completing rebalance.
      */
-    CompletableFuture<Void> finishRebalancePartition(
-            int partitionId,
-            long lastAppliedIndex,
-            long lastAppliedTerm,
-            byte[] groupConfig
-    );
+    CompletableFuture<Void> finishRebalancePartition(int partitionId, MvPartitionMeta partitionMeta);
 
     /**
      * Clears a partition and all associated indices. After the cleaning is completed, a partition and all associated indices will be fully

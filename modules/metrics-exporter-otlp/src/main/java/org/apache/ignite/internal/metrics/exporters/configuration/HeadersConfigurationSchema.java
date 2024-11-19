@@ -15,16 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.fsm;
+package org.apache.ignite.internal.metrics.exporters.configuration;
 
-/** No-op handler that causes fsm to stop after current phase. */
-class StopHandler implements ExecutionPhaseHandler {
-    static final ExecutionPhaseHandler INSTANCE = new StopHandler();
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.NotBlank;
 
-    private StopHandler() { }
+/**
+ * Connection headers configuration schema.
+ */
+@Config
+public class HeadersConfigurationSchema {
+    /** Name of the header. */
+    @InjectedName
+    public String name;
 
-    @Override
-    public Result handle(Query query) {
-        return Result.stop();
-    }
+    /** Header value. */
+    @NotBlank
+    @Value
+    public String header;
 }

@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiPredicate;
@@ -96,7 +97,9 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.ActionResponse;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
@@ -113,6 +116,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Integration tests for idempotency of {@link org.apache.ignite.internal.metastorage.command.IdempotentCommand}.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private static final MetaStorageCommandsFactory CMD_FACTORY = new MetaStorageCommandsFactory();
 
@@ -134,6 +138,9 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock.idleSyncTimeInterval = 100")
     private MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     private List<Node> nodes;
 
@@ -161,7 +168,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                 RaftConfiguration raftConfiguration,
                 MetaStorageConfiguration metaStorageConfiguration,
                 Path workDir,
-                int index
+                int index,
+                ScheduledExecutorService scheduledExecutorService
         ) {
             List<NetworkAddress> addrs = new ArrayList<>();
 
@@ -214,7 +222,8 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     clusterService.nodeName(),
                     metastorageWorkDir.dbPath(),
                     new NoOpFailureManager(),
-                    readOperationForCompactionTracker
+                    readOperationForCompactionTracker,
+                    scheduledExecutorService
             ));
 
             metaStorageManager = new MetaStorageManagerImpl(
@@ -543,7 +552,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         nodes = new ArrayList<>();
 
         for (int i = 0; i < NODES_COUNT; i++) {
-            Node node = new Node(testInfo, raftConfiguration, metaStorageConfiguration, workDir, i);
+            Node node = new Node(testInfo, raftConfiguration, metaStorageConfiguration, workDir, i, scheduledExecutorService);
             nodes.add(node);
         }
 

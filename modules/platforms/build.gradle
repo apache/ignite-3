@@ -206,8 +206,8 @@ artifacts {
             builtBy cmakeBuildClient
         }
 
-        def cmakeProjectVersion = cmakeProjectVersion(project.projectVersion.toString())
-        cppClient(file("$buildDir/cpp/lib/libignite3-client.so.$cmakeProjectVersion")) {
+        def simpleProjectVersion = simpleProjectVersion(project.projectVersion.toString())
+        cppClient(file("$buildDir/cpp/lib/libignite3-client.so.$simpleProjectVersion")) {
             builtBy cmakeBuildClient
         }
         cppClient(file("$buildDir/cpp/lib/libignite3-client.so")) {
@@ -222,7 +222,7 @@ artifacts {
             odbc(file("$buildDir/cpp/lib/libignite3-odbc.so")) {
                 builtBy cmakeBuildOdbc
             }
-            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.$cmakeProjectVersion")) {
+            odbc(file("$buildDir/cpp/lib/libignite3-odbc.so.$simpleProjectVersion")) {
                 builtBy cmakeBuildOdbc
             }
         }
@@ -231,21 +231,23 @@ artifacts {
 
 def updateVersion = tasks.register('updateVersion', Task) {
     description = 'Updates the version of the platforms artifacts'
-    def version = project.projectVersion.toString()
-    updateCMakeVersion(version)
-    updateDotnetVersion(version)
-    updatePythonVersion(version)
+    doLast {
+        def version = project.projectVersion.toString()
+        updateCMakeVersion(version)
+        updateDotnetVersion(version)
+        updatePythonVersion(version)
+    }
 }
 
 private void updateCMakeVersion(String version) {
     def versionFile = file("$projectDir/cpp/_version.txt")
-    versionFile.text = cmakeProjectVersion(version)
+    versionFile.text = simpleProjectVersion(version)
 }
 
 /**
- * Strips the pre-release portion of the project version string to satisfy CMake requirements
+ * Strips the pre-release portion of the project version string
  */
-private String cmakeProjectVersion(String version) {
+private String simpleProjectVersion(String version) {
     def dashIndex = version.indexOf('-')
     if (dashIndex != -1) {
         return version.substring(0, dashIndex)
@@ -263,5 +265,5 @@ private void updateDotnetVersion(String version) {
 
 private void updatePythonVersion(String version) {
     def versionFile = file("$projectDir/python/pyignite3/_version.txt")
-    versionFile.text = version
+    versionFile.text = simpleProjectVersion(version)
 }

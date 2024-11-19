@@ -50,6 +50,7 @@ import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -79,7 +80,7 @@ public class DistributionZonesTestUtil {
             int replicas,
             @Nullable String storageProfile
     ) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, storageProfile);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, storageProfile);
     }
 
     /**
@@ -91,7 +92,32 @@ public class DistributionZonesTestUtil {
      * @param replicas Zone number of replicas.
      */
     public static void createZone(CatalogManager catalogManager, String zoneName, int partitions, int replicas) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, DEFAULT_STORAGE_PROFILE);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null,  DEFAULT_STORAGE_PROFILE);
+    }
+
+    /**
+     * Creates a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param consistencyMode Zone consistency mode.
+     */
+    public static void createZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            ConsistencyMode consistencyMode
+    ) {
+        createZone(
+                catalogManager,
+                zoneName,
+                null,
+                null,
+                null,
+                null,
+                null,
+                consistencyMode,
+                DEFAULT_STORAGE_PROFILE
+        );
     }
 
     /**
@@ -120,6 +146,7 @@ public class DistributionZonesTestUtil {
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 filter,
+                null,
                 DEFAULT_STORAGE_PROFILE
         );
     }
@@ -152,6 +179,7 @@ public class DistributionZonesTestUtil {
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 filter,
+                null,
                 storageProfiles
         );
     }
@@ -164,6 +192,7 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
+            @Nullable ConsistencyMode consistencyMode,
             String storageProfiles
     ) {
         CreateZoneCommandBuilder builder = CreateZoneCommand.builder().zoneName(zoneName);
@@ -186,6 +215,10 @@ public class DistributionZonesTestUtil {
 
         if (filter != null) {
             builder.filter(filter);
+        }
+
+        if (consistencyMode != null) {
+            builder.consistencyModeParams(consistencyMode);
         }
 
         assertNotNull(storageProfiles);

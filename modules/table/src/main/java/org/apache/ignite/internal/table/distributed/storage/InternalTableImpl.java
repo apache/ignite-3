@@ -332,7 +332,6 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        boolean implicit = tx == null;
         InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
         int partId = partitionId(row);
@@ -344,7 +343,7 @@ public class InternalTableImpl implements InternalTable {
         CompletableFuture<R> fut;
 
         if (primaryReplicaAndConsistencyToken != null) {
-            assert !implicit;
+            assert !actualTx.implicit();
 
             fut = trackingInvoke(
                     actualTx,
@@ -360,14 +359,14 @@ public class InternalTableImpl implements InternalTable {
                     actualTx,
                     partId,
                     enlistmentConsistencyToken -> fac.apply(actualTx, partGroupId, enlistmentConsistencyToken),
-                    implicit,
+                    actualTx.implicit(),
                     noWriteChecker
             );
         }
 
-        return postEnlist(fut, false, actualTx, implicit).handle((r, e) -> {
+        return postEnlist(fut, false, actualTx, actualTx.implicit()).handle((r, e) -> {
             if (e != null) {
-                if (implicit) {
+                if (actualTx.implicit()) {
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
                     if (exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
@@ -437,13 +436,12 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        boolean implicit = tx == null;
         InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
         boolean singlePart = rowBatchByPartitionId.size() == 1;
-        boolean full = implicit && singlePart;
+        boolean full = actualTx.implicit() && singlePart;
 
         for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
             int partitionId = partitionRowBatch.getIntKey();
@@ -456,7 +454,7 @@ public class InternalTableImpl implements InternalTable {
             CompletableFuture<T> fut;
 
             if (primaryReplicaAndConsistencyToken != null) {
-                assert !implicit;
+                assert !actualTx.implicit();
 
                 fut = trackingInvoke(
                         actualTx,
@@ -484,9 +482,9 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<T> fut = reducer.apply(rowBatchByPartitionId.values());
 
-        return postEnlist(fut, implicit && !singlePart, actualTx, full).handle((r, e) -> {
+        return postEnlist(fut, actualTx.implicit() && !singlePart, actualTx, full).handle((r, e) -> {
             if (e != null) {
-                if (implicit) {
+                if (actualTx.implicit()) {
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
                     if (exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
@@ -502,7 +500,11 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.begin(observableTimestampTracker) : tx;
+        return tx == null ? txManager.begin(observableTimestampTracker, true) : tx;
+    }
+
+    private InternalTransaction startImplicitRoTxIfNeeded(@Nullable InternalTransaction tx) {
+        return tx == null ? txManager.begin(observableTimestampTracker, true, false) : tx;
     }
 
     /**
@@ -517,7 +519,6 @@ public class InternalTableImpl implements InternalTable {
      * @param upperBound Upper search bound.
      * @param flags Control flags. See {@link org.apache.ignite.internal.storage.index.SortedIndexStorage} constants.
      * @param columnsToInclude Row projection.
-     * @param implicit {@code True} if the implicit txn.
      * @return Batch of retrieved rows.
      */
     private CompletableFuture<Collection<BinaryRow>> enlistCursorInTx(
@@ -530,8 +531,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             int flags,
-            @Nullable BitSet columnsToInclude,
-            boolean implicit
+            @Nullable BitSet columnsToInclude
     ) {
         TablePartitionId partGroupId = new TablePartitionId(tableId, partId);
 
@@ -552,7 +552,7 @@ public class InternalTableImpl implements InternalTable {
                         .upperBoundPrefix(binaryTupleMessage(upperBound))
                         .flags(flags)
                         .columnsToInclude(columnsToInclude)
-                        .full(implicit) // Intent for one phase commit.
+                        .full(tx.implicit()) // Intent for one phase commit.
                         .batchSize(batchSize)
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .commitPartitionId(serializeTablePartitionId(tx.commitPartition()))
@@ -715,7 +715,9 @@ public class InternalTableImpl implements InternalTable {
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
             if (full) { // Full txn is already finished remotely. Just update local state.
-                txManager.finishFull(observableTimestampTracker, tx0.id(), e == null);
+                CompletableFuture<Void> finishFullTxFut = tx0.finish(e == null, null, true);
+
+                assert finishFullTxFut.isDone() : "A full-state transaction must finish synchronously.";
 
                 return e != null ? failedFuture(e) : completedFuture(r);
             }
@@ -741,43 +743,47 @@ public class InternalTableImpl implements InternalTable {
     /**
      * Evaluates the single-row request to the cluster for a read-only single-partition transaction.
      *
+     * @param tx Transaction or {@code null} if it is not started yet.
      * @param row Binary row.
      * @param op Operation.
      * @param <R> Result type.
      * @return The future.
      */
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
+            @Nullable InternalTransaction tx,
             BinaryRowEx row,
             BiFunction<TablePartitionId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
+        InternalTransaction actualTx = startImplicitRoTxIfNeeded(tx);
 
         int partId = partitionId(row);
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        return sendReadOnlyToPrimaryReplica(tx, tablePartitionId, op);
+        return sendReadOnlyToPrimaryReplica(actualTx, tablePartitionId, op);
     }
 
     /**
      * Evaluates the multi-row request to the cluster for a read-only single-partition transaction.
      *
+     * @param tx Transaction or {@code null} if it is not started yet.
      * @param rows Rows.
      * @param op Replica requests factory.
      * @param <R> Result type.
      * @return The future.
      */
     private <R> CompletableFuture<R> evaluateReadOnlyPrimaryNode(
+            @Nullable InternalTransaction tx,
             Collection<BinaryRowEx> rows,
             BiFunction<TablePartitionId, Long, ReplicaRequest> op
     ) {
-        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
+        InternalTransaction actualTx = startImplicitRoTxIfNeeded(tx);
 
         int partId = partitionId(rows.iterator().next());
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        return sendReadOnlyToPrimaryReplica(tx, tablePartitionId, op);
+        return sendReadOnlyToPrimaryReplica(actualTx, tablePartitionId, op);
     }
 
     /**
@@ -837,7 +843,7 @@ public class InternalTableImpl implements InternalTable {
     private <R> CompletableFuture<R> postEvaluate(CompletableFuture<R> fut, InternalTransaction tx) {
         return fut.handle((BiFunction<R, Throwable, CompletableFuture<R>>) (r, e) -> {
             if (e != null) {
-                return tx.finish(false, clockService.now())
+                return tx.finish(false, clockService.current(), false)
                         .handle((ignored, err) -> {
                             if (err != null) {
                                 e.addSuppressed(err);
@@ -848,15 +854,16 @@ public class InternalTableImpl implements InternalTable {
                         }); // Preserve failed state.
             }
 
-            return tx.finish(true, clockService.now()).thenApply(ignored -> r);
+            return tx.finish(true, clockService.current(), false).thenApply(ignored -> r);
         }).thenCompose(identity());
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
-        if (tx == null) {
+        if (isDirectFlowApplicableTx(tx)) {
             return evaluateReadOnlyPrimaryNode(
+                    tx,
                     keyRow,
                     (groupId, consistencyToken) -> TABLE_MESSAGES_FACTORY.readOnlyDirectSingleRowReplicaRequest()
                             .groupId(serializeTablePartitionId(groupId))
@@ -943,8 +950,9 @@ public class InternalTableImpl implements InternalTable {
             return emptyListCompletedFuture();
         }
 
-        if (tx == null && isSinglePartitionBatch(keyRows)) {
+        if (isDirectFlowApplicableTx(tx) && isSinglePartitionBatch(keyRows)) {
             return evaluateReadOnlyPrimaryNode(
+                    tx,
                     keyRows,
                     (groupId, consistencyToken) -> TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
                             .groupId(serializeTablePartitionId(groupId))
@@ -999,6 +1007,16 @@ public class InternalTableImpl implements InternalTable {
         }
 
         return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values());
+    }
+
+    /**
+     * Checks whether the transaction meets the requirements for a direct transaction or not.
+     *
+     * @param tx Transaction of {@code null}.
+     * @return True of direct flow is applicable for the transaction.
+     */
+    private boolean isDirectFlowApplicableTx(@Nullable InternalTransaction tx) {
+        return tx == null || (tx.implicit() && tx.isReadOnly());
     }
 
     private ReadWriteMultiRowPkReplicaRequest readWriteMultiRowPkReplicaRequest(
@@ -1090,7 +1108,7 @@ public class InternalTableImpl implements InternalTable {
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_UPSERT)
                         .timestamp(clockService.now())
-                        .full(tx == null)
+                        .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> false
@@ -1130,7 +1148,7 @@ public class InternalTableImpl implements InternalTable {
             int partition,
             @Nullable Long txStartTs
     ) {
-        InternalTransaction tx = txManager.begin(observableTimestampTracker);
+        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
         assert rows.stream().allMatch(row -> partitionId(row) == partition) : "Invalid batch for partition " + partition;
@@ -1175,7 +1193,7 @@ public class InternalTableImpl implements InternalTable {
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET_AND_UPSERT)
                         .timestamp(clockService.now())
-                        .full(tx == null)
+                        .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> false
@@ -1198,7 +1216,7 @@ public class InternalTableImpl implements InternalTable {
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_INSERT)
                         .timestamp(clockService.now())
-                        .full(tx == null)
+                        .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> !res
@@ -1277,7 +1295,7 @@ public class InternalTableImpl implements InternalTable {
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_REPLACE_IF_EXIST)
                         .timestamp(clockService.now())
-                        .full(tx == null)
+                        .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> !res
@@ -1304,7 +1322,7 @@ public class InternalTableImpl implements InternalTable {
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_REPLACE)
                         .timestamp(clockService.now())
-                        .full(tx == null)
+                        .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> !res
@@ -1327,7 +1345,7 @@ public class InternalTableImpl implements InternalTable {
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET_AND_REPLACE)
                         .timestamp(clockService.now())
-                        .full(tx == null)
+                        .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> res == null
@@ -1350,7 +1368,7 @@ public class InternalTableImpl implements InternalTable {
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_DELETE)
                         .timestamp(clockService.now())
-                        .full(tx == null)
+                        .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> !res
@@ -1373,7 +1391,7 @@ public class InternalTableImpl implements InternalTable {
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_DELETE_EXACT)
                         .timestamp(clockService.now())
-                        .full(tx == null)
+                        .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> !res
@@ -1396,7 +1414,7 @@ public class InternalTableImpl implements InternalTable {
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET_AND_DELETE)
                         .timestamp(clockService.now())
-                        .full(tx == null)
+                        .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
                 (res, req) -> res == null
@@ -1642,7 +1660,6 @@ public class InternalTableImpl implements InternalTable {
 
         validatePartitionIndex(partId);
 
-        boolean implicit = tx == null;
         InternalTransaction actualTx = startImplicitRwTxIfNeeded(tx);
 
         return new PartitionScanPublisher<>(READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER) {
@@ -1658,8 +1675,7 @@ public class InternalTableImpl implements InternalTable {
                         lowerBound,
                         upperBound,
                         flags,
-                        columnsToInclude,
-                        implicit
+                        columnsToInclude
                 );
             }
 
@@ -1667,10 +1683,10 @@ public class InternalTableImpl implements InternalTable {
             protected CompletableFuture<Void> onClose(boolean intentionallyClose, long scanId, @Nullable Throwable th) {
                 CompletableFuture<Void> opFut;
 
-                if (implicit) {
-                    opFut = completedOrFailedFuture(null, th);
-                } else {
-                    var replicationGrpId = new TablePartitionId(tableId, partId);
+                    if (actualTx.implicit()) {
+                        opFut = completedOrFailedFuture(null, th);
+                    } else {
+                        var replicationGrpId = new TablePartitionId(tableId, partId);
 
                     opFut = tx.enlistedNodeAndConsistencyToken(replicationGrpId) != null ? completeScan(
                             tx.id(),
@@ -1682,7 +1698,7 @@ public class InternalTableImpl implements InternalTable {
                     ) : completedOrFailedFuture(null, th);
                 }
 
-                return postEnlist(opFut, intentionallyClose, actualTx, implicit && !intentionallyClose);
+                    return postEnlist(opFut, intentionallyClose, actualTx, actualTx.implicit() && !intentionallyClose);
             }
         };
     }

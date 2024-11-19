@@ -25,7 +25,7 @@ fmpp = "0.9.16"
 jackson = "2.18.1"
 jakarta = "2.0.0"
 jansi = "2.4.1"
-netty = "4.1.114.Final"
+netty = "4.1.115.Final"
 javapoet = "1.13.0"
 javax = "1.3.2"
 jetbrainsAnnotations = "26.0.1"
@@ -48,7 +48,7 @@ picocli = "4.7.5"
 slf4j = "2.0.16"
 log4j = "2.24.1"
 spoon = "10.4.3-beta-20"
-swagger = "2.2.25"
+swagger = "2.2.26"
 swaggerLegacy = "1.6.14"
 typesafe = "1.4.3"
 hamcrest = "3.0"
@@ -83,6 +83,7 @@ tree-sitter = "0.24.3"
 tree-sitter-json = "0.23.0"
 tree-sitter-sql = "gh-pages-a"
 tree-sitter-hocon = "master-a"
+otel = "1.42.1"
 
 #Tools
 pmdTool = "6.55.0"
@@ -91,7 +92,7 @@ jacocoTool = "0.8.11"
 spotbugsTool = "4.8.3"
 
 [plugins]
-openapiGenerator = "org.openapi.generator:7.9.0"
+openapiGenerator = "org.openapi.generator:7.10.0"
 javacc = "com.intershop.gradle.javacc:4.1.3"
 shadow = "io.github.goooler.shadow:8.1.8"
 cmake = "dev.welbyseely.gradle-cmake-plugin:0.0.5"
@@ -267,3 +268,5 @@ tree-sitter = { module = "io.github.bonede:tree-sitter", version.ref = "tree-sit
 tree-sitter-json = { module = "io.github.bonede:tree-sitter-json", version.ref = "tree-sitter-json" }
 tree-sitter-sql = { module = "io.github.bonede:tree-sitter-sql", version.ref = "tree-sitter-sql" }
 tree-sitter-hocon = { module = "io.github.bonede:tree-sitter-hocon", version.ref = "tree-sitter-hocon" }
+
+opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "otel" }

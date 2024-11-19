@@ -27,6 +27,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
@@ -123,6 +124,7 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -259,7 +261,10 @@ public class DistributionZoneManager implements IgniteComponent {
                 catalogManager
         );
 
-        configuration = new DistributionZonesHighAvailabilityConfiguration(systemDistributedConfiguration);
+        configuration = new DistributionZonesHighAvailabilityConfiguration(
+                systemDistributedConfiguration,
+                this::onUpdatePartitionDistributionResetBusy
+        );
     }
 
     @Override
@@ -304,6 +309,8 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         busyLock.block();
+
+        zonesState.values().forEach(ZoneState::stopTimers);
 
         rebalanceEngine.stop();
 
@@ -373,6 +380,60 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         return nullCompletedFuture();
+    }
+
+    private void onUpdatePartitionDistributionResetBusy(
+            int partitionDistributionResetTimeoutSeconds,
+            long causalityToken
+    ) {
+        long updateTimestamp;
+
+        try {
+            updateTimestamp = metaStorageManager.timestampByRevisionLocally(causalityToken).longValue();
+        } catch (CompactedException e) {
+            if (causalityToken > 1) {
+                LOG.warn("Unable to retrieve timestamp by revision because of meta storage compaction, [revision={}].", causalityToken);
+            }
+
+            return;
+        }
+
+        // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
+        // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
+        for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
+            int zoneId = zoneStateEntry.getKey();
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, updateTimestamp);
+
+            if (zoneDescriptor == null || zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
+                continue;
+            }
+
+            if (partitionDistributionResetTimeoutSeconds == IMMEDIATE_TIMER_VALUE) {
+                // TODO: IGNITE-23599 Implement valid behaviour here.
+                return;
+            }
+
+            ZoneState zoneState = zoneStateEntry.getValue();
+
+            if (partitionDistributionResetTimeoutSeconds != INFINITE_TIMER_VALUE) {
+                Optional<Long> highestRevision = zoneState.highestRevision(true);
+
+                assert highestRevision.isEmpty() || causalityToken >= highestRevision.get() : IgniteStringFormatter.format(
+                        "Expected causalityToken that is greater or equal to already seen meta storage events: highestRevision={}, "
+                                + "causalityToken={}",
+                        highestRevision.orElse(null), causalityToken
+                );
+
+                zoneState.reschedulePartitionDistributionReset(
+                        partitionDistributionResetTimeoutSeconds,
+                        // TODO: IGNITE-23599 Implement valid behaviour here.
+                        () -> {},
+                        zoneId
+                );
+            } else {
+                zoneState.stopPartitionDistributionReset();
+            }
+        }
     }
 
     private CompletableFuture<Void> onUpdateScaleDownBusy(AlterZoneEventParameters parameters) {
@@ -898,6 +959,7 @@ public class DistributionZoneManager implements IgniteComponent {
         int autoAdjust = zone.dataNodesAutoAdjust();
         int autoAdjustScaleDown = zone.dataNodesAutoAdjustScaleDown();
         int autoAdjustScaleUp = zone.dataNodesAutoAdjustScaleUp();
+        int partitionReset = configuration.partitionDistributionResetTimeoutSeconds();
 
         int zoneId = zone.id();
 
@@ -922,16 +984,35 @@ public class DistributionZoneManager implements IgniteComponent {
             }
 
             if (nodesRemoved) {
-                if (zone.dataNodesAutoAdjustScaleDown() == IMMEDIATE_TIMER_VALUE) {
-                    futures.add(saveDataNodesToMetaStorageOnScaleDown(zoneId, revision));
-                }
+                if (zone.consistencyMode() == HIGH_AVAILABILITY) {
+                    if (partitionReset == IMMEDIATE_TIMER_VALUE) {
+                        futures.add(
+                                // TODO: IGNITE-23599 Implement valid behaviour here.
+                                nullCompletedFuture()
+                        );
+                    }
 
-                if (autoAdjustScaleDown != INFINITE_TIMER_VALUE) {
-                    zonesState.get(zoneId).rescheduleScaleDown(
-                            autoAdjustScaleDown,
-                            () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, revision),
-                            zoneId
-                    );
+                    if (partitionReset != INFINITE_TIMER_VALUE) {
+                        zonesState.get(zoneId).reschedulePartitionDistributionReset(
+                                partitionReset,
+                                // TODO: IGNITE-23599 Implement valid behaviour here.
+                                () -> {},
+                                zoneId
+                        );
+                    }
+
+                } else {
+                    if (autoAdjustScaleDown == IMMEDIATE_TIMER_VALUE) {
+                        futures.add(saveDataNodesToMetaStorageOnScaleDown(zoneId, revision));
+                    }
+
+                    if (autoAdjustScaleDown != INFINITE_TIMER_VALUE) {
+                        zonesState.get(zoneId).rescheduleScaleDown(
+                                autoAdjustScaleDown,
+                                () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, revision),
+                                zoneId
+                        );
+                    }
                 }
             }
         }
@@ -1174,11 +1255,17 @@ public class DistributionZoneManager implements IgniteComponent {
         /** Schedule task for a scale down process. */
         private ScheduledFuture<?> scaleDownTask;
 
+        /** Schedule task for a partition distribution reset process. */
+        private ScheduledFuture<?> partitionDistributionResetTask;
+
         /** The delay for the scale up task. */
         private long scaleUpTaskDelay;
 
         /** The delay for the scale down task. */
         private long scaleDownTaskDelay;
+
+        /** The delay for the partition distribution reset task. */
+        private long partitionDistributionResetTaskDelay;
 
         /**
          * Map that stores pairs revision -> {@link Augmentation} for a zone. With this map we can track which nodes
@@ -1256,6 +1343,22 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         /**
+         * Reschedules existing partition distribution reset task, if it is not started yet and the delay of this task is not immediate,
+         * or schedules new one, if the current task cannot be canceled.
+         *
+         * @param delay Delay to start runnable in seconds.
+         * @param runnable Custom logic to run.
+         * @param zoneId Unique id of a zone to determine the executor of the task.
+         */
+        public synchronized void reschedulePartitionDistributionReset(long delay, Runnable runnable, int zoneId) {
+            stopPartitionDistributionReset();
+
+            partitionDistributionResetTask = executor.schedule(runnable, delay, SECONDS, zoneId);
+
+            partitionDistributionResetTaskDelay = delay;
+        }
+
+        /**
          * Cancels task for scale up and scale down. Used on {@link #onDropZoneBusy(DropZoneEventParameters)}.
          * Not need to check {@code scaleUpTaskDelay} and {@code scaleDownTaskDelay} because after timer stopping on zone delete event
          * the data nodes value will be updated.
@@ -1267,6 +1370,10 @@ public class DistributionZoneManager implements IgniteComponent {
 
             if (scaleDownTask != null) {
                 scaleDownTask.cancel(false);
+            }
+
+            if (partitionDistributionResetTask != null) {
+                partitionDistributionResetTask.cancel(false);
             }
         }
 
@@ -1285,6 +1392,15 @@ public class DistributionZoneManager implements IgniteComponent {
         synchronized void stopScaleDown() {
             if (scaleDownTask != null && scaleDownTaskDelay > 0) {
                 scaleDownTask.cancel(false);
+            }
+        }
+
+        /**
+         * Cancels task for partition distribution reset if it is not started yet and the delay of this task is not immediate.
+         */
+        synchronized void stopPartitionDistributionReset() {
+            if (partitionDistributionResetTask != null && partitionDistributionResetTaskDelay > 0) {
+                partitionDistributionResetTask.cancel(false);
             }
         }
 
@@ -1386,6 +1502,11 @@ public class DistributionZoneManager implements IgniteComponent {
         @TestOnly
         public synchronized ScheduledFuture<?> scaleDownTask() {
             return scaleDownTask;
+        }
+
+        @TestOnly
+        public synchronized ScheduledFuture<?> partitionDistributionResetTask() {
+            return partitionDistributionResetTask;
         }
     }
 

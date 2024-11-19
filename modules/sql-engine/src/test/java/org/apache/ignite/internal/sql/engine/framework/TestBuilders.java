@@ -44,8 +44,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -176,11 +178,11 @@ public class TestBuilders {
     }
 
     /**
-     * Factory method to create {@link ScannableTable table} instance from given data provider with
-     * only implemented {@link ScannableTable#scan table scan}.
+     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
+     * {@link ScannableTable#scan table scan}.
      */
     public static ScannableTable tableScan(DataProvider<Object[]> dataProvider) {
-        return new ScannableTable() {
+        return new AbstractScannableTable() {
             @Override
             public <RowT> Publisher<RowT> scan(
                     ExecutionContext<RowT> ctx,
@@ -199,36 +201,39 @@ public class TestBuilders {
                         rowFactory::create
                 );
             }
+        };
+    }
 
+    /**
+     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
+     * {@link ScannableTable#scan table scan}.
+     */
+    public static ScannableTable tableScan(BiFunction<String, Integer, Iterable<Object[]>> generatorFunction) {
+        return new AbstractScannableTable() {
             @Override
-            public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
-                    @Nullable BitSet requiredColumns) {
-                throw new UnsupportedOperationException();
-            }
+            public <RowT> Publisher<RowT> scan(
+                    ExecutionContext<RowT> ctx,
+                    PartitionWithConsistencyToken partWithConsistencyToken,
+                    RowFactory<RowT> rowFactory,
+                    @Nullable BitSet requiredColumns
+            ) {
 
-            @Override
-            public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
-                    RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
-                    RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public CompletableFuture<Long> estimatedSize() {
-                return CompletableFuture.completedFuture(dataProvider.estimatedSize());
+                return new TransformingPublisher<>(
+                        SubscriptionUtils.fromIterable(
+                                () -> new TransformingIterator<>(
+                                        generatorFunction.apply(ctx.localNode().name(), partWithConsistencyToken.partId()).iterator(),
+                                        row -> project(row, requiredColumns)
+                                )
+                        ),
+                        rowFactory::create
+                );
             }
         };
     }
 
     /**
-     * Factory method to create {@link ScannableTable table} instance from given data provider with
-     * only implemented {@link ScannableTable#indexRangeScan index range scan}.
+     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
+     * {@link ScannableTable#indexRangeScan index range scan}.
      */
     public static ScannableTable indexRangeScan(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
@@ -277,8 +282,8 @@ public class TestBuilders {
     }
 
     /**
-     * Factory method to create {@link ScannableTable table} instance from given data provider with
-     * only implemented {@link ScannableTable#indexLookup index lookup}.
+     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
+     * {@link ScannableTable#indexLookup index lookup}.
      */
     public static ScannableTable indexLookup(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
@@ -343,17 +348,6 @@ public class TestBuilders {
         ClusterBuilder nodes(String firstNodeName, String... otherNodeNames);
 
         /**
-         * Sets desired names for the cluster nodes.
-         *
-         * @param firstNodeName A name of the first node. There is no difference in what node should be first. This parameter was
-         *         introduced to force user to provide at least one node name.
-         * @param useTablePartitions If {@code true} map table partitions to whole defined nodes.
-         * @param otherNodeNames An array of rest of the names to create cluster from.
-         * @return {@code this} for chaining.
-         */
-        public ClusterBuilder nodes(String firstNodeName, boolean useTablePartitions, String... otherNodeNames);
-
-        /**
          * Creates a table builder to add to the cluster.
          *
          * @return An instance of table builder.
@@ -364,8 +358,8 @@ public class TestBuilders {
          * Adds the given system view to the cluster.
          *
          * @param systemView System view.
-         * @return {@code this} for chaining.
          * @param <T> System view data type.
+         * @return {@code this} for chaining.
          */
         <T> ClusterBuilder addSystemView(SystemView<T> systemView);
 
@@ -377,14 +371,20 @@ public class TestBuilders {
         TestCluster build();
 
         /**
-         * Provides implementation of table with given name local per given node.
+         * Provides implementation of table with given name.
          *
-         * @param nodeName Name of the node given instance of table will be assigned to.
-         * @param tableName Name of the table given instance represents.
-         * @param table Actual table that will be used for read operations during execution.
+         * @param defaultDataProvider Name of the table given instance represents.
          * @return {@code this} for chaining.
          */
-        ClusterBuilder dataProvider(String nodeName, String tableName, ScannableTable table);
+        ClusterBuilder defaultDataProvider(DefaultDataProvider defaultDataProvider);
+
+        /**
+         * Provides implementation of table with given name.
+         *
+         * @param defaultAssignmentsProvider Name of the table given instance represents.
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder defaultAssignmentsProvider(DefaultAssignmentsProvider defaultAssignmentsProvider);
 
         /**
          * Registers a previously added system view (see {@link #addSystemView(SystemView)}) on the specified node.
@@ -589,7 +589,7 @@ public class TestBuilders {
                     description,
                     ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),
-                    TxAttributes.fromTx(new NoOpTransaction(node.name())),
+                    TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
                     SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
                     queryCancel
             );
@@ -599,27 +599,16 @@ public class TestBuilders {
     private static class ClusterBuilderImpl implements ClusterBuilder {
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
         private List<String> nodeNames;
-        private boolean useTablePartitions;
-        private final Map<String, Map<String, ScannableTable>> nodeName2tableName2table = new HashMap<>();
         private final List<SystemView<?>> systemViews = new ArrayList<>();
         private final Map<String, Set<String>> nodeName2SystemView = new HashMap<>();
+
+        private @Nullable DefaultDataProvider defaultDataProvider = null;
+        private @Nullable DefaultAssignmentsProvider defaultAssignmentsProvider = null;
 
         /** {@inheritDoc} */
         @Override
         public ClusterBuilder nodes(String firstNodeName, String... otherNodeNames) {
             this.nodeNames = new ArrayList<>();
-
-            nodeNames.add(firstNodeName);
-            nodeNames.addAll(Arrays.asList(otherNodeNames));
-
-            return this;
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public ClusterBuilder nodes(String firstNodeName, boolean useTablePartitions, String... otherNodeNames) {
-            this.nodeNames = new ArrayList<>();
-            this.useTablePartitions = useTablePartitions;
 
             nodeNames.add(firstNodeName);
             nodeNames.addAll(Arrays.asList(otherNodeNames));
@@ -640,15 +629,22 @@ public class TestBuilders {
         }
 
         @Override
-        public ClusterBuilder dataProvider(String nodeName, String tableName, ScannableTable table) {
-            nodeName2tableName2table.computeIfAbsent(nodeName, key -> new HashMap<>()).put(tableName, table);
+        public ClusterBuilder registerSystemView(String nodeName, String systemViewName) {
+            nodeName2SystemView.computeIfAbsent(nodeName, key -> new HashSet<>()).add(systemViewName);
 
             return this;
         }
 
         @Override
-        public ClusterBuilder registerSystemView(String nodeName, String systemViewName) {
-            nodeName2SystemView.computeIfAbsent(nodeName, key -> new HashSet<>()).add(systemViewName);
+        public ClusterBuilder defaultDataProvider(DefaultDataProvider defaultDataProvider) {
+            this.defaultDataProvider = defaultDataProvider;
+
+            return this;
+        }
+
+        @Override
+        public ClusterBuilder defaultAssignmentsProvider(DefaultAssignmentsProvider defaultAssignmentsProvider) {
+            this.defaultAssignmentsProvider = defaultAssignmentsProvider;
 
             return this;
         }
@@ -656,8 +652,6 @@ public class TestBuilders {
         /** {@inheritDoc} */
         @Override
         public TestCluster build() {
-            validateConfiguredDataProviders();
-
             var clusterService = new ClusterServiceFactory(nodeNames);
 
             var clusterName = "test_cluster";
@@ -673,13 +667,6 @@ public class TestBuilders {
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
                     new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
                     new NoOpMetricManager(), schemaManager);
-
-            Map<String, List<List<String>>> owningNodesByTableName = new HashMap<>();
-            for (Entry<String, Map<String, ScannableTable>> entry : nodeName2tableName2table.entrySet()) {
-                for (String tableName : entry.getValue().keySet()) {
-                    owningNodesByTableName.computeIfAbsent(tableName, key -> new ArrayList<>()).add(List.of(entry.getKey()));
-                }
-            }
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
 
@@ -717,13 +704,20 @@ public class TestBuilders {
                     })
                     .collect(Collectors.toList());
 
+            ConcurrentMap<String, ScannableTable> dataProvidersByTableName = new ConcurrentHashMap<>();
+            ConcurrentMap<String, AssignmentsProvider> assignmentsProviderByTableName = new ConcurrentHashMap<>();
+            DefaultDataProvider defaultDataProvider = this.defaultDataProvider;
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
                         var systemViewManager = new SystemViewManagerImpl(name, catalogManager);
                         var executionProvider = new TestExecutionDistributionProvider(
                                 systemViewManager::owningNodes,
-                                owningNodesByTableName,
-                                useTablePartitions
+                                tableName -> resolveProvider(
+                                        tableName,
+                                        assignmentsProviderByTableName,
+                                        defaultAssignmentsProvider != null ? defaultAssignmentsProvider::get : null
+                                ),
+                                false
                         );
                         var partitionPruner = new PartitionPrunerImpl();
                         var mappingService = new MappingServiceImpl(
@@ -743,12 +737,20 @@ public class TestBuilders {
 
                         return new TestNode(
                                 name,
+                                catalogManager,
                                 clusterService.forNode(name),
                                 parserService,
                                 prepareService,
                                 schemaManager,
                                 mappingService,
-                                new TestExecutableTableRegistry(nodeName2tableName2table.get(name), schemaManager),
+                                new TestExecutableTableRegistry(
+                                        name0 -> resolveProvider(
+                                                name0,
+                                                dataProvidersByTableName,
+                                                defaultDataProvider != null ? defaultDataProvider::get : null
+                                        ),
+                                        schemaManager
+                                ),
                                 ddlHandler,
                                 systemViewManager
                         );
@@ -756,35 +758,14 @@ public class TestBuilders {
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
             return new TestCluster(
+                    dataProvidersByTableName,
+                    assignmentsProviderByTableName,
                     nodes,
                     catalogManager,
                     prepareService,
                     clockWaiter,
                     initClosure
             );
-        }
-
-        private void validateConfiguredDataProviders() {
-            Set<String> dataProvidersOwners = new HashSet<>(nodeName2tableName2table.keySet());
-
-            dataProvidersOwners.removeAll(Set.copyOf(nodeNames));
-
-            if (!dataProvidersOwners.isEmpty()) {
-                Map<String, List<String>> problematicTables = new HashMap<>();
-
-                for (String outsiderNode : dataProvidersOwners) {
-                    for (String problematicTable : nodeName2tableName2table.get(outsiderNode).keySet()) {
-                        problematicTables.computeIfAbsent(problematicTable, k -> new ArrayList<>()).add(outsiderNode);
-                    }
-                }
-
-                String problematicTablesString = problematicTables.entrySet().stream()
-                        .map(e -> e.getKey() + ": " + e.getValue())
-                        .collect(Collectors.joining(", "));
-
-                throw new AssertionError(format("The table has a dataProvider that is outside the cluster "
-                        + "[{}]", problematicTablesString));
-            }
         }
 
         private void initAction(CatalogManager catalogManager) {
@@ -992,7 +973,8 @@ public class TestBuilders {
                             NativeTypes.INT32,
                             DefaultValueStrategy.DEFAULT_COMPUTED,
                             () -> {
-                                throw new AssertionError("Partition virtual column is generated by a function"); }
+                                throw new AssertionError("Partition virtual column is generated by a function");
+                            }
                     ))), distribution);
 
             Map<String, IgniteIndex> indexes = indexBuilders.stream()
@@ -1442,10 +1424,10 @@ public class TestBuilders {
     }
 
     private static class TestExecutableTableRegistry implements ExecutableTableRegistry {
-        private final Map<String, ScannableTable> tablesByName;
+        private final Function<String, ScannableTable> tablesByName;
         private final SqlSchemaManager schemaManager;
 
-        TestExecutableTableRegistry(Map<String, ScannableTable> tablesByName, SqlSchemaManager schemaManager) {
+        TestExecutableTableRegistry(Function<String, ScannableTable> tablesByName, SqlSchemaManager schemaManager) {
             this.tablesByName = tablesByName;
             this.schemaManager = schemaManager;
         }
@@ -1459,7 +1441,7 @@ public class TestBuilders {
             return CompletableFuture.completedFuture(new ExecutableTable() {
                 @Override
                 public ScannableTable scannableTable() {
-                    ScannableTable scannableTable = tablesByName.get(table.name());
+                    ScannableTable scannableTable = tablesByName.apply(table.name());
 
                     assert scannableTable != null;
 
@@ -1571,8 +1553,8 @@ public class TestBuilders {
         }
 
         /**
-         * Sets a function that returns system views. Function accepts a view name and returns a list of nodes
-         * a system view is available at.
+         * Sets a function that returns system views. Function accepts a view name and returns a list of nodes a system view is available
+         * at.
          */
         public ExecutionDistributionProviderBuilder setSystemViews(Function<String, List<String>> systemViews) {
             this.owningNodesBySystemViewName = systemViews;
@@ -1587,9 +1569,22 @@ public class TestBuilders {
 
         /** Creates an instance of {@link ExecutionDistributionProvider}. */
         public ExecutionDistributionProvider build() {
+            Map<String, List<List<String>>> owningNodesByTableName = Map.copyOf(this.owningNodesByTableName);
+
+            Function<String, AssignmentsProvider> sourceProviderFunction = tableName ->
+                    (AssignmentsProvider) (partitionsCount, includeBackups) -> {
+                        List<List<String>> assignments = owningNodesByTableName.get(tableName);
+
+                        if (nullOrEmpty(assignments)) {
+                            throw new AssertionError("Assignments are not configured for table " + tableName);
+                        }
+
+                        return assignments;
+                    };
+
             return new TestExecutionDistributionProvider(
                     owningNodesBySystemViewName,
-                    Map.copyOf(owningNodesByTableName),
+                    sourceProviderFunction,
                     useTablePartitions
             );
         }
@@ -1598,17 +1593,17 @@ public class TestBuilders {
     private static class TestExecutionDistributionProvider implements ExecutionDistributionProvider {
         final Function<String, List<String>> owningNodesBySystemViewName;
 
-        final Map<String, List<List<String>>> owningNodesByTableName;
+        final Function<String, AssignmentsProvider> owningNodesByTableName;
 
         final boolean useTablePartitions;
 
         private TestExecutionDistributionProvider(
                 Function<String, List<String>> owningNodesBySystemViewName,
-                Map<String, List<List<String>>> owningNodesByTableName,
+                Function<String, AssignmentsProvider> owningNodesByTableName,
                 boolean useTablePartitions
         ) {
             this.owningNodesBySystemViewName = owningNodesBySystemViewName;
-            this.owningNodesByTableName = Map.copyOf(owningNodesByTableName);
+            this.owningNodesByTableName = owningNodesByTableName;
             this.useTablePartitions = useTablePartitions;
         }
 
@@ -1620,9 +1615,25 @@ public class TestBuilders {
         }
 
         @Override
-        public CompletableFuture<List<TokenizedAssignments>> forTable(HybridTimestamp operationTime, IgniteTable table,
-                boolean includeBackups) {
-            List<List<String>> owningNodes = owningNodesByTableName.get(table.name());
+        public CompletableFuture<List<TokenizedAssignments>> forTable(
+                HybridTimestamp operationTime,
+                IgniteTable table,
+                boolean includeBackups
+        ) {
+            AssignmentsProvider provider = owningNodesByTableName.apply(table.name());
+
+            if (provider == null) {
+                return CompletableFuture.failedFuture(
+                        new AssertionError("AssignmentsProvider is not configured for table " + table.name())
+                );
+            }
+            List<List<String>> owningNodes = provider.get(table.partitions(), includeBackups);
+
+            if (nullOrEmpty(owningNodes) || owningNodes.size() != table.partitions()) {
+                throw new AssertionError("Configured AssignmentsProvider returns less assignment than expected "
+                        + "[table=" + table.name() + ", expectedNumberOfPartitions=" + table.partitions()
+                        + ", returnedAssignmentSize=" + (owningNodes == null ? "<null>" : owningNodes.size()) + "]");
+            }
 
             List<TokenizedAssignments> assignments;
 
@@ -1648,10 +1659,94 @@ public class TestBuilders {
 
             if (nullOrEmpty(nodes)) {
                 throw new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
-                                + " any active nodes in the cluster", view));
+                        + " any active nodes in the cluster", view));
             }
 
             return view.distribution() == IgniteDistributions.single() ? List.of(nodes.get(0)) : nodes;
         }
+    }
+
+    private abstract static class AbstractScannableTable implements ScannableTable {
+        @Override
+        public <RowT> Publisher<RowT> scan(
+                ExecutionContext<RowT> ctx,
+                PartitionWithConsistencyToken partWithConsistencyToken,
+                RowFactory<RowT> rowFactory,
+                @Nullable BitSet requiredColumns
+        ) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns, @Nullable RangeCondition<RowT> cond,
+                @Nullable BitSet requiredColumns) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
+                RowFactory<RowT> rowFactory, int indexId, List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx, InternalTransaction explicitTx,
+                RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public CompletableFuture<Long> estimatedSize() {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    /**
+     * Data provider that will be used in case no other provider was specified explicitly via
+     * {@link TestCluster#setDataProvider(String, ScannableTable)}.
+     */
+    @FunctionalInterface
+    public interface DefaultDataProvider {
+        ScannableTable get(String tableName);
+    }
+
+    /**
+     * Assignments provider that will be used in case no other provider was specified explicitly via
+     * {@link TestCluster#setAssignmentsProvider(String, AssignmentsProvider)}.
+     */
+    @FunctionalInterface
+    public interface DefaultAssignmentsProvider {
+        AssignmentsProvider get(String tableName);
+    }
+
+    /** Provider of assignments for a table. */
+    @FunctionalInterface
+    public interface AssignmentsProvider {
+        /**
+         * Returns the list of assignments.
+         *
+         * <p>Returned list must have the same number of elements as provided {@code partitionsCount}. If {@code includeBackups} is set to
+         * {@code true}, then every sublist is allowed to have more than one element.
+         *
+         * @param partitionsCount Number of partitions in a table.
+         * @param includeBackups Whether to include backup assignments or node.
+         * @return List of assignments.
+         */
+        List<List<String>> get(int partitionsCount, boolean includeBackups);
+    }
+
+    private static <T> @Nullable T resolveProvider(
+            String tableName,
+            Map<String, T> providersByTableName,
+            @Nullable Function<String, T> defaultProvider
+    ) {
+        T provider = providersByTableName.get(tableName);
+
+        if (provider == null && defaultProvider != null) {
+            return defaultProvider.apply(tableName);
+        }
+
+        return provider;
     }
 }
