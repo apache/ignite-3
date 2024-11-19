@@ -205,7 +205,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
     /**
      * Wrapper over an array of objects.
      */
-    public static class ObjectsArrayRowWrapper extends RowWrapper {
+    private static class ObjectsArrayRowWrapper extends RowWrapper {
         private final RowSchema rowSchema;
         private final Object[] row;
 
@@ -215,13 +215,13 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         }
 
         @Override
-        public int columnsCount() {
+        int columnsCount() {
             return row.length;
         }
 
         @Override
         @Nullable
-        public Object get(int field) {
+        Object get(int field) {
             return row[field];
         }
 
