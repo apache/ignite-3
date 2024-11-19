@@ -32,7 +32,6 @@ import org.apache.ignite.internal.partitiondistribution.Assignments;
  * Util class for methods to work with the assignments.
  */
 public class AssignmentUtil {
-
     /**
      * Collect partition ids for partition assignments.
      *
