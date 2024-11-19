@@ -282,18 +282,18 @@ public class ReplicaImpl implements Replica {
     }
 
     private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
-        if (!localNode.id().equals(parameters.leaseholderId())) {
-            return falseCompletedFuture();
-        }
+        // if (!localNode.id().equals(parameters.leaseholderId())) {
+        //     return falseCompletedFuture();
+        // }
 
-        TablePartitionId replicationGroupId = (TablePartitionId) parameters.groupId();
+        // TablePartitionId replicationGroupId = (TablePartitionId) parameters.groupId();
 
-        onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
-                replicationGroupId,
-                term
-        );
+        // onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
+        //         replicationGroupId,
+        //         term
+        // );
 
-        raftClient.subscribeLeader(onLeaderElectedFailoverCallback).join();
+        // raftClient.subscribeLeader(onLeaderElectedFailoverCallback).join();
 
         LOG.info("!!! subscribed grpId={}", replicationGroupId);
 
@@ -301,13 +301,13 @@ public class ReplicaImpl implements Replica {
     }
 
     private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters) {
-        if (localNode.id().equals(parameters.leaseholderId())) {
-            return raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback)
-                    .thenApply(v -> {
-                        onLeaderElectedFailoverCallback = null;
-                        return false;
-                    });
-        }
+        //if (localNode.id().equals(parameters.leaseholderId())) {
+        //    return raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback)
+        //            .thenApply(v -> {
+        //                onLeaderElectedFailoverCallback = null;
+        //                return false;
+        //            });
+        //}
 
         return falseCompletedFuture();
     }
