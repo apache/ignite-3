@@ -121,7 +121,7 @@ public class Checkpointer extends IgniteWorker {
             + "pages={}, "
             + "pagesWriteTime={}ms, "
             + "fsyncTime={}ms, "
-            + "syncWalTime={}ms, "
+            + "replicatorLogSyncTime={}ms, "
             + "totalTime={}ms, "
             + "avgWriteSpeed={}MB/s]";
 
@@ -369,7 +369,7 @@ public class Checkpointer extends IgniteWorker {
                     }
                 }
 
-                syncWal(tracker);
+                replicatorLogSync(tracker);
 
                 if (!writePages(tracker, chp.dirtyPages, chp.progress, this, this::isShutdownNow)) {
                     return;
@@ -406,7 +406,7 @@ public class Checkpointer extends IgniteWorker {
                             chp.dirtyPagesSize,
                             tracker.pagesWriteDuration(MILLISECONDS),
                             tracker.fsyncDuration(MILLISECONDS),
-                            tracker.syncWalDuration(MICROSECONDS),
+                            tracker.replicatorLogSyncDuration(MICROSECONDS),
                             tracker.totalDuration(MILLISECONDS),
                             WriteSpeedFormatter.formatWriteSpeed(avgWriteSpeedInBytes)
                     );
@@ -895,9 +895,9 @@ public class Checkpointer extends IgniteWorker {
         return processedPartitionFuture == null ? nullCompletedFuture() : processedPartitionFuture;
     }
 
-    private void syncWal(CheckpointMetricsTracker tracker) throws IgniteInternalCheckedException {
+    private void replicatorLogSync(CheckpointMetricsTracker tracker) throws IgniteInternalCheckedException {
         try {
-            tracker.onSyncWalStart();
+            tracker.onReplicatorLogSyncStart();
 
             logSyncer.sync();
         } catch (Exception e) {

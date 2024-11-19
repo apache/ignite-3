@@ -110,18 +110,18 @@ public class CheckpointMetricsTrackerTest {
     }
 
     @Test
-    void testSyncWal() throws Exception {
+    void testReplicatorLogSync() throws Exception {
         var tracker = new CheckpointMetricsTracker();
 
-        assertThat(tracker.syncWalDuration(NANOSECONDS), equalTo(0L));
+        assertThat(tracker.replicatorLogSyncDuration(NANOSECONDS), equalTo(0L));
 
-        tracker.onSyncWalStart();
+        tracker.onReplicatorLogSyncStart();
 
         waitForTimeChange();
 
         tracker.onCheckpointEnd();
 
-        assertThat(tracker.syncWalDuration(NANOSECONDS), greaterThanOrEqualTo(1L));
+        assertThat(tracker.replicatorLogSyncDuration(NANOSECONDS), greaterThanOrEqualTo(1L));
     }
 
     @Test

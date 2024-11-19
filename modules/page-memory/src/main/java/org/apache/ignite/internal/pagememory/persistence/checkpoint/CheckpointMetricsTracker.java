@@ -66,7 +66,7 @@ public class CheckpointMetricsTracker {
 
     private long fsyncStartNanos;
 
-    private long syncWalStartNanos;
+    private long replicatorLogSyncStartNanos;
 
     private long endNanos;
 
@@ -201,12 +201,12 @@ public class CheckpointMetricsTracker {
     }
 
     /**
-     * Callback on start sync write-ahead-log.
+     * Callback at the start of the replication protocol write-ahead-log sync.
      *
      * <p>Not thread safe.
      */
-    public void onSyncWalStart() {
-        syncWalStartNanos = System.nanoTime();
+    public void onReplicatorLogSyncStart() {
+        replicatorLogSyncStartNanos = System.nanoTime();
     }
 
     /**
@@ -282,11 +282,11 @@ public class CheckpointMetricsTracker {
     }
 
     /**
-     * Returns checkpoint sync write-ahead-log duration in the given time unit.
+     * Returns checkpoint replication protocol write-ahead-log sync duration in the given time unit.
      *
      * <p>Not thread safe.
      */
-    public long syncWalDuration(TimeUnit timeUnit) {
-        return timeUnit.convert(endNanos - syncWalStartNanos, NANOSECONDS);
+    public long replicatorLogSyncDuration(TimeUnit timeUnit) {
+        return timeUnit.convert(endNanos - replicatorLogSyncStartNanos, NANOSECONDS);
     }
 }
