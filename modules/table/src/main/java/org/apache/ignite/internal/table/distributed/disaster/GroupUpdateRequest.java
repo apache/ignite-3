@@ -61,6 +61,8 @@ import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
@@ -75,6 +77,8 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
 class GroupUpdateRequest implements DisasterRecoveryRequest {
+    private static final IgniteLogger LOG = Loggers.forClass(GroupUpdateRequest.class);
+
     private final UUID operationId;
 
     /**
@@ -151,26 +155,32 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         CompletableFuture<Set<String>> dataNodesFuture = disasterRecoveryManager.dzManager.dataNodes(msRevision, catalogVersion, zoneId);
 
         return dataNodesFuture.thenCombine(localStates, (dataNodes, localStatesMap) -> {
-            Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology()
-                    .stream()
-                    .map(NodeWithAttributes::nodeName)
-                    .collect(toSet());
+                    Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology()
+                            .stream()
+                            .map(NodeWithAttributes::nodeName)
+                            .collect(toSet());
 
-            int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionIds, zoneDescriptor.partitions());
+                    int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionIds, zoneDescriptor.partitions());
 
-            return forceAssignmentsUpdate(
-                    tableDescriptor,
-                    zoneDescriptor,
-                    dataNodes,
-                    nodeConsistentIds,
-                    msRevision,
-                    disasterRecoveryManager.metaStorageManager,
-                    localStatesMap,
-                    catalog.time(),
-                    partitionIdsArray,
-                    manualUpdate
-            );
-        }).thenCompose(Function.identity());
+                    return forceAssignmentsUpdate(
+                            tableDescriptor,
+                            zoneDescriptor,
+                            dataNodes,
+                            nodeConsistentIds,
+                            msRevision,
+                            disasterRecoveryManager.metaStorageManager,
+                            localStatesMap,
+                            catalog.time(),
+                            partitionIdsArray,
+                            manualUpdate
+                    );
+                })
+                .thenCompose(Function.identity())
+                .whenComplete((unused, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Failed to reset partition", throwable);
+                    }
+                });
     }
 
     /**
