@@ -282,32 +282,33 @@ public class ReplicaImpl implements Replica {
     }
 
     private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
-        // if (!localNode.id().equals(parameters.leaseholderId())) {
-        //     return falseCompletedFuture();
-        // }
+        if (!localNode.id().equals(parameters.leaseholderId())) {
+            return falseCompletedFuture();
+        }
 
-        // TablePartitionId replicationGroupId = (TablePartitionId) parameters.groupId();
+        TablePartitionId replicationGroupId = (TablePartitionId) parameters.groupId();
 
-        // onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
-        //         replicationGroupId,
-        //         term
-        // );
+        onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
+                replicationGroupId,
+                term
+        );
 
         // raftClient.subscribeLeader(onLeaderElectedFailoverCallback).join();
 
-        // LOG.info("!!! subscribed grpId={}", replicationGroupId);
+        LOG.info("!!! subscribed grpId={}", replicationGroupId);
 
         return falseCompletedFuture();
     }
 
     private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters) {
-        //if (localNode.id().equals(parameters.leaseholderId())) {
-        //    return raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback)
-        //            .thenApply(v -> {
-        //                onLeaderElectedFailoverCallback = null;
-        //                return false;
-        //            });
-        //}
+        if (localNode.id().equals(parameters.leaseholderId())) {
+//            return raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback)
+//                    .thenApply(v -> {
+//                        onLeaderElectedFailoverCallback = null;
+//                        return false;
+//                    });
+            onLeaderElectedFailoverCallback = null;
+        }
 
         return falseCompletedFuture();
     }
@@ -395,7 +396,8 @@ public class ReplicaImpl implements Replica {
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
 
         if (onLeaderElectedFailoverCallback != null) {
-            raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback).join();
+//            raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback).join();
+            onLeaderElectedFailoverCallback = null;
         }
 
         listener.onShutdown();
