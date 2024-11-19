@@ -250,7 +250,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -977,10 +976,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         return IntStream.range(0, nodes.size()).filter(i -> getNode(i).name.equals(consistentId)).findFirst().orElseThrow();
     }
 
-    private void electPrimaryReplica(Node node) throws InterruptedException {
-        Node leaseholderNode = getLeaseholderNodeForPartition(node, 0);
+    private void electPrimaryReplica(Node primaryReplicaNode) throws InterruptedException {
+        Node leaseholderNode = getLeaseholderNodeForPartition(primaryReplicaNode, 0);
 
-        int tableId = getTableId(node, TABLE_NAME);
+        int tableId = getTableId(primaryReplicaNode, TABLE_NAME);
 
         TablePartitionId groupId = new TablePartitionId(tableId, 0);
 
@@ -990,11 +989,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .topologyService()
                 .localMember();
 
-        leaseholderNode.placementDriver.setPrimaryReplicaSupplier(() -> new TestReplicaMetaImpl(
+        nodes.forEach(node -> node.placementDriver.setPrimaryReplicaSupplier(() -> new TestReplicaMetaImpl(
                 leaseholder.name(),
                 leaseholder.id(),
                 new TablePartitionId(getTableId(node, TABLE_NAME), 0)
-        ));
+        )));
     }
 
     private @NotNull Node getLeaseholderNodeForPartition(Node node, int partId) {
