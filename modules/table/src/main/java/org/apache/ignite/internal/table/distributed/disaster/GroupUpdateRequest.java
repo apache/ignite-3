@@ -304,15 +304,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         } else {
             assert !partAssignments.isEmpty() : "Alive nodes with data should not be empty";
 
-            List<Assignment> nextAssignments = new ArrayList<>(partAssignments);
-
-            nextAssignments.sort(
-                    Comparator.<Assignment>comparingLong(
-                                    node -> localPartitionStateMessageByNode.partitionState(node.consistentId()).logIndex()
-                            )
-                            .reversed()
-                            .thenComparing(Assignment::consistentId));
-
+            Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
 
             if (manualUpdate) {
                 enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
@@ -320,15 +312,29 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
             // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
             // for the case of the manual update, that was triggered by a user.
+
             invokeClosure = prepareMsInvokeClosure(
                     partId,
                     longToBytesKeepingOrder(revision),
-                    Assignments.forced(Set.of(nextAssignments.get(0)), assignmentsTimestamp).toBytes(),
+                    Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp).toBytes(),
                     Assignments.toBytes(partAssignments, assignmentsTimestamp)
             );
         }
 
         return metaStorageMgr.invoke(invokeClosure).thenApply(StatementResult::getAsInt);
+    }
+
+    private static Assignment nextAssignment(LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
+            Set<Assignment> partAssignments) {
+        List<Assignment> nextAssignments = new ArrayList<>(partAssignments);
+
+        nextAssignments.sort(
+                Comparator.<Assignment>comparingLong(
+                                node -> localPartitionStateMessageByNode.partitionState(node.consistentId()).logIndex()
+                        )
+                        .reversed()
+                        .thenComparing(Assignment::consistentId));
+        return nextAssignments.get(0);
     }
 
     /**
