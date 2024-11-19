@@ -612,6 +612,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return raftClient.refreshAndGetLeaderWithTerm()
                 .exceptionally(throwable -> {
+                    LOG.info("!!! req exception", throwable);
+
                     throwable = unwrapCause(throwable);
 
                     if (throwable instanceof TimeoutException) {
@@ -630,7 +632,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                     );
                 })
                 .thenCompose(leaderWithTerm -> {
-                    if (leaderWithTerm.isEmpty() || !isTokenStillValidPrimary(request.enlistmentConsistencyToken())) {
+                    var tokenIsInvalid = !isTokenStillValidPrimary(request.enlistmentConsistencyToken());
+                    if (leaderWithTerm.isEmpty() || tokenIsInvalid) {
+                        LOG.info("!!! req fail leaderIsEmpty={} nonValidToken={}", tokenIsInvalid);
                         return nullCompletedFuture();
                     }
 

@@ -2090,6 +2090,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
 
+        LOG.info("PPP Pendings={}", pendingAssignments);
+
         return tablesVv.get(revision)
                 .thenApply(ignore -> {
                     if (!busyLock.enterBusy()) {
