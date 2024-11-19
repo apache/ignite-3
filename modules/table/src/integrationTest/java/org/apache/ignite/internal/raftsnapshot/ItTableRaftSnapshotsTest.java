@@ -111,7 +111,6 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -795,7 +794,6 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
      * rejected, and that, when metadata catches up, the snapshot gets successfully installed.
      */
     @Test
-    @Disabled("IGNITE-23677")
     void laggingSchemasOnFollowerPreventSnapshotInstallation() throws Exception {
         startAndInitCluster();
 
@@ -806,6 +804,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
         final int followerIndex = 2;
 
         transferLeadershipOnSolePartitionTo(leaderIndex);
+        transferPrimaryOnSolePartitionTo(leaderIndex);
         cluster.transferLeadershipTo(leaderIndex, MetastorageGroupId.INSTANCE);
 
         // Block AppendEntries from being accepted on the follower so that the leader will have to use a snapshot.
