@@ -35,6 +35,8 @@ import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
@@ -118,7 +120,7 @@ public class Accumulators {
         switch (call.type.getSqlTypeName()) {
             case BIGINT:
             case DECIMAL:
-                return () -> new Sum(new DecimalSumEmptyIsZero());
+                return () -> new Sum(new DecimalSumEmptyIsZero(call.type.getScale()));
 
             case DOUBLE:
             case REAL:
@@ -143,7 +145,7 @@ public class Accumulators {
                 // Used by REDUCE phase of COUNT aggregate.
                 return LongSumEmptyIsZero.FACTORY;
             case DECIMAL:
-                return DecimalSumEmptyIsZero.FACTORY;
+                return () -> DecimalSumEmptyIsZero.FACTORY.apply(call.type.getScale());
 
             case DOUBLE:
             case REAL:
@@ -431,7 +433,6 @@ public class Accumulators {
                     result.set(null);
                 }
             }
-
         }
 
         /** {@inheritDoc} */
@@ -625,7 +626,16 @@ public class Accumulators {
 
     /** SUM(DECIMAL) accumulator. */
     public static class DecimalSumEmptyIsZero implements Accumulator {
-        public static final Supplier<Accumulator> FACTORY = DecimalSumEmptyIsZero::new;
+        public static final IntFunction<Accumulator> FACTORY = DecimalSumEmptyIsZero::new;
+
+        private final int precision;
+
+        private final int scale;
+
+        private DecimalSumEmptyIsZero(int scale) {
+            this.precision = CatalogUtils.MAX_DECIMAL_PRECISION;
+            this.scale = scale;
+        }
 
         /** {@inheritDoc} */
         @Override
@@ -650,7 +660,8 @@ public class Accumulators {
             if (!state.hasValue()) {
                 result.set(BigDecimal.ZERO);
             } else {
-                result.set(state.get());
+                BigDecimal value = (BigDecimal) state.get();
+                result.set(IgniteSqlFunctions.toBigDecimal(value, precision, scale));
             }
         }
 
@@ -663,7 +674,7 @@ public class Accumulators {
         /** {@inheritDoc} */
         @Override
         public RelDataType returnType(IgniteTypeFactory typeFactory) {
-            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL), false);
+            return typeFactory.createTypeWithNullability(typeFactory.createSqlType(DECIMAL, precision, scale), false);
         }
     }
 

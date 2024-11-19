@@ -38,6 +38,7 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -583,7 +584,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 -1,
                 null,
                 RelCollations.EMPTY,
-                tf.createJavaType(Long.class),
+                tf.createSqlType(SqlTypeName.BIGINT),
                 null);
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
@@ -632,7 +633,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 -1,
                 null,
                 RelCollations.EMPTY,
-                tf.createJavaType(BigDecimal.class),
+                tf.createSqlType(SqlTypeName.DECIMAL),
                 null);
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
