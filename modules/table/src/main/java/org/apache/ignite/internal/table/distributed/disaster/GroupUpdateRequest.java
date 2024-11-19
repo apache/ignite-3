@@ -282,42 +282,27 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
         }
 
-        Iif invokeClosure;
-
-        if (aliveStableNodes.isEmpty()) {
-            if (!manualUpdate) {
-                return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
-            }
-
-            enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
-
-            Assignment nextAssignment = nextAssignment(partAssignments);
-
-            // There are no known nodes with data, which means that we can just put new assignments into pending assignments with "forced"
-            // flag.
-            invokeClosure = prepareMsInvokeClosure(
-                    partId,
-                    longToBytesKeepingOrder(revision),
-                    Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp).toBytes(),
-                    Assignments.toBytes(partAssignments, assignmentsTimestamp)
-            );
-        } else {
-            Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
-
-            if (manualUpdate) {
-                enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
-            }
-            // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
-            // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
-            // for the case of the manual update, that was triggered by a user.
-
-            invokeClosure = prepareMsInvokeClosure(
-                    partId,
-                    longToBytesKeepingOrder(revision),
-                    Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp).toBytes(),
-                    Assignments.toBytes(partAssignments, assignmentsTimestamp)
-            );
+        if (aliveStableNodes.isEmpty() && !manualUpdate) {
+            return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
         }
+
+        if (manualUpdate) {
+            enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
+        }
+
+        Assignment nextAssignment = aliveStableNodes.isEmpty()
+                ? nextAssignment(partAssignments)
+                : nextAssignment(localPartitionStateMessageByNode, partAssignments);
+
+        // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
+        // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
+        // for the case of the manual update, that was triggered by a user.
+        Iif invokeClosure = prepareMsInvokeClosure(
+                partId,
+                longToBytesKeepingOrder(revision),
+                Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp).toBytes(),
+                Assignments.toBytes(partAssignments, assignmentsTimestamp)
+        );
 
         return metaStorageMgr.invoke(invokeClosure).thenApply(StatementResult::getAsInt);
     }
@@ -344,6 +329,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         assert !assignments.isEmpty() : "Alive nodes with data should not be empty";
 
         return assignments.stream()
+                .filter(assignment -> localPartitionStateByNode.partitionState(assignment.consistentId()) != null)
                 .min(Comparator.<Assignment>comparingLong(
                                 node -> localPartitionStateByNode.partitionState(node.consistentId()).logIndex()
                         )
@@ -431,8 +417,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             int replicas,
             Set<Assignment> partAssignments
     ) {
-        Set<Assignment> calcAssignments = calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(),
-                replicas);
+        Set<Assignment> calcAssignments = calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), replicas);
 
         for (Assignment calcAssignment : calcAssignments) {
             if (partAssignments.size() == replicas) {
