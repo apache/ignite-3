@@ -285,7 +285,10 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     partId,
                     longToBytesKeepingOrder(revision),
                     Assignments.forced(stableAssignments, assignmentsTimestamp).toBytes(),
-                    Assignments.toBytes(partAssignments, assignmentsTimestamp)
+                    // In case if nodes set is equal then we shouldn't schedule the same planned rebalance
+                    stableAssignments.equals(partAssignments)
+                        ? null
+                        : Assignments.toBytes(partAssignments, assignmentsTimestamp)
             );
         }
 
