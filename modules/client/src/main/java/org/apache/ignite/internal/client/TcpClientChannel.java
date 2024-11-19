@@ -222,36 +222,42 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
      * Close the channel with cause.
      */
     private void close(@Nullable Throwable cause, boolean graceful) {
-        if (closed.compareAndSet(false, true)) {
-            if (cause != null && (cause instanceof TimeoutException || cause.getCause() instanceof TimeoutException)) {
-                metrics.connectionsLostTimeoutIncrement();
-            } else if (!graceful) {
-                metrics.connectionsLostIncrement();
-            }
+        if (!closed.compareAndSet(false, true)) {
+            return;
+        }
 
-            // Disconnect can happen before we initialize the timer.
-            var timer = heartbeatTimer;
+        if (cause != null && (cause instanceof TimeoutException || cause.getCause() instanceof TimeoutException)) {
+            metrics.connectionsLostTimeoutIncrement();
+        } else if (!graceful) {
+            metrics.connectionsLostIncrement();
+        }
 
-            if (timer != null) {
-                timer.cancel();
-            }
+        // Disconnect can happen before we initialize the timer.
+        var timer = heartbeatTimer;
 
-            if (sock != null) {
-                sock.close();
-            }
+        if (timer != null) {
+            timer.cancel();
+        }
 
-            for (TimeoutObjectImpl pendingReq : pendingReqs.values()) {
-                pendingReq.future().completeExceptionally(
+        for (TimeoutObjectImpl pendingReq : pendingReqs.values()) {
+            pendingReq.future().completeExceptionally(
+                    new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
+        }
+
+        for (CompletableFuture<PayloadInputChannel> handler : notificationHandlers.values()) {
+            try {
+                handler.completeExceptionally(
                         new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
+            } catch (Throwable ignored) {
+                // Ignore.
             }
+        }
 
-            for (CompletableFuture<PayloadInputChannel> handler : notificationHandlers.values()) {
-                try {
-                    handler.completeExceptionally(
-                            new IgniteClientConnectionException(CONNECTION_ERR, "Channel is closed", endpoint(), cause));
-                } catch (Exception ignored) {
-                    // Ignore.
-                }
+        if (sock != null) {
+            try {
+                sock.close();
+            } catch (Throwable t) {
+                log.warn("Failed to close the channel [remoteAddress=" + cfg.getAddress() + "]: " + t.getMessage(), t);
             }
         }
     }
@@ -696,7 +702,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterIds, clusterName);
 
             return null;
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.warn("Failed to handle handshake response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
 
             throw e;

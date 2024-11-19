@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
@@ -436,6 +437,28 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
                         DEFAULT_PARTITION_COUNT
                 )
         ));
+    }
+
+    @Test
+    void testLocalPartitionStatesWithUpdatedEstimatedRows() {
+        insertRowToAllTables(1, 1);
+
+        HttpResponse<LocalPartitionStatesResponse> response = client.toBlocking().exchange(
+                "/state/local/",
+                LocalPartitionStatesResponse.class
+        );
+
+        assertEquals(HttpStatus.OK, response.status());
+
+        Set<Long> estimatedRows = response.body().states().stream().map(LocalPartitionStateResponse::estimatedRows).collect(toSet());
+
+        assertThat(estimatedRows, containsInAnyOrder(0L, 1L));
+    }
+
+    private static void insertRowToAllTables(int id, int val) {
+        ZONES_CONTAINING_TABLES.forEach(name -> {
+            sql(String.format("INSERT INTO PUBLIC.\"%s_table\" (id, val) values (%s, %s)", name, id, val));
+        });
     }
 
     private static void checkLocalStates(List<LocalPartitionStateResponse> states, Set<String> zoneNames, Set<String> nodes) {
