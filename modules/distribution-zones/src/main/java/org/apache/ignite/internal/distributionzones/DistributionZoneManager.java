@@ -100,9 +100,12 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration;
+import org.apache.ignite.internal.distributionzones.events.HighAvalabilityZoneTopologyUpdateEvent;
+import org.apache.ignite.internal.distributionzones.events.ZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -133,7 +136,8 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Distribution zones manager.
  */
-public class DistributionZoneManager implements IgniteComponent {
+public class DistributionZoneManager extends
+        AbstractEventProducer<HighAvalabilityZoneTopologyUpdateEvent, ZoneTopologyUpdateEventParams> implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
 
@@ -987,8 +991,11 @@ public class DistributionZoneManager implements IgniteComponent {
                 if (zone.consistencyMode() == HIGH_AVAILABILITY) {
                     if (partitionReset == IMMEDIATE_TIMER_VALUE) {
                         futures.add(
-                                // TODO: IGNITE-23599 Implement valid behaviour here.
-                                nullCompletedFuture()
+                                // KKK will be processed in a metastore thread
+                                fireEvent(
+                                        HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
+                                        new ZoneTopologyUpdateEventParams(revision, zoneId, metaStorageManager.timestampByRevisionLocally(revision).longValue())
+                                )
                         );
                     }
 
@@ -996,11 +1003,14 @@ public class DistributionZoneManager implements IgniteComponent {
                         zonesState.get(zoneId).reschedulePartitionDistributionReset(
                                 partitionReset,
                                 // TODO: IGNITE-23599 Implement valid behaviour here.
-                                () -> {},
-                                zoneId
-                        );
-                    }
-
+                                () -> {
+                                    fireEvent(
+                                            HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
+                                            new ZoneTopologyUpdateEventParams(revision, zoneId, metaStorageManager.timestampByRevisionLocally(revision).longValue())
+                                    );
+                                }, zoneId
+                            );
+                        }
                 } else {
                     if (autoAdjustScaleDown == IMMEDIATE_TIMER_VALUE) {
                         futures.add(saveDataNodesToMetaStorageOnScaleDown(zoneId, revision));

@@ -888,6 +888,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
+    public long revisionByTimestamoLocally(HybridTimestamp timestamp) {
+        return inBusyLock(busyLock, () -> storage.revisionByTimestamp(timestamp));
+    }
+
+    @Override
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
         return inBusyLock(
                 busyLock,

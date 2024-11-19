@@ -26,6 +26,7 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.CATCHING_UP;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
@@ -42,6 +43,7 @@ import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STAT
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,6 +62,8 @@ import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.events.HighAvalabilityZoneTopologyUpdateEvent;
+import org.apache.ignite.internal.distributionzones.events.ZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -211,6 +215,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
 
+        dzManager.listen(HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onReset);
+
         catalogManager.listen(TABLE_CREATE, fromConsumer(this::onTableCreate));
 
         catalogManager.listen(TABLE_DROP, fromConsumer(this::onTableDrop));
@@ -237,6 +243,30 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 createGlobalPartitionStatesSystemView(this),
                 createLocalPartitionStatesSystemView(this)
         );
+    }
+
+    private CompletableFuture<Boolean> onReset(ZoneTopologyUpdateEventParams params) {
+        int zoneId = params.zoneId();
+        long timestamp = params.timestamp();
+
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, timestamp);
+        int catalogVersion = catalogManager.activeCatalogVersion(timestamp);
+
+        List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogVersion, catalogManager);
+        List<CompletableFuture<Void>> tablesResetFuts = new ArrayList<>();
+        for (CatalogTableDescriptor table : tables) {
+            Set<Integer> partitionsToReset = new HashSet<>();
+            for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-23599 implement check for majority loss
+                partitionsToReset.add(partId);
+            }
+
+            tablesResetFuts.add(resetPartitions(
+                    // KKK fix name
+                    zoneDescriptor.name(), "PUBLIC." + table.name(), partitionsToReset, false));
+        }
+
+        return allOf(tablesResetFuts.toArray(new CompletableFuture[]{})).thenApply(r -> false);
     }
 
     /**
@@ -495,8 +525,14 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         ongoingOperationsById.put(operationId, operationFuture);
 
-        metaStorageManager.put(RECOVERY_TRIGGER_KEY, VersionedSerialization.toBytes(request, DisasterRecoveryRequestSerializer.INSTANCE));
-
+        metaStorageManager.put(RECOVERY_TRIGGER_KEY, VersionedSerialization.toBytes(request, DisasterRecoveryRequestSerializer.INSTANCE))
+                .whenComplete((v, th) -> {
+                    if (th != null) {
+                        System.out.println("KKK " + th);
+                    } else {
+                        System.out.println("KKK put done");
+                    }
+                });
         return operationFuture;
     }
 
