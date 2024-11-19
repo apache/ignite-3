@@ -290,18 +290,6 @@ public class ReplicaService {
     }
 
     /**
-     * Sends a request to the given replica {@code node} and returns a future that will be completed with a raw response.
-     * This can be used to carry additional metadata to the caller.
-     *
-     * @param node Cluster node.
-     * @param request The request.
-     * @return Response future with either evaluation raw response or completed exceptionally.
-     */
-    public CompletableFuture<ReplicaResponse> invokeRaw(ClusterNode node, ReplicaRequest request) {
-        return sendToReplicaRaw(node.name(), request);
-    }
-
-    /**
      * Sends a request to the given replica {@code node} and returns a future that will be completed with a result of request processing.
      *
      * @param node Replica node.
@@ -314,6 +302,18 @@ public class ReplicaService {
      */
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId) {
         return sendToReplica(node.name(), request);
+    }
+
+    /**
+     * Sends a request to the given replica {@code node} and returns a future that will be completed with a raw response.
+     * This can be used to carry additional metadata to the caller.
+     *
+     * @param node Cluster node.
+     * @param request The request.
+     * @return Response future with either evaluation raw response or completed exceptionally.
+     */
+    public CompletableFuture<ReplicaResponse> invokeRaw(ClusterNode node, ReplicaRequest request) {
+        return sendToReplicaRaw(node.name(), request);
     }
 
     public MessagingService messagingService() {

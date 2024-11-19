@@ -32,6 +32,7 @@ public class HybridTimestampTracker {
             "timestamp");
 
     /** Timestamp. */
+    @SuppressWarnings("PMD.UnusedPrivateField")
     private volatile long timestamp = NULL_HYBRID_TIMESTAMP;
 
     /**
