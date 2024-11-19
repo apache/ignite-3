@@ -411,8 +411,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(CANCELED)));
         assertThat(execution.resultAsync(), willBe(nullValue()));
 
-        IgniteTestUtils.await(execution.cancelAsync());
-
         assertThat(execution.cancelAsync(), willBe(false));
     }
 
