@@ -17,6 +17,7 @@
 
 package org.apache.ignite.distributed;
 
+import static org.apache.ignite.distributed.ItTxTestCluster.NODE_PORT_BASE;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -46,6 +47,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
     private static final long CLIENT_FROZEN_PHYSICAL_TIME = 3000;
 
+    private static final int CLIENT_PORT = NODE_PORT_BASE - 1;
+
     /**
      * The constructor.
      *
@@ -66,9 +69,9 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
     }
 
     @Override
-    protected HybridClock createClocks(ClusterNode node) {
+    protected HybridClock createClock(ClusterNode node) {
         // Client physical time is frozen in the past, server time advances normally.
-        return new TestHybridClock(() -> node.address().port() == 19999 ? CLIENT_FROZEN_PHYSICAL_TIME : System.currentTimeMillis());
+        return new TestHybridClock(() -> node.address().port() == CLIENT_PORT ? CLIENT_FROZEN_PHYSICAL_TIME : System.currentTimeMillis());
     }
 
     @Test

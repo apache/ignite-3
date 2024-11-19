@@ -27,17 +27,18 @@ public class ReplicaResult {
     private final Object res;
 
     /** The replication future. */
-    private final ApplyResult applyResult;
+    private final CommandApplicationResult commandApplicationResult;
 
     /**
      * Construct a replica result.
      *
      * @param res The result.
-     * @param applyResult The replication result.
+     * @param commandApplicationResult The replication result.
      */
-    public ReplicaResult(@Nullable Object res, @Nullable ApplyResult applyResult) {
+    public ReplicaResult(@Nullable Object res, @Nullable CommandApplicationResult commandApplicationResult) {
         this.res = res;
-        this.applyResult = applyResult == null ? new ApplyResult(null, null) : applyResult;
+        this.commandApplicationResult = commandApplicationResult
+                == null ? new CommandApplicationResult(null, null) : commandApplicationResult;
     }
 
     /**
@@ -54,7 +55,7 @@ public class ReplicaResult {
      *
      * @return The replication future.
      */
-    public ApplyResult applyResult() {
-        return applyResult;
+    public CommandApplicationResult applyResult() {
+        return commandApplicationResult;
     }
 }

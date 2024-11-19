@@ -638,7 +638,7 @@ public class InternalTableImpl implements InternalTable {
                 boolean hasError = e != null;
                 assert hasError || r instanceof TimestampAware;
 
-                // timestamp is set to commit timestamp for full transactions.
+                // Timestamp is set to commit timestamp for full transactions.
                 tx.finish(!hasError, hasError ? null : ((TimestampAware) r).timestamp(), true);
 
                 if (e != null) {
@@ -1116,7 +1116,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_UPSERT)
-                        .timestamp(txo.startTimestamp()) // TODO replace everythere
+                        .timestamp(txo.startTimestamp()) // TODO https://issues.apache.org/jira/browse/IGNITE-23712
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),

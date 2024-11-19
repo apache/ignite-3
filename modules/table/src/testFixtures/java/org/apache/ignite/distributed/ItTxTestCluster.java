@@ -400,7 +400,7 @@ public class ItTxTestCluster {
 
             ClusterNode node = clusterService.topologyService().localMember();
 
-            HybridClock clock = createClocks(node);
+            HybridClock clock = createClock(node);
             ClockWaiter clockWaiter = new ClockWaiter("test-node" + i, clock);
             assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
             TestClockService clockService = new TestClockService(clock, clockWaiter);
@@ -546,7 +546,7 @@ public class ItTxTestCluster {
         assertNotNull(clientTxManager);
     }
 
-    protected HybridClock createClocks(ClusterNode node) {
+    protected HybridClock createClock(ClusterNode node) {
         return new HybridClockImpl();
     }
 
@@ -1032,7 +1032,7 @@ public class ItTxTestCluster {
 
         assertTrue(waitForTopology(client, nodes + 1, 1000));
 
-        clientClock = createClocks(client.topologyService().localMember());
+        clientClock = createClock(client.topologyService().localMember());
         clientClockWaiter = new ClockWaiter("client-node", clientClock);
         assertThat(clientClockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
         clientClockService = new TestClockService(clientClock, clientClockWaiter);

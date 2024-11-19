@@ -65,10 +65,8 @@ public class HybridClockImpl implements HybridClock {
                 return LATEST_TIME.incrementAndGet(this);
             }
 
-            long newLatestTime = max(oldLatestTime + 1, now);
-
-            if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
-                return newLatestTime;
+            if (LATEST_TIME.compareAndSet(this, oldLatestTime, now)) {
+                return now;
             }
         }
     }
@@ -121,7 +119,7 @@ public class HybridClockImpl implements HybridClock {
 
             long newLatestTime = max(requestTime.longValue() + 1, max(now, oldLatestTime + 1));
 
-            // TODO avoid CAS on lower value.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-23707 avoid CAS on logical part update.
 
             if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
                 notifyUpdateListeners(newLatestTime);

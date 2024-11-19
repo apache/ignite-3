@@ -124,10 +124,10 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
         }
 
         try {
-            Entry<T, @Nullable R> tmp = current;
+            Entry<T, @Nullable R> currentKeyValue = current;
 
-            if (tmp.getKey().compareTo(valueToWait) >= 0) {
-                return completedFuture(tmp.getValue());
+            if (currentKeyValue.getKey().compareTo(valueToWait) >= 0) {
+                return completedFuture(currentKeyValue.getValue());
             }
 
             return addNewWaiter(valueToWait);

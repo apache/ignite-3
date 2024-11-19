@@ -176,8 +176,8 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
                 replicationConfiguration
         ) {
             @Override
-            protected HybridClock createClocks(ClusterNode node) {
-                return TxInfrastructureTest.this.createClocks(node);
+            protected HybridClock createClock(ClusterNode node) {
+                return TxInfrastructureTest.this.createClock(node);
             }
 
             @Override
@@ -195,7 +195,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
         log.info("Tables have been started");
     }
 
-    protected HybridClock createClocks(ClusterNode node) {
+    protected HybridClock createClock(ClusterNode node) {
         return new HybridClockImpl();
     }
 

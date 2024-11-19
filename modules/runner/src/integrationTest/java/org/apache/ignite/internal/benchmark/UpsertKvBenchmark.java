@@ -68,11 +68,10 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 
     private static final AtomicInteger counter = new AtomicInteger();
 
-    private static ThreadLocal<Integer> gen = ThreadLocal.withInitial(() -> {
+    private static final ThreadLocal<Integer> gen = ThreadLocal.withInitial(() -> {
         int id = counter.getAndIncrement();
-        return id * 20000000;
+        return id * 20_000_000;
     });
-
 
     @Override
     public void nodeSetUp() throws Exception {

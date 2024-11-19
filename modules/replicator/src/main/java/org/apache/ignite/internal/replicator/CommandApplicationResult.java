@@ -23,11 +23,11 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 /**
  * Replication command application result.
  */
-public final class ApplyResult {
+public final class CommandApplicationResult {
     private final HybridTimestamp commitTs;
     private final CompletableFuture<?> repFut;
 
-    public ApplyResult(HybridTimestamp commitTs, CompletableFuture<?> repFut) {
+    public CommandApplicationResult(HybridTimestamp commitTs, CompletableFuture<?> repFut) {
         this.commitTs = commitTs;
         this.repFut = repFut;
     }
