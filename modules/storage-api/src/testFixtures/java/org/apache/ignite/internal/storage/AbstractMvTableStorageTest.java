@@ -78,6 +78,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -659,7 +660,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Error because rebalance has not yet started for the partition.
         assertThrows(
                 StorageRebalanceException.class,
-                () -> tableStorage.finishRebalancePartition(PARTITION_ID, 100, 500, BYTE_EMPTY_ARRAY)
+                () -> tableStorage.finishRebalancePartition(PARTITION_ID, saneMvPartitionMeta())
         );
 
         List<TestRow> rowsBeforeRebalanceStart = List.of(
@@ -691,18 +692,21 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Partition is out of configuration range.
         assertThrows(
                 IllegalArgumentException.class,
-                () -> tableStorage.finishRebalancePartition(getPartitionIdOutOfRange(), 100, 500, BYTE_EMPTY_ARRAY)
+                () -> tableStorage.finishRebalancePartition(getPartitionIdOutOfRange(), saneMvPartitionMeta())
         );
 
         // Partition does not exist.
         assertThrows(
                 StorageRebalanceException.class,
-                () -> tableStorage.finishRebalancePartition(1, 100, 500, BYTE_EMPTY_ARRAY)
+                () -> tableStorage.finishRebalancePartition(1, saneMvPartitionMeta())
         );
 
         byte[] raftGroupConfig = createRandomRaftGroupConfiguration();
 
-        assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, 10, 20, raftGroupConfig), willCompleteSuccessfully());
+        assertThat(
+                tableStorage.finishRebalancePartition(PARTITION_ID, saneMvPartitionMeta(10, 20, raftGroupConfig)),
+                willCompleteSuccessfully()
+        );
 
         completeBuiltIndexes(PARTITION_ID, hashIndexStorage, sortedIndexStorage);
 
@@ -712,6 +716,14 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         checkLastApplied(mvPartitionStorage, 10, 20);
         checkRaftGroupConfigs(raftGroupConfig, mvPartitionStorage.committedGroupConfiguration());
+    }
+
+    private static MvPartitionMeta saneMvPartitionMeta() {
+        return saneMvPartitionMeta(100, 500, BYTE_EMPTY_ARRAY);
+    }
+
+    private static MvPartitionMeta saneMvPartitionMeta(long lastAppliedIndex, long lastAppliedTerm, byte[] groupConfig) {
+        return new MvPartitionMeta(lastAppliedIndex, lastAppliedTerm, groupConfig, 333, new UUID(1, 2), "primary");
     }
 
     @Test
@@ -956,7 +968,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     void testNextRowIdToBuildAfterRebalance() throws Exception {
         testNextRowIdToBuildAfterOperation(() -> {
             assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
-            assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, 100, 100, BYTE_EMPTY_ARRAY), willCompleteSuccessfully());
+            assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, saneMvPartitionMeta()), willCompleteSuccessfully());
         });
     }
 
@@ -1425,7 +1437,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         fillStorages(mvPartitionStorage, null, null, rowsAfterRebalance);
 
-        assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, 42, 42, BYTE_EMPTY_ARRAY), willCompleteSuccessfully());
+        assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, saneMvPartitionMeta()), willCompleteSuccessfully());
 
         assertThat(mvPartitionStorage.estimatedSize(), is(3L));
     }

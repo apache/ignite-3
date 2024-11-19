@@ -24,7 +24,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -51,7 +54,7 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
 
     private final ReadWriteLock updateLowWatermarkLock = new ReentrantReadWriteLock();
 
-    private final Map<Object, LowWatermarkLock> locks = new ConcurrentHashMap<>();
+    private final Map<UUID, LowWatermarkLock> locks = new ConcurrentHashMap<>();
 
     @Override
     public @Nullable HybridTimestamp getLowWatermark() {
@@ -85,7 +88,7 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public boolean tryLock(Object lockId, HybridTimestamp lockTs) {
+    public boolean tryLock(UUID lockId, HybridTimestamp lockTs) {
         updateLowWatermarkLock.readLock().lock();
 
         try {
@@ -103,7 +106,7 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     @Override
-    public void unlock(Object lockId) {
+    public void unlock(UUID lockId) {
         LowWatermarkLock lock = locks.remove(lockId);
 
         if (lock == null) {
@@ -112,6 +115,11 @@ public class TestLowWatermark extends AbstractEventProducer<LowWatermarkEvent, L
         }
 
         lock.future().complete(null);
+    }
+
+    @Override
+    public Set<UUID> lockIds() {
+        return Collections.unmodifiableSet(locks.keySet());
     }
 
     /**

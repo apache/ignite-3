@@ -173,17 +173,11 @@ public class ErrorGroups {
         /** Column not found. */
         public static final int COLUMN_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 4);
 
-        /** Table is stopping. */
-        public static final int TABLE_STOPPING_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 5);
-
-        /** Table definition is incorrect. */
-        public static final int TABLE_DEFINITION_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 6);
-
         /** Schema version mismatch. */
-        public static final int SCHEMA_VERSION_MISMATCH_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 7);
+        public static final int SCHEMA_VERSION_MISMATCH_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 5);
 
         /** Unsupported partition type. */
-        public static final int UNSUPPORTED_PARTITION_TYPE_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 8);
+        public static final int UNSUPPORTED_PARTITION_TYPE_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 6);
     }
 
     /** Client error group. */
@@ -204,23 +198,17 @@ public class ErrorGroups {
         /** Table not found by ID. */
         public static final int TABLE_ID_NOT_FOUND_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 4);
 
-        /** Authentication error. */
-        public static final int AUTHENTICATION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 5);
-
-        /** Authorization error. */
-        public static final int AUTHORIZATION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 6);
-
         /** Configuration error. */
-        public static final int CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 7);
+        public static final int CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 5);
 
         /** Cluster ID mismatch error. */
-        public static final int CLUSTER_ID_MISMATCH_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 8);
+        public static final int CLUSTER_ID_MISMATCH_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 6);
 
         /** Client SSL configuration error. */
-        public static final int CLIENT_SSL_CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 9);
+        public static final int CLIENT_SSL_CONFIGURATION_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 7);
 
         /** Client handshake header error. */
-        public static final int HANDSHAKE_HEADER_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 10);
+        public static final int HANDSHAKE_HEADER_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 8);
     }
 
     /** SQL error group. */
@@ -316,14 +304,11 @@ public class ErrorGroups {
         /** Index error group. */
         public static final ErrorGroup INDEX_ERR_GROUP = registerGroup("IDX", (short) 6);
 
-        /** Invalid index definition. */
-        public static final int INVALID_INDEX_DEFINITION_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 1);
-
         /** Index not found. */
-        public static final int INDEX_NOT_FOUND_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 2);
+        public static final int INDEX_NOT_FOUND_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 1);
 
         /** Index already exists. */
-        public static final int INDEX_ALREADY_EXISTS_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 3);
+        public static final int INDEX_ALREADY_EXISTS_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 2);
     }
 
     /** Transactions error group. */
@@ -356,26 +341,23 @@ public class ErrorGroups {
         /** Failed to enlist read-write operation into read-only transaction. */
         public static final int TX_FAILED_READ_WRITE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 8);
 
-        /** The error happens when the replica is not ready to handle a request. */
-        public static final int TX_REPLICA_UNAVAILABLE_ERR = TX_ERR_GROUP.registerErrorCode((short) 9);
-
         /** Tx state storage rebalancing error. */
-        public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode((short) 10);
+        public static final int TX_STATE_STORAGE_REBALANCE_ERR = TX_ERR_GROUP.registerErrorCode((short) 9);
 
         /** Error occurred when trying to create a read-only transaction with a timestamp older than the data available in the tables. */
-        public static final int TX_READ_ONLY_TOO_OLD_ERR = TX_ERR_GROUP.registerErrorCode((short) 11);
+        public static final int TX_READ_ONLY_TOO_OLD_ERR = TX_ERR_GROUP.registerErrorCode((short) 10);
 
         /** Failure due to an incompatible schema change. */
-        public static final int TX_INCOMPATIBLE_SCHEMA_ERR = TX_ERR_GROUP.registerErrorCode((short) 12);
+        public static final int TX_INCOMPATIBLE_SCHEMA_ERR = TX_ERR_GROUP.registerErrorCode((short) 11);
 
         /** Failure due to primary replica expiration. */
-        public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
+        public static final int TX_PRIMARY_REPLICA_EXPIRED_ERR = TX_ERR_GROUP.registerErrorCode((short) 12);
 
         /** Operation failed because the transaction is already finished. */
-        public static final int TX_ALREADY_FINISHED_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
+        public static final int TX_ALREADY_FINISHED_ERR = TX_ERR_GROUP.registerErrorCode((short) 13);
 
         /** Failure due to a stale operation of a completed transaction is detected. */
-        public static final int TX_STALE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 15);
+        public static final int TX_STALE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
     }
 
     /** Replicator error group. */
@@ -563,27 +545,21 @@ public class ErrorGroups {
         /** Compute job failed. */
         public static final int COMPUTE_JOB_FAILED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 9);
 
-        /** Cannot change job priority, compute job not found error. */
-        public static final int CHANGE_JOB_PRIORITY_NO_JOB_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 10);
-
-        /** Cannot change job priority, compute job is already executing. */
-        public static final int CHANGE_JOB_PRIORITY_JOB_EXECUTING_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 11);
-
         /** Cannot resolve primary replica for colocated execution. */
-        public static final int PRIMARY_REPLICA_RESOLVE_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 12);
+        public static final int PRIMARY_REPLICA_RESOLVE_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 10);
 
         /** Cannot change job priority. */
-        public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 13);
+        public static final int CHANGE_JOB_PRIORITY_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 11);
 
         /** Specified node is not found in the cluster. */
-        public static final int NODE_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 14);
+        public static final int NODE_NOT_FOUND_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 12);
 
         /**
          * Incompatible types for argument/result in compute job.
          * For example, the one has defined a marshaller for Type A in the compute job
          * but on the client side they have passed Type B.
          */
-        public static final int MARSHALLING_TYPE_MISMATCH_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 15);
+        public static final int MARSHALLING_TYPE_MISMATCH_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 13);
     }
 
     /** Catalog error group. */
