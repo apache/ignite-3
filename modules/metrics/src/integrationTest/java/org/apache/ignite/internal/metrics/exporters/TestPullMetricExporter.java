@@ -21,8 +21,10 @@ import com.google.auto.service.AutoService;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -55,8 +57,8 @@ public class TestPullMetricExporter extends BasicMetricExporter<TestPullMetricsE
     }
 
     @Override
-    public void start(MetricProvider metricProvider, TestPullMetricsExporterView conf) {
-        super.start(metricProvider, conf);
+    public void start(MetricProvider metricProvider, TestPullMetricsExporterView conf, Supplier<UUID> clusterIdSupplier, String nodeName) {
+        super.start(metricProvider, conf, clusterIdSupplier, nodeName);
 
         executorService.execute(() -> {
             while (true) {

@@ -15,18 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.exporters.configuration;
+package org.apache.ignite.internal.metrics.exporters.otlp;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.sdk.common.Clock;
+import io.opentelemetry.sdk.metrics.data.PointData;
 
 /**
- * Configuration for log push exporter.
+ * Base class for a point in the metric data model.
  */
-@PolymorphicConfigInstance(LogPushExporter.EXPORTER_NAME)
-public class LogPushExporterConfigurationSchema extends ExporterConfigurationSchema {
-    /** Export period, in milliseconds. */
-    @Value(hasDefault = true)
-    public long period = 30_000;
+abstract class IgnitePointData implements PointData {
+    @Override
+    public long getStartEpochNanos() {
+        return Clock.getDefault().now();
+    }
+
+    @Override
+    public long getEpochNanos() {
+        return Clock.getDefault().now();
+    }
+
+    @Override
+    public Attributes getAttributes() {
+        return Attributes.empty();
+    }
 }

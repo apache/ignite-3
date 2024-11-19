@@ -15,18 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.exporters.configuration;
+package org.apache.ignite.internal.metrics.exporters.otlp;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
+import static java.util.Collections.singletonList;
+
+import io.opentelemetry.sdk.metrics.data.GaugeData;
+import io.opentelemetry.sdk.metrics.data.PointData;
+import java.util.Collection;
 
 /**
- * Configuration for log push exporter.
+ * Wrapper over data point that returns it as a list.
+ *
+ * @param <T> Data point type.
  */
-@PolymorphicConfigInstance(LogPushExporter.EXPORTER_NAME)
-public class LogPushExporterConfigurationSchema extends ExporterConfigurationSchema {
-    /** Export period, in milliseconds. */
-    @Value(hasDefault = true)
-    public long period = 30_000;
+class IgniteGaugeData<T extends PointData> implements GaugeData<T> {
+    private final Collection<T> points;
+
+    IgniteGaugeData(T data) {
+        points = singletonList(data);
+    }
+
+    @Override
+    public Collection<T> getPoints() {
+        return points;
+    }
 }

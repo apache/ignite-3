@@ -17,16 +17,22 @@
 
 package org.apache.ignite.internal.metrics.exporters.configuration;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
+import org.apache.ignite.configuration.validation.NotBlank;
 
 /**
- * Configuration for log push exporter.
+ * Connection headers configuration schema.
  */
-@PolymorphicConfigInstance(LogPushExporter.EXPORTER_NAME)
-public class LogPushExporterConfigurationSchema extends ExporterConfigurationSchema {
-    /** Export period, in milliseconds. */
-    @Value(hasDefault = true)
-    public long period = 30_000;
+@Config
+public class HeadersConfigurationSchema {
+    /** Name of the header. */
+    @InjectedName
+    public String name;
+
+    /** Header value. */
+    @NotBlank
+    @Value
+    public String header;
 }

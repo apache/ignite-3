@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.exporters.configuration;
+package org.apache.ignite.internal.metrics.exporters.validator;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
 /**
- * Configuration for log push exporter.
+ * Annotation to validate endpoint.
  */
-@PolymorphicConfigInstance(LogPushExporter.EXPORTER_NAME)
-public class LogPushExporterConfigurationSchema extends ExporterConfigurationSchema {
-    /** Export period, in milliseconds. */
-    @Value(hasDefault = true)
-    public long period = 30_000;
+@Target(FIELD)
+@Retention(RUNTIME)
+public @interface EndpointValidator {
 }
