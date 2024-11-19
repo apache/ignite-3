@@ -155,32 +155,32 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         CompletableFuture<Set<String>> dataNodesFuture = disasterRecoveryManager.dzManager.dataNodes(msRevision, catalogVersion, zoneId);
 
         return dataNodesFuture.thenCombine(localStates, (dataNodes, localStatesMap) -> {
-                    Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology()
-                            .stream()
-                            .map(NodeWithAttributes::nodeName)
-                            .collect(toSet());
+            Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology()
+                    .stream()
+                    .map(NodeWithAttributes::nodeName)
+                    .collect(toSet());
 
-                    int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionIds, zoneDescriptor.partitions());
+            int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionIds, zoneDescriptor.partitions());
 
-                    return forceAssignmentsUpdate(
-                            tableDescriptor,
-                            zoneDescriptor,
-                            dataNodes,
-                            nodeConsistentIds,
-                            msRevision,
-                            disasterRecoveryManager.metaStorageManager,
-                            localStatesMap,
-                            catalog.time(),
-                            partitionIdsArray,
-                            manualUpdate
-                    );
-                })
-                .thenCompose(Function.identity())
-                .whenComplete((unused, throwable) -> {
-                    if (throwable != null) {
-                        LOG.error("Failed to reset partition", throwable);
-                    }
-                });
+            return forceAssignmentsUpdate(
+                    tableDescriptor,
+                    zoneDescriptor,
+                    dataNodes,
+                    nodeConsistentIds,
+                    msRevision,
+                    disasterRecoveryManager.metaStorageManager,
+                    localStatesMap,
+                    catalog.time(),
+                    partitionIdsArray,
+                    manualUpdate
+            );
+        })
+        .thenCompose(Function.identity())
+        .whenComplete((unused, throwable) -> {
+            if (throwable != null) {
+                LOG.error("Failed to reset partition", throwable);
+            }
+        });
     }
 
     /**
