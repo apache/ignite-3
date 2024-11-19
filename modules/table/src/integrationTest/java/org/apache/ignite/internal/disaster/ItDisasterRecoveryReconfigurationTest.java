@@ -54,7 +54,6 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -71,7 +70,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.RunnableX;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -453,13 +451,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertRealAssignments(node0, partId, 1, 3, 4);
 
-        Loggers.forClass(ItDisasterRecoveryReconfigurationTest.class).info("TTT Before node stop");
-
         stopNodesInParallel(3, 4);
 
         waitForScale(node0, 3);
-
-        Loggers.forClass(ItDisasterRecoveryReconfigurationTest.class).info("TTT Before reset");
 
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
                 zoneName,
@@ -470,33 +464,17 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
 
-        // Wait for first force reset rebalance to node 1
-        waitForCondition(() -> {
-            Assignments pendings = getPendingAssignments(node0, partId);
-            return pendings != null && pendings.nodes().size() == 1 && pendings.force();
-        }, 2000);
-
-        Loggers.forClass(ItDisasterRecoveryReconfigurationTest.class).info("TTT Reset is done");
-
         awaitPrimaryReplica(node0, partId);
 
         assertRealAssignments(node0, partId, 1);
 
-        // Wait for second non-force rebalance after stable switch
-        waitForCondition(() -> {
-            Assignments pendings = getPendingAssignments(node0, partId);
-            return pendings != null && pendings.nodes().size() == 1 && !pendings.force();
-        }, 2000);
-
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
 
-        // Wait until non-force rebalance is done
-        waitForCondition(() -> getPendingAssignments(node0, partId) == null, 2000);
+        // Check that there is no ongoing or planned rebalance.
+        assertNull(getPendingAssignments(node0, partId));
 
         assertRealAssignments(node0, partId, 1);
-
-        Loggers.forClass(ItDisasterRecoveryReconfigurationTest.class).info("TTT Test is finished");
     }
 
     /**
@@ -690,7 +668,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private void assertRealAssignments(IgniteImpl node0, int partId, Integer... expected) throws InterruptedException {
         assertTrue(
-                waitForCondition(() -> List.of(expected).equals(getRealAssignments(node0, partId)), 5000),
+                waitForCondition(() -> List.of(expected).equals(getRealAssignments(node0, partId)), 2000),
                 () -> "Expected: " + List.of(expected) + ", actual: " + getRealAssignments(node0, partId)
         );
     }
@@ -765,8 +743,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     private void waitForScale(IgniteImpl node, int targetDataNodesCount) throws InterruptedException {
         DistributionZoneManager dzManager = node.distributionZoneManager();
 
-        Set<String> dns = new HashSet<>();
-
         assertTrue(waitForCondition(() -> {
             long causalityToken = node.metaStorageManager().appliedRevision();
 
@@ -775,18 +751,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
             CompletableFuture<Set<String>> dataNodes = dzManager.dataNodes(causalityToken, catalogVersion, zoneId);
 
             try {
-                var nodes = dataNodes.get(10, SECONDS);
-                var isTrue = nodes.size() == targetDataNodesCount;
-                if (isTrue) {
-                    dns.addAll(nodes);
-                }
-                return isTrue;
+                return dataNodes.get(10, SECONDS).size() == targetDataNodesCount;
             } catch (Exception e) {
                 return false;
             }
         }, 250, SECONDS.toMillis(60)));
-
-        Loggers.forClass(ItDisasterRecoveryReconfigurationTest.class).info("TTT Datanodes = {}", dns);
     }
 
     /**
