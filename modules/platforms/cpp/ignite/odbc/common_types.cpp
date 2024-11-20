@@ -134,8 +134,6 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::S42S21_COLUMN_ALREADY_EXISTS;
         case error::code::COLUMN_NOT_FOUND:
             return sql_state::S42S22_COLUMN_NOT_FOUND;
-        case error::code::TABLE_STOPPING:
-        case error::code::TABLE_DEFINITION:
         case error::code::SCHEMA_VERSION_MISMATCH:
         case error::code::UNSUPPORTED_PARTITION_TYPE:
             return sql_state::SHY000_GENERAL_ERROR;
@@ -147,8 +145,6 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::S08001_CANNOT_CONNECT;
         case error::code::TABLE_ID_NOT_FOUND:
             return sql_state::S42S02_TABLE_OR_VIEW_NOT_FOUND;
-        case error::code::AUTHENTICATION:
-        case error::code::AUTHORIZATION:
         case error::code::CONFIGURATION:
         case error::code::CLUSTER_ID_MISMATCH:
         case error::code::CLIENT_SSL_CONFIGURATION:
@@ -190,8 +186,6 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::S42S12_INDEX_NOT_FOUND;
         case error::code::INDEX_ALREADY_EXISTS:
             return sql_state::S42S11_INDEX_ALREADY_EXISTS;
-        case error::code::INVALID_INDEX_DEFINITION:
-            return sql_state::SHY000_GENERAL_ERROR;
 
         // Transactions group. Group code: 7
         case error::code::TX_STATE_STORAGE:
@@ -202,7 +196,6 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TX_COMMIT:
         case error::code::TX_ROLLBACK:
         case error::code::TX_FAILED_READ_WRITE_OPERATION:
-        case error::code::TX_REPLICA_UNAVAILABLE:
         case error::code::TX_STATE_STORAGE_REBALANCE:
         case error::code::TX_READ_ONLY_TOO_OLD:
         case error::code::TX_INCOMPATIBLE_SCHEMA:
@@ -277,9 +270,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::RESULT_NOT_FOUND:
         case error::code::FAIL_TO_GET_JOB_STATE:
         case error::code::COMPUTE_JOB_FAILED:
-        case error::code::CHANGE_JOB_PRIORITY_NO_JOB:
         case error::code::PRIMARY_REPLICA_RESOLVE:
-        case error::code::CHANGE_JOB_PRIORITY_JOB_EXECUTING:
         case error::code::CHANGE_JOB_PRIORITY:
         case error::code::NODE_NOT_FOUND:
             return sql_state::SHY000_GENERAL_ERROR;

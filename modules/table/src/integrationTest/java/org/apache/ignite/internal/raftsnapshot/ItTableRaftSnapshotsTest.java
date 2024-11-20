@@ -58,6 +58,7 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -76,6 +77,7 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
@@ -109,7 +111,6 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -303,6 +304,19 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
         LOG.info("Lease is accepted by [nodeConsistentId={}].", primary.join().getLeaseholder());
     }
 
+    private @Nullable String getPrimaryReplicaName() {
+        IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
+
+        CompletableFuture<ReplicaMeta> primary = node.placementDriver().getPrimaryReplica(
+                cluster.solePartitionId(),
+                node.clockService().now()
+        );
+
+        assertThat(primary, willCompleteSuccessfully());
+
+        return primary.join().getLeaseholder();
+    }
+
     private void startAndInitCluster() {
         cluster.startAndInit(3, IntStream.range(0, 3).toArray());
     }
@@ -432,6 +446,21 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
         cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId());
     }
 
+    private void transferPrimaryOnSolePartitionTo(int nodeIndex) throws InterruptedException {
+        String proposedPrimaryName = cluster.node(nodeIndex).name();
+
+        if (!proposedPrimaryName.equals(getPrimaryReplicaName())) {
+
+            String newPrimaryName = NodeUtils.transferPrimary(
+                    cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()),
+                    cluster.solePartitionId(),
+                    proposedPrimaryName
+            );
+
+            assertEquals(proposedPrimaryName, newPrimaryName);
+        }
+    }
+
     /**
      * Tests that, if first part of a transaction (everything before COMMIT) arrives using AppendEntries, and later the whole
      * partition state arrives in a RAFT snapshot, then the transaction is seen as committed (i.e. its effects are seen).
@@ -450,8 +479,11 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
 
         createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
 
-        // Prepare the scene: force node 0 to be a leader, and node 2 to be a follower.
+        // Prepare the scene: first act - force node 0 to be a leader, and node 2 to be a follower.
         transferLeadershipOnSolePartitionTo(0);
+
+        // Prepare the scene: second act - force node 0 to be a primary.
+        transferPrimaryOnSolePartitionTo(0);
 
         Transaction tx = cluster.node(0).transactions().begin();
 
@@ -762,7 +794,6 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
      * rejected, and that, when metadata catches up, the snapshot gets successfully installed.
      */
     @Test
-    @Disabled("IGNITE-23677")
     void laggingSchemasOnFollowerPreventSnapshotInstallation() throws Exception {
         startAndInitCluster();
 
@@ -773,6 +804,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
         final int followerIndex = 2;
 
         transferLeadershipOnSolePartitionTo(leaderIndex);
+        transferPrimaryOnSolePartitionTo(leaderIndex);
         cluster.transferLeadershipTo(leaderIndex, MetastorageGroupId.INSTANCE);
 
         // Block AppendEntries from being accepted on the follower so that the leader will have to use a snapshot.

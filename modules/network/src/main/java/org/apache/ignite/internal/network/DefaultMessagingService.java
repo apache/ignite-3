@@ -173,7 +173,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 nodeName,
                 "MessagingService-timeout-worker",
                 requestsMap,
-                true,
                 failureManager
         );
     }
