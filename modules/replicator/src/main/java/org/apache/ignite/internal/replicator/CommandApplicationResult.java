@@ -15,25 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.replicator;
 
-import java.util.function.LongSupplier;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
- * Test hybrid clock with custom supplier of current time. TODO delete
+ * Replication command application result.
  */
-public class TestHybridClock extends HybridClockImpl {
-    /** Supplier of current time in milliseconds. */
-    private final LongSupplier currentTimeMillisSupplier;
+public final class CommandApplicationResult {
+    private final HybridTimestamp commitTs;
+    private final CompletableFuture<?> repFut;
 
-    public TestHybridClock(LongSupplier currentTimeMillisSupplier) {
-        this.currentTimeMillisSupplier = currentTimeMillisSupplier;
-        now();
+    public CommandApplicationResult(HybridTimestamp commitTs, CompletableFuture<?> repFut) {
+        this.commitTs = commitTs;
+        this.repFut = repFut;
     }
 
-    @Override
-    protected long physicalTime() {
-        return currentTimeMillisSupplier.getAsLong();
+    public HybridTimestamp getCommitTimestamp() {
+        return commitTs;
+    }
+
+    public CompletableFuture<?> replicationFuture() {
+        return repFut;
     }
 }
