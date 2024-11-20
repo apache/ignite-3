@@ -74,7 +74,7 @@ public sealed class IgniteClientPool : IDisposable
     /// </summary>
     /// <returns>Ignite client.</returns>
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Pooled.")]
-    public async Task<IIgniteClient> GetClientAsync()
+    public async ValueTask<IIgniteClient> GetClientAsync()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
