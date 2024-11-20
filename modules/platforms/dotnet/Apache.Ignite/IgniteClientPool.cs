@@ -71,6 +71,7 @@ public sealed class IgniteClientPool : IDisposable
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Pooled.")]
     public async Task<IIgniteClient> GetClientAsync()
     {
+        // TODO: Race condition when disposing.
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
         int index = Interlocked.Increment(ref _clientIndex) % _clients.Length;
