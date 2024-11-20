@@ -19,6 +19,7 @@ namespace Apache.Ignite;
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Internal;
@@ -121,6 +122,13 @@ public sealed class IgniteClientPool : IDisposable
 
         _clientsLock.Dispose();
     }
+
+    /// <inheritdoc />
+    public override string ToString() =>
+        new IgniteToStringBuilder(typeof(IgniteClientPool))
+            .Append(_clients.Count(static c => c is { IsDisposed: false }), "Connected")
+            .Append(Configuration.PoolSize, "Size")
+            .Build();
 
     private async Task<IgniteClientInternal> CreateClientAsync()
     {

@@ -50,7 +50,7 @@ public class IgniteClientPoolTests
     [Test]
     public async Task TestRoundRobin()
     {
-        using IgniteClientPool pool = CreatePool(3);
+        using IgniteClientPool pool = CreatePool(size: 3);
 
         var client1 = await pool.GetClientAsync();
         var client2 = await pool.GetClientAsync();
@@ -97,6 +97,17 @@ public class IgniteClientPoolTests
         pool.Dispose();
 
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await pool.GetClientAsync());
+    }
+
+    [Test]
+    public async Task TestToString()
+    {
+        var pool = CreatePool(5);
+
+        await pool.GetClientAsync();
+        await pool.GetClientAsync();
+
+        Assert.AreEqual("IgniteClientPool { Connected = 2, Size = 5 }", pool.ToString());
     }
 
     private IgniteClientPool CreatePool(int size = 1) =>
