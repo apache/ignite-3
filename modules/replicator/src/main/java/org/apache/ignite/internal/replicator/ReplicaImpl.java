@@ -41,7 +41,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -289,10 +288,10 @@ public class ReplicaImpl implements Replica {
         TablePartitionId replicationGroupId = (TablePartitionId) parameters.groupId();
 
         onLeaderElectedFailoverCallback = (leaderNode, term) -> { /* noop */ };
-//        changePeersAndLearnersAsyncIfPendingExists(
-//                replicationGroupId,
-//                term
-//        );
+        // changePeersAndLearnersAsyncIfPendingExists(
+        //         replicationGroupId,
+        //         term
+        // );
 
         raftClient.subscribeLeader(onLeaderElectedFailoverCallback).join();
 
