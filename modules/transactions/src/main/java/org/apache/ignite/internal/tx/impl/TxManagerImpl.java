@@ -935,7 +935,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public List<SystemView<?>> systemViews() {
-        return List.of(txViewProvider.get());
+        LocksViewProvider lockViewProvider = new LocksViewProvider(lockManager::locks);
+
+        return List.of(
+                txViewProvider.get(),
+                lockViewProvider.get()
+        );
     }
 
     static class TransactionFailureHandler {
