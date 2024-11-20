@@ -2751,7 +2751,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     if (updateCommandResult != null && updateCommandResult.isPrimaryInPeersAndLearners()) {
                         return safeTime.waitFor(((UpdateCommand) res.getCommand()).safeTime())
-                                .thenApply(ret -> new CommandApplicationResult(((UpdateCommand) res.getCommand()).safeTime(), null));
+                                .thenApply(ignored -> new CommandApplicationResult(((UpdateCommand) res.getCommand()).safeTime(), null));
                     } else {
                         if (!SKIP_UPDATES) {
                             // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
@@ -2887,7 +2887,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
                     if (updateCommandResult.isPrimaryInPeersAndLearners()) {
                         return safeTime.waitFor(((UpdateAllCommand) res.getCommand()).safeTime())
-                                .thenApply(ret -> new CommandApplicationResult(((UpdateAllCommand) res.getCommand()).safeTime(), null));
+                                .thenApply(ignored -> new CommandApplicationResult(((UpdateAllCommand) res.getCommand()).safeTime(), null));
                     } else {
                         // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                         storageUpdateHandler.handleUpdateAll(

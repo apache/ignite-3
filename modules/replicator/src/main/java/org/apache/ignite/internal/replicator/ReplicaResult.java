@@ -23,6 +23,9 @@ import org.jetbrains.annotations.Nullable;
  * Represents replica execution result.
  */
 public class ReplicaResult {
+    /** Default replication outcome result. */
+    private static final CommandApplicationResult DEFAULT_RESULT = new CommandApplicationResult(null, null);
+
     /** The result. */
     private final Object res;
 
@@ -37,8 +40,7 @@ public class ReplicaResult {
      */
     public ReplicaResult(@Nullable Object res, @Nullable CommandApplicationResult commandApplicationResult) {
         this.res = res;
-        this.commandApplicationResult = commandApplicationResult
-                == null ? new CommandApplicationResult(null, null) : commandApplicationResult;
+        this.commandApplicationResult = commandApplicationResult == null ? DEFAULT_RESULT : commandApplicationResult;
     }
 
     /**

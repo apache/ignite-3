@@ -588,7 +588,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
             if (maxObservableSafeTime == -1) {
                 maxObservableSafeTime = clockService.now().addPhysicalTime(clockService.maxClockSkewMillis()).longValue();
-                LOG.info("maxObservableSafeTime is initialized with [{}].", HybridTimestamp.hybridTimestamp(maxObservableSafeTime));
+                LOG.info("maxObservableSafeTime has been initialized with [{}].", HybridTimestamp.hybridTimestamp(maxObservableSafeTime));
             }
 
             // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
@@ -607,7 +607,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     @Override
     public void onLeaderStop() {
         maxObservableSafeTime = -1;
-        LOG.info("maxObservableSafeTime is set to [" + maxObservableSafeTime + "] on leader stop.");
+        LOG.info("maxObservableSafeTime has been reset on leader stop.");
     }
 
     /**

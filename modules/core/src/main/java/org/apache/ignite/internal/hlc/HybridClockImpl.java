@@ -56,7 +56,7 @@ public class HybridClockImpl implements HybridClock {
     @Override
     public final long nowLong() {
         while (true) {
-            long now = physicalTime() << LOGICAL_TIME_BITS_SIZE;
+            long now = currentTime();
 
             // Read the latest time after accessing UTC time to reduce contention.
             long oldLatestTime = latestTime;
@@ -73,7 +73,7 @@ public class HybridClockImpl implements HybridClock {
 
     @Override
     public final long currentLong() {
-        long current = physicalTime() << LOGICAL_TIME_BITS_SIZE;
+        long current = currentTime();
 
         return max(latestTime, current);
     }
@@ -112,7 +112,7 @@ public class HybridClockImpl implements HybridClock {
     @Override
     public final HybridTimestamp update(HybridTimestamp requestTime) {
         while (true) {
-            long now = physicalTime() << LOGICAL_TIME_BITS_SIZE;
+            long now = currentTime();
 
             // Read the latest time after accessing UTC time to reduce contention.
             long oldLatestTime = latestTime;
@@ -127,6 +127,10 @@ public class HybridClockImpl implements HybridClock {
                 return hybridTimestamp(newLatestTime);
             }
         }
+    }
+
+    private long currentTime() {
+        return physicalTime() << LOGICAL_TIME_BITS_SIZE;
     }
 
     @Override
