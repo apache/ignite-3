@@ -38,7 +38,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
-import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -68,12 +67,11 @@ class MultiStatementHandler {
             Query query,
             QueryTransactionContext txContext,
             List<ParsedResult> parsedResults,
-            Object[] params,
-            @Nullable CancellationToken cancellationToken
+            Object[] params
     ) {
         this.query = query;
         this.statements = prepareStatementsQueue(parsedResults, params);
-        this.scriptTxContext = new ScriptTransactionContext(txContext, txTracker, cancellationToken);
+        this.scriptTxContext = new ScriptTransactionContext(txContext, txTracker, query.cancellationToken);
     }
 
     /**

@@ -162,6 +162,10 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         });
     }
 
+    CompletableFuture<Void> txFinishFuture() {
+        return txFinishFuture;
+    }
+
     private void changeState(State newState) {
         synchronized (mux) {
             if (txState != null) {

@@ -202,7 +202,7 @@ public class QueryExecutor implements LifecycleAware {
         }
 
         try {
-            trackQuery(query, parent.cancellationToken);
+            trackQuery(query, null);
         } finally {
             busyLock.leaveBusy();
         }
@@ -307,8 +307,7 @@ public class QueryExecutor implements LifecycleAware {
                 query,
                 query.txContext,
                 parsedResults,
-                query.params,
-                query.cancellationToken
+                query.params
         );
     }
 

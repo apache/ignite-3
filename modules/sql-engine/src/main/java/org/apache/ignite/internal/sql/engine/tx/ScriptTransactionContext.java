@@ -124,7 +124,7 @@ public class ScriptTransactionContext implements QueryTransactionContext {
                 CancelHandleHelper.addCancelAction(
                         cancellationToken,
                         () -> wrapper0.rollback(new QueryCancelledException()),
-                        nullCompletedFuture()
+                        wrapper0.txFinishFuture()
                 );
             }
 
