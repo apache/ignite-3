@@ -293,7 +293,7 @@ public class ReplicaImpl implements Replica {
                 term
         );
 
-        // raftClient.subscribeLeader(onLeaderElectedFailoverCallback).join();
+        raftClient.subscribeLeader(onLeaderElectedFailoverCallback).join();
 
         LOG.info("!!! subscribed grpId={}", replicationGroupId);
 
@@ -302,12 +302,11 @@ public class ReplicaImpl implements Replica {
 
     private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters) {
         if (localNode.id().equals(parameters.leaseholderId())) {
-//            return raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback)
-//                    .thenApply(v -> {
-//                        onLeaderElectedFailoverCallback = null;
-//                        return false;
-//                    });
-            onLeaderElectedFailoverCallback = null;
+            return raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback)
+                    .thenApply(v -> {
+                        onLeaderElectedFailoverCallback = null;
+                        return false;
+                    });
         }
 
         return falseCompletedFuture();
@@ -335,7 +334,7 @@ public class ReplicaImpl implements Replica {
                 replicationGroupId, newConfigurationPeersAndLearners.peers(), newConfigurationPeersAndLearners.learners()
         );
 
-        raftClient.changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
+        // raftClient.changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(
