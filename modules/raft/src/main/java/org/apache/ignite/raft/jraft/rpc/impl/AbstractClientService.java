@@ -159,6 +159,8 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
             if (resp != null && resp.errorCode() == 0) {
                 readyConsistentIds.add(peerId.getConsistentId());
 
+                deadPeers.remove(peerId);
+
                 return true;
             } else {
                 return false;

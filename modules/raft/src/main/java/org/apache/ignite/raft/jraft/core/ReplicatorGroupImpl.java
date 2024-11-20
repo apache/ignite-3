@@ -125,6 +125,8 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
 
             this.failureReplicators.put(peer, replicatorType);
             return false;
+        } else {
+            failureReplicators.remove(peer);
         }
 
 //        if (!sync) {
