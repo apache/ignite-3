@@ -64,6 +64,11 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
         sql("DELETE FROM src");
     }
 
+    @Override
+    protected int initialNodes() {
+        return 1;
+    }
+
     @ParameterizedTest
     @MethodSource("literalsWithExpectedResult")
     void implicitCastOfLiteralsOnInsert(String literal, Object expectedResult) {

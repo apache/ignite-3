@@ -146,4 +146,6 @@
 
     <!-- exclusions -->
     <exclude-pattern>.*/src/main/java/com/facebook/presto/.*</exclude-pattern>
+    <exclude-pattern>.*/sql/engine/exec/exp/RexImpTable\.java</exclude-pattern>
+    <exclude-pattern>.*/sql/engine/exec/exp/RexToLixTranslator\.java</exclude-pattern>
 </ruleset>
