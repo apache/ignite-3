@@ -195,7 +195,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             Accumulator accumulator = accFactory.get();
 
             inAdapter = createInAdapter(accumulator);
-            outAdapter = createOutAdapter(accumulator);
+            outAdapter = Function.identity();
 
             return accumulator;
         }
@@ -235,11 +235,9 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             if (type == AggregateType.MAP) {
                 return Function.identity();
             }
-
-            RelDataType inType = accumulator.returnType(ctx.getTypeFactory());
             RelDataType outType = call.getType();
 
-            return cast(inType, outType);
+            return cast(outType, outType);
         }
 
         private RelDataType nonNull(RelDataType type) {

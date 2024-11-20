@@ -17,22 +17,44 @@
 
 package org.apache.ignite.internal.sql.engine.type;
 
+import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem.MIN_SCALE_OF_AVG_RESULT;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import java.util.List;
 import java.util.stream.Stream;
+import org.apache.calcite.rel.RelCollations;
+import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.sql.SqlAggFunction;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
+import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorsFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.network.NetworkAddress;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 /** Tests for {@link IgniteTypeSystem}. */
 public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
@@ -106,6 +128,16 @@ public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
         RelDataType actual = typeSystem.deriveAvgAggType(Commons.typeFactory(), argument);
 
         assertThat(actual, Matchers.equalTo(expected));
+
+        checkAccReturnType(SqlStdOperatorTable.AVG, argument, expected);
+    }
+
+    @ParameterizedTest
+    @MethodSource("deriveAvgTypeArguments")
+    void deriveSumType(RelDataType argument, RelDataType expected) {
+        RelDataType actual = typeSystem.deriveSumType(Commons.typeFactory(), argument);
+
+        checkAccReturnType(SqlStdOperatorTable.SUM, argument, actual);
     }
 
     private static Stream<Arguments> deriveAvgTypeArguments() {
@@ -269,5 +301,59 @@ public class IgniteTypeSystemTest extends BaseIgniteAbstractTest {
                         native2relationalType(typeFactory, NativeTypes.decimalOf(32767, 0))
                 )
         );
+    }
+
+    private void checkAccReturnType(
+            SqlAggFunction aggFunction,
+            RelDataType argument,
+            RelDataType expected
+    ) {
+        IgniteTypeFactory typeFactory = new IgniteTypeFactory(typeSystem);
+
+        AggregateCall aggregateCall = createAggregateCall(aggFunction, 0, expected);
+
+        RelDataType inputRowType = new RelDataTypeFactory.Builder(typeFactory)
+                .add("F1", argument)
+                .build();
+
+        ExecutionContext<Object[]> ctx = TestBuilders.executionContext()
+                .queryId(randomUUID())
+                .localNode(new ClusterNodeImpl(randomUUID(), "node-1", new NetworkAddress("localhost", 1234)))
+                .fragment(new FragmentDescription(1, true, Long2ObjectMaps.emptyMap(), null, null, null))
+                .executor(Mockito.mock(QueryTaskExecutor.class))
+                .build();
+
+        AccumulatorsFactory<Object[]> accumulatorsFactory = new AccumulatorsFactory<>(
+                ctx,
+                AggregateType.SINGLE,
+                List.of(aggregateCall),
+                inputRowType
+        );
+        AccumulatorWrapper<Object[]> accumulatorWrappers = accumulatorsFactory.get().get(0);
+
+        RelDataType accRetType = accumulatorWrappers.accumulator().returnType(typeFactory);
+
+        assertTrue(SqlTypeUtil.equalSansNullability(accRetType, expected),
+                "Expected: " + expected.getFullTypeString()
+                        + "\nActual:" + accRetType.getFullTypeString());
+    }
+
+    private static AggregateCall createAggregateCall(
+            SqlAggFunction aggFunction,
+            int arg,
+            RelDataType outputType
+    ) {
+        return AggregateCall.create(
+                aggFunction,
+                false,
+                false,
+                false,
+                List.of(),
+                ImmutableIntList.of(arg),
+                -1,
+                ImmutableBitSet.of(),
+                RelCollations.EMPTY,
+                outputType,
+                null);
     }
 }

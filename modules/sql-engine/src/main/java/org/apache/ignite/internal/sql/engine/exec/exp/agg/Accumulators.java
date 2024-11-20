@@ -100,10 +100,10 @@ public class Accumulators {
             case SMALLINT:
             case INTEGER:
             case BIGINT:
-                return () -> DecimalAvg.FACTORY.apply(0);
+                return () -> new DecimalAvg(call.type.getPrecision(), call.type.getScale());
             case DECIMAL:
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-17373 Add support for interval types.
-                return () -> DecimalAvg.FACTORY.apply(call.type.getScale());
+                return () -> new DecimalAvg(call.type.getPrecision(), call.type.getScale());
             case DOUBLE:
             case REAL:
             case FLOAT:
@@ -119,8 +119,9 @@ public class Accumulators {
     private Supplier<Accumulator> sumFactory(AggregateCall call) {
         switch (call.type.getSqlTypeName()) {
             case BIGINT:
+                return () -> new Sum(new LongSumEmptyIsZero());
             case DECIMAL:
-                return () -> new Sum(new DecimalSumEmptyIsZero(call.type.getScale()));
+                return () -> new Sum(new DecimalSumEmptyIsZero(call.type.getPrecision(), call.type.getScale()));
 
             case DOUBLE:
             case REAL:
@@ -145,7 +146,7 @@ public class Accumulators {
                 // Used by REDUCE phase of COUNT aggregate.
                 return LongSumEmptyIsZero.FACTORY;
             case DECIMAL:
-                return () -> DecimalSumEmptyIsZero.FACTORY.apply(call.type.getScale());
+                return () -> new DecimalSumEmptyIsZero(call.type.getPrecision(), call.type.getScale());
 
             case DOUBLE:
             case REAL:
@@ -335,8 +336,14 @@ public class Accumulators {
 
         private final int scale;
 
+        @Deprecated
         DecimalAvg(int scale) {
             this.precision = RelDataType.PRECISION_NOT_SPECIFIED;
+            this.scale = scale;
+        }
+
+        public DecimalAvg(int precision, int scale) {
+            this.precision = precision;
             this.scale = scale;
         }
 
@@ -632,8 +639,14 @@ public class Accumulators {
 
         private final int scale;
 
+        @Deprecated
         private DecimalSumEmptyIsZero(int scale) {
             this.precision = CatalogUtils.MAX_DECIMAL_PRECISION;
+            this.scale = scale;
+        }
+
+        public DecimalSumEmptyIsZero(int precision, int scale) {
+            this.precision = precision;
             this.scale = scale;
         }
 

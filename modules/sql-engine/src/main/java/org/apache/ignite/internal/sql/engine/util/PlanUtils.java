@@ -30,8 +30,6 @@ import org.apache.calcite.sql.fun.SqlSumAggFunction;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mapping;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 
 /**
@@ -80,7 +78,7 @@ public class PlanUtils {
             builder.add(fld);
         }
 
-        addAccumulatorFields(typeFactory, aggregateCalls, builder);
+        addAccumulatorFields(aggregateCalls, builder);
 
         return builder.build();
     }
@@ -115,32 +113,17 @@ public class PlanUtils {
             builder.add(fld);
         }
 
-        addAccumulatorFields(typeFactory, aggregateCalls, builder);
+        addAccumulatorFields(aggregateCalls, builder);
 
         builder.add("_GROUP_ID", SqlTypeName.TINYINT);
 
         return builder.build();
     }
 
-    private static void addAccumulatorFields(IgniteTypeFactory typeFactory, List<AggregateCall> aggregateCalls, Builder builder) {
-        Accumulators accumulators = new Accumulators(typeFactory);
-
+    private static void addAccumulatorFields(List<AggregateCall> aggregateCalls, Builder builder) {
         for (int i = 0; i < aggregateCalls.size(); i++) {
             AggregateCall call = aggregateCalls.get(i);
-            Accumulator acc = accumulators.accumulatorFactory(call).get();
-            RelDataType fieldType;
-            // For a decimal type Accumulator::returnType returns a type with default precision and scale,
-            // that can cause precision loss when a tuple is sent over the wire by an exchanger/outbox.
-            // Outbox uses its input type as wire format, so if a scale is 0, then the scale is lost
-            // (see Outbox::sendBatch -> RowHandler::toBinaryTuple -> BinaryTupleBuilder::appendDecimalNotNull).
-            if (call.getType().getSqlTypeName().allowsScale()) {
-                fieldType = call.type;
-            } else {
-                fieldType = acc.returnType(typeFactory);
-            }
-            String fieldName = "_ACC" + i;
-
-            builder.add(fieldName, fieldType);
+            builder.add("_ACC" + i, call.type);
         }
     }
 }

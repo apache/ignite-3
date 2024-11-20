@@ -341,6 +341,7 @@ public class TypeUtils {
                 return ColumnType.FLOAT;
             case BINARY:
             case VARBINARY:
+                return ColumnType.BYTE_ARRAY;
             case ANY:
                 if (type instanceof IgniteCustomType) {
                     IgniteCustomType customType = (IgniteCustomType) type;
@@ -652,14 +653,15 @@ public class TypeUtils {
         RowSchema.Builder fieldTypes = RowSchema.builder();
 
         for (RelDataType relType : types) {
-            TypeSpec typeSpec = convertToTypeSpec(relType);
+            TypeSpec typeSpec = relational2rowSchemaType(relType);
             fieldTypes.addField(typeSpec);
         }
 
         return fieldTypes.build();
     }
 
-    private static TypeSpec convertToTypeSpec(RelDataType type) {
+    /** Converts the given relational data type to its {@link TypeSpec runtime type}. */
+    public static TypeSpec relational2rowSchemaType(RelDataType type) {
         boolean simpleType = type instanceof BasicSqlType;
         boolean nullable = type.isNullable();
 
@@ -689,7 +691,7 @@ public class TypeUtils {
             List<TypeSpec> fields = new ArrayList<>();
 
             for (RelDataTypeField field : type.getFieldList()) {
-                TypeSpec fieldTypeSpec = convertToTypeSpec(field.getType());
+                TypeSpec fieldTypeSpec = relational2rowSchemaType(field.getType());
                 fields.add(fieldTypeSpec);
             }
 
@@ -808,6 +810,20 @@ public class TypeUtils {
             return col1 == col2;
         } else {
             return false;
+        }
+    }
+
+    /**
+     * Converts relational type to a natively supported type if it is possible.
+     * This method returns {@code null} when the given relational type is {@link SqlTypeName#NULL}.
+     */
+    public static @Nullable NativeType relational2nativeType(RelDataType relDataType) {
+        TypeSpec typeSpec = relational2rowSchemaType(relDataType);
+        if (typeSpec == RowSchemaTypes.NULL) {
+            return null;
+        } else {
+            BaseTypeSpec baseTypeSpec = (BaseTypeSpec) typeSpec;
+            return baseTypeSpec.nativeType();
         }
     }
 

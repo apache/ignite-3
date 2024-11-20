@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
 import java.util.List;
+import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 
@@ -55,6 +56,8 @@ public interface Accumulator {
      *
      * @param typeFactory Type factory.
      * @return A result type.
+     * @deprecated Use {@link AggregateCall#getType()} instead.
      */
+    @Deprecated
     RelDataType returnType(IgniteTypeFactory typeFactory);
 }

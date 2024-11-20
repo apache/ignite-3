@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.List;
+import java.util.Objects;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,6 +38,12 @@ public class AccumulatorsState {
     /** Constructor. */
     public AccumulatorsState(int rowSize) {
         this.row = new Object[rowSize];
+    }
+
+    /** Creates a copy from the given state. */
+    public AccumulatorsState(AccumulatorsState src) {
+        this.row = new Object[src.row.length];
+        System.arraycopy(src.row, 0, this.row, 0, src.row.length);
     }
 
     /** Sets current field index. */
@@ -60,5 +70,40 @@ public class AccumulatorsState {
     /** Returns {@code true} if current field has been set. */
     public boolean hasValue() {
         return set.get(index);
+    }
+
+    /** The number of elements. */
+    public int size() {
+        return row.length;
+    }
+
+    /** Elements of this state as list. */
+    public List<Object> toList() {
+        return Arrays.asList(row);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        AccumulatorsState state = (AccumulatorsState) o;
+        return Objects.deepEquals(row, state.row);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Arrays.hashCode(row);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

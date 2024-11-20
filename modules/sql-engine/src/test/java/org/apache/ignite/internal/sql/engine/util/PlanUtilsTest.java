@@ -29,8 +29,6 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulator;
-import org.apache.ignite.internal.sql.engine.exec.exp.agg.Accumulators;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.junit.jupiter.api.Test;
 
@@ -40,8 +38,6 @@ import org.junit.jupiter.api.Test;
 public class PlanUtilsTest {
 
     private final IgniteTypeFactory typeFactory = Commons.typeFactory();
-
-    private final Accumulators accumulators = new Accumulators(typeFactory);
 
     @Test
     public void testHashAggRowType() {
@@ -53,13 +49,12 @@ public class PlanUtilsTest {
                 .build();
 
         AggregateCall call1 = newCall(typeFactory.createSqlType(SqlTypeName.BIGINT));
-        Accumulator acc1 = accumulators.accumulatorFactory(call1).get();
 
         RelDataType expectedType = new RelDataTypeFactory.Builder(typeFactory)
                 .add("f1", typeFactory.createSqlType(SqlTypeName.INTEGER))
                 .add("f2", typeFactory.createSqlType(SqlTypeName.VARCHAR))
                 .add("f4", typeFactory.createSqlType(SqlTypeName.VARBINARY))
-                .add("_ACC0", acc1.returnType(typeFactory))
+                .add("_ACC0", call1.getType())
                 .add("_GROUP_ID", typeFactory.createSqlType(SqlTypeName.TINYINT))
                 .build();
 
@@ -83,13 +78,12 @@ public class PlanUtilsTest {
                 .build();
 
         AggregateCall call1 = newCall(typeFactory.createSqlType(SqlTypeName.BIGINT));
-        Accumulator acc1 = accumulators.accumulatorFactory(call1).get();
 
         RelDataType expectedType = new RelDataTypeFactory.Builder(typeFactory)
                 .add("f1", typeFactory.createSqlType(SqlTypeName.INTEGER))
                 .add("f2", typeFactory.createSqlType(SqlTypeName.VARCHAR))
                 .add("f4", typeFactory.createSqlType(SqlTypeName.VARBINARY))
-                .add("_ACC0", acc1.returnType(typeFactory))
+                .add("_ACC0", call1.getType())
                 .build();
 
         ImmutableBitSet group = ImmutableBitSet.of(0, 1, 3);

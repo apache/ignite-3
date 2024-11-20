@@ -296,7 +296,7 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
                 -1,
                 null,
                 RelCollations.EMPTY,
-                tf.createJavaType(int.class),
+                tf.createSqlType(SqlTypeName.INTEGER),
                 null);
 
         List<ImmutableBitSet> grpSets = List.of(ImmutableBitSet.of(0));
