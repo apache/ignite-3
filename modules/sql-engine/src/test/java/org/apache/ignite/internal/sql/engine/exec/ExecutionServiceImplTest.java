@@ -19,20 +19,17 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,7 +37,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -63,7 +59,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -78,14 +73,11 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -106,10 +98,8 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestC
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
-import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImplTest.TestExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Node;
@@ -138,7 +128,6 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverte
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
@@ -170,6 +159,7 @@ import org.junit.jupiter.api.TestInfo;
 /**
  * Test class to verify {@link ExecutionServiceImplTest}.
  */
+@SuppressWarnings("ThrowableNotThrown")
 public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     /** Tag allows to skip default cluster setup. */
     private static final String CUSTOM_CLUSTER_SETUP_TAG = "skipDefaultClusterSetup";
@@ -287,7 +277,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -327,7 +317,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -384,7 +374,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         });
 
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
 
         CompletionStage<?> batchFut = cursor.requestNextAsync(1);
 
@@ -425,25 +415,15 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
-
-        var batchFut = cursor.requestNextAsync(1);
-
-        await(batchFut.exceptionally(ex -> {
-            assertInstanceOf(CompletionException.class, ex);
-            assertInstanceOf(SqlException.class, ex.getCause());
-            assertInstanceOf(IgniteException.class, ex.getCause().getCause());
-            assertInstanceOf(mappingException.getClass(), ex.getCause().getCause().getCause());
-            assertEquals(mappingException.getMessage(), ex.getCause().getCause().getCause().getMessage());
-
-            return null;
-        }));
-
-        assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
+        IgniteTestUtils.assertThrows(
+                IllegalStateException.class,
+                () -> await(execService.executePlan(plan, ctx)),
+                mappingException.getMessage()
+        );
     }
 
     @Test
-    void cursorCloseCompletesSuccessfullyIfRootWasInitializedWithError() throws InterruptedException {
+    void testErrorOnCursorInitialization() throws InterruptedException {
         ExecutionService execService = executionServices.get(0);
         SqlOperationContext ctx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
@@ -467,9 +447,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         });
 
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
+        RuntimeException actualException = assertWillThrow(execService.executePlan(plan, ctx), RuntimeException.class);
 
-        await(cursor.closeAsync());
+        assertEquals(expectedEx, actualException);
 
         // try gather all possible nodes.
         List<AbstractNode<?>> execNodes = executionServices.stream()
@@ -493,7 +473,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
 
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -537,9 +517,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryPlan plan = prepare("SELECT 1", ctx);
 
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
-
-        assertThrows(ExceptionInInitializerError.class, () -> await(cursor.requestNextAsync(1), 2, TimeUnit.SECONDS));
+        assertWillThrow(execService.executePlan(plan, ctx), ExceptionInInitializerError.class);
     }
 
     /**
@@ -551,7 +529,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         SqlOperationContext ctx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
 
         BatchedResult<?> res = await(cursor.requestNextAsync(8));
         assertNotNull(res);
@@ -577,7 +555,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         SqlOperationContext ctx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
 
         BatchedResult<?> res = await(cursor.requestNextAsync(9));
         assertNotNull(res);
@@ -594,11 +572,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testCursorIsClosedAfterAllDataReadWithNodeFailure() throws InterruptedException {
-        ExecutionServiceImpl execService = executionServices.get(0);
+        ExecutionServiceImpl<InternalSqlRow> execService = (ExecutionServiceImpl<InternalSqlRow>) executionServices.get(0);
         SqlOperationContext ctx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
-
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
 
         // node failed trigger
         CountDownLatch nodeFailedLatch = new CountDownLatch(1);
@@ -629,6 +605,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 return nullCompletedFuture();
             }
         }));
+
+        AsyncCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
 
         CompletableFuture<BatchedResult<InternalSqlRow>> resFut = cursor.requestNextAsync(9);
 
@@ -687,14 +665,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         }));
 
-        AsyncDataCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
-
-        // Wait till the query fails due to nodes' unavailability.
-        ExecutionException eex = assertThrows(ExecutionException.class, () -> cursor.requestNextAsync(1).get(10, TimeUnit.SECONDS));
-        assertThat(eex.getCause(), instanceOf(SqlException.class));
-        assertThat(eex.getCause().getCause(), instanceOf(NodeLeftException.class));
-        assertThat(eex.getCause().getCause().getMessage(), containsString("cause=Node left the cluster"));
-        assertThat(((NodeLeftException) eex.getCause().getCause()).code(), equalTo(NODE_LEFT_ERR));
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> await(execService.executePlan(plan, ctx)),
+                NodeLeftException.class,
+                "Node left the cluster"
+        );
 
         CompletableFuture<Void> stopFuture = CompletableFuture.runAsync(() -> {
             try {
@@ -716,7 +691,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     public void testPrefetchCallbackInvocation() throws Exception {
         String query = "SELECT * FROM test_tbl";
         int totalStatements = 20;
-        Collection<AsyncCursor<InternalSqlRow>> resultCursors = new ArrayBlockingQueue<>(totalStatements);
+        Collection<CompletableFuture<AsyncDataCursor<InternalSqlRow>>> resultCursors = new ArrayBlockingQueue<>(totalStatements);
         List<String> queries = IntStream.range(0, totalStatements).boxed().map(n -> query).collect(Collectors.toList());
         ArrayBlockingQueue<String> queriesQueue = new ArrayBlockingQueue<>(totalStatements, false, queries);
         AtomicReference<AssertionError> errHolder = new AtomicReference<>();
@@ -764,7 +739,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertEquals(queries.size(), resultCursors.size());
 
         CompletableFuture<?>[] closeFutures = resultCursors.stream()
-                .map(AsyncCursor::closeAsync)
+                .map(cursorFuture -> cursorFuture.thenCompose(AsyncCursor::closeAsync))
                 .toArray(CompletableFuture[]::new);
 
         assertThat(allOf(closeFutures), willCompleteSuccessfully());
@@ -796,7 +771,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         });
 
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
 
         assertThat(prefetchCallback.prefetchFuture(), willThrow(equalTo(expectedException)));
 
@@ -819,7 +794,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         // Should immediately trigger query cancel exception.
         IgniteTestUtils.assertThrows(QueryCancelledException.class,
-                () -> execService.executePlan(plan, ctx),
+                () -> await(execService.executePlan(plan, ctx)),
                 "The query was cancelled while executing"
         );
     }
@@ -859,7 +834,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         }));
 
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(plan, ctx);
+        AsyncCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
 
         startResponseLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
 
@@ -941,7 +916,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
 
         QueryCancel queryCancel = new QueryCancel();
-        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, 0);
+        CompletableFuture<Void> timeoutFut = setTimeout(queryCancel, 0);
 
         SqlOperationContext ctx = operationContext(null)
                 .cancel(queryCancel)
@@ -952,7 +927,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         // Should immediately trigger query cancel exception.
         IgniteTestUtils.assertThrows(QueryCancelledException.class,
-                () -> execService.executePlan(plan, ctx),
+                () -> await(execService.executePlan(plan, ctx)),
                 "Query timeout"
         );
     }
@@ -1068,25 +1043,24 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", operationContext(null).build());
 
         QueryCancel queryCancel = new QueryCancel();
-        CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, 50);
+        CompletableFuture<Void> timeoutFut = setTimeout(queryCancel, 50);
 
         SqlOperationContext ctx = operationContext(null)
                 .cancel(queryCancel)
                 .build();
 
         CompletableFuture<AsyncDataCursor<InternalSqlRow>> execPlanFut =
-                runAsync(() -> executionServices.get(0).executePlan(plan, ctx));
+                runAsync(() -> await(executionServices.get(0).executePlan(plan, ctx)));
 
         // Wait until timeout is fired and unblock mapping service.
         assertThat(timeoutFut, willCompleteSuccessfully());
 
         mappingsCacheAccessBlock.countDown();
 
-        AsyncDataCursor<InternalSqlRow> cursor = await(execPlanFut);
         //noinspection ThrowableNotThrown
         IgniteTestUtils.assertThrowsWithCause(
-                () -> await(cursor.requestNextAsync(9)),
-                SqlException.class,
+                () -> await(execPlanFut),
+                QueryCancelledException.class,
                 "Query timeout"
         );
 
@@ -1139,14 +1113,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(executableTableRegistry, null);
 
-        var mappingService = createMappingService(nodeName, clockService, taskExecutor, mappingCacheFactory);
+        var mappingService = createMappingService(nodeName, clockService, mappingCacheFactory, nodeNames);
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
-
-        List<LogicalNode> logicalNodes = nodeNames.stream()
-                .map(name -> new LogicalNode(randomUUID(), name, NetworkAddress.from("127.0.0.1:10000")))
-                .collect(Collectors.toList());
-
-        mappingService.onTopologyLeap(new LogicalTopologySnapshot(1, logicalNodes));
 
         var executionService = new ExecutionServiceImpl<>(
                 messageService,
@@ -1173,32 +1141,15 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private MappingServiceImpl createMappingService(
             String nodeName,
             ClockService clock,
-            QueryTaskExecutor taskExecutor,
-            CacheFactory cacheFactory
+            CacheFactory cacheFactory,
+            List<String> logicalNodes
     ) {
-        var targetProvider = new ExecutionTargetProvider() {
-            @Override
-            public CompletableFuture<ExecutionTarget> forTable(
-                    HybridTimestamp operationTime,
-                    ExecutionTargetFactory factory,
-                    IgniteTable table,
-                    boolean includeBackups
-            ) {
-                if (mappingException != null) {
-                    return CompletableFuture.failedFuture(mappingException);
-                }
-
-                return completedFuture(factory.allOf(nodeNames));
-            }
-
-            @Override
-            public CompletableFuture<ExecutionTarget> forSystemView(ExecutionTargetFactory factory, IgniteSystemView view) {
-                return CompletableFuture.failedFuture(new AssertionError("Not supported"));
-            }
-        };
-
         PartitionPruner partitionPruner = (mappedFragments, dynamicParameters) -> mappedFragments;
-        return new MappingServiceImpl(nodeName, clock, targetProvider, cacheFactory, 0, partitionPruner, taskExecutor);
+
+        Supplier<Long> topologyVerSupplier = () -> Long.MAX_VALUE;
+
+        return new MappingServiceImpl(nodeName, clock, cacheFactory, 0, partitionPruner, topologyVerSupplier,
+                new TestExecutionDistributionProvider(logicalNodes, () -> mappingException));
     }
 
     private SqlOperationContext createContext() {
@@ -1217,7 +1168,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 .operationTime(new HybridClockImpl().now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
-                .txContext(ExplicitTxContext.fromTx(new NoOpTransaction(nodeNames.get(0))));
+                .txContext(ExplicitTxContext.fromTx(new NoOpTransaction(nodeNames.get(0), false)));
     }
 
     private QueryPlan prepare(String query, SqlOperationContext ctx) {
@@ -1280,13 +1231,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         for (int k = 0; k < attempts; k++) {
             QueryCancel queryCancel = new QueryCancel();
-            CompletableFuture<Void> timeoutFut = queryCancel.setTimeout(scheduler, deadlineMillis);
+            CompletableFuture<Void> timeoutFut = setTimeout(queryCancel, deadlineMillis);
 
             SqlOperationContext execCtx = execCtxFunc.apply(queryCancel);
 
             AsyncCursor<InternalSqlRow> cursor;
             try {
-                cursor = execService.executePlan(plan, execCtx);
+                cursor = await(execService.executePlan(plan, execCtx));
             } catch (QueryCancelledException e) {
                 // This might happen when initialization took longer than a time out,
                 // Retry to get a proper error.
@@ -1628,5 +1579,18 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 }
             };
         }
+    }
+
+    private CompletableFuture<Void> setTimeout(QueryCancel queryCancel, long millis) {
+        CompletableFuture<Void> timeoutFut = new CompletableFuture<>();
+        queryCancel.add(timeout -> {
+            if (timeout) {
+                timeoutFut.complete(null);
+            }
+        });
+
+        queryCancel.setTimeout(scheduler, millis);
+
+        return timeoutFut;
     }
 }

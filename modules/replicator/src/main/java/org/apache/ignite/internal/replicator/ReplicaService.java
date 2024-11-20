@@ -55,9 +55,6 @@ import org.jetbrains.annotations.TestOnly;
 
 /** The service is intended to execute requests on replicas. */
 public class ReplicaService {
-    /** Retry timeout. */
-    private static final int RETRY_TIMEOUT_MILLIS = 10;
-
     /** Message service. */
     private final MessagingService messagingService;
 
@@ -240,11 +237,13 @@ public class ReplicaService {
                             return null;
                         }, partitionOperationsExecutor);
                     } else {
-                        if (retryExecutor != null && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR)) {
+                        int replicaOperationRetryInterval = replicationConfiguration.replicaOperationRetryInterval().value();
+                        if (retryExecutor != null && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR)
+                                && replicaOperationRetryInterval > 0) {
                             retryExecutor.schedule(
                                     // Need to resubmit again to pool which is valid for synchronous IO execution.
                                     () -> partitionOperationsExecutor.execute(() -> res.completeExceptionally(errResp.throwable())),
-                                    RETRY_TIMEOUT_MILLIS, MILLISECONDS);
+                                    replicaOperationRetryInterval, MILLISECONDS);
                         } else {
                             res.completeExceptionally(errResp.throwable());
                         }

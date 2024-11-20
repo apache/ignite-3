@@ -22,51 +22,14 @@ namespace Apache.Ignite.Tests
     using System.Collections.Immutable;
     using System.IO;
     using System.Linq;
-    using System.Runtime.Serialization;
     using System.Text.RegularExpressions;
     using NUnit.Framework;
-    using BindingFlags = System.Reflection.BindingFlags;
 
     /// <summary>
     /// Tests Ignite exceptions.
     /// </summary>
     public class ExceptionsTests
     {
-        [Test]
-        public void TestExceptionsAreSerializableAndHaveRequiredConstructors()
-        {
-            var types = typeof(IIgnite).Assembly.GetTypes().Where(x => x.IsSubclassOf(typeof(Exception)));
-
-            foreach (var type in types)
-            {
-                Assert.IsTrue(type.IsSerializable, "Exception is not serializable: " + type);
-
-                // Check required IgniteException constructor.
-                var defCtor = type.GetConstructor(new[] { typeof(Guid), typeof(int), typeof(string), typeof(Exception) });
-                Assert.IsNotNull(defCtor, "Required constructor is missing: " + type);
-
-                var traceId = Guid.NewGuid();
-                var ex = (IgniteException)defCtor!.Invoke(new object[] { traceId, 123, "myMessage", new Exception() });
-                Assert.AreEqual("myMessage", ex.Message);
-
-                // Serialization.
-                var serializationInfo = new SerializationInfo(ex.GetType(), new FormatterConverter());
-                ex.GetObjectData(serializationInfo, default);
-
-                var res = (IgniteException)FormatterServices.GetUninitializedObject(ex.GetType());
-
-                var ctor = res.GetType().GetConstructor(
-                    BindingFlags.Instance | BindingFlags.NonPublic,
-                    new[] { typeof(SerializationInfo), typeof(StreamingContext) });
-
-                ctor!.Invoke(res, new object[] { serializationInfo, default(StreamingContext) });
-
-                Assert.AreEqual("myMessage", res.Message);
-                Assert.AreEqual(traceId, res.TraceId);
-                Assert.AreEqual(123, res.Code);
-            }
-        }
-
         [Test]
         public void TestAllJavaIgniteExceptionsHaveDotNetCounterparts()
         {

@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -26,7 +28,10 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class KeyValueUpdateContext {
     public final long index;
+
     public final long term;
+
+    @IgniteToStringInclude
     public final HybridTimestamp timestamp;
 
     /**
@@ -42,6 +47,11 @@ public class KeyValueUpdateContext {
         this.index = index;
         this.term = term;
         this.timestamp = timestamp;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 
     /**

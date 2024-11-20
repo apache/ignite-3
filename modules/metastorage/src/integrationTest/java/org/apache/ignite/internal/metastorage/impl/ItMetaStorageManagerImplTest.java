@@ -20,6 +20,7 @@ package org.apache.ignite.internal.metastorage.impl;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
@@ -48,6 +49,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -91,7 +94,9 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.ReadActionRequest;
@@ -111,6 +116,7 @@ import org.mockito.ArgumentCaptor;
  * Integration tests for {@link MetaStorageManagerImpl}.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     private static final ByteArray FOO_KEY = new ByteArray("foo");
 
@@ -130,6 +136,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private RaftConfiguration raftConfiguration;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     private final ReadOperationForCompactionTracker readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -169,6 +178,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
                 new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(clusterService.nodeName())).build()
         ));
+        configureCmgManagerToStartMetastorage(cmgManager);
 
         ComponentWorkingDir metastorageWorkDir = new ComponentWorkingDir(workDir.resolve("metastorage"));
 
@@ -182,7 +192,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 clusterService.nodeName(),
                 metastorageWorkDir.dbPath(),
                 new NoOpFailureManager(),
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                scheduledExecutorService
         );
 
         metaStorageManager = new MetaStorageManagerImpl(
@@ -287,7 +298,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 mock(MetastorageRepairStorage.class),
                 mock(MetastorageRepair.class),
                 RaftGroupOptionsConfigurer.EMPTY,
-                readOperationForCompactionTracker
+                readOperationForCompactionTracker,
+                ForkJoinPool.commonPool()
         );
 
         assertThat(metaStorageManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());

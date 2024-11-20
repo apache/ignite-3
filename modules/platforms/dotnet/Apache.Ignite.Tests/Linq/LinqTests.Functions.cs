@@ -91,6 +91,7 @@ public partial class LinqTests
     }
 
     [Test]
+    [SuppressMessage("Globalization", "CA1311:Specify a culture or use an invariant version", Justification = "SQL")]
     public void TestStringFunctions()
     {
         TestOpString(x => x.Val + "_", "v-9_", "select concat(_T0.VAL, ?) from");

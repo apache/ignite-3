@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -329,15 +330,10 @@ public class RocksDbTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalancePartition(
-            int partitionId,
-            long lastAppliedIndex,
-            long lastAppliedTerm,
-            byte[] groupConfig
-    ) {
+    public CompletableFuture<Void> finishRebalancePartition(int partitionId, MvPartitionMeta partitionMeta) {
         return inBusyLock(busyLock, () -> mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
             try (WriteBatch writeBatch = new WriteBatch()) {
-                mvPartitionStorage.finishRebalance(writeBatch, lastAppliedIndex, lastAppliedTerm, groupConfig);
+                mvPartitionStorage.finishRebalance(writeBatch, partitionMeta);
 
                 indexes.finishRebalance(partitionId);
 

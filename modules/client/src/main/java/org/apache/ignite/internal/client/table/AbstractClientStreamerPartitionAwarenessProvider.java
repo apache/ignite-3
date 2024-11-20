@@ -27,8 +27,8 @@ import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
  */
 abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements StreamerPartitionAwarenessProvider<T, Integer> {
     private final ClientTable tbl;
-    private int partitions = -1;
-    private ClientSchema schema;
+    private volatile int partitions = -1;
+    private volatile ClientSchema schema;
 
     AbstractClientStreamerPartitionAwarenessProvider(ClientTable tbl) {
         this.tbl = tbl;
@@ -36,12 +36,15 @@ abstract class AbstractClientStreamerPartitionAwarenessProvider<T> implements St
 
     @Override
     public Integer partition(T item) {
-        if (schema == null || partitions < 0) {
+        ClientSchema schema0 = schema;
+        int partitions0 = partitions;
+
+        if (schema0 == null || partitions0 < 0) {
             throw new IllegalStateException("StreamerPartitionAwarenessProvider.refresh() was not called or awaited.");
         }
 
-        int hash = colocationHash(schema, item);
-        return Math.abs(hash % partitions);
+        int hash = colocationHash(schema0, item);
+        return Math.abs(hash % partitions0);
     }
 
     abstract int colocationHash(ClientSchema schema, T item);

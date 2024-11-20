@@ -32,7 +32,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.AbstractKeyValueStorageTest;
-import org.apache.ignite.internal.metastorage.server.OnRevisionAppliedCallback;
+import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.junit.jupiter.api.AfterEach;
@@ -47,15 +47,10 @@ public abstract class ItMetaStorageSafeTimePropagationAbstractTest extends Abstr
 
     @BeforeEach
     public void startWatches() {
-        storage.startWatches(1, new OnRevisionAppliedCallback() {
+        storage.startWatches(1, new WatchEventHandlingCallback() {
             @Override
             public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
                 time.updateSafeTime(newSafeTime);
-            }
-
-            @Override
-            public void onRevisionApplied(long revision) {
-                // No-op.
             }
         });
     }

@@ -47,6 +47,7 @@ class ReadOnlyTransactionImplTest extends BaseIgniteAbstractTest {
                 new HybridTimestampTracker(),
                 txId,
                 new UUID(1, 2),
+                false,
                 readTimestamp,
                 new CompletableFuture<>()
         );

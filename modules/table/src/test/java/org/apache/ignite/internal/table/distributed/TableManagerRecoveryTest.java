@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
@@ -26,7 +27,6 @@ import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
-import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -55,12 +55,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -84,6 +82,7 @@ import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
@@ -121,7 +120,9 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
@@ -146,7 +147,7 @@ import org.mockito.quality.Strictness;
 /**
  * Table manager recovery scenarios.
  */
-@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static final String NODE_NAME = "testNode1";
@@ -191,6 +192,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private volatile HybridTimestamp savedWatermark;
 
     private final DataStorageModule dataStorageModule = createDataStorageModule();
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     @AfterEach
     void after() throws Exception {
@@ -271,7 +275,13 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        var storage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+        var storage = new RocksDbKeyValueStorage(
+                NODE_NAME,
+                workDir,
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                scheduledExecutorService
+        );
 
         clock = new HybridClockImpl();
 
@@ -288,7 +298,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyService.localMember()).thenReturn(node);
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any()))
                 .thenReturn(nullCompletedFuture());
@@ -315,7 +325,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         metaStorageManager = StandaloneMetaStorageManager.create(storage, clock, readOperationForCompactionTracker);
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = c -> metaStorageManager.registerRevisionUpdateListener(c::apply);
+        var revisionUpdater = new MetaStorageRevisionListenerRegistry(metaStorageManager);
 
         PlacementDriver placementDriver = new TestPlacementDriver(node);
 
@@ -351,7 +361,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 mock(ScheduledExecutorService.class),
-                clock,
                 clockService,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 distributionZoneManager,

@@ -48,6 +48,8 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -57,7 +59,6 @@ import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageService;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -290,7 +291,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 liveServer.clusterService().nodeName(),
                 raftGroupServiceOfLiveServer,
                 new IgniteSpinBusyLock(),
-                mock(ClusterTime.class),
+                new HybridClockImpl(),
                 () -> liveServer.clusterService().topologyService().localMember().id());
 
         var resultFuture = new CompletableFuture<Void>();
@@ -447,10 +448,12 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         groupOptions1.serverDataPath(workingDir1.metaPath());
         groupOptions1.setLogStorageFactory(logStorageFactory1);
 
+        HybridClock clock = new HybridClockImpl();
+
         metaStorageRaftSrv1.startRaftNode(
                 raftNodeId1,
                 membersConfiguration,
-                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)),
+                new MetaStorageListener(mockStorage, clock, mock(ClusterTimeImpl.class)),
                 groupOptions1
         );
 
@@ -463,7 +466,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv2.startRaftNode(
                 raftNodeId2,
                 membersConfiguration,
-                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)),
+                new MetaStorageListener(mockStorage, clock, mock(ClusterTimeImpl.class)),
                 groupOptions2
         );
 
@@ -476,7 +479,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         metaStorageRaftSrv3.startRaftNode(
                 raftNodeId3,
                 membersConfiguration,
-                new MetaStorageListener(mockStorage, mock(ClusterTimeImpl.class)),
+                new MetaStorageListener(mockStorage, clock, mock(ClusterTimeImpl.class)),
                 groupOptions3
         );
 

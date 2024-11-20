@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.partitiondistribution.PartitionDistribu
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -68,6 +67,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.distributionzones.DataNodesMapSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.Node;
@@ -80,6 +80,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
@@ -173,7 +174,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             return null;
         }).when(metaStorageManager).registerPrefixWatch(any(), any());
 
-        when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+        when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));
 
         AtomicLong raftIndex = new AtomicLong();
 
@@ -181,7 +182,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         ClusterTimeImpl clusterTime = new ClusterTimeImpl(nodeName, new IgniteSpinBusyLock(), clock);
 
-        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, clusterTime);
+        MetaStorageListener metaStorageListener = new MetaStorageListener(keyValueStorage, clock, clusterTime);
 
         RaftGroupService metaStorageService = mock(RaftGroupService.class);
 
@@ -239,7 +240,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
             MultiInvokeCommand multiInvokeCommand = commandsFactory.multiInvokeCommand()
                     .iif(iif)
                     .id(commandIdGenerator.newId())
-                    .initiatorTime(clusterTime.now())
+                    .initiatorTime(clock.now())
                     .build();
 
             return metaStorageService.run(multiInvokeCommand);
@@ -536,7 +537,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         byte[] newLogicalTopology;
 
         if (nodes != null) {
-            newLogicalTopology = toBytes(toDataNodesMap(nodes.stream()
+            newLogicalTopology = DataNodesMapSerializer.serialize(toDataNodesMap(nodes.stream()
                     .map(n -> new Node(n, findNodeIdByConsistentId(n)))
                     .collect(toSet())));
         } else {

@@ -26,6 +26,7 @@ import org.apache.ignite.internal.metrics.exporters.log.LogPushExporter;
  */
 @PolymorphicConfigInstance(LogPushExporter.EXPORTER_NAME)
 public class LogPushExporterConfigurationSchema extends ExporterConfigurationSchema {
+    /** Export period, in milliseconds. */
     @Value(hasDefault = true)
-    public int period = 30_000;
+    public long period = 30_000;
 }

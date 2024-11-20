@@ -55,7 +55,7 @@ internal static class IgniteQueryParser
     /// <summary>
     /// Creates the node type provider.
     /// </summary>
-    private static INodeTypeProvider CreateNodeTypeProvider()
+    private static CompoundNodeTypeProvider CreateNodeTypeProvider()
     {
         var methodInfoRegistry = MethodInfoBasedNodeTypeRegistry.CreateFromRelinqAssembly();
 

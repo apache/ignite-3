@@ -21,6 +21,8 @@ import com.google.auto.service.AutoService;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -37,10 +39,11 @@ public class TestPushMetricExporter extends PushMetricExporter<TestPushMetricsEx
     private long period;
 
     @Override
-    public void start(MetricProvider metricsProvider, TestPushMetricsExporterView configuration) {
+    public void start(MetricProvider metricsProvider, TestPushMetricsExporterView configuration, Supplier<UUID> clusterIdSupplier,
+            String nodeName) {
         period = configuration.period();
 
-        super.start(metricsProvider, configuration);
+        super.start(metricsProvider, configuration, clusterIdSupplier, nodeName);
     }
 
     public static void setOutputStream(OutputStream outputStream) {

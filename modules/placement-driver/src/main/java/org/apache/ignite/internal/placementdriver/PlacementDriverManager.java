@@ -39,6 +39,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -266,17 +267,22 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     private void recoverInternalComponentsBusy() {
-        CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
+        CompletableFuture<Revisions> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 
         assert recoveryFinishedFuture.isDone();
 
-        long recoveryRevision = recoveryFinishedFuture.join();
+        long recoveryRevision = recoveryFinishedFuture.join().revision();
 
         leaseTracker.startTrack(recoveryRevision);
     }
 
     private PlacementDriver createPlacementDriver() {
         return new PlacementDriver() {
+            @Override
+            public boolean isActualAt(HybridTimestamp timestamp) {
+                return metastore.clusterTime().currentSafeTime().compareTo(timestamp) >= 0;
+            }
+
             @Override
             public CompletableFuture<List<TokenizedAssignments>> getAssignments(
                     List<? extends ReplicationGroupId> replicationGroupIds,

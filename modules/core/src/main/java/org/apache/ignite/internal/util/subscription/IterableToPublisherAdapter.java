@@ -21,6 +21,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.VarHandle;
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
@@ -34,30 +35,30 @@ import java.util.concurrent.Flow.Subscription;
  * @param <T> The type of the entry this publisher will emit.
  */
 public class IterableToPublisherAdapter<T> implements Publisher<T> {
-    private final Iterable<T> iterable;
+    private final CompletableFuture<? extends Iterable<T>> iterableFuture;
     private final Executor executor;
     private final int batchSize;
 
     /**
      * Constructor.
      *
-     * @param iterable An iterable to issue iterator for every incoming subscription.
+     * @param iterableFuture An iterable to issue iterator for every incoming subscription.
      * @param executor This executor will be used to drain iterator and supply entries to the subscription.
      * @param batchSize An amount of entries to supply during a single iteration. It's always good idea
      *      to provide some reasonable value here in order to give am ability to other publishers which share the same
      *      executor to make progress.
      */
-    public IterableToPublisherAdapter(Iterable<T> iterable, Executor executor, int batchSize) {
-        this.iterable = iterable;
+    public IterableToPublisherAdapter(CompletableFuture<? extends Iterable<T>> iterableFuture, Executor executor, int batchSize) {
+        this.iterableFuture = iterableFuture;
         this.executor = executor;
         this.batchSize = batchSize;
     }
 
     @Override
     public void subscribe(Subscriber<? super T> subscriber) {
-        Iterator<T> it = iterable.iterator();
+        CompletableFuture<Iterator<T>> itFuture = iterableFuture.thenApply(Iterable::iterator);
 
-        Subscription subscription = new SubscriptionImpl<>(it, subscriber, executor, batchSize);
+        Subscription subscription = new SubscriptionImpl<>(itFuture, subscriber, executor, batchSize);
 
         subscriber.onSubscribe(subscription);
     }
@@ -80,7 +81,7 @@ public class IterableToPublisherAdapter<T> implements Publisher<T> {
             }
         }
 
-        private final Iterator<T> it;
+        private final CompletableFuture<Iterator<T>> itFuture;
         private final Subscriber<? super T> subscriber;
         private final Executor executor;
         private final int batchSize;
@@ -89,8 +90,8 @@ public class IterableToPublisherAdapter<T> implements Publisher<T> {
         private long requested = 0;
         private boolean wip = false;
 
-        SubscriptionImpl(Iterator<T> it, Subscriber<? super T> subscriber, Executor executor, int batchSize) {
-            this.it = it;
+        SubscriptionImpl(CompletableFuture<Iterator<T>> itFuture, Subscriber<? super T> subscriber, Executor executor, int batchSize) {
+            this.itFuture = itFuture;
             this.subscriber = subscriber;
             this.executor = executor;
             this.batchSize = batchSize;
@@ -122,7 +123,15 @@ public class IterableToPublisherAdapter<T> implements Publisher<T> {
 
             // the task may be scheduled several times, but it's ok, since we will deal with this
             // inside task itself
-            executor.execute(this::drain);
+            itFuture.whenComplete((ignored, ex) -> {
+                if (ex != null) {
+                    notifyError(ex);
+
+                    return;
+                }
+
+                executor.execute(this::drain);
+            });
         }
 
         @Override
@@ -141,6 +150,10 @@ public class IterableToPublisherAdapter<T> implements Publisher<T> {
 
             long amount = amountToDrain();
 
+            assert itFuture.isDone();
+
+            Iterator<T> it = itFuture.join();
+
             try {
                 while (amount-- > 0 && it.hasNext()) {
                     subscriber.onNext(it.next());
@@ -149,7 +162,7 @@ public class IterableToPublisherAdapter<T> implements Publisher<T> {
                 notifyError(th);
             }
 
-            if (amount > 0) {
+            if (!it.hasNext()) {
                 // according to javadoc, no need to send onComplete signal if subscription has been cancelled
                 if (CANCELLED_HANDLE.compareAndSet(this, false, true)) {
                     subscriber.onComplete();

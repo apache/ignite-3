@@ -87,7 +87,10 @@ abstract class BaseIndexMetaStorageTest extends BaseIgniteAbstractTest {
 
         var componentContext = new ComponentContext();
 
-        assertThat(startAsync(componentContext, metastore, catalogManager, indexMetaStorage), willCompleteSuccessfully());
+        assertThat(startAsync(componentContext, metastore), willCompleteSuccessfully());
+        assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        assertThat(startAsync(componentContext, catalogManager, indexMetaStorage), willCompleteSuccessfully());
 
         assertThat(metastore.deployWatches(), willCompleteSuccessfully());
 

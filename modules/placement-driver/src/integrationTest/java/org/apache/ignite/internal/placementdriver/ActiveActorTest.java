@@ -42,6 +42,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
@@ -76,7 +77,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
 
     @BeforeEach
     public void setUp() {
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(0L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(0, -1)));
         when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(trueCompletedFuture());
         when(msm.getLocally(any(), anyLong())).then(invocation -> emptyMetastoreEntry());
         when(msm.getLocally(any(), any(), anyLong())).then(invocation -> Cursor.fromIterable(List.of()));

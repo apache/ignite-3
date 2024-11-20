@@ -21,12 +21,13 @@ import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.LongConsumer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.CommandId;
+import org.apache.ignite.internal.metastorage.CompactionRevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
@@ -49,11 +50,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      */
     void start();
 
-    /**
-     * Returns storage revision.
-     *
-     * @return Storage revision.
-     */
+    /** Returns storage revision, {@code 0} if there have been no storage update operations yet. */
     long revision();
 
     /**
@@ -378,10 +375,9 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * <p>Before calling this method, watches will not receive any updates.</p>
      *
      * @param startRevision Revision to start processing updates from.
-     * @param revisionCallback Callback that will be invoked after all watches of a particular revision are processed, with the
-     *         revision and modified entries (processed by at least one watch) as its argument.
+     * @param callback Watch event handling callback.
      */
-    void startWatches(long startRevision, OnRevisionAppliedCallback revisionCallback);
+    void startWatches(long startRevision, WatchEventHandlingCallback callback);
 
     /**
      * Unregisters a watch listener.
@@ -423,28 +419,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @see #saveCompactionRevision(long, KeyValueUpdateContext)
      */
     void compact(long revision);
-
-    /**
-     * Starts local compaction of metastorage.
-     *
-     * <p>Algorithm:</p>
-     * <ul>
-     *     <li>If the storage is in a recovery state ({@link #startWatches all registered watches not started}), then
-     *     {@link #setCompactionRevision} is invoked and the current method is completed.</li>
-     *     <li>Otherwise, a new task (A) is added to the WatchEvent queue and the current method is completed.</li>
-     *     <li>Task (A) invokes {@link #setCompactionRevision} and adds a new task (B) to the compaction thread pool and completes.</li>
-     *     <li>Task (B) collects all read operations from metastorage (local and from the leader {@link #readOperationsFuture}) and starts
-     *     asynchronously waiting for their completion.</li>
-     *     <li>Then {@link #compact} is invoked at the compaction thread pool.</li>
-     *     <li>Upon completion there will be a notification via {@link CompactionListener#onCompactionCompleteLocally} for
-     *     {@link #registerCompactionListener registered} listeners.</li>
-     * </ul>
-     *
-     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
-     *
-     * @param compactionRevision Compaction revision.
-     */
-    void startCompaction(long compactionRevision);
 
     /**
      * Signals the need to stop local metastorage compaction as soon as possible. For example, due to a node stopping.
@@ -499,18 +473,22 @@ public interface KeyValueStorage extends ManuallyCloseable {
     long revisionByTimestamp(HybridTimestamp timestamp);
 
     /**
-     * Sets the revision listener. This is needed only for the recovery, after that listener must be set to {@code null}.
-     * {@code null} means that we no longer must be notified of revision updates for recovery, because recovery is finished.
-     *
-     * @param listener Revision listener.
+     * Sets the revisions listener. This is needed only for the recovery, after that listener must be set to {@code null}.
+     * {@code null} means that we no longer must be notified of revisions updates for recovery, because recovery is finished.
      */
-    void setRecoveryRevisionListener(@Nullable LongConsumer listener);
+    void setRecoveryRevisionsListener(@Nullable RecoveryRevisionsListener listener);
 
     /** Registers a Meta Storage revision update listener. */
     void registerRevisionUpdateListener(RevisionUpdateListener listener);
 
     /** Unregisters a Meta Storage revision update listener. */
     void unregisterRevisionUpdateListener(RevisionUpdateListener listener);
+
+    /** Registers a metastorage compaction revision update listener. */
+    void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
+
+    /** Unregisters a metastorage compaction revision update listener. */
+    void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener);
 
     /** Explicitly notifies revision update listeners. */
     CompletableFuture<Void> notifyRevisionUpdateListenerOnStart(long newRevision);
@@ -561,21 +539,26 @@ public interface KeyValueStorage extends ManuallyCloseable {
     long getCompactionRevision();
 
     /**
-     * Returns a future that will complete when all read operations that were started before {@code compactionRevisionExcluded}.
+     * Updates the metastorage compaction revision.
      *
-     * <p>Current method is expected to be invoked after {@link #setCompactionRevision} on the same revision.</p>
+     * <p>Algorithm:</p>
+     * <ol>
+     *     <li>Invokes {@link #saveCompactionRevision}.</li>
+     *     <li>If the metastorage is in a recovery state (listener set via {@link #setRecoveryRevisionsListener}), then
+     *     {@link #setCompactionRevision} is invoked and the current method is completed.</li>
+     *     <li>If the watches have <b>not</b> {@link #startWatches started}, then it will postpone the execution of step 4 until the
+     *     watches and the current method is completed.</li>
+     *     <li>Otherwise, a new task (A) is added to the WatchEvent queue and the current method is completed.</li>
+     *     <li>Task (A) invokes {@link #setCompactionRevision} and invokes {@link CompactionRevisionUpdateListener#onUpdate}.</li>
+     * </ol>
      *
-     * <p>Future completes without exception.</p>
+     * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>
      *
-     * @param compactionRevisionExcluded Compaction revision of interest.
+     * @param revision Compaction revision to update.
+     * @param context Operation's context.
+     * @throws MetaStorageException If there is an error while saving a compaction revision.
      */
-    CompletableFuture<Void> readOperationsFuture(long compactionRevisionExcluded);
-
-    /** Adds a metastore compaction listener. */
-    void registerCompactionListener(CompactionListener listener);
-
-    /** Removes a metastore compaction listener. */
-    void unregisterCompactionListener(CompactionListener listener);
+    void updateCompactionRevision(long revision, KeyValueUpdateContext context);
 
     /**
      * Returns checksum corresponding to the revision.
@@ -586,7 +569,31 @@ public interface KeyValueStorage extends ManuallyCloseable {
     long checksum(long revision);
 
     /**
+     * Returns information about a checksum and checksummed revisions. Never throws a {@link CompactedException}; if the requested revision
+     * is compacted, just returns 0 as checksum (and the requested revision will not fall in
+     * {@link ChecksumAndRevisions#minChecksummedRevision()} - {@link ChecksumAndRevisions#maxChecksummedRevision()} interval).
+     *
+     * @param revision Revision for which to obtain a checksum.
+     */
+    ChecksumAndRevisions checksumAndRevisions(long revision);
+
+    /**
      * Clears the content of the storage. Should only be called when no one else uses this storage.
      */
     void clear();
+
+    /**
+     * Returns current metastorage revisions.
+     *
+     * @see #revision()
+     * @see #getCompactionRevision()
+     */
+    Revisions revisions();
+
+    /**
+     * Flushes current state of the data or <i>the state from the nearest future</i> to the storage.
+     *
+     * @return Future that's completed when flushing of the data is completed.
+     */
+    CompletableFuture<Void> flush();
 }

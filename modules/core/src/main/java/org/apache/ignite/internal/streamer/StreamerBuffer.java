@@ -18,27 +18,23 @@
 package org.apache.ignite.internal.streamer;
 
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 class StreamerBuffer<T> {
     private final int capacity;
 
-    private final BiConsumer<List<T>, BitSet> flusher;
+    private final Consumer<List<T>> flusher;
 
     /** Primary buffer. Won't grow over capacity. */
     private List<T> buf;
 
-    private BitSet deleted;
-
     private boolean closed;
 
-    StreamerBuffer(int capacity, BiConsumer<List<T>, BitSet> flusher) {
+    StreamerBuffer(int capacity, Consumer<List<T>> flusher) {
         this.capacity = capacity;
         this.flusher = flusher;
         buf = new ArrayList<>(capacity);
-        deleted = new BitSet(capacity);
     }
 
     /**
@@ -46,21 +42,16 @@ class StreamerBuffer<T> {
      *
      * @param item Item.
      */
-    synchronized void add(T item, boolean delete) {
+    synchronized void add(T item) {
         if (closed) {
             throw new IllegalStateException("Streamer is closed, can't add items.");
         }
 
         buf.add(item);
 
-        if (delete) {
-            deleted.set(buf.size() - 1);
-        }
-
         if (buf.size() >= capacity) {
-            flusher.accept(buf, deleted);
+            flusher.accept(buf);
             buf = new ArrayList<>(capacity);
-            deleted = new BitSet(capacity);
         }
     }
 
@@ -72,7 +63,7 @@ class StreamerBuffer<T> {
         closed = true;
 
         if (!buf.isEmpty()) {
-            flusher.accept(buf, deleted);
+            flusher.accept(buf);
         }
     }
 
@@ -81,8 +72,15 @@ class StreamerBuffer<T> {
             return;
         }
 
-        flusher.accept(buf, deleted);
+        flusher.accept(buf);
         buf = new ArrayList<>(capacity);
-        deleted = new BitSet(capacity);
+    }
+
+    synchronized void forEach(Consumer<T> consumer) {
+        if (closed) {
+            return;
+        }
+
+        buf.forEach(consumer);
     }
 }

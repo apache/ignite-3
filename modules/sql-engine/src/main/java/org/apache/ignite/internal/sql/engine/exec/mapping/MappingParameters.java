@@ -17,42 +17,51 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import java.util.function.Predicate;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.jetbrains.annotations.Nullable;
 
 /** Additional information used for mapping. */
 public class MappingParameters {
-
     /** Empty mapping parameters. */
-    public static final MappingParameters EMPTY = new MappingParameters(ArrayUtils.OBJECT_EMPTY_ARRAY, false);
+    public static final MappingParameters EMPTY = new MappingParameters(ArrayUtils.OBJECT_EMPTY_ARRAY, false, null);
 
     /** Allow map on backups. */
-    public static final MappingParameters MAP_ON_BACKUPS = new MappingParameters(ArrayUtils.OBJECT_EMPTY_ARRAY, true);
+    public static final MappingParameters MAP_ON_BACKUPS = new MappingParameters(ArrayUtils.OBJECT_EMPTY_ARRAY, true, null);
 
     private final boolean mapOnBackups;
     private final Object[] dynamicParameters;
+    private final @Nullable Predicate<String> nodeExclusionFilter;
 
     /**
      * Creates mapping parameters.
      *
      * @param dynamicParameters Dynamic parameters.
      * @param mapOnBackups Whether to use non-primary replicas for mapping or not.
+     * @param nodeExclusionFilter If provided, all nodes which meet the predicate must be excluded from mapping.
      *
      * @return Mapping parameters.
      */
-    public static MappingParameters create(Object[] dynamicParameters, boolean mapOnBackups) {
-        if (dynamicParameters.length == 0) {
+    public static MappingParameters create(
+            Object[] dynamicParameters,
+            boolean mapOnBackups,
+            @Nullable Predicate<String> nodeExclusionFilter
+    ) {
+        if (dynamicParameters.length == 0 && nodeExclusionFilter == null) {
             return mapOnBackups ? MAP_ON_BACKUPS : EMPTY;
         } else {
-            return new MappingParameters(dynamicParameters, mapOnBackups);
+            return new MappingParameters(dynamicParameters, mapOnBackups, nodeExclusionFilter);
         }
     }
 
     private MappingParameters(
             Object[] dynamicParameters,
-            boolean mapOnBackups
+            boolean mapOnBackups,
+            @Nullable Predicate<String> nodeExclusionFilter
     ) {
         this.dynamicParameters = dynamicParameters;
         this.mapOnBackups = mapOnBackups;
+        this.nodeExclusionFilter = nodeExclusionFilter;
     }
 
     /** Values of dynamic parameters. */
@@ -62,5 +71,10 @@ public class MappingParameters {
 
     boolean mapOnBackups() {
         return mapOnBackups;
+    }
+
+    /** If returned, all nodes which meet the predicate must be excluded from mapping. */
+    @Nullable Predicate<String> nodeExclusionFilter() {
+        return nodeExclusionFilter;
     }
 }

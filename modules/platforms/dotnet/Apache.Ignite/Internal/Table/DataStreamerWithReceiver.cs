@@ -133,7 +133,7 @@ internal static class DataStreamerWithReceiver
         }
         finally
         {
-            flushCts.Cancel();
+            await flushCts.CancelAsync().ConfigureAwait(false);
             foreach (var batch in batches.Values)
             {
                 GetPool<TPayload>().Return(batch.Items);

@@ -661,49 +661,49 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTableGetRequest.process(in, out, igniteTables);
 
             case ClientOp.TUPLE_UPSERT:
-                return ClientTupleUpsertRequest.process(in, out, igniteTables, resources);
+                return ClientTupleUpsertRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_GET:
-                return ClientTupleGetRequest.process(in, out, igniteTables, resources);
+                return ClientTupleGetRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_UPSERT_ALL:
-                return ClientTupleUpsertAllRequest.process(in, out, igniteTables, resources);
+                return ClientTupleUpsertAllRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_GET_ALL:
                 return ClientTupleGetAllRequest.process(in, out, igniteTables, resources);
 
             case ClientOp.TUPLE_GET_AND_UPSERT:
-                return ClientTupleGetAndUpsertRequest.process(in, out, igniteTables, resources);
+                return ClientTupleGetAndUpsertRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_INSERT:
-                return ClientTupleInsertRequest.process(in, out, igniteTables, resources);
+                return ClientTupleInsertRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_INSERT_ALL:
-                return ClientTupleInsertAllRequest.process(in, out, igniteTables, resources);
+                return ClientTupleInsertAllRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_REPLACE:
-                return ClientTupleReplaceRequest.process(in, out, igniteTables, resources);
+                return ClientTupleReplaceRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_REPLACE_EXACT:
-                return ClientTupleReplaceExactRequest.process(in, out, igniteTables, resources);
+                return ClientTupleReplaceExactRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_GET_AND_REPLACE:
-                return ClientTupleGetAndReplaceRequest.process(in, out, igniteTables, resources);
+                return ClientTupleGetAndReplaceRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_DELETE:
-                return ClientTupleDeleteRequest.process(in, out, igniteTables, resources);
+                return ClientTupleDeleteRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_DELETE_ALL:
-                return ClientTupleDeleteAllRequest.process(in, out, igniteTables, resources);
+                return ClientTupleDeleteAllRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_DELETE_EXACT:
-                return ClientTupleDeleteExactRequest.process(in, out, igniteTables, resources);
+                return ClientTupleDeleteExactRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_DELETE_ALL_EXACT:
-                return ClientTupleDeleteAllExactRequest.process(in, out, igniteTables, resources);
+                return ClientTupleDeleteAllExactRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_GET_AND_DELETE:
-                return ClientTupleGetAndDeleteRequest.process(in, out, igniteTables, resources);
+                return ClientTupleGetAndDeleteRequest.process(in, out, igniteTables, resources, igniteTransactions);
 
             case ClientOp.TUPLE_CONTAINS_KEY:
                 return ClientTupleContainsKeyRequest.process(in, out, igniteTables, resources);
@@ -819,25 +819,28 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         }
     }
 
-    private boolean isPartitionOperation(int opCode) {
+    private static boolean isPartitionOperation(int opCode) {
         return opCode == ClientOp.TABLES_GET
                 || opCode == ClientOp.TUPLE_UPSERT
                 || opCode == ClientOp.TUPLE_GET
-                || opCode == ClientOp.TUPLE_UPSERT_ALL
-                || opCode == ClientOp.TUPLE_GET_ALL
                 || opCode == ClientOp.TUPLE_GET_AND_UPSERT
                 || opCode == ClientOp.TUPLE_INSERT
-                || opCode == ClientOp.TUPLE_INSERT_ALL
                 || opCode == ClientOp.TUPLE_REPLACE
                 || opCode == ClientOp.TUPLE_REPLACE_EXACT
                 || opCode == ClientOp.TUPLE_GET_AND_REPLACE
                 || opCode == ClientOp.TUPLE_DELETE
-                || opCode == ClientOp.TUPLE_DELETE_ALL
                 || opCode == ClientOp.TUPLE_DELETE_EXACT
-                || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
                 || opCode == ClientOp.TUPLE_GET_AND_DELETE
                 || opCode == ClientOp.TUPLE_CONTAINS_KEY
-                || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
+                || opCode == ClientOp.STREAMER_BATCH_SEND;
+
+                // TODO: IGNITE-23641 The batch operations were excluded because fast switching leads to performance degradation for them.
+                // || opCode == ClientOp.TUPLE_UPSERT_ALL
+                // || opCode == ClientOp.TUPLE_GET_ALL
+                // || opCode == ClientOp.TUPLE_INSERT_ALL
+                // || opCode == ClientOp.TUPLE_DELETE_ALL
+                // || opCode == ClientOp.TUPLE_DELETE_ALL_EXACT
+                // || opCode == ClientOp.TUPLE_CONTAINS_ALL_KEYS;
     }
 
     private void processOperationInternal(
@@ -988,7 +991,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             }
         }
 
-        return clockService.nowLong();
+        return clockService.currentLong();
     }
 
     private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {

@@ -116,17 +116,11 @@ namespace Apache.Ignite
             /// <summary> ColumnNotFound error. </summary>
             public const int ColumnNotFound = (GroupCode << 16) | (4 & 0xFFFF);
 
-            /// <summary> TableStopping error. </summary>
-            public const int TableStopping = (GroupCode << 16) | (5 & 0xFFFF);
-
-            /// <summary> TableDefinition error. </summary>
-            public const int TableDefinition = (GroupCode << 16) | (6 & 0xFFFF);
-
             /// <summary> SchemaVersionMismatch error. </summary>
-            public const int SchemaVersionMismatch = (GroupCode << 16) | (7 & 0xFFFF);
+            public const int SchemaVersionMismatch = (GroupCode << 16) | (5 & 0xFFFF);
 
             /// <summary> UnsupportedPartitionType error. </summary>
-            public const int UnsupportedPartitionType = (GroupCode << 16) | (8 & 0xFFFF);
+            public const int UnsupportedPartitionType = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> Client errors. </summary>
@@ -150,23 +144,17 @@ namespace Apache.Ignite
             /// <summary> TableIdNotFound error. </summary>
             public const int TableIdNotFound = (GroupCode << 16) | (4 & 0xFFFF);
 
-            /// <summary> Authentication error. </summary>
-            public const int Authentication = (GroupCode << 16) | (5 & 0xFFFF);
-
-            /// <summary> Authorization error. </summary>
-            public const int Authorization = (GroupCode << 16) | (6 & 0xFFFF);
-
             /// <summary> Configuration error. </summary>
-            public const int Configuration = (GroupCode << 16) | (7 & 0xFFFF);
+            public const int Configuration = (GroupCode << 16) | (5 & 0xFFFF);
 
             /// <summary> ClusterIdMismatch error. </summary>
-            public const int ClusterIdMismatch = (GroupCode << 16) | (8 & 0xFFFF);
+            public const int ClusterIdMismatch = (GroupCode << 16) | (6 & 0xFFFF);
 
             /// <summary> ClientSslConfiguration error. </summary>
-            public const int ClientSslConfiguration = (GroupCode << 16) | (9 & 0xFFFF);
+            public const int ClientSslConfiguration = (GroupCode << 16) | (7 & 0xFFFF);
 
             /// <summary> HandshakeHeader error. </summary>
-            public const int HandshakeHeader = (GroupCode << 16) | (10 & 0xFFFF);
+            public const int HandshakeHeader = (GroupCode << 16) | (8 & 0xFFFF);
         }
 
         /// <summary> Sql errors. </summary>
@@ -232,6 +220,9 @@ namespace Apache.Ignite
 
             /// <summary> Compacted error. </summary>
             public const int Compacted = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> Diverged error. </summary>
+            public const int Diverged = (GroupCode << 16) | (7 & 0xFFFF);
         }
 
         /// <summary> Index errors. </summary>
@@ -243,14 +234,11 @@ namespace Apache.Ignite
             /// <summary> Index group name. </summary>
             public const String GroupName = "IDX";
 
-            /// <summary> InvalidIndexDefinition error. </summary>
-            public const int InvalidIndexDefinition = (GroupCode << 16) | (1 & 0xFFFF);
-
             /// <summary> IndexNotFound error. </summary>
-            public const int IndexNotFound = (GroupCode << 16) | (2 & 0xFFFF);
+            public const int IndexNotFound = (GroupCode << 16) | (1 & 0xFFFF);
 
             /// <summary> IndexAlreadyExists error. </summary>
-            public const int IndexAlreadyExists = (GroupCode << 16) | (3 & 0xFFFF);
+            public const int IndexAlreadyExists = (GroupCode << 16) | (2 & 0xFFFF);
         }
 
         /// <summary> Transactions errors. </summary>
@@ -286,26 +274,23 @@ namespace Apache.Ignite
             /// <summary> TxFailedReadWriteOperation error. </summary>
             public const int TxFailedReadWriteOperation = (GroupCode << 16) | (8 & 0xFFFF);
 
-            /// <summary> TxReplicaUnavailable error. </summary>
-            public const int TxReplicaUnavailable = (GroupCode << 16) | (9 & 0xFFFF);
-
             /// <summary> TxStateStorageRebalance error. </summary>
-            public const int TxStateStorageRebalance = (GroupCode << 16) | (10 & 0xFFFF);
+            public const int TxStateStorageRebalance = (GroupCode << 16) | (9 & 0xFFFF);
 
             /// <summary> TxReadOnlyTooOld error. </summary>
-            public const int TxReadOnlyTooOld = (GroupCode << 16) | (11 & 0xFFFF);
+            public const int TxReadOnlyTooOld = (GroupCode << 16) | (10 & 0xFFFF);
 
             /// <summary> TxIncompatibleSchema error. </summary>
-            public const int TxIncompatibleSchema = (GroupCode << 16) | (12 & 0xFFFF);
+            public const int TxIncompatibleSchema = (GroupCode << 16) | (11 & 0xFFFF);
 
             /// <summary> TxPrimaryReplicaExpired error. </summary>
-            public const int TxPrimaryReplicaExpired = (GroupCode << 16) | (13 & 0xFFFF);
+            public const int TxPrimaryReplicaExpired = (GroupCode << 16) | (12 & 0xFFFF);
 
             /// <summary> TxAlreadyFinished error. </summary>
-            public const int TxAlreadyFinished = (GroupCode << 16) | (14 & 0xFFFF);
+            public const int TxAlreadyFinished = (GroupCode << 16) | (13 & 0xFFFF);
 
             /// <summary> TxStaleOperation error. </summary>
-            public const int TxStaleOperation = (GroupCode << 16) | (15 & 0xFFFF);
+            public const int TxStaleOperation = (GroupCode << 16) | (14 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>
@@ -514,23 +499,17 @@ namespace Apache.Ignite
             /// <summary> ComputeJobFailed error. </summary>
             public const int ComputeJobFailed = (GroupCode << 16) | (9 & 0xFFFF);
 
-            /// <summary> ChangeJobPriorityNoJob error. </summary>
-            public const int ChangeJobPriorityNoJob = (GroupCode << 16) | (10 & 0xFFFF);
-
-            /// <summary> ChangeJobPriorityJobExecuting error. </summary>
-            public const int ChangeJobPriorityJobExecuting = (GroupCode << 16) | (11 & 0xFFFF);
-
             /// <summary> PrimaryReplicaResolve error. </summary>
-            public const int PrimaryReplicaResolve = (GroupCode << 16) | (12 & 0xFFFF);
+            public const int PrimaryReplicaResolve = (GroupCode << 16) | (10 & 0xFFFF);
 
             /// <summary> ChangeJobPriority error. </summary>
-            public const int ChangeJobPriority = (GroupCode << 16) | (13 & 0xFFFF);
+            public const int ChangeJobPriority = (GroupCode << 16) | (11 & 0xFFFF);
 
             /// <summary> NodeNotFound error. </summary>
-            public const int NodeNotFound = (GroupCode << 16) | (14 & 0xFFFF);
+            public const int NodeNotFound = (GroupCode << 16) | (12 & 0xFFFF);
 
             /// <summary> MarshallingTypeMismatch error. </summary>
-            public const int MarshallingTypeMismatch = (GroupCode << 16) | (15 & 0xFFFF);
+            public const int MarshallingTypeMismatch = (GroupCode << 16) | (13 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>

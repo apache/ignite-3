@@ -534,10 +534,18 @@ public class Cluster {
 
         List<IgniteServer> serversToStop = new ArrayList<>(igniteServers);
 
+        List<String> serverNames = serversToStop.stream()
+                .filter(Objects::nonNull)
+                .map(IgniteServer::name)
+                .collect(toList());
+        LOG.info("Shutting the cluster down [nodes={}]", serverNames);
+
         Collections.fill(igniteServers, null);
         Collections.fill(nodes, null);
 
         serversToStop.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
+
+        LOG.info("Shut the cluster down");
     }
 
     /**

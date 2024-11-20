@@ -27,10 +27,6 @@ class Option extends QueryPart {
         this.value = value;
     }
 
-    public static Option primaryZone(String zone) {
-        return new Option("PRIMARY_ZONE", zone.toUpperCase());
-    }
-
     public static Option partitions(Integer partitions) {
         return new Option("PARTITIONS", partitions);
     }
@@ -61,6 +57,10 @@ class Option extends QueryPart {
 
     public static Option storageProfiles(String storageProfiles) {
         return new Option("STORAGE_PROFILES", storageProfiles);
+    }
+
+    public static Option consistencyMode(String consistencyMode) {
+        return new Option("CONSISTENCY_MODE", consistencyMode);
     }
 
     public static Option name(String name) {

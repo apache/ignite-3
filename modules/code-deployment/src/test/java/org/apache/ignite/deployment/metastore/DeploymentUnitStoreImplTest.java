@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.ClusterStatusWatchListener;
@@ -51,6 +52,8 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -62,6 +65,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test suite for {@link DeploymentUnitStoreImpl}.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
     private static final String LOCAL_NODE = "localNode";
 
@@ -90,6 +94,9 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
 
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
+
     @BeforeEach
     public void setup() {
         nodeHistory.clear();
@@ -97,7 +104,13 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
 
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        var storage = new RocksDbKeyValueStorage(LOCAL_NODE, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+        var storage = new RocksDbKeyValueStorage(
+                LOCAL_NODE,
+                workDir,
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                scheduledExecutorService
+        );
 
         MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(storage, readOperationForCompactionTracker);
         metastore = new DeploymentUnitStoreImpl(metaStorageManager);

@@ -55,12 +55,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -154,7 +156,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     private PendingComparableValuesTracker<Long, Void> revisionTracker;
 
-    private final ClockService clockService = new TestClockService(new HybridClockImpl());
+    private final HybridClock clock = new HybridClockImpl();
+    private final ClockService clockService = new TestClockService(clock);
 
     private LeaseTracker leasePlacementDriver;
 
@@ -167,7 +170,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        metastore = StandaloneMetaStorageManager.create();
+        metastore = StandaloneMetaStorageManager.create(clock);
 
         revisionTracker = new PendingComparableValuesTracker<>(-1L);
 
@@ -183,11 +186,11 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
 
         assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
+        CompletableFuture<Revisions> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 
         assertThat(recoveryFinishedFuture, willCompleteSuccessfully());
 
-        leasePlacementDriver.startTrack(recoveryFinishedFuture.join());
+        leasePlacementDriver.startTrack(recoveryFinishedFuture.join().revision());
 
         assignmentsPlacementDriver.startTrack();
 
@@ -789,7 +792,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         publishStableAssignments(ASSIGNMENTS_A);
 
         // requestTimestamp >= clusterTime
-        HybridTimestamp requestTimestamp = HybridTimestamp.hybridTimestamp(metastore.clusterTime().nowLong() + 1);
+        HybridTimestamp requestTimestamp = HybridTimestamp.hybridTimestamp(clockService.nowLong() + 1);
 
         // Request assignments for not requestTimestamp >= ms.safeTime.
         CompletableFuture<TokenizedAssignments> assignmentsFuture = assignmentsPlacementDriver.getAssignments(GROUP_1, requestTimestamp);
@@ -846,7 +849,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private void publishAssignments(ByteArray assignmentsKey, Set<Assignment> assignments) {
-        long timestampBeforeUpdate = metastore.clusterTime().nowLong();
+        long timestampBeforeUpdate = clockService.nowLong();
 
         metastore.invoke(
                 Conditions.notExists(FAKE_KEY),

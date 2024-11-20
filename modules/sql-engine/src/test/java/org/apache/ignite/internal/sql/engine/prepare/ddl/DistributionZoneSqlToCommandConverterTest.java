@@ -42,12 +42,14 @@ import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.SqlException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -80,6 +82,61 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         NewZoneEntry newZoneEntry = invokeAndGetFirstEntry(cmd, NewZoneEntry.class);
 
         assertThat(newZoneEntry.descriptor().name(), equalTo("TEST"));
+    }
+
+    @Test
+    public void testCreateZoneWithConsistencyModeNotSet() throws SqlParseException {
+        SqlNode node = parse("CREATE ZONE test0 WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+
+        CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
+
+        assertThat(desc.consistencyMode(), equalTo(ConsistencyMode.STRONG_CONSISTENCY));
+    }
+
+    @Test
+    public void testCreateZoneWithConsistencyModeStrongConsistency() throws SqlParseException {
+        SqlNode node = parse("CREATE ZONE test0 WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "',"
+                + " CONSISTENCY_MODE='" + ConsistencyMode.STRONG_CONSISTENCY.name() + "'");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+
+        CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
+
+        assertThat(desc.consistencyMode(), equalTo(ConsistencyMode.STRONG_CONSISTENCY));
+    }
+
+    @Test
+    public void testCreateZoneWithConsistencyModeHighAvailability() throws SqlParseException {
+        SqlNode node = parse("CREATE ZONE test0 WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "',"
+                + " CONSISTENCY_MODE='" + ConsistencyMode.HIGH_AVAILABILITY.name() + "'");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
+
+        CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
+
+        assertThat(desc.consistencyMode(), equalTo(ConsistencyMode.HIGH_AVAILABILITY));
+    }
+
+    @Test
+    public void testCreateZoneWithConsistencyModeInvalid() throws SqlParseException {
+        SqlNode node = parse("CREATE ZONE test0 WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "',"
+                + " CONSISTENCY_MODE='" + "MY_CUSTOM_MODE" + "'");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrows(
+                SqlException.class,
+                () -> converter.convert((SqlDdl) node, createContext()),
+                "Failed to parse consistency mode: MY_CUSTOM_MODE. Valid values are: [STRONG_CONSISTENCY, HIGH_AVAILABILITY]"
+        );
     }
 
     @Test

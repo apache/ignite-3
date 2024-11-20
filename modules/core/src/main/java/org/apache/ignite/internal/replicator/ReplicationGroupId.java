@@ -17,10 +17,8 @@
 
 package org.apache.ignite.internal.replicator;
 
-import java.io.Serializable;
-
 /**
  * The interface represents a replication group identifier.
  */
-public interface ReplicationGroupId extends Serializable {
+public interface ReplicationGroupId {
 }

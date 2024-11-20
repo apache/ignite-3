@@ -58,6 +58,8 @@ dependencies {
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-runner')
+    integrationTestImplementation project(':ignite-configuration-system')
+    integrationTestImplementation project(':ignite-system-disaster-recovery-api')
 
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-network')))

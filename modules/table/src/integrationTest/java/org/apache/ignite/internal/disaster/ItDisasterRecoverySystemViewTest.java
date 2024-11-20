@@ -18,21 +18,29 @@
 package org.apache.ignite.internal.disaster;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
+import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.restart.RestartProofIgnite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingTable;
 import org.junit.jupiter.api.AfterEach;
@@ -73,9 +81,11 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
 
+        int tableId = getTableId(DEFAULT_SCHEMA_NAME, TABLE_NAME);
+
         assertQuery(globalPartitionStatesSystemViewSql())
-                .returns(ZONE_NAME, TABLE_NAME, 0, AVAILABLE.name())
-                .returns(ZONE_NAME, TABLE_NAME, 1, AVAILABLE.name())
+                .returns(ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, AVAILABLE.name())
+                .returns(ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 1, AVAILABLE.name())
                 .check();
     }
 
@@ -94,11 +104,47 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
         String nodeName0 = nodeNames.get(0);
         String nodeName1 = nodeNames.get(1);
 
+        int tableId = getTableId(DEFAULT_SCHEMA_NAME, TABLE_NAME);
+
         assertQuery(localPartitionStatesSystemViewSql())
-                .returns(nodeName0, ZONE_NAME, TABLE_NAME, 0, HEALTHY.name())
-                .returns(nodeName0, ZONE_NAME, TABLE_NAME, 1, HEALTHY.name())
-                .returns(nodeName1, ZONE_NAME, TABLE_NAME, 0, HEALTHY.name())
-                .returns(nodeName1, ZONE_NAME, TABLE_NAME, 1, HEALTHY.name())
+                .returns(nodeName0, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name(), 0L)
+                .returns(nodeName0, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 1, HEALTHY.name(), 0L)
+                .returns(nodeName1, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name(), 0L)
+                .returns(nodeName1, ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 1, HEALTHY.name(), 0L)
+                .check();
+    }
+
+    @Test
+    void testLocalPartitionStatesSystemViewWithUpdatedEstimatedRows() throws Exception {
+        assertEquals(2, initialNodes());
+
+        int partitionsCount = 1;
+
+        createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
+
+        waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+
+        insertPeople(
+                TABLE_NAME,
+                new Person(1, "foo_name", 100.0),
+                new Person(2, "bar_name", 200.0)
+        );
+
+        List<String> nodeNames = CLUSTER.runningNodes().map(Ignite::name).sorted().collect(toList());
+
+        int tableId = getTableId(DEFAULT_SCHEMA_NAME, TABLE_NAME);
+
+        // Small wait is specially added so that the follower can execute the replicated "insert" command and the counter is honestly
+        // increased.
+        assertTrue(waitForCondition(
+                () -> nodeNames.stream().allMatch(nodeName -> estimatedSize(nodeName, TABLE_NAME, 0) >= 2L),
+                10,
+                1_000
+        ));
+
+        assertQuery(localPartitionStatesSystemViewSql())
+                .returns(nodeNames.get(0), ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name(), 2L)
+                .returns(nodeNames.get(1), ZONE_NAME, tableId, DEFAULT_SCHEMA_NAME, TABLE_NAME, 0, HEALTHY.name(), 2L)
                 .check();
     }
 
@@ -128,10 +174,31 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     }
 
     private static String globalPartitionStatesSystemViewSql() {
-        return "SELECT ZONE_NAME, TABLE_NAME, PARTITION_ID, STATE FROM SYSTEM.GLOBAL_PARTITION_STATES";
+        return "SELECT ZONE_NAME, TABLE_ID, SCHEMA_NAME, TABLE_NAME, PARTITION_ID, STATE FROM SYSTEM.GLOBAL_PARTITION_STATES";
     }
 
     private static String localPartitionStatesSystemViewSql() {
-        return "SELECT NODE_NAME, ZONE_NAME, TABLE_NAME, PARTITION_ID, STATE FROM SYSTEM.LOCAL_PARTITION_STATES";
+        return "SELECT NODE_NAME, ZONE_NAME, TABLE_ID, SCHEMA_NAME, TABLE_NAME, PARTITION_ID, STATE, ESTIMATED_ROWS"
+                + " FROM SYSTEM.LOCAL_PARTITION_STATES";
+    }
+
+    private static int getTableId(String schemaName, String tableName) {
+        CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
+
+        return catalogManager.catalog(catalogManager.latestCatalogVersion()).table(schemaName, tableName).id();
+    }
+
+    private static long estimatedSize(String nodeName, String tableName, int partitionId) {
+        return CLUSTER.runningNodes()
+                .filter(ignite -> nodeName.equals(ignite.name()))
+                .map(ignite -> {
+                    TableImpl table = unwrapTableImpl(ignite.tables().table(tableName));
+
+                    return table.internalTable().storage().getMvPartition(partitionId);
+                })
+                .filter(Objects::nonNull)
+                .map(MvPartitionStorage::estimatedSize)
+                .findAny()
+                .orElse(-1L);
     }
 }

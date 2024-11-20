@@ -51,6 +51,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshal
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
@@ -82,6 +83,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         keyValueStorage.start();
         assertThat(metastore.startAsync(new ComponentContext()), willCompleteSuccessfully());
+        assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -231,7 +233,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         metastore = StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker);
         assertThat(metastore.startAsync(componentContext), willCompleteSuccessfully());
 
-        assertThat(metastore.recoveryFinishedFuture(), willBe(recoverRevision));
+        assertThat(metastore.recoveryFinishedFuture().thenApply(Revisions::revision), willBe(recoverRevision));
     }
 
     @Test

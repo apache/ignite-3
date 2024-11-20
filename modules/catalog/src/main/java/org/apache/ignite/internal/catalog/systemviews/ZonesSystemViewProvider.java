@@ -58,6 +58,7 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
                 .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleDown())
                 .addColumn("DATA_NODES_FILTER", STRING, wrapper -> wrapper.zone.filter())
                 .addColumn("IS_DEFAULT_ZONE", BOOLEAN, wrapper -> wrapper.isDefault)
+                .addColumn("CONSISTENCY_MODE", STRING, wrapper -> wrapper.zone.consistencyMode().name())
                 .dataProvider(SubscriptionUtils.fromIterable(() -> {
                             Catalog catalog = catalogSupplier.get();
                             CatalogZoneDescriptor defaultZone = catalog.defaultZone();

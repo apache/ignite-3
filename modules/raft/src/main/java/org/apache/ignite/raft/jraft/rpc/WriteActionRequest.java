@@ -40,4 +40,9 @@ public interface WriteActionRequest extends ActionRequest {
      */
     @Transient
     @Nullable WriteCommand deserializedCommand();
-}
+
+    @Override
+    default String toStringForLightLogging() {
+        WriteCommand command = deserializedCommand();
+        return ActionRequest.super.toStringForLightLogging() + "(" + (command == null ? "null" : command.toStringForLightLogging()) + ")";
+    }}

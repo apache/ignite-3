@@ -107,10 +107,20 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
         return new SimpleInMemoryKeyValueStorage(nodeName, readOperationForCompactionTracker);
     }
 
+    void startMetastorageOn(List<Node> nodes) {
+        ComponentContext componentContext = new ComponentContext();
+
+        for (Node node : nodes) {
+            assertThat(node.metaStorageManager.startAsync(componentContext), willCompleteSuccessfully());
+        }
+    }
+
     class Node {
         private final VaultManager vaultManager;
 
         final ClusterService clusterService;
+
+        final HybridClock clock = new HybridClockImpl();
 
         private final Loza raftManager;
 
@@ -137,8 +147,6 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
             this.vaultManager = new VaultManager(new InMemoryVaultService());
 
             Path basePath = dataPath.resolve(name());
-
-            HybridClock clock = new HybridClockImpl();
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
@@ -234,8 +242,7 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     raftManager,
                     clusterStateStorage,
                     failureManager,
-                    cmgManager,
-                    metaStorageManager
+                    cmgManager
             );
 
             assertThat(startAsync(new ComponentContext(), components), willCompleteSuccessfully());

@@ -45,6 +45,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescripto
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -63,8 +64,16 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
             .build();
 
     private static final CatalogZoneDescriptor DEFAULT_ZONE = new CatalogZoneDescriptor(
-            0, ZONE_NAME, 1, -1, -1, -1, -1, "",
-            fromParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
+            0,
+            ZONE_NAME,
+            1,
+            -1,
+            -1,
+            -1,
+            -1,
+            "",
+            fromParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build())),
+            ConsistencyMode.STRONG_CONSISTENCY
     );
 
     static Stream<Arguments> nullAndBlankStrings() {

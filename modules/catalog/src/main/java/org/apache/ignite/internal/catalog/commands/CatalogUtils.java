@@ -45,6 +45,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDesc
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
@@ -119,6 +120,8 @@ public class CatalogUtils {
      * <p>SQL`16 part 2 section 6.1 syntax rule 8
      */
     public static final int DEFAULT_VARLEN_LENGTH = 2 << 15;
+
+    public static final ConsistencyMode DEFAULT_CONSISTENCY_MODE = ConsistencyMode.STRONG_CONSISTENCY;
 
     private static final Map<ColumnType, Set<ColumnType>> ALTER_COLUMN_TYPE_TRANSITIONS = new EnumMap<>(ColumnType.class);
 

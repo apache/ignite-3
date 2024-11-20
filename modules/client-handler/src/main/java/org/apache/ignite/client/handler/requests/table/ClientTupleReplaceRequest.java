@@ -17,14 +17,15 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -34,24 +35,27 @@ public class ClientTupleReplaceRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
-     * @param out       Packer.
-     * @param tables    Ignite tables.
+     * @param in Unpacker.
+     * @param out Packer.
+     * @param tables Ignite tables.
      * @param resources Resource registry.
+     * @param transactions Ignite transactions.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteTables tables,
-            ClientResourceRegistry resources
+            ClientResourceRegistry resources,
+            IgniteTransactionsImpl transactions
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, out, resources);
+            var tx = readOrStartImplicitTx(in, out, resources, transactions, false);
             return readTuple(in, table, false).thenCompose(tuple -> {
                 return table.recordView().replaceAsync(tx, tuple).thenAccept(res -> {
                     out.packInt(table.schemaView().lastKnownSchemaVersion());
                     out.packBoolean(res);
+                    out.meta(transactions.observableTimestamp());
                 });
             });
         });

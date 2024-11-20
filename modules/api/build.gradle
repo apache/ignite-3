@@ -36,8 +36,23 @@ dependencies {
     testFixturesImplementation libs.jetbrains.annotations
 }
 
+def platformsHeadersDir = file("${buildDir}/platforms/")
+
 compileJava {
-    options.headerOutputDirectory = file("${projectDir}/../platforms/")
+    options.headerOutputDirectory = platformsHeadersDir
+}
+
+configurations {
+    platformsHeaders {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    platformsHeaders(platformsHeadersDir) {
+        builtBy compileJava
+    }
 }
 
 description = 'ignite-api'

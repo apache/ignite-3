@@ -21,8 +21,12 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSql
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,8 +37,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -43,11 +50,11 @@ import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.SelectCountPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -56,6 +63,7 @@ import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -134,11 +142,11 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
                     .addColumn("ID", Collation.ASC_NULLS_FIRST)
                     .end()
                 .end()
-            .dataProvider("N1", "T1", table)
-            .dataProvider("N2", "T1", table)
-            // table T2 will be created later by DDL
-            .dataProvider("N1", "T2", table)
-            .dataProvider("N2", "T2", table)
+            .defaultAssignmentsProvider(tableName -> (partitionsCount, includeBackups) -> IntStream.range(0, partitionsCount)
+                    .mapToObj(part -> List.of(part % 2 == 0 ? "N1" : "N2"))
+                    .collect(Collectors.toList())
+            )
+            .defaultDataProvider(tableName -> table)
             // Register system views
             .addSystemView(SystemViews.<Object[]>clusterViewBuilder()
                     .name("NODES")
@@ -170,37 +178,41 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
     public void testSimpleQuery() {
         cluster.start();
 
-        var gatewayNode = cluster.node("N1");
-        var plan = gatewayNode.prepare("SELECT * FROM t1");
+        TestNode gatewayNode = cluster.node("N1");
+        String query = "SELECT * FROM t1";
 
-        for (var row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
-            assertNotNull(row);
-        }
+        QueryPlan plan = gatewayNode.prepare(query);
 
         // Ensure the plan contains full table scan.
-        assertTrue(plan instanceof MultiStepPlan);
-        assertTrue(lastNode(((MultiStepPlan) plan).root()) instanceof IgniteTableScan);
+        assertInstanceOf(MultiStepPlan.class, plan);
+        assertInstanceOf(IgniteTableScan.class, lastNode(((MultiStepPlan) plan).root()));
+
+        for (var row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
+            assertNotNull(row);
+        }
     }
 
     @Test
     public void testSimpleFromCreatedTableByDdl() {
         cluster.start();
 
-        var gatewayNode = cluster.node("N1");
+        TestNode gatewayNode = cluster.node("N1");
 
         gatewayNode.initSchema(
                 "CREATE TABLE t2 (id INT PRIMARY KEY, val VARCHAR(64))"
         );
 
-        QueryPlan plan = gatewayNode.prepare("SELECT * FROM t2");
+        String query = "SELECT * FROM t2";
 
-        for (var row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+        QueryPlan plan = gatewayNode.prepare(query);
+
+        for (var row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
             assertNotNull(row);
         }
 
         // Ensure the plan contains full table scan.
-        assertTrue(plan instanceof MultiStepPlan);
-        assertTrue(lastNode(((MultiStepPlan) plan).root()) instanceof IgniteTableScan);
+        assertInstanceOf(MultiStepPlan.class, plan);
+        assertInstanceOf(IgniteTableScan.class, lastNode(((MultiStepPlan) plan).root()));
     }
 
     @Test
@@ -208,14 +220,16 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         cluster.start();
 
         TestNode gatewayNode = cluster.node("N1");
-        QueryPlan plan = gatewayNode.prepare("SELECT val, 100 FROM t1 WHERE ID = 1");
+        String query = "SELECT val, 100 FROM t1 WHERE ID = 1";
 
-        for (InternalSqlRow row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+        QueryPlan plan = gatewayNode.prepare(query);
+
+        for (InternalSqlRow row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
             assertNotNull(row);
         }
 
         // Ensure the plan uses index.
-        assertTrue(plan instanceof KeyValueGetPlan);
+        assertInstanceOf(KeyValueGetPlan.class, plan);
     }
 
     @Test
@@ -223,15 +237,17 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         cluster.start();
 
         TestNode gatewayNode = cluster.node("N1");
-        QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID > 1");
+        String query = "SELECT * FROM t1 WHERE ID > 1";
 
-        for (InternalSqlRow row : await(gatewayNode.executePlan(plan).requestNextAsync(10_000)).items()) {
+        QueryPlan plan = gatewayNode.prepare(query);
+
+        for (InternalSqlRow row : await(gatewayNode.executeQuery(query).requestNextAsync(10_000)).items()) {
             assertNotNull(row);
         }
 
         // Ensure the plan uses index.
-        assertTrue(plan instanceof MultiStepPlan);
-        assertTrue(lastNode(((MultiStepPlan) plan).root()) instanceof IgniteIndexScan);
+        assertInstanceOf(MultiStepPlan.class, plan);
+        assertInstanceOf(IgniteIndexScan.class, lastNode(((MultiStepPlan) plan).root()));
         assertEquals("SORTED_IDX", ((IgniteIndexScan) lastNode(((MultiStepPlan) plan).root())).indexName());
     }
 
@@ -244,9 +260,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         TestNode stoppedNode = cluster.node("N2");
 
-        QueryPlan plan = gatewayNode.prepare("SELECT * FROM t1 WHERE ID > 1");
-
-        AsyncCursor<InternalSqlRow> cur = gatewayNode.executePlan(plan);
+        AsyncCursor<InternalSqlRow> cur = gatewayNode.executeQuery("SELECT * FROM t1 WHERE ID > 1");
 
         await(cur.requestNextAsync(1));
 
@@ -279,9 +293,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         assertTrue(initiator.clockService().after(initiatorClock.now(), otherNodeClock.now()));
 
-        QueryPlan plan = initiator.prepare("SELECT * FROM t1");
-
-        AsyncCursor<InternalSqlRow> cur = initiator.executePlan(plan);
+        AsyncCursor<InternalSqlRow> cur = initiator.executeQuery("SELECT * FROM t1");
 
         await(cur.requestNextAsync(1));
 
@@ -305,9 +317,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         assertTrue(otherNode.clockService().after(otherNodeClock.now(), initiatorClock.now()));
 
-        QueryPlan plan = initiator.prepare("SELECT * FROM t1");
-
-        AsyncCursor<InternalSqlRow> cur = initiator.executePlan(plan);
+        AsyncCursor<InternalSqlRow> cur = initiator.executeQuery("SELECT * FROM t1");
 
         await(cur.requestNextAsync(10_000));
 
@@ -329,9 +339,11 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         cluster.start();
 
         TestNode gatewayNode = cluster.node("N1");
-        QueryPlan plan = gatewayNode.prepare("SELECT * FROM SYSTEM.NODES, SYSTEM.NODE_N2");
 
-        BatchedResult<InternalSqlRow> results = await(gatewayNode.executePlan(plan).requestNextAsync(10_000));
+        BatchedResult<InternalSqlRow> results = await(
+                gatewayNode.executeQuery("SELECT * FROM SYSTEM.NODES, SYSTEM.NODE_N2")
+                        .requestNextAsync(10_000)
+        );
         List<List<Object>> rows = convertSqlRows(results.items());
 
         assertEquals(List.of(List.of(42L, "mango", "N2", 42)), rows);
@@ -355,10 +367,42 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         TestNode gatewayNode = cluster.node("N1");
 
-        SelectCountPlan plan = (SelectCountPlan) gatewayNode.prepare("SELECT 'hello', COUNT(*) FROM t1");
-        BatchedResult<InternalSqlRow> results = await(gatewayNode.executePlan(plan).requestNextAsync(10_000));
+        BatchedResult<InternalSqlRow> results = await(
+                gatewayNode.executeQuery("SELECT 'hello', COUNT(*) FROM t1")
+                        .requestNextAsync(10_000)
+        );
 
         List<List<Object>> rows = convertSqlRows(results.items());
         assertEquals(List.of(List.of("hello", 42L)), rows);
+    }
+
+    @Test
+    public void testExecutionWithDynamicParam() {
+        cluster.start();
+
+        TestNode node = cluster.node("N1");
+        Object[] params = {1, null};
+
+        AsyncDataCursor<InternalSqlRow> cursor = node.executeQuery("SELECT ?, ?", params);
+        BatchedResult<InternalSqlRow> res = await(cursor.requestNextAsync(1));
+
+        assertThat(res.hasMore(), is(false));
+        assertThat(res.items(), hasSize(1));
+        assertThat(res.items().get(0).fieldCount(), is(2));
+        assertThat(res.items().get(0).get(0), is(1));
+        assertThat(res.items().get(0).get(1), nullValue());
+    }
+
+    @Test
+    public void testExecutionWithMissingDynamicParam() {
+        cluster.start();
+
+        TestNode node = cluster.node("N1");
+
+        SqlTestUtils.assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Unexpected number of query parameters. Provided 1 but there is only 2 dynamic parameter(s)",
+                () -> node.executeQuery("SELECT ?/?", 1)
+        );
     }
 }

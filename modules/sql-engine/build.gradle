@@ -117,6 +117,7 @@ dependencies {
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
 
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-catalog')
@@ -128,6 +129,7 @@ dependencies {
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-metrics')
+    integrationTestImplementation project(":ignite-network-api")
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-schema'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))

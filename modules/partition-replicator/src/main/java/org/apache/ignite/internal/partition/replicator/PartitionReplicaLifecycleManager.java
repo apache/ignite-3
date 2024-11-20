@@ -71,8 +71,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -103,6 +101,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -139,7 +138,7 @@ import org.jetbrains.annotations.Nullable;
  * - Stop the same nodes on the zone removing.
  * - Support the rebalance mechanism and start the new replication nodes when the rebalance triggers occurred.
  */
-public class PartitionReplicaLifecycleManager  extends
+public class PartitionReplicaLifecycleManager extends
         AbstractEventProducer<LocalPartitionReplicaEvent, LocalPartitionReplicaEventParameters> implements IgniteComponent {
     public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
@@ -213,7 +212,7 @@ public class PartitionReplicaLifecycleManager  extends
      * @param topologyService Topology service.
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
-     *     will be executed.
+     *         will be executed.
      * @param clockService Clock service.
      * @param placementDriver Placement driver.
      */
@@ -256,11 +255,11 @@ public class PartitionReplicaLifecycleManager  extends
             return nullCompletedFuture();
         }
 
-        CompletableFuture<Long> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
+        CompletableFuture<Revisions> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 
         assert recoveryFinishFuture.isDone();
 
-        long recoveryRevision = recoveryFinishFuture.join();
+        long recoveryRevision = recoveryFinishFuture.join().revision();
 
         cleanUpResourcesForDroppedZonesOnRecovery();
 
@@ -461,8 +460,6 @@ public class PartitionReplicaLifecycleManager  extends
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             try {
-                AtomicReference<Long> stamp = new AtomicReference<>(null);
-
                 return replicaMgr.startReplica(
                                 replicaGrpId,
                                 (raftClient) -> new ZonePartitionReplicaListener(
@@ -472,31 +469,15 @@ public class PartitionReplicaLifecycleManager  extends
                                 raftGroupListener,
                                 raftGroupEventsListener,
                                 busyLock
-                        ).thenCompose(replica -> {
-                            zonePartitionsLocks.compute(zoneId, (id, lock) -> {
-                                if (lock == null) {
-                                    lock = new StampedLock();
-                                }
-
-                                stamp.set(lock.writeLock());
-
-                                return lock;
-                            });
-
+                        ).thenCompose(replica -> executeUnderZoneWriteLock(zoneId, () -> {
                             replicationGroupIds.add(replicaGrpId);
 
-                            return fireEvent(
-                                    LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED,
-                                    new LocalPartitionReplicaEventParameters(
-                                            new ZonePartitionId(replicaGrpId.zoneId(), replicaGrpId.partitionId())
-                                    )
+                            var eventParams = new LocalPartitionReplicaEventParameters(
+                                    new ZonePartitionId(replicaGrpId.zoneId(), replicaGrpId.partitionId())
                             );
-                        })
-                        .whenComplete((unused, throwable) -> {
-                            if (stamp.get() != null) {
-                                zonePartitionsLocks.get(zoneId).unlockWrite(stamp.get());
-                            }
-                        })
+
+                            return fireEvent(LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED, eventParams);
+                        }))
                         .thenApply(unused -> false);
             } catch (NodeStoppingException e) {
                 return failedFuture(e);
@@ -570,7 +551,7 @@ public class PartitionReplicaLifecycleManager  extends
      * Writes the set of assignments to meta storage. If there are some assignments already, gets them from meta storage. Returns
      * the list of assignments that really are in meta storage.
      *
-     * @param zoneId  Zone id.
+     * @param zoneId Zone id.
      * @param assignmentsFuture Assignments future, to get the assignments that should be written.
      * @return Real list of assignments.
      */
@@ -929,7 +910,7 @@ public class PartitionReplicaLifecycleManager  extends
 
         if (shouldStopLocalServices) {
             return clientUpdateFuture.thenCompose(v -> stopAndDestroyPartition(zonePartitionId))
-                    .thenAccept(v -> { });
+                    .thenAccept(v -> {});
         } else {
             return clientUpdateFuture;
         }
@@ -1200,7 +1181,7 @@ public class PartitionReplicaLifecycleManager  extends
             Assignments pendingAssignments,
             long revision
     ) {
-        Entry reduceEntry  = metaStorageMgr.getLocally(ZoneRebalanceUtil.switchReduceKey(replicaGrpId), revision);
+        Entry reduceEntry = metaStorageMgr.getLocally(ZoneRebalanceUtil.switchReduceKey(replicaGrpId), revision);
 
         Assignments reduceAssignments = reduceEntry != null
                 ? Assignments.fromBytes(reduceEntry.value())
@@ -1249,7 +1230,7 @@ public class PartitionReplicaLifecycleManager  extends
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
-                () -> stopPartition(zonePartitionId).thenAccept(v -> { })
+                () -> stopPartition(zonePartitionId).thenAccept(v -> {})
         );
     }
 
@@ -1260,43 +1241,24 @@ public class PartitionReplicaLifecycleManager  extends
      * @return Future that will be completed after all resources have been closed.
      */
     private CompletableFuture<?> stopPartition(ZonePartitionId zonePartitionId) {
-        CompletableFuture<?> stopReplicaFuture;
+        return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
+            try {
+                return replicaMgr.stopReplica(zonePartitionId)
+                        .thenCompose((replicaWasStopped) -> {
+                            if (replicaWasStopped) {
+                                replicationGroupIds.remove(zonePartitionId);
 
-        AtomicReference<Long> stamp = new AtomicReference<>(null);
-
-        try {
-            zonePartitionsLocks.compute(zonePartitionId.zoneId(), (id, lock) -> {
-                if (lock == null) {
-                    lock = new StampedLock();
-                }
-
-                stamp.set(lock.writeLock());
-
-                return lock;
-            });
-
-            stopReplicaFuture = replicaMgr.stopReplica(zonePartitionId)
-                    .thenCompose((replicaWasStopped) -> {
-                        if (replicaWasStopped) {
-                            replicationGroupIds.remove(zonePartitionId);
-
-                            return fireEvent(LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED, new LocalPartitionReplicaEventParameters(
-                                    zonePartitionId));
-                        } else {
-                            return nullCompletedFuture();
-                        }
-                    }).whenComplete((result, th) -> {
-                        zonePartitionsLocks.get(zonePartitionId.zoneId()).unlockWrite(stamp.get());
-                    });
-
-        } catch (NodeStoppingException e) {
-            // No-op.
-            stopReplicaFuture = falseCompletedFuture();
-
-            zonePartitionsLocks.get(zonePartitionId.zoneId()).unlockWrite(stamp.get());
-        }
-
-        return stopReplicaFuture;
+                                return fireEvent(LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED, new LocalPartitionReplicaEventParameters(
+                                        zonePartitionId));
+                            } else {
+                                return nullCompletedFuture();
+                            }
+                        });
+            } catch (NodeStoppingException e) {
+                // No-op.
+                return nullCompletedFuture();
+            }
+        });
     }
 
     /**
@@ -1341,19 +1303,7 @@ public class PartitionReplicaLifecycleManager  extends
      * @return Stamp, which must be used for further unlock.
      */
     public long lockZoneForRead(int zoneId) {
-        AtomicLong stamp = new AtomicLong();
-
-        zonePartitionsLocks.compute(zoneId, (id, l) -> {
-            if (l == null) {
-                l = new StampedLock();
-            }
-
-            stamp.set(l.readLock());
-
-            return l;
-        });
-
-        return stamp.get();
+        return zonePartitionsLocks.computeIfAbsent(zoneId, id -> new StampedLock()).readLock();
     }
 
     /**
@@ -1382,5 +1332,20 @@ public class PartitionReplicaLifecycleManager  extends
         assert replicaFut != null && replicaFut.isDone();
 
         ((ZonePartitionReplicaListener) replicaFut.join().listener()).addTableReplicaListener(tablePartitionId, createListener);
+    }
+
+    private CompletableFuture<Void> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<Void>> action) {
+        StampedLock lock = zonePartitionsLocks.computeIfAbsent(zoneId, id -> new StampedLock());
+
+        long stamp = lock.writeLock();
+
+        try {
+            return action.get()
+                    .whenComplete((v, e) -> lock.unlockWrite(stamp));
+        } catch (Throwable e) {
+            lock.unlockWrite(stamp);
+
+            return failedFuture(e);
+        }
     }
 }

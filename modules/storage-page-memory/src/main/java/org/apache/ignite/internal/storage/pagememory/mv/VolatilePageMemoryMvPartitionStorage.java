@@ -216,12 +216,16 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 return null;
             }
 
-            this.leaseStartTime = leaseStartTime;
-            this.primaryReplicaNodeId = primaryReplicaNodeId;
-            this.primaryReplicaNodeName = primaryReplicaNodeName;
+            updateLeaseBusy(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
 
             return null;
         });
+    }
+
+    private void updateLeaseBusy(long leaseStartTime, UUID primaryReplicaNodeId, String primaryReplicaNodeName) {
+        this.leaseStartTime = leaseStartTime;
+        this.primaryReplicaNodeId = primaryReplicaNodeId;
+        this.primaryReplicaNodeName = primaryReplicaNodeName;
     }
 
     @Override
@@ -389,6 +393,13 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         this.groupConfig = config;
+    }
+
+    @Override
+    public void updateLeaseOnRebalance(long leaseStartTime, UUID primaryReplicaNodeId, String primaryReplicaNodeName) {
+        throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+        updateLeaseBusy(leaseStartTime, primaryReplicaNodeId, primaryReplicaNodeName);
     }
 
     @Override
