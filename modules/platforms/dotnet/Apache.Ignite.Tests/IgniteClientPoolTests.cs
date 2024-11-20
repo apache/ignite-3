@@ -37,7 +37,7 @@ public class IgniteClientPoolTests
     [Test]
     public async Task TestGetClient()
     {
-        IgniteClientPool pool = CreatePool();
+        using IgniteClientPool pool = CreatePool();
         IIgniteClient client = await pool.GetClientAsync();
         IIgniteClient client2 = await pool.GetClientAsync();
 
@@ -50,7 +50,7 @@ public class IgniteClientPoolTests
     [Test]
     public async Task TestPoolReconnectsDisposedClient()
     {
-        IgniteClientPool pool = CreatePool();
+        using IgniteClientPool pool = CreatePool();
         IIgniteClient client = await pool.GetClientAsync();
 
         await client.Tables.GetTablesAsync();
@@ -72,7 +72,7 @@ public class IgniteClientPoolTests
     [Test]
     public void TestUseAfterDispose()
     {
-        var pool = new IgniteClientPool(new(new(), 1));
+        IgniteClientPool pool = CreatePool();
         pool.Dispose();
 
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await pool.GetClientAsync());
