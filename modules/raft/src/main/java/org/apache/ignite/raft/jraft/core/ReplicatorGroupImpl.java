@@ -19,7 +19,7 @@ package org.apache.ignite.raft.jraft.core;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -119,7 +119,10 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
         assert client != null;
 
         if (!client.connect(peer)) {
-            LOG.error("Fail to check replicator connection to peer={}, replicatorType={}.", peer, replicatorType);
+            if (!failureReplicators.containsKey(peer)) {
+                LOG.error("Fail to check replicator connection to peer={}, replicatorType={}.", peer, replicatorType);
+            }
+
             this.failureReplicators.put(peer, replicatorType);
             return false;
         }
