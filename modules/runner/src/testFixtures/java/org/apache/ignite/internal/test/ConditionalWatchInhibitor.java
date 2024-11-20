@@ -25,6 +25,9 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 
+/**
+ * Watch inhibitor that starts inhibiting on certain condition.
+ */
 public class ConditionalWatchInhibitor {
     private static final IgniteLogger LOG = Loggers.forClass(ConditionalWatchInhibitor.class);
 
@@ -36,19 +39,27 @@ public class ConditionalWatchInhibitor {
         this.metaStorageManager = metaStorageManager;
     }
 
+    /**
+     * Starts inhibiting on condition.
+     *
+     * @param pred Condition.
+     */
     public void startInhibit(Predicate<Long> pred) {
         inhibitFuture = new CompletableFuture<>();
         metaStorageManager.registerRevisionUpdateListener(rev -> {
-                if (pred.test(rev)) {
-                    LOG.info("Started inhibiting, rev=" + rev);
-                    return inhibitFuture;
-                } else {
-                    return completedFuture(null);
+                    if (pred.test(rev)) {
+                        LOG.info("Started inhibiting, rev=" + rev);
+                        return inhibitFuture;
+                    } else {
+                        return completedFuture(null);
+                    }
                 }
-            }
         );
     }
 
+    /**
+     * Stop inhibiting.
+     */
     public void stopInhibit() {
         inhibitFuture.complete(null);
     }
