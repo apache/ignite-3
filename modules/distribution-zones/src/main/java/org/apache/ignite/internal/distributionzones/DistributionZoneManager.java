@@ -1364,7 +1364,6 @@ public class DistributionZoneManager extends
          * @param zoneId Unique id of a zone to determine the executor of the task.
          */
         public synchronized void reschedulePartitionDistributionReset(long delay, Runnable runnable, int zoneId) {
-            System.out.println("KKK reschedule reset");
             stopPartitionDistributionReset();
 
             partitionDistributionResetTask = executor.schedule(runnable, delay, SECONDS, zoneId);

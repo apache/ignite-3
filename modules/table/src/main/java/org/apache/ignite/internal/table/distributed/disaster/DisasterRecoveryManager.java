@@ -196,9 +196,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         watchListener = new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                System.out.println("KKK " + " recovery key is processing");
                 handleTriggerKeyUpdate(event);
-                System.out.println("KKK " + " recovery key update processed");
 
                 // There is no need to block a watch thread any longer.
                 return nullCompletedFuture();
@@ -217,7 +215,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
 
-        dzManager.listen(HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onReset);
+        dzManager.listen(HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onHaZoneTopologyReduce);
 
         catalogManager.listen(TABLE_CREATE, fromConsumer(this::onTableCreate));
 
@@ -247,7 +245,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         );
     }
 
-    private CompletableFuture<Boolean> onReset(HaZoneTopologyUpdateEventParams params) {
+    private CompletableFuture<Boolean> onHaZoneTopologyReduce(HaZoneTopologyUpdateEventParams params) {
         int zoneId = params.zoneId();
         long timestamp = params.timestamp();
 
@@ -264,8 +262,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             }
 
             tablesResetFuts.add(resetPartitions(
-                    // KKK fix name
-                    zoneDescriptor.name(), "PUBLIC." + table.name(), partitionsToReset, false));
+                    zoneDescriptor.name(), table.id(), partitionsToReset, false));
         }
 
         return allOf(tablesResetFuts.toArray(new CompletableFuture[]{})).thenApply(r -> false);
@@ -284,10 +281,26 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @return Future that completes when partitions are reset.
      */
     public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate) {
+        int tableId = tableDescriptor(catalogLatestVersion(), tableName).id();
+
+        return resetPartitions(zoneName, tableId, partitionIds, manualUpdate);
+    }
+
+    /**
+     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
+     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
+     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
+     * so that a new leader could be elected.
+     *
+     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
+     * @param tableId Table id.
+     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
+     * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
+     * @return Future that completes when partitions are reset.
+     */
+    private CompletableFuture<Void> resetPartitions(String zoneName, int tableId, Set<Integer> partitionIds, boolean manualUpdate) {
         try {
             Catalog catalog = catalogLatestVersion();
-
-            int tableId = tableDescriptor(catalog, tableName).id();
 
             CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
 
