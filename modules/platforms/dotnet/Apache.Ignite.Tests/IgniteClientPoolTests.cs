@@ -91,12 +91,21 @@ public class IgniteClientPoolTests
     }
 
     [Test]
-    public void TestUseAfterDispose()
+    public async Task TestUseAfterDispose()
     {
-        IgniteClientPool pool = CreatePool();
+        IgniteClientPool pool = CreatePool(size: 2);
+
+        var client1 = await pool.GetClientAsync();
+        var client2 = await pool.GetClientAsync();
+
+        Assert.AreNotSame(client1, client2);
+
         pool.Dispose();
 
+        // Pool and clients are disposed, all operations should throw.
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await pool.GetClientAsync());
+        Assert.ThrowsAsync<ObjectDisposedException>(async () => await client1.Tables.GetTablesAsync());
+        Assert.ThrowsAsync<ObjectDisposedException>(async () => await client2.Tables.GetTablesAsync());
     }
 
     [Test]
