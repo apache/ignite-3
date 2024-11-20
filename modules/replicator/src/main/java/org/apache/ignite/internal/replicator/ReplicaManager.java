@@ -1345,7 +1345,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         private void deregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
             CompletableFuture<Replica> replicaFuture = replicaManager.replica(parameters.groupId());
 
-            assert replicaFuture != null : "There no replica grpId=" + parameters.groupId();
+            if (replicaFuture == null) {
+                return;
+            }
 
             Replica expiredPrimaryReplica = replicaFuture.join();
             expiredPrimaryReplica.raftClient()
