@@ -196,7 +196,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         watchListener = new WatchListener() {
             @Override
             public CompletableFuture<Void> onUpdate(WatchEvent event) {
+                System.out.println("KKK " + " recovery key is processing");
                 handleTriggerKeyUpdate(event);
+                System.out.println("KKK " + " recovery key update processed");
 
                 // There is no need to block a watch thread any longer.
                 return nullCompletedFuture();

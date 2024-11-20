@@ -413,7 +413,15 @@ public class DistributionZoneManager extends
             }
 
             if (partitionDistributionResetTimeoutSeconds == IMMEDIATE_TIMER_VALUE) {
-                // TODO: IGNITE-23599 Implement valid behaviour here.
+                fireEvent(
+                        HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
+                        new ZoneTopologyUpdateEventParams(causalityToken, zoneId, updateTimestamp)
+                ).exceptionally(th -> {
+                    LOG.error("Error during the local " + HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
+                            + " event processing", th);
+
+                    return null;
+                });
                 return;
             }
 
@@ -989,28 +997,23 @@ public class DistributionZoneManager extends
 
             if (nodesRemoved) {
                 if (zone.consistencyMode() == HIGH_AVAILABILITY) {
-                    if (partitionReset == IMMEDIATE_TIMER_VALUE) {
-                        futures.add(
-                                // KKK will be processed in a metastore thread
-                                fireEvent(
-                                        HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
-                                        new ZoneTopologyUpdateEventParams(revision, zoneId, metaStorageManager.timestampByRevisionLocally(revision).longValue())
-                                )
-                        );
-                    }
-
                     if (partitionReset != INFINITE_TIMER_VALUE) {
                         zonesState.get(zoneId).reschedulePartitionDistributionReset(
                                 partitionReset,
-                                // TODO: IGNITE-23599 Implement valid behaviour here.
                                 () -> {
                                     fireEvent(
                                             HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
-                                            new ZoneTopologyUpdateEventParams(revision, zoneId, metaStorageManager.timestampByRevisionLocally(revision).longValue())
-                                    );
+                                            new ZoneTopologyUpdateEventParams(revision, zoneId,
+                                                    metaStorageManager.timestampByRevisionLocally(revision).longValue())
+                                    ).exceptionally(th -> {
+                                        LOG.error("Error during the local " + HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
+                                                + " event processing", th);
+
+                                        return null;
+                                    });
                                 }, zoneId
-                            );
-                        }
+                        );
+                    }
                 } else {
                     if (autoAdjustScaleDown == IMMEDIATE_TIMER_VALUE) {
                         futures.add(saveDataNodesToMetaStorageOnScaleDown(zoneId, revision));
@@ -1361,6 +1364,7 @@ public class DistributionZoneManager extends
          * @param zoneId Unique id of a zone to determine the executor of the task.
          */
         public synchronized void reschedulePartitionDistributionReset(long delay, Runnable runnable, int zoneId) {
+            System.out.println("KKK reschedule reset");
             stopPartitionDistributionReset();
 
             partitionDistributionResetTask = executor.schedule(runnable, delay, SECONDS, zoneId);
