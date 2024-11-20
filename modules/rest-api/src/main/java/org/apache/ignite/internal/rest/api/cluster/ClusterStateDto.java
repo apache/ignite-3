@@ -19,11 +19,9 @@ package org.apache.ignite.internal.rest.api.cluster;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -35,16 +33,16 @@ import org.jetbrains.annotations.Nullable;
  * REST representation of internal ClusterState.
  */
 @Schema(description = "Information about current cluster state.")
-public class ClusterState {
+public class ClusterStateDto {
     @Schema(description = "List of cluster management group nodes. These nodes are responsible for maintaining RAFT cluster topology.",
             requiredMode = RequiredMode.REQUIRED)
     @IgniteToStringInclude
-    private final Collection<String> cmgNodes;
+    private final GroupState cmgStatus;
 
     @Schema(description = "List of metastorage nodes. These nodes are responsible for storing RAFT cluster metadata.",
             requiredMode = RequiredMode.REQUIRED)
     @IgniteToStringInclude
-    private final Collection<String> msNodes;
+    private final GroupState metastoreStatus;
 
     @Schema(description = "Version of Apache Ignite that the cluster was created on.", requiredMode = RequiredMode.REQUIRED)
     private final String igniteVersion;
@@ -57,46 +55,28 @@ public class ClusterState {
     @IgniteToStringInclude
     private final @Nullable List<UUID> formerClusterIds;
 
-    @Schema(description = "Cluster status.",
-            requiredMode = RequiredMode.REQUIRED)
-    private final ClusterStatus clusterStatus;
-
     /**
      * Creates a new cluster state.
      *
-     * @param cmgNodes Node names that host the CMG.
-     * @param msNodes Node names that host the Meta Storage.
+     * @param cmgStatus Node names that host the CMG.
+     * @param metastoreStatus Node names that host the Meta Storage.
      * @param igniteVersion Version of Ignite nodes that comprise this cluster.
      * @param clusterTag Cluster tag.
      * @param formerClusterIds Former cluster IDs.
      */
     @JsonCreator
-    public ClusterState(
-            @JsonProperty("cmgNodes") Collection<String> cmgNodes,
-            @JsonProperty("msNodes") Collection<String> msNodes,
+    public ClusterStateDto(
+            @JsonProperty("cmgStatus") GroupState cmgStatus,
+            @JsonProperty("metastoreStatus") GroupState metastoreStatus,
             @JsonProperty("igniteVersion") String igniteVersion,
             @JsonProperty("clusterTag") ClusterTag clusterTag,
-            @JsonProperty("formerClusterIds") @Nullable List<UUID> formerClusterIds,
-            @JsonProperty("clusterStatus") ClusterStatus clusterStatus
+            @JsonProperty("formerClusterIds") @Nullable List<UUID> formerClusterIds
     ) {
-        this.cmgNodes = List.copyOf(cmgNodes);
-        this.msNodes = List.copyOf(msNodes);
+        this.cmgStatus = cmgStatus;
+        this.metastoreStatus = metastoreStatus;
         this.igniteVersion = igniteVersion;
         this.clusterTag = clusterTag;
         this.formerClusterIds = formerClusterIds == null ? null : List.copyOf(formerClusterIds);
-        this.clusterStatus = clusterStatus;
-    }
-
-    @JsonGetter("cmgNodes")
-    @JsonInclude
-    public Collection<String> cmgNodes() {
-        return cmgNodes;
-    }
-
-    @JsonGetter("msNodes")
-    @JsonInclude
-    public Collection<String> msNodes() {
-        return msNodes;
     }
 
     @JsonGetter("igniteVersion")
@@ -114,9 +94,14 @@ public class ClusterState {
         return formerClusterIds;
     }
 
-    @JsonGetter("clusterStatus")
-    public ClusterStatus clusterStatus() {
-        return clusterStatus;
+    @JsonGetter("cmgStatus")
+    public GroupState cmgStatus() {
+        return cmgStatus;
+    }
+
+    @JsonGetter("metastoreStatus")
+    public GroupState metastoreStatus() {
+        return metastoreStatus;
     }
 
     @Override
@@ -127,14 +112,16 @@ public class ClusterState {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ClusterState state = (ClusterState) o;
-        return cmgNodes.equals(state.cmgNodes) && msNodes.equals(state.msNodes) && igniteVersion.equals(state.igniteVersion)
+        ClusterStateDto state = (ClusterStateDto) o;
+        return cmgStatus.equals(state.cmgStatus)
+                && metastoreStatus.equals(state.metastoreStatus)
+                && igniteVersion.equals(state.igniteVersion)
                 && clusterTag.equals(state.clusterTag);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(cmgNodes, msNodes, igniteVersion, clusterTag);
+        return Objects.hash(cmgStatus, metastoreStatus, igniteVersion, clusterTag);
     }
 
     @Override

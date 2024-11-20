@@ -17,31 +17,29 @@
 
 package org.apache.ignite.internal.rest.cluster;
 
-import static java.util.Collections.emptyList;
-
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
-import java.util.Set;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.TimeoutException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.metastorage.impl.MetastoreGroupAvailabilityService;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
-import org.apache.ignite.internal.rest.api.cluster.ClusterState;
-import org.apache.ignite.internal.rest.api.cluster.ClusterStatus;
+import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
+import org.apache.ignite.internal.rest.api.cluster.ClusterStateDtoBuilder;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTag;
+import org.apache.ignite.internal.rest.api.cluster.GroupState;
+import org.apache.ignite.internal.rest.api.cluster.GroupStatus;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.rest.cluster.exception.InvalidArgumentClusterInitializationException;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Cluster management controller implementation.
@@ -54,7 +52,7 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
 
     private ClusterManagementGroupManager clusterManagementGroupManager;
 
-    private TopologyService topologyService;
+    private MetastoreGroupAvailabilityService metastoreAvailabilityService;
 
     /**
      * Cluster management controller constructor.
@@ -64,35 +62,46 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
      */
     public ClusterManagementController(
             ClusterInitializer clusterInitializer,
-            ClusterManagementGroupManager clusterManagementGroupManager,
-            TopologyService topologyService
+            MetastoreGroupAvailabilityService metastoreAvailabilityService,
+            ClusterManagementGroupManager clusterManagementGroupManager
     ) {
         this.clusterInitializer = clusterInitializer;
         this.clusterManagementGroupManager = clusterManagementGroupManager;
-        this.topologyService = topologyService;
+        this.metastoreAvailabilityService = metastoreAvailabilityService;
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ClusterState> clusterState() {
-        return clusterManagementGroupManager.clusterState().handle((state, t) -> {
-            if (t != null) {
-                if (ExceptionUtils.unwrapCause(t) instanceof TimeoutException) {
-                    return new ClusterState(
-                            emptyList(),
-                            emptyList(),
-                            "N/A",
-                            new ClusterTag("N/A", null),
-                            null,
-                            ClusterStatus.CMG_MAJORITY_LOST
-                    );
-                } else {
-                    throw new CompletionException(t);
-                }
-            } else {
-                return mapClusterState(state);
-            }
-        });
+    public CompletableFuture<ClusterStateDto> clusterState() {
+        CompletableFuture<GroupState> metastoreFut = CompletableFutures.combine(
+                metastoreAvailabilityService.isAlive()
+                        .thenApply(isAlive1 ->  isAlive1 ? GroupStatus.HEALTHY : GroupStatus.MAJORITY_LOST),
+                metastoreAvailabilityService.availableMembers(),
+                (groupStatus, strings) -> new GroupState(strings, groupStatus)
+        );
+
+        CompletableFuture<ClusterStateDtoBuilder> builderFut = clusterManagementGroupManager.clusterState()
+                .handle((state, t) -> {
+                    ClusterStateDtoBuilder builder = ClusterStateDtoBuilder.newInstance();
+                    if (state != null) {
+                        builder.igniteVersion(state.version())
+                                .clusterTag(new ClusterTag(state.clusterTag().clusterName(), state.clusterTag().clusterId()))
+                                .formerClusterIds(state.formerClusterIds());
+                    } else {
+                        builder.igniteVersion("N/A").clusterTag(new ClusterTag("N/A", null));
+                    }
+                    return builder;
+                }).thenCompose(builder -> clusterManagementGroupManager.availableMembers().handle((members, t) -> {
+                    GroupState state = members != null
+                            ? new GroupState(members, GroupStatus.HEALTHY)
+                            : new GroupState(Collections.emptyList(), GroupStatus.MAJORITY_LOST);
+                    return builder.cmgStatus(state);
+                }));
+
+
+        return CompletableFutures.combine(builderFut, metastoreFut,
+                (builder, metastore) -> builder.metastoreStatus(metastore).build()
+        );
     }
 
     /** {@inheritDoc} */
@@ -113,31 +122,6 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
         });
     }
 
-    private ClusterState mapClusterState(org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
-        return new ClusterState(
-                clusterState.cmgNodes(),
-                clusterState.metaStorageNodes(),
-                clusterState.igniteVersion().toString(),
-                new ClusterTag(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId()),
-                clusterState.formerClusterIds(),
-                mapClusterStatus(clusterState)
-        );
-    }
-
-    private ClusterStatus mapClusterStatus(org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
-        Set<String> metaStorageNodes = clusterState.metaStorageNodes();
-        long presentMetaStorageNodes = topologyService.allMembers().stream()
-                .map(ClusterNode::name)
-                .filter(metaStorageNodes::contains)
-                .count();
-
-        if (presentMetaStorageNodes <= metaStorageNodes.size() / 2) {
-            return ClusterStatus.MS_MAJORITY_LOST;
-        } else {
-            return ClusterStatus.HEALTHY;
-        }
-    }
-
     private static RuntimeException mapException(Throwable ex) {
         var cause = ExceptionUtils.unwrapCause(ex);
         if (cause instanceof IgniteInternalException) {
@@ -155,6 +139,6 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
     public void cleanResources() {
         clusterInitializer = null;
         clusterManagementGroupManager = null;
-        topologyService = null;
+        metastoreAvailabilityService = null;
     }
 }

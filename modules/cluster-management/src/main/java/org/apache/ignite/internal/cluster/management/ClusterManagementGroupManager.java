@@ -363,6 +363,16 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         return nullCompletedFuture();
     }
 
+    /**
+     * Returns node names of available group members.
+     */
+    public CompletableFuture<Set<String>> availableMembers() {
+        CompletableFuture<CmgRaftService> serviceFuture = raftService;
+        return serviceFuture == null
+                ? nullCompletedFuture()
+                : serviceFuture.thenApply(CmgRaftService::nodeNames);
+    }
+
     private CompletableFuture<Void> doClusterReset(ResetClusterMessage resetClusterMessage) {
         LOG.info("Found a ResetClusterMessage in storage, going to do cluster reset [message={}]", resetClusterMessage);
 

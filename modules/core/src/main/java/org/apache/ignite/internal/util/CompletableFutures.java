@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import org.jetbrains.annotations.Nullable;
 
 /** Helper class for working with {@link CompletableFuture}. */
@@ -160,5 +161,25 @@ public class CompletableFutures {
                 future.complete(v);
             }
         };
+    }
+
+    /**
+     * Combines two futures and map they results.
+     *
+     * @param first First future.
+     * @param second Second future.
+     * @param mapper Result mapper.
+     */
+    public static <T1, T2, T3> CompletableFuture<T3> combine(
+            CompletableFuture<T1> first,
+            CompletableFuture<T2> second,
+            BiFunction<T1, T2, T3> mapper
+    ) {
+        return CompletableFuture.allOf(first, second).handle((unused, t) -> {
+            T1 firstResult = first.join();
+            T2 secondResult = second.join();
+
+            return mapper.apply(firstResult, secondResult);
+        });
     }
 }

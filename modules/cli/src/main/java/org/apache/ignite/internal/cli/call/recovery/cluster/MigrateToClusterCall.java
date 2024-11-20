@@ -26,7 +26,7 @@ import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.api.RecoveryApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.model.ClusterState;
+import org.apache.ignite.rest.client.model.ClusterStateDto;
 import org.apache.ignite.rest.client.model.MigrateRequest;
 
 /** Call to migrate nodes from old to new cluster. */
@@ -43,24 +43,22 @@ public class MigrateToClusterCall implements Call<MigrateToClusterCallInput, Str
         ClusterManagementApi newClusterManagementClient = new ClusterManagementApi(clientFactory.getClient(input.newClusterUrl()));
         RecoveryApi oldRecoveryClient = new RecoveryApi(clientFactory.getClient(input.oldClusterUrl()));
 
-        ClusterState newClusterState;
+        ClusterStateDto newClusterState;
         try {
             newClusterState = newClusterManagementClient.clusterState();
         } catch (ApiException e) {
             return DefaultCallOutput.failure(new IgniteCliApiException(e, input.newClusterUrl()));
         }
 
-        MigrateRequest command = new MigrateRequest();
-
-        command.setCmgNodes(newClusterState.getCmgNodes());
-        command.setMetaStorageNodes(newClusterState.getMsNodes());
-        command.setVersion(newClusterState.getIgniteVersion());
-        command.setClusterId(newClusterState.getClusterTag().getClusterId());
-        command.setClusterName(newClusterState.getClusterTag().getClusterName());
-        command.setFormerClusterIds(newClusterState.getFormerClusterIds());
+        MigrateRequest migrateRequest = new MigrateRequest().cmgNodes(newClusterState.getCmgStatus().getAliveNodes())
+                .metaStorageNodes(newClusterState.getMetastoreStatus().getAliveNodes())
+                .version(newClusterState.getIgniteVersion())
+                .clusterId(newClusterState.getClusterTag().getClusterId())
+                .clusterName(newClusterState.getClusterTag().getClusterName())
+                .formerClusterIds(newClusterState.getFormerClusterIds());
 
         try {
-            oldRecoveryClient.migrate(command);
+            oldRecoveryClient.migrate(migrateRequest);
         } catch (ApiException e) {
             if (e.getCause() instanceof IOException) {
                 return DefaultCallOutput.success("Node has gone, this most probably means that migration is initiated and "

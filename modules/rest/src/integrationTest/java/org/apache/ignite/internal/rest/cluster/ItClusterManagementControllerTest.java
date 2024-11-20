@@ -28,7 +28,7 @@ import io.micronaut.http.HttpStatus;
 import java.net.http.HttpResponse;
 import org.apache.ignite.internal.rest.AbstractRestTestBase;
 import org.apache.ignite.internal.rest.api.Problem;
-import org.apache.ignite.internal.rest.api.cluster.ClusterState;
+import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -86,11 +86,11 @@ public class ItClusterManagementControllerTest extends AbstractRestTestBase {
 
         // When get cluster state
         HttpResponse<String> stateResponse = send(get("/management/v1/cluster/state"));
-        ClusterState state = objectMapper.readValue(stateResponse.body(), ClusterState.class);
+        ClusterStateDto state = objectMapper.readValue(stateResponse.body(), ClusterStateDto.class);
 
         // Then cluster state is valid
-        assertThat(state.msNodes(), contains(cluster.nodeName(0)));
-        assertThat(state.cmgNodes(), contains(cluster.nodeName(0)));
+        assertThat(state.metastoreStatus().aliveNodes(), contains(cluster.nodeName(0)));
+        assertThat(state.cmgStatus().aliveNodes(), contains(cluster.nodeName(0)));
         assertThat(state.clusterTag().clusterName(), is("cluster"));
 
         // Given second request with different node name

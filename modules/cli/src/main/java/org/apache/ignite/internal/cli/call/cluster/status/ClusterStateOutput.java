@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.cli.call.cluster.status;
 
-import java.util.List;
-import org.apache.ignite.rest.client.model.ClusterStatus;
+import org.apache.ignite.rest.client.model.ClusterStateDtoCmgStatus;
+import org.apache.ignite.rest.client.model.ClusterStateDtoMetastoreStatus;
 
 /**
  * Class that represents the cluster status.
  */
-public class ClusterState {
+public class ClusterStateOutput {
 
     private final int nodeCount;
 
@@ -35,30 +35,26 @@ public class ClusterState {
 
     private final String nodeUrl;
 
-    private final List<String> cmgNodes;
+    private final ClusterStateDtoCmgStatus cmgStatus;
 
-    private final List<String> metadataStorageNodes;
+    private final ClusterStateDtoMetastoreStatus metastoreStatus;
 
-    private final ClusterStatus clusterStatus;
-
-    private ClusterState(
+    private ClusterStateOutput(
             int nodeCount,
             boolean initialized,
             String name,
             boolean connected,
             String nodeUrl,
-            List<String> cmgNodes,
-            List<String> metadataStorageNodes,
-            ClusterStatus clusterStatus
+            ClusterStateDtoMetastoreStatus metastoreStatus,
+            ClusterStateDtoCmgStatus cmgStatus
     ) {
         this.nodeCount = nodeCount;
         this.initialized = initialized;
         this.name = name;
         this.connected = connected;
         this.nodeUrl = nodeUrl;
-        this.cmgNodes = cmgNodes;
-        this.metadataStorageNodes = metadataStorageNodes;
-        this.clusterStatus = clusterStatus;
+        this.cmgStatus = cmgStatus;
+        this.metastoreStatus = metastoreStatus;
     }
 
     public String nodeCount() {
@@ -81,27 +77,23 @@ public class ClusterState {
         return nodeUrl;
     }
 
-    public List<String> getCmgNodes() {
-        return cmgNodes;
+    public ClusterStateDtoCmgStatus getCmgStatus() {
+        return cmgStatus;
     }
 
-    public List<String> getMsNodes() {
-        return metadataStorageNodes;
-    }
-
-    public ClusterStatus clusterStatus() {
-        return clusterStatus;
+    public ClusterStateDtoMetastoreStatus metastoreStatus() {
+        return metastoreStatus;
     }
 
     /**
-     * Builder for {@link ClusterState}.
+     * Builder for {@link ClusterStateOutput}.
      */
     public static ClusterStateBuilder builder() {
         return new ClusterStateBuilder();
     }
 
     /**
-     * Builder for {@link ClusterState}.
+     * Builder for {@link ClusterStateOutput}.
      */
     public static class ClusterStateBuilder {
         private int nodeCount;
@@ -114,11 +106,9 @@ public class ClusterState {
 
         private String connectedNodeUrl;
 
-        private List<String> cmgNodes;
+        private ClusterStateDtoMetastoreStatus metastoreStatus;
 
-        private List<String> metadataStorageNodes;
-
-        private ClusterStatus clusterStatus;
+        private ClusterStateDtoCmgStatus cmgStatus;
 
         private ClusterStateBuilder() {
 
@@ -149,34 +139,28 @@ public class ClusterState {
             return this;
         }
 
-        public ClusterStateBuilder cmgNodes(List<String> cmgNodes) {
-            this.cmgNodes = cmgNodes;
+        public ClusterStateBuilder metastoreStatus(ClusterStateDtoMetastoreStatus status) {
+            this.metastoreStatus = status;
             return this;
         }
 
-        public ClusterStateBuilder metadataStorageNodes(List<String> metadataStorageNodes) {
-            this.metadataStorageNodes = metadataStorageNodes;
-            return this;
-        }
-
-        public ClusterStateBuilder clusterStatus(ClusterStatus clusterStatus) {
-            this.clusterStatus = clusterStatus;
+        public ClusterStateBuilder cmgStatus(ClusterStateDtoCmgStatus status) {
+            this.cmgStatus = status;
             return this;
         }
 
         /**
          * Returns new cluster state instance.
          */
-        public ClusterState build() {
-            return new ClusterState(
+        public ClusterStateOutput build() {
+            return new ClusterStateOutput(
                     nodeCount,
                     initialized,
                     name,
                     connected,
                     connectedNodeUrl,
-                    cmgNodes,
-                    metadataStorageNodes,
-                    clusterStatus
+                    metastoreStatus,
+                    cmgStatus
             );
         }
     }

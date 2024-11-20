@@ -252,4 +252,7 @@ public interface MetaStorageService extends ManuallyCloseable {
      * Returns a future which will hold current revision of the metastorage leader.
      */
     CompletableFuture<Long> currentRevision();
+
+    @Override
+    void close();
 }

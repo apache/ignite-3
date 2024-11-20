@@ -19,7 +19,7 @@ package org.apache.ignite.internal.cli.call.cluster.status;
 
 import jakarta.inject.Singleton;
 import java.util.List;
-import org.apache.ignite.internal.cli.call.cluster.status.ClusterState.ClusterStateBuilder;
+import org.apache.ignite.internal.cli.call.cluster.status.ClusterStateOutput.ClusterStateBuilder;
 import org.apache.ignite.internal.cli.call.cluster.topology.PhysicalTopologyCall;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
@@ -30,12 +30,13 @@ import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.rest.client.api.ClusterManagementApi;
 import org.apache.ignite.rest.client.invoker.ApiException;
 import org.apache.ignite.rest.client.model.ClusterNode;
+import org.apache.ignite.rest.client.model.ClusterStateDto;
 
 /**
  * Call to get cluster status.
  */
 @Singleton
-public class ClusterStatusCall implements Call<UrlCallInput, ClusterState> {
+public class ClusterStatusCall implements Call<UrlCallInput, ClusterStateOutput> {
     /**
      * We need to overlap timeout from raft client.
      * We can't determine timeout value because it's configurable for each node
@@ -55,18 +56,17 @@ public class ClusterStatusCall implements Call<UrlCallInput, ClusterState> {
     }
 
     @Override
-    public CallOutput<ClusterState> execute(UrlCallInput input) {
-        ClusterStateBuilder clusterStateBuilder = ClusterState.builder();
+    public CallOutput<ClusterStateOutput> execute(UrlCallInput input) {
+        ClusterStateBuilder clusterStateBuilder = ClusterStateOutput.builder();
         String clusterUrl = input.getUrl();
         try {
-            org.apache.ignite.rest.client.model.ClusterState clusterState = fetchClusterState(clusterUrl);
+            ClusterStateDto clusterState = fetchClusterState(clusterUrl);
             clusterStateBuilder
                     .nodeCount(fetchNumberOfAllNodes(input))
                     .initialized(true)
                     .name(clusterState.getClusterTag().getClusterName())
-                    .metadataStorageNodes(clusterState.getMsNodes())
-                    .cmgNodes(clusterState.getCmgNodes())
-                    .clusterStatus(clusterState.getClusterStatus());
+                    .metastoreStatus(clusterState.getMetastoreStatus())
+                    .cmgStatus(clusterState.getCmgStatus());
         } catch (ApiException e) {
             if (e.getCode() == 409) { // CONFLICT means the cluster is not initialized yet
                 clusterStateBuilder.initialized(false).nodeCount(fetchNumberOfAllNodes(input));
@@ -88,7 +88,7 @@ public class ClusterStatusCall implements Call<UrlCallInput, ClusterState> {
         return body.size();
     }
 
-    private org.apache.ignite.rest.client.model.ClusterState fetchClusterState(String url) throws ApiException {
+    private ClusterStateDto fetchClusterState(String url) throws ApiException {
         return new ClusterManagementApi(clientFactory.getClient(url)
                 .setReadTimeout(READ_TIMEOUT))
                 .clusterState();

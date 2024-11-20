@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,6 +44,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongConsumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.MetaStorageInfo;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -112,7 +114,7 @@ import org.jetbrains.annotations.TestOnly;
  *     <li>Providing corresponding Meta storage service proxy interface</li>
  * </ul>
  */
-public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance {
+public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGroupMaintenance, MetastoreGroupAvailabilityService {
     private static final IgniteLogger LOG = Loggers.forClass(MetaStorageManagerImpl.class);
 
     private final ClusterService clusterService;
@@ -1160,6 +1162,23 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     @Override
     public long getCompactionRevisionLocally() {
         return inBusyLock(busyLock, storage::getCompactionRevision);
+    }
+
+
+    @Override
+    public CompletableFuture<Boolean> isAlive() {
+        return metaStorageSvcFut.thenCompose(service -> service.currentRevision().handle((unused, t) -> t != null));
+    }
+
+    @Override
+    public CompletableFuture<Set<String>> availableMembers() {
+        return raftServiceFuture.handle((raftGroupService, throwable) -> {
+            List<Peer> peers = raftGroupService.peers();
+            if (peers == null) {
+                return Collections.<String>emptySet();
+            }
+            return peers.stream().map(Peer::consistentId).collect(Collectors.toSet());
+        }).toCompletableFuture();
     }
 
     private <T> CompletableFuture<T> withTrackReadOperationFromLeaderFuture(Supplier<CompletableFuture<T>> readFromLeader) {

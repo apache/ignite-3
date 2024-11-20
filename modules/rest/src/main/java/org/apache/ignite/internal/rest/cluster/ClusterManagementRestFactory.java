@@ -22,8 +22,7 @@ import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
-import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.metastorage.impl.MetastoreGroupAvailabilityService;
 import org.apache.ignite.internal.rest.RestFactory;
 
 /**
@@ -31,19 +30,18 @@ import org.apache.ignite.internal.rest.RestFactory;
  */
 @Factory
 public class ClusterManagementRestFactory implements RestFactory {
-    private ClusterService clusterService;
-
     private ClusterInitializer clusterInitializer;
 
     private ClusterManagementGroupManager cmgManager;
 
+    private MetastoreGroupAvailabilityService metastoreGroupAvailabilityService;
+
     /** Constructor. */
     public ClusterManagementRestFactory(
-            ClusterService clusterService,
             ClusterInitializer clusterInitializer,
-            ClusterManagementGroupManager cmgManager
+            ClusterManagementGroupManager cmgManager,
+            MetastoreGroupAvailabilityService metastoreAvailabilityService
     ) {
-        this.clusterService = clusterService;
         this.clusterInitializer = clusterInitializer;
         this.cmgManager = cmgManager;
     }
@@ -62,14 +60,14 @@ public class ClusterManagementRestFactory implements RestFactory {
 
     @Bean
     @Singleton
-    public TopologyService topologyService() {
-        return clusterService.topologyService();
+    public MetastoreGroupAvailabilityService metastoreAvailabilityService() {
+        return metastoreGroupAvailabilityService;
     }
 
     @Override
     public void cleanResources() {
-        clusterService = null;
         clusterInitializer = null;
         cmgManager = null;
+        metastoreGroupAvailabilityService = null;
     }
 }

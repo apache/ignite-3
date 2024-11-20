@@ -44,12 +44,12 @@ public interface ClusterManagementApi {
     @Get("state")
     @Operation(operationId = "clusterState", summary = "Get cluster state", description = "Returns current cluster status.")
     @ApiResponse(responseCode = "200", description = "Cluster status returned.",
-            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ClusterState.class)))
+            content = @Content(mediaType = MediaType.APPLICATION_JSON, schema = @Schema(implementation = ClusterStateDto.class)))
     @ApiResponse(responseCode = "404", description = "Cluster status not found. Most likely, the cluster is not initialized.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
     @ApiResponse(responseCode = "500", description = "Internal error.",
             content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
-    CompletableFuture<ClusterState> clusterState();
+    CompletableFuture<ClusterStateDto> clusterState();
 
     /**
      * Initializes cluster.

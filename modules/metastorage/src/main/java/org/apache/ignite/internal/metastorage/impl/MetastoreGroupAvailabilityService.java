@@ -15,26 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.api.cluster;
+package org.apache.ignite.internal.metastorage.impl;
+
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Current health status of the cluster.
+ * Service to provide information about metastore group availability information.
  */
-public enum ClusterStatus {
+public interface MetastoreGroupAvailabilityService {
     /**
-     * The cluster is completely healthy. Minor losses in any of the groups are possible,
-     * but this does not affect the operation of the cluster.
+     * Returns is metastore group is alive or not.
      */
-    HEALTHY,
+    CompletableFuture<Boolean> isAlive();
 
     /**
-     * The metastore group has lost its majority. Almost all of the cluster functions are inoperative.
-     * To restore their operation, it is necessary to return the majority to the metastore group.
+     * Returns available nodes set of metastore group.
      */
-    MS_MAJORITY_LOST,
-
-    /**
-     * The cluster management group has lost its majority. The cluster is completely inoperative until the majority is returned.
-     */
-    CMG_MAJORITY_LOST,
+    CompletableFuture<Set<String>> availableMembers();
 }
