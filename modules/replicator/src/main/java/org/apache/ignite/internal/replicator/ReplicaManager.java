@@ -1007,7 +1007,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                             groupId,
                                             clusterNetSvc.topologyService().localMember())
                             )
-                            .timestamp(clockService.updateClock(requestTimestamp))
+                            .timestamp(clockService.updateAndGetClock(requestTimestamp))
                             .build(),
                     correlationId);
         } else {
