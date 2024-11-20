@@ -31,6 +31,26 @@ using Internal.Common;
 /// This pool creates up to <see cref="IgniteClientPoolConfiguration.Size"/> Ignite clients and returns them in a round-robin fashion.
 /// Ignite clients are thread safe, so there is no rent/return semantics.
 /// </para>
+/// <example>
+/// Register as a singleton in DI container:
+/// <code>
+/// builder.Services.AddSingleton(_ => new IgniteClientPool(
+///     new IgniteClientPoolConfiguration
+///     {
+///         Size = 3,
+///         ClientConfiguration = new("localhost"),
+///     }));
+/// </code>
+/// Invoke from a controller:
+/// <code>
+/// public async Task&lt;IActionResult&gt; Index([FromServices] IgniteClientPool ignite)
+/// {
+///     var client = await ignite.GetClientAsync();
+///     var tables = await client.Tables.GetTablesAsync();
+///     return Ok(tables);
+/// }
+/// </code>
+/// </example>
 /// </summary>
 public sealed class IgniteClientPool : IDisposable
 {
