@@ -111,5 +111,10 @@ public class IgniteClientPoolTests
     }
 
     private IgniteClientPool CreatePool(int size = 1) =>
-        new(new(new(_server.Endpoint), size));
+        new IgniteClientPool(
+            new IgniteClientPoolConfiguration
+            {
+                Size = size,
+                ClientConfiguration = new IgniteClientConfiguration(_server.Endpoint)
+            });
 }
