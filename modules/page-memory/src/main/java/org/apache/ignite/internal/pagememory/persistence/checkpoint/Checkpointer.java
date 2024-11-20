@@ -121,6 +121,7 @@ public class Checkpointer extends IgniteWorker {
             + "pages={}, "
             + "pagesWriteTime={}ms, "
             + "fsyncTime={}ms, "
+            + "replicatorLogSyncTime={}ms, "
             + "totalTime={}ms, "
             + "avgWriteSpeed={}MB/s]";
 
@@ -322,7 +323,7 @@ public class Checkpointer extends IgniteWorker {
         Checkpoint chp = null;
 
         try {
-            CheckpointMetricsTracker tracker = new CheckpointMetricsTracker();
+            var tracker = new CheckpointMetricsTracker();
 
             startCheckpointProgress();
 
@@ -368,13 +369,7 @@ public class Checkpointer extends IgniteWorker {
                     }
                 }
 
-                try {
-                    logSyncer.sync();
-                } catch (Exception e) {
-                    log.error("Failed to sync write-ahead log during checkpoint", e);
-
-                    throw new IgniteInternalCheckedException(e);
-                }
+                replicatorLogSync(tracker);
 
                 if (!writePages(tracker, chp.dirtyPages, chp.progress, this, this::isShutdownNow)) {
                     return;
@@ -411,6 +406,7 @@ public class Checkpointer extends IgniteWorker {
                             chp.dirtyPagesSize,
                             tracker.pagesWriteDuration(MILLISECONDS),
                             tracker.fsyncDuration(MILLISECONDS),
+                            tracker.replicatorLogSyncDuration(MICROSECONDS),
                             tracker.totalDuration(MILLISECONDS),
                             WriteSpeedFormatter.formatWriteSpeed(avgWriteSpeedInBytes)
                     );
@@ -897,5 +893,17 @@ public class Checkpointer extends IgniteWorker {
         CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getUnblockPartitionDestructionFuture(groupPartitionId);
 
         return processedPartitionFuture == null ? nullCompletedFuture() : processedPartitionFuture;
+    }
+
+    private void replicatorLogSync(CheckpointMetricsTracker tracker) throws IgniteInternalCheckedException {
+        try {
+            tracker.onReplicatorLogSyncStart();
+
+            logSyncer.sync();
+        } catch (Exception e) {
+            log.error("Failed to sync write-ahead log during checkpoint", e);
+
+            throw new IgniteInternalCheckedException(e);
+        }
     }
 }
