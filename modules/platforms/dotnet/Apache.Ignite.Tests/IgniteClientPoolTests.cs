@@ -37,16 +37,35 @@ public class IgniteClientPoolTests
     [Test]
     public async Task TestGetClient()
     {
-        var pool = new IgniteClientPool(new(new(_server.Endpoint), 1));
+        IgniteClientPool pool = CreatePool();
         IIgniteClient client = await pool.GetClientAsync();
+        IIgniteClient client2 = await pool.GetClientAsync();
 
         Assert.IsNotNull(client);
+        Assert.AreSame(client, client2);
+
         await client.Tables.GetTablesAsync();
+    }
+
+    [Test]
+    public async Task TestPoolReconnectsDisposedClient()
+    {
+        IgniteClientPool pool = CreatePool();
+        IIgniteClient client = await pool.GetClientAsync();
+
+        await client.Tables.GetTablesAsync();
+        client.Dispose();
+
+        IIgniteClient client2 = await pool.GetClientAsync();
+        await client2.Tables.GetTablesAsync();
+
+        Assert.AreNotSame(client, client2);
     }
 
     [Test]
     public void TestConstructorValidatesArgs()
     {
+        // ReSharper disable once ObjectCreationAsStatement
         Assert.Throws<ArgumentNullException>(() => new IgniteClientPool(null!));
     }
 
@@ -58,4 +77,7 @@ public class IgniteClientPoolTests
 
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await pool.GetClientAsync());
     }
+
+    private IgniteClientPool CreatePool() =>
+        new(new(new(_server.Endpoint), 1));
 }
