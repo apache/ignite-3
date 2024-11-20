@@ -15,22 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.rest;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecutionContext;
+import io.micronaut.http.annotation.Body;
+import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Post;
 
-/** Compute job that sleeps for a number of milliseconds passed in the argument and throws a {@link RuntimeException} if interrupted. */
-public class SleepJob implements ComputeJob<Long, Void> {
-    @Override
-    public CompletableFuture<Void> executeAsync(JobExecutionContext jobExecutionContext, Long timeout) {
-        try {
-            TimeUnit.SECONDS.sleep(timeout);
-            return null;
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+@Controller("/time")
+class TimeController {
+    @Post
+    public static String time(@Body TimeDto time) {
+        return time.time().toString();
     }
 }

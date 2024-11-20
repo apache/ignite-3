@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.QUEUE_OVERFLOW_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
@@ -186,10 +187,11 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             } else {
                 if (queueEntry.isInterrupted()) {
                     stateMachine.cancelJob(jobId);
+                    result.completeExceptionally(new CancellationException());
                 } else {
                     stateMachine.completeJob(jobId);
+                    result.complete(r);
                 }
-                result.complete(r);
             }
         });
     }

@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.rest;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecutionContext;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Instant;
 
-/** Compute job that sleeps for a number of milliseconds passed in the argument and throws a {@link RuntimeException} if interrupted. */
-public class SleepJob implements ComputeJob<Long, Void> {
-    @Override
-    public CompletableFuture<Void> executeAsync(JobExecutionContext jobExecutionContext, Long timeout) {
-        try {
-            TimeUnit.SECONDS.sleep(timeout);
-            return null;
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+class TimeDto {
+    private final Instant time;
+
+    @JsonCreator
+    TimeDto(@JsonProperty("time") Instant time) {
+        this.time = time;
+    }
+
+    @JsonProperty("time")
+    Instant time() {
+        return time;
     }
 }
