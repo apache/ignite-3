@@ -28,10 +28,10 @@ public class IgniteClientPoolTests
 {
     private FakeServer _server;
 
-    [OneTimeSetUp]
+    [SetUp]
     public void StartServer() => _server = new FakeServer();
 
-    [OneTimeTearDown]
+    [TearDown]
     public void StopServer() => _server.Dispose();
 
     [Test]
