@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Threading.Tasks;
 using NUnit.Framework;
 
 /// <summary>
@@ -29,5 +30,14 @@ public class IgniteClientPoolTests
     public void TestConstructorValidatesArgs()
     {
         Assert.Throws<ArgumentNullException>(() => new IgniteClientPool(null!));
+    }
+
+    [Test]
+    public void TestUseAfterDispose()
+    {
+        var pool = new IgniteClientPool(new(new(), 1));
+        pool.Dispose();
+
+        Assert.ThrowsAsync<ObjectDisposedException>(async () => await pool.GetClientAsync());
     }
 }

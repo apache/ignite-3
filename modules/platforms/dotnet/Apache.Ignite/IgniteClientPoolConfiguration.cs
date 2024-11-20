@@ -22,6 +22,6 @@ namespace Apache.Ignite;
 /// </summary>
 /// <param name="ClientConfiguration">Client configuration.</param>
 /// <param name="PoolSize">Pool size.</param>
-public sealed record IgniteClientPoolConfiguration(
+public sealed record IgniteClientPoolConfiguration( // TODO: immutability inconsistent with IgniteClientConfiguration
     IgniteClientConfiguration ClientConfiguration,
     int PoolSize);
