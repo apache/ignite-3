@@ -262,6 +262,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
@@ -745,7 +746,7 @@ public class IgniteImpl implements Ignite {
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry
                 .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
-        clockService = new ClockServiceImpl(clock, clockWaiter, new SameValueLongSupplier(() -> schemaSyncConfig.maxClockSkew().value()));
+        clockService = new ClockServiceImpl(clock, clockWaiter, () -> schemaSyncConfig.maxClockSkew().value());
 
         idempotentCacheVacuumizer = new IdempotentCacheVacuumizer(
                 name,
@@ -819,7 +820,11 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.tableIoExecutor()
         );
 
-        metricManager.configure(clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics());
+        metricManager.configure(
+                clusterConfigRegistry.getConfiguration(MetricExtensionConfiguration.KEY).metrics(),
+                () -> CollectionUtils.last(clusterInfo(clusterStateStorageMgr).idHistory()),
+                name
+        );
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 ServiceLoader.load(DataStorageModule.class, serviceProviderClassLoader)
@@ -1174,12 +1179,12 @@ public class IgniteImpl implements Ignite {
         return Map.copyOf(decoratedEngines);
     }
 
-    private static SameValueLongSupplier delayDurationMsSupplier(SchemaSynchronizationConfiguration schemaSyncConfig) {
-        return new SameValueLongSupplier(() -> schemaSyncConfig.delayDuration().value());
+    private static LongSupplier delayDurationMsSupplier(SchemaSynchronizationConfiguration schemaSyncConfig) {
+        return () -> schemaSyncConfig.delayDuration().value();
     }
 
     private static LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier(ReplicationConfiguration replicationConfig) {
-        return new SameValueLongSupplier(() -> replicationConfig.idleSafeTimePropagationDuration().value());
+        return () -> replicationConfig.idleSafeTimePropagationDuration().value();
     }
 
     private AuthenticationManager createAuthenticationManager() {

@@ -43,7 +43,7 @@ class ItTopologyCommandInitializedClusterTest extends CliIntegrationTest {
     }
 
     @Test
-    @DisplayName("Should print logical topology when valid cluster url is provided but cluster")
+    @DisplayName("Should print logical topology when valid cluster url is provided")
     void printLogicalTopology() {
         // When
         execute("cluster", "topology", "logical", "--url", NODE_URL);

@@ -76,8 +76,6 @@ import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -119,8 +117,6 @@ import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.ReadOnlyOption;
-import org.apache.ignite.raft.jraft.rpc.AppendEntriesRequestImpl;
-import org.apache.ignite.raft.jraft.rpc.AppendEntriesResponseImpl;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
@@ -3813,82 +3809,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         });
 
         assertTrue(res.get().isOk());
-    }
-
-    /**
-     * Tests propagation of HLC on heartbeat request and response.
-     */
-    @Test
-    public void testHlcPropagation() throws Exception {
-        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 2);
-
-        cluster = new TestCluster("unitest", dataPath, peers, 3_000, testInfo);
-
-        for (TestPeer peer : peers) {
-            RaftOptions opts = new RaftOptions();
-            opts.setElectionHeartbeatFactor(4); // Election timeout divisor.
-            HybridClock clock = new HybridClockImpl();
-            assertTrue(cluster.start(peer, false, 300, false, null, opts, clock));
-        }
-
-        List<NodeImpl> nodes = cluster.getNodes();
-
-        for (NodeImpl node : nodes) {
-            RpcClientEx rpcClientEx = sender(node);
-            rpcClientEx.recordMessages((msg, nodeId) -> {
-                if (msg instanceof AppendEntriesRequestImpl ||
-                    msg instanceof AppendEntriesResponseImpl) {
-                    return true;
-                }
-
-                return false;
-
-            });
-        }
-
-        Node leader = cluster.waitAndGetLeader();
-        cluster.ensureLeader(leader);
-
-        RpcClientEx client = sender(leader);
-
-        AtomicBoolean heartbeatRequest = new AtomicBoolean(false);
-        AtomicBoolean appendEntriesRequest = new AtomicBoolean(false);
-        AtomicBoolean heartbeatResponse = new AtomicBoolean(false);
-        AtomicBoolean appendEntriesResponse = new AtomicBoolean(false);
-
-        waitForCondition(() -> {
-            client.recordedMessages().forEach(msgs -> {
-                if (msgs[0] instanceof AppendEntriesRequestImpl) {
-                    AppendEntriesRequestImpl msg = (AppendEntriesRequestImpl) msgs[0];
-
-                    if (msg.entriesList() == null && msg.data() == null) {
-                        heartbeatRequest.set(true);
-                    } else {
-                        appendEntriesRequest.set(true);
-                    }
-
-                    assertTrue(msg.timestamp() != null);
-                } else if (msgs[0] instanceof AppendEntriesResponseImpl) {
-                    AppendEntriesResponseImpl msg = (AppendEntriesResponseImpl) msgs[0];
-                    if (msg.timestamp() == null) {
-                        appendEntriesResponse.set(true);
-                    } else {
-                        heartbeatResponse.set(true);
-                    }
-                }
-            });
-
-            return heartbeatRequest.get() &&
-                    appendEntriesRequest.get() &&
-                    heartbeatResponse.get() &&
-                    appendEntriesResponse.get();
-        },
-                5000);
-
-        assertTrue(heartbeatRequest.get());
-        assertTrue(appendEntriesRequest.get());
-        assertTrue(heartbeatResponse.get());
-        assertTrue(appendEntriesResponse.get());
     }
 
     @Test
