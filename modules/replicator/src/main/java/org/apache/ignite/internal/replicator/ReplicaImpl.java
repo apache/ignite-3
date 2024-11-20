@@ -288,10 +288,11 @@ public class ReplicaImpl implements Replica {
 
         TablePartitionId replicationGroupId = (TablePartitionId) parameters.groupId();
 
-        onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
-                replicationGroupId,
-                term
-        );
+        onLeaderElectedFailoverCallback = (leaderNode, term) -> { /* noop */ };
+//        changePeersAndLearnersAsyncIfPendingExists(
+//                replicationGroupId,
+//                term
+//        );
 
         raftClient.subscribeLeader(onLeaderElectedFailoverCallback).join();
 

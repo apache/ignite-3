@@ -948,6 +948,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableCreate(CreateTableEventParameters parameters) {
+        LOG.info("!!! Create table [name={}, id={}]", parameters.tableDescriptor().name(), parameters.tableDescriptor().id());
         return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor(), false)
                 .thenApply(unused -> false);
     }
