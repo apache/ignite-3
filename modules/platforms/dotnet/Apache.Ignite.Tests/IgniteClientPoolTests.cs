@@ -48,6 +48,27 @@ public class IgniteClientPoolTests
     }
 
     [Test]
+    public async Task TestRoundRobin()
+    {
+        using IgniteClientPool pool = CreatePool(3);
+
+        var client1 = await pool.GetClientAsync();
+        var client2 = await pool.GetClientAsync();
+        var client3 = await pool.GetClientAsync();
+
+        Assert.AreNotSame(client1, client2);
+        Assert.AreNotSame(client2, client3);
+
+        Assert.AreSame(client1, await pool.GetClientAsync());
+        Assert.AreSame(client2, await pool.GetClientAsync());
+        Assert.AreSame(client3, await pool.GetClientAsync());
+
+        Assert.AreSame(client1, await pool.GetClientAsync());
+        Assert.AreSame(client2, await pool.GetClientAsync());
+        Assert.AreSame(client3, await pool.GetClientAsync());
+    }
+
+    [Test]
     public async Task TestPoolReconnectsDisposedClient()
     {
         using IgniteClientPool pool = CreatePool();
@@ -78,6 +99,6 @@ public class IgniteClientPoolTests
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await pool.GetClientAsync());
     }
 
-    private IgniteClientPool CreatePool() =>
-        new(new(new(_server.Endpoint), 1));
+    private IgniteClientPool CreatePool(int size = 1) =>
+        new(new(new(_server.Endpoint), size));
 }
