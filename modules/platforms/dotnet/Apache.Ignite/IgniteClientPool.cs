@@ -28,7 +28,7 @@ using Internal.Common;
 /// <summary>
 /// Ignite client pool. Thread safe.
 /// <para>
-/// This pool creates up to <see cref="IgniteClientPoolConfiguration.PoolSize"/> Ignite clients and returns them in a round-robin fashion.
+/// This pool creates up to <see cref="IgniteClientPoolConfiguration.Size"/> Ignite clients and returns them in a round-robin fashion.
 /// Ignite clients are thread safe, so there is no rent/return semantics.
 /// </para>
 /// </summary>
@@ -49,10 +49,11 @@ public sealed class IgniteClientPool : IDisposable
     public IgniteClientPool(IgniteClientPoolConfiguration configuration)
     {
         IgniteArgumentCheck.NotNull(configuration);
-        IgniteArgumentCheck.Ensure(configuration.PoolSize > 0, nameof(configuration.PoolSize), "PoolSize > 0");
+        IgniteArgumentCheck.NotNull(configuration.ClientConfiguration);
+        IgniteArgumentCheck.Ensure(configuration.Size > 0, nameof(configuration.Size), "Pool size must be positive.");
 
         Configuration = configuration;
-        _clients = new IgniteClientInternal[configuration.PoolSize];
+        _clients = new IgniteClientInternal[configuration.Size];
     }
 
     /// <summary>
@@ -68,6 +69,8 @@ public sealed class IgniteClientPool : IDisposable
     /// <summary>
     /// Gets an Ignite client from the pool. Creates a new one if necessary.
     /// Performs round-robin balancing across pooled instances.
+    /// <para />
+    /// NOTE: Do not dispose the client instance returned by this method, it is managed by the pool.
     /// </summary>
     /// <returns>Ignite client.</returns>
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Pooled.")]
@@ -127,7 +130,7 @@ public sealed class IgniteClientPool : IDisposable
     public override string ToString() =>
         new IgniteToStringBuilder(typeof(IgniteClientPool))
             .Append(_clients.Count(static c => c is { IsDisposed: false }), "Connected")
-            .Append(Configuration.PoolSize, "Size")
+            .Append(Configuration.Size, "Size")
             .Build();
 
     private async Task<IgniteClientInternal> CreateClientAsync()

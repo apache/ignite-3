@@ -20,8 +20,15 @@ namespace Apache.Ignite;
 /// <summary>
 /// Ignite client pool configuration.
 /// </summary>
-/// <param name="ClientConfiguration">Client configuration.</param>
-/// <param name="PoolSize">Pool size.</param>
-public sealed record IgniteClientPoolConfiguration( // TODO: immutability inconsistent with IgniteClientConfiguration
-    IgniteClientConfiguration ClientConfiguration,
-    int PoolSize);
+public sealed record IgniteClientPoolConfiguration
+{
+    /// <summary>
+    /// Gets or sets the pool size (maximum number of clients).
+    /// </summary>
+    public int Size { get; set; }
+
+    /// <summary>
+    /// Gets or sets the configuration for pooled clients.
+    /// </summary>
+    public required IgniteClientConfiguration ClientConfiguration { get; set; }
+}
