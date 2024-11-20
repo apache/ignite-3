@@ -295,7 +295,6 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         ConditionalWatchInhibitor watchInhibitor = new ConditionalWatchInhibitor(metaStorageManager);
         watchInhibitor.startInhibit(rev -> stableAssignmentsExist(GROUP_ID));
 
-        CompletableFuture<Void> afterInvokeComplete = new CompletableFuture<>();
         CompletableFuture<Void> lgmResponseFuture = new CompletableFuture<>();
         AtomicInteger invokeFailCounter = new AtomicInteger();
         AtomicInteger lgmCounter = new AtomicInteger();
@@ -323,10 +322,10 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> lgmCounter.get() == 1, 3_000));
 
+        // Wait for a couple of iterations of LeaseUpdater.
         Thread.sleep(1_000);
 
         lgmResponseFuture.complete(null);
-        afterInvokeComplete.complete(null);
         watchInhibitor.stopInhibit();
 
         waitForAcceptedLease();

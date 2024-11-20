@@ -43,7 +43,7 @@ public class LeaseNegotiator {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Lease agreements which are in progress of negotiation. */
-    private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate = new ConcurrentHashMap<>();;
+    private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate = new ConcurrentHashMap<>();
 
     /** Cluster service. */
     private final ClusterService clusterService;
