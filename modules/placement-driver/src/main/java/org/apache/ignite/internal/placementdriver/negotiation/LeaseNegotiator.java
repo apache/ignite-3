@@ -129,8 +129,6 @@ public class LeaseNegotiator {
      */
     @Nullable
     public Lease createAgreement(ReplicationGroupId groupId, Lease lease) {
-        LOG.info("Agreement is being created [groupId={}, leaseStartTime={}]", groupId, lease.getStartTime().longValue());
-
         AtomicReference<LeaseAgreement> agreementRef = new AtomicReference<>();
 
         leaseToNegotiate.compute(groupId, (k, v) -> {
@@ -138,7 +136,6 @@ public class LeaseNegotiator {
                 agreementRef.set(v);
                 return v;
             } else {
-                LOG.info("Agreement created [groupId={}, leaseStartTime={}]", groupId, lease.getStartTime().longValue());
                 return new LeaseAgreement(lease);
             }
         });

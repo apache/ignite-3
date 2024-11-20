@@ -563,7 +563,6 @@ public class LeaseUpdater {
                     return;
                 }
 
-                LOG.info("Lease update invocation succeeded, toBeNegotiated=" + toBeNegotiated);
                 for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
                     Lease lease = renewedLeases.get(entry.getKey());
                     boolean force = entry.getValue();

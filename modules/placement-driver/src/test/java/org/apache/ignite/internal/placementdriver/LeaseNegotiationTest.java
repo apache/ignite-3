@@ -310,7 +310,9 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         leaseGrantedMessageHandler = (n, lgm) -> {
             lgmCounter.incrementAndGet();
 
-            log.info("Lease granted message received [node={}, leaseStartTime={}, cntr={}]", n, lgm.leaseStartTime().longValue(), lgmCounter.get());
+            log.info("Lease granted message received [node={}, leaseStartTime={}, cntr={}]", n, lgm.leaseStartTime().longValue(),
+                    lgmCounter.get());
+
             if (negotiatedLeaseStartTime.get() == 0) {
                 negotiatedLeaseStartTime.set(lgm.leaseStartTime().longValue());
             }
