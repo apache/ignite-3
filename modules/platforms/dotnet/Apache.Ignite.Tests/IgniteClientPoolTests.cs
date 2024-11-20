@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests;
 
 using System;
+using System.Threading.Tasks;
 using NUnit.Framework;
 
 /// <summary>
@@ -25,6 +26,24 @@ using NUnit.Framework;
 /// </summary>
 public class IgniteClientPoolTests
 {
+    private FakeServer _server;
+
+    [OneTimeSetUp]
+    public void StartServer() => _server = new FakeServer();
+
+    [OneTimeTearDown]
+    public void StopServer() => _server.Dispose();
+
+    [Test]
+    public async Task TestGetClient()
+    {
+        var pool = new IgniteClientPool(new(new(_server.Endpoint), 1));
+        IIgniteClient client = await pool.GetClientAsync();
+
+        Assert.IsNotNull(client);
+        await client.Tables.GetTablesAsync();
+    }
+
     [Test]
     public void TestConstructorValidatesArgs()
     {

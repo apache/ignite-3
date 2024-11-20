@@ -21,6 +21,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
+using Internal;
 using Internal.Common;
 
 /// <summary>
@@ -32,7 +33,7 @@ using Internal.Common;
 /// </summary>
 public sealed class IgniteClientPool : IDisposable
 {
-    private readonly IIgniteClient?[] _clients;
+    private readonly IgniteClientInternal?[] _clients;
 
     private readonly SemaphoreSlim _clientsLock = new(1);
 
@@ -50,7 +51,7 @@ public sealed class IgniteClientPool : IDisposable
         IgniteArgumentCheck.Ensure(configuration.PoolSize > 0, nameof(configuration.PoolSize), "PoolSize > 0");
 
         Configuration = configuration;
-        _clients = new IIgniteClient[configuration.PoolSize];
+        _clients = new IgniteClientInternal[configuration.PoolSize];
     }
 
     /// <summary>
@@ -75,8 +76,8 @@ public sealed class IgniteClientPool : IDisposable
 
         int index = Interlocked.Increment(ref _clientIndex) % _clients.Length;
 
-        IIgniteClient? client = _clients[index];
-        if (client != null)
+        IgniteClientInternal? client = _clients[index];
+        if (client is { IsDisposed: false })
         {
             return client;
         }
@@ -86,7 +87,7 @@ public sealed class IgniteClientPool : IDisposable
         try
         {
             client = _clients[index];
-            if (client != null)
+            if (client is { IsDisposed: false })
             {
                 return client;
             }
@@ -121,6 +122,10 @@ public sealed class IgniteClientPool : IDisposable
         _clientsLock.Dispose();
     }
 
-    private async Task<IIgniteClient> CreateClientAsync() =>
-        await IgniteClient.StartAsync(Configuration.ClientConfiguration).ConfigureAwait(false);
+    private async Task<IgniteClientInternal> CreateClientAsync()
+    {
+        var client = await IgniteClient.StartAsync(Configuration.ClientConfiguration).ConfigureAwait(false);
+
+        return (IgniteClientInternal)client;
+    }
 }
