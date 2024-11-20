@@ -100,8 +100,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration;
-import org.apache.ignite.internal.distributionzones.events.HighAvalabilityZoneTopologyUpdateEvent;
-import org.apache.ignite.internal.distributionzones.events.ZoneTopologyUpdateEventParams;
+import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
+import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
@@ -137,7 +137,7 @@ import org.jetbrains.annotations.TestOnly;
  * Distribution zones manager.
  */
 public class DistributionZoneManager extends
-        AbstractEventProducer<HighAvalabilityZoneTopologyUpdateEvent, ZoneTopologyUpdateEventParams> implements IgniteComponent {
+        AbstractEventProducer<HaZoneTopologyUpdateEvent, HaZoneTopologyUpdateEventParams> implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
 
@@ -414,10 +414,10 @@ public class DistributionZoneManager extends
 
             if (partitionDistributionResetTimeoutSeconds == IMMEDIATE_TIMER_VALUE) {
                 fireEvent(
-                        HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
-                        new ZoneTopologyUpdateEventParams(causalityToken, zoneId, updateTimestamp)
+                        HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
+                        new HaZoneTopologyUpdateEventParams(causalityToken, zoneId, updateTimestamp)
                 ).exceptionally(th -> {
-                    LOG.error("Error during the local " + HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
+                    LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
                             + " event processing", th);
 
                     return null;
@@ -1002,11 +1002,11 @@ public class DistributionZoneManager extends
                                 partitionReset,
                                 () -> {
                                     fireEvent(
-                                            HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
-                                            new ZoneTopologyUpdateEventParams(revision, zoneId,
+                                            HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
+                                            new HaZoneTopologyUpdateEventParams(revision, zoneId,
                                                     metaStorageManager.timestampByRevisionLocally(revision).longValue())
                                     ).exceptionally(th -> {
-                                        LOG.error("Error during the local " + HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
+                                        LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
                                                 + " event processing", th);
 
                                         return null;

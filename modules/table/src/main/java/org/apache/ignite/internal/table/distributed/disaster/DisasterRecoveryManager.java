@@ -62,8 +62,8 @@ import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
-import org.apache.ignite.internal.distributionzones.events.HighAvalabilityZoneTopologyUpdateEvent;
-import org.apache.ignite.internal.distributionzones.events.ZoneTopologyUpdateEventParams;
+import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
+import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -217,7 +217,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
 
-        dzManager.listen(HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onReset);
+        dzManager.listen(HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onReset);
 
         catalogManager.listen(TABLE_CREATE, fromConsumer(this::onTableCreate));
 
@@ -247,7 +247,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         );
     }
 
-    private CompletableFuture<Boolean> onReset(ZoneTopologyUpdateEventParams params) {
+    private CompletableFuture<Boolean> onReset(HaZoneTopologyUpdateEventParams params) {
         int zoneId = params.zoneId();
         long timestamp = params.timestamp();
 
@@ -527,14 +527,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         ongoingOperationsById.put(operationId, operationFuture);
 
-        metaStorageManager.put(RECOVERY_TRIGGER_KEY, VersionedSerialization.toBytes(request, DisasterRecoveryRequestSerializer.INSTANCE))
-                .whenComplete((v, th) -> {
-                    if (th != null) {
-                        System.out.println("KKK " + th);
-                    } else {
-                        System.out.println("KKK put done");
-                    }
-                });
+        metaStorageManager.put(RECOVERY_TRIGGER_KEY, VersionedSerialization.toBytes(request, DisasterRecoveryRequestSerializer.INSTANCE));
+
         return operationFuture;
     }
 
