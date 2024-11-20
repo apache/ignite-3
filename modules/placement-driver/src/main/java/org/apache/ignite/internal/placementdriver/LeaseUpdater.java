@@ -602,7 +602,6 @@ public class LeaseUpdater {
             // New lease is granted.
             writeNewLease(grpId, candidate, renewedLeases);
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-23213 Depending on the solution we may refactor this.
             boolean force = Objects.equals(lease.getLeaseholder(), candidate.name()) && !agreement.isCancelled();
             toBeNegotiated.put(grpId, force);
         }
