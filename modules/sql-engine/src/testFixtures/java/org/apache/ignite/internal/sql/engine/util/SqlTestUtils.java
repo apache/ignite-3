@@ -21,6 +21,7 @@ import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.QueryCancelledException.CANCEL_MSG;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
@@ -565,7 +566,7 @@ public class SqlTestUtils {
     public static void expectQueryCancelled(Executable action) {
         assertThrowsSqlException(
                 Sql.EXECUTION_CANCELLED_ERR,
-                "The query was cancelled while executing.",
+                CANCEL_MSG,
                 action
         );
     }
@@ -576,7 +577,7 @@ public class SqlTestUtils {
         IgniteTestUtils.assertThrows(
                 QueryCancelledException.class,
                 action,
-                "The query was cancelled while executing."
+                CANCEL_MSG
         );
     }
 }

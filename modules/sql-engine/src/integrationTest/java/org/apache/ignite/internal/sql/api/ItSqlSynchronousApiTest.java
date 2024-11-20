@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -87,11 +87,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         cancelHandle.cancel();
 
         //noinspection resource
-        assertThrowsSqlException(
-                Sql.EXECUTION_CANCELLED_ERR,
-                "The query was cancelled while executing.",
-                () -> sql.execute(null, token, "SELECT 1")
-        );
+        expectQueryCancelled(() -> sql.execute(null, token, "SELECT 1"));
     }
 
     @Test

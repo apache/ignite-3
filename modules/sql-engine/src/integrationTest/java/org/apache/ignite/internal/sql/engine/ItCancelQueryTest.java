@@ -40,8 +40,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Set of test cases for query cancellation. */
 public class ItCancelQueryTest extends BaseSqlIntegrationTest {
-    private static final String QUERY_CANCELED_ERR = "The query was cancelled while executing";
-
     /** Calling {@link CancelHandle#cancel()} should cancel execution of a single query. */
     @Test
     public void testCancelSingleQuery()  {
