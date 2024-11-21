@@ -409,7 +409,7 @@ public class LeaseUpdater {
             long outdatedLeaseThreshold = now.getPhysical() + leaseExpirationInterval / 2;
 
             Leases leasesCurrent = leaseTracker.leasesCurrent();
-            Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
+            Map<ReplicationGroupId, LeaseAgreement> toBeNegotiated = new HashMap<>();
             Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
 
             Map<ReplicationGroupId, TokenizedAssignments> tokenizedStableAssignmentsMap = assignmentsTracker.stableAssignments();
@@ -509,11 +509,11 @@ public class LeaseUpdater {
                     // leaseholders at all.
                     if (isLeaseOutdated(lease)) {
                         // New lease is granted.
-                        writeNewLease(grpId, candidate, renewedLeases);
+                        Lease newLease = writeNewLease(grpId, candidate, renewedLeases);
 
                         boolean force = !lease.isProlongable() && lease.proposedCandidate() != null;
 
-                        toBeNegotiated.put(grpId, force);
+                        toBeNegotiated.put(grpId, new LeaseAgreement(newLease, force));
                     } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
                         // Old lease is renewed.
                         prolongLease(grpId, lease, renewedLeases, leaseExpirationInterval);
@@ -537,7 +537,7 @@ public class LeaseUpdater {
                 );
             }
 
-            if (renewedLeases.isEmpty() || Arrays.equals(leasesCurrent.leasesBytes(), renewedValue)) {
+            if (Arrays.equals(leasesCurrent.leasesBytes(), renewedValue)) {
                 LOG.debug("No leases to update found.");
                 return;
             }
@@ -550,36 +550,29 @@ public class LeaseUpdater {
                 if (e != null) {
                     LOG.error("Lease update invocation failed", e);
 
-                    cancelAgreements(toBeNegotiated.keySet());
-
                     return;
                 }
 
                 if (!success) {
                     LOG.warn("Lease update invocation failed because of outdated lease data on this node.");
 
-                    cancelAgreements(toBeNegotiated.keySet());
-
                     return;
                 }
 
-                for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
-                    Lease lease = renewedLeases.get(entry.getKey());
-                    boolean force = entry.getValue();
-
-                    leaseNegotiator.negotiate(lease, force);
+                for (Map.Entry<ReplicationGroupId, LeaseAgreement> entry : toBeNegotiated.entrySet()) {
+                    leaseNegotiator.negotiate(entry.getValue());
                 }
             });
         }
 
         private void chooseCandidateAndCreateNewLease(
                 ReplicationGroupId grpId,
-                Lease lease,
+                Lease existingLease,
                 LeaseAgreement agreement,
                 Set<Assignment> stableAssignments,
                 Set<Assignment> pendingAssignments,
                 Map<ReplicationGroupId, Lease> renewedLeases,
-                Map<ReplicationGroupId, Boolean> toBeNegotiated
+                Map<ReplicationGroupId, LeaseAgreement> toBeNegotiated
         ) {
             String proposedCandidate = null;
 
@@ -588,7 +581,7 @@ public class LeaseUpdater {
             }
 
             if (proposedCandidate == null) {
-                proposedCandidate = lease.isProlongable() ? lease.getLeaseholder() : lease.proposedCandidate();
+                proposedCandidate = existingLease.isProlongable() ? existingLease.getLeaseholder() : existingLease.proposedCandidate();
             }
 
             ClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedCandidate);
@@ -600,22 +593,11 @@ public class LeaseUpdater {
             }
 
             // New lease is granted.
-            writeNewLease(grpId, candidate, renewedLeases);
+            Lease newLease = writeNewLease(grpId, candidate, renewedLeases);
 
-            boolean force = Objects.equals(lease.getLeaseholder(), candidate.name()) && !agreement.isCancelled();
-            toBeNegotiated.put(grpId, force);
-        }
+            boolean force = Objects.equals(existingLease.getLeaseholder(), candidate.name()) && !agreement.isCancelled();
 
-        /**
-         * Cancel all the given agreements. This should be done if the new leases that were to be negotiated had been not written to meta
-         * storage.
-         *
-         * @param groupIds Group ids.
-         */
-        private void cancelAgreements(Collection<ReplicationGroupId> groupIds) {
-            for (ReplicationGroupId groupId : groupIds) {
-                leaseNegotiator.cancelAgreement(groupId);
-            }
+            toBeNegotiated.put(grpId, new LeaseAgreement(newLease, force));
         }
 
         /**
@@ -624,8 +606,9 @@ public class LeaseUpdater {
          * @param grpId Replication group id.
          * @param candidate Lease candidate.
          * @param renewedLeases Leases to renew.
+         * @return Created lease.
          */
-        private void writeNewLease(
+        private Lease writeNewLease(
                 ReplicationGroupId grpId,
                 ClusterNode candidate,
                 Map<ReplicationGroupId, Lease> renewedLeases
@@ -638,14 +621,11 @@ public class LeaseUpdater {
 
             Lease renewedLease = new Lease(candidate.name(), candidate.id(), startTs, expirationTs, grpId);
 
-            // Lease agreement should be created synchronously before negotiation begins.
-            Lease agreementLease = leaseNegotiator.createAgreement(grpId, renewedLease);
+            renewedLeases.put(grpId, renewedLease);
 
-            if (agreementLease == null) {
-                renewedLeases.put(grpId, renewedLease);
+            leaseUpdateStatistics.onLeaseCreate();
 
-                leaseUpdateStatistics.onLeaseCreate();
-            }
+            return renewedLease;
         }
 
         /**

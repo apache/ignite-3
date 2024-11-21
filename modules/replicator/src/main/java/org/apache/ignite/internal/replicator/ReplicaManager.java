@@ -1280,7 +1280,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 if (context != null) {
                     synchronized (context) {
                         context.assertReservation(parameters.groupId(), parameters.startTime());
-                        // Unreserve if primary replica expired, only if its lease start time is greater,
+                        // Unreserve if primary replica expired, only if its lease start time is equal to reservation time,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
                             context.unreserve();
@@ -1479,6 +1479,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 Supplier<CompletableFuture<Void>> deferredStopOperation
         ) {
             synchronized (context) {
+                // TODO IGNITE-23702: proper sync with waiting of expiration event, and proper deferred stop after cancellation of
+                //     reservation made by a lease that was not negotiated.
                 context.deferredStopReadyFuture = leaseExpirationTime == null
                         ? new CompletableFuture<>()
                         : replicaManager.clockService.waitFor(leaseExpirationTime);
@@ -1516,7 +1518,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         throw new AssertionError("Unexpected replica reservation with " + state + " state [groupId=" + groupId + "].");
                     }
                 } else if (state != ReplicaState.RESTART_PLANNED) {
-                    context.reserve(leaseStartTime);
+                    context.reserve(groupId, leaseStartTime);
                 }
 
                 return context.reservedForPrimary;
@@ -1571,12 +1573,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             this.previousOperationFuture = previousOperationFuture;
         }
 
-        void reserve(HybridTimestamp leaseStartTime) {
-            reservedForPrimary = true;
+        void reserve(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
+            if (reservedForPrimary && this.leaseStartTime != null && leaseStartTime.compareTo(this.leaseStartTime) < 0) {
+                // Newer lease may reserve this replica when it's already reserved by older one: this means than older one is no longer
+                // valid and most likely has not been negotiated and is discarded. By the same reason we shouldn't process the attempt
+                // of reservation by older lease, which is not likely and means reordering of message handling.
+                throw new IllegalArgumentException(format("Replica reservation failed: newer lease has already reserved this replica ["
+                        + "groupId={}, requestedLeaseStartTime={}, newerLeaseStartTime={}].", groupId, leaseStartTime,
+                        this.leaseStartTime));
+            }
             this.leaseStartTime = leaseStartTime;
+            reservedForPrimary = true;
         }
 
         void unreserve() {
+            // TODO IGNITE-23702: should also lead to replica stop if it is PRIMARY_ONLY.
             reservedForPrimary = false;
             leaseStartTime = null;
         }

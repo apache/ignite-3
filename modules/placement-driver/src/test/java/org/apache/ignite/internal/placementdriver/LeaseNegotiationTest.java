@@ -38,6 +38,7 @@ import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
@@ -169,6 +171,12 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
         leaseTracker.startTrack(0L);
 
+        AssignmentsTracker assignmentsTracker = mock(AssignmentsTracker.class);
+        when(assignmentsTracker.stableAssignments()).thenAnswer(i -> Map.of(GROUP_ID, new TokenizedAssignmentsImpl(Set.of(
+                forPeer(NODE_0_NAME),
+                forPeer(NODE_1_NAME)
+        ), 1)));
+
         return new LeaseUpdater(
                 NODE_0_NAME,
                 pdClusterService,
@@ -205,8 +213,6 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         assertThat(lgmReceived, willCompleteSuccessfully());
 
         metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_1_NAME)), assignmentsTimestamp));
-
-        System.out.println("qwe");
 
         waitForAcceptedLease();
 
@@ -293,7 +299,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     @Test
     public void testAgreementCannotBeOverriddenWhileValid() throws InterruptedException {
         ConditionalWatchInhibitor watchInhibitor = new ConditionalWatchInhibitor(metaStorageManager);
-        watchInhibitor.startInhibit(rev -> stableAssignmentsExist(GROUP_ID));
+        watchInhibitor.startInhibit(rev -> getLeaseFromMs() != null);
 
         CompletableFuture<Void> lgmResponseFuture = new CompletableFuture<>();
         AtomicInteger invokeFailCounter = new AtomicInteger();
@@ -310,7 +316,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         leaseGrantedMessageHandler = (n, lgm) -> {
             lgmCounter.incrementAndGet();
 
-            log.info("Lease granted message received [node={}, leaseStartTime={}, cntr={}]", n, lgm.leaseStartTime().longValue(),
+            log.info("Lease granted message received [node={}, leaseStartTime={}, cntr={}].", n, lgm.leaseStartTime().longValue(),
                     lgmCounter.get());
 
             if (negotiatedLeaseStartTime.get() == 0) {
@@ -335,16 +341,6 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         Lease lease = getLeaseFromMs();
 
         assertEquals(negotiatedLeaseStartTime.get(), lease.getStartTime().longValue());
-    }
-
-    private boolean stableAssignmentsExist(TablePartitionId groupId) {
-        CompletableFuture<Entry> f = metaStorageManager.get(stablePartAssignmentsKey(groupId));
-
-        assertThat(f, willSucceedFast());
-
-        Entry e = f.join();
-
-        return !e.empty() && !e.tombstone();
     }
 
     @Nullable
@@ -375,7 +371,6 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     private void waitForAcceptedLease() throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             Lease lease = getLeaseFromMs();
-            log.info("qqq lease=" + lease);
 
             return lease != null && lease.isAccepted();
         }, 10_000));

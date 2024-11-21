@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -31,7 +30,6 @@ import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * This class negotiates a lease with leaseholder. If the lease is negotiated, it is ready available to accept.
@@ -61,25 +59,24 @@ public class LeaseNegotiator {
      * Tries negotiating a lease with its leaseholder.
      * The negotiation will achieve after the method is invoked. Use {@link #getAndRemoveIfReady(ReplicationGroupId)} to check a result.
      *
-     * @param lease Lease to negotiate.
-     * @param force If the flag is true, the process tries to insist of apply the lease.
+     * @param agreement Lease agreement to negotiate.
      */
-    public void negotiate(Lease lease, boolean force) {
-        ReplicationGroupId groupId = lease.replicationGroupId();
+    public void negotiate(LeaseAgreement agreement) {
+        Lease lease = agreement.getLease();
 
-        LeaseAgreement agreement = leaseToNegotiate.get(groupId);
-
-        assert agreement != null : "Lease agreement should exist when negotiation begins [groupId=" + groupId + "].";
+        assert agreement != null : "Lease agreement should exist when negotiation begins [groupId=" + agreement.groupId() + "].";
 
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
+
+        leaseToNegotiate.put(agreement.groupId(), agreement);
 
         clusterService.messagingService().invoke(
                         lease.getLeaseholder(),
                         PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessage()
-                                .groupId(groupId)
+                                .groupId(agreement.groupId())
                                 .leaseStartTime(lease.getStartTime())
                                 .leaseExpirationTime(lease.getExpirationTime())
-                                .force(force)
+                                .force(agreement.forced())
                                 .build(),
                         leaseInterval)
                 .whenComplete((msg, throwable) -> {
@@ -117,30 +114,6 @@ public class LeaseNegotiator {
         });
 
         return res[0] == null ? UNDEFINED_AGREEMENT : res[0];
-    }
-
-    /**
-     * Creates an agreement.
-     *
-     * @param groupId Group id.
-     * @param lease Lease to negotiate.
-     * @return If there is an existing agreement, the lease from agreement is returned, otherwise the new agreement is created and
-     *      {@code null} is returned.
-     */
-    @Nullable
-    public Lease createAgreement(ReplicationGroupId groupId, Lease lease) {
-        AtomicReference<LeaseAgreement> agreementRef = new AtomicReference<>();
-
-        leaseToNegotiate.compute(groupId, (k, v) -> {
-            if (v != null && v.getLease().getLeaseholderId().equals(lease.getLeaseholderId())) {
-                agreementRef.set(v);
-                return v;
-            } else {
-                return new LeaseAgreement(lease);
-            }
-        });
-
-        return agreementRef.get() == null ? null : agreementRef.get().getLease();
     }
 
     /**
