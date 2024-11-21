@@ -41,7 +41,14 @@ public class RaftNodeId {
     }
 
     /**
-     * Return the ID of this Raft group.
+     * Returns string which represents this Raft node ID when used in file paths and RocksDB prefixes.
+     */
+    public String nodeIdStringForStorage() {
+        return groupId().toString() + "-" + peer().idx();
+    }
+
+    /**
+     * Returns the ID of this Raft group.
      */
     public ReplicationGroupId groupId() {
         return groupId;

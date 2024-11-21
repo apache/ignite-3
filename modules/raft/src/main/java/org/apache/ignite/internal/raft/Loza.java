@@ -405,10 +405,33 @@ public class Loza implements RaftManager {
             RaftGroupOptions groupOptions = RaftGroupOptions.defaults();
             raftGroupOptionsConfigurer.configure(groupOptions);
 
-            raftServer.destroyRaftNodeStorages(nodeId, groupOptions);
+            destroyRaftNodeStoragesBusy(nodeId, groupOptions);
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Destroys Raft group node storages (log storage, metadata storage and snapshots storage).
+     *
+     * @param nodeId ID of the Raft node.
+     * @param raftGroupOptions Group options.
+     * @throws NodeStoppingException If the node is already being stopped.
+     */
+    public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions raftGroupOptions) throws NodeStoppingException {
+        if (!busyLock.enterBusy()) {
+            throw new NodeStoppingException();
+        }
+
+        try {
+            destroyRaftNodeStoragesBusy(nodeId, raftGroupOptions);
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private void destroyRaftNodeStoragesBusy(RaftNodeId nodeId, RaftGroupOptions raftGroupOptions) {
+        raftServer.destroyRaftNodeStorages(nodeId, raftGroupOptions);
     }
 
     @Override
