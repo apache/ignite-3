@@ -625,6 +625,18 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 node(6).name());
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
+        Assignments allAssignments = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(2).name()),
+                Assignment.forPeer(node(3).name()),
+                Assignment.forPeer(node(4).name()),
+                Assignment.forPeer(node(5).name()),
+                Assignment.forPeer(node(6).name())
+        ), timestamp);
+
+        assertStableAssignments(node0, partId, allAssignments);
+
         // Write data(1) to all seven nodes.
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
@@ -662,15 +674,15 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         errors = insertValues(table, partId, 20);
         assertThat(errors, is(empty()));
 
+        // Disable scale down.
+        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+
         // Now followerNodes has 4 elements - without the leader and two blocked nodes. Stop them all.
         int[] nodesToStop = followerNodes.stream()
                 .mapToInt(this::nodeIndex)
                 .toArray();
         logger().info("Stopping nodes [id={}]", Arrays.toString(nodesToStop));
         stopNodesInParallel(nodesToStop);
-
-        // Only 3 nodes left.
-        waitForScale(node0, 3);
 
         // One of them has the most up to date data, the others fall behind.
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.READ_ONLY);
