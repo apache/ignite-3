@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.impl;
+package org.apache.ignite.internal.tx.views;
 
 import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 
@@ -37,7 +37,7 @@ public class LocksViewProvider {
         this.locks = locks;
     }
 
-    SystemView<?> get() {
+    public SystemView<?> get() {
         NativeType stringType = stringOf(Short.MAX_VALUE);
 
         return SystemViews.<Lock>nodeViewBuilder()

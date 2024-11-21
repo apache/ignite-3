@@ -19,19 +19,24 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.emptyString;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.Lock;
+import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -39,6 +44,10 @@ import org.junit.jupiter.api.Test;
  * End-to-end tests to verify {@code LOCKS} system view.
  */
 public class ItLocksSystemViewTest extends BaseSqlIntegrationTest {
+    private Set<String> nodeNames;
+
+    private Set<String> lockModes;
+
     @Override
     protected int initialNodes() {
         return 2;
@@ -47,6 +56,14 @@ public class ItLocksSystemViewTest extends BaseSqlIntegrationTest {
     @BeforeAll
     void beforeAll() {
         await(systemViewManager().completeRegistration());
+
+        nodeNames = CLUSTER.runningNodes()
+                .map(Ignite::name)
+                .collect(Collectors.toSet());
+
+        lockModes = Arrays.stream(LockMode.values())
+                .map(Enum::name)
+                .collect(Collectors.toSet());
     }
 
     @Test
@@ -68,27 +85,67 @@ public class ItLocksSystemViewTest extends BaseSqlIntegrationTest {
         Ignite node = CLUSTER.aliveNode();
 
         sql("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
-        sql("INSERT INTO test VALUES (0, 0)");
+        sql("INSERT INTO test VALUES (0, 0), (2, 2)");
 
-        Transaction tx = node.transactions().begin();
+        InternalTransaction tx1 = (InternalTransaction) node.transactions().begin();
+        InternalTransaction tx2 = (InternalTransaction) node.transactions().begin();
+        InternalTransaction tx3 = (InternalTransaction) node.transactions().begin();
 
         try {
-            sql(tx, "UPDATE test SET val = 1 WHERE id = 0");
-
-            IgniteImpl igniteImpl = unwrapIgniteImpl(node);
-            LockManager lockMgr = igniteImpl.txManager().lockManager();
+            sql(tx1, "INSERT INTO test VALUES (1, 1)");
+            sql(tx2, "UPDATE test SET val = 1 WHERE id = 0");
+            sql(tx3, "DELETE FROM test WHERE id = 2");
 
             List<List<Object>> rows = sql("SELECT * FROM SYSTEM.LOCKS");
 
-            assertThat(rows, not(empty()));
+            List<Lock> locks = new ArrayList<>();
+
+            locks.addAll(activeLocks(tx1));
+            locks.addAll(activeLocks(tx2));
+            locks.addAll(activeLocks(tx3));
+
+            assertThat(rows.size(), is(locks.size()));
+
+            Set<String> expectedTxIds = Set.of(
+                    tx1.id().toString(),
+                    tx2.id().toString(),
+                    tx3.id().toString()
+            );
 
             for (List<Object> row : rows) {
-                System.out.println(row);
+                verifyLockInfo(row, expectedTxIds);
             }
-
-            lockMgr.locks(((InternalTransaction) tx).id());
         } finally {
-            tx.rollback();
+            tx1.rollback();
+            tx2.rollback();
+            tx3.rollback();
         }
+    }
+
+    private void verifyLockInfo(List<Object> row, Set<String> expectedTxIds) {
+        int idx = 0;
+
+        String owningNode = (String) row.get(idx++);
+        String txId = (String) row.get(idx++);
+        String objectId = (String) row.get(idx++);
+        String mode = (String) row.get(idx);
+
+        assertThat(nodeNames, hasItem(owningNode));
+        assertThat(expectedTxIds, hasItem(txId));
+        assertThat(objectId, not(emptyString()));
+        assertThat(lockModes, hasItem(mode));
+    }
+
+    private List<Lock> activeLocks(InternalTransaction tx) {
+        List<Lock> res = new ArrayList<>();
+
+        CLUSTER.runningNodes().forEach(node -> unwrapIgniteImpl(node)
+                .txManager()
+                .lockManager()
+                .locks(tx.id())
+                .forEachRemaining(res::add)
+        );
+
+        return res;
     }
 }
