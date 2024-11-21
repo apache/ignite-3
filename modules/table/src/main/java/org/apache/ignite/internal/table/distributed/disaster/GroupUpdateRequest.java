@@ -48,6 +48,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -300,9 +301,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
         }
 
-        Assignment nextAssignment = aliveStableNodes.isEmpty()
-                ? nextAssignment(partAssignments)
-                : nextAssignment(localPartitionStateMessageByNode, partAssignments);
+        Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
 
         // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
         // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
@@ -318,17 +317,6 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
     }
 
     /**
-     * Returns the first assignment in the lexicographic order.
-     */
-    private static Assignment nextAssignment(Set<Assignment> assignments) {
-        assert !assignments.isEmpty() : "Alive nodes with data should not be empty";
-
-        return assignments.stream()
-                .min(Comparator.comparing(Assignment::consistentId))
-                .orElseThrow();
-    }
-
-    /**
      * Returns an assignment with the most up to date log index, if there are more than one node with the same index,
      * returns the first one in the lexicographic order.
      */
@@ -336,16 +324,20 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             LocalPartitionStateMessageByNode localPartitionStateByNode,
             Set<Assignment> assignments
     ) {
-        assert !assignments.isEmpty() : "Alive nodes with data should not be empty";
-
-        return assignments.stream()
+        // For nodes that we know log index for (having any data), we choose the node with the highest log index.
+        // If there are more than one node with same log index, we choose the one with the first consistent id in the lexicographic order.
+        Optional<Assignment> nodeWithMaxLogIndex = assignments.stream()
                 .filter(assignment -> localPartitionStateByNode.partitionState(assignment.consistentId()) != null)
                 .min(Comparator.<Assignment>comparingLong(
                                 node -> localPartitionStateByNode.partitionState(node.consistentId()).logIndex()
                         )
                         .reversed()
                         .thenComparing(Assignment::consistentId))
-                .orElseThrow();
+                // If there are no nodes with data, we choose the node with the first consistent id in the lexicographic order.
+                .or(() -> assignments.stream().min(Comparator.comparing(Assignment::consistentId)));
+
+        // TODO: IGNITE-23737 The case with no suitable nodes should be handled.
+        return nodeWithMaxLogIndex.orElseThrow();
     }
 
     /**
