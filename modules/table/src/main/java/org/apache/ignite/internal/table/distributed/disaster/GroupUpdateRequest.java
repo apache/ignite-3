@@ -178,6 +178,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         })
         .thenCompose(Function.identity())
         .whenComplete((unused, throwable) -> {
+            // TODO: IGNITE-23635 Add fail handling for failed resetPeers
             if (throwable != null) {
                 LOG.error("Failed to reset partition", throwable);
             }
