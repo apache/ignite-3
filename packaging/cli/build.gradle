@@ -50,7 +50,6 @@ def tokens = [
         APP_JAR             : "${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar".toString(),
         SETUP_JAVA_FILE_NAME: 'setup-java.sh',
         MAIN_CLASS          : 'org.apache.ignite.internal.cli.Main',
-        ARGS                : '$@'
 ]
 
 def createChecksums = tasks.register('createChecksums', Checksum) {
