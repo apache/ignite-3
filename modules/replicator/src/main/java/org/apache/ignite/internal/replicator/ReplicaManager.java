@@ -1277,7 +1277,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
                                 + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
 
-                    registerFailoverCallback(replicationGroupId);
+                    // registerFailoverCallback(replicationGroupId);
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(replicationGroupId, parameters.startTime());
 
@@ -1302,7 +1302,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        deregisterFailoverCallback(parameters);
+                        // deregisterFailoverCallback(parameters);
 
                         context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
@@ -1339,7 +1339,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             replica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback).join();
 
-            LOG.info("!!! subscribed grpId={}", replicationGroupId);
+            // LOG.info("!!! subscribed grpId={}", replicationGroupId);
         }
 
         private void deregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
@@ -1360,12 +1360,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 TablePartitionId replicationGroupId,
                 long term
         ) {
-            LOG.info("!!! changePeersAndLearnersAsyncIfPendingExists grpId={}", replicationGroupId);
+            // LOG.info("!!! changePeersAndLearnersAsyncIfPendingExists grpId={}", replicationGroupId);
 
             byte[] pendings = getPendingAssignmentsSupplier.apply(replicationGroupId).join();
 
             if (pendings == null) {
-                LOG.info("!!! pendings are empty replicationGrpId={}", replicationGroupId);
+                // LOG.info("!!! pendings are empty replicationGrpId={}", replicationGroupId);
                 return;
             }
 

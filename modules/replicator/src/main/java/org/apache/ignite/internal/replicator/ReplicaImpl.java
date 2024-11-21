@@ -41,6 +41,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -146,8 +147,8 @@ public class ReplicaImpl implements Replica {
 
         raftClient.subscribeLeader(this::onLeaderElected);
 
-        // placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
-        // placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
     }
 
     @Override
@@ -287,15 +288,11 @@ public class ReplicaImpl implements Replica {
 
         TablePartitionId replicationGroupId = (TablePartitionId) parameters.groupId();
 
-        onLeaderElectedFailoverCallback = (leaderNode, term) -> { /* noop */ };
-        // changePeersAndLearnersAsyncIfPendingExists(
-        //         replicationGroupId,
-        //         term
-        // );
+        onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(replicationGroupId, term);
 
         raftClient.subscribeLeader(onLeaderElectedFailoverCallback).join();
 
-        LOG.info("!!! subscribed grpId={}", replicationGroupId);
+        // LOG.info("!!! subscribed grpId={}", replicationGroupId);
 
         return falseCompletedFuture();
     }
@@ -316,12 +313,12 @@ public class ReplicaImpl implements Replica {
             TablePartitionId replicationGroupId,
             long term
     ) {
-        LOG.info("!!! changePeersAndLearnersAsyncIfPendingExists grpId={}", replicationGroupId);
+        // LOG.info("!!! changePeersAndLearnersAsyncIfPendingExists grpId={}", replicationGroupId);
 
         byte[] pendings = getPendingAssignmentsSupplier.apply(replicationGroupId).join();
 
         if (pendings == null) {
-            LOG.info("!!! pendings are empty replicationGrpId={}", replicationGroupId);
+            // LOG.info("!!! pendings are empty replicationGrpId={}", replicationGroupId);
             return;
         }
 
@@ -334,7 +331,7 @@ public class ReplicaImpl implements Replica {
                 replicationGroupId, newConfigurationPeersAndLearners.peers(), newConfigurationPeersAndLearners.learners()
         );
 
-        // raftClient.changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
+        raftClient.changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(
@@ -391,13 +388,13 @@ public class ReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<Void> shutdown() {
-        // placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
-        // placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
 
-        // if (onLeaderElectedFailoverCallback != null) {
-        //     raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback).join();
-        //     onLeaderElectedFailoverCallback = null;
-        // }
+        if (onLeaderElectedFailoverCallback != null) {
+            raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback).join();
+            onLeaderElectedFailoverCallback = null;
+        }
 
         listener.onShutdown();
         return raftClient.unsubscribeLeader()
