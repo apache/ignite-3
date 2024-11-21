@@ -157,12 +157,15 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
                                 // Repeat.
                                 return withSchemaSync(tx, schemaVersion, action);
-                            } else if (tx == null && isOrCausedBy(IncompatibleSchemaVersionException.class, ex)) {
+                            } else if ((tx == null || ((InternalTransaction) tx).implicit()) && isOrCausedBy(
+                                    IncompatibleSchemaVersionException.class,
+                                    ex
+                            )) {
                                 // Table version was changed while we were executing an implicit transaction (between it had been created
                                 // and the moment when the operation actually touched the partition), let's retry.
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
-                                return withSchemaSync(tx, schemaVersion, action);
+                                return withSchemaSync(null, schemaVersion, action);
                             } else {
                                 return CompletableFuture.<T>failedFuture(ex);
                             }
