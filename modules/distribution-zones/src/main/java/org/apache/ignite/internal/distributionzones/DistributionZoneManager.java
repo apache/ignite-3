@@ -177,10 +177,9 @@ public class DistributionZoneManager implements IgniteComponent {
     };
 
     /**
-     * The logical topology on the last watch event.
-     * It's enough to mark this field by volatile because we don't update the collection after it is assigned to the field.
+     * The logical topology mapped to the MS revision.
      */
-    private volatile Set<NodeWithAttributes> logicalTopology = emptySet();
+    private final ConcurrentSkipListMap<Long, Set<NodeWithAttributes>> logicalTopologyByRevision = new ConcurrentSkipListMap<>();
 
     /**
      * Local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
@@ -528,7 +527,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + ']';
 
-        Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
+        Set<Node> dataNodes = logicalTopology(causalityToken).stream().map(NodeWithAttributes::node).collect(toSet());
 
         causalityDataNodesEngine.onCreateZoneState(causalityToken, zone);
 
@@ -751,13 +750,13 @@ public class DistributionZoneManager implements IgniteComponent {
             // that one value is not null, but other is null.
             assert nodeAttributesEntry.value() != null;
 
-            logicalTopology = deserializeLogicalTopologySet(lastHandledTopologyEntry.value());
+            logicalTopologyByRevision.put(recoveryRevision, deserializeLogicalTopologySet(lastHandledTopologyEntry.value()));
 
             nodesAttributes = DistributionZonesUtil.deserializeNodesAttributes(nodeAttributesEntry.value());
         }
 
         assert lastHandledTopologyEntry.value() == null
-                || logicalTopology.equals(deserializeLogicalTopologySet(lastHandledTopologyEntry.value()))
+                || logicalTopology(recoveryRevision).equals(deserializeLogicalTopologySet(lastHandledTopologyEntry.value()))
                 : "Initial value of logical topology was changed after initialization from the Meta Storage manager.";
 
         assert nodeAttributesEntry.value() == null
@@ -837,15 +836,17 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future reflecting the completion of the actions needed when logical topology was updated.
      */
     private CompletableFuture<Void> onLogicalTopologyUpdate(Set<NodeWithAttributes> newLogicalTopology, long revision, int catalogVersion) {
+        Set<NodeWithAttributes> currentLogicalTopology = logicalTopology(revision);
+
         Set<Node> removedNodes =
-                logicalTopology.stream()
+                currentLogicalTopology.stream()
                         .filter(node -> !newLogicalTopology.contains(node))
                         .map(NodeWithAttributes::node)
                         .collect(toSet());
 
         Set<Node> addedNodes =
                 newLogicalTopology.stream()
-                        .filter(node -> !logicalTopology.contains(node))
+                        .filter(node -> !currentLogicalTopology.contains(node))
                         .map(NodeWithAttributes::node)
                         .collect(toSet());
 
@@ -865,7 +866,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n));
 
-        logicalTopology = newLogicalTopology;
+        logicalTopologyByRevision.put(revision, newLogicalTopology);
 
         futures.add(saveRecoverableStateToMetastorage(zoneIds, revision, newLogicalTopology));
 
@@ -1551,7 +1552,20 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     public Set<NodeWithAttributes> logicalTopology() {
-        return logicalTopology;
+        return logicalTopology(Long.MAX_VALUE);
+    }
+
+    /**
+     * Get logical topology for the given revision.
+     * If there is no data for revision i, return topology for the maximum revision smaller than i.
+     *
+     * @param revision metastore revision.
+     * @return logical topology.
+     */
+    public Set<NodeWithAttributes> logicalTopology(long revision) {
+        Map.Entry<Long, Set<NodeWithAttributes>> entry = logicalTopologyByRevision.floorEntry(revision);
+
+        return entry != null ? entry.getValue() : emptySet();
     }
 
     private void registerCatalogEventListenersOnStartManagerBusy() {
