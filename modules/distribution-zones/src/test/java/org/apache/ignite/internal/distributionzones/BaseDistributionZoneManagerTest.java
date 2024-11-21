@@ -159,7 +159,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         closeAll(toCloseList);
     }
 
-    void startDistributionZoneManager() {
+    protected void startDistributionZoneManager() {
         assertThat(
                 distributionZoneManager.startAsync(new ComponentContext())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
