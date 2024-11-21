@@ -751,6 +751,17 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 node(6).name());
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
+        Assignments allAssignments = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(2).name()),
+                Assignment.forPeer(node(3).name()),
+                Assignment.forPeer(node(4).name()),
+                Assignment.forPeer(node(5).name()),
+                Assignment.forPeer(node(6).name())
+        ), timestamp);
+
+        assertStableAssignments(node0, partId, allAssignments);
         // Write data(1) to all seven nodes.
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
@@ -781,6 +792,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         errors = insertValues(table, partId, 10);
         assertThat(errors, is(empty()));
 
+        // Disable scale down.
+        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+
         List<String> nodeNamesToStop = new ArrayList<>(followerNodes);
         // Make sure there are 4 elements in this list.
         nodeNamesToStop.remove(0);
@@ -790,9 +804,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 .toArray();
         logger().info("Stopping nodes [id={}]", Arrays.toString(nodesToStop));
         stopNodesInParallel(nodesToStop);
-
-        // Only 3 nodes left.
-        waitForScale(node0, 3);
 
         // Unblock raft.
         blockedNodes.clear();
@@ -1034,6 +1045,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertTrue(
                 waitForCondition(() -> expected.equals(getPlannedAssignments(node0, partId)), 2000),
                 () -> "Expected: " + expected + ", actual: " + getPlannedAssignments(node0, partId)
+        );
+    }
+
+    private void assertStableAssignments(IgniteImpl node0, int partId, Assignments expected) throws InterruptedException {
+        assertTrue(
+                waitForCondition(() -> expected.equals(getStableAssignments(node0, partId)), 2000),
+                () -> "Expected: " + expected + ", actual: " + getStableAssignments(node0, partId)
         );
     }
 
