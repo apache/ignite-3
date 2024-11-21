@@ -1360,12 +1360,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 TablePartitionId replicationGroupId,
                 long term
         ) {
-            // LOG.info("!!! changePeersAndLearnersAsyncIfPendingExists grpId={}", replicationGroupId);
+             LOG.info("!!! changePeersAndLearnersAsyncIfPendingExists grpId={}", replicationGroupId);
 
             byte[] pendings = getPendingAssignmentsSupplier.apply(replicationGroupId).join();
 
             if (pendings == null) {
-                // LOG.info("!!! pendings are empty replicationGrpId={}", replicationGroupId);
+                LOG.info("!!! pendings are empty replicationGrpId={}", replicationGroupId);
                 return;
             }
 
