@@ -49,6 +49,7 @@ import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -137,6 +138,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23733")
     public void multiStatement() {
         Ignite initiator = CLUSTER.node(0);
         ClockService clockService = unwrapIgniteImpl(initiator).clockService();
