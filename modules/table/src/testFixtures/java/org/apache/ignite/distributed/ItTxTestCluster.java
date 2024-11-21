@@ -261,7 +261,7 @@ public class ItTxTestCluster {
 
     private ExecutorService partitionOperationsExecutor;
 
-    protected IgniteTransactions igniteTransactions;
+    protected IgniteTransactionsImpl igniteTransactions;
 
     protected String localNodeName;
 
@@ -633,12 +633,11 @@ public class ItTxTestCluster {
                 tableId,
                 1,
                 nodeResolver,
-                clientTxManager,
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient ? clientClockService : clockServices.get(localNodeName),
-                timestampTracker,
+                igniteTransactions,
                 placementDriver,
                 clientTransactionInflights,
                 500,

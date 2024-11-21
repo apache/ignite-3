@@ -118,9 +118,8 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -166,9 +165,6 @@ public class InternalTableImpl implements InternalTable {
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final ClusterNodeResolver clusterNodeResolver;
 
-    /** Transactional manager. */
-    protected final TxManager txManager;
-
     private final TransactionInflights transactionInflights;
 
     /** Storage for table data. */
@@ -186,8 +182,8 @@ public class InternalTableImpl implements InternalTable {
     /** A hybrid logical clock service. */
     private final ClockService clockService;
 
-    /** Observable timestamp tracker. */
-    private final HybridTimestampTracker observableTimestampTracker;
+    /** Ignite transactions. */
+    protected final IgniteTransactionsImpl igniteTransactions;
 
     /** Placement driver. */
     private final PlacementDriver placementDriver;
@@ -211,11 +207,11 @@ public class InternalTableImpl implements InternalTable {
      * @param tableId Table id.
      * @param partitions Partitions.
      * @param clusterNodeResolver Cluster node resolver.
-     * @param txManager Transaction manager.
      * @param tableStorage Table storage.
      * @param txStateStorage Transaction state storage.
      * @param replicaSvc Replica service.
      * @param clockService A hybrid logical clock service.
+     * @param igniteTransactions Ignite transactions.
      * @param placementDriver Placement driver.
      * @param transactionInflights Transaction inflights.
      * @param implicitTransactionTimeout Implicit transaction timeout.
@@ -226,12 +222,11 @@ public class InternalTableImpl implements InternalTable {
             int tableId,
             int partitions,
             ClusterNodeResolver clusterNodeResolver,
-            TxManager txManager,
             MvTableStorage tableStorage,
             TxStateTableStorage txStateStorage,
             ReplicaService replicaSvc,
             ClockService clockService,
-            HybridTimestampTracker observableTimestampTracker,
+            IgniteTransactionsImpl igniteTransactions,
             PlacementDriver placementDriver,
             TransactionInflights transactionInflights,
             long implicitTransactionTimeout,
@@ -243,12 +238,11 @@ public class InternalTableImpl implements InternalTable {
         this.tableId = tableId;
         this.partitions = partitions;
         this.clusterNodeResolver = clusterNodeResolver;
-        this.txManager = txManager;
         this.tableStorage = tableStorage;
         this.txStateStorage = txStateStorage;
         this.replicaSvc = replicaSvc;
         this.clockService = clockService;
-        this.observableTimestampTracker = observableTimestampTracker;
+        this.igniteTransactions = igniteTransactions;
         this.placementDriver = placementDriver;
         this.transactionInflights = transactionInflights;
         this.implicitTransactionTimeout = implicitTransactionTimeout;
@@ -500,12 +494,14 @@ public class InternalTableImpl implements InternalTable {
         }).thenCompose(identity());
     }
 
-    private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.begin(observableTimestampTracker, true) : tx;
+    @Override
+    public InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
+        return tx == null ? igniteTransactions.beginImplicit(false) : tx;
     }
 
-    private InternalTransaction startImplicitRoTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.begin(observableTimestampTracker, true, false) : tx;
+    @Override
+    public InternalTransaction startImplicitRoTxIfNeeded(@Nullable InternalTransaction tx) {
+        return tx == null ? igniteTransactions.beginImplicit(true) : tx;
     }
 
     /**
@@ -1157,7 +1153,7 @@ public class InternalTableImpl implements InternalTable {
             int partition,
             @Nullable Long txStartTs
     ) {
-        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
+        InternalTransaction tx = igniteTransactions.beginImplicit(false);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
         assert rows.stream().allMatch(row -> partitionId(row) == partition) : "Invalid batch for partition " + partition;

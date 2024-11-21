@@ -47,6 +47,7 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -64,12 +65,11 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 1,
                 1,
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
-                mock(TxManager.class),
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(ClockService.class),
-                new HybridTimestampTracker(),
+                new IgniteTransactionsImpl(mock(TxManager.class), new HybridTimestampTracker()),
                 mock(PlacementDriver.class),
                 mock(TransactionInflights.class),
                 3_000,
@@ -114,12 +114,11 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 1,
                 3,
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
-                mock(TxManager.class),
                 mock(MvTableStorage.class),
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(ClockService.class),
-                new HybridTimestampTracker(),
+                new IgniteTransactionsImpl(mock(TxManager.class), new HybridTimestampTracker()),
                 mock(PlacementDriver.class),
                 mock(TransactionInflights.class),
                 3_000,

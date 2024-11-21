@@ -104,6 +104,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -324,12 +325,11 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 tblId,
                 PARTS,
                 new SingleClusterNodeResolver(clusterNode),
-                txManager,
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaService,
                 clockService,
-                observableTimestampTracker,
+                new IgniteTransactionsImpl(txManager, observableTimestampTracker),
                 new TestPlacementDriver(clusterNode),
                 transactionInflights,
                 3_000,

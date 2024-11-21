@@ -83,6 +83,6 @@ public class SchemaVersionsImpl implements SchemaVersions {
 
     @Override
     public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
-        return schemaVersionAt(clockService.current(), tableId);
+        return schemaVersionAt(clockService.now(), tableId);
     }
 }

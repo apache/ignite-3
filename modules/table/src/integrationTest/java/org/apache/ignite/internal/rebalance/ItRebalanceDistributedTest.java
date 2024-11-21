@@ -228,6 +228,7 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -1414,7 +1415,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     storageUpdateConfiguration,
                     clusterService.messagingService(),
                     clusterService.topologyService(),
-                    clusterService.serializationRegistry(),
                     replicaManager,
                     mock(LockManager.class),
                     replicaSvc,
@@ -1431,7 +1431,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
-                    new HybridTimestampTracker(),
+                    new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()),
                     placementDriver,
                     () -> mock(IgniteSql.class),
                     resourcesRegistry,

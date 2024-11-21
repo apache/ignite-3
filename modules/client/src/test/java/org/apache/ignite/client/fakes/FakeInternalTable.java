@@ -539,6 +539,16 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
+    public InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
+        return tx;
+    }
+
+    @Override
+    public InternalTransaction startImplicitRoTxIfNeeded(@Nullable InternalTransaction tx) {
+        return tx;
+    }
+
+    @Override
     public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(ReceiverDescriptor<A> receiver, @Nullable A receiverArg,
             Collection<I> items, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
         throw new UnsupportedOperationException("Not implemented");

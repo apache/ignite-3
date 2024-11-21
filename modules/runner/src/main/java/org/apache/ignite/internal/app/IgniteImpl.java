@@ -964,6 +964,8 @@ public class IgniteImpl implements Ignite {
                 lowWatermark
         );
 
+        IgniteTransactionsImpl igniteTransactionsImpl = new IgniteTransactionsImpl(txManager, observableTimestampTracker);
+
         systemViewManager.register((TxManagerImpl) txManager);
 
         resourceVacuumManager = new ResourceVacuumManager(
@@ -986,7 +988,6 @@ public class IgniteImpl implements Ignite {
                 storageUpdateConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
-                clusterSvc.serializationRegistry(),
                 replicaMgr,
                 lockMgr,
                 replicaSvc,
@@ -1003,7 +1004,7 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
-                observableTimestampTracker,
+                igniteTransactionsImpl,
                 placementDriverMgr.placementDriver(),
                 this::bareSql,
                 resourcesRegistry,
@@ -1142,9 +1143,7 @@ public class IgniteImpl implements Ignite {
         restComponent = createRestComponent(name);
 
         publicTables = new PublicApiThreadingIgniteTables(distributedTblMgr, asyncContinuationExecutor);
-        publicTransactions = new PublicApiThreadingIgniteTransactions(
-                new IgniteTransactionsImpl(txManager, observableTimestampTracker), asyncContinuationExecutor
-        );
+        publicTransactions = new PublicApiThreadingIgniteTransactions(igniteTransactionsImpl, asyncContinuationExecutor);
         publicSql = new PublicApiThreadingIgniteSql(sql, asyncContinuationExecutor);
         publicCompute = new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);

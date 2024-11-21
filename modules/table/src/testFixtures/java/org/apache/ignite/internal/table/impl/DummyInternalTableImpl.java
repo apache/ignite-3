@@ -111,6 +111,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -162,6 +163,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
 
     private final Object raftServiceMutex = new Object();
+
+    private final TxManagerImpl txManager;
 
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
 
@@ -253,12 +256,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 nextTableId.getAndIncrement(),
                 1,
                 new SingleClusterNodeResolver(LOCAL_NODE),
-                txManager(replicaSvc, placementDriver, txConfiguration, resourcesRegistry),
                 mock(MvTableStorage.class),
                 new TestTxStateTableStorage(),
                 replicaSvc,
                 CLOCK_SERVICE,
-                tracker,
+                new IgniteTransactionsImpl(txManager(replicaSvc, placementDriver, txConfiguration, resourcesRegistry), tracker),
                 placementDriver,
                 transactionInflights,
                 3_000,
@@ -266,6 +268,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 null,
                 mock(StreamerReceiverRunner.class)
         );
+
+        txManager = (TxManagerImpl) igniteTransactions.getTxManager();
 
         RaftGroupService svc = mock(RaftGroupService.class);
 

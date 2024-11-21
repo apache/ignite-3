@@ -134,7 +134,6 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent;
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEventParameters;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
@@ -202,10 +201,10 @@ import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
@@ -358,7 +357,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final LowWatermark lowWatermark;
 
-    private final HybridTimestampTracker observableTimestampTracker;
+    private final IgniteTransactionsImpl igniteTransactionsImpl;
 
     /** Placement driver. */
     private final PlacementDriver executorInclinedPlacementDriver;
@@ -458,7 +457,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             StorageUpdateConfiguration storageUpdateConfig,
             MessagingService messagingService,
             TopologyService topologyService,
-            MessageSerializationRegistry messageSerializationRegistry,
             ReplicaManager replicaMgr,
             LockManager lockMgr,
             ReplicaService replicaSvc,
@@ -475,7 +473,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             DistributionZoneManager distributionZoneManager,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            HybridTimestampTracker observableTimestampTracker,
+            IgniteTransactionsImpl igniteTransactionsImpl,
             PlacementDriver placementDriver,
             Supplier<IgniteSql> sql,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
@@ -501,7 +499,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.distributionZoneManager = distributionZoneManager;
         this.catalogService = catalogService;
-        this.observableTimestampTracker = observableTimestampTracker;
+        this.igniteTransactionsImpl = igniteTransactionsImpl;
         this.sql = sql;
         this.storageUpdateConfig = storageUpdateConfig;
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
@@ -1523,12 +1521,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableDescriptor.id(),
                 partitions,
                 topologyService,
-                txManager,
                 tableStorage,
                 txStateStorage,
                 replicaSvc,
                 clockService,
-                observableTimestampTracker,
+                igniteTransactionsImpl,
                 executorInclinedPlacementDriver,
                 transactionInflights,
                 implicitTransactionTimeout,
