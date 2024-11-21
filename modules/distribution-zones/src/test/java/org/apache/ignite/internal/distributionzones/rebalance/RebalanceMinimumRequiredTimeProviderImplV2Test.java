@@ -181,7 +181,7 @@ class RebalanceMinimumRequiredTimeProviderImplV2Test extends BaseDistributionZon
 
         return latestCatalog;
     }
-    
+
     private int createZone(String zoneName) {
         createZone(zoneName, 10_000, 10_000, null);
 

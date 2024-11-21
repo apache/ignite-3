@@ -42,6 +42,9 @@ public class RebalanceMinimumRequiredTimeProviderImplV2 implements RebalanceMini
     /** Alternative implementation is only used for its helper methods. */
     private final RebalanceMinimumRequiredTimeProviderImpl delegate;
 
+    /**
+     * Constructor.
+     */
     public RebalanceMinimumRequiredTimeProviderImplV2(MetaStorageManager metaStorageManager, CatalogService catalogService) {
         this.metaStorageManager = metaStorageManager;
         this.catalogService = catalogService;

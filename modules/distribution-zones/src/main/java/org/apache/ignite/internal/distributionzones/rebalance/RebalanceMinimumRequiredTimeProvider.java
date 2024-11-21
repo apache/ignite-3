@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.distributionzones.rebalance;
 
 /**
- *
+ * Interface required for catalog compaction to determine a version for compaction.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface RebalanceMinimumRequiredTimeProvider {

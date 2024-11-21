@@ -48,6 +48,9 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
     private final MetaStorageManager metaStorageManager;
     private final CatalogService catalogService;
 
+    /**
+     * Constructor.
+     */
     public RebalanceMinimumRequiredTimeProviderImpl(MetaStorageManager metaStorageManager, CatalogService catalogService) {
         this.metaStorageManager = metaStorageManager;
         this.catalogService = catalogService;
