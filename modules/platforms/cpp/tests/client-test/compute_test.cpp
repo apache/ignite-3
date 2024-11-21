@@ -81,7 +81,9 @@ protected:
         result = execution.get_result();
 
         ASSERT_TRUE(result.has_value());
-        EXPECT_EQ(result.value().get_primitive().template get<std::string>(), expected_str);
+        auto res_str = result.value().get_primitive().template get<std::string>();
+        if (res_str != expected_str)
+            throw ignite_error("Expected equality of these values: '" + res_str + "' and '" + expected_str + "'");
     }
 
     /**
