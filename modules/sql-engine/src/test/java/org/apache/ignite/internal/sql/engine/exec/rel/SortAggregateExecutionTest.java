@@ -26,6 +26,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -34,10 +35,12 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 
 /**
  * SortAggregateExecutionTest.
@@ -51,7 +54,6 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
             ScanNode<Object[]> scan,
             boolean group
     ) {
@@ -67,12 +69,15 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             cmp = (k1, k2) -> 0;
         }
 
+        RowSchema outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
+
         SortAggregateNode<Object[]> agg = new SortAggregateNode<>(
                 ctx,
                 SINGLE,
                 grpSet,
                 accFactory(ctx, call, SINGLE, inRowType),
-                rowFactory,
+                outputRowFactory,
                 cmp
         );
 
@@ -96,8 +101,6 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
-            RelDataType aggRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
             ScanNode<Object[]> scan,
             boolean group
     ) {
@@ -113,12 +116,16 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
             cmp = (k1, k2) -> 0;
         }
 
+        // Map node
+        RowSchema reduceRowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(inRowType));
+        RowFactory<Object[]> mapRowFactory = ctx.rowHandler().factory(reduceRowSchema);
+
         SortAggregateNode<Object[]> aggMap = new SortAggregateNode<>(
                 ctx,
                 MAP,
                 grpSet,
                 accFactory(ctx, call, MAP, inRowType),
-                rowFactory,
+                mapRowFactory,
                 cmp
         );
 
@@ -131,6 +138,8 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         } else {
             aggMap.register(scan);
         }
+
+        // Reduce node
 
         // The group's fields placed on the begin of the output row (planner
         // does this by Projection node for aggregate input).
@@ -155,12 +164,15 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
                 true
         );
 
+        RowSchema outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
+
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
                 ctx,
                 REDUCE,
                 ImmutableBitSet.of(reduceGrpFields),
-                accFactory(ctx, mapReduceAgg.getReduceCall(), REDUCE, aggRowType),
-                rowFactory,
+                accFactory(ctx, mapReduceAgg.getReduceCall(), REDUCE, inRowType),
+                outputRowFactory,
                 rdcCmp
         );
 
