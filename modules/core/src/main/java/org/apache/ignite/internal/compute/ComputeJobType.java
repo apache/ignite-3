@@ -15,17 +15,40 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.compute;
 
 import org.apache.ignite.sql.ColumnType;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The type of the object that can be passed/returned to/from the compute job. In can be a native type that is represented by
  * {@link ColumnType} or a marshalled object/tuple.
  */
-class ComputeJobType {
-    static final int NATIVE = 0;
-    static final int MARSHALLED_TUPLE = 1;
-    static final int MARSHALLED_CUSTOM = 2;
-    static final int MARSHALLED_POJO = 3;
+public enum ComputeJobType {
+    NATIVE(0),
+    MARSHALLED_TUPLE(1),
+    MARSHALLED_CUSTOM(2),
+    MARSHALLED_POJO(3);
+
+    private static final ComputeJobType[] VALUES = values();
+
+    private final int id;
+
+    ComputeJobType(int id) {
+        this.id = id;
+    }
+
+    public int id() {
+        return id;
+    }
+
+    /**
+     * Returns enum value corresponding to the id.
+     *
+     * @param id Identifier of the value.
+     * @return Enum value or {@code null} if identifier is invalid.
+     */
+    public static @Nullable ComputeJobType fromId(int id) {
+        return id >= 0 && id < VALUES.length ? VALUES[id] : null;
+    }
 }

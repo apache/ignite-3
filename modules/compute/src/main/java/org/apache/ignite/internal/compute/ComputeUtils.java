@@ -42,6 +42,7 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.internal.client.proto.pojo.PojoConversionException;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.message.DeploymentUnitMsg;
@@ -367,6 +368,19 @@ public class ComputeUtils {
         }
 
         if (marshaller == null) {
+            if (input instanceof ComputeJobArgumentHolder) {
+                ComputeJobArgumentHolder argumentHolder = (ComputeJobArgumentHolder) input;
+                ComputeJobType type = argumentHolder.type();
+                switch (type) {
+                    // TODO https://issues.apache.org/jira/browse/IGNITE-23320
+                    case MARSHALLED_TUPLE: // Fallthrough, both types are unmarshalled just before execution.
+                    case MARSHALLED_POJO:
+                        input = TupleWithSchemaMarshalling.unmarshal(argumentHolder.data());
+                        break;
+                    default:
+                        throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Unexpected job argument type: " + type);
+                }
+            }
             if (input instanceof Tuple) {
                 // If input was marshalled as Tuple and argument type is not tuple then it's a pojo.
                 if (pojoType != null && pojoType != Tuple.class) {
