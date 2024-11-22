@@ -26,13 +26,12 @@ import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.contains;
@@ -41,11 +40,13 @@ import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -406,10 +407,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 .options(executionOptions).units(units()).build();
         JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(clusterNode(executeNode)), job, 100L);
 
+        assertThat(execution.stateAsync(), willBe(anyOf(jobStateWithStatus(EXECUTING), jobStateWithStatus(QUEUED))));
+
         cancelHandle.cancel();
 
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(CANCELED)));
-        assertThat(execution.resultAsync(), willBe(nullValue()));
+        assertThrows(ExecutionException.class, () -> execution.resultAsync().get(10, TimeUnit.SECONDS));
 
         assertThat(execution.cancelAsync(), willBe(false));
     }
@@ -426,13 +429,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         JobDescriptor<Long, Void> job = JobDescriptor.builder(SilentSleepJob.class)
                 .options(executionOptions).units(units()).build();
+
         CompletableFuture<Void> execution = entryNode.compute()
                 .executeAsync(JobTarget.node(clusterNode(executeNode)), job, 100L);
 
         cancelHandle.cancel();
 
-        assertThat(execution, willBe(nullValue()));
-        assertThat(execution, willCompleteSuccessfully());
+        assertThrows(ExecutionException.class, () -> execution.get(10, TimeUnit.SECONDS));
     }
 
     @ParameterizedTest(name = "local: {0}")
@@ -453,7 +456,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         cancelHandle.cancel();
 
-        await().atMost(10, TimeUnit.SECONDS).until(runFut::isDone);
+        assertThrows(ExecutionException.class, () -> runFut.get(10, TimeUnit.SECONDS));
     }
 
     @ParameterizedTest(name = "withLocal: {0}")
@@ -475,7 +478,8 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<Void> all = allOf(executions.values().stream().map(JobExecution::resultAsync).toArray(CompletableFuture[]::new));
 
-        await().atMost(10, TimeUnit.SECONDS).until(all::isDone);
+        assertThrows(ExecutionException.class, () -> all.get(10, TimeUnit.SECONDS));
+        executions.forEach((n, e) -> assertEquals(CANCELED, Objects.requireNonNull(e.stateAsync().join()).status()));
     }
 
     @ParameterizedTest(name = "withLocal: {0}")
@@ -496,7 +500,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         cancelHandle.cancel();
 
-        await().atMost(10, TimeUnit.SECONDS).until(executions::isDone);
+        assertThrows(ExecutionException.class, () -> executions.get(10, TimeUnit.SECONDS));
     }
 
     @ParameterizedTest(name = "local: {0}")
@@ -517,7 +521,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         cancelHandle.cancel();
 
-        await().atMost(10, TimeUnit.SECONDS).until(runFut::isDone);
+        assertThrows(ExecutionException.class, () -> runFut.get(10, TimeUnit.SECONDS));
     }
 
     @Test
@@ -530,11 +534,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 .submitMapReduce(TaskDescriptor.builder(InfiniteMapReduceTask.class).units(units())
                         .cancellationToken(cancelHandle.token()).build(), null);
 
+        assertThat(execution.statesAsync(), willBe(contains(
+                anyOf(jobStateWithStatus(EXECUTING), jobStateWithStatus(QUEUED))
+        )));
+
         cancelHandle.cancel();
 
-        IgniteTestUtils.await(execution.cancelAsync());
-
-        assertThat(execution.resultAsync(), willThrow(IgniteException.class));
+        assertThrows(ExecutionException.class, () -> execution.resultAsync().get(10, TimeUnit.SECONDS));
     }
 
     @Test
@@ -549,7 +555,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         cancelHandle.cancel();
 
-        await().atMost(10, TimeUnit.SECONDS).until(execution::isDone);
+        assertThrows(ExecutionException.class, () -> execution.get(10, TimeUnit.SECONDS));
     }
 
     static void createTestTableWithOneRow() {

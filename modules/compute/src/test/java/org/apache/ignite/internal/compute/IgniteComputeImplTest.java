@@ -273,8 +273,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions, CancellationToken cancellationToken) {
-        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(cancellationToken), eq("a")))
-                .thenReturn(completedExecution("jobResponse"));
+        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME),
+                eq(cancellationToken), eq("a"))).thenReturn(completedExecution("jobResponse"));
     }
 
     private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {

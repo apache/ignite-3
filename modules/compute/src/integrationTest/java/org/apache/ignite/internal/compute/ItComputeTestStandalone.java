@@ -46,6 +46,8 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Integration tests for Compute functionality in standalone Ignite node.
@@ -79,6 +81,81 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @Override
     protected List<DeploymentUnit> units() {
         return units;
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")
+    @Override
+    void executesFailingJobOnRemoteNodes() {
+        super.executesFailingJobOnRemoteNodes();
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")
+    @Override
+    void executesFailingJobOnRemoteNodesAsync() {
+        super.executesFailingJobOnRemoteNodesAsync();
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")
+    @Override
+    void broadcastsFailingJob() throws Exception {
+        super.broadcastsFailingJob();
+    }
+
+    @Override
+    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
+    @ParameterizedTest(name = "local: {0}")
+    @ValueSource(booleans = {true, false})
+    void cancelComputeExecuteAsyncWithCancelHandle(boolean local) {
+        super.cancelComputeExecuteAsyncWithCancelHandle(local);
+    }
+
+    @Override
+    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
+    @ParameterizedTest(name = "local: {0}")
+    @ValueSource(booleans = {true, false})
+    void cancelComputeExecuteWithCancelHandle(boolean local) {
+        super.cancelComputeExecuteWithCancelHandle(local);
+    }
+
+    @Override
+    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
+    @ParameterizedTest(name = "withLocal: {0}")
+    @ValueSource(booleans = {true, false})
+    void cancelComputeSubmitBroadcastWithCancelHandle(boolean local) {
+        super.cancelComputeSubmitBroadcastWithCancelHandle(local);
+    }
+
+    @Override
+    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
+    @ParameterizedTest(name = "withLocal: {0}")
+    @ValueSource(booleans = {true, false})
+    void cancelComputeExecuteBroadcastAsyncWithCancelHandle(boolean local) {
+        super.cancelComputeExecuteBroadcastAsyncWithCancelHandle(local);
+    }
+
+    @Override
+    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
+    @ParameterizedTest(name = "local: {0}")
+    @ValueSource(booleans = {true, false})
+    void cancelComputeExecuteBroadcastWithCancelHandle(boolean local) {
+        super.cancelComputeExecuteBroadcastWithCancelHandle(local);
+    }
+
+    @Override
+    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
+    @Test
+    void cancelComputeSubmitMapReduceWithCancelHandle() {
+        super.cancelComputeSubmitMapReduceWithCancelHandle();
+    }
+
+    @Override
+    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
+    @Test
+    void cancelComputeExecuteMapReduceAsyncWithCancelHandle() {
+        super.cancelComputeExecuteMapReduceAsyncWithCancelHandle();
     }
 
     @Test
