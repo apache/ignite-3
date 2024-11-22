@@ -37,7 +37,7 @@ public class IgniteClientGroupTests
     [Test]
     public async Task TestGetClient()
     {
-        using IgniteClientGroup group = CreatePool();
+        using IgniteClientGroup group = CreateGroup();
         IIgnite client = await group.GetIgniteAsync();
         IIgnite client2 = await group.GetIgniteAsync();
 
@@ -50,7 +50,7 @@ public class IgniteClientGroupTests
     [Test]
     public async Task TestRoundRobin()
     {
-        using IgniteClientGroup group = CreatePool(size: 3);
+        using IgniteClientGroup group = CreateGroup(size: 3);
 
         var client1 = await group.GetIgniteAsync();
         var client2 = await group.GetIgniteAsync();
@@ -69,9 +69,9 @@ public class IgniteClientGroupTests
     }
 
     [Test]
-    public async Task TestPoolReconnectsDisposedClient()
+    public async Task TestGroupReconnectsDisposedClient()
     {
-        using IgniteClientGroup group = CreatePool();
+        using IgniteClientGroup group = CreateGroup();
         IIgnite client = await group.GetIgniteAsync();
 
         await client.Tables.GetTablesAsync();
@@ -93,7 +93,7 @@ public class IgniteClientGroupTests
     [Test]
     public async Task TestUseAfterDispose()
     {
-        IgniteClientGroup group = CreatePool(size: 2);
+        IgniteClientGroup group = CreateGroup(size: 2);
 
         var client1 = await group.GetIgniteAsync();
         var client2 = await group.GetIgniteAsync();
@@ -102,7 +102,7 @@ public class IgniteClientGroupTests
 
         group.Dispose();
 
-        // Pool and clients are disposed, all operations should throw.
+        // Group and clients are disposed, all operations should throw.
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await group.GetIgniteAsync());
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await client1.Tables.GetTablesAsync());
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await client2.Tables.GetTablesAsync());
@@ -111,15 +111,15 @@ public class IgniteClientGroupTests
     [Test]
     public async Task TestToString()
     {
-        var pool = CreatePool(5);
+        var group = CreateGroup(5);
 
-        await pool.GetIgniteAsync();
-        await pool.GetIgniteAsync();
+        await group.GetIgniteAsync();
+        await group.GetIgniteAsync();
 
-        Assert.AreEqual("IgniteClientPool { Connected = 2, Size = 5 }", pool.ToString());
+        Assert.AreEqual("IgniteClientGroup { Connected = 2, Size = 5 }", group.ToString());
     }
 
-    private IgniteClientGroup CreatePool(int size = 1) =>
+    private IgniteClientGroup CreateGroup(int size = 1) =>
         new IgniteClientGroup(
             new IgniteClientGroupConfiguration
             {
