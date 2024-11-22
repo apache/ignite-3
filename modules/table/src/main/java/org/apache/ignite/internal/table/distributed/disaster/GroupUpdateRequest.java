@@ -304,6 +304,8 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
         Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
 
+        boolean isNextEqualsToRestoredAsPlannedAssignments = partAssignments.size() == 1 && partAssignments.contains(nextAssignment);
+
         // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
         // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
         // for the case of the manual update, that was triggered by a user.
@@ -312,7 +314,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                 longToBytesKeepingOrder(revision),
                 Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp).toBytes(),
                 // In case if nodes set is equal then we shouldn't schedule the same planned rebalance
-                stableAssignments.equals(partAssignments)
+                isNextEqualsToRestoredAsPlannedAssignments
                         ? null
                         : Assignments.toBytes(partAssignments, assignmentsTimestamp)
         );
