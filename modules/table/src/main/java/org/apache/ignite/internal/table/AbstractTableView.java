@@ -154,8 +154,6 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                                 // version corresponding to the transaction creation moment, so this mismatch is not tolerable: we need
                                 // to retry the operation here.
 
-                                //Loggers.forClass(AbstractTableView.class).error("Error", ex);
-
                                 assert (tx0 == null || tx0.implicit()) : "Only for implicit transactions a retry might be requested";
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
