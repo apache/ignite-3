@@ -58,6 +58,7 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -264,7 +265,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<RevisionsInfo> currentRevisions() {
         GetCurrentRevisionsCommand cmd = context.commandsFactory().getCurrentRevisionsCommand().build();
 
-        return context.raftService().run(cmd);
+        return context.raftService().run(cmd, RaftCommandRunner.NO_TIMEOUT);
     }
 
     @Override

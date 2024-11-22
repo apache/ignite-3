@@ -470,6 +470,11 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
+    public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
+        return raftClient.run(cmd, timeoutMillis);
+    }
+
+    @Override
     public void shutdown() {
         logicalTopologyService.removeEventListener(topologyEventsListener);
 
