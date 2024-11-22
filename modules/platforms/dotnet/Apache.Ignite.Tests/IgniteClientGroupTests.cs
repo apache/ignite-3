@@ -121,6 +121,18 @@ public class IgniteClientGroupTests
         Assert.AreEqual("IgniteClientGroup { Connected = 2, Size = 5 }", group.ToString());
     }
 
+    [Test]
+    public void TestConfigurationCantBeChanged()
+    {
+        IgniteClientGroup group = CreateGroup(3);
+
+        var configuration = group.Configuration;
+        configuration.Size = 100;
+
+        Assert.AreEqual(3, group.Configuration.Size);
+        Assert.AreNotSame(configuration, group.Configuration);
+    }
+
     private IgniteClientGroup CreateGroup(int size = 1) =>
         new IgniteClientGroup(
             new IgniteClientGroupConfiguration
