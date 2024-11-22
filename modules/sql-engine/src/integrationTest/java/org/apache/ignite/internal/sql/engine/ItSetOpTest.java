@@ -93,8 +93,8 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testExcept(SetOpVariant setOp) {
+    @EnumSource(MinusSetOpVariant.class)
+    public void testExcept(MinusSetOpVariant setOp) {
         var rows = sql(setOp, "SELECT name FROM emp1 EXCEPT SELECT name FROM emp2");
 
         assertEquals(1, rows.size());
@@ -102,16 +102,16 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testExceptFromEmpty(SetOpVariant setOp) {
+    @EnumSource(MinusSetOpVariant.class)
+    public void testExceptFromEmpty(MinusSetOpVariant setOp) {
         var rows = sql(setOp, "SELECT name FROM emp1 WHERE salary < 0 EXCEPT SELECT name FROM emp2");
 
         assertEquals(0, rows.size());
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testExceptSeveralColumns(SetOpVariant setOp) {
+    @EnumSource(MinusSetOpVariant.class)
+    public void testExceptSeveralColumns(MinusSetOpVariant setOp) {
         var rows = sql(setOp, "SELECT name, salary FROM emp1 EXCEPT SELECT name, salary FROM emp2");
 
         assertEquals(4, rows.size());
@@ -120,8 +120,8 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testExceptAll(SetOpVariant setOp) {
+    @EnumSource(MinusSetOpVariant.class)
+    public void testExceptAll(MinusSetOpVariant setOp) {
         var rows = sql(setOp, "SELECT name FROM emp1 EXCEPT ALL SELECT name FROM emp2");
 
         assertEquals(4, rows.size());
@@ -130,8 +130,8 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testExceptNested(SetOpVariant setOp) {
+    @EnumSource(MinusSetOpVariant.class)
+    public void testExceptNested(MinusSetOpVariant setOp) {
         var rows =
                 sql(setOp, "SELECT name FROM emp1 EXCEPT (SELECT name FROM emp1 EXCEPT SELECT name FROM emp2)");
 
@@ -190,8 +190,8 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testIntersect(SetOpVariant setOp) {
+    @EnumSource(IntersectOpVariant.class)
+    public void testIntersect(IntersectOpVariant setOp) {
         var rows = sql(setOp, "SELECT name FROM emp1 INTERSECT SELECT name FROM emp2");
 
         assertEquals(2, rows.size());
@@ -200,8 +200,8 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testIntersectAll(SetOpVariant setOp) {
+    @EnumSource(IntersectOpVariant.class)
+    public void testIntersectAll(IntersectOpVariant setOp) {
         var rows = sql(setOp, "SELECT name FROM emp1 INTERSECT ALL SELECT name FROM emp2");
 
         assertEquals(3, rows.size());
@@ -210,16 +210,16 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testIntersectEmpty(SetOpVariant setOp) {
+    @EnumSource(IntersectOpVariant.class)
+    public void testIntersectEmpty(IntersectOpVariant setOp) {
         var rows = sql(setOp, "SELECT name FROM emp1 WHERE salary < 0 INTERSECT SELECT name FROM emp2");
 
         assertEquals(0, rows.size());
     }
 
     @ParameterizedTest
-    @EnumSource(SetOpVariant.class)
-    public void testIntersectSeveralColumns(SetOpVariant setOp) {
+    @EnumSource(IntersectOpVariant.class)
+    public void testIntersectSeveralColumns(IntersectOpVariant setOp) {
         var rows = sql(setOp, "SELECT name, salary FROM emp1 INTERSECT ALL SELECT name, salary FROM emp2");
 
         assertEquals(2, rows.size());
@@ -302,7 +302,7 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
      */
     @ParameterizedTest
     @MethodSource("rewindSetOpVariants")
-    public void testSetOpRewindability(SetOpVariant setOp, int tableNum) {
+    public void testSetOpRewindability(MinusSetOpVariant setOp, int tableNum) {
         sql(format("CREATE TABLE test_{}(id int PRIMARY KEY, i INTEGER)", tableNum));
         sql(format("INSERT INTO test_{} VALUES (1, 1), (2, 2)", tableNum));
 
@@ -319,7 +319,7 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     private static Stream<Arguments> rewindSetOpVariants() {
         List<Arguments> arguments = new ArrayList<>();
 
-        SetOpVariant[] ops = SetOpVariant.values();
+        MinusSetOpVariant[] ops = MinusSetOpVariant.values();
         for (int i = 0; i < ops.length; i++) {
             arguments.add(Arguments.of(ops[i], i));
         }
@@ -390,20 +390,48 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Set operation variant.
+     * Minus (EXCEPT) operation variants.
      */
-    public enum SetOpVariant {
+    public enum MinusSetOpVariant implements SetOpVariant {
         COLOCATED("MapReduceMinusConverterRule"),
         MAP_REDUCE("ColocatedMinusConverterRule");
 
         final String[] disabledRules;
 
-        SetOpVariant(String... disabledRules) {
+        MinusSetOpVariant(String... disabledRules) {
             this.disabledRules = disabledRules;
         }
 
-        String hint() {
+        /** {@inheritDoc} */
+        @Override
+        public String hint() {
             return HintUtils.toHint(IgniteHint.DISABLE_RULE, disabledRules);
         }
+    }
+
+    /**
+     * Intersect operation variants.
+     */
+    public enum IntersectOpVariant implements SetOpVariant {
+        COLOCATED("MapReduceIntersectConverterRule"),
+        MAP_REDUCE("ColocatedIntersectConverterRule");
+
+        final String[] disabledRules;
+
+        IntersectOpVariant(String... disabledRules) {
+            this.disabledRules = disabledRules;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public String hint() {
+            return HintUtils.toHint(IgniteHint.DISABLE_RULE, disabledRules);
+        }
+    }
+
+    /** Set operation variant. */
+    interface SetOpVariant {
+        /** Hint to restrict the optimizer from considering other plans. */
+        String hint();
     }
 }
