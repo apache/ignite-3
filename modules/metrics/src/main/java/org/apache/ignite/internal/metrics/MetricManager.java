@@ -19,6 +19,8 @@ package org.apache.ignite.internal.metrics;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
@@ -33,10 +35,12 @@ public interface MetricManager extends IgniteComponent {
      * Method to configure {@link MetricManager} with distributed configuration.
      *
      * @param metricConfiguration Distributed metric configuration.
+     * @param clusterIdSupplier Cluster ID supplier.
+     * @param nodeName Node name.
      */
     // TODO: IGNITE-17718 when we design the system to configure metrics itself
     // TODO: this method should be revisited, but now it is supposed to use only to set distributed configuration for exporters.
-    void configure(MetricConfiguration metricConfiguration);
+    void configure(MetricConfiguration metricConfiguration, Supplier<UUID> clusterIdSupplier, String nodeName);
 
     /**
      * Start component.

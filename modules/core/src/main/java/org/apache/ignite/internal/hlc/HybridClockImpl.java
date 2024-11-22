@@ -21,10 +21,9 @@ import static java.lang.Math.max;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
@@ -38,55 +37,42 @@ public class HybridClockImpl implements HybridClock {
     /**
      * Var handle for {@link #latestTime}.
      */
-    private static final VarHandle LATEST_TIME;
-
-    static {
-        try {
-            LATEST_TIME = MethodHandles.lookup().findVarHandle(HybridClockImpl.class, "latestTime", long.class);
-        } catch (NoSuchFieldException | IllegalAccessException e) {
-            throw new ExceptionInInitializerError(e);
-        }
-    }
+    private static final AtomicLongFieldUpdater<HybridClockImpl> LATEST_TIME = AtomicLongFieldUpdater.newUpdater(HybridClockImpl.class,
+            "latestTime");
 
     private volatile long latestTime;
 
     private final List<ClockUpdateListener> updateListeners = new CopyOnWriteArrayList<>();
 
     /**
-     * The constructor which initializes the latest time to current time by system clock.
-     */
-    public HybridClockImpl() {
-        this.latestTime = currentTime();
-    }
-
-    /**
-     * System current time in milliseconds shifting left to free insignificant bytes.
-     * This method is marked with a public modifier to mock in tests because there is no way to mock currentTimeMillis.
+     * Returns current physical time in milliseconds.
      *
-     * @return Current time in milliseconds shifted right on two bytes.
+     * @return Current time.
      */
-    public static long currentTime() {
-        return System.currentTimeMillis() << LOGICAL_TIME_BITS_SIZE;
+    protected long physicalTime() {
+        return System.currentTimeMillis();
     }
 
     @Override
-    public long nowLong() {
+    public final long nowLong() {
         while (true) {
             long now = currentTime();
 
             // Read the latest time after accessing UTC time to reduce contention.
             long oldLatestTime = latestTime;
 
-            long newLatestTime = max(oldLatestTime + 1, now);
+            if (oldLatestTime >= now) {
+                return LATEST_TIME.incrementAndGet(this);
+            }
 
-            if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
-                return newLatestTime;
+            if (LATEST_TIME.compareAndSet(this, oldLatestTime, now)) {
+                return now;
             }
         }
     }
 
     @Override
-    public long currentLong() {
+    public final long currentLong() {
         long current = currentTime();
 
         return max(latestTime, current);
@@ -107,32 +93,33 @@ public class HybridClockImpl implements HybridClock {
     }
 
     @Override
-    public HybridTimestamp now() {
+    public final HybridTimestamp now() {
         return hybridTimestamp(nowLong());
     }
 
     @Override
-    public HybridTimestamp current() {
+    public final HybridTimestamp current() {
         return hybridTimestamp(currentLong());
     }
 
     /**
-     * Updates the clock in accordance with an external event timestamp. If the supplied timestamp is ahead of the
-     * current clock timestamp, the clock gets adjusted to make sure it never returns any timestamp before (or equal to)
-     * the supplied external timestamp.
+     * Updates the clock in accordance with an external event timestamp. If the supplied timestamp is ahead of the current clock timestamp,
+     * the clock gets adjusted to make sure it never returns any timestamp before (or equal to) the supplied external timestamp.
      *
      * @param requestTime Timestamp from request.
      * @return The resulting timestamp (guaranteed to exceed both previous clock 'currentTs' and the supplied external ts).
      */
     @Override
-    public HybridTimestamp update(HybridTimestamp requestTime) {
+    public final HybridTimestamp update(HybridTimestamp requestTime) {
         while (true) {
             long now = currentTime();
 
             // Read the latest time after accessing UTC time to reduce contention.
-            long oldLatestTime = this.latestTime;
+            long oldLatestTime = latestTime;
 
             long newLatestTime = max(requestTime.longValue() + 1, max(now, oldLatestTime + 1));
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-23707 avoid CAS on logical part update.
 
             if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
                 notifyUpdateListeners(newLatestTime);
@@ -140,6 +127,10 @@ public class HybridClockImpl implements HybridClock {
                 return hybridTimestamp(newLatestTime);
             }
         }
+    }
+
+    private long currentTime() {
+        return physicalTime() << LOGICAL_TIME_BITS_SIZE;
     }
 
     @Override

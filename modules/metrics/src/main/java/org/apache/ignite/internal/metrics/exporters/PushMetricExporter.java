@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.metrics.exporters;
 
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricProvider;
@@ -45,8 +47,8 @@ public abstract class PushMetricExporter<CfgT extends ExporterView> extends Basi
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void start(MetricProvider metricProvider, CfgT conf) {
-        super.start(metricProvider, conf);
+    public synchronized void start(MetricProvider metricProvider, CfgT conf, Supplier<UUID> clusterIdSupplier, String nodeName) {
+        super.start(metricProvider, conf, clusterIdSupplier, nodeName);
 
         scheduler =
                 Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("metrics-exporter-" + name(), log));
@@ -61,7 +63,6 @@ public abstract class PushMetricExporter<CfgT extends ExporterView> extends Basi
                 throw th;
             }
         }, period(), period(), TimeUnit.MILLISECONDS);
-
     }
 
     /** {@inheritDoc} */

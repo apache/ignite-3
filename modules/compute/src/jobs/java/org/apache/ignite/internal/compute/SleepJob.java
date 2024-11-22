@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
-/** Compute job that sleeps for a number of milliseconds passed in the argument. */
+/** Compute job that sleeps for a number of milliseconds passed in the argument and throws a {@link RuntimeException} if interrupted. */
 public class SleepJob implements ComputeJob<Long, Void> {
     @Override
     public CompletableFuture<Void> executeAsync(JobExecutionContext jobExecutionContext, Long timeout) {

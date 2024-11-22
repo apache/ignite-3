@@ -66,7 +66,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -381,16 +380,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 },
                 10_000)
         );
-    }
-
-    private @Nullable Integer nodeIndex(String name) {
-        for (int i = 0; i < initialNodes(); i++) {
-            if (node(i).name().equals(name)) {
-                return i;
-            }
-        }
-
-        return null;
     }
 
     private static class Context {

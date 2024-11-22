@@ -23,6 +23,8 @@ import com.google.auto.service.AutoService;
 import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Supplier;
 import javax.management.JMException;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
@@ -71,8 +73,9 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
      * {@inheritDoc}
      */
     @Override
-    public synchronized void start(MetricProvider metricsProvider, JmxExporterView configuration) {
-        super.start(metricsProvider, configuration);
+    public synchronized void start(MetricProvider metricsProvider, JmxExporterView configuration, Supplier<UUID> clusterIdSupplier,
+            String nodeName) {
+        super.start(metricsProvider, configuration, clusterIdSupplier, nodeName);
 
         for (MetricSet metricSet : metricsProvider.metrics().get1().values()) {
             register(metricSet);

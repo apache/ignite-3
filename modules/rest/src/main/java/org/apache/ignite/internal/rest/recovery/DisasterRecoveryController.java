@@ -117,7 +117,8 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
                         state.tableId,
                         state.tableName,
                         state.partitionId,
-                        state.state.name()
+                        state.state.name(),
+                        state.estimatedRows
                 ));
             }
         }

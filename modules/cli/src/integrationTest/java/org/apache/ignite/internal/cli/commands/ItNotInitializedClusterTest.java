@@ -47,18 +47,22 @@ public class ItNotInitializedClusterTest extends CliCommandTestNotInitializedInt
     private static Stream<Arguments> commands() {
         return Stream.of(
                 arguments("node metric list", "Cannot list metrics"),
-                arguments("node metric source list", "Cannot list metric sources"),
                 arguments("node metric source enable metricName", "Cannot enable metrics"),
                 arguments("node metric source disable metricName", "Cannot disable metrics"),
-                arguments("cluster metric source list", "Cannot list metric sources"),
-                arguments("cluster metric source enable metricName", "Cannot enable metrics"),
-                arguments("cluster metric source disable metricName", "Cannot disable metrics"),
-                arguments("recovery partitions reset --table tableName --zone zoneName", "Cannot reset partitions"),
-                arguments("recovery partitions states --global", "Cannot list partition states"),
-                arguments("recovery partitions restart --table tableName --zone zoneName", "Cannot restart partitions"),
+                arguments("node metric source list", "Cannot list metric sources"),
+                arguments("node unit list", "Cannot list units"),
+                arguments("cluster config show", "Cannot show cluster config"),
+                arguments("cluster config update test", "Cannot update cluster config"),
+                arguments("cluster topology logical", "Cannot show logical topology"),
                 arguments("cluster unit deploy test.unit.id.1 --version 1.0.0 --path " + testFile, "Cannot deploy unit"),
                 arguments("cluster unit undeploy test.unit.id.2 --version 1.0.0", "Cannot undeploy unit"),
-                arguments("node unit list", "Cannot list units")
+                arguments("cluster unit list", "Cannot list units"),
+                arguments("cluster metric source enable metricName", "Cannot enable metrics"),
+                arguments("cluster metric source disable metricName", "Cannot disable metrics"),
+                arguments("cluster metric source list", "Cannot list metric sources"),
+                arguments("recovery partitions restart --table tableName --zone zoneName", "Cannot restart partitions"),
+                arguments("recovery partitions reset --table tableName --zone zoneName", "Cannot reset partitions"),
+                arguments("recovery partitions states --global", "Cannot list partition states")
         );
     }
 
