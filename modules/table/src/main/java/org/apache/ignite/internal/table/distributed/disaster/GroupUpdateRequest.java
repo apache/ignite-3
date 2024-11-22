@@ -320,7 +320,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                 partId,
                 longToBytesKeepingOrder(revision),
                 Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp).toBytes(),
-                // In case if planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance
+                // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
                 isProposedPendingEqualsProposedPlanned
                         ? null
                         : Assignments.toBytes(partAssignments, assignmentsTimestamp)
