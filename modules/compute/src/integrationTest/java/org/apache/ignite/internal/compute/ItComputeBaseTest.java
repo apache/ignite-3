@@ -18,14 +18,18 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
+import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
+import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.contains;
@@ -33,12 +37,14 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -65,6 +71,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Base integration tests for Compute functionality. To add new compute job for testing both in embedded and standalone mode, add the
@@ -463,6 +470,109 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(Ignite::name).map(String::length).reduce(Integer::sum).orElseThrow();
         assertThat(result, is(sumOfNodeNamesLengths));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void cancelsJob(boolean local) {
+        Ignite entryNode = node(0);
+        Ignite executeNode = local ? node(0) : node(1);
+
+        // This job catches the interruption and throws a RuntimeException
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units()).build();
+        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(clusterNode(executeNode)), job, Long.MAX_VALUE);
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        assertThat(execution.cancelAsync(), willBe(true));
+
+        CompletionException completionException = assertThrows(CompletionException.class, () -> execution.resultAsync().join());
+
+        // Unwrap CompletionException, ComputeException should be the cause thrown from the API
+        assertThat(completionException.getCause(), instanceOf(ComputeException.class));
+        ComputeException computeException = (ComputeException) completionException.getCause();
+
+        // ComputeException should be caused by the RuntimeException thrown from the SleepJob
+        assertThat(computeException.getCause(), instanceOf(RuntimeException.class));
+        RuntimeException runtimeException = (RuntimeException) computeException.getCause();
+
+        // RuntimeException is thrown when SleepJob catches the InterruptedException
+        assertThat(runtimeException.getCause(), instanceOf(InterruptedException.class));
+        assertThat(runtimeException.getCause().getCause(), is(nullValue()));
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void cancelsNotCancellableJob(boolean local) {
+        Ignite entryNode = node(0);
+        Ignite executeNode = local ? node(0) : node(1);
+
+        // This job catches the interruption and returns normally
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SilentSleepJob.class).units(units()).build();
+        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(clusterNode(executeNode)), job, Long.MAX_VALUE);
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        assertThat(execution.cancelAsync(), willBe(true));
+
+        CompletionException completionException = assertThrows(CompletionException.class, () -> execution.resultAsync().join());
+
+        // Unwrap CompletionException, ComputeException should be the cause thrown from the API
+        assertThat(completionException.getCause(), instanceOf(ComputeException.class));
+        ComputeException computeException = (ComputeException) completionException.getCause();
+
+        // ComputeException should be caused by the CancellationException thrown from the executor which detects that the job completes,
+        // but was previously cancelled
+        assertThat(computeException.getCause(), instanceOf(CancellationException.class));
+        CancellationException cancellationException = (CancellationException) computeException.getCause();
+        assertThat(cancellationException.getCause(), is(nullValue()));
+
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void cancelsQueuedJob(boolean local) {
+        Ignite entryNode = node(0);
+        Ignite executeNode = local ? node(0) : node(1);
+        var nodes = JobTarget.node(clusterNode(executeNode));
+
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units()).build();
+
+        // Start 1 task in executor with 1 thread
+        JobExecution<Void> execution1 = entryNode.compute().submit(nodes, job, Long.MAX_VALUE);
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        // Start one more task
+        JobExecution<Void> execution2 = entryNode.compute().submit(nodes, job, Long.MAX_VALUE);
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
+
+        // Task 2 is not complete, in queued state
+        assertThat(execution2.resultAsync().isDone(), is(false));
+
+        // Cancel queued task
+        assertThat(execution2.cancelAsync(), willBe(true));
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+
+        // Cancel running task
+        assertThat(execution1.cancelAsync(), willBe(true));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void changeExecutingJobPriority(boolean local) {
+        Ignite entryNode = node(0);
+        Ignite executeNode = local ? node(0) : node(1);
+
+        JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units()).build();
+        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(clusterNode(executeNode)), job, Long.MAX_VALUE);
+        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+
+        assertThat(execution.changePriorityAsync(2), willBe(false));
+        assertThat(execution.cancelAsync(), willBe(true));
     }
 
     static Ignite node(int i) {

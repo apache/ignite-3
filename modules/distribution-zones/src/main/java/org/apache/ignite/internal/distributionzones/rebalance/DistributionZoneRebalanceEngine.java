@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -51,7 +50,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.TestOnly;
@@ -312,53 +310,17 @@ public class DistributionZoneRebalanceEngine {
         List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableDescriptors.size());
 
         for (CatalogTableDescriptor tableDescriptor : tableDescriptors) {
-            CompletableFuture<?>[] partitionFutures = RebalanceUtil.triggerAllTablePartitionsRebalance(
+            tableFutures.add(RebalanceUtil.triggerAllTablePartitionsRebalance(
                     tableDescriptor,
                     zoneDescriptor,
                     dataNodes,
                     revision,
                     metaStorageManager,
                     assignmentsTimestamp
-            );
-
-            // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,
-            // when reading from MetaStorage, it will be encountered by every partition future) to avoid noise
-            // in the logs.
-            Set<Throwable> unwrappedCauses = ConcurrentHashMap.newKeySet();
-
-            for (int partId = 0; partId < partitionFutures.length; partId++) {
-                int finalPartId = partId;
-
-                partitionFutures[partId].exceptionally(e -> {
-                    Throwable cause = ExceptionUtils.unwrapCause(e);
-
-                    if (unwrappedCauses.add(cause)) {
-                        // The exception is specific to this partition.
-                        LOG.error(
-                                "Exception on updating assignments for [table={}, partition={}]",
-                                e,
-                                tableInfo(tableDescriptor), finalPartId
-                        );
-                    } else {
-                        // The exception is from upstream and not specific for this partition, so don't log the partition index.
-                        LOG.error(
-                                "Exception on updating assignments for [table={}]",
-                                e,
-                                tableInfo(tableDescriptor)
-                        );
-                    }
-
-                    return null;
-                });
-            }
-
-            tableFutures.add(allOf(partitionFutures));
+            ));
         }
 
         return allOf(tableFutures.toArray(CompletableFuture[]::new));
     }
 
-    private static String tableInfo(CatalogTableDescriptor tableDescriptor) {
-        return tableDescriptor.id() + "/" + tableDescriptor.name();
-    }
 }

@@ -20,8 +20,6 @@ package org.apache.ignite.internal.compute;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.compute.JobStatus.CANCELED;
-import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicCheckedException;
@@ -79,87 +77,6 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     @Override
     protected List<DeploymentUnit> units() {
         return List.of();
-    }
-
-    @Test
-    void cancelsJobLocally() {
-        Ignite entryNode = node(0);
-
-        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(clusterNode(entryNode)), job, new CountDownLatch(1));
-
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
-
-        assertThat(execution.cancelAsync(), willBe(true));
-
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
-    }
-
-    @Test
-    void cancelsQueuedJobLocally() {
-        Ignite entryNode = node(0);
-        var nodes = JobTarget.node(clusterNode(entryNode));
-
-        CountDownLatch countDownLatch = new CountDownLatch(1);
-        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-
-        // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = entryNode.compute().submit(nodes, job, countDownLatch);
-        await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
-
-        // Start one more task
-        JobExecution<String> execution2 = entryNode.compute().submit(nodes, job, new CountDownLatch(1));
-        await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
-
-        // Task 2 is not complete, in queued state
-        assertThat(execution2.resultAsync().isDone(), is(false));
-
-        // Cancel queued task
-        assertThat(execution2.cancelAsync(), willBe(true));
-        assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(CANCELED)));
-
-        // Finish running task
-        countDownLatch.countDown();
-        await().until(execution1::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
-        assertThat(execution1.cancelAsync(), willBe(false));
-    }
-
-    @Test
-    void cancelsJobRemotely() {
-        Ignite entryNode = node(0);
-
-        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(clusterNode(node(1))), job, new CountDownLatch(1));
-
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
-
-        assertThat(execution.cancelAsync(), willBe(true));
-
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
-    }
-
-    @Test
-    void changeExecutingJobPriorityLocally() {
-        Ignite entryNode = node(0);
-
-        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(clusterNode(entryNode)), job, new CountDownLatch(1));
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
-
-        assertThat(execution.changePriorityAsync(2), willBe(false));
-        assertThat(execution.cancelAsync(), willBe(true));
-    }
-
-    @Test
-    void changeExecutingJobPriorityRemotely() {
-        Ignite entryNode = node(0);
-
-        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
-        JobExecution<String> execution = entryNode.compute().submit(JobTarget.node(clusterNode(node(1))), job, new CountDownLatch(1));
-        await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
-
-        assertThat(execution.changePriorityAsync(2), willBe(false));
-        assertThat(execution.cancelAsync(), willBe(true));
     }
 
     @Test

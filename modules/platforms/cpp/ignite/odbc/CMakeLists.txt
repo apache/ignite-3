@@ -53,12 +53,20 @@ set(SOURCES
     log.cpp
 )
 
+set(EXTRA_FILES)
+
+if (WIN32)
+    string(REPLACE "." "," CMAKE_PROJECT_VERSION_COMMAS ${CMAKE_PROJECT_VERSION})
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version.rc.in ${CMAKE_CURRENT_BINARY_DIR}/version.rc @ONLY)
+    set(EXTRA_FILES ${CMAKE_CURRENT_BINARY_DIR}/version.rc)
+endif()
+
 add_compile_definitions(CMAKE_PROJECT_VERSION="${CMAKE_PROJECT_VERSION}")
 
 add_library(${TARGET}-obj OBJECT ${SOURCES})
 target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${ODBC_INCLUDE_DIRS})
 
-add_library(${TARGET} SHARED $<TARGET_OBJECTS:${TARGET}-obj> module.def)
+add_library(${TARGET} SHARED $<TARGET_OBJECTS:${TARGET}-obj> module.def ${EXTRA_FILES})
 
 set(LIBRARIES
     ignite-common
@@ -93,10 +101,10 @@ unset(_target_libs)
 
 if (${INSTALL_IGNITE_FILES})
     install(TARGETS ${TARGET}
-            RUNTIME DESTINATION bin
-            ARCHIVE DESTINATION lib
-            LIBRARY DESTINATION lib
-            )
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib
+        LIBRARY DESTINATION lib
+    )
 endif()
 
 ignite_test(connection_info_test DISCOVER SOURCES config/connection_info_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})

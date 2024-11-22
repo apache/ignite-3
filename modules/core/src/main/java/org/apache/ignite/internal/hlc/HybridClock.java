@@ -22,7 +22,7 @@ package org.apache.ignite.internal.hlc;
  */
 public interface HybridClock {
     /**
-     * Creates a timestamp for new event.
+     * Creates a timestamp for new event. A timestamp is guarantied to be unique and monotonically grown.
      *
      * @return The hybrid timestamp.
      */
@@ -37,7 +37,7 @@ public interface HybridClock {
     long currentLong();
 
     /**
-     * Creates a timestamp for new event.
+     * Creates a timestamp for new event. A timestamp is guarantied to be unique and monotonically grown.
      *
      * @return The hybrid timestamp.
      */

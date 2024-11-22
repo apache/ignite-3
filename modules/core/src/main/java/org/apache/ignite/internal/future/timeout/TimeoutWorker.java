@@ -36,13 +36,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TimeoutWorker extends IgniteWorker {
     /** Worker sleep interval. */
-    private final long sleepInterval = getLong("IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", 500);
+    private final long sleepInterval = getSleepInterval();
 
     /** Active operations. */
     public final ConcurrentMap<Long, TimeoutObject<?>> requestsMap;
-
-    /** True means removing object from the operation map on timeout. */
-    private final boolean removeOnTimeout;
 
     /** Closure to process throwables in the worker thread. */
     @Nullable
@@ -56,7 +53,6 @@ public class TimeoutWorker extends IgniteWorker {
      * @param name Worker name. Note that in general thread name and worker (runnable) name are two different things. The same
      *         worker can be executed by multiple threads and therefore for logging and debugging purposes we separate the two.
      * @param requestsMap Active operations.
-     * @param removeOnTimeout Remove operation from map.
      * @param failureProcessor Closure to process throwables in the worker thread.
      */
     public TimeoutWorker(
@@ -64,13 +60,11 @@ public class TimeoutWorker extends IgniteWorker {
             String igniteInstanceName,
             String name,
             ConcurrentMap requestsMap,
-            boolean removeOnTimeout,
             @Nullable FailureProcessor failureProcessor
     ) {
         super(log, igniteInstanceName, name, null);
 
         this.requestsMap = requestsMap;
-        this.removeOnTimeout = removeOnTimeout;
         this.failureProcessor = failureProcessor;
     }
 
@@ -95,9 +89,7 @@ public class TimeoutWorker extends IgniteWorker {
                         if (!fut.isDone()) {
                             fut.completeExceptionally(new TimeoutException());
 
-                            if (removeOnTimeout) {
-                                requestsMap.remove(entry.getKey(), timeoutObject);
-                            }
+                            requestsMap.remove(entry.getKey(), timeoutObject);
                         }
                     }
                 }
@@ -118,5 +110,9 @@ public class TimeoutWorker extends IgniteWorker {
                 log.error("Timeout worker failed and can't process the timeouts any longer [worker={}].", t, name());
             }
         }
+    }
+
+    public static long getSleepInterval() {
+        return getLong("IGNITE_TIMEOUT_WORKER_SLEEP_INTERVAL", 500);
     }
 }
