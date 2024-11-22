@@ -405,7 +405,7 @@ public class Loza implements RaftManager {
             RaftGroupOptions groupOptions = RaftGroupOptions.defaults();
             raftGroupOptionsConfigurer.configure(groupOptions);
 
-            destroyRaftNodeStoragesBusy(nodeId, groupOptions);
+            raftServer.destroyRaftNodeStorages(nodeId, groupOptions);
         } finally {
             busyLock.leaveBusy();
         }
@@ -424,14 +424,10 @@ public class Loza implements RaftManager {
         }
 
         try {
-            destroyRaftNodeStoragesBusy(nodeId, raftGroupOptions);
+            raftServer.destroyRaftNodeStorages(nodeId, raftGroupOptions);
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    private void destroyRaftNodeStoragesBusy(RaftNodeId nodeId, RaftGroupOptions raftGroupOptions) {
-        raftServer.destroyRaftNodeStorages(nodeId, raftGroupOptions);
     }
 
     @Override
