@@ -54,6 +54,8 @@ using Internal.Common;
 /// </summary>
 public sealed class IgniteClientGroup : IDisposable
 {
+    private readonly IgniteClientGroupConfiguration _configuration;
+
     private readonly IgniteClientInternal?[] _clients;
 
     private readonly SemaphoreSlim _clientsLock = new(1);
@@ -72,14 +74,14 @@ public sealed class IgniteClientGroup : IDisposable
         IgniteArgumentCheck.NotNull(configuration.ClientConfiguration);
         IgniteArgumentCheck.Ensure(configuration.Size > 0, nameof(configuration.Size), "Group size must be positive.");
 
-        Configuration = configuration;
+        _configuration = Copy(configuration);
         _clients = new IgniteClientInternal[configuration.Size];
     }
 
     /// <summary>
     /// Gets the configuration.
     /// </summary>
-    public IgniteClientGroupConfiguration Configuration { get; }
+    public IgniteClientGroupConfiguration Configuration => Copy(_configuration);
 
     /// <summary>
     /// Gets a value indicating whether the group is disposed.
@@ -150,6 +152,9 @@ public sealed class IgniteClientGroup : IDisposable
             .Append(_clients.Count(static c => c is { IsDisposed: false }), "Connected")
             .Append(Configuration.Size, "Size")
             .Build();
+
+    private static IgniteClientGroupConfiguration Copy(IgniteClientGroupConfiguration cfg) =>
+        cfg with { ClientConfiguration = cfg.ClientConfiguration with { } };
 
     private async Task<IgniteClientInternal> CreateClientAsync()
     {

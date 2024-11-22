@@ -103,6 +103,8 @@ public class IgniteClientGroupTests
         group.Dispose();
 
         // Group and clients are disposed, all operations should throw.
+        Assert.IsTrue(group.IsDisposed);
+
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await group.GetIgniteAsync());
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await client1.Tables.GetTablesAsync());
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await client2.Tables.GetTablesAsync());
