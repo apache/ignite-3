@@ -222,6 +222,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.internal.worker.ThreadAssertions;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -2705,22 +2706,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             destroyFutures.add(runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor));
         }
 
-        destroyFutures.add(
-                supplyAsync(() -> destroyReplicationProtocolStorages(tablePartitionId, table), ioExecutor).thenCompose(identity())
-        );
+        destroyFutures.add(runAsync(() -> destroyReplicationProtocolStorages(tablePartitionId, table), ioExecutor));
 
         return allOf(destroyFutures.toArray(new CompletableFuture[]{}));
     }
 
-    private CompletableFuture<Object> destroyReplicationProtocolStorages(TablePartitionId tablePartitionId, TableImpl table) {
+    private void destroyReplicationProtocolStorages(TablePartitionId tablePartitionId, TableImpl table) {
         var internalTbl = (InternalTableImpl) table.internalTable();
 
         try {
             replicaMgr.destroyReplicationProtocolStorages(tablePartitionId, internalTbl.storage().isVolatile());
-
-            return nullCompletedFuture();
         } catch (NodeStoppingException e) {
-            return failedFuture(e);
+            throw new IgniteInternalException(Common.NODE_STOPPING_ERR, e);
         }
     }
 
