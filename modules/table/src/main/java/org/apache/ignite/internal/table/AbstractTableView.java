@@ -134,12 +134,14 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     }
 
     private <T> CompletableFuture<T> withSchemaSync(@Nullable Transaction tx, @Nullable Integer previousSchemaVersion, KvAction<T> action) {
-        CompletableFuture<Integer> schemaVersionFuture = tx == null
+        InternalTransaction tx0 = (InternalTransaction) tx;
+
+        CompletableFuture<Integer> schemaVersionFuture = tx0 == null
                 ? schemaVersions.schemaVersionAtNow(tbl.tableId())
-                : schemaVersions.schemaVersionAt(((InternalTransaction) tx).startTimestamp(), tbl.tableId());
+                : schemaVersions.schemaVersionAt((tx0).startTimestamp(), tbl.tableId());
 
         return schemaVersionFuture
-                .thenCompose(schemaVersion -> action.act(schemaVersion)
+                .thenCompose(schemaVersion -> action.act(tx0, schemaVersion)
                         .handle((res, ex) -> {
                             if (ex == null) {
                                 return completedFuture(res);
@@ -152,12 +154,14 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                                 // version corresponding to the transaction creation moment, so this mismatch is not tolerable: we need
                                 // to retry the operation here.
 
-                                assert tx == null : "Only for implicit transactions a retry might be requested";
+                                //Loggers.forClass(AbstractTableView.class).error("Error", ex);
+
+                                assert (tx0 == null || tx0.implicit()) : "Only for implicit transactions a retry might be requested";
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
-                                // Repeat.
-                                return withSchemaSync(tx, schemaVersion, action);
-                            } else if ((tx == null || ((InternalTransaction) tx).implicit()) && isOrCausedBy(
+                                // TODO: IGNITE-XXXX Implement transaction restart for schema change cause.
+                                return withSchemaSync(null, schemaVersion, action);
+                            } else if ((tx0 == null || tx0.implicit()) && isOrCausedBy(
                                     IncompatibleSchemaVersionException.class,
                                     ex
                             )) {
@@ -165,6 +169,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                                 // and the moment when the operation actually touched the partition), let's retry.
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
+                                // TODO: IGNITE-XXXX Implement transaction restart for schema change cause.
                                 return withSchemaSync(null, schemaVersion, action);
                             } else {
                                 return CompletableFuture.<T>failedFuture(ex);
@@ -222,7 +227,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     ) {
         CriteriaQueryOptions opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
 
-        CompletableFuture<AsyncCursor<R>> future = doOperation(tx, (schemaVersion) -> {
+        CompletableFuture<AsyncCursor<R>> future = doOperation(tx, (actualTx, schemaVersion) -> {
             SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
 
             SqlSerializer ser = new Builder()
@@ -269,9 +274,10 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         /**
          * Executes the action.
          *
+         * @param tx Transaction to use in action.
          * @param schemaVersion Schema version corresponding to the operation.
          * @return Action result.
          */
-        CompletableFuture<R> act(int schemaVersion);
+        CompletableFuture<R> act(InternalTransaction tx, int schemaVersion);
     }
 }

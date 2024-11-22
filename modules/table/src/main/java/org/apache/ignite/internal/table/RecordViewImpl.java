@@ -113,10 +113,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRoTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             BinaryRowEx keyRow = marshalKey(keyRec, schemaVersion);
 
-            return tbl.get(keyRow, tx0).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+            return tbl.get(keyRow, actualTx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
         });
     }
 
@@ -131,8 +131,8 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
-            return tbl.getAll(marshalKeys(keyRecs, schemaVersion), tx0)
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
+            return tbl.getAll(marshalKeys(keyRecs, schemaVersion), actualTx)
                     .thenApply(binaryRows -> unmarshal(binaryRows, false, schemaVersion, true));
         });
     }
@@ -150,10 +150,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRoTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             BinaryRowEx keyRow = marshalKey(keyRec, schemaVersion);
 
-            return tbl.get(keyRow, tx0).thenApply(Objects::nonNull);
+            return tbl.get(keyRow, actualTx).thenApply(Objects::nonNull);
         });
     }
 
@@ -174,10 +174,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             Collection<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
 
-            return tbl.getAll(keyRows, tx0).thenApply(rows -> {
+            return tbl.getAll(keyRows, actualTx).thenApply(rows -> {
                 for (BinaryRow row : rows) {
                     if (row == null) {
                         return false;
@@ -202,10 +202,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             BinaryRowEx keyRow = marshal(rec, schemaVersion);
 
-            return tbl.upsert(keyRow, tx0);
+            return tbl.upsert(keyRow, actualTx);
         });
     }
 
@@ -222,8 +222,8 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
-            return tbl.upsertAll(marshal(recs, schemaVersion), tx0);
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
+            return tbl.upsertAll(marshal(recs, schemaVersion), actualTx);
         });
     }
 
@@ -240,10 +240,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             BinaryRowEx keyRow = marshal(rec, schemaVersion);
 
-            return tbl.getAndUpsert(keyRow, tx0).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+            return tbl.getAndUpsert(keyRow, actualTx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
         });
     }
 
@@ -260,10 +260,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             BinaryRowEx keyRow = marshal(rec, schemaVersion);
 
-            return tbl.insert(keyRow, tx0);
+            return tbl.insert(keyRow, actualTx);
         });
     }
 
@@ -280,10 +280,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
-            return tbl.insertAll(rows, tx0)
+            return tbl.insertAll(rows, actualTx)
                     .thenApply(binaryRows -> unmarshal(binaryRows, false, schemaVersion, false));
         });
     }
@@ -307,10 +307,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             BinaryRowEx newRow = marshal(rec, schemaVersion);
 
-            return tbl.replace(newRow, tx0);
+            return tbl.replace(newRow, actualTx);
         });
     }
 
@@ -322,11 +322,11 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             BinaryRowEx oldRow = marshal(oldRec, schemaVersion);
             BinaryRowEx newRow = marshal(newRec, schemaVersion);
 
-            return tbl.replace(oldRow, newRow, tx0);
+            return tbl.replace(oldRow, newRow, actualTx);
         });
     }
 
@@ -343,10 +343,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             BinaryRowEx row = marshal(rec, schemaVersion);
 
-            return tbl.getAndReplace(row, tx0).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+            return tbl.getAndReplace(row, actualTx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
         });
     }
 
@@ -363,10 +363,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             BinaryRowEx row = marshalKey(keyRec, schemaVersion);
 
-            return tbl.delete(row, tx0);
+            return tbl.delete(row, actualTx);
         });
     }
 
@@ -383,10 +383,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             BinaryRowEx row = marshal(keyRec, schemaVersion);
 
-            return tbl.deleteExact(row, tx0);
+            return tbl.deleteExact(row, actualTx);
         });
     }
 
@@ -403,10 +403,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             BinaryRowEx row = marshalKey(keyRec, schemaVersion);
 
-            return tbl.getAndDelete(row, tx0).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+            return tbl.getAndDelete(row, actualTx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
         });
     }
 
@@ -423,10 +423,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshalKeys(keyRecs, schemaVersion);
 
-            return tbl.deleteAll(rows, tx0).thenApply(binaryRows -> unmarshal(binaryRows, true, schemaVersion, false));
+            return tbl.deleteAll(rows, actualTx).thenApply(binaryRows -> unmarshal(binaryRows, true, schemaVersion, false));
         });
     }
 
@@ -443,10 +443,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
-        return doOperation(tx0, (schemaVersion) -> {
+        return doOperation(tx0, (actualTx, schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
-            return tbl.deleteAllExact(rows, tx0)
+            return tbl.deleteAllExact(rows, actualTx)
                     .thenApply(binaryRows -> unmarshal(binaryRows, true, schemaVersion, false));
         });
     }
@@ -621,7 +621,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         StreamerBatchSender<R, Integer, Void> batchSender = (partitionId, items, deleted) ->
                 PublicApiThreading.execUserAsyncOperation(() -> (CompletableFuture) withSchemaSync(
                         null,
-                        schemaVersion -> this.tbl.updateAll(marshal(items, schemaVersion, deleted), deleted, partitionId)
+                        (tx, schemaVersion) -> this.tbl.updateAll(marshal(items, schemaVersion, deleted), deleted, partitionId)
                 ));
 
         CompletableFuture<Void> future = DataStreamer.streamData(
