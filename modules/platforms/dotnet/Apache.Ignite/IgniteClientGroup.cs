@@ -34,8 +34,8 @@ using Internal.Common;
 /// <example>
 /// Register as a singleton in DI container:
 /// <code>
-/// builder.Services.AddSingleton(_ => new IgniteClientPool(
-///     new IgniteClientPoolConfiguration
+/// builder.Services.AddSingleton(_ => new IgniteClientGroup(
+///     new IgniteClientGroupConfiguration
 ///     {
 ///         Size = 3,
 ///         ClientConfiguration = new("localhost"),
@@ -43,10 +43,10 @@ using Internal.Common;
 /// </code>
 /// Invoke from a controller:
 /// <code>
-/// public async Task&lt;IActionResult&gt; Index([FromServices] IgniteClientPool ignite)
+/// public async Task&lt;IActionResult&gt; Index([FromServices] IgniteClientGroup igniteGroup)
 /// {
-///     var client = await ignite.GetClientAsync();
-///     var tables = await client.Tables.GetTablesAsync();
+///     IIgnite ignite = await igniteGroup.GetIgniteAsync();
+///     var tables = await ignite.Tables.GetTablesAsync();
 ///     return Ok(tables);
 /// }
 /// </code>
@@ -70,7 +70,7 @@ public sealed class IgniteClientGroup : IDisposable
     {
         IgniteArgumentCheck.NotNull(configuration);
         IgniteArgumentCheck.NotNull(configuration.ClientConfiguration);
-        IgniteArgumentCheck.Ensure(configuration.Size > 0, nameof(configuration.Size), "Pool size must be positive.");
+        IgniteArgumentCheck.Ensure(configuration.Size > 0, nameof(configuration.Size), "Group size must be positive.");
 
         Configuration = configuration;
         _clients = new IgniteClientInternal[configuration.Size];
@@ -82,18 +82,16 @@ public sealed class IgniteClientGroup : IDisposable
     public IgniteClientGroupConfiguration Configuration { get; }
 
     /// <summary>
-    /// Gets a value indicating whether the pool is disposed.
+    /// Gets a value indicating whether the group is disposed.
     /// </summary>
     public bool IsDisposed => Interlocked.CompareExchange(ref _disposed, 0, 0) == 1;
 
     /// <summary>
-    /// Gets an Ignite client from the pool. Creates a new one if necessary.
-    /// Performs round-robin balancing across pooled instances.
-    /// <para />
-    /// NOTE: Do not dispose the client instance returned by this method, it is managed by the pool.
+    /// Gets an Ignite client from the group. Creates a new one if necessary.
+    /// Performs round-robin balancing across grouped instances.
     /// </summary>
     /// <returns>Ignite client.</returns>
-    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Pooled.")]
+    [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Managed by the group.")]
     public async ValueTask<IIgnite> GetIgniteAsync()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
