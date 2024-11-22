@@ -51,6 +51,7 @@ public class LocksViewProvider {
                 .build();
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-23755 Provide more user-friendly information about locked objects
     private String formatLockKey(LockKey lockKey) {
         return lockKey.toString();
     }
