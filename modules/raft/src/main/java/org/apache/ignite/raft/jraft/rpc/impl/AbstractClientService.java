@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import java.net.ConnectException;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ConcurrentHashMap;import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -56,6 +56,8 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     protected volatile RpcClient rpcClient;
     protected ExecutorService rpcExecutor;
     protected RpcOptions rpcOptions;
+
+    private Set<PeerId> deadPeers = ConcurrentHashMap.newKeySet();
 
     /**
      * The set of pinged consistent IDs.
@@ -121,7 +123,11 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
 
             LOG.error("Interrupted while connecting to {}, exception: {}.", peerId, e.getMessage());
         } catch (ExecutionException e) {
-            LOG.error("Fail to connect {}, exception: {}.", peerId, e.getMessage());
+            if (!deadPeers.contains(peerId)) {
+                deadPeers.add(peerId);
+
+                LOG.error("Fail to connect {}, exception: {}.", peerId, e.getMessage());
+            }
         }
 
         return false;
@@ -152,6 +158,8 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
 
             if (resp != null && resp.errorCode() == 0) {
                 readyConsistentIds.add(peerId.getConsistentId());
+
+                deadPeers.remove(peerId);
 
                 return true;
             } else {
