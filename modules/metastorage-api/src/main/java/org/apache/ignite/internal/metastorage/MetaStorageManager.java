@@ -273,6 +273,8 @@ public interface MetaStorageManager extends IgniteComponent {
      */
     HybridTimestamp timestampByRevisionLocally(long revision);
 
+    long revisionByTimestampLocally(HybridTimestamp timestamp);
+
     /**
      * Returns a future of getting the latest version of entries corresponding to the given keys from the metastorage leader.
      *

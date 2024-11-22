@@ -100,8 +100,13 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration;
+<<<<<<< Updated upstream
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
+=======
+import org.apache.ignite.internal.distributionzones.events.HighAvalabilityZoneTopologyUpdateEvent;
+import org.apache.ignite.internal.distributionzones.events.ZoneTopologyUpdateEventParams;
+>>>>>>> Stashed changes
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
@@ -137,7 +142,11 @@ import org.jetbrains.annotations.TestOnly;
  * Distribution zones manager.
  */
 public class DistributionZoneManager extends
+<<<<<<< Updated upstream
         AbstractEventProducer<HaZoneTopologyUpdateEvent, HaZoneTopologyUpdateEventParams> implements IgniteComponent {
+=======
+        AbstractEventProducer<HighAvalabilityZoneTopologyUpdateEvent, ZoneTopologyUpdateEventParams> implements IgniteComponent {
+>>>>>>> Stashed changes
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
 
@@ -997,6 +1006,7 @@ public class DistributionZoneManager extends
 
             if (nodesRemoved) {
                 if (zone.consistencyMode() == HIGH_AVAILABILITY) {
+<<<<<<< Updated upstream
                     if (partitionReset != INFINITE_TIMER_VALUE) {
                         zonesState.get(zoneId).reschedulePartitionDistributionReset(
                                 partitionReset,
@@ -1014,6 +1024,30 @@ public class DistributionZoneManager extends
                                 }, zoneId
                         );
                     }
+=======
+                    if (partitionReset == IMMEDIATE_TIMER_VALUE) {
+                        futures.add(
+                                // KKK will be processed in a metastore thread
+                                fireEvent(
+                                        HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
+                                        new ZoneTopologyUpdateEventParams(revision, zoneId)
+                                )
+                        );
+                    }
+
+                    if (partitionReset != INFINITE_TIMER_VALUE) {
+                        zonesState.get(zoneId).reschedulePartitionDistributionReset(
+                                partitionReset,
+                                // TODO: IGNITE-23599 Implement valid behaviour here.
+                                () -> {
+                                    fireEvent(
+                                            HighAvalabilityZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
+                                            new ZoneTopologyUpdateEventParams(revision, zoneId)
+                                    );
+                                }, zoneId
+                            );
+                        }
+>>>>>>> Stashed changes
                 } else {
                     if (autoAdjustScaleDown == IMMEDIATE_TIMER_VALUE) {
                         futures.add(saveDataNodesToMetaStorageOnScaleDown(zoneId, revision));
@@ -1031,6 +1065,10 @@ public class DistributionZoneManager extends
         }
 
         return allOf(futures.toArray(CompletableFuture[]::new));
+    }
+
+    private void execute() {
+
     }
 
     /**
