@@ -17,17 +17,18 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import static org.apache.ignite.internal.client.proto.pojo.PojoConverter.toTuple;
 import static org.apache.ignite.internal.compute.ComputeJobType.MARSHALLED_CUSTOM;
 import static org.apache.ignite.internal.compute.ComputeJobType.MARSHALLED_POJO;
 import static org.apache.ignite.internal.compute.ComputeJobType.MARSHALLED_TUPLE;
 import static org.apache.ignite.internal.compute.ComputeJobType.NATIVE;
+import static org.apache.ignite.internal.compute.PojoConverter.toTuple;
 
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
-import org.apache.ignite.internal.client.proto.pojo.PojoConversionException;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.PojoConversionException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.MarshallingException;
 import org.apache.ignite.sql.ColumnType;
@@ -70,6 +71,13 @@ public final class ClientComputeJobPacker {
     private static <T> void pack(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
         if (obj == null) {
             packer.packNil();
+            return;
+        }
+
+        if (obj instanceof ComputeJobDataHolder) {
+            ComputeJobDataHolder dataHolder = (ComputeJobDataHolder) obj;
+            packer.packInt(dataHolder.type().id());
+            packer.packBinary(dataHolder.data());
             return;
         }
 

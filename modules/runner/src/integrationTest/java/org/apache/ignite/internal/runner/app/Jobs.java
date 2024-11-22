@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.util.Comparator.comparing;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toList;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,6 +35,7 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
@@ -45,7 +48,18 @@ public class Jobs {
     public static class ArgumentStringMarshaller implements ByteArrayMarshaller<String> {
         @Override
         public byte @Nullable [] marshal(@Nullable String object) {
+            Loggers.forClass(ArgumentStringMarshaller.class).info("marshalledOnClient {}", object);
             return ByteArrayMarshaller.super.marshal(object + ":marshalledOnClient");
+        }
+    }
+
+    /** Marshal list of strings argument and adds ":marshalledOnClient" to each string. */
+    public static class ArgumentStringListMarshaller implements ByteArrayMarshaller<List<String>> {
+        @Override
+        public byte @Nullable [] marshal(@Nullable List<String> object) {
+            Loggers.forClass(ArgumentStringListMarshaller.class).info("listMarshalledOnClient {}", object);
+            List<String> strings = object.stream().map(str -> str + ":listMarshalledOnClient").collect(toList());
+            return ByteArrayMarshaller.super.marshal(strings);
         }
     }
 
@@ -56,6 +70,7 @@ public class Jobs {
     public static class ArgMarshallingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
+            Loggers.forClass(ArgMarshallingJob.class).info("processedOnServer {}", arg);
             return completedFuture(arg + ":processedOnServer");
         }
 
@@ -64,7 +79,9 @@ public class Jobs {
             return new ByteArrayMarshaller<>() {
                 @Override
                 public String unmarshal(byte @Nullable [] raw) {
-                    return ByteArrayMarshaller.super.unmarshal(raw) + ":unmarshalledOnServer";
+                    String res = ByteArrayMarshaller.super.unmarshal(raw) + ":unmarshalledOnServer";
+                    Loggers.forClass(ArgMarshallingJob.class).info(res);
+                    return res;
                 }
             };
         }
@@ -74,7 +91,26 @@ public class Jobs {
     public static class ResultStringUnMarshaller implements ByteArrayMarshaller<String> {
         @Override
         public @Nullable String unmarshal(byte @Nullable [] raw) {
-            return ByteArrayMarshaller.super.unmarshal(raw) + ":unmarshalledOnClient";
+            String res = ByteArrayMarshaller.super.unmarshal(raw) + ":unmarshalledOnClient";
+            Loggers.forClass(ResultStringUnMarshaller.class).info(res);
+            return res;
+        }
+    }
+
+    /** Unmarshals result bytes to a list of strings and adds ":unmarshalledOnClient" to each string. */
+    public static class ResultStringListUnMarshaller implements ByteArrayMarshaller<List<String>> {
+        @Override
+        public byte @Nullable [] marshal(@Nullable List<String> object) {
+            Loggers.forClass(ResultStringListUnMarshaller.class).info("listMarshalledOnServer {}", object);
+            List<String> strings = object.stream().map(str -> str + ":listMarshalledOnServer").collect(toList());
+            return ByteArrayMarshaller.super.marshal(strings);
+        }
+
+        @Override
+        public @Nullable List<String> unmarshal(byte @Nullable [] raw) {
+            List<String> strings = ByteArrayMarshaller.super.unmarshal(raw);
+            Loggers.forClass(ResultStringListUnMarshaller.class).info("listUnmarshalledOnClient {}", strings);
+            return strings.stream().map(str -> str + ":listUnmarshalledOnClient").collect(toList());
         }
     }
 
@@ -85,6 +121,7 @@ public class Jobs {
     public static class ArgumentAndResultMarshallingJob implements ComputeJob<String, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable String arg) {
+            Loggers.forClass(ArgumentAndResultMarshallingJob.class).info("processedOnServer {}", arg);
             return completedFuture(arg + ":processedOnServer");
         }
 
@@ -93,7 +130,9 @@ public class Jobs {
             return new ByteArrayMarshaller<>() {
                 @Override
                 public String unmarshal(byte @Nullable [] raw) {
-                    return ByteArrayMarshaller.super.unmarshal(raw) + ":unmarshalledOnServer";
+                    String res = ByteArrayMarshaller.super.unmarshal(raw) + ":unmarshalledOnServer";
+                    Loggers.forClass(ArgumentAndResultMarshallingJob.class).info(res);
+                    return res;
                 }
             };
         }
@@ -103,6 +142,7 @@ public class Jobs {
             return new ByteArrayMarshaller<>() {
                 @Override
                 public byte @Nullable [] marshal(@Nullable String object) {
+                    Loggers.forClass(ArgumentAndResultMarshallingJob.class).info("marshalledOnServer {}", object);
                     return ByteArrayMarshaller.super.marshal(object + ":marshalledOnServer");
                 }
             };
@@ -312,6 +352,7 @@ public class Jobs {
                 @Nullable List<String> input) {
 
             List<ClusterNode> nodes = new ArrayList<>(taskContext.ignite().clusterNodes());
+            nodes.sort(comparing(ClusterNode::name));
 
             var mapJobDescriptor = JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                     .argumentMarshaller(new ArgumentStringMarshaller())
@@ -339,12 +380,12 @@ public class Jobs {
 
         @Override
         public @Nullable Marshaller<List<String>, byte[]> splitJobInputMarshaller() {
-            return ByteArrayMarshaller.create();
+            return new ArgumentStringListMarshaller();
         }
 
         @Override
         public @Nullable Marshaller<List<String>, byte[]> reduceJobResultMarshaller() {
-            return ByteArrayMarshaller.create();
+            return new ResultStringListUnMarshaller();
         }
     }
 

@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import static org.apache.ignite.internal.client.proto.pojo.PojoConverter.fromTuple;
+import static org.apache.ignite.internal.compute.PojoConverter.fromTuple;
 import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 
 import java.lang.reflect.InvocationTargetException;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
-import org.apache.ignite.internal.client.proto.pojo.PojoConversionException;
-import org.apache.ignite.internal.compute.ComputeJobArgumentHolder;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobType;
+import org.apache.ignite.internal.compute.PojoConversionException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnmarshallingException;
 import org.jetbrains.annotations.Nullable;
@@ -128,11 +128,10 @@ public final class ClientComputeJobUnpacker {
         switch (type) {
             case NATIVE:
                 return unpacker.unpackObjectFromBinaryTuple();
-            case MARSHALLED_TUPLE: // Fallthrough, both types are unmarshalled just before execution.
+            case MARSHALLED_TUPLE: // Fallthrough, these types are unmarshalled just before execution.
             case MARSHALLED_POJO:
-                return new ComputeJobArgumentHolder(type, unpacker.readBinary());
             case MARSHALLED_CUSTOM:
-                return unpacker.readBinary();
+                return new ComputeJobDataHolder(type, unpacker.readBinary());
             default:
                 throw new UnmarshallingException("Unsupported compute job type: " + type);
         }
