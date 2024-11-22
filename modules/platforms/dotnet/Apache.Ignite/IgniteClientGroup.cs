@@ -26,9 +26,9 @@ using Internal;
 using Internal.Common;
 
 /// <summary>
-/// Ignite client pool. Thread safe.
+/// Ignite client group. Thread safe.
 /// <para>
-/// This pool creates up to <see cref="IgniteClientPoolConfiguration.Size"/> Ignite clients and returns them in a round-robin fashion.
+/// Creates and maintains up to <see cref="IgniteClientGroupConfiguration.Size"/> Ignite clients and returns them in a round-robin fashion.
 /// Ignite clients are thread safe, so there is no rent/return semantics.
 /// </para>
 /// <example>
@@ -52,7 +52,7 @@ using Internal.Common;
 /// </code>
 /// </example>
 /// </summary>
-public sealed class IgniteClientPool : IDisposable
+public sealed class IgniteClientGroup : IDisposable
 {
     private readonly IgniteClientInternal?[] _clients;
 
@@ -63,10 +63,10 @@ public sealed class IgniteClientPool : IDisposable
     private int _clientIndex;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="IgniteClientPool"/> class.
+    /// Initializes a new instance of the <see cref="IgniteClientGroup"/> class.
     /// </summary>
     /// <param name="configuration">Configuration.</param>
-    public IgniteClientPool(IgniteClientPoolConfiguration configuration)
+    public IgniteClientGroup(IgniteClientGroupConfiguration configuration)
     {
         IgniteArgumentCheck.NotNull(configuration);
         IgniteArgumentCheck.NotNull(configuration.ClientConfiguration);
@@ -79,7 +79,7 @@ public sealed class IgniteClientPool : IDisposable
     /// <summary>
     /// Gets the configuration.
     /// </summary>
-    public IgniteClientPoolConfiguration Configuration { get; }
+    public IgniteClientGroupConfiguration Configuration { get; }
 
     /// <summary>
     /// Gets a value indicating whether the pool is disposed.
@@ -94,7 +94,7 @@ public sealed class IgniteClientPool : IDisposable
     /// </summary>
     /// <returns>Ignite client.</returns>
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Pooled.")]
-    public async ValueTask<IIgniteClient> GetClientAsync()
+    public async ValueTask<IIgnite> GetIgniteAsync()
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
 
@@ -148,7 +148,7 @@ public sealed class IgniteClientPool : IDisposable
 
     /// <inheritdoc />
     public override string ToString() =>
-        new IgniteToStringBuilder(typeof(IgniteClientPool))
+        new IgniteToStringBuilder(typeof(IgniteClientGroup))
             .Append(_clients.Count(static c => c is { IsDisposed: false }), "Connected")
             .Append(Configuration.Size, "Size")
             .Build();

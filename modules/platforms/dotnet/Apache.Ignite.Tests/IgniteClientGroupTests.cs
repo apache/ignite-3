@@ -22,9 +22,9 @@ using System.Threading.Tasks;
 using NUnit.Framework;
 
 /// <summary>
-/// Tests for <see cref="IgniteClientPool"/>.
+/// Tests for <see cref="IgniteClientGroup"/>.
 /// </summary>
-public class IgniteClientPoolTests
+public class IgniteClientGroupTests
 {
     private FakeServer _server;
 
@@ -37,9 +37,9 @@ public class IgniteClientPoolTests
     [Test]
     public async Task TestGetClient()
     {
-        using IgniteClientPool pool = CreatePool();
-        IIgniteClient client = await pool.GetClientAsync();
-        IIgniteClient client2 = await pool.GetClientAsync();
+        using IgniteClientGroup group = CreatePool();
+        IIgnite client = await group.GetIgniteAsync();
+        IIgnite client2 = await group.GetIgniteAsync();
 
         Assert.IsNotNull(client);
         Assert.AreSame(client, client2);
@@ -50,34 +50,34 @@ public class IgniteClientPoolTests
     [Test]
     public async Task TestRoundRobin()
     {
-        using IgniteClientPool pool = CreatePool(size: 3);
+        using IgniteClientGroup group = CreatePool(size: 3);
 
-        var client1 = await pool.GetClientAsync();
-        var client2 = await pool.GetClientAsync();
-        var client3 = await pool.GetClientAsync();
+        var client1 = await group.GetIgniteAsync();
+        var client2 = await group.GetIgniteAsync();
+        var client3 = await group.GetIgniteAsync();
 
         Assert.AreNotSame(client1, client2);
         Assert.AreNotSame(client2, client3);
 
-        Assert.AreSame(client1, await pool.GetClientAsync());
-        Assert.AreSame(client2, await pool.GetClientAsync());
-        Assert.AreSame(client3, await pool.GetClientAsync());
+        Assert.AreSame(client1, await group.GetIgniteAsync());
+        Assert.AreSame(client2, await group.GetIgniteAsync());
+        Assert.AreSame(client3, await group.GetIgniteAsync());
 
-        Assert.AreSame(client1, await pool.GetClientAsync());
-        Assert.AreSame(client2, await pool.GetClientAsync());
-        Assert.AreSame(client3, await pool.GetClientAsync());
+        Assert.AreSame(client1, await group.GetIgniteAsync());
+        Assert.AreSame(client2, await group.GetIgniteAsync());
+        Assert.AreSame(client3, await group.GetIgniteAsync());
     }
 
     [Test]
     public async Task TestPoolReconnectsDisposedClient()
     {
-        using IgniteClientPool pool = CreatePool();
-        IIgniteClient client = await pool.GetClientAsync();
+        using IgniteClientGroup group = CreatePool();
+        IIgnite client = await group.GetIgniteAsync();
 
         await client.Tables.GetTablesAsync();
-        client.Dispose();
+        ((IDisposable)client).Dispose();
 
-        IIgniteClient client2 = await pool.GetClientAsync();
+        IIgnite client2 = await group.GetIgniteAsync();
         await client2.Tables.GetTablesAsync();
 
         Assert.AreNotSame(client, client2);
@@ -87,23 +87,23 @@ public class IgniteClientPoolTests
     public void TestConstructorValidatesArgs()
     {
         // ReSharper disable once ObjectCreationAsStatement
-        Assert.Throws<ArgumentNullException>(() => new IgniteClientPool(null!));
+        Assert.Throws<ArgumentNullException>(() => new IgniteClientGroup(null!));
     }
 
     [Test]
     public async Task TestUseAfterDispose()
     {
-        IgniteClientPool pool = CreatePool(size: 2);
+        IgniteClientGroup group = CreatePool(size: 2);
 
-        var client1 = await pool.GetClientAsync();
-        var client2 = await pool.GetClientAsync();
+        var client1 = await group.GetIgniteAsync();
+        var client2 = await group.GetIgniteAsync();
 
         Assert.AreNotSame(client1, client2);
 
-        pool.Dispose();
+        group.Dispose();
 
         // Pool and clients are disposed, all operations should throw.
-        Assert.ThrowsAsync<ObjectDisposedException>(async () => await pool.GetClientAsync());
+        Assert.ThrowsAsync<ObjectDisposedException>(async () => await group.GetIgniteAsync());
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await client1.Tables.GetTablesAsync());
         Assert.ThrowsAsync<ObjectDisposedException>(async () => await client2.Tables.GetTablesAsync());
     }
@@ -113,15 +113,15 @@ public class IgniteClientPoolTests
     {
         var pool = CreatePool(5);
 
-        await pool.GetClientAsync();
-        await pool.GetClientAsync();
+        await pool.GetIgniteAsync();
+        await pool.GetIgniteAsync();
 
         Assert.AreEqual("IgniteClientPool { Connected = 2, Size = 5 }", pool.ToString());
     }
 
-    private IgniteClientPool CreatePool(int size = 1) =>
-        new IgniteClientPool(
-            new IgniteClientPoolConfiguration
+    private IgniteClientGroup CreatePool(int size = 1) =>
+        new IgniteClientGroup(
+            new IgniteClientGroupConfiguration
             {
                 Size = size,
                 ClientConfiguration = new IgniteClientConfiguration(_server.Endpoint)

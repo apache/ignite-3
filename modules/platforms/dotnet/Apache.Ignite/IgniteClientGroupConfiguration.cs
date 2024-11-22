@@ -18,17 +18,17 @@
 namespace Apache.Ignite;
 
 /// <summary>
-/// Ignite client pool configuration.
+/// Ignite client group configuration. See <see cref="IgniteClientGroup"/> for more details.
 /// </summary>
-public sealed record IgniteClientPoolConfiguration
+public sealed record IgniteClientGroupConfiguration
 {
     /// <summary>
-    /// Gets or sets the pool size (maximum number of clients).
+    /// Gets or sets the group size (maximum number of clients).
     /// </summary>
     public int Size { get; set; }
 
     /// <summary>
-    /// Gets or sets the configuration for pooled clients.
+    /// Gets or sets the client configuration.
     /// </summary>
     public required IgniteClientConfiguration ClientConfiguration { get; set; }
 }
