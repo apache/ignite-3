@@ -226,8 +226,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private volatile @Nullable HybridTimestamp lastIdleSafeTimeProposal;
 
-    private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
-
     /**
      * Constructor for a replica service.
      *
@@ -348,7 +346,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 getPendingAssignmentsSupplier,
                 this
         );
-        this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
 
         // This pool MUST be single-threaded to make sure idle safe time propagation attempts are not reordered on it.
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
@@ -691,8 +688,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             executor,
                             placementDriver,
                             clockService,
-                            replicaStateManager::reserveReplica,
-                            getPendingAssignmentsSupplier
+                            replicaStateManager::reserveReplica
                     )
             );
         } finally {
@@ -1277,7 +1273,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
                                 + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
 
-                    // registerFailoverCallback(replicationGroupId);
+                    registerFailoverCallback(replicationGroupId);
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(replicationGroupId, parameters.startTime());
 
@@ -1302,9 +1298,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        // deregisterFailoverCallback(parameters);
+                        deregisterFailoverCallback(parameters);
 
                         context.assertReservation(parameters.groupId(), parameters.startTime());
+
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
@@ -1321,11 +1318,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return falseCompletedFuture();
         }
 
+        // TODO: move to Replica https://issues.apache.org/jira/browse/IGNITE-23750
         private void registerFailoverCallback(TablePartitionId replicationGroupId) {
             CompletableFuture<Replica> replicaFuture = replicaManager.replica(replicationGroupId);
 
-            // assert replicaFuture != null : "There no replica grpId=" + replicationGroupId;
-
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-23753
+            // For now we assume that it's a possible situation to get null future on node's stopp process, but it should be fixed with
+            // a correct and consistent replica's state.
             if (replicaFuture == null) {
                 return;
             }
@@ -1338,13 +1337,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             );
 
             replica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback).join();
-
-            // LOG.info("!!! subscribed grpId={}", replicationGroupId);
         }
 
+        // TODO: move to Replica https://issues.apache.org/jira/browse/IGNITE-23750
         private void deregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
             CompletableFuture<Replica> replicaFuture = replicaManager.replica(parameters.groupId());
 
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-23753
+            // For now we assume that it's a possible situation to get null future on node's stopp process, but it should be fixed with
+            // a correct and consistent replica's state.
             if (replicaFuture == null) {
                 return;
             }

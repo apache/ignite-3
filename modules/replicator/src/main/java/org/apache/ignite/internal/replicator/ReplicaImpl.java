@@ -20,8 +20,6 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
@@ -32,17 +30,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
@@ -106,8 +100,6 @@ public class ReplicaImpl implements Replica {
 
     private final BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure;
 
-    private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
-
     private LeaderElectionListener onLeaderElectedFailoverCallback;
 
     /**
@@ -131,8 +123,7 @@ public class ReplicaImpl implements Replica {
             ExecutorService executor,
             PlacementDriver placementDriver,
             ClockService clockService,
-            BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure,
-            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
+            BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
@@ -143,12 +134,8 @@ public class ReplicaImpl implements Replica {
         this.placementDriver = placementDriver;
         this.clockService = clockService;
         this.replicaReservationClosure = replicaReservationClosure;
-        this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
 
         raftClient.subscribeLeader(this::onLeaderElected);
-
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
     }
 
     @Override
@@ -281,59 +268,6 @@ public class ReplicaImpl implements Replica {
         return raftClient.run(cmd);
     }
 
-    private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
-        if (!localNode.id().equals(parameters.leaseholderId())) {
-            return falseCompletedFuture();
-        }
-
-        TablePartitionId replicationGroupId = (TablePartitionId) parameters.groupId();
-
-        onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(replicationGroupId, term);
-
-        raftClient.subscribeLeader(onLeaderElectedFailoverCallback).join();
-
-        // LOG.info("!!! subscribed grpId={}", replicationGroupId);
-
-        return falseCompletedFuture();
-    }
-
-    private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters) {
-        if (localNode.id().equals(parameters.leaseholderId())) {
-            return raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback)
-                    .thenApply(v -> {
-                        onLeaderElectedFailoverCallback = null;
-                        return false;
-                    });
-        }
-
-        return falseCompletedFuture();
-    }
-
-    private void changePeersAndLearnersAsyncIfPendingExists(
-            TablePartitionId replicationGroupId,
-            long term
-    ) {
-        // LOG.info("!!! changePeersAndLearnersAsyncIfPendingExists grpId={}", replicationGroupId);
-
-        byte[] pendings = getPendingAssignmentsSupplier.apply(replicationGroupId).join();
-
-        if (pendings == null) {
-            // LOG.info("!!! pendings are empty replicationGrpId={}", replicationGroupId);
-            return;
-        }
-
-        Assignments newConfiguration = Assignments.fromBytes(pendings);
-
-        PeersAndLearners newConfigurationPeersAndLearners = fromAssignments(newConfiguration.nodes());
-
-        LOG.info(
-                "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
-                replicationGroupId, newConfigurationPeersAndLearners.peers(), newConfigurationPeersAndLearners.learners()
-        );
-
-        raftClient.changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
-    }
-
     private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(
             HybridTimestamp leaseStartTime,
             HybridTimestamp leaseExpirationTime
@@ -388,14 +322,6 @@ public class ReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<Void> shutdown() {
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::onPrimaryElected);
-
-        if (onLeaderElectedFailoverCallback != null) {
-            raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback).join();
-            onLeaderElectedFailoverCallback = null;
-        }
-
         listener.onShutdown();
         return raftClient.unsubscribeLeader()
                 .thenAccept(v -> raftClient.shutdown());
