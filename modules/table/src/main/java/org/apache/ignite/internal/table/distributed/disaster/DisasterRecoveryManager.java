@@ -272,7 +272,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             }
 
             tablesResetFuts.add(resetPartitions(
-                    zoneDescriptor.name(), table.name(), partitionsToReset, false));
+                    zoneDescriptor.name(), table.id(), partitionsToReset, false));
         }
 
         return allOf(tablesResetFuts.toArray(new CompletableFuture[]{})).thenApply(r -> false);
