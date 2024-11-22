@@ -23,7 +23,6 @@ import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
-import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 
 /**
@@ -39,14 +38,12 @@ public class LocksViewProvider {
 
     /** Returns system view exposing active locks. */
     public SystemView<?> get() {
-        NativeType stringType = stringOf(Short.MAX_VALUE);
-
         return SystemViews.<Lock>nodeViewBuilder()
                 .name("LOCKS")
                 .nodeNameColumnAlias("OWNING_NODE_ID")
-                .<String>addColumn("TX_ID", stringType, lock -> lock.txId().toString())
-                .<String>addColumn("OBJECT_ID", stringType, lock -> formatLockKey(lock.lockKey()))
-                .<String>addColumn("MODE", stringType, lock -> lock.lockMode().name())
+                .<String>addColumn("TX_ID", stringOf(36), lock -> lock.txId().toString())
+                .<String>addColumn("OBJECT_ID", stringOf(Short.MAX_VALUE), lock -> formatLockKey(lock.lockKey()))
+                .<String>addColumn("MODE", stringOf(2), lock -> lock.lockMode().name())
                 .dataProvider(SubscriptionUtils.fromIterable(locks))
                 .build();
     }
