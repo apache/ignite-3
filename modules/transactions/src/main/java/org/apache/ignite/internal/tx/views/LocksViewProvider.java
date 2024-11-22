@@ -37,6 +37,7 @@ public class LocksViewProvider {
         this.locks = locks;
     }
 
+    /** Returns system view exposing active locks. */
     public SystemView<?> get() {
         NativeType stringType = stringOf(Short.MAX_VALUE);
 
