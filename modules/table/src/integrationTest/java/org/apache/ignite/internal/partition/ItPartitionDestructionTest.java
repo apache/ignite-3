@@ -49,8 +49,6 @@ import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
@@ -169,8 +167,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         );
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
+    @Test
     void partitionIsDestroyedWhenItIsEvictedFromNode() throws Exception {
         cluster.startAndInit(2);
 
