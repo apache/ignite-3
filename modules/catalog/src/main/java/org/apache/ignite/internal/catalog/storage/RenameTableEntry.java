@@ -92,7 +92,7 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
     private static class RenameTableEntrySerializer implements CatalogObjectSerializer<RenameTableEntry> {
         @Override
         public RenameTableEntry readFrom(IgniteDataInput input) throws IOException {
-            int tableId = input.readInt();
+            int tableId = input.readVarIntAsInt();
             String newTableName = input.readUTF();
 
             return new RenameTableEntry(tableId, newTableName);
@@ -100,7 +100,7 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
 
         @Override
         public void writeTo(RenameTableEntry entry, IgniteDataOutput output) throws IOException {
-            output.writeInt(entry.tableId);
+            output.writeVarInt(entry.tableId);
             output.writeUTF(entry.newTableName);
         }
     }

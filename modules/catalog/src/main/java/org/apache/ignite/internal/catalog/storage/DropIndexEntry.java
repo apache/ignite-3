@@ -75,14 +75,14 @@ public class DropIndexEntry extends AbstractChangeIndexStatusEntry implements Fi
     private static class DropIndexEntrySerializer implements CatalogObjectSerializer<DropIndexEntry> {
         @Override
         public DropIndexEntry readFrom(IgniteDataInput input) throws IOException {
-            int indexId = input.readInt();
+            int indexId = input.readVarIntAsInt();
 
             return new DropIndexEntry(indexId);
         }
 
         @Override
         public void writeTo(DropIndexEntry entry, IgniteDataOutput out) throws IOException {
-            out.writeInt(entry.indexId());
+            out.writeVarInt(entry.indexId());
         }
     }
 }
