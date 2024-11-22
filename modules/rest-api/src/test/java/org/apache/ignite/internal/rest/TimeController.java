@@ -15,25 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.rest;
 
-import java.util.function.LongSupplier;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
+import io.micronaut.http.annotation.Body;
+import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Post;
 
-/**
- * Test hybrid clock with custom supplier of current time. TODO delete
- */
-public class TestHybridClock extends HybridClockImpl {
-    /** Supplier of current time in milliseconds. */
-    private final LongSupplier currentTimeMillisSupplier;
-
-    public TestHybridClock(LongSupplier currentTimeMillisSupplier) {
-        this.currentTimeMillisSupplier = currentTimeMillisSupplier;
-        now();
-    }
-
-    @Override
-    protected long physicalTime() {
-        return currentTimeMillisSupplier.getAsLong();
+@Controller("/time")
+class TimeController {
+    @Post
+    public static String time(@Body TimeDto time) {
+        return time.time().toString();
     }
 }

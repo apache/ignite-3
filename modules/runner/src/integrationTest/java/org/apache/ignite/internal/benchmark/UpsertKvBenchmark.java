@@ -20,8 +20,8 @@ package org.apache.ignite.internal.benchmark;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -66,6 +66,13 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"8"})
     private int partitionCount;
 
+    private static final AtomicInteger counter = new AtomicInteger();
+
+    private static final ThreadLocal<Integer> gen = ThreadLocal.withInitial(() -> {
+        int id = counter.getAndIncrement();
+        return id * 20_000_000;
+    });
+
     @Override
     public void nodeSetUp() throws Exception {
         System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
@@ -104,7 +111,9 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     private int nextId() {
-        return ThreadLocalRandom.current().nextInt();
+        int cur = gen.get() + 1;
+        gen.set(cur);
+        return cur;
     }
 
     /**

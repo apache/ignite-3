@@ -15,25 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.rest;
 
-import java.util.function.LongSupplier;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Instant;
 
-/**
- * Test hybrid clock with custom supplier of current time. TODO delete
- */
-public class TestHybridClock extends HybridClockImpl {
-    /** Supplier of current time in milliseconds. */
-    private final LongSupplier currentTimeMillisSupplier;
+class TimeDto {
+    private final Instant time;
 
-    public TestHybridClock(LongSupplier currentTimeMillisSupplier) {
-        this.currentTimeMillisSupplier = currentTimeMillisSupplier;
-        now();
+    @JsonCreator
+    TimeDto(@JsonProperty("time") Instant time) {
+        this.time = time;
     }
 
-    @Override
-    protected long physicalTime() {
-        return currentTimeMillisSupplier.getAsLong();
+    @JsonProperty("time")
+    Instant time() {
+        return time;
     }
 }

@@ -15,25 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal;
+package org.apache.ignite.internal.compute;
 
-import java.util.function.LongSupplier;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 
-/**
- * Test hybrid clock with custom supplier of current time. TODO delete
- */
-public class TestHybridClock extends HybridClockImpl {
-    /** Supplier of current time in milliseconds. */
-    private final LongSupplier currentTimeMillisSupplier;
-
-    public TestHybridClock(LongSupplier currentTimeMillisSupplier) {
-        this.currentTimeMillisSupplier = currentTimeMillisSupplier;
-        now();
-    }
-
+/** Compute job that sleeps for a number of milliseconds passed in the argument and completes successfully in any case. */
+public class SilentSleepJob implements ComputeJob<Long, Void> {
     @Override
-    protected long physicalTime() {
-        return currentTimeMillisSupplier.getAsLong();
+    public CompletableFuture<Void> executeAsync(JobExecutionContext jobExecutionContext, Long timeout) {
+        try {
+            TimeUnit.SECONDS.sleep(timeout);
+        } catch (InterruptedException e) {
+            // no op.
+        }
+        return null;
     }
 }

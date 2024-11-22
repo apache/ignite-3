@@ -358,6 +358,13 @@ public class Cluster {
     }
 
     /**
+     * Returns an Ignite node (a member of the cluster) by its index.
+     */
+    public @Nullable Ignite nullableNode(int index) {
+        return nodes.get(index);
+    }
+
+    /**
      * Returns a node that is not stopped and not knocked out (so it can be used to interact with the cluster).
      */
     public Ignite aliveNode() {

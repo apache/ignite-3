@@ -101,7 +101,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
         partitionIdleSafeTimePropagationPeriod.set(CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
 
-        metastore = StandaloneMetaStorageManager.create(NODE_NAME);
+        metastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
         updateLog = spy(new UpdateLogImpl(metastore));
         clockWaiter = spy(new ClockWaiter(NODE_NAME, clock));

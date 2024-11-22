@@ -184,10 +184,6 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
-    }
-
-    @Override
     public CompletableFuture<Void> finish(
             HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
@@ -238,5 +234,10 @@ public class FakeTxManager implements TxManager {
     @Override
     public int pending() {
         return 0;
+    }
+
+    @Override
+    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit) {
+        // No-op.
     }
 }

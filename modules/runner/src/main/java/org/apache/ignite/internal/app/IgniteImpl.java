@@ -746,7 +746,7 @@ public class IgniteImpl implements Ignite {
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry
                 .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
-        clockService = new ClockServiceImpl(clock, clockWaiter, new SameValueLongSupplier(() -> schemaSyncConfig.maxClockSkew().value()));
+        clockService = new ClockServiceImpl(clock, clockWaiter, () -> schemaSyncConfig.maxClockSkew().value());
 
         idempotentCacheVacuumizer = new IdempotentCacheVacuumizer(
                 name,
@@ -1179,12 +1179,12 @@ public class IgniteImpl implements Ignite {
         return Map.copyOf(decoratedEngines);
     }
 
-    private static SameValueLongSupplier delayDurationMsSupplier(SchemaSynchronizationConfiguration schemaSyncConfig) {
-        return new SameValueLongSupplier(() -> schemaSyncConfig.delayDuration().value());
+    private static LongSupplier delayDurationMsSupplier(SchemaSynchronizationConfiguration schemaSyncConfig) {
+        return () -> schemaSyncConfig.delayDuration().value();
     }
 
     private static LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier(ReplicationConfiguration replicationConfig) {
-        return new SameValueLongSupplier(() -> replicationConfig.idleSafeTimePropagationDuration().value());
+        return () -> replicationConfig.idleSafeTimePropagationDuration().value();
     }
 
     private AuthenticationManager createAuthenticationManager() {

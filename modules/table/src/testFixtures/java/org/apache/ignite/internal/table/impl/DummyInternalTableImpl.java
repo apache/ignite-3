@@ -60,6 +60,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
@@ -77,6 +78,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -292,6 +294,45 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         return replicaListener.invoke(invocationOnMock.getArgument(1), nodeId).thenApply(ReplicaResult::result);
                     })
                     .when(replicaSvc).invoke(anyString(), any());
+
+            lenient()
+                    .doAnswer(invocationOnMock -> {
+                        ClusterNode node = invocationOnMock.getArgument(0);
+
+                        return replicaListener.invoke(invocationOnMock.getArgument(1), node.id())
+                                .thenApply(r -> new TimestampAwareReplicaResponse() {
+                                    @Override
+                                    public @Nullable Object result() {
+                                        return r.result();
+                                    }
+
+                                    @Override
+                                    public @Nullable HybridTimestamp timestamp() {
+                                        return CLOCK.now();
+                                    }
+
+                                    @Override
+                                    public MessageSerializer<NetworkMessage> serializer() {
+                                        return null;
+                                    }
+
+                                    @Override
+                                    public short messageType() {
+                                        return 0;
+                                    }
+
+                                    @Override
+                                    public short groupType() {
+                                        return 0;
+                                    }
+
+                                    @Override
+                                    public NetworkMessage clone() {
+                                        return null;
+                                    }
+                                });
+                    })
+                    .when(replicaSvc).invokeRaw(any(ClusterNode.class), any());
         }
 
         AtomicLong raftIndex = new AtomicLong(1);
@@ -544,7 +585,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
+    public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId, @Nullable HybridTimestamp readTimestamp) {
         return completedFuture(LOCAL_NODE);
     }
 
