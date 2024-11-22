@@ -587,7 +587,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 // before other fragments.
                 node.taskExecutor.execute(() -> {
                     try {
-                        if (msg instanceof QueryStartResponseImpl) {
+                        // We need to block only root fragment execution, otherwise due to asynchronous fragments processing fragments with
+                        // different fragmentId can be processed before root (fragmentId=0) and block pool threads for
+                        // further processing jobs.
+                        if (msg instanceof QueryStartResponseImpl && ((QueryStartResponseImpl) msg).fragmentId() == 0) {
                             startResponse.countDown();
                             nodeFailedLatch.await();
                         }

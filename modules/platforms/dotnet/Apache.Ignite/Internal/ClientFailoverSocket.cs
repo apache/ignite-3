@@ -119,6 +119,11 @@ namespace Apache.Ignite.Internal
         public Guid ClientId { get; } = Guid.NewGuid();
 
         /// <summary>
+        /// Gets a value indicating whether the socket is disposed.
+        /// </summary>
+        public bool IsDisposed => _disposed;
+
+        /// <summary>
         /// Connects the socket.
         /// </summary>
         /// <param name="configuration">Client configuration.</param>
