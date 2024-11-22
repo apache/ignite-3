@@ -298,7 +298,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(val, "val");
 
-        InternalTransaction tx0 = tbl.startImplicitRoTxIfNeeded((InternalTransaction) tx);
+        InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
         return doOperation(tx0, (schemaVersion) -> {
             Row row = marshal(key, val, schemaVersion);
@@ -421,7 +421,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(key, "key");
         Objects.requireNonNull(val, "val");
 
-        InternalTransaction tx0 = tbl.startImplicitRoTxIfNeeded((InternalTransaction) tx);
+        InternalTransaction tx0 = tbl.startImplicitRwTxIfNeeded((InternalTransaction) tx);
 
         return doOperation(tx0, (schemaVersion) -> {
             Row row = marshal(key, val, schemaVersion);
