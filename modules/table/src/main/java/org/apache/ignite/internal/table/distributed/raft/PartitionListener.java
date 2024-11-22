@@ -45,7 +45,6 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
@@ -58,7 +57,6 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -96,7 +94,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Partition command handler.
  */
-public class PartitionListener implements RaftGroupListener, BeforeApplyHandler {
+public class PartitionListener implements RaftGroupListener {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
 
@@ -119,12 +117,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
-
-    /** Is used in order to detect and retry safe time reordering within onBeforeApply. */
-    private volatile long maxObservableSafeTime = -1;
-
-    /** Is used in order to assert safe time reordering within onWrite. */
-    private long maxObservableSafeTimeVerifier = -1;
 
     private final CatalogService catalogService;
 
@@ -197,15 +189,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
             if (command instanceof SafeTimePropagatingCommand) {
                 SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
-                long proposedSafeTime = cmd.safeTime().longValue();
 
-                // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
-                // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
-                // by raft client because of either TimeoutException or inner raft server recoverable exception.
-                assert proposedSafeTime >= maxObservableSafeTimeVerifier : "Safe time reordering detected [current="
-                        + maxObservableSafeTimeVerifier + ", proposed=" + proposedSafeTime + "]";
+                LOG.info("Try update cur=" + safeTime.current() + " new=" + cmd.safeTime());
 
-                maxObservableSafeTimeVerifier = proposedSafeTime;
+                safeTime.updateStrict(cmd.safeTime(), null);
             }
 
             long commandIndex = clo.index();
@@ -298,7 +285,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return new UpdateCommandResult(true, isPrimaryInGroupTopology());
+            return new UpdateCommandResult(true, isPrimaryInGroupTopology(), cmd.safeTime().longValue());
         }
 
         if (cmd.leaseStartTime() != null) {
@@ -310,7 +297,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 return new UpdateCommandResult(
                         false,
                         storageLeaseStartTime,
-                        isPrimaryInGroupTopology()
+                        isPrimaryInGroupTopology(),
+                        cmd.safeTime().longValue()
                 );
             }
         }
@@ -342,7 +330,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
 
-        return new UpdateCommandResult(true, isPrimaryInGroupTopology());
+        return new UpdateCommandResult(true, isPrimaryInGroupTopology(), cmd.safeTime().longValue());
     }
 
     /**
@@ -355,7 +343,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private UpdateCommandResult handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return new UpdateCommandResult(true, isPrimaryInGroupTopology());
+            return new UpdateCommandResult(true, isPrimaryInGroupTopology(), cmd.safeTime().longValue());
         }
 
         if (cmd.leaseStartTime() != null) {
@@ -367,7 +355,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 return new UpdateCommandResult(
                         false,
                         storageLeaseStartTime,
-                        isPrimaryInGroupTopology()
+                        isPrimaryInGroupTopology(),
+                        cmd.safeTime().longValue()
                 );
             }
         }
@@ -394,7 +383,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
 
-        return new UpdateCommandResult(true, isPrimaryInGroupTopology());
+        return new UpdateCommandResult(true, isPrimaryInGroupTopology(), cmd.safeTime().longValue());
     }
 
     /**
@@ -580,34 +569,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     @Override
-    public boolean onBeforeApply(Command command) {
-        // This method is synchronized by replication group specific monitor, see ActionRequestProcessor#handleRequest.
-        if (command instanceof SafeTimePropagatingCommand) {
-            SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
-            long proposedSafeTime = cmd.safeTime().longValue();
-
-            if (maxObservableSafeTime == -1) {
-                maxObservableSafeTime = clockService.now().addPhysicalTime(clockService.maxClockSkewMillis()).longValue();
-                LOG.info("maxObservableSafeTime has been initialized with [{}].", HybridTimestamp.hybridTimestamp(maxObservableSafeTime));
-            }
-
-            // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
-            // maxObservableSafeTime may match proposedSafeTime only if it is the command that was previously validated and then retried
-            // by raft client because of either TimeoutException or inner raft server recoverable exception.
-            if (proposedSafeTime >= maxObservableSafeTime) {
-                maxObservableSafeTime = proposedSafeTime;
-            } else {
-                throw new SafeTimeReorderException(maxObservableSafeTime);
-            }
-        }
-
-        return false;
-    }
-
-    @Override
     public void onLeaderStop() {
-        maxObservableSafeTime = -1;
-        LOG.info("maxObservableSafeTime has been reset on leader stop.");
+        // No-op.
     }
 
     /**

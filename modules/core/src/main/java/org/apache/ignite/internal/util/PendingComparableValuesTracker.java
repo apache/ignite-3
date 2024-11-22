@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -107,6 +108,34 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
             } finally {
                 busyLock.readLock().unlock();
             }
+        }
+    }
+
+    /**
+     * Strict update. Always called from the same updater thread.
+     *
+     * @param newValue New value.
+     * @param futureResult A result that will be used to complete a future returned by the
+     *         {@link PendingComparableValuesTracker#waitFor(Comparable)}.
+     */
+    public void updateStrict(T newValue, @Nullable R futureResult) {
+        if (!busyLock.readLock().tryLock()) {
+            throw new TrackerClosedException();
+        }
+
+        try {
+            Map.Entry<T, @Nullable R> current = this.current;
+
+            IgniteBiTuple<T, @Nullable R> newEntry = new IgniteBiTuple<>(newValue, futureResult);
+
+            if (comparator.compare(newEntry, current) <= 0) {
+                throw new IgniteInternalException("Safe timestamp reordering detected");
+            }
+
+            CURRENT.set(this, newEntry);
+            completeWaitersOnUpdate(newValue, futureResult);
+        } finally {
+            busyLock.readLock().unlock();
         }
     }
 

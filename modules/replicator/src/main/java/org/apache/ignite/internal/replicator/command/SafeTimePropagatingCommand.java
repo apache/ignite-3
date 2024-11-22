@@ -36,4 +36,9 @@ public interface SafeTimePropagatingCommand extends WriteCommand {
     default void safeTime(HybridTimestamp safeTime) {
         // No-op.
     }
+
+    @Override
+    default void patch(HybridTimestamp safeTs) {
+        safeTime(safeTs);
+    }
 }

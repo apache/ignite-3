@@ -74,8 +74,13 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
         return new TestHybridClock(() -> node.address().port() == CLIENT_PORT ? CLIENT_FROZEN_PHYSICAL_TIME : System.currentTimeMillis());
     }
 
+    @Override
+    protected long getSafeTimePropagationTimeout() {
+        return 300_000;
+    }
+
     @Test
-    public void testImplicitObservableTimePropagation() {
+    public void testImplicitObservableTimePropagation() throws InterruptedException {
         RecordView<Tuple> view = accounts.recordView();
         view.upsert(null, makeValue(1, 100.0));
         TxManagerImpl clientTxManager = (TxManagerImpl) txTestCluster.clientTxManager;

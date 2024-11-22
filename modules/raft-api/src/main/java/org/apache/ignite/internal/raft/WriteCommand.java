@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.raft;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+
 /**
  * A write command.
  */
 public interface WriteCommand extends Command {
+    default void patch(HybridTimestamp safeTs) {}
 }

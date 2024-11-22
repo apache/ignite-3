@@ -352,6 +352,7 @@ public class MetaStorageWriteHandler {
         }
     }
 
+    // TODO FIXME wtf?
     boolean beforeApply(Command command) {
         if (command instanceof MetaStorageWriteCommand) {
             // Initiator sends us a timestamp to adjust to.

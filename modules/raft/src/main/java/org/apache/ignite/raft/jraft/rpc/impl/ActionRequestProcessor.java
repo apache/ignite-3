@@ -111,18 +111,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
             if (fsm.getListener() instanceof BeforeApplyHandler) {
                 synchronized (groupIdSyncMonitor(request.groupId())) {
-                    try {
-                        writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
-                    } catch (SafeTimeReorderException e) {
-                        rpcCtx.sendResponse(
-                                factory.errorResponse()
-                                    .maxObservableSafeTimeViolatedValue(e.maxObservableSafeTimeViolatedValue())
-                                    .errorCode(RaftError.EREORDER.getNumber())
-                                    .build()
-                        );
-
-                        return;
-                    }
+                    writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
 
                     applyWrite(node, writeRequest, command, rpcCtx);
                 }
@@ -152,7 +141,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             BeforeApplyHandler beforeApplyHandler,
             Command command,
             Marshaller commandsMarshaller
-    ) throws SafeTimeReorderException {
+    ) {
         if (!beforeApplyHandler.onBeforeApply(command)) {
             return request;
         }

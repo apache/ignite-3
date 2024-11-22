@@ -90,6 +90,10 @@ public interface DirectByteBufferStream {
      */
     void writeInt(int val);
 
+    void writeFixedInt(int val);
+
+    void writeFixedLong(long val);
+
     /**
      * Writes {@code Integer}.
      *
@@ -360,6 +364,10 @@ public interface DirectByteBufferStream {
      * @return Value.
      */
     int readInt();
+
+    int readFixedInt();
+
+    long readFixedLong();
 
     /**
      * Reads {@code Integer}.

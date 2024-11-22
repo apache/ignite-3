@@ -700,14 +700,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 break;
             }
 
-            case EREORDER:
-                assert resp.maxObservableSafeTimeViolatedValue() != null :
-                        "Unexpected combination of EREORDER error type and null in maxObservableSafeTimeViolatedValue.";
-
-                fut.completeExceptionally(new SafeTimeReorderException(resp.maxObservableSafeTimeViolatedValue()));
-
-                break;
-
             default:
                 fut.completeExceptionally(new RaftException(error, resp.errorMsg()));
 

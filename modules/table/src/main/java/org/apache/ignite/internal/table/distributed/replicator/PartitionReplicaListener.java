@@ -97,7 +97,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
-import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
@@ -139,10 +138,8 @@ import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.CommandApplicationResult;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
-import org.apache.ignite.internal.replicator.exception.ReplicationMaxRetriesExceededException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.exception.UnsupportedReplicaRequestException;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -209,6 +206,7 @@ import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.CursorUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -327,13 +325,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** Placement driver. */
     private final PlacementDriver placementDriver;
-
-    /**
-     * Mutex for command processing linearization.
-     * Some actions like update or updateAll require strict ordering within their application to storage on all nodes in replication group.
-     * Given ordering should match corresponding command's safeTime.
-     */
-    private final Object commandProcessingLinearizationMutex = new Object();
 
     private final ClusterNodeResolver clusterNodeResolver;
 
@@ -1123,14 +1114,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             return nullCompletedFuture();
         }
 
-        CompletableFuture<Object> resultFuture = new CompletableFuture<>();
-
-        applyCmdWithRetryOnSafeTimeReorderException(
-                REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTime(request.proposedSafeTime()).build(),
-                resultFuture
-        );
-
-        return resultFuture.thenApply(res -> null);
+        return applyCmdWithExceptionHandling(
+                REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTime(request.proposedSafeTime()).build()
+        ).thenApply(res -> null);
     }
 
     /**
@@ -1763,23 +1749,18 @@ public class PartitionReplicaListener implements ReplicaListener {
             int catalogVersion,
             List<TablePartitionIdMessage> partitionIds
     ) {
-        synchronized (commandProcessingLinearizationMutex) {
-            FinishTxCommandBuilder finishTxCmdBldr = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
-                    .txId(transactionId)
-                    .commit(commit)
-                    .safeTime(clockService.now())
-                    .requiredCatalogVersion(catalogVersion)
-                    .partitionIds(partitionIds);
+        FinishTxCommandBuilder finishTxCmdBldr = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
+                .txId(transactionId)
+                .commit(commit)
+                .safeTime(clockService.now())
+                .requiredCatalogVersion(catalogVersion)
+                .partitionIds(partitionIds);
 
-            if (commit) {
-                finishTxCmdBldr.commitTimestamp(commitTimestamp);
-            }
-            CompletableFuture<Object> resultFuture = new CompletableFuture<>();
-
-            applyCmdWithRetryOnSafeTimeReorderException(finishTxCmdBldr.build(), resultFuture);
-
-            return resultFuture;
+        if (commit) {
+            finishTxCmdBldr.commitTimestamp(commitTimestamp);
         }
+
+        return applyCmdWithExceptionHandling(finishTxCmdBldr.build()).thenApply(ResultWrapper::getResult);
     }
 
     /**
@@ -1882,15 +1863,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                 indexIdsAtRwTxBeginTs(transactionId)
         );
 
-        CompletableFuture<Object> resultFuture = new CompletableFuture<>();
-
-        applyCmdWithRetryOnSafeTimeReorderException(wiSwitchCmd, resultFuture);
-
-        return resultFuture
+        return applyCmdWithExceptionHandling(wiSwitchCmd)
                 .exceptionally(e -> {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + transactionId + ']', e);
 
-                    return nullCompletedFuture();
+                    ExceptionUtils.sneakyThrow(e);
+
+                    return null;
                 })
                 .thenApply(res -> new WriteIntentSwitchReplicatedInfo(transactionId, replicationGroupId));
     }
@@ -2623,7 +2602,13 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<ResultWrapper<Object>> applyCmdWithExceptionHandling(Command cmd) {
         CompletableFuture<ResultWrapper<Object>> resultFuture = new CompletableFuture<>();
 
-        applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture);
+        raftClient.run(cmd).whenComplete((res, ex) -> {
+            if (ex != null) {
+                resultFuture.completeExceptionally(ex);
+            } else {
+                resultFuture.complete(new ResultWrapper<>(cmd, res));
+            }
+        });
 
         return resultFuture.exceptionally(throwable -> {
             if (throwable instanceof TimeoutException) {
@@ -2632,52 +2617,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                 throw (RuntimeException) throwable;
             } else {
                 throw new ReplicationException(replicationGroupId, throwable);
-            }
-        });
-    }
-
-    private <T> void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<T> resultFuture) {
-        applyCmdWithRetryOnSafeTimeReorderException(cmd, resultFuture, 0);
-    }
-
-    private <T> void applyCmdWithRetryOnSafeTimeReorderException(Command cmd, CompletableFuture<T> resultFuture, int attemptsCounter) {
-        attemptsCounter++;
-        if (attemptsCounter >= MAX_RETRIES_ON_SAFE_TIME_REORDERING) {
-            resultFuture.completeExceptionally(
-                    new ReplicationMaxRetriesExceededException(replicationGroupId, MAX_RETRIES_ON_SAFE_TIME_REORDERING));
-        }
-
-        int attemptsCounter0 = attemptsCounter;
-        raftClient.run(cmd).whenComplete((res, ex) -> {
-            if (ex != null) {
-                if (ex instanceof SafeTimeReorderException || ex.getCause() instanceof SafeTimeReorderException) {
-                    assert cmd instanceof SafeTimePropagatingCommand;
-
-                    SafeTimeReorderException safeTimeReorderException = (SafeTimeReorderException) (ex instanceof SafeTimeReorderException
-                            ? ex : ex.getCause());
-
-                    SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) cmd;
-
-                    clockService.waitFor(hybridTimestamp(safeTimeReorderException.maxObservableSafeTimeViolatedValue())).thenRun(
-                            () -> {
-                                HybridTimestamp safeTimeForRetry = clockService.now();
-
-                                SafeTimePropagatingCommand clonedSafeTimePropagatingCommand =
-                                        (SafeTimePropagatingCommand) safeTimePropagatingCommand.clone();
-                                clonedSafeTimePropagatingCommand.safeTime(safeTimeForRetry);
-
-                                applyCmdWithRetryOnSafeTimeReorderException(
-                                        clonedSafeTimePropagatingCommand,
-                                        resultFuture,
-                                        attemptsCounter0
-                                );
-                            }
-                    );
-                } else {
-                    resultFuture.completeExceptionally(ex);
-                }
-            } else {
-                resultFuture.complete((T) new ResultWrapper<>(cmd, res));
             }
         });
     }
@@ -2708,71 +2647,71 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         assert leaseStartTime != null : format("Lease start time is null for UpdateCommand [txId={}].", txId);
 
-        synchronized (commandProcessingLinearizationMutex) {
-            UpdateCommand cmd = updateCommand(
-                    tablePartId,
-                    rowUuid,
-                    row,
-                    lastCommitTimestamp,
-                    txId,
-                    full,
-                    txCoordinatorId,
-                    clockService.now(),
-                    catalogVersion,
-                    full ? leaseStartTime : null  // Lease start time check within the replication group is needed only for full txns.
-            );
+        UpdateCommand cmd = updateCommand(
+                tablePartId,
+                rowUuid,
+                row,
+                lastCommitTimestamp,
+                txId,
+                full,
+                txCoordinatorId,
+                null,
+                catalogVersion,
+                full ? leaseStartTime : null  // Lease start time check within the replication group is needed only for full txns.
+        );
 
-            if (!cmd.full()) {
-                if (!SKIP_UPDATES) {
-                    // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                    storageUpdateHandler.handleUpdate(
-                            cmd.txId(),
-                            cmd.rowUuid(),
-                            cmd.tablePartitionId().asTablePartitionId(),
-                            cmd.rowToUpdate(),
-                            true,
-                            null,
-                            null,
-                            null,
-                            indexIdsAtRwTxBeginTs(txId)
-                    );
+        if (!cmd.full()) {
+            if (!SKIP_UPDATES) {
+                // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                storageUpdateHandler.handleUpdate(
+                        cmd.txId(),
+                        cmd.rowUuid(),
+                        cmd.tablePartitionId().asTablePartitionId(),
+                        cmd.rowToUpdate(),
+                        true,
+                        null,
+                        null,
+                        null,
+                        indexIdsAtRwTxBeginTs(txId)
+                );
+            }
+
+            CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).thenApply(res -> cmd.txId());
+
+            return completedFuture(new CommandApplicationResult(null, repFut));
+        } else {
+            return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
+                UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
+
+                if (updateCommandResult != null && !updateCommandResult.isPrimaryReplicaMatch()) {
+                    throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime(), updateCommandResult.currentLeaseStartTime());
                 }
 
-                CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).thenApply(res -> cmd.txId());
-
-                return completedFuture(new CommandApplicationResult(null, repFut));
-            } else {
-                return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
-                    UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
-
-                    if (updateCommandResult != null && !updateCommandResult.isPrimaryReplicaMatch()) {
-                        throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime(), updateCommandResult.currentLeaseStartTime());
+                if (updateCommandResult != null && updateCommandResult.isPrimaryInPeersAndLearners()) {
+                    HybridTimestamp safeTs = hybridTimestamp(updateCommandResult.safeTimestamp());
+                    // TODO get rid
+                    return safeTime.waitFor(safeTs)
+                            .thenApply(ignored -> new CommandApplicationResult(safeTs, null));
+                } else {
+                    if (!SKIP_UPDATES) {
+                        // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                        storageUpdateHandler.handleUpdate(
+                                cmd.txId(),
+                                cmd.rowUuid(),
+                                cmd.tablePartitionId().asTablePartitionId(),
+                                cmd.rowToUpdate(),
+                                false,
+                                null,
+                                cmd.safeTime(),
+                                null,
+                                indexIdsAtRwTxBeginTs(txId)
+                        );
                     }
 
-                    if (updateCommandResult != null && updateCommandResult.isPrimaryInPeersAndLearners()) {
-                        return safeTime.waitFor(((UpdateCommand) res.getCommand()).safeTime())
-                                .thenApply(ignored -> new CommandApplicationResult(((UpdateCommand) res.getCommand()).safeTime(), null));
-                    } else {
-                        if (!SKIP_UPDATES) {
-                            // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                            storageUpdateHandler.handleUpdate(
-                                    cmd.txId(),
-                                    cmd.rowUuid(),
-                                    cmd.tablePartitionId().asTablePartitionId(),
-                                    cmd.rowToUpdate(),
-                                    false,
-                                    null,
-                                    cmd.safeTime(),
-                                    null,
-                                    indexIdsAtRwTxBeginTs(txId)
-                            );
-                        }
-
-                        // getCommand provides actual assigned safeTime (may be reassigned due to reorder)
-                        return completedFuture(new CommandApplicationResult(((UpdateCommand) res.getCommand()).safeTime(), null));
-                    }
-                });
-            }
+                    // getCommand provides actual assigned safeTime (may be reassigned due to reorder)
+                    return completedFuture(new CommandApplicationResult(((UpdateCommand) res.getCommand()).safeTime(), null));
+                }
+            });
         }
     }
 
@@ -2832,78 +2771,77 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         assert leaseStartTime != null : format("Lease start time is null for UpdateAllCommand [txId={}].", txId);
 
-        synchronized (commandProcessingLinearizationMutex) {
-            UpdateAllCommand cmd = updateAllCommand(
-                    rowsToUpdate,
-                    commitPartitionId,
-                    txId,
-                    clockService.now(),
-                    full,
-                    txCoordinatorId,
-                    catalogVersion,
-                    full ? leaseStartTime : null  // Lease start time check within the replication group is needed only for full txns.
-            );
+        UpdateAllCommand cmd = updateAllCommand(
+                rowsToUpdate,
+                commitPartitionId,
+                txId,
+                null,
+                full,
+                txCoordinatorId,
+                catalogVersion,
+                full ? leaseStartTime : null  // Lease start time check within the replication group is needed only for full txns.
+        );
 
-            if (!cmd.full()) {
-                if (skipDelayedAck) {
-                    // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                    storageUpdateHandler.handleUpdateAll(
+        if (!cmd.full()) {
+            if (skipDelayedAck) {
+                // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                storageUpdateHandler.handleUpdateAll(
+                        cmd.txId(),
+                        cmd.rowsToUpdate(),
+                        cmd.tablePartitionId().asTablePartitionId(),
+                        true,
+                        null,
+                        null,
+                        indexIdsAtRwTxBeginTs(txId)
+                );
+
+                return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
+            } else {
+                // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                storageUpdateHandler.handleUpdateAll(
+                        cmd.txId(),
+                        cmd.rowsToUpdate(),
+                        cmd.tablePartitionId().asTablePartitionId(),
+                        true,
+                        null,
+                        null,
+                        indexIdsAtRwTxBeginTs(txId)
+                );
+            }
+
+            CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).thenApply(res -> cmd.txId());
+
+            return completedFuture(new CommandApplicationResult(null, repFut));
+        } else {
+            return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
+                UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
+
+                if (!updateCommandResult.isPrimaryReplicaMatch()) {
+                    throw new PrimaryReplicaMissException(
                             cmd.txId(),
-                            cmd.rowsToUpdate(),
-                            cmd.tablePartitionId().asTablePartitionId(),
-                            true,
-                            null,
-                            null,
-                            indexIdsAtRwTxBeginTs(txId)
+                            cmd.leaseStartTime(),
+                            updateCommandResult.currentLeaseStartTime()
                     );
-
-                    return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
+                }
+                if (updateCommandResult.isPrimaryInPeersAndLearners()) {
+                    HybridTimestamp safeTs = hybridTimestamp(updateCommandResult.safeTimestamp());
+                    return safeTime.waitFor(safeTs)
+                            .thenApply(ignored -> new CommandApplicationResult(safeTs, null));
                 } else {
                     // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                     storageUpdateHandler.handleUpdateAll(
                             cmd.txId(),
                             cmd.rowsToUpdate(),
                             cmd.tablePartitionId().asTablePartitionId(),
-                            true,
+                            false,
                             null,
-                            null,
+                            cmd.safeTime(),
                             indexIdsAtRwTxBeginTs(txId)
                     );
+
+                    return completedFuture(new CommandApplicationResult(((UpdateAllCommand) res.getCommand()).safeTime(), null));
                 }
-
-                CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).thenApply(res -> cmd.txId());
-
-                return completedFuture(new CommandApplicationResult(null, repFut));
-            } else {
-                return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
-                    UpdateCommandResult updateCommandResult = (UpdateCommandResult) res.getResult();
-
-                    if (!updateCommandResult.isPrimaryReplicaMatch()) {
-                        throw new PrimaryReplicaMissException(
-                                cmd.txId(),
-                                cmd.leaseStartTime(),
-                                updateCommandResult.currentLeaseStartTime()
-                        );
-                    }
-                    if (updateCommandResult.isPrimaryInPeersAndLearners()) {
-                        return safeTime.waitFor(((UpdateAllCommand) res.getCommand()).safeTime())
-                                .thenApply(ignored -> new CommandApplicationResult(((UpdateAllCommand) res.getCommand()).safeTime(), null));
-                    } else {
-                        // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                        storageUpdateHandler.handleUpdateAll(
-                                cmd.txId(),
-                                cmd.rowsToUpdate(),
-                                cmd.tablePartitionId().asTablePartitionId(),
-                                false,
-                                null,
-                                cmd.safeTime(),
-                                indexIdsAtRwTxBeginTs(txId)
-                        );
-
-                        return completedFuture(new CommandApplicationResult(((UpdateAllCommand) res.getCommand()).safeTime(), null));
-                    }
-                });
-            }
+            });
         }
     }
 
@@ -2914,7 +2852,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param rowsToUpdate All {@link BinaryRow}s represented as {@link TimedBinaryRowMessage}s to be updated.
      * @param catalogVersion Validated catalog version associated with given operation.
      * @param leaseStartTime Lease start time.
-     * @return Raft future, see {@link #applyCmdWithExceptionHandling(Command, CompletableFuture)}.
+     * @return Raft future.
      */
     private CompletableFuture<CommandApplicationResult> applyUpdateAllCommand(
             ReadWriteMultiRowReplicaRequest request,
@@ -3788,7 +3726,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             boolean full,
             UUID txCoordinatorId,
-            HybridTimestamp safeTimeTimestamp,
+            @Nullable HybridTimestamp safeTimeTimestamp,
             int catalogVersion,
             @Nullable Long leaseStartTime
     ) {
@@ -4077,16 +4015,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .safeTime(clockService.now())
                 .build();
 
-        CompletableFuture<Object> resultFuture = new CompletableFuture<>();
-
         // The timestamp must increase monotonically, otherwise it will have to be
         // stored on disk so that reordering does not occur after the node is restarted.
-        applyCmdWithRetryOnSafeTimeReorderException(
-                cmd,
-                resultFuture
-        );
-
-        return resultFuture;
+        return applyCmdWithExceptionHandling(cmd);
     }
 
     /**

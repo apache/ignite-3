@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.partition.replicator.marshaller;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.partition.replicator.network.command.CatalogVersionAware;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
-import org.apache.ignite.internal.util.VarIntUtils;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 
 /**
  * Default {@link PartitionCommandsMarshaller} implementation.
@@ -35,10 +36,11 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
     protected void beforeWriteMessage(Object o, ByteBuffer buffer) {
         int requiredCatalogVersion = o instanceof CatalogVersionAware
                 ? ((CatalogVersionAware) o).requiredCatalogVersion()
-                : NO_VERSION_REQUIRED;
+                : PartitionCommandsMarshaller.NO_VERSION_REQUIRED;
 
         stream.setBuffer(buffer);
-        stream.writeInt(requiredCatalogVersion);
+        stream.writeFixedInt(requiredCatalogVersion);
+        stream.writeFixedLong(0); // TODO FIXME optimize double write.
     }
 
     @Override
@@ -46,6 +48,7 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
         raw = raw.duplicate();
 
         int requiredCatalogVersion = readRequiredCatalogVersion(raw);
+        long safeTs = readSafeTimestamp(raw);
 
         T res = super.unmarshall(raw);
 
@@ -53,17 +56,21 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
             ((CatalogVersionAware) res).requiredCatalogVersion(requiredCatalogVersion);
         }
 
+        // Apply patched value.
+        if (res instanceof SafeTimePropagatingCommand && safeTs != 0) {
+            ((SafeTimePropagatingCommand) res).safeTime(HybridTimestamp.hybridTimestamp(safeTs));
+        }
+
         return res;
     }
 
-    /**
-     * Reads required catalog version from the provided buffer.
-     *
-     * @param raw Buffer to read from.
-     * @return Catalog version.
-     */
     @Override
     public int readRequiredCatalogVersion(ByteBuffer raw) {
-        return (int) VarIntUtils.readVarInt(raw);
+        return raw.getInt();
+    }
+
+    @Override
+    public long readSafeTimestamp(ByteBuffer raw) {
+        return raw.getLong();
     }
 }
