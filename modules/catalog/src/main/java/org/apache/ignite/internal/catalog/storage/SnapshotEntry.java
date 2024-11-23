@@ -130,9 +130,9 @@ public class SnapshotEntry implements UpdateLogEvent {
     private static class SnapshotEntrySerializer implements CatalogObjectSerializer<SnapshotEntry> {
         @Override
         public SnapshotEntry readFrom(IgniteDataInput input) throws IOException {
-            int catalogVersion = input.readInt();
+            int catalogVersion = input.readVarIntAsInt();
             long activationTime = input.readLong();
-            int objectIdGenState = input.readInt();
+            int objectIdGenState = input.readVarIntAsInt();
 
             CatalogZoneDescriptor[] zones =
                     CatalogSerializationUtils.readArray(CatalogZoneDescriptor.SERIALIZER, input, CatalogZoneDescriptor.class);
@@ -142,7 +142,7 @@ public class SnapshotEntry implements UpdateLogEvent {
 
             Integer defaultZoneId = null;
             if (input.readBoolean()) {
-                defaultZoneId = input.readInt();
+                defaultZoneId = input.readVarIntAsInt();
             }
 
             return new SnapshotEntry(catalogVersion, activationTime, objectIdGenState, zones, schemas, defaultZoneId);
@@ -150,16 +150,16 @@ public class SnapshotEntry implements UpdateLogEvent {
 
         @Override
         public void writeTo(SnapshotEntry entry, IgniteDataOutput output) throws IOException {
-            output.writeInt(entry.version);
+            output.writeVarInt(entry.version);
             output.writeLong(entry.activationTime);
-            output.writeInt(entry.objectIdGenState);
+            output.writeVarInt(entry.objectIdGenState);
 
             CatalogSerializationUtils.writeArray(entry.zones, CatalogZoneDescriptor.SERIALIZER, output);
             CatalogSerializationUtils.writeArray(entry.schemas, CatalogSchemaDescriptor.SERIALIZER, output);
 
             output.writeBoolean(entry.defaultZoneId != null);
             if (entry.defaultZoneId != null) {
-                output.writeInt(entry.defaultZoneId);
+                output.writeVarInt(entry.defaultZoneId);
             }
         }
     }
