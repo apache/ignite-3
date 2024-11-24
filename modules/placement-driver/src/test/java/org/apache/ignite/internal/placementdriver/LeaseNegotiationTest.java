@@ -91,6 +91,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     private LeaseUpdater leaseUpdater;
 
+    private AssignmentsTracker assignmentsTracker;
+
     private MetaStorageManager metaStorageManager;
 
     private ClusterService pdClusterService;
@@ -133,6 +135,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     @AfterEach
     public void tearDown() {
         leaseUpdater.deactivate();
+        assignmentsTracker.stopTrack();
     }
 
     private LeaseUpdater createLeaseUpdater() {
@@ -164,6 +167,10 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
         leaseTracker.startTrack(0L);
 
+        assignmentsTracker = new AssignmentsTracker(metaStorageManager);
+
+        assignmentsTracker.startTrack();
+
         return new LeaseUpdater(
                 NODE_0_NAME,
                 pdClusterService,
@@ -171,7 +178,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 pdLogicalTopologyService,
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),
-                new AssignmentsTracker(metaStorageManager),
+                assignmentsTracker,
                 replicationConfiguration
         );
     }
