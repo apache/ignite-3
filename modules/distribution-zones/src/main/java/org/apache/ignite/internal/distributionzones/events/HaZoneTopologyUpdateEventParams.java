@@ -28,19 +28,16 @@ public class HaZoneTopologyUpdateEventParams implements EventParameters {
     /** Zone id. */
     private final int zoneId;
 
-    /**
-     * Long view of{@link org.apache.ignite.internal.hlc.HybridTimestamp}.
-     */
+    /** Long view of{@link org.apache.ignite.internal.hlc.HybridTimestamp}. */
     private final long timestamp;
 
     /**
      * Constructor.
      *
-     * @param causalityToken Causality token.
      * @param zoneId Zone id.
      * @param timestamp Long view of{@link org.apache.ignite.internal.hlc.HybridTimestamp}.
      */
-    public HaZoneTopologyUpdateEventParams(long causalityToken, int zoneId, long timestamp) {
+    public HaZoneTopologyUpdateEventParams(int zoneId, long timestamp) {
         this.zoneId = zoneId;
         this.timestamp = timestamp;
     }

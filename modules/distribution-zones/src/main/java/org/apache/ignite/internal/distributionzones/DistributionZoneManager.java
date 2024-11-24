@@ -412,20 +412,6 @@ public class DistributionZoneManager extends
                 continue;
             }
 
-            if (partitionDistributionResetTimeoutSeconds == IMMEDIATE_TIMER_VALUE) {
-                fireEvent(
-                        HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
-                        new HaZoneTopologyUpdateEventParams(causalityToken, zoneId, updateTimestamp)
-                ).exceptionally(th -> {
-                    LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
-                            + " event processing", th);
-
-                    return null;
-                });
-
-                return;
-            }
-
             ZoneState zoneState = zoneStateEntry.getValue();
 
             if (partitionDistributionResetTimeoutSeconds != INFINITE_TIMER_VALUE) {
@@ -439,10 +425,9 @@ public class DistributionZoneManager extends
 
                 zoneState.reschedulePartitionDistributionReset(
                         partitionDistributionResetTimeoutSeconds,
-                        // TODO: IGNITE-23599 Implement valid behaviour here.
                         () -> fireEvent(
                                 HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
-                                new HaZoneTopologyUpdateEventParams(causalityToken, zoneId, updateTimestamp)
+                                new HaZoneTopologyUpdateEventParams(zoneId, updateTimestamp)
                         ).exceptionally(th -> {
                             LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
                                     + " event processing", th);
@@ -1012,7 +997,7 @@ public class DistributionZoneManager extends
                                 () -> {
                                     fireEvent(
                                             HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
-                                            new HaZoneTopologyUpdateEventParams(revision, zoneId,
+                                            new HaZoneTopologyUpdateEventParams(zoneId,
                                                     metaStorageManager.timestampByRevisionLocally(revision).longValue())
                                     ).exceptionally(th -> {
                                         LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
