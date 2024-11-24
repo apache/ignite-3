@@ -422,6 +422,7 @@ public class DistributionZoneManager extends
 
                     return null;
                 });
+
                 return;
             }
 
@@ -439,7 +440,15 @@ public class DistributionZoneManager extends
                 zoneState.reschedulePartitionDistributionReset(
                         partitionDistributionResetTimeoutSeconds,
                         // TODO: IGNITE-23599 Implement valid behaviour here.
-                        () -> {},
+                        () -> fireEvent(
+                                HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
+                                new HaZoneTopologyUpdateEventParams(causalityToken, zoneId, updateTimestamp)
+                        ).exceptionally(th -> {
+                            LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
+                                    + " event processing", th);
+
+                            return null;
+                        }),
                         zoneId
                 );
             } else {
