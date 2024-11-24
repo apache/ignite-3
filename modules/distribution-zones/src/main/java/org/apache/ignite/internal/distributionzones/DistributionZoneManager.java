@@ -390,15 +390,9 @@ public class DistributionZoneManager extends
             int partitionDistributionResetTimeoutSeconds,
             long causalityToken
     ) {
-        long updateTimestamp;
+        long updateTimestamp = timestampByRevision(causalityToken);
 
-        try {
-            updateTimestamp = metaStorageManager.timestampByRevisionLocally(causalityToken).longValue();
-        } catch (CompactedException e) {
-            if (causalityToken > 1) {
-                LOG.warn("Unable to retrieve timestamp by revision because of meta storage compaction, [revision={}].", causalityToken);
-            }
-
+        if (updateTimestamp == -1) {
             return;
         }
 
@@ -425,15 +419,7 @@ public class DistributionZoneManager extends
 
                 zoneState.reschedulePartitionDistributionReset(
                         partitionDistributionResetTimeoutSeconds,
-                        () -> fireEvent(
-                                HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
-                                new HaZoneTopologyUpdateEventParams(zoneId, updateTimestamp)
-                        ).exceptionally(th -> {
-                            LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
-                                    + " event processing", th);
-
-                            return null;
-                        }),
+                        () -> fireTopologyReduceLocalEvent(updateTimestamp, zoneId),
                         zoneId
                 );
             } else {
@@ -995,17 +981,13 @@ public class DistributionZoneManager extends
                         zonesState.get(zoneId).reschedulePartitionDistributionReset(
                                 partitionReset,
                                 () -> {
-                                    fireEvent(
-                                            HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
-                                            new HaZoneTopologyUpdateEventParams(zoneId,
-                                                    metaStorageManager.timestampByRevisionLocally(revision).longValue())
-                                    ).exceptionally(th -> {
-                                        LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
-                                                + " event processing", th);
+                                    long timestamp = timestampByRevision(revision);
 
-                                        return null;
-                                    });
-                                }, zoneId
+                                    if (timestamp != -1) {
+                                        fireTopologyReduceLocalEvent(timestamp, zoneId);
+                                    }
+                                },
+                                zoneId
                         );
                     }
                 } else {
@@ -1025,6 +1007,37 @@ public class DistributionZoneManager extends
         }
 
         return allOf(futures.toArray(CompletableFuture[]::new));
+    }
+
+    /**
+     * Returns metastore long view of {@link org.apache.ignite.internal.hlc.HybridTimestamp} by revision.
+     *
+     * @param revision Metastore revision.
+     * @return Appropriate metastore timestamp or -1 if revision is already compacted.
+     */
+    private long timestampByRevision(long revision) {
+        try {
+            return metaStorageManager.timestampByRevisionLocally(revision).longValue();
+        } catch (CompactedException e) {
+            if (revision > 1) {
+                LOG.warn("Unable to retrieve timestamp by revision because of meta storage compaction, [revision={}].", revision);
+            }
+
+            return -1;
+        }
+
+    }
+
+    private void fireTopologyReduceLocalEvent(long timestamp, int zoneId) {
+        fireEvent(
+                HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
+                new HaZoneTopologyUpdateEventParams(zoneId, timestamp)
+        ).exceptionally(th -> {
+            LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
+                    + " event processing", th);
+
+            return null;
+        });
     }
 
     /**
