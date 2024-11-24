@@ -522,7 +522,6 @@ public class RebalanceUtil {
      */
     public static <T> Set<T> union(Set<T> op1, Set<T> op2) {
         var res = new HashSet<>(op1);
-
         res.addAll(op2);
 
         return res;
