@@ -107,6 +107,8 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
         if (close) {
             cursor.closeAsync();
+        } else {
+            cursorsToClose.add(cursor);
         }
 
         while ((count < 0 || --count > 0) && cursor.hasNextResult()) {
@@ -115,10 +117,11 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
             assertNotNull(cursor);
 
             cursors.add(cursor);
-            cursorsToClose.add(cursor);
 
             if (close) {
                 cursor.closeAsync();
+            } else {
+                cursorsToClose.add(cursor);
             }
         }
 
