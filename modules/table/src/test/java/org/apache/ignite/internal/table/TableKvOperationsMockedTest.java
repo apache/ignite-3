@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNotNull;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -108,7 +109,8 @@ public class TableKvOperationsMockedTest extends TableKvOperationsTestBase {
 
         assertThat(result, is(equalTo(expectedValue)));
 
-        verify(internalTable, times(2)).get(any(), isNull());
+        verify(internalTable, times(1)).get(any(), isNull());
+        verify(internalTable, times(1)).get(any(), isNotNull());
     }
 
     @Test
@@ -136,7 +138,8 @@ public class TableKvOperationsMockedTest extends TableKvOperationsTestBase {
 
         assertThat(result.longValue("VAL"), is(2L));
 
-        verify(internalTable, times(2)).get(any(), isNull());
+        verify(internalTable, times(1)).get(any(), isNull());
+        verify(internalTable, times(1)).get(any(), isNotNull());
     }
 
     @Test
@@ -162,7 +165,8 @@ public class TableKvOperationsMockedTest extends TableKvOperationsTestBase {
 
         assertThat(result.longValue("val"), is(2L));
 
-        verify(internalTable, times(2)).get(any(), isNull());
+        verify(internalTable, times(1)).get(any(), isNull());
+        verify(internalTable, times(1)).get(any(), isNotNull());
     }
 
     @Test
@@ -201,7 +205,8 @@ public class TableKvOperationsMockedTest extends TableKvOperationsTestBase {
 
         assertThat(result, is(equalTo(expectedRecord)));
 
-        verify(internalTable, times(2)).get(any(), isNull());
+        verify(internalTable, times(1)).get(any(), isNull());
+        verify(internalTable, times(1)).get(any(), isNotNull());
     }
 
     /**

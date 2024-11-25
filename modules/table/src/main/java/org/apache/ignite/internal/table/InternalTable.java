@@ -503,4 +503,20 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Streamer receiver runner.
      */
     StreamerReceiverRunner streamerReceiverRunner();
+
+    /**
+     * Starts an implicit RW transaction if the input one is {@code null}.
+     *
+     * @param tx Transaction or {@code null}.
+     * @return Transaction instance.
+     */
+    InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx);
+
+    /**
+     * Starts an implicit RO transaction if the input one is {@code null}.
+     *
+     * @param tx Transaction or {@code null}.
+     * @return Transaction instance.
+     */
+    InternalTransaction startImplicitRoTxIfNeeded(@Nullable InternalTransaction tx);
 }

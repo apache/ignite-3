@@ -981,6 +981,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
 
+        private final IgniteTransactionsImpl transactions;
+
         private volatile MvTableStorage mvTableStorage;
 
         private volatile TxStateTableStorage txStateTableStorage;
@@ -1302,6 +1304,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
+            transactions = new IgniteTransactionsImpl(txManager, observableTimestampTracker);
+
             tableManager = new TableManager(
                     name,
                     registry,
@@ -1310,7 +1314,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     storageUpdateConfiguration,
                     clusterService.messagingService(),
                     clusterService.topologyService(),
-                    clusterService.serializationRegistry(),
                     replicaManager,
                     lockManager,
                     replicaSvc,
@@ -1327,7 +1330,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
-                    observableTimestampTracker,
+                    transactions,
                     placementDriver,
                     () -> mock(IgniteSql.class),
                     resourcesRegistry,
@@ -1370,7 +1373,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         }
 
         private IgniteTransactions transactions() {
-            IgniteTransactionsImpl transactions = new IgniteTransactionsImpl(txManager, observableTimestampTracker);
             return new PublicApiThreadingIgniteTransactions(transactions, ForkJoinPool.commonPool());
         }
 

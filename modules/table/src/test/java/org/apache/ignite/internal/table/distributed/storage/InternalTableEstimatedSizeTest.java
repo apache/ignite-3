@@ -91,6 +91,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -193,12 +194,11 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 TABLE_ID,
                 PARTITIONS_NUM,
                 clusterService.topologyService(),
-                txManager,
                 tableStorage,
                 txStateTableStorage,
                 new ReplicaService(clusterService.messagingService(), clock, replicationConfiguration),
                 clockService,
-                new HybridTimestampTracker(),
+                new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()),
                 placementDriver,
                 new TransactionInflights(placementDriver, clockService),
                 0,

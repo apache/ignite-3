@@ -117,4 +117,9 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
     public Transaction beginWithPriority(boolean readOnly, TxPriority priority) {
         return txManager.begin(observableTimestampTracker, false, readOnly, priority);
     }
+
+    @TestOnly
+    public TxManager getTxManager() {
+        return txManager;
+    }
 }

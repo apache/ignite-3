@@ -137,6 +137,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -822,7 +823,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 storageUpdateConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
-                clusterService.serializationRegistry(),
                 replicaMgr,
                 null,
                 null,
@@ -839,7 +839,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
-                new HybridTimestampTracker(),
+                new IgniteTransactionsImpl(null, new HybridTimestampTracker()),
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),

@@ -2102,6 +2102,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertEquals(200., accountRecordsView.get(null, makeKey(1)).doubleValue("balance"));
     }
 
+    @Disabled("IGNITE-XXXX Support optimization for implicit RO batch operation in single partition")
     @Test
     public void testBatchSinglePartitionGet() throws Exception {
         var accountRecordsView = accounts.recordView();

@@ -217,6 +217,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
@@ -706,7 +707,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 storageUpdateConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
-                clusterSvc.serializationRegistry(),
                 replicaMgr,
                 lockManager,
                 replicaService,
@@ -723,7 +723,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
-                new HybridTimestampTracker(),
+                new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()),
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
                 resourcesRegistry,

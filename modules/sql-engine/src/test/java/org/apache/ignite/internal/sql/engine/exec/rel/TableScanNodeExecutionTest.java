@@ -79,6 +79,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -256,12 +257,11 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     1,
                     PART_CNT,
                     new SingleClusterNodeResolver(mock(ClusterNode.class)),
-                    txManager,
                     mock(MvTableStorage.class),
                     mock(TxStateTableStorage.class),
                     replicaSvc,
                     clockService,
-                    timestampTracker,
+                    new IgniteTransactionsImpl(txManager, timestampTracker),
                     mock(PlacementDriver.class),
                     mock(TransactionInflights.class),
                     3_000,
