@@ -92,8 +92,8 @@ internal static class DataStreamerWithReceiver
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
-        var batches = new Dictionary<int, Batch<TPayload>>();
-        var failedItems = new ConcurrentBag<TSource>();
+        var batches = new Dictionary<int, Batch<TSource, TPayload>>();
+        var failedItems = new ConcurrentQueue<TSource>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
         var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
 
@@ -144,6 +144,7 @@ internal static class DataStreamerWithReceiver
             foreach (var batch in batches.Values)
             {
                 GetPool<TPayload>().Return(batch.Items);
+                GetPool<TSource>().Return(batch.SourceItems);
 
                 Metrics.StreamerItemsQueuedDecrement(batch.Count);
                 Metrics.StreamerBatchesActiveDecrement();
@@ -152,7 +153,7 @@ internal static class DataStreamerWithReceiver
 
         return;
 
-        Batch<TPayload> Add(TSource item)
+        Batch<TSource, TPayload> Add(TSource item)
         {
             var tupleBuilder = new BinaryTupleBuilder(schema.KeyColumns.Length, hashedColumnsPredicate: schema.HashedColumnIndexProvider);
 
@@ -166,7 +167,7 @@ internal static class DataStreamerWithReceiver
             }
         }
 
-        Batch<TPayload> Add0(TSource item, ref BinaryTupleBuilder tupleBuilder)
+        Batch<TSource, TPayload> Add0(TSource item, ref BinaryTupleBuilder tupleBuilder)
         {
             // Write key to compute hash.
             var key = keySelector(item);
@@ -191,7 +192,10 @@ internal static class DataStreamerWithReceiver
 
             lock (batch)
             {
-                batch.Items[batch.Count++] = payload;
+                batch.Items[batch.Count] = payload;
+                batch.SourceItems[batch.Count] = item;
+
+                batch.Count++;
             }
 
             Metrics.StreamerItemsQueuedIncrement();
@@ -199,20 +203,20 @@ internal static class DataStreamerWithReceiver
             return batch;
         }
 
-        Batch<TPayload> GetOrCreateBatch(int partitionId)
+        Batch<TSource, TPayload> GetOrCreateBatch(int partitionId)
         {
             ref var batchRef = ref CollectionsMarshal.GetValueRefOrAddDefault(batches, partitionId, out _);
 
             if (batchRef == null)
             {
-                batchRef = new Batch<TPayload>(options.PageSize, partitionId);
+                batchRef = new Batch<TSource, TPayload>(options.PageSize, partitionId);
                 Metrics.StreamerBatchesActiveIncrement();
             }
 
             return batchRef;
         }
 
-        async Task SendAsync(Batch<TPayload> batch)
+        async Task SendAsync(Batch<TSource, TPayload> batch)
         {
             var expectedSize = batch.Count;
 
@@ -227,7 +231,7 @@ internal static class DataStreamerWithReceiver
                     return;
                 }
 
-                batch.Task = SendAndDisposeBufAsync(batch.PartitionId, batch.Task, batch.Items, batch.Count);
+                batch.Task = SendAndDisposeBufAsync(batch.PartitionId, batch.Task, batch.Items, batch.SourceItems, batch.Count);
 
                 batch.Items = GetPool<TPayload>().Rent(options.PageSize);
                 batch.Count = 0;
@@ -241,6 +245,7 @@ internal static class DataStreamerWithReceiver
             int partitionId,
             Task oldTask,
             TPayload[] items,
+            TSource[] sourceItems,
             int count)
         {
             // Release the thread that holds the batch lock.
@@ -275,10 +280,20 @@ internal static class DataStreamerWithReceiver
                 // Consumer does not want more results, stop returning them, but keep streaming.
                 resultChannel = null;
             }
+            catch (Exception)
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    failedItems.Enqueue(sourceItems[i]);
+                }
+
+                throw;
+            }
             finally
             {
                 buf.Dispose();
                 GetPool<TPayload>().Return(items);
+                GetPool<TSource>().Return(sourceItems);
 
                 if (results != null)
                 {
@@ -404,15 +419,19 @@ internal static class DataStreamerWithReceiver
 
     private static ArrayPool<T> GetPool<T>() => ArrayPool<T>.Shared;
 
-    private sealed record Batch<TPayload>
+    private sealed record Batch<TSource, TPayload>
     {
         public Batch(int capacity, int partitionId)
         {
             PartitionId = partitionId;
             Items = GetPool<TPayload>().Rent(capacity);
+            SourceItems = GetPool<TSource>().Rent(capacity);
         }
 
         public int PartitionId { get; }
+
+        [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Private record")]
+        public TSource[] SourceItems { get; set; }
 
         [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Private record")]
         public TPayload[] Items { get; set; }
