@@ -20,7 +20,10 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.type.NativeTypes;
 
 /**
  * Test execution of INTERSECT operator.
@@ -30,7 +33,35 @@ public class IntersectExecutionTest extends AbstractSetOpExecutionTest {
     @Override
     protected AbstractSetOpNode<Object[]> setOpNodeFactory(ExecutionContext<Object[]> ctx,
             AggregateType type, int columnCount, boolean all, int inputsCnt) {
-        return new IntersectNode<>(ctx, columnCount, type, all, rowFactory(), inputsCnt);
+
+        RowSchema rowSchema;
+
+        switch (type) {
+            case MAP:
+                rowSchema = RowSchema.builder()
+                        // input columns
+                        .addField(NativeTypes.STRING)
+                        // counters
+                        .addField(NativeTypes.INT32)
+                        .addField(NativeTypes.INT32)
+                        .addField(NativeTypes.INT32)
+                        .addField(NativeTypes.INT32)
+                        .build();
+                break;
+            case REDUCE:
+            case SINGLE:
+                rowSchema = RowSchema.builder()
+                        .addField(NativeTypes.STRING)
+                        .addField(NativeTypes.INT32)
+                        .build();
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected aggregate type: " + type);
+        }
+
+        RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(rowSchema);
+
+        return new IntersectNode<>(ctx, columnCount, type, all, outputRowFactory, inputsCnt);
     }
 
     /** {@inheritDoc} */

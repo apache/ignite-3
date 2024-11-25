@@ -99,14 +99,14 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
     private static class RemoveIndexEntrySerializer implements CatalogObjectSerializer<RemoveIndexEntry> {
         @Override
         public RemoveIndexEntry readFrom(IgniteDataInput input) throws IOException {
-            int indexId = input.readInt();
+            int indexId = input.readVarIntAsInt();
 
             return new RemoveIndexEntry(indexId);
         }
 
         @Override
         public void writeTo(RemoveIndexEntry entry, IgniteDataOutput out) throws IOException {
-            out.writeInt(entry.indexId);
+            out.writeVarInt(entry.indexId);
         }
     }
 }

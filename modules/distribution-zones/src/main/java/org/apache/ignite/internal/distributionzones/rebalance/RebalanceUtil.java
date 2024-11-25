@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil.metastoreAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil.partitionIds;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
@@ -40,12 +43,12 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -60,6 +63,7 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -276,7 +280,7 @@ public class RebalanceUtil {
      * @return Array of futures, one per partition of the table; the futures complete when the described
      *     rebalance triggering completes.
      */
-    public static CompletableFuture<?>[] triggerAllTablePartitionsRebalance(
+    public static CompletableFuture<Void> triggerAllTablePartitionsRebalance(
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
@@ -284,38 +288,92 @@ public class RebalanceUtil {
             MetaStorageManager metaStorageManager,
             long assignmentsTimestamp
     ) {
-        CompletableFuture<Map<Integer, Assignments>> tableAssignmentsFut = tableAssignments(
-                metaStorageManager,
-                tableDescriptor.id(),
-                Set.of(),
-                zoneDescriptor.partitions()
-        );
+        int[] partitionIds = partitionIds(zoneDescriptor.partitions());
 
+        return tableStableAssignments(metaStorageManager, tableDescriptor.id(), partitionIds)
+                .thenCompose(stableAssignments -> {
+                    if (stableAssignments.isEmpty()) {
+                        return nullCompletedFuture();
+                    }
+
+                    return tablePartitionAssignment(
+                            tableDescriptor,
+                            zoneDescriptor,
+                            dataNodes,
+                            storageRevision,
+                            metaStorageManager,
+                            assignmentsTimestamp,
+                            stableAssignments
+                    );
+                });
+    }
+
+    private static CompletableFuture<Void> tablePartitionAssignment(
+            CatalogTableDescriptor tableDescriptor,
+            CatalogZoneDescriptor zoneDescriptor,
+            Set<String> dataNodes,
+            long storageRevision,
+            MetaStorageManager metaStorageManager,
+            long assignmentsTimestamp,
+            Map<Integer, Assignments> tableAssignments
+    ) {
+        // tableAssignments should not be empty. It is checked for emptiness before calling this method.
         CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
 
         for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
             TablePartitionId replicaGrpId = new TablePartitionId(tableDescriptor.id(), partId);
 
-            int finalPartId = partId;
-
-            futures[partId] = tableAssignmentsFut.thenCompose(tableAssignments ->
-                    // TODO https://issues.apache.org/jira/browse/IGNITE-19763 We should distinguish empty stable assignments on
-                    // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
-                    tableAssignments.isEmpty() ? nullCompletedFuture() : updatePendingAssignmentsKeys(
-                            tableDescriptor,
-                            replicaGrpId,
-                            dataNodes,
-                            zoneDescriptor.replicas(),
-                            storageRevision,
-                            metaStorageManager,
-                            finalPartId,
-                            tableAssignments.get(finalPartId).nodes(),
-                            assignmentsTimestamp
-                    ));
+            // TODO https://issues.apache.org/jira/browse/IGNITE-19763 We should distinguish empty stable assignments on
+            // TODO node recovery in case of interrupted table creation, and moving from empty assignments to non-empty.
+            futures[partId] = updatePendingAssignmentsKeys(
+                    tableDescriptor,
+                    replicaGrpId,
+                    dataNodes,
+                    zoneDescriptor.replicas(),
+                    storageRevision,
+                    metaStorageManager,
+                    partId,
+                    tableAssignments.get(partId).nodes(),
+                    assignmentsTimestamp
+            );
         }
 
-        return futures;
+        // This set is used to deduplicate exceptions (if there is an exception from upstream, for instance,
+        // when reading from MetaStorage, it will be encountered by every partition future) to avoid noise
+        // in the logs.
+        Set<Throwable> unwrappedCauses = ConcurrentHashMap.newKeySet();
+
+        for (int partId = 0; partId < futures.length; partId++) {
+            int finalPartId = partId;
+
+            futures[partId].exceptionally(e -> {
+                Throwable cause = ExceptionUtils.unwrapCause(e);
+
+                if (unwrappedCauses.add(cause)) {
+                    // The exception is specific to this partition.
+                    LOG.error(
+                            "Exception on updating assignments for [tableId={}, name={}, partition={}]",
+                            e,
+                            tableDescriptor.id(), tableDescriptor.name(), finalPartId
+                    );
+                } else {
+                    // The exception is from upstream and not specific for this partition, so don't log the partition index.
+                    LOG.error(
+                            "Exception on updating assignments for [tableId={}, name={}]",
+                            e,
+                            tableDescriptor.id(), tableDescriptor.name()
+                    );
+                }
+
+                return null;
+            });
+        }
+
+        return allOf(futures);
     }
+
+    /** Key prefix for planned assignments. */
+    public static final String PLANNED_ASSIGNMENTS_PREFIX = "assignments.planned.";
 
     /** Key prefix for pending assignments. */
     public static final String PENDING_ASSIGNMENTS_PREFIX = "assignments.pending.";
@@ -359,7 +417,7 @@ public class RebalanceUtil {
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray plannedPartAssignmentsKey(TablePartitionId partId) {
-        return new ByteArray("assignments.planned." + partId);
+        return new ByteArray(PLANNED_ASSIGNMENTS_PREFIX + partId);
     }
 
     /**
@@ -521,54 +579,31 @@ public class RebalanceUtil {
     }
 
     /**
-     * Returns table assignments for table partitions from meta storage.
+     * Returns stable table assignments for table partitions from meta storage.
      *
      * @param metaStorageManager Meta storage manager.
      * @param tableId Table id.
-     * @param partitionIds IDs of partitions to get assignments for. If empty, get all partition assignments.
-     * @param numberOfPartitions Number of partitions. Ignored if partition IDs are specified.
+     * @param partitionIds IDs of partitions to get assignments for.
      * @return Future with table assignments as a value.
      */
-    public static CompletableFuture<Map<Integer, Assignments>> tableAssignments(
+    public static CompletableFuture<Map<Integer, Assignments>> tableStableAssignments(
             MetaStorageManager metaStorageManager,
             int tableId,
-            Set<Integer> partitionIds,
-            int numberOfPartitions
+            int[] partitionIds
     ) {
-        IntStream partitionIdsStream = partitionIds.isEmpty()
-                ? IntStream.range(0, numberOfPartitions)
-                : partitionIds.stream().mapToInt(Integer::intValue);
+        return metastoreAssignments(
+                metaStorageManager,
+                partitionIds,
+                partitionId -> stablePartAssignmentsKey(new TablePartitionId(tableId, partitionId))
+        ).whenComplete((assignmentsMap, throwable) -> {
+            if (throwable == null) {
+                int numberOfMsPartitions = assignmentsMap.size();
 
-        Map<ByteArray, Integer> partitionKeysToPartitionNumber = partitionIdsStream.collect(
-                HashMap::new,
-                (map, partId) -> map.put(stablePartAssignmentsKey(new TablePartitionId(tableId, partId)), partId),
-                Map::putAll
-        );
-
-        return metaStorageManager.getAll(partitionKeysToPartitionNumber.keySet())
-                .thenApply(entries -> {
-                    if (entries.isEmpty()) {
-                        return Map.of();
-                    }
-
-                    Map<Integer, Assignments> result = new HashMap<>();
-                    int numberOfMsPartitions = 0;
-
-                    for (var mapEntry : entries.entrySet()) {
-                        Entry entry = mapEntry.getValue();
-
-                        if (!entry.empty() && !entry.tombstone()) {
-                            result.put(partitionKeysToPartitionNumber.get(mapEntry.getKey()), Assignments.fromBytes(entry.value()));
-                            numberOfMsPartitions++;
-                        }
-                    }
-
-                    assert numberOfMsPartitions == 0 || numberOfMsPartitions == entries.size()
-                            : "Invalid number of stable partition entries received from meta storage [received="
-                            + numberOfMsPartitions + ", numberOfPartitions=" + entries.size() + ", tableId=" + tableId + "].";
-
-                    return numberOfMsPartitions == 0 ? Map.of() : result;
-                });
+                assert numberOfMsPartitions == 0 || numberOfMsPartitions == partitionIds.length
+                        : "Invalid number of partition entries received from meta storage [received="
+                        + numberOfMsPartitions + ", numberOfPartitions=" + partitionIds.length + ", tableId=" + tableId + "].";
+            }
+        });
     }
 
     /**
