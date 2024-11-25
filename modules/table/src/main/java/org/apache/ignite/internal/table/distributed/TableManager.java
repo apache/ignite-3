@@ -201,7 +201,6 @@ import org.apache.ignite.internal.table.distributed.storage.NullStorageEngine;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -316,12 +315,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Schema manager. */
     private final SchemaManager schemaManager;
-
-    /** Transaction state storage scheduled pool. */
-    private final ScheduledExecutorService txStateStorageScheduledPool;
-
-    /** Transaction state storage pool. */
-    private final ExecutorService txStateStoragePool;
 
     private final TxStateRocksDbSharedStorage sharedTxStateStorage;
 
@@ -443,6 +436,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param partitionOperationsExecutor Striped executor on which partition operations (potentially requiring I/O with storages)
      *     will be executed.
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
+     * @param commonScheduler Common Scheduled executor. Needed only for asynchronous start of scheduled operations without performing
+     *      blocking, long or IO operations.
      * @param clockService hybrid logical clock service.
      * @param placementDriver Placement driver.
      * @param sql A supplier function that returns {@link IgniteSql}.
@@ -471,6 +466,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ExecutorService ioExecutor,
             Executor partitionOperationsExecutor,
             ScheduledExecutorService rebalanceScheduler,
+            ScheduledExecutorService commonScheduler,
             ClockService clockService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             DistributionZoneManager distributionZoneManager,
@@ -541,12 +537,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         assignmentsUpdatedVv = new IncrementalVersionedValue<>(dependingOn(localPartitionsVv));
 
-        txStateStorageScheduledPool = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "tx-state-storage-scheduled-pool", LOG));
-
-        txStateStoragePool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors(),
-                NamedThreadFactory.create(nodeName, "tx-state-storage-pool", LOG));
-
         scanRequestExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "scan-query-executor", LOG, STORAGE_READ));
 
@@ -581,8 +571,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
                 storagePath.resolve(TX_STATE_DIR),
-                txStateStorageScheduledPool,
-                txStateStoragePool,
+                commonScheduler,
+                ioExecutor,
                 logSyncer,
                 TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
         );
@@ -1438,8 +1428,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     mvGc,
                     fullStateTransferIndexChooser,
                     sharedTxStateStorage,
-                    () -> shutdownAndAwaitTermination(txStateStoragePool, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                    () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS),

@@ -1322,6 +1322,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
                     rebalanceScheduler,
+                    threadPoolsManager.commonScheduler(),
                     clockService,
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     distributionZoneManager,

@@ -980,7 +980,7 @@ public class IgniteImpl implements Ignite {
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                 .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
 
-        distributedTblMgr = new TableManager(
+        distributedTblMgr = new     TableManager(
                 name,
                 registry,
                 gcConfig,
@@ -1000,6 +1000,7 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 rebalanceScheduler,
+                threadPoolsManager.commonScheduler(),
                 clockService,
                 outgoingSnapshotsManager,
                 distributionZoneManager,
