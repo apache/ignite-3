@@ -217,6 +217,9 @@ public class DataStreamerTests : IgniteTestsBase
         Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
 
         StringAssert.StartsWith("Operation StreamerBatchSend failed after 2 retries", ex.Message);
+
+        // TODO: Check items.
+        Assert.That(ex.FailedItems.Count, Is.GreaterThan(0));
     }
 
     [Test]
@@ -299,7 +302,10 @@ public class DataStreamerTests : IgniteTestsBase
 
         Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
 
-        StringAssert.StartsWith("Operation StreamerBatchSend failed after 16 retries", ex!.Message);
+        StringAssert.StartsWith("Operation StreamerBatchSend failed after 16 retries", ex.Message);
+
+        // TODO: Check items.
+        Assert.That(ex.FailedItems.Count, Is.GreaterThan(0));
     }
 
     [Test]
