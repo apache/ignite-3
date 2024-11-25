@@ -207,7 +207,7 @@ public class DataStreamerTests : IgniteTestsBase
 
         var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
             async () => await table!.RecordBinaryView.StreamDataAsync(
-                GetTuplesWithDelay(),
+                GetFakeServerData(100, TimeSpan.FromSeconds(5)),
                 new DataStreamerOptions
                 {
                     AutoFlushInterval = TimeSpan.FromMilliseconds(50),
@@ -782,12 +782,17 @@ public class DataStreamerTests : IgniteTestsBase
         Assert.Less(streamedData.Count(x => x.HasValue), Count / 2);
     }
 
-    private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
+    private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count, TimeSpan? delay = null)
     {
         for (var i = 0; i < count; i++)
         {
             yield return new IgniteTuple { ["ID"] = i };
             await Task.Yield();
+
+            if (delay != null)
+            {
+                await Task.Delay(delay.Value);
+            }
         }
     }
 
