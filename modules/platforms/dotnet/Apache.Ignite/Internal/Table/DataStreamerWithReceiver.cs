@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table;
 
 using System;
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -92,6 +93,7 @@ internal static class DataStreamerWithReceiver
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
         var batches = new Dictionary<int, Batch<TPayload>>();
+        var failedItems = new ConcurrentBag<TSource>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
         var units0 = units as ICollection<DeploymentUnit> ?? units.ToList(); // Avoid multiple enumeration.
 
@@ -130,6 +132,11 @@ internal static class DataStreamerWithReceiver
             }
 
             await Drain().ConfigureAwait(false);
+        }
+        catch (Exception e)
+        {
+            // TODO: What happens if AutoFlushAsync throws?
+            throw DataStreamerException.Create(e, failedItems);
         }
         finally
         {

@@ -198,7 +198,8 @@ public class DataStreamerTests : IgniteTestsBase
         var streamTask = TupleView.StreamDataAsync(GetTuplesWithDelay(), cancellationToken: cts.Token);
 
         cts.Cancel();
-        Assert.CatchAsync<OperationCanceledException>(async () => await streamTask);
+        var ex = Assert.CatchAsync<DataStreamerException>(async () => await streamTask);
+        Assert.IsInstanceOf<OperationCanceledException>(ex.InnerException);
 
         Assert.IsFalse(
             await TupleView.ContainsKeyAsync(null, GetTuple(0)),
@@ -265,8 +266,10 @@ public class DataStreamerTests : IgniteTestsBase
         using var client = await server.ConnectClientAsync();
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
-        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
+        var ex = Assert.ThrowsAsync<DataStreamerException>(
             async () => await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(10_000)));
+
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
 
         StringAssert.StartsWith("Operation StreamerBatchSend failed after 16 retries", ex!.Message);
     }
