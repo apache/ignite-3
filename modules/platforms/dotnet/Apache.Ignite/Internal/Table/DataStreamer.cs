@@ -71,7 +71,7 @@ internal static class DataStreamer
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
         var batches = new Dictionary<int, Batch<T>>();
-        var failedItems = new ConcurrentBag<DataStreamerItem<T>>();
+        var failedItems = new ConcurrentQueue<DataStreamerItem<T>>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
 
         var schema = await table.GetSchemaAsync(null).ConfigureAwait(false);
@@ -315,7 +315,7 @@ internal static class DataStreamer
             {
                 for (var i = 0; i < count; i++)
                 {
-                    failedItems.Add(items[i]);
+                    failedItems.Enqueue(items[i]);
                 }
 
                 throw;

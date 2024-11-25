@@ -314,7 +314,7 @@ public class DataStreamerTests : IgniteTestsBase
 
         Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
 
-        StringAssert.StartsWith("Operation StreamerBatchSend failed after 13 retries", ex.Message);
+        StringAssert.StartsWith($"Operation StreamerBatchSend failed after {opts.RetryLimit} retries", ex.Message);
 
         Assert.AreEqual(opts.PageSize, ex.FailedItems.Count);
 
