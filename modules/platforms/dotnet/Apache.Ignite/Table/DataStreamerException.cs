@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Table;
 
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
@@ -30,4 +32,24 @@ public partial class DataStreamerException
     /// Gets the set of items that were not streamed to the cluster.
     /// </summary>
     public ISet<object> FailedItems { get; private set; } = new HashSet<object>();
+
+    /// <summary>
+    /// Creates a new instance of <see cref="DataStreamerException"/> from the provided cause and failed items.
+    /// </summary>
+    /// <param name="cause">Cause.</param>
+    /// <param name="failedItems">Failed items.</param>
+    /// <returns>Exception.</returns>
+    public static DataStreamerException Create(Exception cause, IEnumerable failedItems)
+    {
+        var ex = cause is IgniteException iex
+            ? new DataStreamerException(iex.TraceId, iex.Code, iex.Message, iex.InnerException)
+            : new DataStreamerException(Guid.NewGuid(), 0, cause.Message, cause);
+
+        foreach (var failedItem in failedItems)
+        {
+            ex.FailedItems.Add(failedItem);
+        }
+
+        return ex;
+    }
 }
