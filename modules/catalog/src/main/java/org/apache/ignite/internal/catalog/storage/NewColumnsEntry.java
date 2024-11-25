@@ -121,7 +121,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
         @Override
         public NewColumnsEntry readFrom(IgniteDataInput in) throws IOException {
             List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, in);
-            int tableId = in.readInt();
+            int tableId = in.readVarIntAsInt();
 
             return new NewColumnsEntry(tableId, columns);
         }
@@ -129,7 +129,7 @@ public class NewColumnsEntry implements UpdateEntry, Fireable {
         @Override
         public void writeTo(NewColumnsEntry entry, IgniteDataOutput out) throws IOException {
             writeList(entry.descriptors(), CatalogTableColumnDescriptor.SERIALIZER, out);
-            out.writeInt(entry.tableId());
+            out.writeVarInt(entry.tableId());
         }
     }
 }

@@ -62,6 +62,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -304,6 +305,14 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
         Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
 
+        boolean isProposedPendingEqualsProposedPlanned = partAssignments.size() == 1;
+
+        assert partAssignments.contains(nextAssignment) : IgniteStringFormatter.format(
+                "Recovery nodes set doesn't contain the reset node assignment [partAssignments={}, nextAssignment={}]",
+                partAssignments,
+                nextAssignment
+        );
+
         // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
         // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
         // for the case of the manual update, that was triggered by a user.
@@ -311,7 +320,10 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                 partId,
                 longToBytesKeepingOrder(revision),
                 Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp).toBytes(),
-                Assignments.toBytes(partAssignments, assignmentsTimestamp)
+                // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
+                isProposedPendingEqualsProposedPlanned
+                        ? null
+                        : Assignments.toBytes(partAssignments, assignmentsTimestamp)
         );
 
         return metaStorageMgr.invoke(invokeClosure).thenApply(StatementResult::getAsInt);

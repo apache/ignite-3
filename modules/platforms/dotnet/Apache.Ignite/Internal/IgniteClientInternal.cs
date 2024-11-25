@@ -69,6 +69,11 @@ namespace Apache.Ignite.Internal
         public ISql Sql { get; }
 
         /// <summary>
+        /// Gets a value indicating whether the client is disposed.
+        /// </summary>
+        public bool IsDisposed => Socket.IsDisposed;
+
+        /// <summary>
         /// Gets the underlying socket.
         /// </summary>
         internal ClientFailoverSocket Socket { get; }
