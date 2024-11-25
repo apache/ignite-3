@@ -218,8 +218,14 @@ public class DataStreamerTests : IgniteTestsBase
 
         StringAssert.StartsWith("Operation StreamerBatchSend failed after 2 retries", ex.Message);
 
-        // TODO: Check items.
         Assert.That(ex.FailedItems.Count, Is.GreaterThan(0));
+
+        foreach (var failedItem in ex.FailedItems)
+        {
+            var item = (DataStreamerItem<IIgniteTuple>)failedItem;
+            Assert.AreEqual(DataStreamerOperationType.Put, item.OperationType);
+            Assert.IsNotNull(item.Data);
+        }
     }
 
     [Test]
