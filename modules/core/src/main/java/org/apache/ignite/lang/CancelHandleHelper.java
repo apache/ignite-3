@@ -62,7 +62,7 @@ public final class CancelHandleHelper {
     }
 
     /**
-     * Attaches a cancellable operation to the given token. A cancellation procedure started its handle completes
+     * Attaches a future to the given token. A cancellation procedure call {@link CompletableFuture#cancel} and handle completes
      * when {@code completionFut} completes.
      *
      * @param token Cancellation token.
