@@ -30,7 +30,7 @@ namespace NAMESPACE
         "Microsoft.Design",
         "CA1032:ImplementStandardExceptionConstructors",
         Justification="Ignite exceptions use a special constructor.")]
-    public sealed class IgniteTemplateException : IgniteException
+    public sealed partial class IgniteTemplateException : IgniteException
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="IgniteTemplateException"/> class.
