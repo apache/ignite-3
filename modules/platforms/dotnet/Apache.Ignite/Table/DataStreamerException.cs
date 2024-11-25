@@ -25,13 +25,32 @@ using System.Diagnostics.CodeAnalysis;
 /// <summary>
 /// Represents an exception that is thrown during data streaming. Includes information about failed items.
 /// </summary>
+[Serializable]
 [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "False positive.")]
-public partial class DataStreamerException
+[SuppressMessage(
+    "Microsoft.Design",
+    "CA1032:ImplementStandardExceptionConstructors",
+    Justification="Ignite exceptions use a special constructor.")]
+public class DataStreamerException : IgniteException
 {
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DataStreamerException"/> class.
+    /// </summary>
+    /// <param name="traceId">Trace id.</param>
+    /// <param name="code">Code.</param>
+    /// <param name="message">Message.</param>
+    /// <param name="innerException">Inner exception.</param>
+    /// <param name="failedItems">Failed items.</param>
+    public DataStreamerException(Guid traceId, int code, string? message, Exception innerException, ISet<object> failedItems)
+        : base(traceId, code, message, innerException)
+    {
+        FailedItems = failedItems;
+    }
+
     /// <summary>
     /// Gets the set of items that were not streamed to the cluster.
     /// </summary>
-    public ISet<object> FailedItems { get; private set; } = new HashSet<object>();
+    public ISet<object> FailedItems { get; }
 
     /// <summary>
     /// Creates a new instance of <see cref="DataStreamerException"/> from the provided cause and failed items.
@@ -41,15 +60,15 @@ public partial class DataStreamerException
     /// <returns>Exception.</returns>
     public static DataStreamerException Create(Exception cause, IEnumerable failedItems)
     {
-        var ex = cause is IgniteException iex
-            ? new DataStreamerException(iex.TraceId, iex.Code, iex.Message, iex.InnerException)
-            : new DataStreamerException(Guid.NewGuid(), 0, cause.Message, cause);
+        var failedItemsSet = new HashSet<object>();
 
         foreach (var failedItem in failedItems)
         {
-            ex.FailedItems.Add(failedItem);
+            failedItemsSet.Add(failedItem);
         }
 
-        return ex;
+        return cause is IgniteException iex
+            ? new DataStreamerException(iex.TraceId, iex.Code, iex.Message, cause, failedItemsSet)
+            : new DataStreamerException(Guid.NewGuid(), ErrorGroups.Common.Internal, cause.Message, cause, failedItemsSet);
     }
 }
