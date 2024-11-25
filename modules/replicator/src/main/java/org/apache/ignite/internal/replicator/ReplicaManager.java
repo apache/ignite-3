@@ -1353,8 +1353,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             Replica expiredPrimaryReplica = replicaFuture.join();
             expiredPrimaryReplica.raftClient()
-                    .unsubscribeLeader(onLeaderElectedFailoverCallback)
-                    .join();
+                    .unsubscribeLeader(onLeaderElectedFailoverCallback);
         }
 
         private void changePeersAndLearnersAsyncIfPendingExists(
