@@ -59,6 +59,8 @@ public abstract class IgniteServerBase : IDisposable
 
     public string Endpoint => "127.0.0.1:" + Port;
 
+    public bool AllowMultipleConnections { get; set; }
+
     public bool DropNewConnections
     {
         get => _dropNewConnections;
@@ -174,6 +176,8 @@ public abstract class IgniteServerBase : IDisposable
         while (!_cts.IsCancellationRequested)
         {
             Socket handler = _listener.Accept();
+            handler.NoDelay = true;
+
             if (DropNewConnections)
             {
                 handler.Disconnect(true);
@@ -184,22 +188,24 @@ public abstract class IgniteServerBase : IDisposable
 
             _handlers[handler] = null;
 
-            Task.Run(() =>
+            var handleAction = () =>
             {
                 using (handler)
                 {
-                    handler.NoDelay = true;
-
-                    if (!DropNewConnections)
-                    {
-                        Handle(handler, _cts.Token);
-                    }
-
+                    Handle(handler, _cts.Token);
                     handler.Disconnect(true);
-                    handler.Dispose();
                     _handlers.TryRemove(handler, out _);
                 }
-            });
+            };
+
+            if (AllowMultipleConnections)
+            {
+                Task.Run(handleAction);
+            }
+            else
+            {
+                handleAction();
+            }
         }
     }
 
