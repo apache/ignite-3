@@ -37,6 +37,7 @@ import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The read-write implementation of an internal transaction.
@@ -157,17 +158,16 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full) {
+    public CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full) {
         if (finishFuture != null) {
             return finishFuture;
         }
-
         enlistPartitionLock.writeLock().lock();
 
         try {
             if (finishFuture == null) {
                 if (full) {
-                    txManager.finishFull(observableTsTracker, id(), commit);
+                    txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit);
 
                     finishFuture = nullCompletedFuture();
                 } else {

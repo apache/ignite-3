@@ -106,14 +106,14 @@ public class DropTableEntry implements UpdateEntry, Fireable {
     private static class DropTableEntrySerializer implements CatalogObjectSerializer<DropTableEntry> {
         @Override
         public DropTableEntry readFrom(IgniteDataInput input) throws IOException {
-            int tableId = input.readInt();
+            int tableId = input.readVarIntAsInt();
 
             return new DropTableEntry(tableId);
         }
 
         @Override
         public void writeTo(DropTableEntry entry, IgniteDataOutput out) throws IOException {
-            out.writeInt(entry.tableId());
+            out.writeVarInt(entry.tableId());
         }
     }
 }

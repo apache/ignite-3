@@ -166,7 +166,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             /** {@inheritDoc} */
             @Override
             public RowWrapper create(Object... fields) {
-                assert fields.length == schemaLen;
+                assert fields.length == rowSchema.fields().size();
 
                 return new ObjectsArrayRowWrapper(rowSchema, fields);
             }
@@ -177,6 +177,12 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                 assert schemaLen == tuple.elementCount() : format("schemaLen={}, tupleSize={}", schemaLen, tuple.elementCount());
 
                 return new BinaryTupleRowWrapper(rowSchema, tuple);
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public RowSchema rowSchema() {
+                return rowSchema;
             }
         };
     }
@@ -214,7 +220,8 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         }
 
         @Override
-        @Nullable Object get(int field) {
+        @Nullable
+        Object get(int field) {
             return row[field];
         }
 
@@ -376,7 +383,8 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         }
 
         @Override
-        @Nullable Object get(int field) {
+        @Nullable
+        Object get(int field) {
             NativeType nativeType = RowSchemaTypes.toNativeType(rowSchema.fields().get(field));
 
             if (nativeType == null) {

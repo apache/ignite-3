@@ -281,6 +281,11 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                     public <R> CompletableFuture<R> run(Command cmd) {
                         return nullCompletedFuture();
                     }
+
+                    @Override
+                    public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
+                        return nullCompletedFuture();
+                    }
                 },
                 txManager,
                 lockManager,

@@ -87,14 +87,14 @@ public class SetDefaultZoneEntry implements UpdateEntry, Fireable {
     private static class SetDefaultZoneEntrySerializer implements CatalogObjectSerializer<SetDefaultZoneEntry> {
         @Override
         public SetDefaultZoneEntry readFrom(IgniteDataInput input) throws IOException {
-            int zoneId = input.readInt();
+            int zoneId = input.readVarIntAsInt();
 
             return new SetDefaultZoneEntry(zoneId);
         }
 
         @Override
         public void writeTo(SetDefaultZoneEntry entry, IgniteDataOutput output) throws IOException {
-            output.writeInt(entry.zoneId());
+            output.writeVarInt(entry.zoneId());
         }
     }
 }

@@ -422,7 +422,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
                 serializer = new CatalogObjectSerializer<>() {
                     @Override
                     public MarshallableEntry readFrom(IgniteDataInput input) throws IOException {
-                        int length = input.readInt();
+                        int length = input.readVarIntAsInt();
                         byte[] data = input.readByteArray(length);
 
                         return ByteUtils.fromBytes(data);
@@ -432,7 +432,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
                     public void writeTo(MarshallableEntry value, IgniteDataOutput output) throws IOException {
                         byte[] bytes = ByteUtils.toBytes(value);
 
-                        output.writeInt(bytes.length);
+                        output.writeVarInt(bytes.length);
                         output.writeByteArray(bytes);
                     }
                 };

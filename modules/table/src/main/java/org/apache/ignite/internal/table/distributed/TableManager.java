@@ -228,6 +228,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.internal.worker.ThreadAssertions;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -1794,18 +1795,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .collect(toSet());
         metaStorageMgr.removeAll(assignmentKeys);
 
-        CompletableFuture<?>[] stopReplicaFutures = new CompletableFuture<?>[partitions];
+        CompletableFuture<?>[] stopReplicaAndDestroyFutures = new CompletableFuture<?>[partitions];
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be stopped on the assignments change
         //  event triggered by zone drop or alter. Stop replica asynchronously, out of metastorage event pipeline.
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
             var replicationGroupId = new TablePartitionId(tableId, partitionId);
 
-            stopReplicaFutures[partitionId] = stopPartition(replicationGroupId, table);
+            stopReplicaAndDestroyFutures[partitionId] = stopAndDestroyPartition(replicationGroupId, table);
         }
 
-        // TODO: IGNITE-18703 Destroy raft log and meta
-        return allOf(stopReplicaFutures)
+        return allOf(stopReplicaAndDestroyFutures)
                 .thenComposeAsync(
                         unused -> inBusyLockAsync(busyLock, () -> allOf(
                                 internalTable.storage().destroy(),
@@ -2640,9 +2640,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .thenCompose(ignore -> {
                     TableImpl table = tables.get(tablePartitionId.tableId());
 
-                    return stopPartition(tablePartitionId, table)
-                            .thenComposeAsync(v -> destroyPartitionStorages(tablePartitionId, table), ioExecutor);
+                    return stopAndDestroyPartition(tablePartitionId, table);
                 });
+    }
+
+    private CompletableFuture<Void> stopAndDestroyPartition(TablePartitionId tablePartitionId, TableImpl table) {
+        return stopPartition(tablePartitionId, table)
+                .thenComposeAsync(v -> destroyPartitionStorages(tablePartitionId, table), ioExecutor);
     }
 
     /**
@@ -2686,7 +2690,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> destroyPartitionStorages(TablePartitionId tablePartitionId, TableImpl table) {
-        // TODO: IGNITE-18703 Destroy raft log and meta
         if (table == null) {
             return nullCompletedFuture();
         }
@@ -2705,7 +2708,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             destroyFutures.add(runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor));
         }
 
+        destroyFutures.add(runAsync(() -> destroyReplicationProtocolStorages(tablePartitionId, table), ioExecutor));
+
         return allOf(destroyFutures.toArray(new CompletableFuture[]{}));
+    }
+
+    private void destroyReplicationProtocolStorages(TablePartitionId tablePartitionId, TableImpl table) {
+        var internalTbl = (InternalTableImpl) table.internalTable();
+
+        try {
+            replicaMgr.destroyReplicationProtocolStorages(tablePartitionId, internalTbl.storage().isVolatile());
+        } catch (NodeStoppingException e) {
+            throw new IgniteInternalException(Common.NODE_STOPPING_ERR, e);
+        }
     }
 
     private static void closePartitionTrackers(InternalTable internalTable, int partitionId) {
