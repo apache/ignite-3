@@ -83,8 +83,6 @@ public class DataStreamerTests : IgniteTestsBase
     [SetUp]
     public async Task PrepareData()
     {
-        DataStreamerException e;
-
         await TupleView.UpsertAsync(null, GetTuple(UpdatedKey, "update me"));
         await TupleView.UpsertAsync(null, GetTuple(DeletedKey, "delete me"));
     }

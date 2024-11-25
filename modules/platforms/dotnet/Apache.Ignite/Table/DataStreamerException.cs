@@ -18,10 +18,12 @@
 namespace Apache.Ignite.Table;
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
 /// Represents an exception that is thrown during data streaming. Includes information about failed items.
 /// </summary>
+[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "False positive.")]
 public partial class DataStreamerException
 {
     /// <summary>
