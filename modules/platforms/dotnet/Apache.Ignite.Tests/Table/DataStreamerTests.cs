@@ -192,6 +192,32 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestAutoFlushFail([Values(true, false)] bool withReceiver)
+    {
+        if (withReceiver)
+        {
+            Assert.Fail("TODO");
+        }
+
+        using var server = new FakeServer(
+            shouldDropConnection: ctx => ctx is { OpCode: ClientOp.StreamerBatchSend });
+
+        using var client = await server.ConnectClientAsync();
+        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+
+        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
+            async () => await table!.RecordBinaryView.StreamDataAsync(
+                GetTuplesWithDelay(),
+                new DataStreamerOptions
+                {
+                    AutoFlushInterval = TimeSpan.FromMilliseconds(50),
+                    RetryLimit = 2
+                }));
+
+        StringAssert.StartsWith("Operation StreamerBatchSend failed after 2 retries", ex!.Message);
+    }
+
+    [Test]
     public async Task TestCancellation()
     {
         using var cts = new CancellationTokenSource();
