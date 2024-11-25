@@ -119,6 +119,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(node).empty(), 5_000));
 
         checkRecoveryRequest(node);
+        checkRecoveryRequestOnlyOne(node);
     }
 
     @Test
@@ -146,6 +147,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(node).empty(), 15_000));
 
         checkRecoveryRequest(node);
+        checkRecoveryRequestOnlyOne(node);
     }
 
     @Test
@@ -173,11 +175,14 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(node1).empty(), 30_000));
 
         checkRecoveryRequest(node1);
+        checkRecoveryRequestOnlyOne(node1);
     }
 
     private void checkRecoveryRequest(IgniteImpl node) {
+        Entry recoveryTriggerEntry = getRecoveryTriggerKey(node);
+
         GroupUpdateRequest request = (GroupUpdateRequest) VersionedSerialization.fromBytes(
-                getRecoveryTriggerKey(node).value(), DisasterRecoveryRequestSerializer.INSTANCE);
+                recoveryTriggerEntry.value(), DisasterRecoveryRequestSerializer.INSTANCE);
 
         int zoneId = node.catalogManager().zone(ZONE_NAME, clock.nowLong()).id();
         int tableId = node.catalogManager().table(TABLE_NAME, clock.nowLong()).id();
@@ -188,11 +193,16 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertFalse(request.manualUpdate());
     }
 
+    private void checkRecoveryRequestOnlyOne(IgniteImpl node) {
+        assertEquals(
+                1,
+                node
+                        .metaStorageManager()
+                        .getLocally(RECOVERY_TRIGGER_KEY.bytes(), 0L,Long.MAX_VALUE).size()
+        );
+    }
+
     private static Entry getRecoveryTriggerKey(IgniteImpl node) {
-        CompletableFuture<Entry> getFut = node.metaStorageManager().get(RECOVERY_TRIGGER_KEY);
-
-        assertThat(getFut, willCompleteSuccessfully());
-
-        return getFut.join();
+        return node.metaStorageManager().getLocally(RECOVERY_TRIGGER_KEY, Long.MAX_VALUE);
     }
 }
