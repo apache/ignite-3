@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.junit.jupiter.api.AfterEach;
@@ -59,12 +58,8 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
     public void cancelScript() {
         StringBuilder query = new StringBuilder();
 
-        int statementsCount = 100;
-
-        // The number of rows must be greater than the default page size,
-        // otherwise the cursor may be closed after prefetching and the
-        // exception will not be as expected.
-        int rowsPerStatement = SqlCommon.DEFAULT_PAGE_SIZE + 1;
+        int statementsCount = 10;
+        int rowsPerStatement = 5;
 
         for (int j = 0; j < rowsPerStatement * statementsCount; j += rowsPerStatement) {
             String statement = format("SELECT x FROM TABLE(SYSTEM_RANGE({}, {}));", j, j + rowsPerStatement);

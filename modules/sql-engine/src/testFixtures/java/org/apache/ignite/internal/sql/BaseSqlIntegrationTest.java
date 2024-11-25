@@ -272,7 +272,7 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
             BatchedResult<?> batch;
             do {
                 batch = await(cursor.requestNextAsync(1));
-            } while (!batch.items().isEmpty());
+            } while (batch.hasMore());
         }
     }
 }
