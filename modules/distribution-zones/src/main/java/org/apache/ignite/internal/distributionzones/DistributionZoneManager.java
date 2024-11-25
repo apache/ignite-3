@@ -1563,6 +1563,8 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return logical topology.
      */
     public Set<NodeWithAttributes> logicalTopology(long revision) {
+        assert revision >= 0 : revision;
+
         Map.Entry<Long, Set<NodeWithAttributes>> entry = logicalTopologyByRevision.floorEntry(revision);
 
         return entry != null ? entry.getValue() : emptySet();
