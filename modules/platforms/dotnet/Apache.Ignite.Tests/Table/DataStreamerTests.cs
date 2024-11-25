@@ -303,15 +303,27 @@ public class DataStreamerTests : IgniteTestsBase
         using var client = await server.ConnectClientAsync();
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
+        var opts = new DataStreamerOptions
+        {
+            PageSize = 333,
+            RetryLimit = 13
+        };
+
         var ex = Assert.ThrowsAsync<DataStreamerException>(
-            async () => await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(10_000)));
+            async () => await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(10_000), opts));
 
         Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
 
-        StringAssert.StartsWith("Operation StreamerBatchSend failed after 16 retries", ex.Message);
+        StringAssert.StartsWith("Operation StreamerBatchSend failed after 13 retries", ex.Message);
 
-        // TODO: Check items.
-        Assert.That(ex.FailedItems.Count, Is.GreaterThan(0));
+        Assert.AreEqual(opts.PageSize, ex.FailedItems.Count);
+
+        foreach (var failedItem in ex.FailedItems)
+        {
+            var item = (DataStreamerItem<IIgniteTuple>)failedItem;
+            Assert.AreEqual(DataStreamerOperationType.Put, item.OperationType);
+            Assert.IsNotNull(item.Data);
+        }
     }
 
     [Test]
