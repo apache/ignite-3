@@ -156,8 +156,6 @@ public class PlacementDriverManager implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        assignmentsTracker.startTrack();
-
         inBusyLock(busyLock, () -> {
             placementDriverNodesNamesProvider.get()
                     .thenCompose(placementDriverNodes -> {
@@ -276,6 +274,8 @@ public class PlacementDriverManager implements IgniteComponent {
         assert recoveryFinishedFuture.isDone();
 
         long recoveryRevision = recoveryFinishedFuture.join().revision();
+
+        assignmentsTracker.startTrack();
 
         leaseTracker.startTrack(recoveryRevision);
     }
