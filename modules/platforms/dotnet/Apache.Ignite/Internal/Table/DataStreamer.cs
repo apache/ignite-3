@@ -311,6 +311,15 @@ internal static class DataStreamer
                     }
                 }
             }
+            catch (Exception)
+            {
+                for (var i = 0; i < count; i++)
+                {
+                    failedItems.Add(items[i]);
+                }
+
+                throw;
+            }
             finally
             {
                 buf.Dispose();
