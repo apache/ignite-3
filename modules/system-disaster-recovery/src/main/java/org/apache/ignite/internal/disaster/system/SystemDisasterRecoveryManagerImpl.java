@@ -432,8 +432,21 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
 
     @Override
     public CompletableFuture<Void> migrate(ClusterState targetClusterState) {
+        try {
+            return doMigrate(targetClusterState);
+        } catch (MigrateException e) {
+            return failedFuture(e);
+        }
+    }
+
+    private CompletableFuture<Void> doMigrate(ClusterState targetClusterState) {
         if (targetClusterState.formerClusterIds() == null) {
-            return failedFuture(new MigrateException("Migration can only happen using cluster state from a node that saw a cluster reset"));
+            throw new MigrateException("Migration can only happen using cluster state from a node that saw a cluster reset");
+        }
+
+        ClusterState clusterState = ensureClusterStateIsPresent();
+        if (isDescendantOrSame(clusterState, targetClusterState)) {
+            throw new MigrateException("Migration can only happen from old cluster to new one, not the other way around");
         }
 
         Collection<ClusterNode> nodesInTopology = topologyService.allMembers();
@@ -450,6 +463,27 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
                     restarter.initiateRestart();
                     return null;
                 }, restartExecutor);
+    }
+
+    private static boolean isDescendantOrSame(ClusterState potencialDescendant, ClusterState potentialAncestor) {
+        List<UUID> descendantLineage = extractClusterIdsLineage(potencialDescendant);
+        List<UUID> ancestorLineage = extractClusterIdsLineage(potentialAncestor);
+
+        return descendantLineage.size() >= ancestorLineage.size()
+                && descendantLineage.subList(0, ancestorLineage.size()).equals(ancestorLineage);
+    }
+
+    private static List<UUID> extractClusterIdsLineage(ClusterState state) {
+        List<UUID> lineage = new ArrayList<>();
+
+        List<UUID> formerClusterIds = state.formerClusterIds();
+        if (formerClusterIds != null) {
+            lineage.addAll(formerClusterIds);
+        }
+
+        lineage.add(state.clusterTag().clusterId());
+
+        return lineage;
     }
 
     private ResetClusterMessage buildResetClusterMessageForMigrate(ClusterState clusterState) {
