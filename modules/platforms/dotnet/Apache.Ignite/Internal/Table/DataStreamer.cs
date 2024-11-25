@@ -81,13 +81,13 @@ internal static class DataStreamer
         Debug.Assert(partitionCount > 0, "partitionCount > 0");
 
         using var flushCts = new CancellationTokenSource();
+        Task autoFlushTask;
 
         try
         {
-            var loopCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var autoFlushTask = AutoFlushAsync(flushCts.Token, loopCts);
+            autoFlushTask = AutoFlushAsync(flushCts.Token);
 
-            await foreach (var item in data.WithCancellation(loopCts.Token))
+            await foreach (var item in data.WithCancellation(cancellationToken))
             {
                 // WithCancellation passes the token to the producer.
                 // However, not all producers support cancellation, so we need to check it here as well.
@@ -105,6 +105,11 @@ internal static class DataStreamer
                 if (batch.Count >= options.PageSize)
                 {
                     await SendAsync(batch).ConfigureAwait(false);
+                }
+
+                if (autoFlushTask.IsFaulted)
+                {
+                    await autoFlushTask.ConfigureAwait(false);
                 }
             }
 
@@ -316,30 +321,19 @@ internal static class DataStreamer
             }
         }
 
-        async Task AutoFlushAsync(CancellationToken flushCt, CancellationTokenSource loopCts)
+        async Task AutoFlushAsync(CancellationToken flushCt)
         {
-            using (loopCts)
+            while (!flushCt.IsCancellationRequested)
             {
-                try
-                {
-                    while (!flushCt.IsCancellationRequested)
-                    {
-                        await Task.Delay(options.AutoFlushInterval, flushCt).ConfigureAwait(false);
-                        var ts = Stopwatch.GetTimestamp();
+                await Task.Delay(options.AutoFlushInterval, flushCt).ConfigureAwait(false);
+                var ts = Stopwatch.GetTimestamp();
 
-                        foreach (var batch in batches.Values)
-                        {
-                            if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushInterval.Ticks)
-                            {
-                                await SendAsync(batch).ConfigureAwait(false);
-                            }
-                        }
-                    }
-                }
-                catch (Exception)
+                foreach (var batch in batches.Values)
                 {
-                    await loopCts.CancelAsync().ConfigureAwait(false);
-                    throw;
+                    if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushInterval.Ticks)
+                    {
+                        await SendAsync(batch).ConfigureAwait(false);
+                    }
                 }
             }
         }

@@ -205,16 +205,18 @@ public class DataStreamerTests : IgniteTestsBase
         using var client = await server.ConnectClientAsync();
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
-        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
+        var ex = Assert.ThrowsAsync<DataStreamerException>(
             async () => await table!.RecordBinaryView.StreamDataAsync(
-                GetFakeServerData(100, TimeSpan.FromSeconds(5)),
+                GetFakeServerData(100_000, TimeSpan.FromMilliseconds(50)),
                 new DataStreamerOptions
                 {
                     AutoFlushInterval = TimeSpan.FromMilliseconds(50),
                     RetryLimit = 2
                 }));
 
-        StringAssert.StartsWith("Operation StreamerBatchSend failed after 2 retries", ex!.Message);
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
+
+        StringAssert.StartsWith("Operation StreamerBatchSend failed after 2 retries", ex.Message);
     }
 
     [Test]
