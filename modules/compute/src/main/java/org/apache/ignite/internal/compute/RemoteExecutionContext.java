@@ -41,12 +41,7 @@ class RemoteExecutionContext<T, R> {
 
     private final AtomicReference<FailSafeJobExecution<R>> jobExecution;
 
-    RemoteExecutionContext(
-            List<DeploymentUnit> units,
-            String jobClassName,
-            ExecutionOptions executionOptions,
-            T arg
-    ) {
+    RemoteExecutionContext(List<DeploymentUnit> units, String jobClassName, ExecutionOptions executionOptions, T arg) {
         this.executionOptions = executionOptions;
         this.units = units;
         this.jobClassName = jobClassName;

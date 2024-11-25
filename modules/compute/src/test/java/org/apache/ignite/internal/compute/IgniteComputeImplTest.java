@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -268,24 +269,24 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
-        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(null), eq("a")))
+        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, null, "a"))
                 .thenReturn(completedExecution("jobResponse"));
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions, CancellationToken cancellationToken) {
-        when(computeComponent.executeLocally(eq(executionOptions), eq(testDeploymentUnits), eq(JOB_CLASS_NAME),
-                eq(cancellationToken), eq("a"))).thenReturn(completedExecution("jobResponse"));
+        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME,
+                cancellationToken, "a")).thenReturn(completedExecution("jobResponse"));
     }
 
     private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
         when(computeComponent.executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), eq(null), eq("a")
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), isNull(), eq("a")
         )).thenReturn(completedExecution("remoteResponse"));
     }
 
     private void verifyExecuteRemotelyWithFailover(ExecutionOptions options) {
         verify(computeComponent).executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), eq(null), eq("a")
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), isNull(), eq("a")
         );
     }
 
