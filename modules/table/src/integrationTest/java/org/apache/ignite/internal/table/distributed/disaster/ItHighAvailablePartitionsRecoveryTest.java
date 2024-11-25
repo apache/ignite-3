@@ -198,7 +198,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
                 1,
                 node
                         .metaStorageManager()
-                        .getLocally(RECOVERY_TRIGGER_KEY.bytes(), 0L,Long.MAX_VALUE).size()
+                        .getLocally(RECOVERY_TRIGGER_KEY.bytes(), 0L, Long.MAX_VALUE).size()
         );
     }
 
