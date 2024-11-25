@@ -347,8 +347,13 @@ public class DataStreamerTests : IgniteTestsBase
 
         StringAssert.StartsWith("Operation StreamerWithReceiverBatchSend failed after 16 retries", ex.Message);
 
-        // TODO: Check items
         Assert.That(ex.FailedItems.Count, Is.GreaterThan(0));
+
+        foreach (var failedItem in ex.FailedItems)
+        {
+            var item = (IIgniteTuple)failedItem;
+            Assert.That((int)item["ID"]!, Is.GreaterThanOrEqualTo(0));
+        }
     }
 
     [Test]
@@ -622,7 +627,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestUnknownReceiverClass()
     {
-        var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await TupleView.StreamDataAsync(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
                 keySelector: x => GetTuple(x),
@@ -708,8 +713,10 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestWithReceiverUnsupportedDataTypeThrows()
     {
-        var ex = Assert.ThrowsAsync<IgniteClientException>(
+        var ex = Assert.ThrowsAsync<DataStreamerException>(
             async () => await CheckReceiverValue(GetPoco(1), "java.lang.Boolean", "true"));
+
+        Assert.IsInstanceOf<IgniteClientException>(ex.InnerException);
 
         Assert.AreEqual("Unsupported type: Apache.Ignite.Tests.Table.Poco", ex.Message);
     }
@@ -717,13 +724,15 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestWithReceiverDifferentDataTypesThrows()
     {
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await PocoView.StreamDataAsync(
                 new object[] { 1, "2" }.ToAsyncEnumerable(),
                 keySelector: _ => new Poco(),
                 payloadSelector: x => x,
                 receiver: TestReceiverNoResults,
                 receiverArg: null));
+
+        Assert.IsInstanceOf<InvalidOperationException>(ex.InnerException);
 
         Assert.AreEqual(
             "All streamer items returned by payloadSelector must be of the same type. Expected: System.Int32, actual: System.String.",
@@ -733,13 +742,15 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestWithReceiverNullItemThrows()
     {
-        var ex = Assert.ThrowsAsync<ArgumentNullException>(async () =>
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await PocoView.StreamDataAsync(
                 new object[] { "2", null! }.ToAsyncEnumerable(),
                 keySelector: _ => new Poco(),
                 payloadSelector: x => x,
                 receiver: TestReceiverNoResults,
                 receiverArg: null));
+
+        Assert.IsInstanceOf<ArgumentNullException>(ex.InnerException);
 
         Assert.AreEqual(
             "Value cannot be null. (Parameter 'payload')",
