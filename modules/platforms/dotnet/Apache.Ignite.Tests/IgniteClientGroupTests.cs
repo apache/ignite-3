@@ -29,7 +29,10 @@ public class IgniteClientGroupTests
     private FakeServer _server;
 
     [SetUp]
-    public void StartServer() => _server = new FakeServer();
+    public void StartServer() => _server = new FakeServer
+    {
+        AllowMultipleConnections = true
+    };
 
     [TearDown]
     public void StopServer() => _server.Dispose();
