@@ -41,7 +41,6 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
-import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -99,8 +98,6 @@ public class ReplicaImpl implements Replica {
     private final ClockService clockService;
 
     private final BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure;
-
-    private LeaderElectionListener onLeaderElectedFailoverCallback;
 
     /**
      * The constructor of a replica server.

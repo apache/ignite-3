@@ -371,7 +371,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     /**
-     * Removes the given callback from handling on RAFT leader elected event
+     * Removes the given local callback on RAFT leader elected event from handling list.
      *
      * @param callback The callback that should be removed.
      */

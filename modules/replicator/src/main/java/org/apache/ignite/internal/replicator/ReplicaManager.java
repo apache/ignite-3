@@ -1330,14 +1330,19 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return;
             }
 
-            Replica replica = replicaFuture.join();
-            onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
-                    replica,
-                    replicationGroupId,
-                    term
-            );
+            replicaFuture.thenApply(electedPrimaryReplica -> {
+                onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
+                        electedPrimaryReplica,
+                        replicationGroupId,
+                        term
+                );
 
-            replica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback).join();
+                return electedPrimaryReplica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback);
+            }).exceptionally(e -> {
+                LOG.error("Rebalance failover subscription on elected primary replica failed [groupId=" + replicationGroupId + "].", e);
+
+                return null;
+            });
         }
 
         // TODO: move to Replica https://issues.apache.org/jira/browse/IGNITE-23750
@@ -1351,9 +1356,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return;
             }
 
-            Replica expiredPrimaryReplica = replicaFuture.join();
-            expiredPrimaryReplica.raftClient()
-                    .unsubscribeLeader(onLeaderElectedFailoverCallback);
+            replicaFuture.thenAccept(expiredPrimaryReplica -> expiredPrimaryReplica.raftClient()
+                    .unsubscribeLeader(onLeaderElectedFailoverCallback)
+            );
         }
 
         private void changePeersAndLearnersAsyncIfPendingExists(
@@ -1361,22 +1366,44 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 TablePartitionId replicationGroupId,
                 long term
         ) {
-            byte[] pendings = getPendingAssignmentsSupplier.apply(replicationGroupId).join();
+            getPendingAssignmentsSupplier.apply(replicationGroupId).exceptionally(e -> {
+                LOG.error(
+                        format(
+                                "Couldn't fetch pending assignments for rebalance failover [groupId={}, term={}].",
+                                replicationGroupId,
+                                term
+                        ),
+                        e
+                );
 
-            if (pendings == null) {
-                return;
-            }
+                return null;
+            }).thenCompose(pendingsBytes -> {
+                if (pendingsBytes == null) {
+                    return nullCompletedFuture();
+                }
 
-            Assignments newConfiguration = Assignments.fromBytes(pendings);
+                Assignments newConfiguration = Assignments.fromBytes(pendingsBytes);
 
-            PeersAndLearners newConfigurationPeersAndLearners = fromAssignments(newConfiguration.nodes());
+                PeersAndLearners newConfigurationPeersAndLearners = fromAssignments(newConfiguration.nodes());
 
-            LOG.info(
-                    "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
-                    replicationGroupId, newConfigurationPeersAndLearners.peers(), newConfigurationPeersAndLearners.learners()
-            );
+                LOG.info(
+                        "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
+                        replicationGroupId, newConfigurationPeersAndLearners.peers(), newConfigurationPeersAndLearners.learners()
+                );
 
-            primaryReplica.raftClient().changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
+                return primaryReplica.raftClient().changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
+            }).exceptionally(e -> {
+                LOG.error(
+                        format(
+                               "Failover ChangePeersAndLearners failed [groupId={}, term={}].",
+                               replicationGroupId,
+                               term
+                        ),
+                        e
+                );
+
+                return null;
+            });
         }
 
         ReplicaStateContext getContext(ReplicationGroupId groupId) {
