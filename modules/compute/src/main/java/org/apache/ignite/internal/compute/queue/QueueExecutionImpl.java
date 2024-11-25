@@ -183,6 +183,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                         } else {
                             stateMachine.failJob(jobId);
                         }
+                    // TODO: Need to be refactored after https://issues.apache.org/jira/browse/IGNITE-23769
                     } catch (IllegalJobStatusTransition err) {
                         throwable.addSuppressed(err);
                         result.completeExceptionally(throwable);

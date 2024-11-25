@@ -153,10 +153,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             JobExecution<R> result = new DelegatingJobExecution<>(future);
 
             if (cancellationToken != null) {
-                CancelHandleHelper.addCancelAction(cancellationToken, () -> classLoaderFut
-                        .cancel(true), classLoaderFut);
-
-                CancelHandleHelper.addCancelAction(cancellationToken, () -> future.cancel(true), future);
+                CancelHandleHelper.addCancelAction(cancellationToken, classLoaderFut);
+                CancelHandleHelper.addCancelAction(cancellationToken, future);
                 CancelHandleHelper.addCancelAction(cancellationToken, result::cancelAsync, result.resultAsync());
             }
 

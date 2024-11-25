@@ -61,6 +61,23 @@ public final class CancelHandleHelper {
         t.addCancelAction(cancelAction, completionFut);
     }
 
+    /**
+     * Attaches a cancellable operation to the given token. A cancellation procedure started its handle completes
+     * when {@code completionFut} completes.
+     *
+     * @param token Cancellation token.
+     * @param completionFut Future that completes when operation completes and all resources it created are released.
+     */
+    public static void addCancelAction(
+            CancellationToken token,
+            CompletableFuture<?> completionFut
+    ) {
+        Objects.requireNonNull(token, "token");
+        Objects.requireNonNull(completionFut, "completionFut");
+
+        addCancelAction(token, () -> completionFut.cancel(true), completionFut);
+    }
+
     private static CancellationTokenImpl unwrapToken(CancellationToken token) {
         if (token instanceof CancellationTokenImpl) {
             return (CancellationTokenImpl) token;
