@@ -335,7 +335,7 @@ public class DataStreamerTests : IgniteTestsBase
         using var client = await server.ConnectClientAsync();
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
-        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
+        var ex = Assert.ThrowsAsync<DataStreamerException>(
             async () => await table!.RecordBinaryView.StreamDataAsync(
                 GetFakeServerData(10_000),
                 keySelector: t => t,
@@ -343,7 +343,12 @@ public class DataStreamerTests : IgniteTestsBase
                 TestReceiverNoResults,
                 null));
 
-        StringAssert.StartsWith("Operation StreamerWithReceiverBatchSend failed after 16 retries", ex!.Message);
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
+
+        StringAssert.StartsWith("Operation StreamerWithReceiverBatchSend failed after 16 retries", ex.Message);
+
+        // TODO: Check items
+        Assert.That(ex.FailedItems.Count, Is.GreaterThan(0));
     }
 
     [Test]
@@ -631,7 +636,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestReceiverException()
     {
-        var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await PocoView.StreamDataAsync(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
                 keySelector: x => GetPoco(x),
@@ -645,7 +650,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestReceiverWithResultsException()
     {
-        var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await PocoView.StreamDataAsync(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
                 keySelector: x => GetPoco(x),
@@ -659,13 +664,15 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestReceiverSelectorException([Values(true, false)] bool keySelector)
     {
-        var ex = Assert.ThrowsAsync<DataException>(async () =>
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await PocoView.StreamDataAsync<int, object, object?>(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
                 keySelector: x => keySelector ? throw new DataException("key") : GetPoco(x),
                 payloadSelector: _ => throw new DataException("payload"),
                 receiver: TestReceiverNoResults,
                 receiverArg: GetReceiverArg("throw", "throw", 1)));
+
+        Assert.IsInstanceOf<DataException>(ex.InnerException);
 
         Assert.AreEqual(keySelector ? "key" : "payload", ex.Message);
     }
