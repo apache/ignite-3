@@ -170,13 +170,11 @@ public class LeaseUpdater {
     /** Initializes the class. */
     public void init() {
         topologyTracker.startTrack();
-        assignmentsTracker.startTrack();
     }
 
     /** De-initializes the class. */
     void deInit() {
         topologyTracker.stopTrack();
-        assignmentsTracker.stopTrack();
     }
 
     /** Activates a lease updater to renew leases. */

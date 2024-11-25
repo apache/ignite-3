@@ -44,6 +44,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -350,6 +351,10 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         for (Object[] args : tuples) {
             sql(tx, insertStmt, args);
         }
+    }
+
+    protected List<IgniteBiTuple<Integer, Ignite>> aliveNodesWithIndices() {
+        return CLUSTER.aliveNodesWithIndices();
     }
 
     protected static List<List<Object>> sql(String sql, Object... args) {
