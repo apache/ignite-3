@@ -1131,4 +1131,29 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             super(traceId, code, message, cause);
         }
     }
+
+    private static class InfiniteMapReduceTask implements MapReduceTask<Void, Void, Void, Void> {
+        @Override
+        public CompletableFuture<List<MapReduceJob<Void, Void>>> splitAsync(TaskExecutionContext taskContext, Void input) {
+            return completedFuture(List.of(
+                    MapReduceJob.<Void, Void>builder()
+                            .jobDescriptor(
+                                    JobDescriptor.builder(InfiniteMapReduceJob.class).build())
+                            .nodes(taskContext.ignite().clusterNodes())
+                            .build()
+            ));
+        }
+
+        @Override
+        public CompletableFuture<Void> reduceAsync(TaskExecutionContext taskContext, Map<UUID, Void> results) {
+            return completedFuture(null);
+        }
+
+        private static class InfiniteMapReduceJob implements ComputeJob<Void, Void> {
+            @Override
+            public CompletableFuture<Void> executeAsync(JobExecutionContext context, Void input) {
+                return new CompletableFuture<>();
+            }
+        }
+    }
 }
