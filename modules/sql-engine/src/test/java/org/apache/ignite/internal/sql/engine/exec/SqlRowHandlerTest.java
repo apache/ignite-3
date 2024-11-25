@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.row;
+package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -36,12 +36,15 @@ import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
-import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
+import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
+import org.apache.ignite.internal.sql.engine.exec.row.NullTypeSpec;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
+import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -177,6 +180,30 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         }
     }
 
+    @Test
+    public void testRowSchemaAfterMapping() {
+        RowHandler<RowWrapper> handler = SqlRowHandler.INSTANCE;
+
+        RowSchema rowSchema = RowSchema.builder()
+                .addField(NativeTypes.INT32)
+                .addField(NativeTypes.STRING)
+                .build();
+
+        RowWrapper row1 = handler.factory(rowSchema).rowBuilder()
+                .addField(1)
+                .addField("2")
+                .build();
+
+        RowWrapper mapped = handler.map(row1, new int[]{1, 0});
+
+        RowSchema flipped = RowSchema.builder()
+                .addField(NativeTypes.STRING)
+                .addField(NativeTypes.INT32)
+                .build();
+
+        assertEquals(flipped, mapped.rowSchema());
+    }
+
     private static Stream<Arguments> concatTestArguments() {
         return Stream.of(
                 Arguments.of(Named.of("array", false), Named.of("array", false)),
@@ -297,7 +324,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
             ColumnType type = columnTypes.get(i);
 
             if (type == ColumnType.NULL) {
-                schemaBuilder.addField(new NullTypeSpec());
+                schemaBuilder.addField(RowSchemaTypes.NULL);
 
                 continue;
             }
