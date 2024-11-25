@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.impl;
+package org.apache.ignite.internal.tx.views;
 
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.type.NativeTypes.stringOf;
@@ -50,7 +50,7 @@ public class TransactionsViewProvider {
     private volatile Iterable<TxInfo> dataSource;
 
     /** Initializes provider with data sources. */
-    void init(
+    public void init(
             UUID localNodeId,
             Collection<UUID> roTxIds,
             Map<UUID, TxStateMeta> rwTxStates
@@ -63,7 +63,7 @@ public class TransactionsViewProvider {
     }
 
     /** Returns a {@code TRANSACTIONS} system view. */
-    SystemView<?> get() {
+    public SystemView<?> get() {
         Publisher<TxInfo> dataProvider = SubscriptionUtils.fromIterable(
                 () -> {
                     Iterable<TxInfo> dataSource0 = dataSource;
