@@ -371,9 +371,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     /**
-     * TODO.
+     * Removes the given callback from handling on RAFT leader elected event and sends the corresponding
+     * {@link SubscriptionLeaderChangeRequest} TODO: why?
      *
-     * @param callback TODO.
+     * @param callback The callback that should be removed.
      * @return TODO.
      */
     public CompletableFuture<Void> unsubscribeLeader(LeaderElectionListener callback) {

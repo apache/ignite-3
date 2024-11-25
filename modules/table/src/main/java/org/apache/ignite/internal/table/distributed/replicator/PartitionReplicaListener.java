@@ -604,16 +604,12 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersReplicaRequest request) {
         TablePartitionId replicaGrpId = (TablePartitionId) request.groupId().asReplicationGroupId();
 
-        LOG.info("!!! req grpId={}", replicaGrpId);
-
         RaftGroupService raftClient = raftCommandRunner instanceof RaftGroupService
                 ? (RaftGroupService) raftCommandRunner
                 : ((RaftGroupService) ((ExecutorInclinedRaftCommandRunner) raftCommandRunner).decoratedCommandRunner());
 
         return raftClient.refreshAndGetLeaderWithTerm()
                 .exceptionally(throwable -> {
-                    LOG.info("!!! req exception", throwable);
-
                     throwable = unwrapCause(throwable);
 
                     if (throwable instanceof TimeoutException) {
@@ -632,9 +628,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     );
                 })
                 .thenCompose(leaderWithTerm -> {
-                    var tokenIsInvalid = !isTokenStillValidPrimary(request.enlistmentConsistencyToken());
-                    if (leaderWithTerm.isEmpty() || tokenIsInvalid) {
-                        LOG.info("!!! req fail leaderIsEmpty={} nonValidToken={}", tokenIsInvalid);
+                    if (leaderWithTerm.isEmpty() || !isTokenStillValidPrimary(request.enlistmentConsistencyToken())) {
                         return nullCompletedFuture();
                     }
 

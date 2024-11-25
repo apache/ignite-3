@@ -948,7 +948,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onTableCreate(CreateTableEventParameters parameters) {
-        LOG.info("!!! Create table [name={}, id={}]", parameters.tableDescriptor().name(), parameters.tableDescriptor().id());
         return createTableLocally(parameters.causalityToken(), parameters.catalogVersion(), parameters.tableDescriptor(), false)
                 .thenApply(unused -> false);
     }
@@ -2090,8 +2089,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         Assignments stableAssignments = stableAssignments(replicaGrpId, revision);
 
         Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
-
-        LOG.info("PPP Pendings={}", pendingAssignments);
 
         return tablesVv.get(revision)
                 .thenApply(ignore -> {

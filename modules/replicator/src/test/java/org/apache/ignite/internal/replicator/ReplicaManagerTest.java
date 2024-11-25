@@ -137,7 +137,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 partitionsConfigurer,
                 volatileLogStorageFactoryCreator,
                 ForkJoinPool.commonPool(),
-                replicaGrpId -> nullCompletedFuture() // TODO: check me
+                replicaGrpId -> nullCompletedFuture()
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

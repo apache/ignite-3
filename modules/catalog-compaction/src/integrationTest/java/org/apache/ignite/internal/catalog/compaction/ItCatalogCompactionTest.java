@@ -52,7 +52,6 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -201,7 +200,7 @@ class ItCatalogCompactionTest extends ClusterPerTestIntegrationTest {
         ignoredReadonlyTxs.forEach(Transaction::rollback);
     }
 
-    @RepeatedTest(3)
+    @Test
     public void testCompactionRun() throws InterruptedException {
         executeSql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
                 CLUSTER_SIZE, CLUSTER_SIZE)

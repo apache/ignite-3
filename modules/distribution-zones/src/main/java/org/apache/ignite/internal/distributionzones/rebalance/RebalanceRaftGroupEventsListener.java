@@ -150,7 +150,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** {@inheritDoc} */
     @Override
     public void onLeaderElected(long term) {
-       // TODO: delete me
+       // no-op
     }
 
     /** {@inheritDoc} */

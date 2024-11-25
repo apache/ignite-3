@@ -404,7 +404,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
-        electPrimaryReplica(node); // TODO: test works but I don't like that we checks de facto determinate leaseholder node for all tables
+        electPrimaryReplica(node);
 
         alterZone(node, ZONE_NAME, 2);
 

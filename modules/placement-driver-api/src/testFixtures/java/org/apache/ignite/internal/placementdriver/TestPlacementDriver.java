@@ -113,14 +113,16 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     /**
-     * TODO.
+     * Setter for a test primary replica supplier with {@code PRIMARY_REPLICA_ELECTED} event firing that is crucial for some tests internal
+     * logic that depends on the event handling.
      *
-     * @param primaryReplicaSupplier TODO.
+     * @param primaryReplicaSupplier The supplier that provides {@link TestReplicaMetaImpl} instance with a test primary replica meta
+     *      information.
      */
-    public void setPrimaryReplicaSupplier(Supplier<? extends ReplicaMeta> primaryReplicaSupplier) {
+    public void setPrimaryReplicaSupplier(Supplier<? extends TestReplicaMetaImpl> primaryReplicaSupplier) {
         this.primaryReplicaSupplier = primaryReplicaSupplier;
 
-        TestReplicaMetaImpl replicaMeta = (TestReplicaMetaImpl) primaryReplicaSupplier.get();
+        TestReplicaMetaImpl replicaMeta = primaryReplicaSupplier.get();
 
         fireEvent(
                 PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,

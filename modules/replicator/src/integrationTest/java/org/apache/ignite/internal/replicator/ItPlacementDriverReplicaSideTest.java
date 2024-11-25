@@ -230,7 +230,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     partitionsConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
                     ForkJoinPool.commonPool(),
-                    replicaGrpId -> nullCompletedFuture() // TODO: check me
+                    replicaGrpId -> nullCompletedFuture()
             );
 
             replicaManagers.put(nodeName, replicaManager);

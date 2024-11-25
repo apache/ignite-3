@@ -1266,7 +1266,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ReplicaStateContext context = getContext(replicationGroupId);
 
             synchronized (context) {
-                LOG.info("!!! onPrimaryElected grpId={}", replicationGroupId);
                 if (localNodeId.equals(parameters.leaseholderId())) {
                     assert context.replicaState != ReplicaState.STOPPED
                             : "Unexpected primary replica state STOPPED [groupId=" + replicationGroupId
@@ -1361,12 +1360,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 TablePartitionId replicationGroupId,
                 long term
         ) {
-             LOG.info("!!! changePeersAndLearnersAsyncIfPendingExists grpId={}", replicationGroupId);
-
             byte[] pendings = getPendingAssignmentsSupplier.apply(replicationGroupId).join();
 
             if (pendings == null) {
-                LOG.info("!!! pendings are empty replicationGrpId={}", replicationGroupId);
                 return;
             }
 

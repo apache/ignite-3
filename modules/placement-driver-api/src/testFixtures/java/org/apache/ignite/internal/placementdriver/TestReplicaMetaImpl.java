@@ -51,8 +51,9 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
     /**
      * Creates a new primary meta with unbounded period.
      *
-     * <p>Notes: Delegates creation to a {@link TestReplicaMetaImpl#TestReplicaMetaImpl(String, UUID, HybridTimestamp, HybridTimestamp)},
-     * where {@code leaseholder} is {@link ClusterNode#name()} and {@code leaseholderId} is {@link ClusterNode#id()}.</p>
+     * <p>Notes: Delegates creation to a {@link TestReplicaMetaImpl#TestReplicaMetaImpl(String, UUID, HybridTimestamp, HybridTimestamp,
+     * ReplicationGroupId)}, where {@code leaseholder} is {@link ClusterNode#name()} and {@code leaseholderId} is {@link ClusterNode#id()}.
+     * The replication group is being set to {@code null} value.</p>
      *
      * @param leaseholder Lease holder, {@code null} if nothing holds the lease.
      */
@@ -83,8 +84,9 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
     /**
      * Creates a new primary meta.
      *
-     * <p>Notes: Delegates creation to a {@link TestReplicaMetaImpl#TestReplicaMetaImpl(String, UUID, HybridTimestamp, HybridTimestamp)},
-     * where {@code leaseholder} is {@link ClusterNode#name()} and {@code leaseholderId} is {@link ClusterNode#id()}.</p>
+     * <p>Notes: Delegates creation to a {@link TestReplicaMetaImpl#TestReplicaMetaImpl(String, UUID, HybridTimestamp, HybridTimestamp,
+     * ReplicationGroupId)}, where {@code leaseholder} is {@link ClusterNode#name()} and {@code leaseholderId} is {@link ClusterNode#id()}.
+     * The replication group is being set to {@code null} value.</p>
      *
      * @param leaseholder Lease holder, {@code null} if nothing holds the lease.
      * @param startTime Start lease timestamp.
@@ -96,7 +98,7 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
                 leaseholder == null ? null : leaseholder.id(),
                 startTime,
                 expirationTime,
-                null // TODO
+                null
         );
     }
 
