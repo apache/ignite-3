@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
@@ -50,7 +51,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
     @Override
     protected int initialNodes() {
-        return 2;
+        return 3;
     }
 
     @BeforeEach
@@ -78,19 +79,11 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
 
         stopNode(1);
+        stopNode(2);
 
         assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(node).empty(), 5_000));
 
-        GroupUpdateRequest request = (GroupUpdateRequest) VersionedSerialization.fromBytes(
-                getRecoveryTriggerKey(node).value(), DisasterRecoveryRequestSerializer.INSTANCE);
-
-        int zoneId = node.catalogManager().zone(ZONE_NAME, clock.nowLong()).id();
-        int tableId = node.catalogManager().table(TABLE_NAME, clock.nowLong()).id();
-
-        assertEquals(zoneId, request.zoneId());
-        assertEquals(tableId, request.tableId());
-        assertEquals(Set.of(0, 1), request.partitionIds());
-        assertFalse(request.manualUpdate());
+        checkRecoveryRequest(node);
     }
 
     @Test
@@ -110,6 +103,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
 
         stopNode(1);
+        stopNode(2);
 
         assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
 
@@ -124,6 +118,64 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
         assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(node).empty(), 5_000));
 
+        checkRecoveryRequest(node);
+    }
+
+    @Test
+    void testTopologyReduceEventPropogationOnReschedule() throws InterruptedException {
+        IgniteImpl node = igniteImpl(0);
+
+        {
+            CompletableFuture<Void> changeFuture = node.clusterConfiguration().getConfiguration(SystemDistributedExtensionConfiguration.KEY)
+                    .system().change(c0 -> c0.changeProperties()
+                            .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT,
+                                    c1 -> c1.changePropertyValue(String.valueOf(10)))
+                    );
+
+            assertThat(changeFuture, willCompleteSuccessfully());
+        }
+
+        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+
+        stopNode(1);
+
+        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+
+        stopNode(2);
+
+        assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(node).empty(), 15_000));
+
+        checkRecoveryRequest(node);
+    }
+
+    @Test
+    void testTopologyReduceEventPropogationOnRestore() throws InterruptedException {
+        IgniteImpl node = igniteImpl(0);
+
+        {
+            CompletableFuture<Void> changeFuture = node.clusterConfiguration().getConfiguration(SystemDistributedExtensionConfiguration.KEY)
+                    .system().change(c0 -> c0.changeProperties()
+                            .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT,
+                                    c1 -> c1.changePropertyValue(String.valueOf(10)))
+                    );
+
+            assertThat(changeFuture, willCompleteSuccessfully());
+        }
+
+        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+
+        stopNode(2);
+        stopNode(1);
+        stopNode(0);
+
+        IgniteImpl node1 = unwrapIgniteImpl(startNode(0));
+
+        assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(node1).empty(), 30_000));
+
+        checkRecoveryRequest(node1);
+    }
+
+    private void checkRecoveryRequest(IgniteImpl node) {
         GroupUpdateRequest request = (GroupUpdateRequest) VersionedSerialization.fromBytes(
                 getRecoveryTriggerKey(node).value(), DisasterRecoveryRequestSerializer.INSTANCE);
 
@@ -135,7 +187,6 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertEquals(Set.of(0, 1), request.partitionIds());
         assertFalse(request.manualUpdate());
     }
-
 
     private static Entry getRecoveryTriggerKey(IgniteImpl node) {
         CompletableFuture<Entry> getFut = node.metaStorageManager().get(RECOVERY_TRIGGER_KEY);
