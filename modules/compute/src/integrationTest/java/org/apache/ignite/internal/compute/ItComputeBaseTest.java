@@ -398,6 +398,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void cancelComputeSubmitWithCancelHandle(boolean local) {
         Ignite entryNode = node(0);
         Ignite executeNode = local ? node(0) : node(1);
+        JobTarget targetExecuteNode = JobTarget.node(clusterNode(executeNode));
 
         CancelHandle cancelHandle = CancelHandle.create();
 
@@ -405,16 +406,27 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         JobDescriptor<Long, Void> job = JobDescriptor.builder(SilentSleepJob.class)
                 .options(executionOptions).units(units()).build();
-        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(clusterNode(executeNode)), job, 100L);
 
-        assertThat(execution.stateAsync(), willBe(anyOf(jobStateWithStatus(EXECUTING), jobStateWithStatus(QUEUED))));
+        // Start 1 task in executor with 1 thread
+        JobExecution<Void> execution1 = entryNode.compute().submit(targetExecuteNode, job, Long.MAX_VALUE);
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
+        // Start one more task
+        JobExecution<Void> execution2 = entryNode.compute().submit(targetExecuteNode, job, Long.MAX_VALUE);
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
+
+        // Tasks is not complete
+        assertThat(execution1.resultAsync().isDone(), is(false));
+        assertThat(execution2.resultAsync().isDone(), is(false));
+
+        // Cancel both tasks
         cancelHandle.cancel();
 
-        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(CANCELED)));
-        assertThrows(ExecutionException.class, () -> execution.resultAsync().get(10, TimeUnit.SECONDS));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        assertThat(execution1.cancelAsync(), willBe(false));
 
-        assertThat(execution.cancelAsync(), willBe(false));
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        assertThat(execution2.cancelAsync(), willBe(false));
     }
 
     @ParameterizedTest(name = "local: {0}")
