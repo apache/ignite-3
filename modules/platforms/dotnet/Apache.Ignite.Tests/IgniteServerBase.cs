@@ -190,8 +190,13 @@ public abstract class IgniteServerBase : IDisposable
                 {
                     handler.NoDelay = true;
 
-                    Handle(handler, _cts.Token);
+                    if (!DropNewConnections)
+                    {
+                        Handle(handler, _cts.Token);
+                    }
+
                     handler.Disconnect(true);
+                    handler.Dispose();
                     _handlers.TryRemove(handler, out _);
                 }
             });
