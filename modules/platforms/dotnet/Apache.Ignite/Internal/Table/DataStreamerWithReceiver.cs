@@ -277,6 +277,7 @@ internal static class DataStreamerWithReceiver
                 batch.Task = SendAndDisposeBufAsync(batch.PartitionId, batch.Task, batch.Items, batch.SourceItems, batch.Count);
 
                 batch.Items = GetPool<TPayload>().Rent(options.PageSize);
+                batch.SourceItems = GetPool<TSource>().Rent(options.PageSize);
                 batch.Count = 0;
                 batch.LastFlush = Stopwatch.GetTimestamp();
 
