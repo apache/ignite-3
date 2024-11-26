@@ -239,6 +239,11 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                     public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
                         return completedFuture(schemaReg.lastKnownSchemaVersion());
                     }
+
+                    @Override
+                    public CompletableFuture<Integer> weakSchemaVersionAtNow(int tableId) {
+                        return completedFuture(schemaReg.lastKnownSchemaVersion());
+                    }
                 },
                 mock(IgniteSql.class),
                 -1
