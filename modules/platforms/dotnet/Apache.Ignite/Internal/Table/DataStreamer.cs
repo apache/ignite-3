@@ -162,6 +162,7 @@ internal static class DataStreamer
 
             if (!failedItems.IsEmpty)
             {
+                // Should not happen.
                 throw DataStreamerException.Create(new InvalidOperationException("Some items were not processed."), failedItems);
             }
         }
