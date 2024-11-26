@@ -316,7 +316,7 @@ public class DataStreamerTests : IgniteTestsBase
 
         StringAssert.StartsWith($"Operation StreamerBatchSend failed after {opts.RetryLimit} retries", ex.Message);
 
-        Assert.AreEqual(opts.PageSize, ex.FailedItems.Count);
+        Assert.AreEqual(opts.PageSize * 2, ex.FailedItems.Count);
 
         foreach (var failedItem in ex.FailedItems)
         {
