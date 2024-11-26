@@ -71,7 +71,8 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
     @Override
     protected HybridClock createClock(ClusterNode node) {
         // Client physical time is frozen in the past, server time advances normally.
-        return new TestHybridClock(() -> node.address().port() == CLIENT_PORT ? CLIENT_FROZEN_PHYSICAL_TIME : System.currentTimeMillis());
+        return new TestHybridClock(
+                () -> node.address().port() == CLIENT_PORT ? CLIENT_FROZEN_PHYSICAL_TIME : CLIENT_FROZEN_PHYSICAL_TIME + 1000);
     }
 
     @Override
@@ -80,7 +81,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
     }
 
     @Test
-    public void testImplicitObservableTimePropagation() throws InterruptedException {
+    public void testImplicitObservableTimePropagation() {
         RecordView<Tuple> view = accounts.recordView();
         view.upsert(null, makeValue(1, 100.0));
         TxManagerImpl clientTxManager = (TxManagerImpl) txTestCluster.clientTxManager;
