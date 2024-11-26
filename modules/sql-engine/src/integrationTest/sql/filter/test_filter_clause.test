@@ -441,7 +441,7 @@ select count (a) filter (where a>10 and a < 15), count (b) filter (where b betwe
 ----
 4	1000	100	1000	0
 
-query IIIII
+query IIIII rowsort
 select count (a) filter (where a>10 and a < 15), count (b) filter (where b between 1 and 3),
     count (c) filter ( where c < 10), count (d) filter (where d =5), count(e) filter (where e < 10)
     from t_2
