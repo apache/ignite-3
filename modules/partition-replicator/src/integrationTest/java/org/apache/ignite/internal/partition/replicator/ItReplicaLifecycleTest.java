@@ -1207,7 +1207,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                             null,
                             failureManager,
                             partitionsLogStorageFactory,
-                            hybridClock
+                            hybridClock,
+                            scheduledExecutorService
                     ),
                     storageConfiguration
             );

@@ -650,7 +650,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         null,
                         failureProcessor,
                         partitionsLogStorageFactory,
-                        hybridClock
+                        hybridClock,
+                        scheduledExecutorService
                 ),
                 storageConfiguration
         );
