@@ -50,6 +50,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -1095,6 +1096,9 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Same topology for the revision > topologyRevision.
         assertEquals(ONE_NODE_NAME, nodeNames(distributionZoneManager.logicalTopology(topologyRevision + 1)));
+
+        // Fails if revision is negative (invalid).
+        assertThrows(AssertionError.class, () -> distributionZoneManager.logicalTopology(-1));
     }
 
     private void checkDataNodesRepeated(
