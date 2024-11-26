@@ -55,6 +55,8 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
         T res = super.unmarshall(raw);
 
+        System.out.println("cmd:" + res.getClass().getName());
+
         if (res instanceof CatalogVersionAware) {
             ((CatalogVersionAware) res).requiredCatalogVersion(requiredCatalogVersion);
         }

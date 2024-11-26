@@ -899,7 +899,7 @@ public class NodeImpl implements Node, RaftServerService {
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
         final LogId bootstrapId = new LogId(opts.getLastLogIndex(), bootstrapLogTerm);
         this.options = opts.getNodeOptions() == null ? new NodeOptions() : opts.getNodeOptions();
-        this.clock = new HybridClockImpl();
+        this.clock = this.options.getClock() == null ? new HybridClockImpl() : this.options.getClock();
         this.raftOptions = this.options.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());
         this.options.setFsm(opts.getFsm());
@@ -994,8 +994,8 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         Requires.requireNonNull(opts.getCommandsMarshaller(), "Null commands marshaller");
         this.serviceFactory = opts.getServiceFactory();
-        this.clock = new HybridClockImpl();
         this.options = opts;
+        this.clock = this.options.getClock() == null ? new HybridClockImpl() : this.options.getClock();
         this.raftOptions = opts.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());
         this.serverId.setPriority(opts.getElectionPriority());

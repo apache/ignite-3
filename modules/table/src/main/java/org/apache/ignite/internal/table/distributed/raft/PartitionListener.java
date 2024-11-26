@@ -122,7 +122,7 @@ public class PartitionListener implements RaftGroupListener {
 
     private final SchemaRegistry schemaRegistry;
 
-    private final ClockService clockService;
+    private final ClockService clockService; // TODO remove
 
     private final IndexMetaStorage indexMetaStorage;
 
@@ -579,6 +579,14 @@ public class PartitionListener implements RaftGroupListener {
     @TestOnly
     public MvPartitionStorage getMvStorage() {
         return storage.getStorage();
+    }
+
+    /**
+     * Returns safe timestamp.
+     */
+    @TestOnly
+    public PendingComparableValuesTracker<HybridTimestamp, Void> getSafeTime() {
+        return safeTime;
     }
 
     /**

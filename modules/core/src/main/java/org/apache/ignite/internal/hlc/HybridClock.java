@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.hlc;
 
+import org.jetbrains.annotations.Nullable;
+
 /**
  * A Hybrid Logical Clock.
  */
@@ -44,12 +46,14 @@ public interface HybridClock {
     HybridTimestamp now();
 
     /**
-     * Gets a current timestamp. It is a fast way to get timestamp because it doesn't have to tick the logical part of the clock.
+     * Gets a current timestamp. It is a fast way to get timestamp because it doesn't have to tick.
      * This timestamp is not unique, and equal to or less than that value is returned by {@link this#now()}.
      *
      * @return The hybrid timestamp.
      */
     HybridTimestamp current();
+
+    @Nullable HybridTimestamp last();
 
     /**
      * Advances the clock in accordance with the request time. If the request time is ahead of the clock,

@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A Hybrid Logical Clock implementation.
@@ -100,6 +101,11 @@ public class HybridClockImpl implements HybridClock {
     @Override
     public final HybridTimestamp current() {
         return hybridTimestamp(currentLong());
+    }
+
+    @Override
+    public @Nullable HybridTimestamp last() {
+        return HybridTimestamp.nullableHybridTimestamp(latestTime);
     }
 
     /**

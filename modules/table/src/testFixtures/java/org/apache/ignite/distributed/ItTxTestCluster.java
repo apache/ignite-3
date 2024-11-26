@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptySetComplet
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -154,6 +155,7 @@ import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -1134,5 +1136,10 @@ public class ItTxTestCluster {
 
     public Map<String, ClusterService> clusterServices() {
         return clusterServices;
+    }
+
+    public @Nullable HybridTimestamp getLastCommitTimestamp() {
+        List<TxStateMeta> states = new ArrayList<>(((TxManagerImpl) clientTxManager).states());
+        return states.get(states.size() - 1).commitTimestamp();
     }
 }
