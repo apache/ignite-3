@@ -117,8 +117,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     public void throwsExceptionForTxControlStatementInsideExternalTransaction() {
         ScriptTransactionContext txCtx = new ScriptTransactionContext(
                 new QueryTransactionContextImpl(txManager, observableTimeTracker, new NoOpTransaction("test", false), transactionTracker),
-                transactionTracker,
-                null
+                transactionTracker
         );
 
         assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> txCtx.handleControlStatement(null));
@@ -128,8 +127,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     public void throwsExceptionForNestedScriptTransaction() {
         ScriptTransactionContext txCtx = new ScriptTransactionContext(
                 new QueryTransactionContextImpl(txManager, observableTimeTracker, null, transactionTracker),
-                transactionTracker,
-                null
+                transactionTracker
         );
         IgniteSqlStartTransaction txStartStmt = mock(IgniteSqlStartTransaction.class);
 
@@ -196,7 +194,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         prepareTransactionsMocks();
 
         QueryTransactionContext txCtx = new QueryTransactionContextImpl(txManager, observableTimeTracker, null, transactionTracker);
-        ScriptTransactionContext scriptRwTxCtx = new ScriptTransactionContext(txCtx, transactionTracker, null);
+        ScriptTransactionContext scriptRwTxCtx = new ScriptTransactionContext(txCtx, transactionTracker);
 
         IgniteSqlStartTransaction sqlStartRwTx = mock(IgniteSqlStartTransaction.class);
         when(sqlStartRwTx.getMode()).thenAnswer(inv -> IgniteSqlStartTransactionMode.READ_WRITE);
@@ -204,7 +202,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         scriptRwTxCtx.handleControlStatement(sqlStartRwTx);
         assertTrue(inflights.isEmpty());
 
-        ScriptTransactionContext scriptRoTxCtx = new ScriptTransactionContext(txCtx, transactionTracker, null);
+        ScriptTransactionContext scriptRoTxCtx = new ScriptTransactionContext(txCtx, transactionTracker);
         IgniteSqlStartTransaction sqlStartRoTx = mock(IgniteSqlStartTransaction.class);
         when(sqlStartRoTx.getMode()).thenAnswer(inv -> IgniteSqlStartTransactionMode.READ_ONLY);
 

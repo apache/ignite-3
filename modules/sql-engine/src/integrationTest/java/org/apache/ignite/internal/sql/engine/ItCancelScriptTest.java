@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelledInternalException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -28,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.junit.jupiter.api.AfterEach;
@@ -58,13 +56,10 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
     public void cancelScript() {
         StringBuilder query = new StringBuilder();
 
-        int statementsCount = 10;
-        int rowsPerStatement = 5;
+        int statementsCount = 100;
 
-        for (int j = 0; j < rowsPerStatement * statementsCount; j += rowsPerStatement) {
-            String statement = format("SELECT x FROM TABLE(SYSTEM_RANGE({}, {}));", j, j + rowsPerStatement);
-
-            query.append(statement);
+        for (int j = 0; j < statementsCount; j++) {
+            query.append("SELECT ").append(j).append(";");
         }
 
         CancelHandle cancelHandle = CancelHandle.create();
@@ -75,12 +70,11 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
         assertThat(allCursors, hasSize(statementsCount));
         assertThat(queryProcessor().runningQueries(), is(statementsCount + /* SCRIPT */ 1));
 
-        CompletableFuture<Void> cancelled = cancelHandle.cancelAsync();
+        cancelHandle.cancel();
+
         allCursors.forEach(cursor -> expectQueryCancelled(
                 new DrainCursor(cursor)
         ));
-
-        await(cancelled);
     }
 
     @Test

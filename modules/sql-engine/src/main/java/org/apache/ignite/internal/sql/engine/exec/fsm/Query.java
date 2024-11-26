@@ -32,7 +32,6 @@ import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
-import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,7 +53,6 @@ class Query {
     final QueryExecutor executor;
     final SqlProperties properties;
     final QueryTransactionContext txContext;
-    final @Nullable CancellationToken cancellationToken;
     final @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture;
 
     // Below is volatile state populated during processing of particular stage for single statement execution
@@ -80,8 +78,7 @@ class Query {
             String sql,
             SqlProperties properties,
             QueryTransactionContext txContext,
-            Object[] params,
-            @Nullable CancellationToken cancellationToken
+            Object[] params
     ) {
         this.createdAt = createdAt;
         this.executor = executor;
@@ -90,7 +87,6 @@ class Query {
         this.properties = properties;
         this.txContext = txContext;
         this.params = params;
-        this.cancellationToken = cancellationToken;
 
         this.parentId = null;
         this.statementNum = -1;
@@ -119,8 +115,6 @@ class Query {
         this.params = params;
         this.nextCursorFuture = nextCursorFuture;
         this.parsedResult = parsedResult;
-
-        this.cancellationToken = null;
     }
 
     CompletableFuture<Void> onPhaseStarted(ExecutionPhase phase) {

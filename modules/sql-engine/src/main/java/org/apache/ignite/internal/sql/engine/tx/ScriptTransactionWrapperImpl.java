@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -99,11 +100,13 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
             cursorsToClose = List.copyOf(openedCursors.values());
         }
 
+        boolean cancelled = cause instanceof QueryCancelledException;
+
         // Close all associated cursors on error.
         for (CompletableFuture<? extends AsyncCursor<?>> fut : cursorsToClose) {
             fut.whenComplete((cursor, ex) -> {
                 if (cursor != null) {
-                    cursor.closeAsync();
+                    cursor.closeAsync(cancelled);
                 }
             });
         }

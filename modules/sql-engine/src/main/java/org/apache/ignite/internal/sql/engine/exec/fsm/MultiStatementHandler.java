@@ -71,7 +71,7 @@ class MultiStatementHandler {
     ) {
         this.query = query;
         this.statements = prepareStatementsQueue(parsedResults, params);
-        this.scriptTxContext = new ScriptTransactionContext(txContext, txTracker, query.cancellationToken);
+        this.scriptTxContext = new ScriptTransactionContext(txContext, txTracker);
     }
 
     /**

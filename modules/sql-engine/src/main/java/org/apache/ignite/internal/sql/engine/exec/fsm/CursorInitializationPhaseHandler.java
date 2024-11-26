@@ -58,6 +58,8 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
 
                     query.cursor = cursor;
 
+                    query.cancel.add(timeout -> cursor.closeAsync(true));
+
                     QueryTransactionContext txContext = query.txContext;
 
                     assert txContext != null;

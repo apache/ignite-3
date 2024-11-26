@@ -150,8 +150,7 @@ public class QueryExecutor implements LifecycleAware {
                 sql,
                 properties0,
                 txContext,
-                params,
-                cancellationToken
+                params
         );
 
         if (!busyLock.enterBusy()) {
