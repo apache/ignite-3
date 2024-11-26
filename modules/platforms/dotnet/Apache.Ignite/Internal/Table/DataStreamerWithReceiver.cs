@@ -72,6 +72,8 @@ internal static class DataStreamerWithReceiver
     /// <typeparam name="TArg">Arg type.</typeparam>
     /// <typeparam name="TResult">Result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup.")]
+    [SuppressMessage("Usage", "CA2219:Do not raise exceptions in finally clauses", Justification = "Rethrow.")]
     internal static async Task StreamDataAsync<TSource, TKey, TPayload, TArg, TResult>(
         IAsyncEnumerable<TSource> data,
         Table table,
@@ -104,11 +106,13 @@ internal static class DataStreamerWithReceiver
         Debug.Assert(partitionCount > 0, "partitionCount > 0");
 
         Type? payloadType = null;
-        using var flushCts = new CancellationTokenSource();
+        using var autoFlushCts = new CancellationTokenSource();
+        Task? autoFlushTask = null;
+        Exception? error = null;
 
         try
         {
-            _ = AutoFlushAsync(flushCts.Token);
+            autoFlushTask = AutoFlushAsync(autoFlushCts.Token);
 
             await foreach (var item in data.WithCancellation(cancellationToken))
             {
@@ -129,26 +133,64 @@ internal static class DataStreamerWithReceiver
                 {
                     await SendAsync(batch).ConfigureAwait(false);
                 }
+
+                if (autoFlushTask.IsFaulted)
+                {
+                    await autoFlushTask.ConfigureAwait(false);
+                }
             }
 
             await Drain().ConfigureAwait(false);
         }
         catch (Exception e)
         {
-            // TODO: What happens if AutoFlushAsync throws?
-            // TODO: Add items from all batches to failedItems.
-            throw DataStreamerException.Create(e, failedItems);
+            error = e;
         }
         finally
         {
-            await flushCts.CancelAsync().ConfigureAwait(false);
+            await autoFlushCts.CancelAsync().ConfigureAwait(false);
+
+            if (autoFlushTask is { })
+            {
+                try
+                {
+                    await autoFlushTask.ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    if (e is not OperationCanceledException)
+                    {
+                        error ??= e;
+                    }
+                }
+            }
+
             foreach (var batch in batches.Values)
             {
-                GetPool<TPayload>().Return(batch.Items);
-                GetPool<TSource>().Return(batch.SourceItems);
+                lock (batch)
+                {
+                    for (var i = 0; i < batch.Count; i++)
+                    {
+                        failedItems.Enqueue(batch.SourceItems[i]);
+                    }
 
-                Metrics.StreamerItemsQueuedDecrement(batch.Count);
-                Metrics.StreamerBatchesActiveDecrement();
+                    GetPool<TPayload>().Return(batch.Items);
+                    GetPool<TSource>().Return(batch.SourceItems);
+
+                    Metrics.StreamerItemsQueuedDecrement(batch.Count);
+                    Metrics.StreamerBatchesActiveDecrement();
+                }
+            }
+
+            if (error is { })
+            {
+                throw DataStreamerException.Create(error, failedItems);
+            }
+
+            if (!failedItems.IsEmpty)
+            {
+                // Should not happen.
+                throw DataStreamerException.Create(new InvalidOperationException("Some items were not processed."), failedItems);
             }
         }
 
