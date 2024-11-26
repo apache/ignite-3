@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.storage.rocksdb.benchmarks;
 
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -30,7 +33,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.NamedConfigurationTree;
@@ -85,6 +90,8 @@ public class CommitManyWritesBenchmark {
 
     private RocksDbTableStorage tableStorage;
 
+    private final ScheduledExecutorService scheduledExecutor = newSingleThreadScheduledExecutor();
+
     /** Setup method. */
     @Setup
     public void setUp() throws IOException {
@@ -95,7 +102,8 @@ public class CommitManyWritesBenchmark {
                 engineConfiguration(),
                 storageConfiguration(),
                 workDir,
-                () -> {}
+                () -> {},
+                scheduledExecutor
         );
 
         storageEngine.start();
@@ -113,10 +121,12 @@ public class CommitManyWritesBenchmark {
 
     /** Tear down method. */
     @TearDown
-    public void tearDown() {
-        tableStorage.destroy().join();
-
-        storageEngine.stop();
+    public void tearDown() throws Exception {
+        closeAll(
+                () -> tableStorage.destroy().join(),
+                () -> storageEngine.stop(),
+                () -> shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS)
+        );
     }
 
     private static int randomPartitionId() {

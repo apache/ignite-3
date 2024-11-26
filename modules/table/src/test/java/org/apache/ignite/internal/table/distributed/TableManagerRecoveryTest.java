@@ -431,7 +431,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         );
     }
 
-    private static DataStorageManager createDataStorageManager(
+    private DataStorageManager createDataStorageManager(
             ConfigurationRegistry mockedRegistry,
             Path storagePath,
             StorageConfiguration config,
@@ -452,7 +452,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         null,
                         mock(FailureManager.class),
                         mock(LogSyncer.class),
-                        clock
+                        clock,
+                        scheduledExecutor
                 ),
                 config
         );
@@ -502,15 +503,18 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                     @Nullable LongJvmPauseDetector longJvmPauseDetector,
                     FailureManager failureManager,
                     LogSyncer logSyncer,
-                    HybridClock clock
+                    HybridClock clock,
+                    ScheduledExecutorService commonScheduler
             ) throws StorageException {
-                return spy(super.createEngine(igniteInstanceName,
+                return spy(super.createEngine(
+                        igniteInstanceName,
                         configRegistry,
                         storagePath,
                         longJvmPauseDetector,
                         failureManager,
                         logSyncer,
-                        clock
+                        clock,
+                        commonScheduler
                 ));
             }
         };
