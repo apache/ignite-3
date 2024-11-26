@@ -58,6 +58,8 @@ internal static class DataStreamer
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="T">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Cleanup.")]
+    [SuppressMessage("Usage", "CA2219:Do not raise exceptions in finally clauses", Justification = "Rethrow.")]
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<DataStreamerItem<T>> data,
         Table table,
@@ -80,12 +82,13 @@ internal static class DataStreamer
         var partitionCount = partitionAssignment.Length; // Can't be changed.
         Debug.Assert(partitionCount > 0, "partitionCount > 0");
 
-        using var flushCts = new CancellationTokenSource();
-        Task autoFlushTask;
+        using var autoFlushCts = new CancellationTokenSource();
+        Task? autoFlushTask = null;
+        Exception? error = null;
 
         try
         {
-            autoFlushTask = AutoFlushAsync(flushCts.Token);
+            autoFlushTask = AutoFlushAsync(autoFlushCts.Token);
 
             await foreach (var item in data.WithCancellation(cancellationToken))
             {
@@ -117,19 +120,49 @@ internal static class DataStreamer
         }
         catch (Exception e)
         {
-            // TODO: Add items from all batches to failedItems.
-            throw DataStreamerException.Create(e, failedItems);
+            error = e;
         }
         finally
         {
-            await flushCts.CancelAsync().ConfigureAwait(false);
+            await autoFlushCts.CancelAsync().ConfigureAwait(false);
+
+            if (autoFlushTask is { })
+            {
+                try
+                {
+                    await autoFlushTask.ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    error ??= e;
+                }
+            }
+
             foreach (var batch in batches.Values)
             {
-                batch.Buffer.Dispose();
-                GetPool<T>().Return(batch.Items);
+                lock (batch)
+                {
+                    for (var i = 0; i < batch.Count; i++)
+                    {
+                        failedItems.Enqueue(batch.Items[i]);
+                    }
 
-                Metrics.StreamerItemsQueuedDecrement(batch.Count);
-                Metrics.StreamerBatchesActiveDecrement();
+                    batch.Buffer.Dispose();
+                    GetPool<T>().Return(batch.Items);
+
+                    Metrics.StreamerItemsQueuedDecrement(batch.Count);
+                    Metrics.StreamerBatchesActiveDecrement();
+                }
+            }
+
+            if (error is { })
+            {
+                throw DataStreamerException.Create(error, failedItems);
+            }
+
+            if (!failedItems.IsEmpty)
+            {
+                throw DataStreamerException.Create(new InvalidOperationException("Some items were not processed."), failedItems);
             }
         }
 
@@ -282,7 +315,7 @@ internal static class DataStreamer
                 {
                     try
                     {
-                        if (schemaVersion != null)
+                        if (schemaVersion is { })
                         {
                             // Might be updated by another batch.
                             if (schema.Version != schemaVersion)
