@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -40,8 +41,8 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -52,7 +53,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -77,9 +77,7 @@ public class RebalanceUtil {
     private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtil.class);
 
     /**
-     * Status values for methods like
-     * {@link #updatePendingAssignmentsKeys(CatalogTableDescriptor, TablePartitionId, Collection, int, long, MetaStorageManager, int, Set,
-     * HybridTimestamp)}.
+     * Status values for methods like {@link #updatePendingAssignmentsKeys}.
      */
     public enum UpdateStatus {
         /**
@@ -378,11 +376,17 @@ public class RebalanceUtil {
     /** Key prefix for pending assignments. */
     public static final String PENDING_ASSIGNMENTS_PREFIX = "assignments.pending.";
 
+    public static final byte[] PENDING_ASSIGNMENTS_PREFIX_BYTES = "assignments.pending.".getBytes(UTF_8);
+
     /** Key prefix for stable assignments. */
     public static final String STABLE_ASSIGNMENTS_PREFIX = "assignments.stable.";
 
+    public static final byte[] STABLE_ASSIGNMENTS_PREFIX_BYTES = STABLE_ASSIGNMENTS_PREFIX.getBytes(UTF_8);
+
     /** Key prefix for switch reduce assignments. */
     public static final String ASSIGNMENTS_SWITCH_REDUCE_PREFIX = "assignments.switch.reduce.";
+
+    public static final byte[] ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES = ASSIGNMENTS_SWITCH_REDUCE_PREFIX.getBytes(UTF_8);
 
     /** Key prefix for switch append assignments. */
     public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "assignments.switch.append.";
@@ -454,16 +458,16 @@ public class RebalanceUtil {
     }
 
     /**
-     * Extract table id from a metastorage key of partition.
+     * Converts the given {@code key}, stripping it off the given {@code prefix}, into a {@link TablePartitionId}.
      *
-     * @param key Key.
+     * @param key Metastorage key.
      * @param prefix Key prefix.
-     * @return Table id.
+     * @return {@link TablePartitionId} that was encoded in the key.
      */
-    public static int extractTableId(byte[] key, String prefix) {
-        String strKey = new String(key, StandardCharsets.UTF_8);
+    public static TablePartitionId extractTablePartitionId(byte[] key, byte[] prefix) {
+        var tablePartitionIdString = toStringWithoutPrefix(key, prefix.length);
 
-        return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
+        return TablePartitionId.fromString(tablePartitionIdString);
     }
 
     /**
@@ -473,22 +477,8 @@ public class RebalanceUtil {
      * @param prefix Key prefix.
      * @return Table id.
      */
-    public static int extractZoneId(byte[] key, String prefix) {
-        String strKey = new String(key, StandardCharsets.UTF_8);
-
-        return Integer.parseInt(strKey.substring(prefix.length()));
-    }
-
-    /**
-     * Extract partition number from the rebalance key of partition.
-     *
-     * @param key Key.
-     * @return Partition number.
-     */
-    public static int extractPartitionNumber(byte[] key) {
-        var strKey = new String(key, StandardCharsets.UTF_8);
-
-        return Integer.parseInt(strKey.substring(strKey.indexOf("_part_") + "_part_".length()));
+    public static int extractZoneId(byte[] key, byte[] prefix) {
+        return Integer.parseInt(toStringWithoutPrefix(key, prefix.length));
     }
 
     /**
