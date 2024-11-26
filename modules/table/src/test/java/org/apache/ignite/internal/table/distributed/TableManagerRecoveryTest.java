@@ -326,7 +326,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
 
-        dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageConfiguration, dataStorageModule, clock);
+        dsm = createDataStorageManager();
 
         AlwaysSyncedSchemaSyncService schemaSyncService = new AlwaysSyncedSchemaSyncService();
 
@@ -431,16 +431,12 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         );
     }
 
-    private DataStorageManager createDataStorageManager(
-            ConfigurationRegistry mockedRegistry,
-            Path storagePath,
-            StorageConfiguration config,
-            DataStorageModule dataStorageModule,
-            HybridClock clock
-    ) {
+    private DataStorageManager createDataStorageManager() {
+        ConfigurationRegistry mockedRegistry = mock(ConfigurationRegistry.class);
+
         StorageExtensionConfiguration mock = mock(StorageExtensionConfiguration.class);
         when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(mock);
-        when(mock.storage()).thenReturn(config);
+        when(mock.storage()).thenReturn(storageConfiguration);
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(dataStorageModule));
 
@@ -448,14 +444,14 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 dataStorageModules.createStorageEngines(
                         NODE_NAME,
                         mockedRegistry,
-                        storagePath,
+                        workDir,
                         null,
                         mock(FailureManager.class),
                         mock(LogSyncer.class),
                         clock,
                         scheduledExecutor
                 ),
-                config
+                storageConfiguration
         );
 
         assertThat(manager.startAsync(new ComponentContext()), willCompleteSuccessfully());
