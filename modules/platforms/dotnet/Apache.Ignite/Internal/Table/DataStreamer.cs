@@ -134,7 +134,10 @@ internal static class DataStreamer
                 }
                 catch (Exception e)
                 {
-                    error ??= e;
+                    if (e is not OperationCanceledException)
+                    {
+                        error ??= e;
+                    }
                 }
             }
 
