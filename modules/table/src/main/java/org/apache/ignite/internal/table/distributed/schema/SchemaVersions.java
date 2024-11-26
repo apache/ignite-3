@@ -35,20 +35,10 @@ public interface SchemaVersions {
     CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId);
 
     /**
-     * Obtains a schema version at {@link HybridClock#now()} in obedience to rules of Schema Synchronization.
-     *
-     * @param tableId ID of the table which schema to return.
-     * @return Future that will complete with the version.
-     */
-    CompletableFuture<Integer> schemaVersionAtNow(int tableId);
-
-    /**
      * Obtains a schema version at {@link HybridClock#current()} in obedience to rules of Schema Synchronization.
-     * The method does not tick the hybrid clock. It may return an old schema version in case the schema was just changed.
-     * Please use it where the handling of schema mismatch is possible.
      *
      * @param tableId ID of the table which schema to return.
      * @return Future that will complete with the version.
      */
-    CompletableFuture<Integer> weakSchemaVersionAtNow(int tableId);
+    CompletableFuture<Integer> schemaVersionAtCurrentTime(int tableId);
 }

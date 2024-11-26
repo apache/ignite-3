@@ -137,7 +137,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         CompletableFuture<Integer> schemaVersionFuture = tx == null
                 // We use the weak version of the method to avoid ticking the clock (to decrease contention) for implicit transactions.
                 // It might return a stale schema, but the retry mechanism implemented below allows us to be safe in this case.
-                ? schemaVersions.weakSchemaVersionAtNow(tbl.tableId())
+                ? schemaVersions.schemaVersionAtCurrentTime(tbl.tableId())
                 : schemaVersions.schemaVersionAt(((InternalTransaction) tx).startTimestamp(), tbl.tableId());
 
         return schemaVersionFuture
