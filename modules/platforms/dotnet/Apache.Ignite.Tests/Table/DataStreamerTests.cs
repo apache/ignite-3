@@ -218,7 +218,7 @@ public class DataStreamerTests : IgniteTestsBase
 
         StringAssert.StartsWith("Operation StreamerBatchSend failed after 2 retries", ex.Message);
 
-        Assert.That(ex.FailedItems.Count, Is.GreaterThan(0));
+        Assert.That(ex.FailedItems.Count, Is.GreaterThan(1));
 
         foreach (var failedItem in ex.FailedItems)
         {
@@ -316,7 +316,7 @@ public class DataStreamerTests : IgniteTestsBase
 
         StringAssert.StartsWith($"Operation StreamerBatchSend failed after {opts.RetryLimit} retries", ex.Message);
 
-        Assert.AreEqual(opts.PageSize * 2, ex.FailedItems.Count);
+        Assert.AreEqual(opts.PageSize * 2, ex.FailedItems.Count, "One page failed, one queued.");
 
         foreach (var failedItem in ex.FailedItems)
         {
@@ -335,19 +335,26 @@ public class DataStreamerTests : IgniteTestsBase
         using var client = await server.ConnectClientAsync();
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
+        var opts = new DataStreamerOptions
+        {
+            PageSize = 333,
+            RetryLimit = 13
+        };
+
         var ex = Assert.ThrowsAsync<DataStreamerException>(
             async () => await table!.RecordBinaryView.StreamDataAsync(
                 GetFakeServerData(10_000),
                 keySelector: t => t,
                 payloadSelector: t => t[0]!.ToString()!,
                 TestReceiverNoResults,
-                null));
+                null,
+                opts));
 
         Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
 
         StringAssert.StartsWith("Operation StreamerWithReceiverBatchSend failed after 16 retries", ex.Message);
 
-        Assert.That(ex.FailedItems.Count, Is.GreaterThan(0));
+        Assert.AreEqual(opts.PageSize * 2, ex.FailedItems.Count, "One page failed, one queued.");
 
         foreach (var failedItem in ex.FailedItems)
         {
