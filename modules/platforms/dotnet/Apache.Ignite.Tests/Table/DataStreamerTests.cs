@@ -257,9 +257,8 @@ public class DataStreamerTests : IgniteTestsBase
 
         foreach (var failedItem in ex.FailedItems)
         {
-            var item = (DataStreamerItem<IIgniteTuple>)failedItem;
-            Assert.AreEqual(DataStreamerOperationType.Put, item.OperationType);
-            Assert.IsNotNull(item.Data);
+            var item = (IIgniteTuple)failedItem;
+            Assert.That((int)item["ID"]!, Is.GreaterThanOrEqualTo(0));
         }
     }
 
