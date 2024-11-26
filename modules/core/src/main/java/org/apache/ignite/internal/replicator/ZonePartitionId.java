@@ -18,11 +18,14 @@
 package org.apache.ignite.internal.replicator;
 
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * The class is used to identify a zone replication group id for a given partition.
  */
 public class ZonePartitionId implements ReplicationGroupId {
+    private static final Pattern DELIMITER_PATTERN = Pattern.compile("_part_");
+
     private final int zoneId;
 
     private final int tableId;
@@ -90,7 +93,7 @@ public class ZonePartitionId implements ReplicationGroupId {
      * @return An zone partition id.
      */
     public static ZonePartitionId fromString(String str) {
-        String[] parts = str.split("_part_");
+        String[] parts = DELIMITER_PATTERN.split(str);
 
         return new ZonePartitionId(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
     }

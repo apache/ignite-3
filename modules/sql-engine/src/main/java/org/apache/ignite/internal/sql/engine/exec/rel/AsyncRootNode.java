@@ -124,15 +124,15 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     public CompletableFuture<BatchedResult<OutRowT>> requestNextAsync(int rows) {
         CompletableFuture<BatchedResult<OutRowT>> next = new CompletableFuture<>();
 
-        Throwable t = ex.get();
-
-        if (t != null) {
-            next.completeExceptionally(t);
-
-            return next;
-        }
-
         synchronized (lock) {
+            Throwable t = ex.get();
+
+            if (t != null) {
+                next.completeExceptionally(t);
+
+                return next;
+            }
+
             if (closed) {
                 next.completeExceptionally(new CursorClosedException());
 
