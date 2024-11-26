@@ -192,31 +192,66 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestAutoFlushFail([Values(true, false)] bool withReceiver)
+    public async Task TestAutoFlushFail()
     {
-        if (withReceiver)
-        {
-            Assert.Fail("TODO");
-        }
-
         using var server = new FakeServer(
             shouldDropConnection: ctx => ctx is { OpCode: ClientOp.StreamerBatchSend });
 
         using var client = await server.ConnectClientAsync();
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
+        var opts = new DataStreamerOptions
+        {
+            AutoFlushInterval = TimeSpan.FromMilliseconds(50),
+            RetryLimit = 2
+        };
+
         var ex = Assert.ThrowsAsync<DataStreamerException>(
             async () => await table!.RecordBinaryView.StreamDataAsync(
                 GetFakeServerData(100_000, TimeSpan.FromMilliseconds(50)),
-                new DataStreamerOptions
-                {
-                    AutoFlushInterval = TimeSpan.FromMilliseconds(50),
-                    RetryLimit = 2
-                }));
+                opts));
 
         Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
 
         StringAssert.StartsWith("Operation StreamerBatchSend failed after 2 retries", ex.Message);
+
+        Assert.That(ex.FailedItems.Count, Is.GreaterThan(1));
+
+        foreach (var failedItem in ex.FailedItems)
+        {
+            var item = (DataStreamerItem<IIgniteTuple>)failedItem;
+            Assert.AreEqual(DataStreamerOperationType.Put, item.OperationType);
+            Assert.IsNotNull(item.Data);
+        }
+    }
+
+    [Test]
+    public async Task TestAutoFlushFailWithReceiver()
+    {
+        using var server = new FakeServer(
+            shouldDropConnection: ctx => ctx is { OpCode: ClientOp.StreamerWithReceiverBatchSend });
+
+        using var client = await server.ConnectClientAsync();
+        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+
+        var opts = new DataStreamerOptions
+        {
+            AutoFlushInterval = TimeSpan.FromMilliseconds(50),
+            RetryLimit = 2
+        };
+
+        var ex = Assert.ThrowsAsync<DataStreamerException>(
+            async () => await table!.RecordBinaryView.StreamDataAsync(
+                GetFakeServerData(100_000),
+                keySelector: t => t,
+                payloadSelector: t => t[0]!.ToString()!,
+                TestReceiverNoResults,
+                null,
+                opts));
+
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
+
+        StringAssert.StartsWith("Operation StreamerWithReceiverBatchSend failed after 2 retries", ex.Message);
 
         Assert.That(ex.FailedItems.Count, Is.GreaterThan(1));
 
