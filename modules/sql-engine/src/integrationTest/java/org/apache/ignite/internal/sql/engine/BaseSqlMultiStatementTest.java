@@ -41,11 +41,19 @@ import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
  * Base class for SQL multi-statement queries integration tests.
  */
 public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
+    private final List<AsyncSqlCursor<?>> cursorsToClose = new ArrayList<>();
+
+    @BeforeEach
+    void cleanupResources() {
+        cursorsToClose.forEach(cursor -> await(cursor.closeAsync()));
+    }
+
     @AfterEach
     protected void checkNoPendingTransactionsAndOpenedCursors() {
         assertEquals(0, txManager().pending());
@@ -95,17 +103,19 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
         return Objects.requireNonNull(cursor);
     }
 
-    static List<AsyncSqlCursor<InternalSqlRow>> fetchAllCursors(AsyncSqlCursor<InternalSqlRow> cursor) {
+    List<AsyncSqlCursor<InternalSqlRow>> fetchAllCursors(AsyncSqlCursor<InternalSqlRow> cursor) {
         return fetchCursors(cursor, -1, false);
     }
 
-    static List<AsyncSqlCursor<InternalSqlRow>> fetchCursors(AsyncSqlCursor<InternalSqlRow> cursor, int count, boolean close) {
+    List<AsyncSqlCursor<InternalSqlRow>> fetchCursors(AsyncSqlCursor<InternalSqlRow> cursor, int count, boolean close) {
         List<AsyncSqlCursor<InternalSqlRow>> cursors = new ArrayList<>();
 
         cursors.add(cursor);
 
         if (close) {
             cursor.closeAsync();
+        } else {
+            cursorsToClose.add(cursor);
         }
 
         while ((count < 0 || --count > 0) && cursor.hasNextResult()) {
@@ -117,6 +127,8 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
             if (close) {
                 cursor.closeAsync();
+            } else {
+                cursorsToClose.add(cursor);
             }
         }
 

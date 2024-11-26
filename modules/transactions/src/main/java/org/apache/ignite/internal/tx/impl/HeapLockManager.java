@@ -252,21 +252,17 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     }
 
     @Override
+    public Iterator<Lock> locks() {
+        return txMap.entrySet().stream()
+                .flatMap(e -> collectLocksFromStates(e.getKey(), e.getValue()).stream())
+                .iterator();
+    }
+
+    @Override
     public Iterator<Lock> locks(UUID txId) {
         ConcurrentLinkedQueue<Releasable> lockStates = txMap.get(txId);
 
-        List<Lock> result = new ArrayList<>();
-
-        if (lockStates != null) {
-            for (Releasable lockState : lockStates) {
-                Lock lock = lockState.lock(txId);
-                if (lock != null) {
-                    result.add(lock);
-                }
-            }
-        }
-
-        return result.iterator();
+        return collectLocksFromStates(txId, lockStates).iterator();
     }
 
     /**
@@ -364,6 +360,21 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             return v;
         });
+    }
+
+    private static List<Lock> collectLocksFromStates(UUID txId, ConcurrentLinkedQueue<Releasable> lockStates) {
+        List<Lock> result = new ArrayList<>();
+
+        if (lockStates != null) {
+            for (Releasable lockState : lockStates) {
+                Lock lock = lockState.lock(txId);
+                if (lock != null) {
+                    result.add(lock);
+                }
+            }
+        }
+
+        return result;
     }
 
     /**
