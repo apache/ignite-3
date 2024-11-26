@@ -117,6 +117,7 @@ internal static class DataStreamer
         }
         catch (Exception e)
         {
+            // TODO: Add items from all batches to failedItems.
             throw DataStreamerException.Create(e, failedItems);
         }
         finally

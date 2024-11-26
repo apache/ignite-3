@@ -136,6 +136,7 @@ internal static class DataStreamerWithReceiver
         catch (Exception e)
         {
             // TODO: What happens if AutoFlushAsync throws?
+            // TODO: Add items from all batches to failedItems.
             throw DataStreamerException.Create(e, failedItems);
         }
         finally
