@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
@@ -40,8 +41,8 @@ import static org.apache.ignite.internal.partitiondistribution.PartitionDistribu
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -53,7 +54,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -76,9 +76,7 @@ public class ZoneRebalanceUtil {
     private static final IgniteLogger LOG = Loggers.forClass(ZoneRebalanceUtil.class);
 
     /**
-     * Status values for methods like
-     * {@link #updatePendingAssignmentsKeys(CatalogZoneDescriptor, ZonePartitionId, Collection, int, long, MetaStorageManager, int, Set,
-     * HybridTimestamp)}.
+     * Status values for methods like {@link #updatePendingAssignmentsKeys}.
      */
     public enum UpdateStatus {
         /**
@@ -358,14 +356,20 @@ public class ZoneRebalanceUtil {
     /** Key prefix for pending assignments. */
     public static final String PENDING_ASSIGNMENTS_PREFIX = "zone.assignments.pending.";
 
+    public static final byte[] PENDING_ASSIGNMENTS_PREFIX_BYTES = PENDING_ASSIGNMENTS_PREFIX.getBytes(UTF_8);
+
     /** Key prefix for stable assignments. */
     public static final String STABLE_ASSIGNMENTS_PREFIX = "zone.assignments.stable.";
+
+    public static final byte[] STABLE_ASSIGNMENTS_PREFIX_BYTES = STABLE_ASSIGNMENTS_PREFIX.getBytes(UTF_8);
 
     /** Key prefix for planned assignments. */
     public static final String PLANNED_ASSIGNMENTS_PREFIX = "zone.assignments.planned.";
 
     /** Key prefix for switch reduce assignments. */
     public static final String ASSIGNMENTS_SWITCH_REDUCE_PREFIX = "zone.assignments.switch.reduce.";
+
+    public static final byte[] ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES = ASSIGNMENTS_SWITCH_REDUCE_PREFIX.getBytes(UTF_8);
 
     /** Key prefix for switch append assignments. */
     public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "zone.assignments.switch.append.";
@@ -437,16 +441,16 @@ public class ZoneRebalanceUtil {
     }
 
     /**
-     * Extract zone id from a metastorage key of partition.
+     * Converts the given {@code key}, stripping it off the given {@code prefix}, into a {@link ZonePartitionId}.
      *
-     * @param key Key.
+     * @param key Metastorage key.
      * @param prefix Key prefix.
-     * @return Table id.
+     * @return {@link ZonePartitionId} that was encoded in the key.
      */
-    public static int extractZoneId(byte[] key, String prefix) {
-        String strKey = new String(key, StandardCharsets.UTF_8);
+    public static ZonePartitionId extractZonePartitionId(byte[] key, byte[] prefix) {
+        var zonePartitionIdString = toStringWithoutPrefix(key, prefix.length);
 
-        return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
+        return ZonePartitionId.fromString(zonePartitionIdString);
     }
 
     /**
@@ -456,21 +460,7 @@ public class ZoneRebalanceUtil {
      * @return Table id.
      */
     public static int extractZoneIdDataNodes(byte[] key) {
-        String strKey = new String(key, StandardCharsets.UTF_8);
-
-        return Integer.parseInt(strKey.substring(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX.length()));
-    }
-
-    /**
-     * Extract partition number from the rebalance key of partition.
-     *
-     * @param key Key.
-     * @return Partition number.
-     */
-    public static int extractPartitionNumber(byte[] key) {
-        var strKey = new String(key, StandardCharsets.UTF_8);
-
-        return Integer.parseInt(strKey.substring(strKey.indexOf("_part_") + "_part_".length()));
+        return Integer.parseInt(toStringWithoutPrefix(key, DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES.length));
     }
 
     /**

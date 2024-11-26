@@ -100,9 +100,12 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration;
+import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
+import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -133,7 +136,8 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Distribution zones manager.
  */
-public class DistributionZoneManager implements IgniteComponent {
+public class DistributionZoneManager extends
+        AbstractEventProducer<HaZoneTopologyUpdateEvent, HaZoneTopologyUpdateEventParams> implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
 
@@ -386,15 +390,9 @@ public class DistributionZoneManager implements IgniteComponent {
             int partitionDistributionResetTimeoutSeconds,
             long causalityToken
     ) {
-        long updateTimestamp;
+        long updateTimestamp = timestampByRevision(causalityToken);
 
-        try {
-            updateTimestamp = metaStorageManager.timestampByRevisionLocally(causalityToken).longValue();
-        } catch (CompactedException e) {
-            if (causalityToken > 1) {
-                LOG.warn("Unable to retrieve timestamp by revision because of meta storage compaction, [revision={}].", causalityToken);
-            }
-
+        if (updateTimestamp == -1) {
             return;
         }
 
@@ -406,11 +404,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
             if (zoneDescriptor == null || zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
                 continue;
-            }
-
-            if (partitionDistributionResetTimeoutSeconds == IMMEDIATE_TIMER_VALUE) {
-                // TODO: IGNITE-23599 Implement valid behaviour here.
-                return;
             }
 
             ZoneState zoneState = zoneStateEntry.getValue();
@@ -426,8 +419,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                 zoneState.reschedulePartitionDistributionReset(
                         partitionDistributionResetTimeoutSeconds,
-                        // TODO: IGNITE-23599 Implement valid behaviour here.
-                        () -> {},
+                        () -> fireTopologyReduceLocalEvent(updateTimestamp, zoneId),
                         zoneId
                 );
             } else {
@@ -985,22 +977,19 @@ public class DistributionZoneManager implements IgniteComponent {
 
             if (nodesRemoved) {
                 if (zone.consistencyMode() == HIGH_AVAILABILITY) {
-                    if (partitionReset == IMMEDIATE_TIMER_VALUE) {
-                        futures.add(
-                                // TODO: IGNITE-23599 Implement valid behaviour here.
-                                nullCompletedFuture()
-                        );
-                    }
-
                     if (partitionReset != INFINITE_TIMER_VALUE) {
                         zonesState.get(zoneId).reschedulePartitionDistributionReset(
                                 partitionReset,
-                                // TODO: IGNITE-23599 Implement valid behaviour here.
-                                () -> {},
+                                () -> {
+                                    long timestamp = timestampByRevision(revision);
+
+                                    if (timestamp != -1) {
+                                        fireTopologyReduceLocalEvent(timestamp, zoneId);
+                                    }
+                                },
                                 zoneId
                         );
                     }
-
                 } else {
                     if (autoAdjustScaleDown == IMMEDIATE_TIMER_VALUE) {
                         futures.add(saveDataNodesToMetaStorageOnScaleDown(zoneId, revision));
@@ -1018,6 +1007,37 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         return allOf(futures.toArray(CompletableFuture[]::new));
+    }
+
+    /**
+     * Returns metastore long view of {@link org.apache.ignite.internal.hlc.HybridTimestamp} by revision.
+     *
+     * @param revision Metastore revision.
+     * @return Appropriate metastore timestamp or -1 if revision is already compacted.
+     */
+    private long timestampByRevision(long revision) {
+        try {
+            return metaStorageManager.timestampByRevisionLocally(revision).longValue();
+        } catch (CompactedException e) {
+            if (revision > 1) {
+                LOG.warn("Unable to retrieve timestamp by revision because of meta storage compaction, [revision={}].", revision);
+            }
+
+            return -1;
+        }
+
+    }
+
+    private void fireTopologyReduceLocalEvent(long timestamp, int zoneId) {
+        fireEvent(
+                HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
+                new HaZoneTopologyUpdateEventParams(zoneId, timestamp)
+        ).exceptionally(th -> {
+            LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
+                    + " event processing", th);
+
+            return null;
+        });
     }
 
     /**

@@ -15,30 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.schema;
+package org.apache.ignite.internal.distributionzones.events;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
-
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.event.Event;
 
 /**
- * Test implementation that always returns the same results.
+ * Events produced by the {@link org.apache.ignite.internal.distributionzones.DistributionZoneManager}
+ * about the changes in topology of zones with
+ * {@link org.apache.ignite.internal.catalog.descriptors.ConsistencyMode#HIGH_AVAILABILITY} consistency mode.
  */
-public class ConstantSchemaVersions implements SchemaVersions {
-    private final int schemaVersion;
-
-    public ConstantSchemaVersions(int schemaVersion) {
-        this.schemaVersion = schemaVersion;
-    }
-
-    @Override
-    public CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId) {
-        return completedFuture(schemaVersion);
-    }
-
-    @Override
-    public CompletableFuture<Integer> schemaVersionAtCurrentTime(int tableId) {
-        return completedFuture(schemaVersion);
-    }
+// TODO: https://issues.apache.org/jira/browse/IGNITE-23640 Remove this event and
+//  replace it by the direct call to the disaster recovery manager.
+@Deprecated
+public enum HaZoneTopologyUpdateEvent implements Event {
+    TOPOLOGY_REDUCED
 }
