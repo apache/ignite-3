@@ -1323,7 +1323,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             null,
                             failureManager,
                             logStorageFactory,
-                            hybridClock
+                            hybridClock,
+                            commonScheduledExecutorService
                     ),
                     storageConfiguration
             );
