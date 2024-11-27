@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertionsAsync;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -39,13 +41,14 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -66,9 +69,9 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
 
     @BeforeEach
     public void beforeEach() {
-        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}';",
+        sql(format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}';",
                 ZONE_NAME, initialNodes(), 10, DEFAULT_STORAGE_PROFILE));
-        sql(IgniteStringFormatter.format("CREATE TABLE {}(id INT PRIMARY KEY, val VARCHAR) ZONE {}",
+        sql(format("CREATE TABLE {}(id INT PRIMARY KEY, val VARCHAR) ZONE {}",
                 TABLE_NAME, ZONE_NAME));
 
         Ignite ignite = CLUSTER.aliveNode();
@@ -86,9 +89,38 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
 
     @AfterEach
     public void afterEach() {
-        sql(IgniteStringFormatter.format("DROP TABLE {}", TABLE_NAME));
+        sql(format("DROP TABLE {}", TABLE_NAME));
 
-        sql(IgniteStringFormatter.format("DROP ZONE {}", ZONE_NAME));
+        sql(format("DROP ZONE {}", ZONE_NAME));
+    }
+
+    @Test
+    public void testImplicit() {
+        for (int i = 0; i < initialNodes(); i++) {
+            Ignite ignite = CLUSTER.node(i);
+
+            TxManagerImpl txManager = (TxManagerImpl) unwrapIgniteImpl(ignite).txManager();
+
+            int txRwStatesBefore = txManager.states().size();
+
+            int txFinishedBefore = txManager.finished();
+
+            ignite.tables().table(TABLE_NAME).keyValueView().get(null, Tuple.create().set("id", 12));
+            ignite.tables().table(TABLE_NAME).keyValueView().getAll(null, Set.of(Tuple.create().set("id", 12)));
+
+            int txRwStatesAfter = txManager.states().size();
+
+            int txFinishedAfter = txManager.finished();
+
+            assertFalse(txRwStatesAfter > txRwStatesBefore, "RW transaction was stated unexpectedly.");
+
+            assertEquals(2, txFinishedAfter - txFinishedBefore, format(
+                    "Unexpected finished transaction quantity [i={}, beforeOp={}, afterOp={}]",
+                    i,
+                    txFinishedBefore,
+                    txFinishedAfter
+            ));
+        }
     }
 
     @Test
