@@ -249,7 +249,11 @@ public class DataStreamerTests : IgniteTestsBase
                 null,
                 opts));
 
-        Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
+        Assert.AreEqual(ErrorGroups.Client.Connection, ex.Code);
+
+        var inner = (IgniteClientConnectionException)ex.InnerException!;
+        Assert.AreEqual(ex.Code, inner.Code);
+        Assert.AreEqual(ex.TraceId, inner.TraceId);
 
         StringAssert.StartsWith("Operation StreamerWithReceiverBatchSend failed after 2 retries", ex.Message);
 
