@@ -207,8 +207,19 @@ class RestartProofIgniteSql implements IgniteSql, Wrapper {
     }
 
     @Override
+    public void executeScript(@Nullable CancellationToken cancellationToken, String query, @Nullable Object... arguments) {
+        attachmentLock.consumeAttached(ignite -> ignite.sql().executeScript(cancellationToken, query, arguments));
+    }
+
+    @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
         return attachmentLock.attachedAsync(ignite -> ignite.sql().executeScriptAsync(query, arguments));
+    }
+
+    @Override
+    public CompletableFuture<Void> executeScriptAsync(@Nullable CancellationToken cancellationToken, String query,
+            @Nullable Object... arguments) {
+        return attachmentLock.attachedAsync(ignite -> ignite.sql().executeScriptAsync(cancellationToken, query, arguments));
     }
 
     @Override
