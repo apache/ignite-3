@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
@@ -34,10 +35,10 @@ public interface SchemaVersions {
     CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId);
 
     /**
-     * Obtains a schema version at 'now' in obedience to rules of Schema Synchronization.
+     * Obtains a schema version at {@link HybridClock#current()} in obedience to rules of Schema Synchronization.
      *
      * @param tableId ID of the table which schema to return.
      * @return Future that will complete with the version.
      */
-    CompletableFuture<Integer> schemaVersionAtNow(int tableId);
+    CompletableFuture<Integer> schemaVersionAtCurrentTime(int tableId);
 }

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -109,7 +110,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
 
         RaftGroupService service = mock(TopologyAwareRaftGroupService.class);
 
-        when(service.run(any(GetCurrentRevisionsCommand.class)))
+        when(service.run(any(GetCurrentRevisionsCommand.class), anyLong()))
                 .thenAnswer(invocation -> completedFuture(new RevisionsInfo(remoteRevision, -1)));
 
         when(raft.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any(), any()))

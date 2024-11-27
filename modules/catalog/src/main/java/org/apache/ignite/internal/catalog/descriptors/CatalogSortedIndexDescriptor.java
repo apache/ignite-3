@@ -125,10 +125,10 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
     private static class SortedIndexDescriptorSerializer implements CatalogObjectSerializer<CatalogSortedIndexDescriptor> {
         @Override
         public CatalogSortedIndexDescriptor readFrom(IgniteDataInput input) throws IOException {
-            int id = input.readInt();
+            int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readLong();
-            int tableId = input.readInt();
+            long updateToken = input.readVarInt();
+            int tableId = input.readVarIntAsInt();
             boolean unique = input.readBoolean();
             CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
             boolean isCreatedWithTable = input.readBoolean();
@@ -139,10 +139,10 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
 
         @Override
         public void writeTo(CatalogSortedIndexDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeInt(descriptor.id());
+            output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
-            output.writeLong(descriptor.updateToken());
-            output.writeInt(descriptor.tableId());
+            output.writeVarInt(descriptor.updateToken());
+            output.writeVarInt(descriptor.tableId());
             output.writeBoolean(descriptor.unique());
             output.writeByte(descriptor.status().id());
             output.writeBoolean(descriptor.isCreatedWithTable());

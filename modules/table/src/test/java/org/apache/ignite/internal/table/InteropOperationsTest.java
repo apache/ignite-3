@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -58,6 +57,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
@@ -389,38 +389,54 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
             String colName = col.name();
             NativeType type = col.type();
 
-            if (NativeTypes.BOOLEAN.equals(type)) {
-                res.set(colName, id % 2 == 0);
-            } else if (NativeTypes.INT8.equals(type)) {
-                res.set(colName, (byte) id);
-            } else if (NativeTypes.INT16.equals(type)) {
-                res.set(colName, (short) id);
-            } else if (NativeTypes.INT32.equals(type)) {
-                res.set(colName, id);
-            } else if (NativeTypes.INT64.equals(type)) {
-                res.set(colName, (long) id);
-            } else if (NativeTypes.FLOAT.equals(type)) {
-                res.set(colName, (float) id);
-            } else if (NativeTypes.DOUBLE.equals(type)) {
-                res.set(colName, (double) id);
-            } else if (NativeTypes.BYTES.equals(type)) {
-                res.set(colName, String.valueOf(id).getBytes(StandardCharsets.UTF_8));
-            } else if (NativeTypes.STRING.equals(type)) {
-                res.set(colName, String.valueOf(id));
-            } else if (NativeTypes.UUID.equals(type)) {
-                res.set(colName, new UUID(0L, (long) id));
-            } else if (NativeTypes.DATE.equals(type)) {
-                res.set(colName, LocalDate.ofYearDay(2021, id));
-            } else if (NativeTypes.time(0).equals(type)) {
-                res.set(colName, LocalTime.ofSecondOfDay(id));
-            } else if (NativeTypes.datetime(6).equals(type)) {
-                res.set(colName, LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC));
-            } else if (NativeTypes.timestamp(6).equals(type)) {
-                res.set(colName, Instant.ofEpochSecond(id));
-            } else if (NativeTypes.decimalOf(5, 2).equals(type)) {
-                res.set(colName, BigDecimal.valueOf(id * 100).movePointLeft(2));
-            } else {
-                fail("Unable to fullfill value of type " + type);
+            switch (type.spec()) {
+                case INT8:
+                    res.set(colName, (byte) id);
+                    break;
+                case INT16:
+                    res.set(colName, (short) id);
+                    break;
+                case INT32:
+                    res.set(colName, id);
+                    break;
+                case INT64:
+                    res.set(colName, (long) id);
+                    break;
+                case FLOAT:
+                    res.set(colName, (float) id);
+                    break;
+                case DOUBLE:
+                    res.set(colName, (double) id);
+                    break;
+                case DECIMAL:
+                    res.set(colName, BigDecimal.valueOf(id * 100).movePointLeft(2));
+                    break;
+                case UUID:
+                    res.set(colName, new UUID(0L, id));
+                    break;
+                case STRING:
+                    res.set(colName, String.valueOf(id));
+                    break;
+                case BYTES:
+                    res.set(colName, String.valueOf(id).getBytes(StandardCharsets.UTF_8));
+                    break;
+                case DATE:
+                    res.set(colName, LocalDate.ofYearDay(2021, id));
+                    break;
+                case TIME:
+                    res.set(colName, LocalTime.ofSecondOfDay(id));
+                    break;
+                case DATETIME:
+                    res.set(colName, LocalDateTime.ofEpochSecond(id, 0, ZoneOffset.UTC));
+                    break;
+                case TIMESTAMP:
+                    res.set(colName, Instant.ofEpochSecond(id));
+                    break;
+                case BOOLEAN:
+                    res.set(colName, id % 2 == 0);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unexpected type: " + type);
             }
         }
 
@@ -449,43 +465,58 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
 
             String colName = col.name();
             NativeType type = col.type();
+            NativeTypeSpec typeSpec = type.spec();
 
-            if (NativeTypes.BOOLEAN.equals(type)) {
-                assertEquals(expected.booleanValue(colName), t.booleanValue(colName));
-            } else if (NativeTypes.INT8.equals(type)) {
-                assertEquals(expected.byteValue(colName), t.byteValue(colName));
-            } else if (NativeTypes.INT16.equals(type)) {
-                assertEquals(expected.shortValue(colName), t.shortValue(colName));
-            } else if (NativeTypes.INT32.equals(type)) {
-                assertEquals(expected.intValue(colName), t.intValue(colName));
-            } else if (NativeTypes.INT64.equals(type)) {
-                assertEquals(expected.longValue(colName), t.longValue(colName));
-            } else if (NativeTypes.FLOAT.equals(type)) {
-                assertEquals(expected.floatValue(colName), t.floatValue(colName));
-            } else if (NativeTypes.DOUBLE.equals(type)) {
-                assertEquals(expected.doubleValue(colName), t.doubleValue(colName));
-            } else if (NativeTypes.BYTES.equals(type)) {
-                assertArrayEquals((byte[]) expected.value(colName), (byte[]) t.value(colName));
-            } else if (NativeTypes.STRING.equals(type)) {
-                assertEquals(expected.stringValue(colName), t.stringValue(colName));
-            } else if (NativeTypes.UUID.equals(type)) {
-                assertEquals(expected.uuidValue(colName), t.uuidValue(colName));
-            } else if (NativeTypes.DATE.equals(type)) {
-                assertEquals(expected.dateValue(colName), t.dateValue(colName));
-            } else if (NativeTypes.time(0).equals(type)) {
-                assertEquals(expected.timeValue(colName), t.timeValue(colName));
-            } else if (NativeTypes.datetime(6).equals(type)) {
-                assertEquals(expected.datetimeValue(colName), t.datetimeValue(colName));
-            } else if (NativeTypes.timestamp(6).equals(type)) {
-                assertEquals(expected.timestampValue(colName), expected.timestampValue(colName));
-            } else if (NativeTypes.decimalOf(5, 2).equals(type)) {
-                assertEquals((BigDecimal) expected.value(colName), t.value(colName));
-            } else {
-                fail("Unable to validate value of type " + type);
+            switch (typeSpec) {
+                case BOOLEAN:
+                    assertEquals(expected.booleanValue(colName), t.booleanValue(colName));
+                    break;
+                case INT8:
+                    assertEquals(expected.byteValue(colName), t.byteValue(colName));
+                    break;
+                case INT16:
+                    assertEquals(expected.shortValue(colName), t.shortValue(colName));
+                    break;
+                case INT32:
+                    assertEquals(expected.intValue(colName), t.intValue(colName));
+                    break;
+                case INT64:
+                    assertEquals(expected.longValue(colName), t.longValue(colName));
+                    break;
+                case FLOAT:
+                    assertEquals(expected.floatValue(colName), t.floatValue(colName));
+                    break;
+                case DOUBLE:
+                    assertEquals(expected.doubleValue(colName), t.doubleValue(colName));
+                    break;
+                case BYTES:
+                    assertArrayEquals(expected.value(colName), (byte[]) t.value(colName));
+                    break;
+                case STRING:
+                    assertEquals(expected.stringValue(colName), t.stringValue(colName));
+                    break;
+                case UUID:
+                    assertEquals(expected.uuidValue(colName), t.uuidValue(colName));
+                    break;
+                case DATE:
+                    assertEquals(expected.dateValue(colName), t.dateValue(colName));
+                    break;
+                case TIME:
+                    assertEquals(expected.timeValue(colName), t.timeValue(colName));
+                    break;
+                case DATETIME:
+                    assertEquals(expected.datetimeValue(colName), t.datetimeValue(colName));
+                    break;
+                case TIMESTAMP:
+                    assertEquals(expected.timestampValue(colName), t.timestampValue(colName));
+                    break;
+                case DECIMAL:
+                    assertEquals((BigDecimal) expected.value(colName), t.value(colName));
+                    break;
+                default:
+                    throw new IllegalArgumentException("Expected type: " + type);
             }
         }
-
-        assertTrue(!nulls ^ expected.equals(t), "nulls = " + nulls + ", id = " + id);
     }
 
     /**

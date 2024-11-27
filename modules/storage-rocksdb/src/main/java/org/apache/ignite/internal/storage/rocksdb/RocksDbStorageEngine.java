@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,7 +43,6 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbSt
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.RocksDB;
 
 /**
@@ -63,7 +66,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
         @Override
         public void close() throws Exception {
-            IgniteUtils.closeAllManually(rocksDbInstance::stop, profile::stop);
+            closeAllManually(rocksDbInstance::stop, profile::stop);
         }
     }
 
@@ -96,26 +99,26 @@ public class RocksDbStorageEngine implements StorageEngine {
      * @param storageConfiguration Storage configuration.
      * @param storagePath Storage path.
      * @param logSyncer Write-ahead log synchronizer.
+     * @param scheduledPool Common scheduled thread pool. Needed only for asynchronous start of scheduled operations without performing
+     *      blocking, long or IO operations.
      */
     public RocksDbStorageEngine(
             String nodeName,
             RocksDbStorageEngineConfiguration engineConfig,
             StorageConfiguration storageConfiguration,
             Path storagePath,
-            LogSyncer logSyncer
+            LogSyncer logSyncer,
+            ScheduledExecutorService scheduledPool
     ) {
         this.engineConfig = engineConfig;
         this.storageConfiguration = storageConfiguration;
         this.storagePath = storagePath;
         this.logSyncer = logSyncer;
+        this.scheduledPool = scheduledPool;
 
         threadPool = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(),
                 NamedThreadFactory.create(nodeName, "rocksdb-storage-engine-pool", LOG)
-        );
-
-        scheduledPool = Executors.newSingleThreadScheduledExecutor(
-                NamedThreadFactory.create(nodeName, "rocksdb-storage-engine-scheduled-pool", LOG)
         );
     }
 
@@ -134,7 +137,8 @@ public class RocksDbStorageEngine implements StorageEngine {
     }
 
     /**
-     * Returns a scheduled thread pool for async operations.
+     * Returns a common scheduled thread pool. Needed only for asynchronous start of scheduled operations without performing blocking, long
+     * or IO operations.
      */
     public ScheduledExecutorService scheduledPool() {
         return scheduledPool;
@@ -186,13 +190,13 @@ public class RocksDbStorageEngine implements StorageEngine {
     @Override
     public void stop() throws StorageException {
         try {
-            IgniteUtils.closeAllManually(storageByProfileName.values());
+            closeAll(
+                    () -> closeAllManually(storageByProfileName.values()),
+                    () -> shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS)
+            );
         } catch (Exception e) {
             throw new StorageException("Error when stopping the rocksdb engine", e);
         }
-
-        IgniteUtils.shutdownAndAwaitTermination(threadPool, 10, TimeUnit.SECONDS);
-        IgniteUtils.shutdownAndAwaitTermination(scheduledPool, 10, TimeUnit.SECONDS);
     }
 
     @Override
