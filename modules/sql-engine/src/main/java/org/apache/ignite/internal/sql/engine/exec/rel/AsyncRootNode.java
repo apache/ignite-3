@@ -61,6 +61,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     private volatile boolean closed = false;
 
+    private volatile boolean cancelled = false;
+
     /**
      * Amount of rows which were requested from a source.
      *
@@ -134,7 +136,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
             }
 
             if (closed) {
-                next.completeExceptionally(new CursorClosedException());
+                next.completeExceptionally(cancelled ? new QueryCancelledException() : new CursorClosedException());
 
                 return next;
             }
@@ -149,9 +151,11 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> closeAsync() {
+    public CompletableFuture<Void> closeAsync(boolean cancelled) {
         if (!closed) {
             synchronized (lock) {
+                this.cancelled = cancelled;
+
                 if (!closed) {
                     Throwable th = ex.get();
 
