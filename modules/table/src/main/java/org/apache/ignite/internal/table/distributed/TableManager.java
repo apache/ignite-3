@@ -140,7 +140,7 @@ import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEven
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
-import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
@@ -2306,7 +2306,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .tuple(pendingAssignmentsBytes)
                     .build();
 
-            ChangePeersAndLearnersReplicaRequest request = TABLE_MESSAGES_FACTORY.changePeersAndLearnersReplicaRequest()
+            ChangePeersAndLearnersAsyncReplicaRequest request = TABLE_MESSAGES_FACTORY.changePeersAndLearnersAsyncReplicaRequest()
                     .groupId(partitionIdMessage)
                     .pendingAssignments(pendingAssignmentsMessage)
                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())

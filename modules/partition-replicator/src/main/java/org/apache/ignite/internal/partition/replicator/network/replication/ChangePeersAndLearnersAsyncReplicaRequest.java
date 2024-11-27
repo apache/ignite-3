@@ -24,8 +24,8 @@ import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 /**
  * Request for performing {@link org.apache.ignite.internal.raft.service.RaftGroupService#changePeersAndLearnersAsync} on a primary replica.
  */
-@Transferable(PartitionReplicationMessageGroup.CHANGE_PEERS_AND_LEARNERS_REPLICA_REQUEST)
-public interface ChangePeersAndLearnersReplicaRequest extends PrimaryReplicaRequest {
+@Transferable(PartitionReplicationMessageGroup.CHANGE_PEERS_AND_LEARNERS_ASYNC_REPLICA_REQUEST)
+public interface ChangePeersAndLearnersAsyncReplicaRequest extends PrimaryReplicaRequest {
     /** New peers configuration to rebalance. */
     BinaryTupleMessage pendingAssignments();
 }

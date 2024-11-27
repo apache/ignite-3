@@ -1299,7 +1299,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 if (context != null) {
                     synchronized (context) {
-                        deregisterFailoverCallback(parameters);
+                        unregisterFailoverCallback(parameters);
 
                         context.assertReservation(parameters.groupId(), parameters.startTime());
 
@@ -1346,7 +1346,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         // TODO: move to Replica https://issues.apache.org/jira/browse/IGNITE-23750
-        private void deregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
+        private void unregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
             CompletableFuture<Replica> replicaFuture = replicaManager.replica(parameters.groupId());
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-23753

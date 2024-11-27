@@ -118,7 +118,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.WriteInte
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectSingleRowReplicaRequest;
@@ -532,8 +532,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processGetEstimatedSizeRequest();
         }
 
-        if (request instanceof ChangePeersAndLearnersReplicaRequest) {
-            return processChangePeersAndLearnersReplicaRequest((ChangePeersAndLearnersReplicaRequest) request);
+        if (request instanceof ChangePeersAndLearnersAsyncReplicaRequest) {
+            return processChangePeersAndLearnersReplicaRequest((ChangePeersAndLearnersAsyncReplicaRequest) request);
         }
 
         @Nullable HybridTimestamp opTs = getTxOpTimestamp(request);
@@ -602,7 +602,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return triggerTxRecovery(txId, senderId);
     }
 
-    private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersReplicaRequest request) {
+    private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersAsyncReplicaRequest request) {
         TablePartitionId replicaGrpId = (TablePartitionId) request.groupId().asReplicationGroupId();
 
         RaftGroupService raftClient = raftCommandRunner instanceof RaftGroupService
@@ -657,7 +657,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 && suspectedEnlistmentConsistencyToken == meta.getStartTime().longValue();
     }
 
-    private static PeersAndLearners peersConfigurationFromMessage(ChangePeersAndLearnersReplicaRequest request) {
+    private static PeersAndLearners peersConfigurationFromMessage(ChangePeersAndLearnersAsyncReplicaRequest request) {
         BinaryTuple pendingAssignmentsTuple = request.pendingAssignments().asBinaryTuple();
 
         Assignments pendingAssignments = fromBytes(pendingAssignmentsTuple.byteBuffer().array());
