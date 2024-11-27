@@ -17,8 +17,6 @@
 
 package org.apache.ignite.compute;
 
-import org.apache.ignite.lang.CancellationToken;
-
 /**
  * Job execution options.
  */
@@ -62,8 +60,6 @@ public class JobExecutionOptions {
         private int priority;
 
         private int maxRetries;
-
-        private CancellationToken cancellationToken;
 
         public Builder priority(int priority) {
             this.priority = priority;
