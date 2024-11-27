@@ -61,6 +61,15 @@ class RestartProofIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
+    public <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return attachmentLock.attachedAsync(ignite -> ignite.compute().executeBroadcastAsync(nodes, descriptor, arg));
+    }
+
+    @Override
     public <T, R> CompletableFuture<R> executeAsync(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
         return attachmentLock.attachedAsync(ignite -> ignite.compute().executeAsync(target, descriptor, arg));
     }
