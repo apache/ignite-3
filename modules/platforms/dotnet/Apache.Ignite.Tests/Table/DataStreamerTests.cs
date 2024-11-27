@@ -275,6 +275,7 @@ public class DataStreamerTests : IgniteTestsBase
         cts.Cancel();
         var ex = Assert.CatchAsync<DataStreamerException>(async () => await streamTask);
         Assert.IsInstanceOf<OperationCanceledException>(ex.InnerException);
+        Assert.AreEqual(ErrorGroups.Common.Internal, ex.Code);
 
         Assert.IsFalse(
             await TupleView.ContainsKeyAsync(null, GetTuple(0)),
@@ -349,6 +350,8 @@ public class DataStreamerTests : IgniteTestsBase
 
         var ex = Assert.ThrowsAsync<DataStreamerException>(
             async () => await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(10_000), opts));
+
+        Assert.AreEqual(ErrorGroups.Client.Connection, ex.Code);
 
         Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
 
