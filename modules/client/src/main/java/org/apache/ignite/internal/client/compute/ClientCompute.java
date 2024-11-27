@@ -93,14 +93,13 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T arg) {
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
+            @Nullable T arg) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
         ClientJobExecution<R> execution = new ClientJobExecution<>(ch, submit0(target, descriptor, arg), descriptor.resultMarshaller(),
                 descriptor.resultClass());
-
-        CancellationToken cancellationToken = descriptor.options().cancellationToken();
 
         if (cancellationToken != null) {
             CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
@@ -131,8 +130,9 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
-        return sync(executeAsync(target, descriptor, args));
+    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
+            @Nullable T arg) {
+        return sync(executeAsync(target, descriptor, cancellationToken, arg));
     }
 
     private <T, R> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
@@ -170,9 +170,9 @@ public class ClientCompute implements IgniteCompute {
                 .thenCompose(Function.identity());
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(Set<ClusterNode> nodes, JobDescriptor<T, R> descriptor, T arg) {
+    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(Set<ClusterNode> nodes, JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
 
@@ -189,8 +189,6 @@ public class ClientCompute implements IgniteCompute {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
             }
 
-            CancellationToken cancellationToken = descriptor.options().cancellationToken();
-
             if (cancellationToken != null) {
                 CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
             }
@@ -200,7 +198,8 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken,
+            @Nullable T arg) {
         Objects.requireNonNull(taskDescriptor);
 
         ClientTaskExecution<R> clientExecution = new ClientTaskExecution<>(ch,
@@ -208,8 +207,6 @@ public class ClientCompute implements IgniteCompute {
                 taskDescriptor.reduceJobResultMarshaller(),
                 taskDescriptor.reduceJobResultClass()
         );
-
-        CancellationToken cancellationToken = taskDescriptor.cancellationToken();
 
         if (cancellationToken != null) {
             CancelHandleHelper.addCancelAction(cancellationToken, clientExecution::cancelAsync, clientExecution.resultAsync());
@@ -219,8 +216,8 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return sync(executeMapReduceAsync(taskDescriptor, arg));
+    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
     }
 
     private <T, R> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {

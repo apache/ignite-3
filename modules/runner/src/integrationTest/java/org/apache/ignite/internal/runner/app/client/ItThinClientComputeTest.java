@@ -78,7 +78,6 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskStatus;
@@ -145,11 +144,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         CancelHandle cancelHandle = CancelHandle.create();
 
-        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
-
-        JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class)
-                .options(executionOptions).units(List.of()).build();
-        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(executeNode), job, null);
+        JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
+        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(executeNode), job, cancelHandle.token(), null);
 
         cancelHandle.cancel();
 
@@ -164,11 +160,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         CancelHandle cancelHandle = CancelHandle.create();
 
-        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
-
-        JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class)
-                .options(executionOptions).units(List.of()).build();
-        CompletableFuture<Void> execution = entryNode.compute().executeAsync(JobTarget.node(executeNode), job, null);
+        JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
+        CompletableFuture<Void> execution = entryNode.compute().executeAsync(JobTarget.node(executeNode), job, cancelHandle.token(), null);
 
         cancelHandle.cancel();
 
@@ -182,12 +175,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         CancelHandle cancelHandle = CancelHandle.create();
 
-        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
-
-        JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class)
-                .options(executionOptions).units(List.of()).build();
+        JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
         CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() ->  entryNode.compute()
-                .execute(JobTarget.node(executeNode), job, null));
+                .execute(JobTarget.node(executeNode), job, cancelHandle.token(), null));
 
         cancelHandle.cancel();
 
@@ -201,11 +191,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         CancelHandle cancelHandle = CancelHandle.create();
 
-        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
-
         Map<ClusterNode, JobExecution<Object>> executions = entryNode.compute().submitBroadcast(
                 executeNodes,
-                JobDescriptor.builder(InfiniteJob.class.getName()).options(executionOptions).build(), 100L);
+                JobDescriptor.builder(InfiniteJob.class.getName()).build(), cancelHandle.token(), 100L);
 
         cancelHandle.cancel();
 
@@ -225,11 +213,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         CancelHandle cancelHandle = CancelHandle.create();
 
-        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
-
         CompletableFuture<Map<ClusterNode, Object>> executions = entryNode.compute().executeBroadcastAsync(
                 executeNodes,
-                JobDescriptor.builder(InfiniteJob.class.getName()).options(executionOptions).build(), 100L);
+                JobDescriptor.builder(InfiniteJob.class.getName()).build(), cancelHandle.token(), 100L);
 
         cancelHandle.cancel();
 
@@ -243,11 +229,9 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         CancelHandle cancelHandle = CancelHandle.create();
 
-        JobExecutionOptions executionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
-
         CompletableFuture<Map<ClusterNode, Object>> runFut = IgniteTestUtils.runAsync(() -> entryNode.compute().executeBroadcast(
                 executeNodes,
-                JobDescriptor.builder(InfiniteJob.class.getName()).options(executionOptions).build(), 100L)
+                JobDescriptor.builder(InfiniteJob.class.getName()).build(), cancelHandle.token(), 100L)
         );
 
         cancelHandle.cancel();
@@ -262,8 +246,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         CancelHandle cancelHandle = CancelHandle.create();
 
         TaskExecution<Void> execution = entryNode.compute()
-                .submitMapReduce(TaskDescriptor.builder(InfiniteMapReduceTask.class)
-                        .cancellationToken(cancelHandle.token()).build(), null);
+                .submitMapReduce(TaskDescriptor.builder(InfiniteMapReduceTask.class).build(), cancelHandle.token(), null);
 
         cancelHandle.cancel();
 
@@ -277,8 +260,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         CancelHandle cancelHandle = CancelHandle.create();
 
         CompletableFuture<Void> execution = entryNode.compute()
-                .executeMapReduceAsync(TaskDescriptor.builder(InfiniteMapReduceTask.class).cancellationToken(cancelHandle.token()).build(),
-                        null);
+                .executeMapReduceAsync(TaskDescriptor.builder(InfiniteMapReduceTask.class).build(), cancelHandle.token(), null);
 
         cancelHandle.cancel();
 

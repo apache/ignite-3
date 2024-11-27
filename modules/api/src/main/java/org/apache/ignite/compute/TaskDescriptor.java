@@ -21,9 +21,7 @@ import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.marshalling.Marshaller;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute task descriptor.
@@ -39,22 +37,18 @@ public class TaskDescriptor<T, R> {
 
     private final Class<R> reduceJobResultClass;
 
-    @Nullable private final CancellationToken cancellationToken;
-
     private TaskDescriptor(
             String taskClassName,
             List<DeploymentUnit> units,
             Marshaller<T, byte[]> splitJobArgumentMarshaller,
             Marshaller<R, byte[]> reduceJobResultMarshaller,
-            Class<R> reduceJobResultClass,
-            @Nullable CancellationToken cancellationToken
+            Class<R> reduceJobResultClass
     ) {
         this.taskClassName = taskClassName;
         this.units = units;
         this.splitJobArgumentMarshaller = splitJobArgumentMarshaller;
         this.reduceJobResultMarshaller = reduceJobResultMarshaller;
         this.reduceJobResultClass = reduceJobResultClass;
-        this.cancellationToken = cancellationToken;
     }
 
     /**
@@ -73,15 +67,6 @@ public class TaskDescriptor<T, R> {
      */
     public List<DeploymentUnit> units() {
         return units;
-    }
-
-    /**
-     * Cancellation token.
-     *
-     * @return Cancellation token if defined or {@code null}.
-     */
-    @Nullable public CancellationToken cancellationToken() {
-        return cancellationToken;
     }
 
     /**
@@ -142,7 +127,6 @@ public class TaskDescriptor<T, R> {
         private Marshaller<T, byte[]> splitJobArgumentMarshaller;
         private Marshaller<R, byte[]> reduceJobResultMarshaller;
         private Class<R> reduceJobResultClass;
-        @Nullable private CancellationToken cancellationToken;
 
         private Builder(String taskClassName) {
             Objects.requireNonNull(taskClassName);
@@ -169,17 +153,6 @@ public class TaskDescriptor<T, R> {
          */
         public Builder<T, R> units(DeploymentUnit... units) {
             this.units = List.of(units);
-            return this;
-        }
-
-        /**
-         * Bind {@link CancellationToken} with current job execution.
-         *
-         * @param cancellationToken Cancellation token or {@code null}.
-         * @return {@code this} for chaining.
-         */
-        public Builder<T, R> cancellationToken(@Nullable CancellationToken cancellationToken) {
-            this.cancellationToken = cancellationToken;
             return this;
         }
 
@@ -228,8 +201,7 @@ public class TaskDescriptor<T, R> {
                     units == null ? List.of() : units,
                     splitJobArgumentMarshaller,
                     reduceJobResultMarshaller,
-                    reduceJobResultClass,
-                    cancellationToken
+                    reduceJobResultClass
             );
         }
 

@@ -18,7 +18,6 @@
 package org.apache.ignite.compute;
 
 import org.apache.ignite.lang.CancellationToken;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Job execution options.
@@ -34,20 +33,16 @@ public class JobExecutionOptions {
 
     private final int maxRetries;
 
-    @Nullable private final CancellationToken cancellationToken;
-
     /**
      * Constructor.
      *
      * @param priority Job execution priority.
      * @param maxRetries Number of times to retry job execution in case of failure, 0 to not retry.
-     * @param cancellationToken Cancellation token or {@code null}.
      *
      */
-    private JobExecutionOptions(int priority, int maxRetries, @Nullable CancellationToken cancellationToken) {
+    private JobExecutionOptions(int priority, int maxRetries) {
         this.priority = priority;
         this.maxRetries = maxRetries;
-        this.cancellationToken = cancellationToken;
     }
 
     public static Builder builder() {
@@ -60,10 +55,6 @@ public class JobExecutionOptions {
 
     public int maxRetries() {
         return maxRetries;
-    }
-
-    public @Nullable CancellationToken cancellationToken() {
-        return cancellationToken;
     }
 
     /** JobExecutionOptions builder. */
@@ -79,24 +70,13 @@ public class JobExecutionOptions {
             return this;
         }
 
-        /**
-         * Bind {@link CancellationToken} with current job execution.
-         *
-         * @param cancellationToken Cancellation token or {@code null}.
-         * @return {@code this} for chaining.
-         */
-        public Builder cancellationToken(CancellationToken cancellationToken) {
-            this.cancellationToken = cancellationToken;
-            return this;
-        }
-
         public Builder maxRetries(int maxRetries) {
             this.maxRetries = maxRetries;
             return this;
         }
 
         public JobExecutionOptions build() {
-            return new JobExecutionOptions(priority, maxRetries, cancellationToken);
+            return new JobExecutionOptions(priority, maxRetries);
         }
     }
 }

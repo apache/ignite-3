@@ -130,14 +130,13 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     void safeCallCancelHandleAfterJobProcessing() {
         CancelHandle cancelHandle = CancelHandle.create();
 
-        JobExecutionOptions jobExecutionOptions = JobExecutionOptions.builder().cancellationToken(cancelHandle.token()).build();
-
-        respondWhenExecutingSimpleJobLocally(ExecutionOptions.from(jobExecutionOptions), cancelHandle.token());
+        respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT, cancelHandle.token());
 
         assertThat(
                 compute.executeAsync(
                         JobTarget.node(localNode),
-                        JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).options(jobExecutionOptions).build(),
+                        JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
+                        cancelHandle.token(),
                         "a"),
                 willBe("jobResponse")
         );
@@ -273,9 +272,9 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 .thenReturn(completedExecution("jobResponse"));
     }
 
-    private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions, CancellationToken cancellationToken) {
-        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME,
-                cancellationToken, "a")).thenReturn(completedExecution("jobResponse"));
+    private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions, CancellationToken token) {
+        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, token, "a"))
+                .thenReturn(completedExecution("jobResponse"));
     }
 
     private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
