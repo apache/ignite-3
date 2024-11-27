@@ -37,8 +37,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -408,9 +410,11 @@ public class LeaseUpdater {
 
             long outdatedLeaseThreshold = now.getPhysical() + leaseExpirationInterval / 2;
 
+            HybridTimestamp newExpirationTimestamp = new HybridTimestamp(now.getPhysical() + leaseExpirationInterval, 0);
+
             Leases leasesCurrent = leaseTracker.leasesCurrent();
             Map<ReplicationGroupId, Boolean> toBeNegotiated = new HashMap<>();
-            Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId());
+            Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(leasesCurrent.leaseByGroupId().size());
 
             Map<ReplicationGroupId, TokenizedAssignments> tokenizedStableAssignmentsMap = assignmentsTracker.stableAssignments();
             Map<ReplicationGroupId, TokenizedAssignments> tokenizedPendingAssignmentsMap = assignmentsTracker.pendingAssignments();
@@ -420,11 +424,6 @@ public class LeaseUpdater {
                     tokenizedStableAssignmentsMap.keySet()
             );
 
-            // Remove all expired leases that are no longer present in assignments.
-            renewedLeases.entrySet().removeIf(e -> clockService.before(e.getValue().getExpirationTime(), now)
-                    && !groupsAmongCurrentStableAndPendingAssignments.contains(e.getKey()));
-
-            //
             Map<ReplicationGroupId, Pair<Set<Assignment>, Set<Assignment>>> aggregatedStableAndPendingAssignmentsByGroups = new HashMap<>();
 
             for (ReplicationGroupId grpId : groupsAmongCurrentStableAndPendingAssignments) {
@@ -438,6 +437,8 @@ public class LeaseUpdater {
             int currentStableAssignmentsSize = tokenizedStableAssignmentsMap.size();
             int currentPendingAssignmentsSize = tokenizedPendingAssignmentsMap.size();
             int activeLeasesCount = 0;
+
+            Set<ReplicationGroupId> prolongableLeaseGroupIds = new HashSet<>();
 
             for (Map.Entry<ReplicationGroupId, Pair<Set<Assignment>, Set<Assignment>>> entry
                     : aggregatedStableAndPendingAssignmentsByGroups.entrySet()
@@ -489,14 +490,20 @@ public class LeaseUpdater {
                     }
                 }
 
+                // Calculate candidate for any accepted lease to define whether it can be prolonged (prolongation is possible only
+                // if the candidate is the same as the current leaseholder).
+                String proposedLeaseholder = lease.isProlongable()
+                        ? lease.getLeaseholder()
+                        : lease.proposedCandidate();
+
+                ClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedLeaseholder);
+
+                boolean canBeProlonged = lease.isAccepted()
+                        && lease.isProlongable()
+                        && candidate != null && candidate.id().equals(lease.getLeaseholderId());
+
                 // The lease is expired or close to this.
                 if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
-                    String proposedLeaseholder = lease.isProlongable()
-                            ? lease.getLeaseholder()
-                            : lease.proposedCandidate();
-
-                    ClusterNode candidate = nextLeaseHolder(stableAssignments, pendingAssignments, grpId, proposedLeaseholder);
-
                     // If we couldn't find a candidate neither stable nor pending assignments set, so update stats and skip iteration
                     if (candidate == null) {
                         leaseUpdateStatistics.onLeaseWithoutCandidate();
@@ -514,14 +521,14 @@ public class LeaseUpdater {
                         boolean force = !lease.isProlongable() && lease.proposedCandidate() != null;
 
                         toBeNegotiated.put(grpId, force);
-                    } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
+                    } else if (canBeProlonged) {
                         // Old lease is renewed.
-                        prolongLease(grpId, lease, renewedLeases, leaseExpirationInterval);
+                        prolongLease(grpId, lease, renewedLeases, newExpirationTimestamp);
                     }
+                } else if (canBeProlonged) {
+                    prolongableLeaseGroupIds.add(grpId);
                 }
             }
-
-            byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
 
             ByteArray key = PLACEMENTDRIVER_LEASES_KEY;
 
@@ -536,6 +543,24 @@ public class LeaseUpdater {
                         currentPendingAssignmentsSize
                 );
             }
+
+            leasesCurrent.leaseByGroupId().forEach(renewedLeases::putIfAbsent);
+
+            for (Iterator<Entry<ReplicationGroupId, Lease>> iter = renewedLeases.entrySet().iterator(); iter.hasNext(); ) {
+                Map.Entry<ReplicationGroupId, Lease> entry = iter.next();
+                ReplicationGroupId groupId = entry.getKey();
+                Lease lease = entry.getValue();
+
+                if (clockService.before(lease.getExpirationTime(), now)
+                        && !groupsAmongCurrentStableAndPendingAssignments.contains(groupId)) {
+                    iter.remove();
+                } else if (prolongableLeaseGroupIds.contains(groupId)
+                        && !lease.getExpirationTime().equals(newExpirationTimestamp)) {
+                    entry.setValue(prolongLease(groupId, lease, null, newExpirationTimestamp));
+                }
+            }
+
+            byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
 
             if (Arrays.equals(leasesCurrent.leasesBytes(), renewedValue)) {
                 LOG.debug("No leases to update found.");
@@ -652,20 +677,25 @@ public class LeaseUpdater {
          *
          * @param grpId Replication group id.
          * @param lease Lease to prolong.
+         * @param renewedLeases Map of leases.
+         * @param newExpirationTimestamp New expiration timestamp.
+         * @return Prolonged lease.
          */
-        private void prolongLease(
+        private Lease prolongLease(
                 ReplicationGroupId grpId,
                 Lease lease,
-                Map<ReplicationGroupId, Lease> renewedLeases,
-                long leaseExpirationInterval
+                @Nullable Map<ReplicationGroupId, Lease> renewedLeases,
+                HybridTimestamp newExpirationTimestamp
         ) {
-            var newTs = new HybridTimestamp(clockService.now().getPhysical() + leaseExpirationInterval, 0);
+            Lease renewedLease = lease.prolongLease(newExpirationTimestamp);
 
-            Lease renewedLease = lease.prolongLease(newTs);
-
-            renewedLeases.put(grpId, renewedLease);
+            if (renewedLeases != null) {
+                renewedLeases.put(grpId, renewedLease);
+            }
 
             leaseUpdateStatistics.onLeaseProlong();
+
+            return renewedLease;
         }
 
         /**
