@@ -286,7 +286,7 @@ public class MetricsTests
 
         var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await task);
         Assert.IsInstanceOf<OperationCanceledException>(ex.InnerException);
-        CollectionAssert.IsEmpty(ex.FailedItems);
+        Assert.AreEqual(ErrorGroups.Common.Internal, ex.Code);
 
         AssertMetricGreaterOrEqual(MetricNames.StreamerBatchesSent, 1);
         AssertMetric(MetricNames.StreamerBatchesActive, 0);
