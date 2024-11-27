@@ -80,7 +80,26 @@ class TxAwareAsyncCursor<T> implements AsyncDataCursor<T> {
 
         if (cancelled) {
             closeFuture = txWrapper.rollback(new QueryCancelledException())
-                    .handle((none, ignore) -> dataCursor.closeAsync(true))
+                    .handle((none, rollbackErr) -> {
+                        return dataCursor.closeAsync(true)
+                                .handle((res, closeErr) -> {
+                                    Throwable err = rollbackErr;
+
+                                    if (closeErr != null) {
+                                        if (rollbackErr != null) {
+                                            closeErr.addSuppressed(rollbackErr);
+                                        }
+
+                                        err = closeErr;
+                                    }
+
+                                    if (err != null) {
+                                        throw new CompletionException(err);
+                                    }
+
+                                    return res;
+                                });
+                    })
                     .thenCompose(Function.identity());
         } else {
             closeFuture = dataCursor.closeAsync()

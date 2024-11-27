@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -111,7 +112,7 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
             });
         }
 
-        completeTx(cause);
+        completeTx();
 
         return txFinishFuture;
     }
@@ -125,7 +126,23 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
     CompletableFuture<Void> commit() {
         changeState(State.COMMIT);
 
-        return txFinishFuture;
+        return txFinishFuture.handle((ignore, ex) -> {
+            synchronized (mux) {
+                if (rollbackCause == null && ex == null) {
+                    return ignore;
+                }
+
+                if (rollbackCause != null) {
+                    if (ex != null) {
+                        rollbackCause.addSuppressed(ex);
+                    }
+
+                    throw new CompletionException(rollbackCause);
+                }
+
+                throw new CompletionException(ex);
+            }
+        });
     }
 
     /** Rolls back the transaction when all cursors are closed. */
@@ -159,14 +176,10 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
                         }
                     }
 
-                    completeTx(null);
+                    completeTx();
                 });
             }
         });
-    }
-
-    CompletableFuture<Void> txFinishFuture() {
-        return txFinishFuture;
     }
 
     private void changeState(State newState) {
@@ -182,10 +195,10 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
             }
         }
 
-        completeTx(null);
+        completeTx();
     }
 
-    private void completeTx(@Nullable Throwable cause) {
+    private void completeTx() {
         // Intentional volatile read outside of a synchronized block.
         switch (txState) {
             case COMMIT:
@@ -193,17 +206,7 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
                 break;
 
             case ROLLBACK:
-                managedTx.rollbackAsync().whenComplete((ignored, ex) -> {
-                    Throwable cause0 = cause;
-
-                    if (cause0 == null) {
-                        cause0 = ex;
-                    } else if (ex != null) {
-                        cause0.addSuppressed(ex);
-                    }
-
-                    completeTxFuture(null, cause0);
-                });
+                managedTx.rollbackAsync().whenComplete(this::completeTxFuture);
                 break;
 
             default:
