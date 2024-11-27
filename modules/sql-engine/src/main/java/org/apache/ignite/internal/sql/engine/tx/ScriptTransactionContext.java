@@ -109,7 +109,7 @@ public class ScriptTransactionContext implements QueryTransactionContext {
             boolean readOnly = ((IgniteSqlStartTransaction) node).getMode() == IgniteSqlStartTransactionMode.READ_ONLY;
             InternalTransaction tx = txContext.getOrStartImplicit(readOnly).unwrap();
 
-            this.wrapper = new ScriptTransactionWrapperImpl(tx, txTracker);;
+            this.wrapper = new ScriptTransactionWrapperImpl(tx, txTracker);
 
             return nullCompletedFuture();
         } else {
