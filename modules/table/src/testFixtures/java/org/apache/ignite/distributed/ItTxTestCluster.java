@@ -707,8 +707,8 @@ public class ItTxTestCluster {
 
                 IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2Tuple);
 
-                PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
-                        new PendingComparableValuesTracker<>(clockServices.get(assignment).now());
+                PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(
+                        HybridTimestamp.MIN_VALUE);
                 PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
                 PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, partId, mvPartStorage);
@@ -1138,8 +1138,7 @@ public class ItTxTestCluster {
         return clusterServices;
     }
 
-    public @Nullable HybridTimestamp getLastCommitTimestamp() {
-        List<TxStateMeta> states = new ArrayList<>(((TxManagerImpl) clientTxManager).states());
-        return states.get(states.size() - 1).commitTimestamp();
+    public List<TxStateMeta> states() {
+        return new ArrayList<>(((TxManagerImpl) clientTxManager).states());
     }
 }

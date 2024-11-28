@@ -151,6 +151,8 @@ public final class RpcRequests {
         long lastLogIndex();
 
         boolean preVote();
+
+        HybridTimestamp timestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.REQUEST_VOTE_RESPONSE)
@@ -164,6 +166,8 @@ public final class RpcRequests {
          * <code>required bool granted = 2;</code>
          */
         boolean granted();
+
+        HybridTimestamp timestamp();
     }
 
     @Transferable(RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_REQUEST)

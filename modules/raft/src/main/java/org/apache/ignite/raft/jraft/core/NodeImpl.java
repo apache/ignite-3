@@ -314,6 +314,8 @@ public class NodeImpl implements Node, RaftServerService {
             }
             System.out.println("DBG: apply patch " + safeTs + " " + groupId);
 
+            // TODO call once per batch.
+
             this.tasks.add(event);
             if (this.tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
                 executeApplyingTasks(this.tasks);
@@ -1449,6 +1451,7 @@ public class NodeImpl implements Node, RaftServerService {
                             .term(electSelfTerm)
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
+                            .timestamp(clock.now())
                             .build();
                     this.rpcClientService.requestVote(peer, done.request, done);
                 });
@@ -2030,6 +2033,7 @@ public class NodeImpl implements Node, RaftServerService {
                 .requestVoteResponse()
                 .term(this.currTerm)
                 .granted(granted)
+                .timestamp(clock.update(request.timestamp()))
                 .build();
         }
         finally {
@@ -2145,6 +2149,7 @@ public class NodeImpl implements Node, RaftServerService {
                 .requestVoteResponse()
                 .term(this.currTerm)
                 .granted(request.term() == this.currTerm && candidateId.equals(this.votedId))
+                .timestamp(clock.update(request.timestamp()))
                 .build();
         }
         finally {
@@ -2941,6 +2946,9 @@ public class NodeImpl implements Node, RaftServerService {
                     "Raft node receives higher term request_vote_response."));
                 return;
             }
+
+            clock.update(response.timestamp());
+
             // check granted quorum?
             if (response.granted()) {
                 this.voteCtx.grant(peerId);
@@ -3100,6 +3108,7 @@ public class NodeImpl implements Node, RaftServerService {
                             .term(preVoteTerm + 1) // next term
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
+                            .timestamp(clock.now())
                             .build();
                     this.rpcClientService.preVote(peer, done.request, done);
                 });

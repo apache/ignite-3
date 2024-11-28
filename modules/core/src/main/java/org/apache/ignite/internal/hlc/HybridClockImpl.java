@@ -135,6 +135,23 @@ public class HybridClockImpl implements HybridClock {
         }
     }
 
+    @Override
+    public void setIfGreater(HybridTimestamp timestamp) {
+        while (true) {
+            HybridTimestamp latest = hybridTimestamp(latestTime);
+
+            if (timestamp.compareTo(latest) <= 0) {
+                return;
+            }
+
+            if (LATEST_TIME.compareAndSet(this, latest.longValue(), timestamp.longValue())) {
+                notifyUpdateListeners(timestamp.longValue());
+
+                break;
+            }
+        }
+    }
+
     private long currentTime() {
         return physicalTime() << LOGICAL_TIME_BITS_SIZE;
     }

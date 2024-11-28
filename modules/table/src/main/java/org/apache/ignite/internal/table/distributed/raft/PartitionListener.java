@@ -190,8 +190,14 @@ public class PartitionListener implements RaftGroupListener {
             if (command instanceof SafeTimePropagatingCommand) {
                 SafeTimePropagatingCommand cmd = (SafeTimePropagatingCommand) command;
 
-                LOG.info("Try update cur=" + safeTime.current() + " new=" + cmd.safeTime());
+                LOG.debug("Apply safe time: current={}, new={}", safeTime.current(), cmd.safeTime());
 
+                // We need to advance the clock, which is used to generate next safe ts in NodeImpl, to be not less than safe time to
+                // enforce clock.now() > safeTs invariant. This logic can also be implemented to NodeImpl during safe ts generation.
+                clockService.setIfGreater(cmd.safeTime());
+
+                // Safe ts is grown monotonically because at least one node in majority has actual clock value which is propagated to a
+                // new leader during elections.
                 safeTime.updateStrict(cmd.safeTime(), null);
             }
 
