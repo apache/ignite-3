@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Optional;
@@ -47,7 +48,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
 
 /** Test for the HA zones recovery. */
@@ -67,36 +67,6 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         return 3;
     }
 
-    @BeforeEach
-    void setUp() {
-        executeSql(String.format(
-                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='HIGH_AVAILABILITY'",
-                HA_ZONE_NAME, initialNodes(), 2, DEFAULT_STORAGE_PROFILE
-        ));
-
-        executeSql(String.format(
-                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='STRONG_CONSISTENCY'",
-                SC_ZONE_NAME, initialNodes(), 2, DEFAULT_STORAGE_PROFILE
-        ));
-
-        executeSql(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
-                HA_TABLE_NAME, HA_ZONE_NAME
-        ));
-
-        executeSql(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
-                SC_TABLE_NAME, SC_ZONE_NAME
-        ));
-
-        IgniteImpl node = unwrapIgniteImpl(node(0));
-
-        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
-
-        waitForStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), allNodes);
-        waitForStableAssignmentsOfPartitionEqualTo(node, SC_TABLE_NAME, Set.of(0, 1), allNodes);
-    }
-
     @Override
     protected String getNodeBootstrapConfigTemplate() {
         return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
@@ -104,6 +74,8 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
     @RepeatedTest(10)
     void testTopologyReduceEventPropagation() throws InterruptedException {
+        createHaZoneWithTable();
+
         IgniteImpl node = igniteImpl(0);
 
         assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
@@ -118,11 +90,12 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         checkRecoveryRequest(node);
 
         waitForStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0,1), Set.of(node.name()));
-        waitForStableAssignmentsOfPartitionEqualTo(node, SC_TABLE_NAME, Set.of(0,1), allNodes);
     }
 
     @RepeatedTest(10)
     void testTopologyReduceEventPropagationOnPartitionResetTimeoutChange() throws InterruptedException {
+        createHaZoneWithTable();
+
         IgniteImpl node = igniteImpl(0);
 
         {
@@ -159,11 +132,12 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         checkRecoveryRequestOnlyOne(node);
 
         waitForStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0,1), Set.of(node.name()));
-        waitForStableAssignmentsOfPartitionEqualTo(node, SC_TABLE_NAME, Set.of(0,1), allNodes);
     }
 
     @RepeatedTest(10)
     void testTopologyReduceEventPropogationOnReschedule() throws InterruptedException {
+        createHaZoneWithTable();
+
         IgniteImpl node = igniteImpl(0);
 
         {
@@ -192,11 +166,12 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         checkRecoveryRequestOnlyOne(node);
 
         waitForStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0,1), Set.of(node.name()));
-        waitForStableAssignmentsOfPartitionEqualTo(node, SC_TABLE_NAME, Set.of(0,1), allNodes);
     }
 
     @RepeatedTest(10)
     void testTopologyReduceEventPropogationOnRestore() throws InterruptedException {
+        createHaZoneWithTable();
+
         IgniteImpl node = igniteImpl(0);
 
         {
@@ -225,11 +200,12 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         checkRecoveryRequestOnlyOne(node1);
 
         waitForStableAssignmentsOfPartitionEqualTo(node1, HA_TABLE_NAME, Set.of(0,1), Set.of(node1.name()));
-        waitForStableAssignmentsOfPartitionEqualTo(node1, SC_TABLE_NAME, Set.of(0,1), allNodes);
     }
 
     @RepeatedTest(5)
     void testTopologyReduceWithoutMajorityLoss() throws InterruptedException {
+        createHaZoneWithTable();
+
         IgniteImpl node = igniteImpl(0);
 
         assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
@@ -262,6 +238,50 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertTrue(node.distributionZoneManager().zonesState().get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME)).partitionDistributionResetTask().isDone());
 
         assertTrue(node.disasterRecoveryManager().ongoingOperationsById().isEmpty());
+        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+    }
+
+    @RepeatedTest(5)
+    void testTopologyReduceWithMajorityLossOnScZone() throws InterruptedException {
+        createScZoneWithTable();
+
+        IgniteImpl node = igniteImpl(0);
+
+        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+
+        String lastStopNode = node(1).name();
+
+        stopNode(2);
+        stopNode(1);
+
+        AtomicLong revision = new AtomicLong();
+
+        assertTrue(waitForCondition(() -> {
+            var state = node.distributionZoneManager().zonesState().get(zoneIdByName(node.catalogManager(), SC_ZONE_NAME));
+
+            if (state != null) {
+                var lastEntry = state.topologyAugmentationMap().lastEntry();
+
+                var result = lastEntry.getValue().nodes()
+                        .stream()
+                        .map(Node::nodeName)
+                        .collect(Collectors.toUnmodifiableSet()).equals(Set.of(lastStopNode));
+
+                if (result) {
+                    revision.set(lastEntry.getKey());
+                }
+
+                return result;
+            }
+            return false;
+        }, 10_000));
+
+        waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision.get(), 10_000);
+
+        assertNull(
+                node.distributionZoneManager().zonesState().get(zoneIdByName(node.catalogManager(),
+                SC_ZONE_NAME)).partitionDistributionResetTask());
+
         assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
     }
 
@@ -330,5 +350,37 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
     private int zoneIdByName(CatalogService catalogService, String zoneName) {
         return catalogService.zone(zoneName, clock.nowLong()).id();
+    }
+
+    private void createHaZoneWithTable() {
+        executeSql(String.format(
+                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='HIGH_AVAILABILITY'",
+                HA_ZONE_NAME, initialNodes(), 2, DEFAULT_STORAGE_PROFILE
+        ));
+
+        executeSql(String.format(
+                "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
+                HA_TABLE_NAME, HA_ZONE_NAME
+        ));
+
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        waitForStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), HA_TABLE_NAME, Set.of(0, 1), allNodes);
+    }
+
+    private void createScZoneWithTable() {
+        executeSql(String.format(
+                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='STRONG_CONSISTENCY'",
+                SC_ZONE_NAME, initialNodes(), 2, DEFAULT_STORAGE_PROFILE
+        ));
+
+        executeSql(String.format(
+                "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
+                SC_TABLE_NAME, SC_ZONE_NAME
+        ));
+
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        waitForStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), SC_TABLE_NAME, Set.of(0, 1), allNodes);
     }
 }
