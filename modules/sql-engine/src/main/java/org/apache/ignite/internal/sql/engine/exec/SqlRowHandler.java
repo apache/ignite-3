@@ -107,12 +107,16 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
     @Override
     public RowWrapper map(RowWrapper row, int[] mapping) {
         Object[] fields = new Object[mapping.length];
+        Builder schemaBuilder = RowSchema.builder();
+        List<TypeSpec> originalFields = row.rowSchema().fields();
 
         for (int i = 0; i < mapping.length; i++) {
-            fields[i] = row.get(mapping[i]);
+            int mappedIdx = mapping[i];
+            fields[i] = row.get(mappedIdx);
+            schemaBuilder.addField(originalFields.get(mappedIdx));
         }
 
-        return new ObjectsArrayRowWrapper(row.rowSchema(), fields);
+        return new ObjectsArrayRowWrapper(schemaBuilder.build(), fields);
     }
 
     @Override

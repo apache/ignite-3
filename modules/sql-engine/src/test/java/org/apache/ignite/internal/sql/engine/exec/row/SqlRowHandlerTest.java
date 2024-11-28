@@ -177,6 +177,26 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         }
     }
 
+    @Test
+    public void testUpdateRowSchemaOnMapping() {
+        RowHandler<RowWrapper> handler = SqlRowHandler.INSTANCE;
+
+        RowSchema rowSchema = RowSchema.builder()
+                .addField(NativeTypes.INT32)
+                .addField(NativeTypes.STRING)
+                .build();
+
+        RowWrapper row1 = handler.factory(rowSchema).rowBuilder()
+                .addField(1).addField("2")
+                .build();
+
+        RowWrapper reverseMapping = handler.map(row1, new int[]{1, 0});
+
+        BinaryTuple mappedBinaryTuple = handler.toBinaryTuple(reverseMapping);
+        assertEquals("2", mappedBinaryTuple.stringValue(0));
+        assertEquals(1, mappedBinaryTuple.intValue(1));
+    }
+
     private static Stream<Arguments> concatTestArguments() {
         return Stream.of(
                 Arguments.of(Named.of("array", false), Named.of("array", false)),
