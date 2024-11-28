@@ -152,10 +152,22 @@ dependencies {
 
 integrationTest {
     useJUnitPlatform {
-        if (System.getProperty("sqlTest") != null) {
-            it.includeTags "sqllogic"
+        if (System.getProperty("sqlTest1") != null) {
+            it.includeTags "sqllogic1"
         } else {
-            it.excludeTags "sqllogic"
+            it.excludeTags "sqllogic1"
+        }
+
+        if (System.getProperty("sqlTest2") != null) {
+            it.includeTags "sqllogic2"
+        } else {
+            it.excludeTags "sqllogic2"
+        }
+
+        if (System.getProperty("sqlTest3") != null) {
+            it.includeTags "sqllogic3"
+        } else {
+            it.excludeTags "sqllogic3"
         }
     }
 }
