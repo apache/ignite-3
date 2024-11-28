@@ -64,8 +64,6 @@ public class LeaseNegotiator {
     public void negotiate(LeaseAgreement agreement) {
         Lease lease = agreement.getLease();
 
-        assert agreement != null : "Lease agreement should exist when negotiation begins [groupId=" + agreement.groupId() + "].";
-
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
 
         leaseToNegotiate.put(agreement.groupId(), agreement);
