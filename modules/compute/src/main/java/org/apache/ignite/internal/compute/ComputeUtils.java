@@ -60,7 +60,6 @@ import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStateResponse;
 import org.apache.ignite.internal.compute.message.JobStatesResponse;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
@@ -378,7 +377,6 @@ public class ComputeUtils {
             @Nullable Object input,
             @Nullable Class<?> pojoType
     ) {
-        Loggers.forClass(ComputeUtils.class).info("unmarshalOrNotIfNull {} {}", input, marshaller);
         if (input == null) {
             return null;
         }
@@ -431,7 +429,6 @@ public class ComputeUtils {
             ComputeJobDataHolder argumentHolder,
             @Nullable Class<?> pojoType
     ) {
-        Loggers.forClass(ComputeUtils.class).info("unmarshalFromDataHolder {}", argumentHolder.type());
         ComputeJobDataType type = argumentHolder.type();
         switch (type) {
             case TUPLE: // Fallthrough TODO https://issues.apache.org/jira/browse/IGNITE-23320
@@ -441,6 +438,7 @@ public class ComputeUtils {
                     return (T) unmarshalPojo(pojoType, tuple);
                 }
                 return (T) tuple;
+
             case MARSHALLED_CUSTOM:
                 if (marshaller == null) {
                     throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Marshaller should be defined on the client");
@@ -450,6 +448,7 @@ public class ComputeUtils {
                 } catch (Exception ex) {
                     throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller", ex);
                 }
+
             default:
                 throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Unexpected job argument type: " + type);
         }
