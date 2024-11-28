@@ -273,6 +273,13 @@ public interface MetaStorageManager extends IgniteComponent {
      */
     HybridTimestamp timestampByRevisionLocally(long revision);
 
+    /**
+     * Looks a revision lesser or equal to the timestamp.
+     *
+     * @param timestamp Timestamp by which to do a lookup.
+     * @return Revision lesser or equal to the timestamp.
+     * @throws CompactedException If a revision could not be found by timestamp because it was already compacted.
+     */
     long revisionByTimestampLocally(HybridTimestamp timestamp);
 
     /**

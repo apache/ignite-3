@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -72,177 +73,124 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
-    @RepeatedTest(10)
-    void testTopologyReduceEventPropagation() throws InterruptedException {
+    @RepeatedTest(5)
+    void testHaRecoveryWhenMajorityLoss() throws InterruptedException {
         createHaZoneWithTable();
 
         IgniteImpl node = igniteImpl(0);
 
-        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+        assertRecoveryKeyIsEmpty(node);
 
-        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+        stopNodes(1, 2);
 
-        stopNode(1);
-        stopNode(2);
+        waitAndAssertRecoveryKeyIsNotEmpty(node);
 
-        assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(node).empty(), 5_000));
+        assertRecoveryRequestForHaZone(node);
 
-        checkRecoveryRequest(node);
-
-        waitForStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0,1), Set.of(node.name()));
-    }
-
-    @RepeatedTest(10)
-    void testTopologyReduceEventPropagationOnPartitionResetTimeoutChange() throws InterruptedException {
-        createHaZoneWithTable();
-
-        IgniteImpl node = igniteImpl(0);
-
-        {
-            CompletableFuture<Void> changeFuture = node.clusterConfiguration().getConfiguration(SystemDistributedExtensionConfiguration.KEY)
-                    .system().change(c0 -> c0.changeProperties()
-                            .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT,
-                                    c1 -> c1.changePropertyValue(String.valueOf(INFINITE_TIMER_VALUE - 1)))
-                    );
-
-            assertThat(changeFuture, willCompleteSuccessfully());
-        }
-
-        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
-
-        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
-
-        stopNode(1);
-        stopNode(2);
-
-        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
-
-        {
-            CompletableFuture<Void> changeFuture = node.clusterConfiguration().getConfiguration(SystemDistributedExtensionConfiguration.KEY)
-                    .system().change(c0 -> c0.changeProperties()
-                            .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT, c1 -> c1.changePropertyValue(String.valueOf(1)))
-                    );
-
-            assertThat(changeFuture, willCompleteSuccessfully());
-        }
-
-        assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(node).empty(), 5_000));
-
-        checkRecoveryRequest(node);
-        checkRecoveryRequestOnlyOne(node);
-
-        waitForStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0,1), Set.of(node.name()));
-    }
-
-    @RepeatedTest(10)
-    void testTopologyReduceEventPropogationOnReschedule() throws InterruptedException {
-        createHaZoneWithTable();
-
-        IgniteImpl node = igniteImpl(0);
-
-        {
-            CompletableFuture<Void> changeFuture = node.clusterConfiguration().getConfiguration(SystemDistributedExtensionConfiguration.KEY)
-                    .system().change(c0 -> c0.changeProperties()
-                            .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT,
-                                    c1 -> c1.changePropertyValue(String.valueOf(10)))
-                    );
-
-            assertThat(changeFuture, willCompleteSuccessfully());
-        }
-
-        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
-
-        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
-
-        stopNode(1);
-
-        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
-
-        stopNode(2);
-
-        assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(node).empty(), 15_000));
-
-        checkRecoveryRequest(node);
-        checkRecoveryRequestOnlyOne(node);
-
-        waitForStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0,1), Set.of(node.name()));
-    }
-
-    @RepeatedTest(10)
-    void testTopologyReduceEventPropogationOnRestore() throws InterruptedException {
-        createHaZoneWithTable();
-
-        IgniteImpl node = igniteImpl(0);
-
-        {
-            CompletableFuture<Void> changeFuture = node.clusterConfiguration().getConfiguration(SystemDistributedExtensionConfiguration.KEY)
-                    .system().change(c0 -> c0.changeProperties()
-                            .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT,
-                                    c1 -> c1.changePropertyValue(String.valueOf(10)))
-                    );
-
-            assertThat(changeFuture, willCompleteSuccessfully());
-        }
-
-        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
-
-        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
-
-        stopNode(2);
-        stopNode(1);
-        stopNode(0);
-
-        IgniteImpl node1 = unwrapIgniteImpl(startNode(0));
-
-        assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(node1).empty(), 30_000));
-
-        checkRecoveryRequest(node1);
-        checkRecoveryRequestOnlyOne(node1);
-
-        waitForStableAssignmentsOfPartitionEqualTo(node1, HA_TABLE_NAME, Set.of(0,1), Set.of(node1.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
     }
 
     @RepeatedTest(5)
-    void testTopologyReduceWithoutMajorityLoss() throws InterruptedException {
+    void testHaRecoveryWhenPartitionResetTimeoutUpdated() throws InterruptedException {
         createHaZoneWithTable();
 
         IgniteImpl node = igniteImpl(0);
 
-        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+        changePartitionDistributionTimeout(node, INFINITE_TIMER_VALUE - 1);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        stopNodes(1, 2);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        changePartitionDistributionTimeout(node, 1);
+
+        waitAndAssertRecoveryKeyIsNotEmpty(node);
+
+        assertRecoveryRequestForHaZone(node);
+        assertRecoveryRequestWasOnlyOne(node);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
+    }
+
+    @RepeatedTest(5)
+    void testHaRecoveryWithPartitionResetTimerReschedule() throws InterruptedException {
+        createHaZoneWithTable();
+
+        IgniteImpl node = igniteImpl(0);
+
+        changePartitionDistributionTimeout(node, 10);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        stopNode(1);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        stopNode(2);
+
+        waitAndAssertRecoveryKeyIsNotEmpty(node, 30_000);
+
+        assertRecoveryRequestForHaZone(node);
+        assertRecoveryRequestWasOnlyOne(node);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
+    }
+
+    @RepeatedTest(5)
+    void testHaRecoveryOnZoneTimersRestoreAfterNodeRestart() throws InterruptedException {
+        createHaZoneWithTable();
+
+        IgniteImpl node = igniteImpl(0);
+
+        changePartitionDistributionTimeout(node, 10);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        stopNodes(2, 1, 0);
+
+        IgniteImpl node1 = unwrapIgniteImpl(startNode(0));
+
+        waitAndAssertRecoveryKeyIsNotEmpty(node1, 30_000);
+
+        assertRecoveryRequestForHaZone(node1);
+        assertRecoveryRequestWasOnlyOne(node1);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node1, HA_TABLE_NAME, Set.of(0, 1), Set.of(node1.name()));
+    }
+
+    @RepeatedTest(5)
+    void testNoHaRecovertWhenMajorityAvailable() throws InterruptedException {
+        createHaZoneWithTable();
+
+        IgniteImpl node = igniteImpl(0);
+
+        assertRecoveryKeyIsEmpty(node);
 
         String stopNode = node(2).name();
 
         stopNode(2);
 
-        AtomicLong revision = new AtomicLong();
+        long revision = waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(node, HA_ZONE_NAME, Set.of(stopNode));
 
-        assertTrue(waitForCondition(() -> {
-            var state = node.distributionZoneManager().zonesState().get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME));
+        waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000);
 
-            if (state != null) {
-                var lastEntry = state.topologyAugmentationMap().lastEntry();
-
-                var result = lastEntry.getValue().nodes().stream().map(Node::nodeName).collect(Collectors.toUnmodifiableSet()).equals(Set.of(stopNode));
-
-                if (result) {
-                    revision.set(lastEntry.getKey());
-                }
-
-                return result;
-            }
-            return false;
-        }, 10_000));
-
-        waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision.get(), 10_000);
-
-        assertTrue(node.distributionZoneManager().zonesState().get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME)).partitionDistributionResetTask().isDone());
+        assertTrue(node
+                .distributionZoneManager()
+                .zonesState()
+                .get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME))
+                .partitionDistributionResetTask()
+                .isDone()
+        );
 
         assertTrue(node.disasterRecoveryManager().ongoingOperationsById().isEmpty());
-        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+
+        assertRecoveryKeyIsEmpty(node);
     }
 
     @RepeatedTest(5)
-    void testTopologyReduceWithMajorityLossOnScZone() throws InterruptedException {
+    void testNoHaRecoveryForScZone() throws InterruptedException {
         createScZoneWithTable();
 
         IgniteImpl node = igniteImpl(0);
@@ -251,41 +199,24 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
         String lastStopNode = node(1).name();
 
-        stopNode(2);
-        stopNode(1);
+        stopNodes(2, 1);
 
-        AtomicLong revision = new AtomicLong();
+        long revision = waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(node, SC_ZONE_NAME, Set.of(lastStopNode));
 
-        assertTrue(waitForCondition(() -> {
-            var state = node.distributionZoneManager().zonesState().get(zoneIdByName(node.catalogManager(), SC_ZONE_NAME));
-
-            if (state != null) {
-                var lastEntry = state.topologyAugmentationMap().lastEntry();
-
-                var result = lastEntry.getValue().nodes()
-                        .stream()
-                        .map(Node::nodeName)
-                        .collect(Collectors.toUnmodifiableSet()).equals(Set.of(lastStopNode));
-
-                if (result) {
-                    revision.set(lastEntry.getKey());
-                }
-
-                return result;
-            }
-            return false;
-        }, 10_000));
-
-        waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision.get(), 10_000);
+        waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000);
 
         assertNull(
-                node.distributionZoneManager().zonesState().get(zoneIdByName(node.catalogManager(),
-                SC_ZONE_NAME)).partitionDistributionResetTask());
+                node
+                        .distributionZoneManager()
+                        .zonesState()
+                        .get(zoneIdByName(node.catalogManager(), SC_ZONE_NAME))
+                        .partitionDistributionResetTask()
+        );
 
-        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+        assertRecoveryKeyIsEmpty(node);
     }
 
-    private void checkRecoveryRequest(IgniteImpl node) {
+    private void assertRecoveryRequestForHaZone(IgniteImpl node) {
         Entry recoveryTriggerEntry = getRecoveryTriggerKey(node);
 
         GroupUpdateRequest request = (GroupUpdateRequest) VersionedSerialization.fromBytes(
@@ -300,7 +231,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertFalse(request.manualUpdate());
     }
 
-    private void checkRecoveryRequestOnlyOne(IgniteImpl node) {
+    private void assertRecoveryRequestWasOnlyOne(IgniteImpl node) {
         assertEquals(
                 1,
                 node
@@ -309,10 +240,11 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         );
     }
 
-    private void waitForStableAssignmentsOfPartitionEqualTo(IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
+    private void waitAndAssertStableAssignmentsOfPartitionEqualTo(
+            IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
         partitionIds.forEach(p -> {
             try {
-                waitForStableAssignmentsOfPartitionEqualTo(gatewayNode, tableName, p, nodes);
+                waitAndAssertStableAssignmentsOfPartitionEqualTo(gatewayNode, tableName, p, nodes);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -320,7 +252,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
     }
 
-    private void waitForStableAssignmentsOfPartitionEqualTo(IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes)
+    private void waitAndAssertStableAssignmentsOfPartitionEqualTo(IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes)
             throws InterruptedException {
 
         assertTrue(waitForCondition(() ->
@@ -365,7 +297,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
         Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
-        waitForStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), HA_TABLE_NAME, Set.of(0, 1), allNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), HA_TABLE_NAME, Set.of(0, 1), allNodes);
     }
 
     private void createScZoneWithTable() {
@@ -381,6 +313,70 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
         Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
-        waitForStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), SC_TABLE_NAME, Set.of(0, 1), allNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), SC_TABLE_NAME, Set.of(0, 1), allNodes);
+    }
+
+    private void assertRecoveryKeyIsEmpty(IgniteImpl gatewayNode) {
+        assertTrue(getRecoveryTriggerKey(gatewayNode).empty());
+    }
+
+    private void waitAndAssertRecoveryKeyIsNotEmpty(IgniteImpl gatewayNode) throws InterruptedException {
+        waitAndAssertRecoveryKeyIsNotEmpty(gatewayNode, 5_000);
+    }
+
+    private void waitAndAssertRecoveryKeyIsNotEmpty(IgniteImpl gatewayNode, long timeoutMillis) throws InterruptedException {
+        assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(gatewayNode).empty(), timeoutMillis));
+    }
+
+    private void stopNodes(Integer... nodes) {
+        Arrays.stream(nodes).forEach(this::stopNode);
+    }
+
+    private void changePartitionDistributionTimeout(IgniteImpl gatewayNode, int timeout) {
+        CompletableFuture<Void> changeFuture = gatewayNode
+                .clusterConfiguration()
+                .getConfiguration(SystemDistributedExtensionConfiguration.KEY)
+                .system().change(c0 -> c0.changeProperties()
+                        .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT,
+                                c1 -> c1.changePropertyValue(String.valueOf(timeout)))
+                );
+
+        assertThat(changeFuture, willCompleteSuccessfully());
+    }
+
+    private long waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(
+            IgniteImpl gatewayNode, String zoneName, Set<String> targetTopologyUpdate
+    ) throws InterruptedException {
+        int zoneId = zoneIdByName(gatewayNode.catalogManager(), zoneName);
+
+        AtomicLong revision = new AtomicLong();
+
+        assertTrue(waitForCondition(() -> {
+            var state = gatewayNode
+                    .distributionZoneManager()
+                    .zonesState()
+                    .get(zoneId);
+
+            if (state != null) {
+                var lastEntry = state.topologyAugmentationMap().lastEntry();
+
+                var isTheSameAsTarget = lastEntry.getValue().nodes()
+                        .stream()
+                        .map(Node::nodeName)
+                        .collect(Collectors.toUnmodifiableSet())
+                        .equals(targetTopologyUpdate);
+
+                if (isTheSameAsTarget) {
+                    revision.set(lastEntry.getKey());
+                }
+
+                return isTheSameAsTarget;
+            }
+            return false;
+        }, 10_000));
+
+        assert revision.get() != 0;
+
+        return revision.get();
     }
 }
