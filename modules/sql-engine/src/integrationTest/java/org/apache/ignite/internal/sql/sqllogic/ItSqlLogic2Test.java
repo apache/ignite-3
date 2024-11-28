@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.sql.sqllogic;
 
-import org.junit.jupiter.api.Tag;
-
 /**
  * Test suite to run SQL test scripts.
  *
  * @see ItSqlLogicTest
  */
-@Tag("sqllogic2")
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql/group2")
 public class ItSqlLogic2Test extends ItSqlLogicTest {
 
