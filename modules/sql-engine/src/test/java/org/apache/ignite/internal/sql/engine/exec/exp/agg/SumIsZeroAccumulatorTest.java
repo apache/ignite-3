@@ -54,8 +54,19 @@ public class SumIsZeroAccumulatorTest extends BaseIgniteAbstractTest {
         return Stream.of(
                 Arguments.of(namedAccumulator(DoubleSumEmptyIsZero.FACTORY), 4.0d, new Object[]{3.0d, 1.0d}),
                 Arguments.of(namedAccumulator(LongSumEmptyIsZero.FACTORY), 4L, new Object[]{3L, 1L}),
-                Arguments.of(namedAccumulator(DecimalSumEmptyIsZero.FACTORY), new BigDecimal("3.4"),
-                        new Object[]{new BigDecimal("1.3"), new BigDecimal("2.1")})
+
+                Arguments.of(namedAccumulator(() -> DecimalSumEmptyIsZero.FACTORY.apply(1)), new BigDecimal("3.4"),
+                        new Object[]{new BigDecimal("1.3"), new BigDecimal("2.1")}),
+
+                Arguments.of(namedAccumulator(() -> DecimalSumEmptyIsZero.FACTORY.apply(1)), new BigDecimal("3.4"),
+                        new Object[]{new BigDecimal("1.31"), new BigDecimal("2.13")}),
+                Arguments.of(namedAccumulator(() -> DecimalSumEmptyIsZero.FACTORY.apply(1)), new BigDecimal("3.5"),
+                        new Object[]{new BigDecimal("1.32"), new BigDecimal("2.13")}),
+
+                Arguments.of(namedAccumulator(() -> DecimalSumEmptyIsZero.FACTORY.apply(2)), new BigDecimal("3.44"),
+                        new Object[]{new BigDecimal("1.31"), new BigDecimal("2.13")}),
+                Arguments.of(namedAccumulator(() -> DecimalSumEmptyIsZero.FACTORY.apply(2)), new BigDecimal("3.45"),
+                        new Object[]{new BigDecimal("1.32"), new BigDecimal("2.13")})
         );
     }
 
@@ -71,7 +82,7 @@ public class SumIsZeroAccumulatorTest extends BaseIgniteAbstractTest {
         return Stream.of(
                 Arguments.of(namedAccumulator(DoubleSumEmptyIsZero.FACTORY), 0.0d),
                 Arguments.of(namedAccumulator(LongSumEmptyIsZero.FACTORY), 0L),
-                Arguments.of(namedAccumulator(DecimalSumEmptyIsZero.FACTORY), BigDecimal.ZERO)
+                Arguments.of(namedAccumulator(() -> DecimalSumEmptyIsZero.FACTORY.apply(1)), BigDecimal.ZERO)
         );
     }
 
@@ -81,6 +92,6 @@ public class SumIsZeroAccumulatorTest extends BaseIgniteAbstractTest {
 
     private static Named<Accumulator> namedAccumulator(Supplier<Accumulator> supplier) {
         Accumulator accumulator = supplier.get();
-        return Named.of(accumulator.getClass().getName(), accumulator);
+        return Named.of(accumulator.getClass().getSimpleName(), accumulator);
     }
 }

@@ -38,7 +38,6 @@ import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -61,7 +60,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
-import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
@@ -96,6 +94,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     private static final LogicalNode CLUSTER_NODE_1 = new LogicalNode(randomUUID(), NODE_1_NAME, mock(NetworkAddress.class));
 
     private LeaseUpdater leaseUpdater;
+
+    private AssignmentsTracker assignmentsTracker;
 
     private StandaloneMetaStorageManager metaStorageManager;
 
@@ -139,6 +139,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     @AfterEach
     public void tearDown() {
         leaseUpdater.deactivate();
+        assignmentsTracker.stopTrack();
     }
 
     private LeaseUpdater createLeaseUpdater() {
@@ -171,11 +172,9 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
         leaseTracker.startTrack(0L);
 
-        AssignmentsTracker assignmentsTracker = mock(AssignmentsTracker.class);
-        when(assignmentsTracker.stableAssignments()).thenAnswer(i -> Map.of(GROUP_ID, new TokenizedAssignmentsImpl(Set.of(
-                forPeer(NODE_0_NAME),
-                forPeer(NODE_1_NAME)
-        ), 1)));
+        assignmentsTracker = new AssignmentsTracker(metaStorageManager);
+
+        assignmentsTracker.startTrack();
 
         return new LeaseUpdater(
                 NODE_0_NAME,
@@ -184,7 +183,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 pdLogicalTopologyService,
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),
-                new AssignmentsTracker(metaStorageManager),
+                assignmentsTracker,
                 replicationConfiguration
         );
     }

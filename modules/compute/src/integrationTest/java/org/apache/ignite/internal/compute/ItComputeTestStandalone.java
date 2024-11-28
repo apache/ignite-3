@@ -45,13 +45,12 @@ import org.apache.ignite.internal.deployunit.NodesToDeploy;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests for Compute functionality in standalone Ignite node.
  */
-@SuppressWarnings({"resource", "ThrowableNotThrown"})
+@SuppressWarnings("ThrowableNotThrown")
 class ItComputeTestStandalone extends ItComputeBaseTest {
     private final DeploymentUnit unit = new DeploymentUnit("jobs", Version.parseVersion("1.0.0"));
 
@@ -80,27 +79,6 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @Override
     protected List<DeploymentUnit> units() {
         return units;
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")
-    @Override
-    void executesFailingJobOnRemoteNodes() {
-        super.executesFailingJobOnRemoteNodes();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")
-    @Override
-    void executesFailingJobOnRemoteNodesAsync() {
-        super.executesFailingJobOnRemoteNodesAsync();
-    }
-
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19623")
-    @Override
-    void broadcastsFailingJob() throws Exception {
-        super.broadcastsFailingJob();
     }
 
     @Test

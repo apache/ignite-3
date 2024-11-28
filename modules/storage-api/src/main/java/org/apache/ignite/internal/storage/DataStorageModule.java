@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import java.nio.file.Path;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -48,6 +49,8 @@ public interface DataStorageModule {
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param logSyncer Write-ahead log synchronizer.
      * @param clock Hybrid Logical Clock.
+     * @param commonScheduler Common scheduled thread pool. Needed only for asynchronous start of scheduled operations without performing
+     *      blocking, long or IO operations.
      * @throws StorageException If there is an error when creating the storage engine.
      */
     StorageEngine createEngine(
@@ -57,6 +60,7 @@ public interface DataStorageModule {
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureManager failureManager,
             LogSyncer logSyncer,
-            HybridClock clock
+            HybridClock clock,
+            ScheduledExecutorService commonScheduler
     ) throws StorageException;
 }

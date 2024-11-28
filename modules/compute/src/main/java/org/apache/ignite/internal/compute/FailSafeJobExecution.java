@@ -158,7 +158,6 @@ class FailSafeJobExecution<T> implements JobExecution<T>, MarshallerProvider<T> 
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        resultFuture.cancel(false);
         return runningJobExecution.get().cancelAsync();
     }
 

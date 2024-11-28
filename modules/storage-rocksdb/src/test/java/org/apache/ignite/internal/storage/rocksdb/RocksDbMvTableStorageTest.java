@@ -28,6 +28,7 @@ import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.UUID;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -39,6 +40,8 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -50,6 +53,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tests for the {@link RocksDbTableStorage}.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
     private RocksDbStorageEngine engine;
@@ -61,9 +65,11 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
             RocksDbStorageEngineConfiguration engineConfig,
             // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
             @InjectConfiguration("mock.profiles.default {engine = rocksdb, size = 16777216, writeBufferSize = 67108864}")
-            StorageConfiguration storageConfiguration
+            StorageConfiguration storageConfiguration,
+            @InjectExecutorService
+            ScheduledExecutorService scheduledExecutor
     ) {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
+        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class), scheduledExecutor);
 
         engine.start();
 

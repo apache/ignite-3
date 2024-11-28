@@ -121,6 +121,9 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
 
     /** Lease updater for tests. */
     private LeaseUpdater leaseUpdater;
+
+    private AssignmentsTracker assignmentsTracker;
+
     /** Closure to get a lease that is passed in Meta storage. */
     private volatile Consumer<Lease> renewLeaseConsumer = null;
 
@@ -174,6 +177,9 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                     return trueCompletedFuture();
                 });
 
+        assignmentsTracker = new AssignmentsTracker(metaStorageManager);
+        assignmentsTracker.startTrack();
+
         leaseUpdater = new LeaseUpdater(
                 stableNode.name(),
                 clusterService,
@@ -181,7 +187,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 topologyService,
                 leaseTracker,
                 new TestClockService(clock),
-                new AssignmentsTracker(metaStorageManager),
+                assignmentsTracker,
                 replicationConfiguration
         );
 
@@ -190,6 +196,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     @AfterEach
     void tearDown() {
         leaseUpdater.deInit();
+        assignmentsTracker.stopTrack();
 
         leaseUpdater = null;
     }

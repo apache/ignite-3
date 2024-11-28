@@ -192,13 +192,90 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestAutoFlushFail()
+    {
+        using var server = new FakeServer(
+            shouldDropConnection: ctx => ctx is { OpCode: ClientOp.StreamerBatchSend });
+
+        using var client = await server.ConnectClientAsync();
+        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+
+        var opts = new DataStreamerOptions
+        {
+            AutoFlushInterval = TimeSpan.FromMilliseconds(50),
+            RetryLimit = 2
+        };
+
+        var ex = Assert.ThrowsAsync<DataStreamerException>(
+            async () => await table!.RecordBinaryView.StreamDataAsync(
+                GetFakeServerData(100_000, TimeSpan.FromMilliseconds(50)),
+                opts));
+
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
+
+        StringAssert.StartsWith("Operation StreamerBatchSend failed after 2 retries", ex.Message);
+
+        Assert.That(ex.FailedItems.Count, Is.GreaterThan(1));
+
+        foreach (var failedItem in ex.FailedItems)
+        {
+            var item = (DataStreamerItem<IIgniteTuple>)failedItem;
+            Assert.AreEqual(DataStreamerOperationType.Put, item.OperationType);
+            Assert.IsNotNull(item.Data);
+        }
+    }
+
+    [Test]
+    public async Task TestAutoFlushFailWithReceiver()
+    {
+        using var server = new FakeServer(
+            shouldDropConnection: ctx => ctx is { OpCode: ClientOp.StreamerWithReceiverBatchSend });
+
+        using var client = await server.ConnectClientAsync();
+        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+
+        var opts = new DataStreamerOptions
+        {
+            AutoFlushInterval = TimeSpan.FromMilliseconds(50),
+            RetryLimit = 2
+        };
+
+        var ex = Assert.ThrowsAsync<DataStreamerException>(
+            async () => await table!.RecordBinaryView.StreamDataAsync(
+                GetFakeServerData(100_000),
+                keySelector: t => t,
+                payloadSelector: t => t[0]!.ToString()!,
+                TestReceiverNoResults,
+                null,
+                opts));
+
+        Assert.AreEqual(ErrorGroups.Client.Connection, ex.Code);
+
+        var inner = (IgniteClientConnectionException)ex.InnerException!;
+        Assert.AreEqual(ex.Code, inner.Code);
+        Assert.AreEqual(ex.TraceId, inner.TraceId);
+
+        StringAssert.StartsWith("Operation StreamerWithReceiverBatchSend failed after 2 retries", ex.Message);
+
+        Assert.That(ex.FailedItems.Count, Is.GreaterThan(1));
+
+        foreach (var failedItem in ex.FailedItems)
+        {
+            var item = (IIgniteTuple)failedItem;
+            Assert.That((int)item["ID"]!, Is.GreaterThanOrEqualTo(0));
+        }
+    }
+
+    [Test]
     public async Task TestCancellation()
     {
         using var cts = new CancellationTokenSource();
         var streamTask = TupleView.StreamDataAsync(GetTuplesWithDelay(), cancellationToken: cts.Token);
 
         cts.Cancel();
-        Assert.CatchAsync<OperationCanceledException>(async () => await streamTask);
+        var ex = Assert.CatchAsync<DataStreamerException>(async () => await streamTask);
+        Assert.IsInstanceOf<OperationCanceledException>(ex.InnerException);
+        Assert.AreEqual(ErrorGroups.Common.Internal, ex.Code);
 
         Assert.IsFalse(
             await TupleView.ContainsKeyAsync(null, GetTuple(0)),
@@ -265,10 +342,29 @@ public class DataStreamerTests : IgniteTestsBase
         using var client = await server.ConnectClientAsync();
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
-        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
-            async () => await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(10_000)));
+        var opts = new DataStreamerOptions
+        {
+            PageSize = 333,
+            RetryLimit = 13
+        };
 
-        StringAssert.StartsWith("Operation StreamerBatchSend failed after 16 retries", ex!.Message);
+        var ex = Assert.ThrowsAsync<DataStreamerException>(
+            async () => await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(10_000), opts));
+
+        Assert.AreEqual(ErrorGroups.Client.Connection, ex.Code);
+
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
+
+        StringAssert.StartsWith($"Operation StreamerBatchSend failed after {opts.RetryLimit} retries", ex.Message);
+
+        Assert.AreEqual(opts.PageSize * 2, ex.FailedItems.Count, "One page failed, one queued.");
+
+        foreach (var failedItem in ex.FailedItems)
+        {
+            var item = (DataStreamerItem<IIgniteTuple>)failedItem;
+            Assert.AreEqual(DataStreamerOperationType.Put, item.OperationType);
+            Assert.IsNotNull(item.Data);
+        }
     }
 
     [Test]
@@ -280,15 +376,32 @@ public class DataStreamerTests : IgniteTestsBase
         using var client = await server.ConnectClientAsync();
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
 
-        var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
+        var opts = new DataStreamerOptions
+        {
+            PageSize = 333,
+            RetryLimit = 13
+        };
+
+        var ex = Assert.ThrowsAsync<DataStreamerException>(
             async () => await table!.RecordBinaryView.StreamDataAsync(
                 GetFakeServerData(10_000),
                 keySelector: t => t,
                 payloadSelector: t => t[0]!.ToString()!,
                 TestReceiverNoResults,
-                null));
+                null,
+                opts));
 
-        StringAssert.StartsWith("Operation StreamerWithReceiverBatchSend failed after 16 retries", ex!.Message);
+        Assert.IsInstanceOf<IgniteClientConnectionException>(ex.InnerException);
+
+        StringAssert.StartsWith($"Operation StreamerWithReceiverBatchSend failed after {opts.RetryLimit} retries", ex.Message);
+
+        Assert.AreEqual(opts.PageSize * 2, ex.FailedItems.Count, "One page failed, one queued.");
+
+        foreach (var failedItem in ex.FailedItems)
+        {
+            var item = (IIgniteTuple)failedItem;
+            Assert.That((int)item["ID"]!, Is.GreaterThanOrEqualTo(0));
+        }
     }
 
     [Test]
@@ -562,7 +675,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestUnknownReceiverClass()
     {
-        var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await TupleView.StreamDataAsync(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
                 keySelector: x => GetTuple(x),
@@ -576,7 +689,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestReceiverException()
     {
-        var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await PocoView.StreamDataAsync(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
                 keySelector: x => GetPoco(x),
@@ -590,7 +703,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestReceiverWithResultsException()
     {
-        var ex = Assert.ThrowsAsync<IgniteException>(async () =>
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await PocoView.StreamDataAsync(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
                 keySelector: x => GetPoco(x),
@@ -604,13 +717,15 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestReceiverSelectorException([Values(true, false)] bool keySelector)
     {
-        var ex = Assert.ThrowsAsync<DataException>(async () =>
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await PocoView.StreamDataAsync<int, object, object?>(
                 Enumerable.Range(0, 1).ToAsyncEnumerable(),
                 keySelector: x => keySelector ? throw new DataException("key") : GetPoco(x),
                 payloadSelector: _ => throw new DataException("payload"),
                 receiver: TestReceiverNoResults,
                 receiverArg: GetReceiverArg("throw", "throw", 1)));
+
+        Assert.IsInstanceOf<DataException>(ex.InnerException);
 
         Assert.AreEqual(keySelector ? "key" : "payload", ex.Message);
     }
@@ -646,8 +761,10 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestWithReceiverUnsupportedDataTypeThrows()
     {
-        var ex = Assert.ThrowsAsync<IgniteClientException>(
+        var ex = Assert.ThrowsAsync<DataStreamerException>(
             async () => await CheckReceiverValue(GetPoco(1), "java.lang.Boolean", "true"));
+
+        Assert.IsInstanceOf<IgniteClientException>(ex.InnerException);
 
         Assert.AreEqual("Unsupported type: Apache.Ignite.Tests.Table.Poco", ex.Message);
     }
@@ -655,13 +772,15 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestWithReceiverDifferentDataTypesThrows()
     {
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await PocoView.StreamDataAsync(
                 new object[] { 1, "2" }.ToAsyncEnumerable(),
                 keySelector: _ => new Poco(),
                 payloadSelector: x => x,
                 receiver: TestReceiverNoResults,
                 receiverArg: null));
+
+        Assert.IsInstanceOf<InvalidOperationException>(ex.InnerException);
 
         Assert.AreEqual(
             "All streamer items returned by payloadSelector must be of the same type. Expected: System.Int32, actual: System.String.",
@@ -671,13 +790,15 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public void TestWithReceiverNullItemThrows()
     {
-        var ex = Assert.ThrowsAsync<ArgumentNullException>(async () =>
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
             await PocoView.StreamDataAsync(
                 new object[] { "2", null! }.ToAsyncEnumerable(),
                 keySelector: _ => new Poco(),
                 payloadSelector: x => x,
                 receiver: TestReceiverNoResults,
                 receiverArg: null));
+
+        Assert.IsInstanceOf<ArgumentNullException>(ex.InnerException);
 
         Assert.AreEqual(
             "Value cannot be null. (Parameter 'payload')",
@@ -753,12 +874,17 @@ public class DataStreamerTests : IgniteTestsBase
         Assert.Less(streamedData.Count(x => x.HasValue), Count / 2);
     }
 
-    private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
+    private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count, TimeSpan? delay = null)
     {
         for (var i = 0; i < count; i++)
         {
             yield return new IgniteTuple { ["ID"] = i };
             await Task.Yield();
+
+            if (delay != null)
+            {
+                await Task.Delay(delay.Value);
+            }
         }
     }
 
