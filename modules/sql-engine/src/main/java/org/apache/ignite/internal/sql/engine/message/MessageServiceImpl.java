@@ -31,6 +31,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationRequest;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -121,6 +122,11 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private void onMessage(String consistentId, NetworkMessage msg) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23798 Move to separate messages group.
+        if (msg instanceof CancelOperationRequest) {
+            return;
+        }
+
         if (msg instanceof ExecutionContextAwareMessage) {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
             taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> onMessageInternal(consistentId, msg));

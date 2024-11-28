@@ -54,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
@@ -330,6 +331,17 @@ public class QueryExecutor implements LifecycleAware {
         return runningQueries.values().stream()
                 .map(QueryInfo::new)
                 .collect(Collectors.toList());
+    }
+
+    /** Aborts the query with the given query ID. */
+    public CompletableFuture<Boolean> cancelQuery(UUID queryId) {
+        Query query = runningQueries.get(queryId);
+
+        if (query == null) {
+            return CompletableFutures.falseCompletedFuture();
+        }
+
+        return query.cancel().thenApply(none -> Boolean.TRUE);
     }
 
     @Override

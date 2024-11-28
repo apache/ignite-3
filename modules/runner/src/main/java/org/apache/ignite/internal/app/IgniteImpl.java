@@ -223,6 +223,9 @@ import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.api.PublicApiThreadingIgniteSql;
+import org.apache.ignite.internal.sql.common.cancel.CancelableOperationManagerImpl;
+import org.apache.ignite.internal.sql.common.cancel.api.CancelableOperationManager;
+import org.apache.ignite.internal.sql.common.cancel.api.CancelableOperationType;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtensionConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -462,6 +465,9 @@ public class IgniteImpl implements Ignite {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
+
+    // TODO redundant global var?
+    private final CancelableOperationManager cancelationManager;
 
     /**
      * The Constructor.
@@ -1055,6 +1061,11 @@ public class IgniteImpl implements Ignite {
                 clockService
         );
 
+        cancelationManager = new CancelableOperationManagerImpl(
+                clusterSvc.topologyService(),
+                clusterSvc.messagingService()
+        );
+
         qryEngine = new SqlQueryProcessor(
                 clusterSvc,
                 logicalTopologyService,
@@ -1077,6 +1088,8 @@ public class IgniteImpl implements Ignite {
                 lowWatermark,
                 threadPoolsManager.commonScheduler()
         );
+
+        cancelationManager.register(qryEngine, CancelableOperationType.SQL_QUERY);
 
         systemViewManager.register(qryEngine);
 
@@ -1557,6 +1570,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public QueryProcessor queryEngine() {
         return qryEngine;
+    }
+
+    @TestOnly
+    public CancelableOperationManager cancelationManager() {
+        return cancelationManager;
     }
 
     @TestOnly

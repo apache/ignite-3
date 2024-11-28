@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine.message;
 import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup.GROUP_TYPE;
 
 import org.apache.ignite.internal.network.annotations.MessageGroup;
+import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationRequest;
+import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationResponse;
 
 /**
  * Message types for the sql query processing module.
@@ -40,4 +42,12 @@ public final class SqlQueryMessageGroup {
     public static final short QUERY_BATCH_REQUEST = 4;
 
     public static final short QUERY_CLOSE_MESSAGE = 5;
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-23798 Move to separate messages group.
+    /** See {@link CancelOperationRequest} for the details. */
+    public static final short OPERATION_CANCEL_REQUEST = 6;
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-23798 Move to separate messages group.
+    /** See {@link CancelOperationResponse} for the details. */
+    public static final short OPERATION_CANCEL_RESPONSE = 7;
 }

@@ -137,4 +137,10 @@ class Query {
 
         resultHolder.completeExceptionally(th);
     }
+
+    CompletableFuture<Void> cancel() {
+        cancel.cancel();
+
+        return onPhaseStarted(ExecutionPhase.TERMINATED);
+    }
 }

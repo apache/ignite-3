@@ -53,6 +53,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.common.cancel.api.NodeOperationCancelHandler;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
+import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProviderImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
@@ -109,7 +111,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  *  Main implementation of {@link QueryProcessor}.
  */
-public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
+public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, NodeOperationCancelHandler {
     /** Default time-zone ID. */
     public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 
@@ -432,6 +434,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         }
     }
 
+    @Override
+    public CompletableFuture<Boolean> cancelAsync(UUID queryId) {
+        return queryExecutor.cancelQuery(queryId);
+    }
+
     private <T extends LifecycleAware> T registerService(T service) {
         services.add(service);
 
@@ -557,6 +564,18 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         }
 
         return executor.runningQueries().size();
+    }
+
+    /** Returns the list of running queries. */
+    @TestOnly
+    public List<QueryInfo> runningQueriesInfos() {
+        QueryExecutor executor = queryExecutor;
+
+        if (executor == null) {
+            return List.of();
+        }
+
+        return executor.runningQueries();
     }
 
     @Override
