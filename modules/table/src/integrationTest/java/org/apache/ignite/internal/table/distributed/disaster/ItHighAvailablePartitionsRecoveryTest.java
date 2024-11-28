@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -29,24 +31,31 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 
 /** Test for the HA zones recovery. */
 public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegrationTest {
-    private static String ZONE_NAME = "HA_ZONE";
+    private static String HA_ZONE_NAME = "HA_ZONE";
 
-    private static String TABLE_NAME = "TEST_TABLE";
+    private static String HA_TABLE_NAME = "HA_TABLE";
+
+    private static String SC_ZONE_NAME = "SC_ZONE";
+
+    private static String SC_TABLE_NAME = "SC_TABLE";
 
     protected final HybridClock clock = new HybridClockImpl();
 
@@ -59,13 +68,30 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
     void setUp() {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='HIGH_AVAILABILITY'",
-                ZONE_NAME, initialNodes(), 2, DEFAULT_STORAGE_PROFILE
+                HA_ZONE_NAME, initialNodes(), 2, DEFAULT_STORAGE_PROFILE
+        ));
+
+        executeSql(String.format(
+                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='STRONG_CONSISTENCY'",
+                SC_ZONE_NAME, initialNodes(), 2, DEFAULT_STORAGE_PROFILE
         ));
 
         executeSql(String.format(
                 "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
-                TABLE_NAME, ZONE_NAME
+                HA_TABLE_NAME, HA_ZONE_NAME
         ));
+
+        executeSql(String.format(
+                "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
+                SC_TABLE_NAME, SC_ZONE_NAME
+        ));
+
+        IgniteImpl node = unwrapIgniteImpl(node(0));
+
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        waitForStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), allNodes);
+        waitForStableAssignmentsOfPartitionEqualTo(node, SC_TABLE_NAME, Set.of(0, 1), allNodes);
     }
 
     @Override
@@ -73,11 +99,13 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
-    @Test
+    @RepeatedTest(10)
     void testTopologyReduceEventPropagation() throws InterruptedException {
         IgniteImpl node = igniteImpl(0);
 
         assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
         stopNode(1);
         stopNode(2);
@@ -85,9 +113,12 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(node).empty(), 5_000));
 
         checkRecoveryRequest(node);
+
+        waitForStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0,1), Set.of(node.name()));
+        waitForStableAssignmentsOfPartitionEqualTo(node, SC_TABLE_NAME, Set.of(0,1), allNodes);
     }
 
-    @Test
+    @RepeatedTest(10)
     void testTopologyReduceEventPropagationOnPartitionResetTimeoutChange() throws InterruptedException {
         IgniteImpl node = igniteImpl(0);
 
@@ -102,6 +133,8 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         }
 
         assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
         stopNode(1);
         stopNode(2);
@@ -121,9 +154,12 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
         checkRecoveryRequest(node);
         checkRecoveryRequestOnlyOne(node);
+
+        waitForStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0,1), Set.of(node.name()));
+        waitForStableAssignmentsOfPartitionEqualTo(node, SC_TABLE_NAME, Set.of(0,1), allNodes);
     }
 
-    @Test
+    @RepeatedTest(10)
     void testTopologyReduceEventPropogationOnReschedule() throws InterruptedException {
         IgniteImpl node = igniteImpl(0);
 
@@ -139,6 +175,8 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
         assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
 
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
         stopNode(1);
 
         assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
@@ -149,9 +187,12 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
         checkRecoveryRequest(node);
         checkRecoveryRequestOnlyOne(node);
+
+        waitForStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0,1), Set.of(node.name()));
+        waitForStableAssignmentsOfPartitionEqualTo(node, SC_TABLE_NAME, Set.of(0,1), allNodes);
     }
 
-    @Test
+    @RepeatedTest(10)
     void testTopologyReduceEventPropogationOnRestore() throws InterruptedException {
         IgniteImpl node = igniteImpl(0);
 
@@ -167,6 +208,8 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
         assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
 
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
         stopNode(2);
         stopNode(1);
         stopNode(0);
@@ -177,6 +220,9 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
         checkRecoveryRequest(node1);
         checkRecoveryRequestOnlyOne(node1);
+
+        waitForStableAssignmentsOfPartitionEqualTo(node1, HA_TABLE_NAME, Set.of(0,1), Set.of(node1.name()));
+        waitForStableAssignmentsOfPartitionEqualTo(node1, SC_TABLE_NAME, Set.of(0,1), allNodes);
     }
 
     private void checkRecoveryRequest(IgniteImpl node) {
@@ -185,8 +231,8 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         GroupUpdateRequest request = (GroupUpdateRequest) VersionedSerialization.fromBytes(
                 recoveryTriggerEntry.value(), DisasterRecoveryRequestSerializer.INSTANCE);
 
-        int zoneId = node.catalogManager().zone(ZONE_NAME, clock.nowLong()).id();
-        int tableId = node.catalogManager().table(TABLE_NAME, clock.nowLong()).id();
+        int zoneId = node.catalogManager().zone(HA_ZONE_NAME, clock.nowLong()).id();
+        int tableId = node.catalogManager().table(HA_TABLE_NAME, clock.nowLong()).id();
 
         assertEquals(zoneId, request.zoneId());
         assertEquals(tableId, request.tableId());
@@ -203,7 +249,42 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         );
     }
 
+    private void waitForStableAssignmentsOfPartitionEqualTo(IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
+        partitionIds.forEach(p -> {
+            try {
+                waitForStableAssignmentsOfPartitionEqualTo(gatewayNode, tableName, p, nodes);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+    }
+
+    private void waitForStableAssignmentsOfPartitionEqualTo(IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes)
+            throws InterruptedException {
+
+        assertTrue(waitForCondition(() ->
+                nodes.equals(
+                        getPartitionClusterNodes(gatewayNode, tableName, partNum)
+                                .stream()
+                                .map(Assignment::consistentId)
+                                .collect(Collectors.toUnmodifiableSet())
+                ),
+                500,
+                30_000
+        ), "Expected set of nodes: " + nodes + " actual: " + getPartitionClusterNodes(gatewayNode, tableName, partNum)
+                .stream()
+                .map(Assignment::consistentId)
+                .collect(Collectors.toUnmodifiableSet()));
+    }
+
     private static Entry getRecoveryTriggerKey(IgniteImpl node) {
         return node.metaStorageManager().getLocally(RECOVERY_TRIGGER_KEY, Long.MAX_VALUE);
+    }
+
+    private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
+        return Optional.ofNullable(getTableId(node.catalogManager(), tableName, clock.nowLong()))
+                .map(tableId -> partitionAssignments(node.metaStorageManager(), tableId, partNum).join())
+                .orElse(Set.of());
     }
 }

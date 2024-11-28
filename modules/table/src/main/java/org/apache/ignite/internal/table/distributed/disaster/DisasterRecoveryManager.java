@@ -282,11 +282,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         Set<Assignment> stableAssignments = Assignments.fromBytes(
                 metaStorageManager.getLocally(stablePartAssignmentsKey(partitionId), revision).value()).nodes();
 
-        // KKK must use the version with logical topology with revision
-        Set<String> logicalTopology = dzManager.logicalTopology()
+        Set<String> logicalTopology = dzManager.logicalTopology(revision)
                 .stream().map(NodeWithAttributes::nodeName).collect(Collectors.toUnmodifiableSet());
 
-        // convert logical topology to assignments and
         return stableAssignments
                 .stream().filter(a -> logicalTopology.contains(a.consistentId())).collect(Collectors.toUnmodifiableSet());
     }
