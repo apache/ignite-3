@@ -108,6 +108,7 @@ import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Manager, responsible for "disaster recovery" operations.
@@ -251,6 +252,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         );
     }
 
+    @TestOnly
+    public Map<UUID, CompletableFuture<Void>> ongoingOperationsById() {
+        return ongoingOperationsById;
+    }
+
     private CompletableFuture<Boolean> onHaZoneTopologyReduce(HaZoneTopologyUpdateEventParams params) {
         int zoneId = params.zoneId();
         long timestamp = params.timestamp();
@@ -271,8 +277,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 }
             }
 
-            tablesResetFuts.add(resetPartitions(
-                    zoneDescriptor.name(), table.id(), partitionsToReset, false));
+            if (!partitionsToReset.isEmpty()) {
+                tablesResetFuts.add(resetPartitions(
+                        zoneDescriptor.name(), table.id(), partitionsToReset, false));
+            }
         }
 
         return allOf(tablesResetFuts.toArray(new CompletableFuture[]{})).thenApply(r -> false);

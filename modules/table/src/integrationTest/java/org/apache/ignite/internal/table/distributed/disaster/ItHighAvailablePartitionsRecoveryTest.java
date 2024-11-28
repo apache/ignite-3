@@ -34,11 +34,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
+import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -225,6 +228,43 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         waitForStableAssignmentsOfPartitionEqualTo(node1, SC_TABLE_NAME, Set.of(0,1), allNodes);
     }
 
+    @RepeatedTest(5)
+    void testTopologyReduceWithoutMajorityLoss() throws InterruptedException {
+        IgniteImpl node = igniteImpl(0);
+
+        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+
+        String stopNode = node(2).name();
+
+        stopNode(2);
+
+        AtomicLong revision = new AtomicLong();
+
+        assertTrue(waitForCondition(() -> {
+            var state = node.distributionZoneManager().zonesState().get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME));
+
+            if (state != null) {
+                var lastEntry = state.topologyAugmentationMap().lastEntry();
+
+                var result = lastEntry.getValue().nodes().stream().map(Node::nodeName).collect(Collectors.toUnmodifiableSet()).equals(Set.of(stopNode));
+
+                if (result) {
+                    revision.set(lastEntry.getKey());
+                }
+
+                return result;
+            }
+            return false;
+        }, 10_000));
+
+        waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision.get(), 10_000);
+
+        assertTrue(node.distributionZoneManager().zonesState().get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME)).partitionDistributionResetTask().isDone());
+
+        assertTrue(node.disasterRecoveryManager().ongoingOperationsById().isEmpty());
+        assertTrue(waitForCondition(() -> getRecoveryTriggerKey(node).empty(), 5_000));
+    }
+
     private void checkRecoveryRequest(IgniteImpl node) {
         Entry recoveryTriggerEntry = getRecoveryTriggerKey(node);
 
@@ -286,5 +326,9 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         return Optional.ofNullable(getTableId(node.catalogManager(), tableName, clock.nowLong()))
                 .map(tableId -> partitionAssignments(node.metaStorageManager(), tableId, partNum).join())
                 .orElse(Set.of());
+    }
+
+    private int zoneIdByName(CatalogService catalogService, String zoneName) {
+        return catalogService.zone(zoneName, clock.nowLong()).id();
     }
 }
