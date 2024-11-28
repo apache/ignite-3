@@ -111,20 +111,30 @@ public class HybridClockImpl implements HybridClock {
      */
     @Override
     public final HybridTimestamp update(HybridTimestamp requestTime) {
+        long requestTimeLong = requestTime.longValue();
+
         while (true) {
+            // Read the latest time after accessing UTC time to reduce contention.
+            long oldLatestTime = this.latestTime;
+
+            if (oldLatestTime >= requestTimeLong) {
+                return hybridTimestamp(LATEST_TIME.incrementAndGet(this));
+            }
+
             long now = currentTime();
 
-            // Read the latest time after accessing UTC time to reduce contention.
-            long oldLatestTime = latestTime;
+            if (now > requestTimeLong) {
+                if (LATEST_TIME.compareAndSet(this, oldLatestTime, now)) {
+                    return hybridTimestamp(now);
+                }
+            } else {
+                long newLatestTime = requestTimeLong + 1;
 
-            long newLatestTime = max(requestTime.longValue() + 1, max(now, oldLatestTime + 1));
+                if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
+                    notifyUpdateListeners(newLatestTime);
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-23707 avoid CAS on logical part update.
-
-            if (LATEST_TIME.compareAndSet(this, oldLatestTime, newLatestTime)) {
-                notifyUpdateListeners(newLatestTime);
-
-                return hybridTimestamp(newLatestTime);
+                    return hybridTimestamp(newLatestTime);
+                }
             }
         }
     }
