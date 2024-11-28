@@ -25,7 +25,7 @@ package org.apache.ignite.internal.compute;
  * back to the client handler node, packed as a byte array, returned to the client and unpacked there.
  */
 public class ComputeJobDataHolder {
-    private final ComputeJobType type;
+    private final ComputeJobDataType type;
 
     private final byte[] data;
 
@@ -35,7 +35,7 @@ public class ComputeJobDataHolder {
      * @param type Job argument type.
      * @param data Marshalled data.
      */
-    public ComputeJobDataHolder(ComputeJobType type, byte[] data) {
+    public ComputeJobDataHolder(ComputeJobDataType type, byte[] data) {
         this.type = type;
         this.data = data;
     }
@@ -45,7 +45,7 @@ public class ComputeJobDataHolder {
      *
      * @return Job argument type.
      */
-    public ComputeJobType type() {
+    public ComputeJobDataType type() {
         return type;
     }
 

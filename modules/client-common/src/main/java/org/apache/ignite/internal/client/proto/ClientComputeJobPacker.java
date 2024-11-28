@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import static org.apache.ignite.internal.compute.ComputeJobType.MARSHALLED_CUSTOM;
-import static org.apache.ignite.internal.compute.ComputeJobType.MARSHALLED_POJO;
-import static org.apache.ignite.internal.compute.ComputeJobType.MARSHALLED_TUPLE;
-import static org.apache.ignite.internal.compute.ComputeJobType.NATIVE;
+import static org.apache.ignite.internal.compute.ComputeJobDataType.MARSHALLED_CUSTOM;
+import static org.apache.ignite.internal.compute.ComputeJobDataType.NATIVE;
+import static org.apache.ignite.internal.compute.ComputeJobDataType.POJO;
+import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE;
 import static org.apache.ignite.internal.compute.PojoConverter.toTuple;
 
 import java.util.Arrays;
@@ -95,7 +95,7 @@ public final class ClientComputeJobPacker {
         }
 
         if (obj instanceof Tuple) {
-            packer.packInt(MARSHALLED_TUPLE.id());
+            packer.packInt(TUPLE.id());
 
             packTuple((Tuple) obj, packer);
             return;
@@ -109,7 +109,7 @@ public final class ClientComputeJobPacker {
         }
 
         try {
-            packer.packInt(MARSHALLED_POJO.id());
+            packer.packInt(POJO.id());
 
             packTuple(toTuple(obj), packer);
         } catch (PojoConversionException e) {

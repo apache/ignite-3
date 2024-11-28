@@ -24,17 +24,17 @@ import org.jetbrains.annotations.Nullable;
  * The type of the object that can be passed/returned to/from the compute job. In can be a native type that is represented by
  * {@link ColumnType} or a marshalled object/tuple.
  */
-public enum ComputeJobType {
+public enum ComputeJobDataType {
     NATIVE(0),
-    MARSHALLED_TUPLE(1),
+    TUPLE(1),
     MARSHALLED_CUSTOM(2),
-    MARSHALLED_POJO(3);
+    POJO(3);
 
-    private static final ComputeJobType[] VALUES = values();
+    private static final ComputeJobDataType[] VALUES = values();
 
     private final int id;
 
-    ComputeJobType(int id) {
+    ComputeJobDataType(int id) {
         this.id = id;
     }
 
@@ -48,7 +48,7 @@ public enum ComputeJobType {
      * @param id Identifier of the value.
      * @return Enum value or {@code null} if identifier is invalid.
      */
-    public static @Nullable ComputeJobType fromId(int id) {
+    public static @Nullable ComputeJobDataType fromId(int id) {
         return id >= 0 && id < VALUES.length ? VALUES[id] : null;
     }
 }

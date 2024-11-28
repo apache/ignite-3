@@ -19,10 +19,10 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.compute.ComputeJobType.MARSHALLED_CUSTOM;
-import static org.apache.ignite.internal.compute.ComputeJobType.MARSHALLED_POJO;
-import static org.apache.ignite.internal.compute.ComputeJobType.MARSHALLED_TUPLE;
-import static org.apache.ignite.internal.compute.ComputeJobType.NATIVE;
+import static org.apache.ignite.internal.compute.ComputeJobDataType.MARSHALLED_CUSTOM;
+import static org.apache.ignite.internal.compute.ComputeJobDataType.NATIVE;
+import static org.apache.ignite.internal.compute.ComputeJobDataType.POJO;
+import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE;
 import static org.apache.ignite.internal.compute.PojoConverter.fromTuple;
 import static org.apache.ignite.internal.compute.PojoConverter.toTuple;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -432,10 +432,10 @@ public class ComputeUtils {
             @Nullable Class<?> pojoType
     ) {
         Loggers.forClass(ComputeUtils.class).info("unmarshalFromDataHolder {}", argumentHolder.type());
-        ComputeJobType type = argumentHolder.type();
+        ComputeJobDataType type = argumentHolder.type();
         switch (type) {
-            case MARSHALLED_TUPLE: // Fallthrough TODO https://issues.apache.org/jira/browse/IGNITE-23320
-            case MARSHALLED_POJO:
+            case TUPLE: // Fallthrough TODO https://issues.apache.org/jira/browse/IGNITE-23320
+            case POJO:
                 Tuple tuple = TupleWithSchemaMarshalling.unmarshal(argumentHolder.data());
                 if (pojoType != null && pojoType != Tuple.class) {
                     return (T) unmarshalPojo(pojoType, tuple);
@@ -502,7 +502,7 @@ public class ComputeUtils {
 
         if (result instanceof Tuple) {
             Tuple tuple = (Tuple) result;
-            return new ComputeJobDataHolder(MARSHALLED_TUPLE, TupleWithSchemaMarshalling.marshal(tuple));
+            return new ComputeJobDataHolder(TUPLE, TupleWithSchemaMarshalling.marshal(tuple));
         }
 
         if (isNativeType(result.getClass())) {
@@ -516,7 +516,7 @@ public class ComputeUtils {
         try {
             // TODO https://issues.apache.org/jira/browse/IGNITE-23320
             Tuple tuple = toTuple(result);
-            return new ComputeJobDataHolder(MARSHALLED_POJO, TupleWithSchemaMarshalling.marshal(tuple));
+            return new ComputeJobDataHolder(POJO, TupleWithSchemaMarshalling.marshal(tuple));
         } catch (PojoConversionException e) {
             throw new MarshallingException("Can't pack object", e);
         }

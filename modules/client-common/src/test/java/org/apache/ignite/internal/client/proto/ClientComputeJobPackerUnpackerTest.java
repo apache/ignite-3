@@ -43,7 +43,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.client.proto.pojo.Pojo;
 import org.apache.ignite.internal.client.proto.pojo.StaticFieldPojo;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
-import org.apache.ignite.internal.compute.ComputeJobType;
+import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.MarshallingException;
 import org.apache.ignite.marshalling.UnmarshallingException;
@@ -86,8 +86,8 @@ class ClientComputeJobPackerUnpackerTest {
 
     private static List<Arguments> notMarshalled() {
         return List.of(
-                arguments(Tuple.create(), ComputeJobType.MARSHALLED_TUPLE),
-                arguments(Pojo.generateTestPojo(), ComputeJobType.MARSHALLED_POJO)
+                arguments(Tuple.create(), ComputeJobDataType.TUPLE),
+                arguments(Pojo.generateTestPojo(), ComputeJobDataType.POJO)
         );
     }
 
@@ -125,7 +125,7 @@ class ClientComputeJobPackerUnpackerTest {
 
     @MethodSource("notMarshalled")
     @ParameterizedTest
-    void notMarshalledArgument(Object arg, ComputeJobType type) {
+    void notMarshalledArgument(Object arg, ComputeJobDataType type) {
         // When pack job argument without marshaller.
         packJobArgument(arg, null, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());

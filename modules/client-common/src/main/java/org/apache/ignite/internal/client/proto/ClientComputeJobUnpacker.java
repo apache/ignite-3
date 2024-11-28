@@ -23,7 +23,7 @@ import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 import java.lang.reflect.InvocationTargetException;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
-import org.apache.ignite.internal.compute.ComputeJobType;
+import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.internal.compute.PojoConversionException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnmarshallingException;
@@ -52,7 +52,7 @@ public final class ClientComputeJobUnpacker {
 
         // Underlying byte array expected to be in the following format: | typeId | value |.
         int typeId = unpacker.unpackInt();
-        ComputeJobType type = ComputeJobType.fromId(typeId);
+        ComputeJobDataType type = ComputeJobDataType.fromId(typeId);
         if (type == null) {
             throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
         }
@@ -66,7 +66,7 @@ public final class ClientComputeJobUnpacker {
                 }
 
                 return unpacker.unpackObjectFromBinaryTuple();
-            case MARSHALLED_TUPLE:
+            case TUPLE:
                 return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
 
             case MARSHALLED_CUSTOM:
@@ -77,7 +77,7 @@ public final class ClientComputeJobUnpacker {
                 }
                 return tryUnmarshalOrCast(marshaller, unpacker.readBinary());
 
-            case MARSHALLED_POJO:
+            case POJO:
                 if (resultClass == null) {
                     throw new UnmarshallingException(
                             "Can not unpack object because the pojo class is not provided but the object was packed as pojo. "
@@ -120,7 +120,7 @@ public final class ClientComputeJobUnpacker {
         }
 
         int typeId = unpacker.unpackInt();
-        ComputeJobType type = ComputeJobType.fromId(typeId);
+        ComputeJobDataType type = ComputeJobDataType.fromId(typeId);
         if (type == null) {
             throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
         }
@@ -128,8 +128,8 @@ public final class ClientComputeJobUnpacker {
         switch (type) {
             case NATIVE:
                 return unpacker.unpackObjectFromBinaryTuple();
-            case MARSHALLED_TUPLE: // Fallthrough, these types are unmarshalled just before execution.
-            case MARSHALLED_POJO:
+            case TUPLE: // Fallthrough, these types are unmarshalled just before execution.
+            case POJO:
             case MARSHALLED_CUSTOM:
                 return new ComputeJobDataHolder(type, unpacker.readBinary());
             default:
