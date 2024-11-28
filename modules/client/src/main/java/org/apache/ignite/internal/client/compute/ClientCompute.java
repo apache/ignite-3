@@ -92,8 +92,7 @@ public class ClientCompute implements IgniteCompute {
         this.tables = tables;
     }
 
-    @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
+    private <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
             @Nullable T arg) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
@@ -106,6 +105,11 @@ public class ClientCompute implements IgniteCompute {
         }
 
         return execution;
+    }
+
+    @Override
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
+        return submit(target, descriptor, null, arg);
     }
 
     private <T, R> CompletableFuture<SubmitResult> submit0(JobTarget target, JobDescriptor<T, R> descriptor, T arg) {
@@ -127,6 +131,12 @@ public class ClientCompute implements IgniteCompute {
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
+    }
+
+    @Override
+    public <T, R> CompletableFuture<R> executeAsync(JobTarget target, JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return submit(target, descriptor, cancellationToken, arg).resultAsync();
     }
 
     @Override
@@ -172,7 +182,7 @@ public class ClientCompute implements IgniteCompute {
 
     @Override
     public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(Set<ClusterNode> nodes, JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+            @Nullable T arg) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
 
@@ -188,17 +198,23 @@ public class ClientCompute implements IgniteCompute {
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
             }
-
-            if (cancellationToken != null) {
-                CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
-            }
         }
 
         return map;
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken,
+    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
+            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return submitMapReduce(taskDescriptor, cancellationToken, arg).resultAsync();
+    }
+
+    @Override
+    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return submitMapReduce(taskDescriptor, null, arg);
+    }
+
+    private <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken,
             @Nullable T arg) {
         Objects.requireNonNull(taskDescriptor);
 

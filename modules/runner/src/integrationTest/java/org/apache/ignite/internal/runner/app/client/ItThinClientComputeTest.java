@@ -138,22 +138,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @Test
-    void computeSubmitWithCancelHandle() {
-        IgniteClient entryNode = client();
-        ClusterNode executeNode = node(1);
-
-        CancelHandle cancelHandle = CancelHandle.create();
-
-        JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-        JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(executeNode), job, cancelHandle.token(), null);
-
-        cancelHandle.cancel();
-
-        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(CANCELED)));
-        assertThat(execution.cancelAsync(), willBe(false));
-    }
-
-    @Test
     void computeExecuteAsyncWithCancelHandle() {
         IgniteClient entryNode = client();
         ClusterNode executeNode = node(1);
@@ -182,28 +166,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         cancelHandle.cancel();
 
         assertThrows(ExecutionException.class, () -> runFut.get(10, TimeUnit.SECONDS));
-    }
-
-    @Test
-    void computeSubmitBroadcastWithCancelHandle() {
-        IgniteClient entryNode = client();
-        Set<ClusterNode> executeNodes = Set.of(node(0), node(1));
-
-        CancelHandle cancelHandle = CancelHandle.create();
-
-        Map<ClusterNode, JobExecution<Object>> executions = entryNode.compute().submitBroadcast(
-                executeNodes,
-                JobDescriptor.builder(InfiniteJob.class.getName()).build(), cancelHandle.token(), 100L);
-
-        cancelHandle.cancel();
-
-        CompletableFuture<Void> all = CompletableFuture.allOf(executions.values().stream()
-                .map(JobExecution::resultAsync).toArray(CompletableFuture[]::new));
-
-        assertThrows(ExecutionException.class, () -> all.get(10, TimeUnit.SECONDS));
-
-        assertThat(executions.get(node(0)).stateAsync(), willBe(jobStateWithStatus(CANCELED)));
-        assertThat(executions.get(node(1)).stateAsync(), willBe(jobStateWithStatus(CANCELED)));
     }
 
     @Test
@@ -237,20 +199,6 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         cancelHandle.cancel();
 
         assertThrows(ExecutionException.class, () -> runFut.get(10, TimeUnit.SECONDS));
-    }
-
-    @Test
-    void cancelComputeSubmitMapReduceWithCancelHandle() {
-        IgniteClient entryNode = client();
-
-        CancelHandle cancelHandle = CancelHandle.create();
-
-        TaskExecution<Void> execution = entryNode.compute()
-                .submitMapReduce(TaskDescriptor.builder(InfiniteMapReduceTask.class).build(), cancelHandle.token(), null);
-
-        cancelHandle.cancel();
-
-        assertThrows(ExecutionException.class, () -> execution.resultAsync().get(10, TimeUnit.SECONDS));
     }
 
     @Test

@@ -104,14 +104,6 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
     @ParameterizedTest(name = "withLocal: {0}")
     @ValueSource(booleans = {true, false})
-    void cancelComputeSubmitBroadcastWithCancelHandle(boolean local) {
-        super.cancelComputeSubmitBroadcastWithCancelHandle(local);
-    }
-
-    @Override
-    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
-    @ParameterizedTest(name = "withLocal: {0}")
-    @ValueSource(booleans = {true, false})
     void cancelComputeExecuteBroadcastAsyncWithCancelHandle(boolean local) {
         super.cancelComputeExecuteBroadcastAsyncWithCancelHandle(local);
     }
@@ -122,13 +114,6 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     @ValueSource(booleans = {true, false})
     void cancelComputeExecuteBroadcastWithCancelHandle(boolean local) {
         super.cancelComputeExecuteBroadcastWithCancelHandle(local);
-    }
-
-    @Override
-    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
-    @Test
-    void cancelComputeSubmitMapReduceWithCancelHandle() {
-        super.cancelComputeSubmitMapReduceWithCancelHandle();
     }
 
     @Override

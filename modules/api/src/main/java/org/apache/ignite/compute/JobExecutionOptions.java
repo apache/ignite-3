@@ -36,7 +36,6 @@ public class JobExecutionOptions {
      *
      * @param priority Job execution priority.
      * @param maxRetries Number of times to retry job execution in case of failure, 0 to not retry.
-     *
      */
     private JobExecutionOptions(int priority, int maxRetries) {
         this.priority = priority;
