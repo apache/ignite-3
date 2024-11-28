@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.scalecube;
 
 import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.scalecube.cluster.ClusterConfig;
@@ -221,40 +222,44 @@ public class ScaleCubeClusterServiceFactory {
 
             @Override
             public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-                ConnectionManager localConnectionMgr = connectionMgr;
+                try {
+                    ConnectionManager localConnectionMgr = connectionMgr;
 
-                if (localConnectionMgr != null) {
-                    localConnectionMgr.initiateStopping();
-                }
-
-                // Local member will be null, if cluster has not been started.
-                if (cluster != null && cluster.member() != null) {
-                    cluster.shutdown();
-
-                    try {
-                        shutdownFuture.get(10, TimeUnit.SECONDS);
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-
-                        throw new IgniteInternalException("Interrupted while waiting for the ClusterService to stop", e);
-                    } catch (ExecutionException e) {
-                        throw new IgniteInternalException("Unable to stop the ClusterService", e.getCause());
-                    } catch (TimeoutException e) {
-                        // Failed to leave gracefully.
-                        LOG.warn("Failed to wait for ScaleCube cluster shutdown [reason={}]", e, e.getMessage());
+                    if (localConnectionMgr != null) {
+                        localConnectionMgr.initiateStopping();
                     }
 
+                    // Local member will be null, if cluster has not been started.
+                    if (cluster != null && cluster.member() != null) {
+                        cluster.shutdown();
+
+                        try {
+                            shutdownFuture.get(10, TimeUnit.SECONDS);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+
+                            throw new IgniteInternalException("Interrupted while waiting for the ClusterService to stop", e);
+                        } catch (ExecutionException e) {
+                            throw new IgniteInternalException("Unable to stop the ClusterService", e.getCause());
+                        } catch (TimeoutException e) {
+                            // Failed to leave gracefully.
+                            LOG.warn("Failed to wait for ScaleCube cluster shutdown [reason={}]", e, e.getMessage());
+                        }
+
+                    }
+
+                    if (localConnectionMgr != null) {
+                        localConnectionMgr.stop();
+                    }
+
+                    // Messaging service checks connection manager's status before sending a message, so connection manager should be
+                    // stopped before messaging service
+                    messagingService.stop();
+
+                    return nullCompletedFuture();
+                } catch (Throwable t) {
+                    return failedFuture(t);
                 }
-
-                if (localConnectionMgr != null) {
-                    localConnectionMgr.stop();
-                }
-
-                // Messaging service checks connection manager's status before sending a message, so connection manager should be
-                // stopped before messaging service
-                messagingService.stop();
-
-                return nullCompletedFuture();
             }
 
             @Override

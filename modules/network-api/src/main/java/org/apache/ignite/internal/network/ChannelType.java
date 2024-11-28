@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.network;
 
+import static java.util.Collections.unmodifiableCollection;
+
+import java.util.Collection;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Data class with channel information.
@@ -85,7 +88,7 @@ public final class ChannelType {
             return false;
         }
         ChannelType type = (ChannelType) obj;
-        return Objects.equals(id(), type.id());
+        return id() == type.id();
     }
 
     @Override
@@ -121,7 +124,12 @@ public final class ChannelType {
      * @param id Channel identifier.
      * @return Channel with provided identifier or {@code null} if channel with id doesn't registered yet.
      */
-    public static ChannelType getChannel(short id) {
+    public static @Nullable ChannelType getChannelType(short id) {
         return channels.get(id);
+    }
+
+    /** Returns a collection of {@link #register registered} {@link ChannelType}. */
+    public static Collection<ChannelType> getRegisteredChannelTypes() {
+        return unmodifiableCollection(channels.values());
     }
 }

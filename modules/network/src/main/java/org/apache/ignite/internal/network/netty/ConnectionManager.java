@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.network.ChannelType.getChannel;
+import static org.apache.ignite.internal.network.ChannelType.getChannelType;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.netty.bootstrap.Bootstrap;
@@ -374,7 +374,7 @@ public class ConnectionManager implements ChannelCreationListener {
      */
     @Override
     public void handshakeFinished(NettySender channel) {
-        ConnectorKey<String> key = new ConnectorKey<>(channel.consistentId(), getChannel(channel.channelId()));
+        ConnectorKey<String> key = new ConnectorKey<>(channel.consistentId(), getChannelType(channel.channelId()));
         NettySender oldChannel = channels.put(key, channel);
 
         // Old channel can still be in the map, but it must be closed already by the tie breaker in the

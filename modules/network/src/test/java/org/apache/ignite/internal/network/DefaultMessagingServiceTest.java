@@ -96,7 +96,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private static final int SENDER_PORT = 2001;
     private static final int RECEIVER_PORT = 2002;
 
-    private static final ChannelType TEST_CHANNEL = ChannelType.register(Short.MAX_VALUE, "Test");
+    private static final ChannelType TEST_CHANNEL = ChannelType.register((short) 1, "Test");
 
     @Mock
     private TopologyService topologyService;

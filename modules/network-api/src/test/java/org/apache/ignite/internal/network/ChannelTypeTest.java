@@ -34,7 +34,7 @@ public class ChannelTypeTest {
     public void testRegister() {
         ChannelType testRegister = ChannelType.register(OFFSET, "TestRegister");
 
-        assertThat(testRegister, is(ChannelType.getChannel(OFFSET)));
+        assertThat(testRegister, is(ChannelType.getChannelType(OFFSET)));
         OFFSET++;
     }
 
@@ -58,7 +58,7 @@ public class ChannelTypeTest {
 
     @Test
     public void testGetNotRegistered() {
-        ChannelType channel = ChannelType.getChannel(OFFSET);
+        ChannelType channel = ChannelType.getChannelType(OFFSET);
 
         assertThat(channel, nullValue());
     }
