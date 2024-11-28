@@ -223,8 +223,8 @@ import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.security.configuration.SecurityExtensionConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.api.PublicApiThreadingIgniteSql;
-import org.apache.ignite.internal.sql.common.cancel.CancelableOperationManagerImpl;
-import org.apache.ignite.internal.sql.common.cancel.api.CancelableOperationManager;
+import org.apache.ignite.internal.sql.common.cancel.CancelHandlerRegistryImpl;
+import org.apache.ignite.internal.sql.common.cancel.api.CancelHandlerRegistry;
 import org.apache.ignite.internal.sql.common.cancel.api.CancelableOperationType;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtensionConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
@@ -467,7 +467,7 @@ public class IgniteImpl implements Ignite {
     private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
 
     // TODO redundant global var?
-    private final CancelableOperationManager cancelationManager;
+    private final CancelHandlerRegistry cancelationManager;
 
     /**
      * The Constructor.
@@ -1061,7 +1061,7 @@ public class IgniteImpl implements Ignite {
                 clockService
         );
 
-        cancelationManager = new CancelableOperationManagerImpl(
+        cancelationManager = new CancelHandlerRegistryImpl(
                 clusterSvc.topologyService(),
                 clusterSvc.messagingService()
         );
@@ -1573,7 +1573,7 @@ public class IgniteImpl implements Ignite {
     }
 
     @TestOnly
-    public CancelableOperationManager cancelationManager() {
+    public CancelHandlerRegistry cancelationManager() {
         return cancelationManager;
     }
 

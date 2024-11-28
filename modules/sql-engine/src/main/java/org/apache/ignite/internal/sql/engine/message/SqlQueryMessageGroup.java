@@ -43,11 +43,9 @@ public final class SqlQueryMessageGroup {
 
     public static final short QUERY_CLOSE_MESSAGE = 5;
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-23798 Move to separate messages group.
     /** See {@link CancelOperationRequest} for the details. */
-    public static final short OPERATION_CANCEL_REQUEST = 6;
+    public static final short OPERATION_CANCEL_REQUEST = 100;
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-23798 Move to separate messages group.
     /** See {@link CancelOperationResponse} for the details. */
-    public static final short OPERATION_CANCEL_RESPONSE = 7;
+    public static final short OPERATION_CANCEL_RESPONSE = 101;
 }

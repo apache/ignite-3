@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.sql.common.cancel.api;
 
 /**
- * Manager of handlers that cancels specific operation.
+ * Registry of handlers that can abort a specific operation.
  */
-public interface CancelableOperationManager {
+public interface CancelHandlerRegistry {
     /**
      * Registers a handler that can abort a specified cancelable operation.
      *
@@ -30,10 +30,10 @@ public interface CancelableOperationManager {
     void register(OperationCancelHandler handler, CancelableOperationType type);
 
     /**
-     * Returns a handler that can abort an operation of the specified type.
+     * Returns a handler that can cancel an operation of the specified type across the entire cluster.
      *
      * @param type Type of the cancelable operation.
-     * @return Handler that can abort an operation of the specified type.
+     * @return Handler that can cancel an operation of the specified type across the entire cluster.
      */
     ClusterWideOperationCancelHandler handler(CancelableOperationType type);
 }

@@ -23,7 +23,14 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Handler that can cancel operations of a certain type.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+@FunctionalInterface
 public interface OperationCancelHandler {
+    /**
+     * Cancels an operation with the specified ID.
+     *
+     * @param objectId ID of the operation to cancel.
+     * @return {@code true} if the operation was successfully canceled,
+     *         {@code false} if a specific operation was not found or is inactive.
+     */
     CompletableFuture<Boolean> cancelAsync(UUID objectId);
 }

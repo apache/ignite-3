@@ -31,6 +31,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -436,6 +437,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, No
 
     @Override
     public CompletableFuture<Boolean> cancelAsync(UUID queryId) {
+        Objects.requireNonNull(queryId, "queryId");
+
         return queryExecutor.cancelQuery(queryId);
     }
 
@@ -556,19 +559,13 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, No
 
     /** Returns the number of running queries. */
     @TestOnly
-    public int runningQueries() {
-        QueryExecutor executor = queryExecutor;
-
-        if (executor == null) {
-            return 0;
-        }
-
-        return executor.runningQueries().size();
+    public int runningQueriesCount() {
+        return runningQueries().size();
     }
 
     /** Returns the list of running queries. */
     @TestOnly
-    public List<QueryInfo> runningQueriesInfos() {
+    public List<QueryInfo> runningQueries() {
         QueryExecutor executor = queryExecutor;
 
         if (executor == null) {

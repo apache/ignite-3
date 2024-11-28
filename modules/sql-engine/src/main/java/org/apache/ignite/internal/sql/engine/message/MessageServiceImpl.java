@@ -122,7 +122,6 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private void onMessage(String consistentId, NetworkMessage msg) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23798 Move to separate messages group.
         if (msg instanceof CancelOperationRequest) {
             return;
         }

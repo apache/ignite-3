@@ -956,7 +956,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
 
         // Wait until FIRST script statement is started to execute.
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueries(), greaterThan(1)));
+        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), greaterThan(1)));
 
         assertThat(scriptFut.isDone(), is(false));
 
@@ -970,7 +970,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 () -> IgniteTestUtils.await(scriptFut)
         );
 
-        assertThat(queryProcessor().runningQueries(), is(0));
+        assertThat(queryProcessor().runningQueriesCount(), is(0));
         assertThat(txManager().pending(), is(0));
 
         // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
@@ -979,7 +979,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 expectedErrMsg,
                 () -> executeScript(sql, token, "SELECT 1; SELECT 2;")
         );
-        assertThat(queryProcessor().runningQueries(), is(0));
+        assertThat(queryProcessor().runningQueriesCount(), is(0));
         assertThat(txManager().pending(), is(0));
     }
 

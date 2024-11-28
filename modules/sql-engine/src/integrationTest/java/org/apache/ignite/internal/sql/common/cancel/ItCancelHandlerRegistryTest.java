@@ -44,7 +44,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Cancel sql query using internal API test.
  */
-public class ItCancelableOperationManagerTest extends BaseSqlIntegrationTest {
+public class ItCancelHandlerRegistryTest extends BaseSqlIntegrationTest {
     @AfterEach
     public void checkResourceLeak() {
         assertThat(txManager().pending(), is(0));
@@ -100,7 +100,7 @@ public class ItCancelableOperationManagerTest extends BaseSqlIntegrationTest {
 
     private static List<QueryInfo> runningQueries() {
         return CLUSTER.runningNodes()
-                .flatMap(node -> ((SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine()).runningQueriesInfos().stream())
+                .flatMap(node -> ((SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine()).runningQueries().stream())
                 .collect(Collectors.toList());
     }
 

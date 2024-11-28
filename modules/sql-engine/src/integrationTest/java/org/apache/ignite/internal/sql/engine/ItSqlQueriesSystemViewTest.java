@@ -153,7 +153,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         long timeAfter = clockService.now().getPhysical();
 
         assertThat(cursors, hasSize(3));
-        assertThat(queryProcessor().runningQueries(), is(4));
+        assertThat(queryProcessor().runningQueriesCount(), is(4));
 
         // Verify script query info.
         {
@@ -198,10 +198,10 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
 
         // Closing cursors.
         await(cursors.get(0).closeAsync());
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueries(), is(3)));
+        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), is(3)));
 
         await(cursors.get(1).closeAsync());
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueries(), is(2)));
+        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), is(2)));
 
         await(cursors.get(2).closeAsync());
         checkNoPendingQueries();
@@ -224,8 +224,8 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         long timeAfter = clockService.now().getPhysical();
 
         // "DDL" and "EXPLAIN" queries close cursor automatically.
-        waitForCondition(() -> queryProcessor().runningQueries() == 4, 5_000);
-        assertThat(queryProcessor().runningQueries(), is(4));
+        waitForCondition(() -> queryProcessor().runningQueriesCount() == 4, 5_000);
+        assertThat(queryProcessor().runningQueriesCount(), is(4));
 
         String sql = "SELECT * FROM SYSTEM.SQL_QUERIES "
                 + "WHERE PARENT_ID=(SELECT ID FROM SYSTEM.SQL_QUERIES WHERE TYPE='SCRIPT') "
@@ -308,7 +308,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         for (Ignite node : nodes) {
             SqlQueryProcessor queryProcessor = (SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine();
 
-            Awaitility.await().untilAsserted(() -> assertThat(queryProcessor.runningQueries(), is(0)));
+            Awaitility.await().untilAsserted(() -> assertThat(queryProcessor.runningQueriesCount(), is(0)));
         }
     }
 

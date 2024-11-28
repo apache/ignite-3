@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.common.cancel.api;
 /**
  * Handler that cancels an operation across the entire cluster.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+@FunctionalInterface
 public interface ClusterWideOperationCancelHandler extends OperationCancelHandler {
-    // No-op.
+
 }
