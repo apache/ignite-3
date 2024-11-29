@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.internal.deployunit;
 
-/**
- * Throws when register channel with already used identifier.
- */
-public class ChannelTypeAlreadyExist extends RuntimeException {
-    /**
-     * Constructor.
-     *
-     * @param id Channel identifier.
-     * @param name Channel name.
-     */
-    public ChannelTypeAlreadyExist(short id, String name) {
-        super("Channel " + name + " can't be registered because id " + id + " already used.");
+import com.google.auto.service.AutoService;
+import org.apache.ignite.internal.network.ChannelTypeModule;
+import org.apache.ignite.internal.network.ChannelTypeRegisterer;
+
+/** {@link ChannelTypeModule} for code-deployment module. */
+@AutoService(ChannelTypeModule.class)
+public class DeploymentChannelTypeModule implements ChannelTypeModule {
+    @Override
+    public void register(ChannelTypeRegisterer channelTypeRegisterer) {
+        channelTypeRegisterer.register(DeployMessagingService.DEPLOYMENT_CHANNEL);
     }
 }

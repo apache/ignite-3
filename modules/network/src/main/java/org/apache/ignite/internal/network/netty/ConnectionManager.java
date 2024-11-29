@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.network.ChannelType.getChannelType;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.netty.bootstrap.Bootstrap;
@@ -52,6 +51,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ChannelTypeRegistry;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -145,16 +145,19 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Failure processor. */
     private final FailureManager failureManager;
 
+    private final ChannelTypeRegistry channelTypeRegistry;
+
     /**
      * Constructor.
      *
-     * @param networkConfiguration          Network configuration.
-     * @param serializationService          Serialization service.
-     * @param consistentId                  Consistent id of this node.
-     * @param bootstrapFactory              Bootstrap factory.
-     * @param staleIdDetector               Detects stale member IDs.
+     * @param networkConfiguration Network configuration.
+     * @param serializationService Serialization service.
+     * @param consistentId Consistent ID of this node.
+     * @param bootstrapFactory Bootstrap factory.
+     * @param staleIdDetector Detects stale member IDs.
      * @param clusterIdSupplier Supplier of cluster ID.
      * @param failureManager Used to fail the node if a critical failure happens.
+     * @param channelTypeRegistry {@link ChannelType} registry.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
@@ -163,7 +166,8 @@ public class ConnectionManager implements ChannelCreationListener {
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
-            FailureManager failureManager
+            FailureManager failureManager,
+            ChannelTypeRegistry channelTypeRegistry
     ) {
         this(
                 networkConfiguration,
@@ -173,21 +177,23 @@ public class ConnectionManager implements ChannelCreationListener {
                 staleIdDetector,
                 clusterIdSupplier,
                 null,
-                failureManager
+                failureManager,
+                channelTypeRegistry
         );
     }
 
     /**
      * Constructor.
      *
-     * @param networkConfiguration          Network configuration.
-     * @param serializationService          Serialization service.
-     * @param consistentId                  Consistent id of this node.
-     * @param bootstrapFactory              Bootstrap factory.
-     * @param staleIdDetector               Detects stale member IDs.
+     * @param networkConfiguration Network configuration.
+     * @param serializationService Serialization service.
+     * @param consistentId Consistent ID of this node.
+     * @param bootstrapFactory Bootstrap factory.
+     * @param staleIdDetector Detects stale member IDs.
      * @param clusterIdSupplier Supplier of cluster ID.
      * @param clientHandshakeManagerFactory Factory for {@link RecoveryClientHandshakeManager} instances.
      * @param failureManager Used to fail the node if a critical failure happens.
+     * @param channelTypeRegistry {@link ChannelType} registry.
      */
     public ConnectionManager(
             NetworkView networkConfiguration,
@@ -197,7 +203,8 @@ public class ConnectionManager implements ChannelCreationListener {
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier,
             @Nullable RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactory,
-            FailureManager failureManager
+            FailureManager failureManager,
+            ChannelTypeRegistry channelTypeRegistry
     ) {
         this.serializationService = serializationService;
         this.consistentId = consistentId;
@@ -207,6 +214,7 @@ public class ConnectionManager implements ChannelCreationListener {
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
         this.networkConfiguration = networkConfiguration;
         this.failureManager = failureManager;
+        this.channelTypeRegistry = channelTypeRegistry;
 
         this.server = new NettyServer(
                 networkConfiguration,
@@ -374,7 +382,7 @@ public class ConnectionManager implements ChannelCreationListener {
      */
     @Override
     public void handshakeFinished(NettySender channel) {
-        ConnectorKey<String> key = new ConnectorKey<>(channel.consistentId(), getChannelType(channel.channelId()));
+        ConnectorKey<String> key = new ConnectorKey<>(channel.consistentId(), channelTypeRegistry.get(channel.channelId()));
         NettySender oldChannel = channels.put(key, channel);
 
         // Old channel can still be in the map, but it must be closed already by the tie breaker in the

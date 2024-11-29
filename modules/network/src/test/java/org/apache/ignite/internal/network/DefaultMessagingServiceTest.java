@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network;
 
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -96,7 +97,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private static final int SENDER_PORT = 2001;
     private static final int RECEIVER_PORT = 2002;
 
-    private static final ChannelType TEST_CHANNEL = ChannelType.register((short) 1, "Test");
+    static final ChannelType TEST_CHANNEL = new ChannelType(Short.MAX_VALUE, "Test");
 
     @Mock
     private TopologyService topologyService;
@@ -116,6 +117,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private final NetworkMessagesFactory networkMessagesFactory = new NetworkMessagesFactory();
     private final TestMessagesFactory testMessagesFactory = new TestMessagesFactory();
     private final MessageSerializationRegistry messageSerializationRegistry = defaultSerializationRegistry();
+
+    private final ChannelTypeRegistry channelTypeRegistry = defaultChannelTypeRegistry();
 
     private final ClusterNode senderNode = new ClusterNodeImpl(
             randomUUID(),
@@ -492,7 +495,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 classDescriptorRegistry,
                 marshaller,
                 criticalWorkerRegistry,
-                failureManager
+                failureManager,
+                channelTypeRegistry
         );
 
         SerializationService serializationService = new SerializationService(
@@ -513,7 +517,8 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 staleIdDetector,
                 clusterIdSupplier,
                 clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector, clusterIdSupplier),
-                failureManager
+                failureManager,
+                channelTypeRegistry
         );
         connectionManager.start();
         connectionManager.setLocalNode(node);

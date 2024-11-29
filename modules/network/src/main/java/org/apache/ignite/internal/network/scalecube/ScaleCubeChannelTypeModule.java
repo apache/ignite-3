@@ -15,20 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file;
+package org.apache.ignite.internal.network.scalecube;
 
-import org.apache.ignite.internal.network.ChannelType;
+import com.google.auto.service.AutoService;
+import org.apache.ignite.internal.network.ChannelTypeModule;
+import org.apache.ignite.internal.network.ChannelTypeRegisterer;
 
-/**
- * Channel types used by the file transfer protocol.
- */
-final class Channel {
-    /**
-     * File transfer channel.
-     */
-    static final ChannelType FILE_TRANSFER_CHANNEL = new ChannelType((short) 3, "FileTransfer");
-
-    private Channel() {
-        // No-op.
+/** {@link ChannelTypeModule} for ScaleCube in network module. */
+@AutoService(ChannelTypeModule.class)
+public class ScaleCubeChannelTypeModule implements ChannelTypeModule {
+    @Override
+    public void register(ChannelTypeRegisterer channelTypeRegisterer) {
+        channelTypeRegisterer.register(ScaleCubeDirectMarshallerTransport.SCALE_CUBE_CHANNEL_TYPE);
     }
 }

@@ -44,6 +44,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.AbstractClusterService;
+import org.apache.ignite.internal.network.ChannelTypeRegistry;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -91,6 +92,7 @@ public class ScaleCubeClusterServiceFactory {
      * @param clusterIdSupplier Supplier for cluster ID.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
      * @param failureManager Failure processor that is used to handle critical errors.
+     * @param channelTypeRegistry {@link ChannelTypeRegistry} registry.
      * @return New cluster service.
      */
     public ClusterService createClusterService(
@@ -101,7 +103,8 @@ public class ScaleCubeClusterServiceFactory {
             StaleIds staleIds,
             ClusterIdSupplier clusterIdSupplier,
             CriticalWorkerRegistry criticalWorkerRegistry,
-            FailureManager failureManager
+            FailureManager failureManager,
+            ChannelTypeRegistry channelTypeRegistry
     ) {
         var topologyService = new ScaleCubeTopologyService();
 
@@ -126,7 +129,8 @@ public class ScaleCubeClusterServiceFactory {
                 userObjectSerialization.descriptorRegistry(),
                 userObjectSerialization.marshaller(),
                 criticalWorkerRegistry,
-                failureManager
+                failureManager,
+                channelTypeRegistry
         );
 
         return new AbstractClusterService(consistentId, topologyService, messagingService, serializationRegistry) {
@@ -152,7 +156,8 @@ public class ScaleCubeClusterServiceFactory {
                         nettyBootstrapFactory,
                         staleIds,
                         clusterIdSupplier,
-                        failureManager
+                        failureManager,
+                        channelTypeRegistry
                 );
                 this.connectionMgr = connectionMgr;
 

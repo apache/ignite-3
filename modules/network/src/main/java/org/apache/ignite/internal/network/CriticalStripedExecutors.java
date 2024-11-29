@@ -17,56 +17,47 @@
 
 package org.apache.ignite.internal.network;
 
-import static java.util.Comparator.comparingInt;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedExecutor;
-import org.apache.ignite.internal.worker.CriticalStripedThreadPoolExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 
 /**
- * Collection of {@link StripedExecutor executors} for the network based on {@link ChannelType#register registered channels} and optimized
- * for quick get of an executor.
+ * Collection of {@link StripedExecutor executors} for the network based on {@link ChannelType#id()}.
  *
- * <p>It is important that all {@link ChannelType} are {@link ChannelType#register} registered} before creating this object.</p>
+ * <p>Executors are created once in the constructor, so it is important that all {@link ChannelType} are registered at the time the
+ * constructor is called. This was done intentionally to optimize and get rid of contention.</p>
  */
 class CriticalStripedExecutors implements ManuallyCloseable {
-    /**
-     * Maximum number of stripes in the thread pool in which incoming network messages for the {@link ChannelType#DEFAULT} channel
-     * are handled.
-     */
-    private static final int DEFAULT_CHANNEL_INBOUND_WORKERS = 4;
-
     private final CriticalWorkerRegistry workerRegistry;
 
-    private final StripedExecutor[] executorByChannelTypeId;
+    private final StripedExecutorByChannelTypeId executorByChannelTypeId;
 
     private final List<CriticalWorker> registeredWorkers = new CopyOnWriteArrayList<>();
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    /** Constructor. */
     CriticalStripedExecutors(
             String nodeName,
             String poolNamePrefix,
             CriticalWorkerRegistry workerRegistry,
+            ChannelTypeRegistry channelTypeRegistry,
             IgniteLogger log
     ) {
         this.workerRegistry = workerRegistry;
 
-        executorByChannelTypeId = createStripedExecutorsForRegisteredChannelTypes(nodeName, poolNamePrefix, log);
+        var factory = new CriticalStripedThreadPoolExecutorFactory(nodeName, poolNamePrefix, log, workerRegistry, registeredWorkers);
+
+        executorByChannelTypeId = StripedExecutorByChannelTypeId.of(channelTypeRegistry, factory);
     }
 
     @Override
@@ -78,7 +69,8 @@ class CriticalStripedExecutors implements ManuallyCloseable {
         registeredWorkers.forEach(workerRegistry::unregister);
 
         closeAll(
-                Arrays.stream(executorByChannelTypeId).parallel()
+                executorByChannelTypeId.stream()
+                        .parallel()
                         .map(executor -> () -> shutdownAndAwaitTermination(executor, 10, SECONDS))
         );
     }
@@ -90,52 +82,6 @@ class CriticalStripedExecutors implements ManuallyCloseable {
      * @param stripeIndex Index of the stripe.
      */
     Executor executorFor(short channelTypeId, int stripeIndex) {
-        assert channelTypeId >= 0 && channelTypeId < executorByChannelTypeId.length : "Channel type is not registered: " + channelTypeId;
-
-        return executorByChannelTypeId[channelTypeId].stripeExecutor(stripeIndex);
-    }
-
-    private StripedExecutor[] createStripedExecutorsForRegisteredChannelTypes(String nodeName, String poolNamePrefix, IgniteLogger log) {
-        ChannelType[] channelTypes = ChannelType.getRegisteredChannelTypes().stream()
-                .sorted(comparingInt(ChannelType::id))
-                .toArray(ChannelType[]::new);
-
-        assert channelTypes.length > 0;
-        assert channelTypes[0].id() == 0 : channelTypes[0].id();
-
-        StripedExecutor[] executors = new StripedExecutor[channelTypes.length];
-        int previousChannelTypeId = -1;
-
-        for (int i = 0; i < channelTypes.length; i++) {
-            ChannelType channelType = channelTypes[i];
-
-            assert channelType.id() == previousChannelTypeId + 1 : String.format(
-                    "There should be no gaps between channel IDs: [current=%s, previous=%s]", channelType.id(), previousChannelTypeId);
-
-            executors[i] = newStripedExecutor(nodeName, poolNamePrefix, channelType, log);
-
-            previousChannelTypeId = channelType.id();
-        }
-
-        return executors;
-    }
-
-    private StripedExecutor newStripedExecutor(String nodeName, String poolNamePrefix, ChannelType channelType, IgniteLogger log) {
-        short channelTypeId = channelType.id();
-        String poolName = poolNamePrefix + "-" + channelType.name() + "-" + channelTypeId;
-
-        var threadFactory = IgniteThreadFactory.create(nodeName, poolName, log, NOTHING_ALLOWED);
-        var executor = new CriticalStripedThreadPoolExecutor(stripeCountForIndex(channelTypeId), threadFactory, false, 0);
-
-        for (CriticalWorker worker : executor.workers()) {
-            workerRegistry.register(worker);
-            registeredWorkers.add(worker);
-        }
-
-        return executor;
-    }
-
-    private static int stripeCountForIndex(short channelTypeId) {
-        return channelTypeId == ChannelType.DEFAULT.id() ? DEFAULT_CHANNEL_INBOUND_WORKERS : 1;
+        return executorByChannelTypeId.get(channelTypeId);
     }
 }

@@ -134,6 +134,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param marshaller Marshaller.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
      * @param failureManager Failure processor.
+     * @param channelTypeRegistry {@link ChannelType} registry.
      */
     public DefaultMessagingService(
             String nodeName,
@@ -143,7 +144,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             ClassDescriptorRegistry classDescriptorRegistry,
             UserObjectMarshaller marshaller,
             CriticalWorkerRegistry criticalWorkerRegistry,
-            FailureManager failureManager
+            FailureManager failureManager,
+            ChannelTypeRegistry channelTypeRegistry
     ) {
         this.factory = factory;
         this.topologyService = topologyService;
@@ -156,7 +158,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 IgniteThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
         );
 
-        inboundExecutors = new CriticalStripedExecutors(nodeName, "MessagingService-inbound", criticalWorkerRegistry, LOG);
+        inboundExecutors = new CriticalStripedExecutors(
+                nodeName,
+                "MessagingService-inbound",
+                criticalWorkerRegistry,
+                channelTypeRegistry,
+                LOG
+        );
 
         timeoutWorker = new TimeoutWorker(
                 LOG,
