@@ -15,20 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file;
+package org.apache.ignite.internal.network;
 
-import org.apache.ignite.internal.network.ChannelType;
+import com.google.auto.service.AutoService;
 
-/**
- * Channel types used by the file transfer protocol.
- */
-final class Channel {
-    /**
-     * File transfer channel.
-     */
-    static final ChannelType FILE_TRANSFER_CHANNEL = new ChannelType((short) 3, "FileTransfer");
-
-    private Channel() {
-        // No-op.
+/** {@link ChannelTypeModule} for network module in tests. */
+@AutoService(ChannelTypeModule.class)
+public class TestNetworkChannelTypeModule implements ChannelTypeModule {
+    @Override
+    public void register(ChannelTypeRegistrar channelTypeRegistrar) {
+        channelTypeRegistrar.register(DefaultMessagingServiceTest.TEST_CHANNEL);
     }
 }

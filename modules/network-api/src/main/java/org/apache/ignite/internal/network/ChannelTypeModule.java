@@ -15,20 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.file;
+package org.apache.ignite.internal.network;
 
-import org.apache.ignite.internal.network.ChannelType;
+import java.util.ServiceLoader;
 
 /**
- * Channel types used by the file transfer protocol.
+ * Registrar of {@link ChannelType} for each module that should be loaded into the via the {@link ServiceLoader} and then received
+ * via {@link ChannelTypeRegistry}.
  */
-final class Channel {
-    /**
-     * File transfer channel.
-     */
-    static final ChannelType FILE_TRANSFER_CHANNEL = new ChannelType((short) 3, "FileTransfer");
-
-    private Channel() {
-        // No-op.
-    }
+public interface ChannelTypeModule {
+    void register(ChannelTypeRegistrar channelTypeRegistrar);
 }
