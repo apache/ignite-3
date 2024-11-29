@@ -82,6 +82,6 @@ class CriticalStripedExecutors implements ManuallyCloseable {
      * @param stripeIndex Index of the stripe.
      */
     Executor executorFor(short channelTypeId, int stripeIndex) {
-        return executorByChannelTypeId.get(channelTypeId);
+        return executorByChannelTypeId.get(channelTypeId).stripeExecutor(stripeIndex);
     }
 }
