@@ -28,12 +28,12 @@ import org.apache.ignite.internal.util.CollectionUtils;
 
 /** Map-based implementation allows working with gaps in {@link ChannelType#id()}. */
 class MapChannelTypeRegistry implements ChannelTypeRegistry {
-    private final Int2ObjectMap<ChannelType> channelTypeById;
+    private final Int2ObjectMap<ChannelType> map;
 
     MapChannelTypeRegistry(ChannelType... channelTypes) {
         assert !nullOrEmpty(channelTypes);
 
-        channelTypeById = Arrays.stream(channelTypes)
+        map = Arrays.stream(channelTypes)
                 .collect(CollectionUtils.toIntMapCollector(
                         channelType -> (int) channelType.id(),
                         Function.identity()
@@ -42,7 +42,7 @@ class MapChannelTypeRegistry implements ChannelTypeRegistry {
 
     @Override
     public ChannelType get(short id) {
-        ChannelType channelType = channelTypeById.get(id);
+        ChannelType channelType = map.get(id);
 
         assert channelType != null : "Channel type is not registered: " + id;
 
@@ -51,6 +51,6 @@ class MapChannelTypeRegistry implements ChannelTypeRegistry {
 
     @Override
     public Collection<ChannelType> getAll() {
-        return unmodifiableCollection(channelTypeById.values());
+        return unmodifiableCollection(map.values());
     }
 }
