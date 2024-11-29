@@ -112,6 +112,8 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
 
             int txFinishedAfter = txManager.finished();
 
+            // Some transactions that were detected early might be cleaned up. So we cannot check the strict equals here,
+            // but we check that the new transaction does not appear.
             assertFalse(txRwStatesAfter > txRwStatesBefore, "RW transaction was stated unexpectedly.");
 
             assertEquals(2, txFinishedAfter - txFinishedBefore, format(
