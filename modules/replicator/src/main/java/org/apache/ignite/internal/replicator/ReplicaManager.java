@@ -1258,7 +1258,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
                                 + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
 
-                    assert replicaManager.replica(groupId) != null;
+                    assert replicaManager.replica(groupId) != null : format("id={}, state={}", groupId, context.replicaState);;
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(groupId, parameters.startTime());
 
@@ -1285,7 +1285,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 if (context != null) {
                     synchronized (context) {
                         if (parameters.leaseholderId().equals(localNodeId)) {
-                            assert replicaManager.replica(groupId) != null;
+                            assert replicaManager.replica(groupId) != null : format("id={}, state={}", groupId, context.replicaState);
                         }
 
                         context.assertReservation(parameters.groupId(), parameters.startTime());
