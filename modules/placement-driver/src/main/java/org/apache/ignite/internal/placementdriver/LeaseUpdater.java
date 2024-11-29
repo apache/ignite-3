@@ -400,15 +400,15 @@ public class LeaseUpdater {
 
         /** Updates leases in Meta storage. This method is supposed to be used in the busy lock. */
         private void updateLeaseBatchInternal() {
-            HybridTimestamp now = clockService.now();
+            HybridTimestamp currentTime = clockService.current();
 
             leaseUpdateStatistics = new LeaseStats();
 
             long leaseExpirationInterval = replicationConfiguration.leaseExpirationInterval().value();
 
-            long outdatedLeaseThreshold = now.getPhysical() + leaseExpirationInterval / 2;
+            long outdatedLeaseThreshold = currentTime.getPhysical() + leaseExpirationInterval / 2;
 
-            HybridTimestamp newExpirationTimestamp = new HybridTimestamp(now.getPhysical() + leaseExpirationInterval, 0);
+            HybridTimestamp newExpirationTimestamp = new HybridTimestamp(currentTime.getPhysical() + leaseExpirationInterval, 0);
 
             Leases leasesCurrent = leaseTracker.leasesCurrent();
             Map<ReplicationGroupId, LeaseAgreement> toBeNegotiated = new HashMap<>();
@@ -549,7 +549,7 @@ public class LeaseUpdater {
                 ReplicationGroupId groupId = entry.getKey();
                 Lease lease = entry.getValue();
 
-                if (clockService.before(lease.getExpirationTime(), now)
+                if (clockService.before(lease.getExpirationTime(), currentTime)
                         && !groupsAmongCurrentStableAndPendingAssignments.contains(groupId)) {
                     iter.remove();
                 } else if (prolongableLeaseGroupIds.contains(groupId)

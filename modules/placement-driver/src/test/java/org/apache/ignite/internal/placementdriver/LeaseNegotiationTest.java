@@ -346,7 +346,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testAllLeasesAreProlongedIfOneIs() throws InterruptedException {
-        leaseGrantedMessageHandler = (n, lgm) -> createLeaseGrantedMessageResponse(true);
+        leaseGrantedMessageHandler = (n, lgm) -> completedFuture(createLeaseGrantedMessageResponse(true));
 
         TablePartitionId groupId0 = new TablePartitionId(1, 0);
         TablePartitionId groupId1 = new TablePartitionId(1, 1);
@@ -382,7 +382,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testLeasesCleanup() throws InterruptedException {
-        leaseGrantedMessageHandler = (n, lgm) -> createLeaseGrantedMessageResponse(true);
+        leaseGrantedMessageHandler = (n, lgm) -> completedFuture(createLeaseGrantedMessageResponse(true));
 
         metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp));
 
