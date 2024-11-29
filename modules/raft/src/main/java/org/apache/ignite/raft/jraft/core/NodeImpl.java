@@ -50,7 +50,6 @@ import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
-import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
@@ -290,8 +289,10 @@ public class NodeImpl implements Node, RaftServerService {
         // task list for batch
         private final List<LogEntryAndClosure> tasks = new ArrayList<>(NodeImpl.this.raftOptions.getApplyBatch());
 
+        private HybridTimestamp safeTs = null;
+
         @Override
-        public void onEvent(final LogEntryAndClosure event, final long sequence, final boolean endOfBatch) throws Exception {
+        public void onEvent(final LogEntryAndClosure event, final long sequence, final boolean endOfBatch) {
             if (event.shutdownLatch != null) {
                 if (!this.tasks.isEmpty()) {
                     executeApplyingTasks(this.tasks);
@@ -301,19 +302,24 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
 
-            // Patch binary command. TODO use marshaller.
-            HybridTimestamp safeTs = clock.now();
-            ByteBuffer data = event.entry.getData();
-            data.putLong(4, safeTs.longValue());
+            // Patch safe timestamp.
             if (event.done instanceof CommandClosure) {
                 CommandClosure<?> cmd = (CommandClosure<?>) event.done;
                 Command command = cmd.command();
-                if (command instanceof WriteCommand) {
-                    ((WriteCommand)command).patch(safeTs);
-                }
-            }
-            System.out.println("DBG: apply patch " + safeTs + " " + groupId);
 
+                // Tick once per batch.
+                if (safeTs == null) {
+                    safeTs = command.initiatorTime() == null ? clock.now() : clock.now(command.initiatorTime());
+                }
+
+                // Binary patch.
+                options.getCommandsMarshaller().patch(event.entry.getData(), safeTs);
+
+                // Object patch.
+                command.patch(safeTs);
+
+                System.out.println("DBG: apply patch " + safeTs + " " + groupId);
+            }
             // TODO call once per batch.
 
             this.tasks.add(event);
@@ -328,6 +334,7 @@ public class NodeImpl implements Node, RaftServerService {
                 task.reset();
             }
             this.tasks.clear();
+            this.safeTs = null;
         }
     }
 
@@ -1451,7 +1458,6 @@ public class NodeImpl implements Node, RaftServerService {
                             .term(electSelfTerm)
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
-                            .timestamp(clock.now())
                             .build();
                     this.rpcClientService.requestVote(peer, done.request, done);
                 });
@@ -2033,7 +2039,6 @@ public class NodeImpl implements Node, RaftServerService {
                 .requestVoteResponse()
                 .term(this.currTerm)
                 .granted(granted)
-                .timestamp(clock.update(request.timestamp()))
                 .build();
         }
         finally {
@@ -2149,7 +2154,6 @@ public class NodeImpl implements Node, RaftServerService {
                 .requestVoteResponse()
                 .term(this.currTerm)
                 .granted(request.term() == this.currTerm && candidateId.equals(this.votedId))
-                .timestamp(clock.update(request.timestamp()))
                 .build();
         }
         finally {
@@ -2947,8 +2951,6 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
 
-            clock.update(response.timestamp());
-
             // check granted quorum?
             if (response.granted()) {
                 this.voteCtx.grant(peerId);
@@ -3108,7 +3110,6 @@ public class NodeImpl implements Node, RaftServerService {
                             .term(preVoteTerm + 1) // next term
                             .lastLogIndex(lastLogId.getIndex())
                             .lastLogTerm(lastLogId.getTerm())
-                            .timestamp(clock.now())
                             .build();
                     this.rpcClientService.preVote(peer, done.request, done);
                 });

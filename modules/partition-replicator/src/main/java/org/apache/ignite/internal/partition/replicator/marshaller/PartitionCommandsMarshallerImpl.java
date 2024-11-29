@@ -33,6 +33,11 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
     }
 
     @Override
+    public void patch(ByteBuffer raw, HybridTimestamp safeTs) {
+        raw.putLong(4, safeTs.longValue());
+    }
+
+    @Override
     protected void beforeWriteMessage(Object o, ByteBuffer buffer) {
         int requiredCatalogVersion = o instanceof CatalogVersionAware
                 ? ((CatalogVersionAware) o).requiredCatalogVersion()

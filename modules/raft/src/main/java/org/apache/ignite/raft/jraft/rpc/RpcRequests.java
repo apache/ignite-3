@@ -17,8 +17,6 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
@@ -151,8 +149,6 @@ public final class RpcRequests {
         long lastLogIndex();
 
         boolean preVote();
-
-        HybridTimestamp timestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.REQUEST_VOTE_RESPONSE)
@@ -166,8 +162,6 @@ public final class RpcRequests {
          * <code>required bool granted = 2;</code>
          */
         boolean granted();
-
-        HybridTimestamp timestamp();
     }
 
     @Transferable(RaftMessageGroup.RpcRequestsMessageGroup.APPEND_ENTRIES_REQUEST)

@@ -98,7 +98,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
         return 300_000;
     }
 
-    @RepeatedTest(20)
+    @Test
     public void testImplicitObservableTimePropagation() {
         RecordView<Tuple> view = accounts.recordView();
         view.upsert(null, makeValue(1, 100.0));
@@ -150,8 +150,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
                     fail("Unexpected interrupt");
                 }
 
-                LOG.info("DBG: node={}, group={}, hlc={}, safeTs={}", raftNode.getNodeId(), raftNode.getGroupId(), clock.last(),
-                        safeTime.current());
+                LOG.info("DBG: node={}, group={}, safeTs={}", raftNode.getNodeId(), raftNode.getGroupId(), safeTime.current());
             }
         });
 

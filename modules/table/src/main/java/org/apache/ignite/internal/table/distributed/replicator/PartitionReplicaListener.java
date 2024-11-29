@@ -2655,7 +2655,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 txId,
                 full,
                 txCoordinatorId,
-                null,
+                clockService.current(),
                 catalogVersion,
                 full ? leaseStartTime : null  // Lease start time check within the replication group is needed only for full txns.
         );
@@ -2775,7 +2775,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 rowsToUpdate,
                 commitPartitionId,
                 txId,
-                null,
+                clockService.current(),
                 full,
                 txCoordinatorId,
                 catalogVersion,
@@ -3726,7 +3726,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID txId,
             boolean full,
             UUID txCoordinatorId,
-            @Nullable HybridTimestamp safeTimeTimestamp,
+            @Nullable HybridTimestamp initiatorTime,
             int catalogVersion,
             @Nullable Long leaseStartTime
     ) {
@@ -3735,7 +3735,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .rowUuid(rowUuid)
                 .txId(txId)
                 .full(full)
-                .safeTime(safeTimeTimestamp)
+                .initiatorTime(initiatorTime)
                 .txCoordinatorId(txCoordinatorId)
                 .requiredCatalogVersion(catalogVersion)
                 .leaseStartTime(leaseStartTime);
@@ -3768,7 +3768,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             Map<UUID, TimedBinaryRowMessage> rowsToUpdate,
             TablePartitionIdMessage commitPartitionId,
             UUID transactionId,
-            HybridTimestamp safeTimeTimestamp,
+            HybridTimestamp initiatorTime,
             boolean full,
             UUID txCoordinatorId,
             int catalogVersion,
@@ -3778,7 +3778,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .tablePartitionId(commitPartitionId)
                 .messageRowsToUpdate(rowsToUpdate)
                 .txId(transactionId)
-                .safeTime(safeTimeTimestamp)
+                .initiatorTime(initiatorTime)
                 .full(full)
                 .txCoordinatorId(txCoordinatorId)
                 .requiredCatalogVersion(catalogVersion)

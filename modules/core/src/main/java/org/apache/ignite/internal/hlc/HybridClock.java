@@ -31,6 +31,13 @@ public interface HybridClock {
     long nowLong();
 
     /**
+     * Creates a timestamp for new event. A timestamp is guarantied to be unique and monotonically grown.
+     *
+     * @return The hybrid timestamp.
+     */
+    long nowLong(HybridTimestamp causal);
+
+    /**
      * Gets a current timestamp as long. It is a fast way to get timestamp because it doesn't have to tick the logical part of the clock.
      * This timestamp is not unique, and equal to or less than that value is returned by {@link this#nowLong()}.
      *
@@ -46,14 +53,21 @@ public interface HybridClock {
     HybridTimestamp now();
 
     /**
+     * Creates a timestamp for new event. A timestamp is guarantied to be unique and monotonically grown and be after the causal.
+     *
+     * @param causal The causal timestamp.
+     *
+     * @return The hybrid timestamp.
+     */
+    HybridTimestamp now(HybridTimestamp causal);
+
+    /**
      * Gets a current timestamp. It is a fast way to get timestamp because it doesn't have to tick.
      * This timestamp is not unique, and equal to or less than that value is returned by {@link this#now()}.
      *
      * @return The hybrid timestamp.
      */
     HybridTimestamp current();
-
-    @Nullable HybridTimestamp last();
 
     /**
      * Advances the clock in accordance with the request time. If the request time is ahead of the clock,

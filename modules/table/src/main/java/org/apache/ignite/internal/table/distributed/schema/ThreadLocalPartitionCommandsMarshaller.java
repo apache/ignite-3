@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.util.DefaultByteBuffersPool;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller.ByteBuffersPool;
@@ -39,6 +40,11 @@ public class ThreadLocalPartitionCommandsMarshaller implements PartitionCommands
      */
     public ThreadLocalPartitionCommandsMarshaller(MessageSerializationRegistry serializationRegistry) {
         marshaller = ThreadLocal.withInitial(() -> new PartitionCommandsMarshallerImpl(serializationRegistry, pool));
+    }
+
+    @Override
+    public void patch(ByteBuffer raw, HybridTimestamp safeTs) {
+        marshaller.get().patch(raw, safeTs);
     }
 
     @Override
