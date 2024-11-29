@@ -46,8 +46,10 @@ import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfig
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.junit.jupiter.api.RepeatedTest;
 
@@ -73,7 +75,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
-    @RepeatedTest(5)
+    @RepeatedTest(20)
     void testHaRecoveryWhenMajorityLoss() throws InterruptedException {
         createHaZoneWithTable();
 
@@ -284,7 +286,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         return catalogService.zone(zoneName, clock.nowLong()).id();
     }
 
-    private void createHaZoneWithTable() {
+    private void createHaZoneWithTable() throws InterruptedException {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='HIGH_AVAILABILITY'",
                 HA_ZONE_NAME, initialNodes(), 2, DEFAULT_STORAGE_PROFILE
@@ -296,6 +298,28 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         ));
 
         Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+
+        assertTrue(waitForCondition(() -> {
+            AtomicLong partitionStorages = new AtomicLong(0);
+
+            for (Ignite ignite: runningNodes().collect(Collectors.toUnmodifiableSet())) {
+                unwrapIgniteImpl(ignite).raftManager().forEach((raftNodeId, raftGroupService) -> {
+
+                    if (raftNodeId.groupId() instanceof TablePartitionId) {
+                        try {
+                            if (unwrapIgniteImpl(ignite).raftManager().raftNodeIndex(raftNodeId).index() > 0) {
+                                partitionStorages.incrementAndGet();
+                            }
+                        } catch (NodeStoppingException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                });
+            }
+
+            return 2L * initialNodes() == partitionStorages.get();
+        }, 10_000));
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), HA_TABLE_NAME, Set.of(0, 1), allNodes);
     }

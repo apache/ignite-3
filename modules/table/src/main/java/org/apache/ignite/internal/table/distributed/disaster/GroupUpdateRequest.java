@@ -52,6 +52,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -292,10 +293,15 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         Set<Assignment> aliveStableNodes = CollectionUtils.intersect(currentAssignments, partAssignments);
 
         if (aliveStableNodes.size() >= (replicas / 2 + 1)) {
+            ForkJoinPool.commonPool().submit(() ->
+                    LOG.info("KKK majority here partiId" + partId + " revision " + revision + " assignmentsTimestamp " + assignmentsTimestamp));
             return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
         }
 
         if (aliveStableNodes.isEmpty() && !manualUpdate) {
+            ForkJoinPool.commonPool().submit(() ->
+                    LOG.info("KKK alive empty partiId" + partId + " revision " + revision + " assignmentsTimestamp " + assignmentsTimestamp
+                    + "getAliveNodesWithData " + partAssignments + " currentAssignments " + currentAssignments));
             return completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
         }
 
@@ -316,6 +322,9 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
         // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
         // for the case of the manual update, that was triggered by a user.
+        ForkJoinPool.commonPool().submit(() ->
+            LOG.info("KKK partiId" + partId + " revision " + revision + " pending " + nextAssignment + " assignmentsTimestamp " + assignmentsTimestamp));
+
         Iif invokeClosure = prepareMsInvokeClosure(
                 partId,
                 longToBytesKeepingOrder(revision),
@@ -405,7 +414,10 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             Set<String> aliveNodesConsistentIds,
             @Nullable LocalPartitionStateMessageByNode localPartitionStateMessageByNode
     ) {
+
+        LOG.info("KKK aliveNodesConsistentIds " + aliveNodesConsistentIds + " localPartitionStateMessageByNode " + localPartitionStateMessageByNode);
         if (localPartitionStateMessageByNode == null) {
+            LOG.info("KKK localPartitionStateMessageByNode is null");
             return Set.of();
         }
 
