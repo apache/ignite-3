@@ -21,8 +21,8 @@ import static java.util.Collections.emptyMap;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
@@ -37,7 +37,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteOrder;
@@ -103,21 +102,9 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     /** Cluster nodes. */
     private final LogicalNode stableNode = new LogicalNode(randomUUID(), "test-node-stable", NetworkAddress.from("127.0.0.1:10000"));
     private final LogicalNode pendingNode = new LogicalNode(randomUUID(), "test-node-pending", NetworkAddress.from("127.0.0.1:10001"));
-    @Mock
-    private ClusterService clusterService;
-    @Mock
-    private MetaStorageManager metaStorageManager;
+
     @Mock
     private LogicalTopologyService topologyService;
-    @Mock
-    private LeaseTracker leaseTracker;
-    @Mock
-    private Cursor<Entry> msStableAssignmentsEntriesCursor;
-    @Mock
-    private Cursor<Entry> msPendingAssignmentsEntriesCursor;
-
-    @InjectConfiguration
-    private ReplicationConfiguration replicationConfiguration;
 
     /** Lease updater for tests. */
     private LeaseUpdater leaseUpdater;
@@ -128,7 +115,13 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     private volatile Consumer<Lease> renewLeaseConsumer = null;
 
     @BeforeEach
-    void setUp() {
+    void setUp(
+            @Mock ClusterService clusterService,
+            @Mock LeaseTracker leaseTracker,
+            @Mock MetaStorageManager metaStorageManager,
+            @Mock MessagingService messagingService,
+            @InjectConfiguration ReplicationConfiguration replicationConfiguration
+    ) {
         HybridClockImpl clock = new HybridClockImpl();
 
         Entry stableEntry = new EntryImpl(
@@ -145,20 +138,20 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 clock.now()
         );
 
-        MessagingService messagingService = mock(MessagingService.class);
         when(messagingService.invoke(anyString(), any(), anyLong()))
                 .then(i -> completedFuture(PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse().accepted(true).build()));
 
-        when(msStableAssignmentsEntriesCursor.iterator()).thenReturn(List.of(stableEntry).iterator());
-        when(msPendingAssignmentsEntriesCursor.iterator()).thenReturn(List.of(pendingEntry).iterator());
         when(clusterService.messagingService()).thenReturn(messagingService);
+
         lenient().when(leaseTracker.leasesCurrent()).thenReturn(leases);
         lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).then(i -> Lease.emptyLease(i.getArgument(0)));
+
         when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));
-        when(metaStorageManager.getLocally(eq(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX)), any(ByteArray.class), anyLong()))
-                .thenReturn(msStableAssignmentsEntriesCursor);
-        when(metaStorageManager.getLocally(eq(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX)), any(ByteArray.class), anyLong()))
-                .thenReturn(msPendingAssignmentsEntriesCursor);
+        when(metaStorageManager.prefixLocally(eq(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES)), anyLong()))
+                .thenReturn(Cursor.fromIterable(List.of(stableEntry)));
+        when(metaStorageManager.prefixLocally(eq(new ByteArray(PENDING_ASSIGNMENTS_PREFIX_BYTES)), anyLong()))
+                .thenReturn(Cursor.fromIterable(List.of(pendingEntry)));
+
         when(topologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, List.of(stableNode))));
 
         lenient().when(metaStorageManager.invoke(any(Condition.class), any(Operation.class), any(Operation.class)))
@@ -374,7 +367,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
      *
      * @return The lease updater thread.
      */
-    private Thread getUpdaterThread() {
+    private static @Nullable Thread getUpdaterThread() {
         Set<Thread> threads = Thread.getAllStackTraces().keySet().stream()
                 .filter(t -> t.getName().contains("lease-updater")).collect(toSet());
 
