@@ -114,7 +114,6 @@ public class HybridClockImpl implements HybridClock {
         long requestTimeLong = requestTime.longValue();
 
         while (true) {
-            // Read the latest time after accessing UTC time to reduce contention.
             long oldLatestTime = this.latestTime;
 
             if (oldLatestTime >= requestTimeLong) {
