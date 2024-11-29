@@ -55,15 +55,19 @@ import org.junit.jupiter.api.RepeatedTest;
 
 /** Test for the HA zones recovery. */
 public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegrationTest {
-    private static String HA_ZONE_NAME = "HA_ZONE";
+    private static final String HA_ZONE_NAME = "HA_ZONE";
 
-    private static String HA_TABLE_NAME = "HA_TABLE";
+    private static final String HA_TABLE_NAME = "HA_TABLE";
 
-    private static String SC_ZONE_NAME = "SC_ZONE";
+    private static final String SC_ZONE_NAME = "SC_ZONE";
 
-    private static String SC_TABLE_NAME = "SC_TABLE";
+    private static final String SC_TABLE_NAME = "SC_TABLE";
+
+    private static final int PARTITION_NUMBERS = 2;
 
     protected final HybridClock clock = new HybridClockImpl();
+
+
 
     @Override
     protected int initialNodes() {
@@ -289,7 +293,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
     private void createHaZoneWithTable() throws InterruptedException {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='HIGH_AVAILABILITY'",
-                HA_ZONE_NAME, initialNodes(), 2, DEFAULT_STORAGE_PROFILE
+                HA_ZONE_NAME, initialNodes(), PARTITION_NUMBERS, DEFAULT_STORAGE_PROFILE
         ));
 
         executeSql(String.format(
@@ -299,27 +303,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
         Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
-
-        assertTrue(waitForCondition(() -> {
-            AtomicLong partitionStorages = new AtomicLong(0);
-
-            for (Ignite ignite: runningNodes().collect(Collectors.toUnmodifiableSet())) {
-                unwrapIgniteImpl(ignite).raftManager().forEach((raftNodeId, raftGroupService) -> {
-
-                    if (raftNodeId.groupId() instanceof TablePartitionId) {
-                        try {
-                            if (unwrapIgniteImpl(ignite).raftManager().raftNodeIndex(raftNodeId).index() > 0) {
-                                partitionStorages.incrementAndGet();
-                            }
-                        } catch (NodeStoppingException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                });
-            }
-
-            return 2L * initialNodes() == partitionStorages.get();
-        }, 10_000));
+        awaitForAllNodesTableGroupInitialization();
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), HA_TABLE_NAME, Set.of(0, 1), allNodes);
     }
@@ -327,7 +311,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
     private void createScZoneWithTable() {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='STRONG_CONSISTENCY'",
-                SC_ZONE_NAME, initialNodes(), 2, DEFAULT_STORAGE_PROFILE
+                SC_ZONE_NAME, initialNodes(), PARTITION_NUMBERS, DEFAULT_STORAGE_PROFILE
         ));
 
         executeSql(String.format(
@@ -402,5 +386,30 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assert revision.get() != 0;
 
         return revision.get();
+    }
+
+    private void awaitForAllNodesTableGroupInitialization() throws InterruptedException {
+        assertTrue(waitForCondition(() -> {
+            AtomicLong numberOfInitializedReplicas = new AtomicLong(0);
+
+            runningNodes().forEach(ignite -> {
+                IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
+                igniteImpl.raftManager().forEach((raftNodeId, raftGroupService) -> {
+
+                    if (raftNodeId.groupId() instanceof TablePartitionId) {
+                        try {
+                            if (igniteImpl.raftManager().raftNodeIndex(raftNodeId).index() > 0) {
+                                numberOfInitializedReplicas.incrementAndGet();
+                            }
+                        } catch (NodeStoppingException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                });
+
+            });
+
+            return PARTITION_NUMBERS * initialNodes() == numberOfInitializedReplicas.get();
+        }, 10_000));
     }
 }
