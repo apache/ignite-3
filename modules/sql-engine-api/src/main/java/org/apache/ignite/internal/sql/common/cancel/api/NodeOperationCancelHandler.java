@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.common.cancel.api;
 
 /**
- * Handler that cancels an operation on the local node.
+ * Handler that can cancel operations on the local node only.
  */
 @FunctionalInterface
 public interface NodeOperationCancelHandler extends OperationCancelHandler {

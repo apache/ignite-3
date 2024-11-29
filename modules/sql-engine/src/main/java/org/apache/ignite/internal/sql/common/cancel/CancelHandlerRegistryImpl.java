@@ -24,7 +24,7 @@ import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.common.cancel.api.CancelHandlerRegistry;
-import org.apache.ignite.internal.sql.common.cancel.api.CancelableOperationType;
+import org.apache.ignite.internal.sql.common.cancel.api.CancellableOperationType;
 import org.apache.ignite.internal.sql.common.cancel.api.ClusterWideOperationCancelHandler;
 import org.apache.ignite.internal.sql.common.cancel.api.NodeOperationCancelHandler;
 import org.apache.ignite.internal.sql.common.cancel.api.OperationCancelHandler;
@@ -41,7 +41,7 @@ import org.jetbrains.annotations.Nullable;
 public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
-    private final EnumMap<CancelableOperationType, OperationCancelHandler> handlers = new EnumMap<>(CancelableOperationType.class);
+    private final EnumMap<CancellableOperationType, OperationCancelHandler> handlers = new EnumMap<>(CancellableOperationType.class);
 
     private final TopologyService topologyService;
 
@@ -58,7 +58,7 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
     }
 
     @Override
-    public void register(OperationCancelHandler handler, CancelableOperationType type) {
+    public void register(OperationCancelHandler handler, CancellableOperationType type) {
         Objects.requireNonNull(handler, "handler");
         Objects.requireNonNull(type, "type");
 
@@ -75,7 +75,7 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
     }
 
     @Override
-    public ClusterWideOperationCancelHandler handler(CancelableOperationType type) {
+    public ClusterWideOperationCancelHandler handler(CancellableOperationType type) {
         OperationCancelHandler handler = handlerOrThrow(type);
 
         if (handler instanceof NodeOperationCancelHandler) {
@@ -92,7 +92,7 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
         return (ClusterWideOperationCancelHandler) handler;
     }
 
-    private OperationCancelHandler handlerOrThrow(CancelableOperationType type) {
+    private OperationCancelHandler handlerOrThrow(CancellableOperationType type) {
         Objects.requireNonNull(type, "type");
         OperationCancelHandler handler = handlers.get(type);
 
@@ -104,7 +104,7 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
     }
 
     private static CancelOperationResponse errorResponse(Throwable t) {
-        return FACTORY.cancelOperationResponse().throwable(t).build();
+        return FACTORY.cancelOperationResponse().error(t).build();
     }
 
     private void onMessage(NetworkMessage networkMessage, ClusterNode clusterNode, @Nullable Long correlationId) {
@@ -113,7 +113,7 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
 
             try {
                 CancelOperationRequest request = (CancelOperationRequest) networkMessage;
-                CancelableOperationType type = CancelableOperationType.valueOf(request.type());
+                CancellableOperationType type = CancellableOperationType.valueOf(request.type());
                 OperationCancelHandler handler = handlerOrThrow(type);
                 UUID operationId = request.id();
 

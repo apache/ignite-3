@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.common.cancel.api;
 /**
  * Type of the operation that can be cancelled.
  */
-public enum CancelableOperationType {
+public enum CancellableOperationType {
     SQL_QUERY,
     TRANSACTION,
     COMPUTE_JOB;

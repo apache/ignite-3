@@ -24,9 +24,6 @@ dependencies {
     implementation project(':ignite-core')
 
     implementation libs.jetbrains.annotations
-
-    testImplementation libs.hamcrest.core
-    testImplementation(testFixtures(project(':ignite-core')))
 }
 
 description = 'ignite-sql-engine-api'

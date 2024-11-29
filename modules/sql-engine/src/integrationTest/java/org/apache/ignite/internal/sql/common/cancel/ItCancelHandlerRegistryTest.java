@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.common.cancel.api.CancelableOperationType;
+import org.apache.ignite.internal.sql.common.cancel.api.CancellableOperationType;
 import org.apache.ignite.internal.sql.common.cancel.api.OperationCancelHandler;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
@@ -42,7 +42,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Cancel sql query using internal API test.
+ * Integration tests for {@link OperationCancelHandler}.
  */
 public class ItCancelHandlerRegistryTest extends BaseSqlIntegrationTest {
     @AfterEach
@@ -94,8 +94,8 @@ public class ItCancelHandlerRegistryTest extends BaseSqlIntegrationTest {
 
     private static OperationCancelHandler handler(Ignite node) {
         return unwrapIgniteImpl(node)
-                .cancelationManager()
-                .handler(CancelableOperationType.SQL_QUERY);
+                .cancelHandlersRegistry()
+                .handler(CancellableOperationType.SQL_QUERY);
     }
 
     private static List<QueryInfo> runningQueries() {

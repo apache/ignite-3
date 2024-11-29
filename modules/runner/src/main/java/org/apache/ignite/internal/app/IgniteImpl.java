@@ -225,7 +225,7 @@ import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.api.PublicApiThreadingIgniteSql;
 import org.apache.ignite.internal.sql.common.cancel.CancelHandlerRegistryImpl;
 import org.apache.ignite.internal.sql.common.cancel.api.CancelHandlerRegistry;
-import org.apache.ignite.internal.sql.common.cancel.api.CancelableOperationType;
+import org.apache.ignite.internal.sql.common.cancel.api.CancellableOperationType;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtensionConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -466,8 +466,7 @@ public class IgniteImpl implements Ignite {
 
     private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
 
-    // TODO redundant global var?
-    private final CancelHandlerRegistry cancelationManager;
+    private final CancelHandlerRegistry cancelHandlerRegistry;
 
     /**
      * The Constructor.
@@ -950,6 +949,11 @@ public class IgniteImpl implements Ignite {
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+        cancelHandlerRegistry = new CancelHandlerRegistryImpl(
+                clusterSvc.topologyService(),
+                clusterSvc.messagingService()
+        );
+
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 
         LockManager lockMgr = new HeapLockManager();
@@ -1061,11 +1065,6 @@ public class IgniteImpl implements Ignite {
                 clockService
         );
 
-        cancelationManager = new CancelHandlerRegistryImpl(
-                clusterSvc.topologyService(),
-                clusterSvc.messagingService()
-        );
-
         qryEngine = new SqlQueryProcessor(
                 clusterSvc,
                 logicalTopologyService,
@@ -1089,9 +1088,8 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.commonScheduler()
         );
 
-        cancelationManager.register(qryEngine, CancelableOperationType.SQL_QUERY);
-
         systemViewManager.register(qryEngine);
+        cancelHandlerRegistry.register(qryEngine, CancellableOperationType.SQL_QUERY);
 
         sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
 
@@ -1573,8 +1571,8 @@ public class IgniteImpl implements Ignite {
     }
 
     @TestOnly
-    public CancelHandlerRegistry cancelationManager() {
-        return cancelationManager;
+    public CancelHandlerRegistry cancelHandlersRegistry() {
+        return cancelHandlerRegistry;
     }
 
     @TestOnly

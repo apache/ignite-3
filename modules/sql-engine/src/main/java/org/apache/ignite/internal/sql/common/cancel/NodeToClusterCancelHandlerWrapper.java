@@ -25,7 +25,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.sql.common.cancel.api.CancelableOperationType;
+import org.apache.ignite.internal.sql.common.cancel.api.CancellableOperationType;
 import org.apache.ignite.internal.sql.common.cancel.api.ClusterWideOperationCancelHandler;
 import org.apache.ignite.internal.sql.common.cancel.api.NodeOperationCancelHandler;
 import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationRequest;
@@ -33,7 +33,7 @@ import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationResp
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 
 /**
- * Wrapper for {@link NodeOperationCancelHandler} that broadcasts cancel operation to the entire cluster.
+ * Wrapper for {@link NodeOperationCancelHandler} that calls a local cancel handler on each node in the cluster.
  *
  * @see NodeOperationCancelHandler
  * @see ClusterWideOperationCancelHandler
@@ -49,13 +49,13 @@ class NodeToClusterCancelHandlerWrapper implements ClusterWideOperationCancelHan
     private static final long RESPONSE_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(5);
 
     private final NodeOperationCancelHandler localHandler;
-    private final CancelableOperationType type;
+    private final CancellableOperationType type;
     private final TopologyService topologyService;
     private final MessagingService messageService;
 
     NodeToClusterCancelHandlerWrapper(
             NodeOperationCancelHandler localHandler,
-            CancelableOperationType type,
+            CancellableOperationType type,
             TopologyService topologyService,
             MessagingService messageService
     ) {
@@ -91,15 +91,15 @@ class NodeToClusterCancelHandlerWrapper implements ClusterWideOperationCancelHan
                 .map(node -> messageService.invoke(node, request, RESPONSE_TIMEOUT_MS)
                         .thenAccept(msg -> {
                             CancelOperationResponse response = (CancelOperationResponse) msg;
-                            Throwable remoteErr = response.throwable();
+                            Throwable remoteErr = response.error();
 
                             if (remoteErr != null) {
                                 LOG.warn("Remote node returned an error while canceling the operation "
                                         + "[operationId={}, type={}, node={}].", remoteErr, request.id(), request.type(), node.name());
                             }
 
-                            if (response.throwable() != null) {
-                                throw new CompletionException(response.throwable());
+                            if (response.error() != null) {
+                                throw new CompletionException(response.error());
                             }
 
                             Boolean res = response.result();
