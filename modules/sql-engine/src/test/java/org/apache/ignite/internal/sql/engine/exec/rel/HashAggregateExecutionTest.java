@@ -26,6 +26,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.IntStream;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -34,10 +35,13 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.PlanUtils;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 
 /**
  * HashAggregateExecutionTest.
@@ -51,18 +55,21 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
             List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
             ScanNode<Object[]> scan,
             boolean group
     ) {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
+
+        ImmutableBitSet grpSet = grpSets.get(0);
+        RowSchema outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
 
         HashAggregateNode<Object[]> agg = new HashAggregateNode<>(
                 ctx,
                 SINGLE,
                 grpSets,
                 accFactory(ctx, call, SINGLE, inRowType),
-                rowFactory
+                outputRowFactory
         );
 
         agg.register(scan);
@@ -85,7 +92,7 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         }
     }
 
-    private RelCollation createOutCollation(List<ImmutableBitSet> grpSets) {
+    private static RelCollation createOutCollation(List<ImmutableBitSet> grpSets) {
         RelCollation collation;
 
         if (!grpSets.isEmpty() && grpSets.stream().anyMatch(set -> !set.isEmpty())) {
@@ -107,22 +114,28 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
             List<ImmutableBitSet> grpSets,
             AggregateCall call,
             RelDataType inRowType,
-            RelDataType aggRowType,
-            RowHandler.RowFactory<Object[]> rowFactory,
             ScanNode<Object[]> scan,
             boolean group
     ) {
         assert grpSets.size() == 1 : "Test checks only simple GROUP BY";
+
+        // Map node
+
+        RelDataType reduceRowType = PlanUtils.createHashAggRowType(grpSets, ctx.getTypeFactory(), inRowType, List.of(call));
+        RowSchema reduceRowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(reduceRowType));
+        RowFactory<Object[]> mapRowFactory = ctx.rowHandler().factory(reduceRowSchema);
 
         HashAggregateNode<Object[]> aggMap = new HashAggregateNode<>(
                 ctx,
                 MAP,
                 grpSets,
                 accFactory(ctx, call, MAP, inRowType),
-                rowFactory
+                mapRowFactory
         );
 
         aggMap.register(scan);
+
+        // Reduce node
 
         ImmutableBitSet grpSet = grpSets.get(0);
         Mapping reduceMapping = Commons.trimmingMapping(grpSet.length(), grpSet);
@@ -134,12 +147,15 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
                 true
         );
 
+        RowSchema outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
+        RowFactory<Object[]> outputRowFactory = ctx.rowHandler().factory(outputRowSchema);
+
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
                 ctx,
                 REDUCE,
                 grpSets,
-                accFactory(ctx, mapReduceAgg.getReduceCall(), REDUCE, aggRowType),
-                rowFactory
+                accFactory(ctx, mapReduceAgg.getReduceCall(), REDUCE, inRowType),
+                outputRowFactory
         );
 
         aggRdc.register(aggMap);

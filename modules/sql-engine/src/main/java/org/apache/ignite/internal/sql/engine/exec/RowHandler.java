@@ -107,6 +107,13 @@ public interface RowHandler<RowT> {
          * @return Instantiation defined representation.
          */
         RowT create(InternalTuple tuple);
+
+        /**
+         * Returns an instance of a row schema used by this factory.
+         *
+         * @return RowSchema.
+         */
+        RowSchema rowSchema();
     }
 
     /**

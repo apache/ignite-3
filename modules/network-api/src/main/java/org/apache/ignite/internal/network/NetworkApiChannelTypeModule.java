@@ -17,17 +17,13 @@
 
 package org.apache.ignite.internal.network;
 
-/**
- * Throws when register channel with already used identifier.
- */
-public class ChannelTypeAlreadyExist extends RuntimeException {
-    /**
-     * Constructor.
-     *
-     * @param id Channel identifier.
-     * @param name Channel name.
-     */
-    public ChannelTypeAlreadyExist(short id, String name) {
-        super("Channel " + name + " can't be registered because id " + id + " already used.");
+import com.google.auto.service.AutoService;
+
+/** {@link ChannelTypeModule} for network-api module. */
+@AutoService(ChannelTypeModule.class)
+public class NetworkApiChannelTypeModule implements ChannelTypeModule {
+    @Override
+    public void register(ChannelTypeRegistrar channelTypeRegistrar) {
+        channelTypeRegistrar.register(ChannelType.DEFAULT);
     }
 }

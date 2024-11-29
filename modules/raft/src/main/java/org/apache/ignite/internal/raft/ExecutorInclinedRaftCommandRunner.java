@@ -41,22 +41,30 @@ public class ExecutorInclinedRaftCommandRunner implements RaftCommandRunner {
 
     @Override
     public <R> CompletableFuture<R> run(Command cmd) {
-        CompletableFuture<R> future = commandRunner.run(cmd);
-        if (future.isDone()) {
-            return future;
+        return decorateFuture(commandRunner.run(cmd));
+    }
+
+    @Override
+    public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
+        return decorateFuture(commandRunner.run(cmd, timeoutMillis));
+    }
+
+    private  <T> CompletableFuture<T> decorateFuture(CompletableFuture<T> originalFuture) {
+        if (originalFuture.isDone()) {
+            return originalFuture;
         }
 
         // We can wait for replication completion right here, because client thread waits the entire operation in synchronous API in any
         // case. Moreover, this code guarantees that the rest of the operation will execute outside a replication thread.
         if (PublicApiThreading.executingSyncPublicApi()) {
             try {
-                return completedFuture(future.get());
+                return completedFuture(originalFuture.get());
             } catch (Exception e) {
                 return CompletableFuture.failedFuture(e);
             }
         }
 
-        return future.thenApplyAsync(identity(), completionExecutor);
+        return originalFuture.thenApplyAsync(identity(), completionExecutor);
     }
 
     /** Returns decorated Raft-client. */

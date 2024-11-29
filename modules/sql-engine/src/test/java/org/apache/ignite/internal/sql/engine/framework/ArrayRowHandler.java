@@ -152,6 +152,12 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
                 return row;
             }
+
+            /** {@inheritDoc} */
+            @Override
+            public RowSchema rowSchema() {
+                return rowSchema;
+            }
         };
     }
 

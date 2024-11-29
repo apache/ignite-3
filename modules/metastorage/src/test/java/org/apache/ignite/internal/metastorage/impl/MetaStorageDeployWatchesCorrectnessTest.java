@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -83,7 +84,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
         when(clusterService.nodeName()).thenReturn(mcNodeName);
         when(raftManager.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(raftGroupService);
-        when(raftGroupService.run(any(GetCurrentRevisionsCommand.class)))
+        when(raftGroupService.run(any(GetCurrentRevisionsCommand.class), anyLong()))
                 .thenAnswer(invocation -> completedFuture(new RevisionsInfo(0, -1)));
 
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();

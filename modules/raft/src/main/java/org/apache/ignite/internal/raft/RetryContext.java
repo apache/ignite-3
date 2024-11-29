@@ -21,6 +21,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,6 +34,8 @@ import org.jetbrains.annotations.Nullable;
  */
 class RetryContext {
     private Peer targetPeer;
+
+    private final Supplier<String> originDescription;
 
     private final Function<Peer, ? extends NetworkMessage> requestFactory;
 
@@ -69,11 +72,19 @@ class RetryContext {
      * Creates a context.
      *
      * @param targetPeer Target peer to send the request to.
+     * @param originDescription Supplier describing the origin request from which this one depends, or returning {@code null}
+     *     if this request is independent.
      * @param requestFactory Factory for creating requests to the target peer.
      * @param stopTime Timestamp that denotes the point in time up to which retry attempts will be made.
      */
-    RetryContext(Peer targetPeer, Function<Peer, ? extends NetworkMessage> requestFactory, long stopTime) {
+    RetryContext(
+            Peer targetPeer,
+            Supplier<String> originDescription,
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            long stopTime
+    ) {
         this.targetPeer = targetPeer;
+        this.originDescription = originDescription;
         this.requestFactory = requestFactory;
         this.request = requestFactory.apply(targetPeer);
         this.stopTime = stopTime;
@@ -85,6 +96,10 @@ class RetryContext {
 
     NetworkMessage request() {
         return request;
+    }
+
+    @Nullable String originCommandDescription() {
+        return originDescription.get();
     }
 
     long stopTime() {

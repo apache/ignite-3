@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.randomClusterTag;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
@@ -589,6 +590,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void migrateSendsMessagesToAllNodes() {
+        putClusterState();
+
         ClusterState newState = newClusterState();
 
         ArgumentCaptor<ResetClusterMessage> messageCaptor = ArgumentCaptor.forClass(ResetClusterMessage.class);
@@ -639,6 +642,8 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void migrateInitiatesRestart() {
+        putClusterState();
+
         ClusterState newState = newClusterState();
 
         when(topologyService.allMembers()).thenReturn(List.of(thisNode, node2, node3));
@@ -648,6 +653,36 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         assertThat(manager.migrate(newState), willCompleteSuccessfully());
 
         verify(restarter).initiateRestart();
+    }
+
+    @Test
+    void migrationInWrongDirectionIsProhibited() {
+        UUID clusterId1 = randomUUID();
+        UUID clusterId2 = randomUUID();
+        UUID clusterId3 = randomUUID();
+
+        ClusterState oldClusterState = cmgMessagesFactory.clusterState()
+                .cmgNodes(Set.of(thisNodeName))
+                .metaStorageNodes(Set.of(thisNodeName))
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(clusterTag(cmgMessagesFactory, CLUSTER_NAME, clusterId2))
+                .initialClusterConfiguration(INITIAL_CONFIGURATION)
+                .formerClusterIds(List.of(clusterId1))
+                .build();
+
+        ClusterState newClusterState = cmgMessagesFactory.clusterState()
+                .cmgNodes(Set.of(thisNodeName))
+                .metaStorageNodes(Set.of(thisNodeName))
+                .version(IgniteProductVersion.CURRENT_VERSION.toString())
+                .clusterTag(clusterTag(cmgMessagesFactory, CLUSTER_NAME, clusterId3))
+                .initialClusterConfiguration(INITIAL_CONFIGURATION)
+                .formerClusterIds(List.of(clusterId1, clusterId2))
+                .build();
+
+        manager.saveClusterState(newClusterState);
+
+        MigrateException ex = assertWillThrow(manager.migrate(oldClusterState), MigrateException.class);
+        assertThat(ex.getMessage(), is("Migration can only happen from old cluster to new one, not the other way around"));
     }
 
     @ParameterizedTest

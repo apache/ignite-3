@@ -120,7 +120,7 @@ public class AsyncWrapper<T> implements AsyncCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> closeAsync() {
+    public CompletableFuture<Void> closeAsync(boolean ignore) {
         if (!cancelled) {
             synchronized (lock) {
                 if (!cancelled) {

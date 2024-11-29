@@ -17,13 +17,12 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,7 +44,6 @@ import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
@@ -96,12 +94,12 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      * Restores assignments form Vault and subscribers on further updates.
      */
     public void startTrack() {
-        msManager.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsListener);
-        msManager.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsListener);
+        msManager.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_PREFIX_BYTES), pendingAssignmentsListener);
+        msManager.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsListener);
 
         msManager.recoveryFinishedFuture().thenAccept(recoveryRevisions -> {
-            handleRecoveryAssignments(recoveryRevisions, PENDING_ASSIGNMENTS_PREFIX, groupPendingAssignments);
-            handleRecoveryAssignments(recoveryRevisions, STABLE_ASSIGNMENTS_PREFIX, groupStableAssignments);
+            handleRecoveryAssignments(recoveryRevisions, PENDING_ASSIGNMENTS_PREFIX_BYTES, groupPendingAssignments);
+            handleRecoveryAssignments(recoveryRevisions, STABLE_ASSIGNMENTS_PREFIX_BYTES, groupStableAssignments);
         }).whenComplete((res, ex) -> {
             if (ex != null) {
                 LOG.error("Cannot do recovery", ex);
@@ -166,7 +164,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                     LOG.debug("Stable assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
                 }
 
-                handleReceivedAssignments(event, STABLE_ASSIGNMENTS_PREFIX, groupStableAssignments);
+                handleReceivedAssignments(event, STABLE_ASSIGNMENTS_PREFIX_BYTES, groupStableAssignments);
 
                 return nullCompletedFuture();
             }
@@ -185,7 +183,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                     LOG.debug("Pending assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
                 }
 
-                handleReceivedAssignments(event, PENDING_ASSIGNMENTS_PREFIX, groupPendingAssignments);
+                handleReceivedAssignments(event, PENDING_ASSIGNMENTS_PREFIX_BYTES, groupPendingAssignments);
 
                 return nullCompletedFuture();
             }
@@ -198,13 +196,13 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
     private static void handleReceivedAssignments(
             WatchEvent event,
-            String assignmentsMetastoreKeyPrefix,
+            byte[] assignmentsMetastoreKeyPrefix,
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap
     ) {
         for (EntryEvent evt : event.entryEvents()) {
             Entry entry = evt.newEntry();
 
-            ReplicationGroupId grpId = extractGroupFromEventEntryByPrefix(entry, assignmentsMetastoreKeyPrefix);
+            ReplicationGroupId grpId = extractTablePartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
 
             if (entry.tombstone()) {
                 groupIdToAssignmentsMap.remove(grpId);
@@ -216,20 +214,20 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
     private void handleRecoveryAssignments(
             Revisions recoveryRevisions,
-            String assignmentsMetastoreKeyPrefix,
+            byte[] assignmentsMetastoreKeyPrefix,
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap
     ) {
-        ByteArray startKey = ByteArray.fromString(assignmentsMetastoreKeyPrefix);
-        ByteArray endKey = ByteArray.fromString(incrementLastChar(assignmentsMetastoreKeyPrefix));
+        var prefix = new ByteArray(assignmentsMetastoreKeyPrefix);
+
         long revision = recoveryRevisions.revision();
 
-        try (Cursor<Entry> cursor = msManager.getLocally(startKey, endKey, revision)) {
+        try (Cursor<Entry> cursor = msManager.prefixLocally(prefix, revision)) {
             for (Entry entry : cursor) {
                 if (entry.tombstone()) {
                     continue;
                 }
 
-                ReplicationGroupId grpId = extractGroupFromEventEntryByPrefix(entry, assignmentsMetastoreKeyPrefix);
+                ReplicationGroupId grpId = extractTablePartitionId(entry.key(), assignmentsMetastoreKeyPrefix);
 
                 updateGroupAssignments(groupIdToAssignmentsMap, grpId, entry);
             }
@@ -249,15 +247,6 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
         Set<Assignment> assignmentNodes = Assignments.fromBytes(value).nodes();
 
         groupIdToAssignmentsMap.put(grpId, new TokenizedAssignmentsImpl(assignmentNodes, entry.revision()));
-    }
-
-    private static ReplicationGroupId extractGroupFromEventEntryByPrefix(
-            Entry entry, String assignmentsMetastoreKeyPrefix
-    ) {
-        var replicationGroupIdString = new String(entry.key(), StandardCharsets.UTF_8)
-                .replace(assignmentsMetastoreKeyPrefix, "");
-
-        return TablePartitionId.fromString(replicationGroupIdString);
     }
 
     private static String collectKeysFromEventAsString(WatchEvent event) {

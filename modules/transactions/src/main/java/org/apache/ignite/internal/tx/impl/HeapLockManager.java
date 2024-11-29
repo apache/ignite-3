@@ -174,7 +174,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         if (lockKey.contextId() == null) { // Treat this lock as a hierarchy(coarse) lock.
             CoarseLockState state = coarseMap.computeIfAbsent(lockKey, key -> new CoarseLockState(lockKey));
 
-            return state.acquire(txId, lockKey, lockMode);
+            return state.acquire(txId, lockMode);
         }
 
         while (true) {
@@ -252,21 +252,17 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     }
 
     @Override
+    public Iterator<Lock> locks() {
+        return txMap.entrySet().stream()
+                .flatMap(e -> collectLocksFromStates(e.getKey(), e.getValue()).stream())
+                .iterator();
+    }
+
+    @Override
     public Iterator<Lock> locks(UUID txId) {
         ConcurrentLinkedQueue<Releasable> lockStates = txMap.get(txId);
 
-        List<Lock> result = new ArrayList<>();
-
-        if (lockStates != null) {
-            for (Releasable lockState : lockStates) {
-                Lock lock = lockState.lock(txId);
-                if (lock != null) {
-                    result.add(lock);
-                }
-            }
-        }
-
-        return result.iterator();
+        return collectLocksFromStates(txId, lockStates).iterator();
     }
 
     /**
@@ -364,6 +360,21 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
             return v;
         });
+    }
+
+    private static List<Lock> collectLocksFromStates(UUID txId, ConcurrentLinkedQueue<Releasable> lockStates) {
+        List<Lock> result = new ArrayList<>();
+
+        if (lockStates != null) {
+            for (Releasable lockState : lockStates) {
+                Lock lock = lockState.lock(txId);
+                if (lock != null) {
+                    result.add(lock);
+                }
+            }
+        }
+
+        return result;
     }
 
     /**
@@ -510,11 +521,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * Acquires a lock.
          *
          * @param txId Tx id.
-         * @param lockKey Lock key.
          * @param lockMode Lock mode.
          * @return The future.
          */
-        public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
+        public CompletableFuture<Lock> acquire(UUID txId, LockMode lockMode) {
             switch (lockMode) {
                 case S:
                     stripedLock.writeLock().lock();

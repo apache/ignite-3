@@ -31,11 +31,10 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.subtract;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener.handleReduceChanged;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractPartitionNumber;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZoneId;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsGetLocally;
@@ -266,9 +265,9 @@ public class PartitionReplicaLifecycleManager extends
         CompletableFuture<Void> processZonesAndAssignmentsOnStart = processZonesOnStart(recoveryRevision, lowWatermark.getLowWatermark())
                 .thenCompose(ignored -> processAssignmentsOnRecovery(recoveryRevision));
 
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX), pendingAssignmentsRebalanceListener);
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX), stableAssignmentsRebalanceListener);
-        metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
+        metaStorageMgr.registerPrefixWatch(new ByteArray(PENDING_ASSIGNMENTS_PREFIX_BYTES), pendingAssignmentsRebalanceListener);
+        metaStorageMgr.registerPrefixWatch(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES), stableAssignmentsRebalanceListener);
+        metaStorageMgr.registerPrefixWatch(new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES), assignmentsSwitchRebalanceListener);
 
         catalogMgr.listen(ZONE_CREATE,
                 (CreateZoneEventParameters parameters) ->
@@ -317,8 +316,8 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private CompletableFuture<Void> processAssignmentsOnRecovery(long recoveryRevision) {
-        var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX);
-        var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX);
+        var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES);
+        var pendingAssignmentsPrefix = new ByteArray(PENDING_ASSIGNMENTS_PREFIX_BYTES);
 
         // It's required to handle stable assignments changes on recovery in order to cleanup obsolete resources.
         CompletableFuture<Void> stableFuture = handleAssignmentsOnRecovery(
@@ -761,10 +760,7 @@ public class PartitionReplicaLifecycleManager extends
                 return inBusyLockAsync(busyLock, () -> {
                     byte[] key = evt.entryEvent().newEntry().key();
 
-                    int partitionId = extractPartitionNumber(key);
-                    int zoneId = extractZoneId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX);
-
-                    ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partitionId);
+                    ZonePartitionId replicaGrpId = extractZonePartitionId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES);
 
                     Assignments assignments = Assignments.fromBytes(evt.entryEvent().newEntry().value());
 
@@ -773,11 +769,11 @@ public class PartitionReplicaLifecycleManager extends
                     return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
                         int catalogVersion = catalogMgr.activeCatalogVersion(assignmentsTimestamp);
 
-                        CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(zoneId, catalogVersion);
+                        CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(replicaGrpId.zoneId(), catalogVersion);
 
                         long causalityToken = zoneDescriptor.updateToken();
 
-                        return distributionZoneMgr.dataNodes(causalityToken, catalogVersion, zoneId)
+                        return distributionZoneMgr.dataNodes(causalityToken, catalogVersion, replicaGrpId.zoneId())
                                 .thenCompose(dataNodes -> handleReduceChanged(
                                         metaStorageMgr,
                                         dataNodes,
@@ -842,10 +838,7 @@ public class PartitionReplicaLifecycleManager extends
             long revision,
             boolean isRecovery
     ) {
-        int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
-        int zoneId = extractZoneId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
-
-        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partitionId);
+        ZonePartitionId zonePartitionId = extractZonePartitionId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX_BYTES);
 
         Set<Assignment> stableAssignments = stableAssignmentsWatchEvent.value() == null
                 ? emptySet()
@@ -929,10 +922,7 @@ public class PartitionReplicaLifecycleManager extends
             return nullCompletedFuture();
         }
 
-        int partId = extractPartitionNumber(pendingAssignmentsEntry.key());
-        int zoneId = extractZoneId(pendingAssignmentsEntry.key(), PENDING_ASSIGNMENTS_PREFIX);
-
-        var zonePartitionId = new ZonePartitionId(zoneId, partId);
+        ZonePartitionId zonePartitionId = extractZonePartitionId(pendingAssignmentsEntry.key(), PENDING_ASSIGNMENTS_PREFIX_BYTES);
 
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
         Assignments stableAssignments = stableAssignments(zonePartitionId, revision);
@@ -947,9 +937,16 @@ public class PartitionReplicaLifecycleManager extends
             if (LOG.isInfoEnabled()) {
                 var stringKey = new String(pendingAssignmentsEntry.key(), UTF_8);
 
-                LOG.info("Received update on pending assignments. Check if new replication node should be started [key={}, "
+                LOG.info(
+                        "Received update on pending assignments. Check if new replication node should be started [key={}, "
                                 + "partition={}, zoneId={}, localMemberAddress={}, pendingAssignments={}, revision={}]",
-                        stringKey, partId, zoneId, localNode().address(), pendingAssignments, revision);
+                        stringKey,
+                        zonePartitionId.partitionId(),
+                        zonePartitionId.zoneId(),
+                        localNode().address(),
+                        pendingAssignments,
+                        revision
+                );
             }
 
             return handleChangePendingAssignmentEvent(

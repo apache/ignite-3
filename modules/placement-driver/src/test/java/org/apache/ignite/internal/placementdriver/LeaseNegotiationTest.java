@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -42,6 +43,8 @@ import java.util.Collection;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -54,7 +57,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -68,6 +70,7 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageRes
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.test.ConditionalWatchInhibitor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -94,7 +97,9 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     private LeaseUpdater leaseUpdater;
 
-    private MetaStorageManager metaStorageManager;
+    private AssignmentsTracker assignmentsTracker;
+
+    private StandaloneMetaStorageManager metaStorageManager;
 
     private ClusterService pdClusterService;
 
@@ -104,7 +109,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
     private LogicalTopologyEventListener pdLogicalTopologyEventListener;
 
-    private BiFunction<String, LeaseGrantedMessage, LeaseGrantedMessageResponse> leaseGrantedMessageHandler;
+    private BiFunction<String, LeaseGrantedMessage, CompletableFuture<LeaseGrantedMessageResponse>> leaseGrantedMessageHandler;
 
     private final long assignmentsTimestamp = new HybridTimestamp(0, 1).longValue();
 
@@ -136,6 +141,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     @AfterEach
     public void tearDown() {
         leaseUpdater.deactivate();
+        assignmentsTracker.stopTrack();
     }
 
     private LeaseUpdater createLeaseUpdater() {
@@ -149,7 +155,8 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             LeaseGrantedMessage leaseGrantedMessage = inv.getArgument(1);
 
             if (leaseGrantedMessageHandler != null) {
-                return CompletableFuture.supplyAsync(() -> leaseGrantedMessageHandler.apply(nodeId, leaseGrantedMessage));
+                return CompletableFuture.supplyAsync(() -> null)
+                        .thenCompose(unused -> leaseGrantedMessageHandler.apply(nodeId, leaseGrantedMessage));
             } else {
                 return completedFuture(createLeaseGrantedMessageResponse(true));
             }
@@ -167,6 +174,10 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
         leaseTracker.startTrack(0L);
 
+        assignmentsTracker = new AssignmentsTracker(metaStorageManager);
+
+        assignmentsTracker.startTrack();
+
         return new LeaseUpdater(
                 NODE_0_NAME,
                 pdClusterService,
@@ -174,7 +185,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 pdLogicalTopologyService,
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),
-                new AssignmentsTracker(metaStorageManager),
+                assignmentsTracker,
                 replicationConfiguration
         );
     }
@@ -192,10 +203,10 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             if (n.equals(NODE_0_NAME)) {
                 lgmReceived.complete(null);
 
-                lgmProcessed.join();
+                return lgmProcessed.thenApply(unused -> createLeaseGrantedMessageResponse(true));
             }
 
-            return createLeaseGrantedMessageResponse(true);
+            return completedFuture(createLeaseGrantedMessageResponse(true));
         };
 
         metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp));
@@ -219,10 +230,10 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             if (n.equals(NODE_0_NAME) && !lgmReceived.isDone()) {
                 lgmReceived.complete(null);
 
-                return createLeaseGrantedMessageResponse(false);
+                return completedFuture(createLeaseGrantedMessageResponse(false));
             }
 
-            return createLeaseGrantedMessageResponse(true);
+            return completedFuture(createLeaseGrantedMessageResponse(true));
         };
 
         metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp));
@@ -243,10 +254,10 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             if (n.equals(NODE_0_NAME)) {
                 lgmReceived.complete(null);
 
-                lgmProcessed.join();
+                return lgmProcessed.thenApply(unused -> createLeaseGrantedMessageResponse(true));
             }
 
-            return createLeaseGrantedMessageResponse(true);
+            return completedFuture(createLeaseGrantedMessageResponse(true));
         };
 
         metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID),
@@ -274,7 +285,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 throw new RuntimeException("test");
             }
 
-            return createLeaseGrantedMessageResponse(true);
+            return completedFuture(createLeaseGrantedMessageResponse(true));
         };
 
         metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp));
@@ -284,6 +295,53 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         waitForAcceptedLease();
 
         assertLeaseCorrect(CLUSTER_NODE_0.id());
+    }
+
+    @Test
+    public void testAgreementCannotBeOverriddenWhileValid() throws InterruptedException {
+        ConditionalWatchInhibitor watchInhibitor = new ConditionalWatchInhibitor(metaStorageManager);
+        watchInhibitor.startInhibit(rev -> getLeaseFromMs() != null);
+
+        CompletableFuture<Void> lgmResponseFuture = new CompletableFuture<>();
+        AtomicInteger invokeFailCounter = new AtomicInteger();
+        AtomicInteger lgmCounter = new AtomicInteger();
+
+        metaStorageManager.setAfterInvokeInterceptor(res -> {
+            if (!res) {
+                invokeFailCounter.incrementAndGet();
+            }
+        });
+
+        AtomicLong negotiatedLeaseStartTime = new AtomicLong();
+
+        leaseGrantedMessageHandler = (n, lgm) -> {
+            lgmCounter.incrementAndGet();
+
+            log.info("Lease granted message received [node={}, leaseStartTime={}, cntr={}].", n, lgm.leaseStartTime().longValue(),
+                    lgmCounter.get());
+
+            if (negotiatedLeaseStartTime.get() == 0) {
+                negotiatedLeaseStartTime.set(lgm.leaseStartTime().longValue());
+            }
+
+            return lgmResponseFuture.thenApply(unused -> createLeaseGrantedMessageResponse(true));
+        };
+
+        metaStorageManager.put(stablePartAssignmentsKey(GROUP_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp));
+
+        assertTrue(waitForCondition(() -> lgmCounter.get() == 1, 3_000));
+
+        // Wait for a couple of iterations of LeaseUpdater.
+        Thread.sleep(1_000);
+
+        lgmResponseFuture.complete(null);
+        watchInhibitor.stopInhibit();
+
+        waitForAcceptedLease();
+
+        Lease lease = getLeaseFromMs();
+
+        assertEquals(negotiatedLeaseStartTime.get(), lease.getStartTime().longValue());
     }
 
     @Test
@@ -356,6 +414,14 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         return leases.leases();
     }
 
+    private void waitForLease() throws InterruptedException {
+        assertTrue(waitForCondition(() -> {
+            Lease lease = getLeaseFromMs();
+
+            return lease != null;
+        }, 10_000));
+    }
+
     private void waitForAcceptedLease() throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             Lease lease = getLeaseFromMs();
@@ -367,6 +433,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     private void assertLeaseCorrect(UUID leaseholderId) {
         Lease lease = getLeaseFromMs();
 
+        assertNotNull(lease);
         assertTrue(lease.isAccepted());
         assertEquals(leaseholderId, lease.getLeaseholderId());
     }

@@ -123,7 +123,7 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
     private static class DropColumnEntrySerializer implements CatalogObjectSerializer<DropColumnsEntry> {
         @Override
         public DropColumnsEntry readFrom(IgniteDataInput input) throws IOException {
-            int tableId = input.readInt();
+            int tableId = input.readVarIntAsInt();
             Set<String> columns = CatalogSerializationUtils.readStringCollection(input, size -> new HashSet<>(capacity(size)));
 
             return new DropColumnsEntry(tableId, columns);
@@ -131,7 +131,7 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
 
         @Override
         public void writeTo(DropColumnsEntry object, IgniteDataOutput output) throws IOException {
-            output.writeInt(object.tableId());
+            output.writeVarInt(object.tableId());
             writeStringCollection(object.columns(), output);
         }
     }

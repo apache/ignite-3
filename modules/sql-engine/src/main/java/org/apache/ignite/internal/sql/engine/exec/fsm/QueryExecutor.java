@@ -150,8 +150,7 @@ public class QueryExecutor implements LifecycleAware {
                 sql,
                 properties0,
                 txContext,
-                params,
-                null
+                params
         );
 
         if (!busyLock.enterBusy()) {
@@ -210,6 +209,8 @@ public class QueryExecutor implements LifecycleAware {
         try {
             parent.cancel.attach(query.cancel);
         } catch (QueryCancelledException ex) {
+            query.moveTo(ExecutionPhase.TERMINATED);
+
             return CompletableFuture.failedFuture(ex);
         }
 
