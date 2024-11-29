@@ -13,18 +13,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-namespace Apache.Ignite
-{
-    using System;
+namespace Apache.Ignite;
 
+using System;
+using Microsoft.Extensions.DependencyInjection;
+
+/// <summary>
+/// Extension method for setting up Apache Ignite services in an <see cref="Microsoft.Extensions.DependencyInjection.IServiceCollection" />.
+/// </summary>
+public static class IgniteServiceCollectionExtensions
+{
     /// <summary>
-    /// Extension method for setting up Apache Ignite services in an <see cref="Microsoft.Extensions.DependencyInjection.IServiceCollection" />.
+    ///  Registers an <see cref="IgniteClientGroup" /> and an <see cref="IIgnite" />.
     /// </summary>
-    public static class IgniteServiceCollectionExtensions
+    /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
+    /// <returns>SThe same service collection so that multiple calls can be chained.</returns>
+    public static IServiceCollection AddIgniteClientGroup(this IServiceCollection services)
     {
-        /// <summary>
-        /// Test.
-        /// </summary>
-        public static void Do() => Console.WriteLine();
+        AddIgniteClientGroupCore(services);
+
+        return services;
+    }
+
+    private static IServiceCollection AddIgniteClientGroupCore(
+        IServiceCollection services,
+        object? key = null)
+    {
+        return services;
     }
 }
