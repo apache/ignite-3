@@ -41,7 +41,7 @@ public class LeaseNegotiator {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Lease agreements which are in progress of negotiation. */
-    private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate;
+    private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate = new ConcurrentHashMap<>();
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -53,33 +53,28 @@ public class LeaseNegotiator {
      */
     public LeaseNegotiator(ClusterService clusterService) {
         this.clusterService = clusterService;
-
-        this.leaseToNegotiate = new ConcurrentHashMap<>();
     }
 
     /**
      * Tries negotiating a lease with its leaseholder.
      * The negotiation will achieve after the method is invoked. Use {@link #getAndRemoveIfReady(ReplicationGroupId)} to check a result.
      *
-     * @param lease Lease to negotiate.
-     * @param force If the flag is true, the process tries to insist of apply the lease.
+     * @param agreement Lease agreement to negotiate.
      */
-    public void negotiate(Lease lease, boolean force) {
-        ReplicationGroupId groupId = lease.replicationGroupId();
-
-        LeaseAgreement agreement = leaseToNegotiate.get(groupId);
-
-        assert agreement != null : "Lease agreement should exist when negotiation begins [groupId=" + groupId + "].";
+    public void negotiate(LeaseAgreement agreement) {
+        Lease lease = agreement.getLease();
 
         long leaseInterval = lease.getExpirationTime().getPhysical() - lease.getStartTime().getPhysical();
+
+        leaseToNegotiate.put(agreement.groupId(), agreement);
 
         clusterService.messagingService().invoke(
                         lease.getLeaseholder(),
                         PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessage()
-                                .groupId(groupId)
+                                .groupId(agreement.groupId())
                                 .leaseStartTime(lease.getStartTime())
                                 .leaseExpirationTime(lease.getExpirationTime())
-                                .force(force)
+                                .force(agreement.forced())
                                 .build(),
                         leaseInterval)
                 .whenComplete((msg, throwable) -> {
@@ -117,16 +112,6 @@ public class LeaseNegotiator {
         });
 
         return res[0] == null ? UNDEFINED_AGREEMENT : res[0];
-    }
-
-    /**
-     * Creates an agreement.
-     *
-     * @param groupId Group id.
-     * @param lease Lease to negotiate.
-     */
-    public void createAgreement(ReplicationGroupId groupId, Lease lease) {
-        leaseToNegotiate.put(groupId, new LeaseAgreement(lease));
     }
 
     /**
