@@ -24,10 +24,12 @@ public interface CancelHandlerRegistry {
     /**
      * Registers a cancel handler.
      *
-     * @param handler Handler to register.
      * @param type Type of the cancellable operation.
+     * @param handler Handler to register.
+     * @param local {@code True} if the handler can cancel operations only on local node,
+     *              {@code false} if the handler can cancel operations across the entire cluster.
      */
-    void register(OperationCancelHandler handler, CancellableOperationType type);
+    void register(CancellableOperationType type, OperationCancelHandler handler, boolean local);
 
     /**
      * Returns a handler that can cancel an operation of the specified type across the entire cluster.
@@ -35,5 +37,5 @@ public interface CancelHandlerRegistry {
      * @param type Type of the cancellable operation.
      * @return Handler that can cancel an operation of the specified type across the entire cluster.
      */
-    ClusterWideOperationCancelHandler handler(CancellableOperationType type);
+    OperationCancelHandler handler(CancellableOperationType type);
 }

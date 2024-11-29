@@ -25,8 +25,6 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.common.cancel.api.CancelHandlerRegistry;
 import org.apache.ignite.internal.sql.common.cancel.api.CancellableOperationType;
-import org.apache.ignite.internal.sql.common.cancel.api.ClusterWideOperationCancelHandler;
-import org.apache.ignite.internal.sql.common.cancel.api.NodeOperationCancelHandler;
 import org.apache.ignite.internal.sql.common.cancel.api.OperationCancelHandler;
 import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationRequest;
 import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationResponse;
@@ -41,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
 public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
-    private final EnumMap<CancellableOperationType, OperationCancelHandler> handlers = new EnumMap<>(CancellableOperationType.class);
+    private final EnumMap<CancellableOperationType, CancelHandlerDescriptor> handlers = new EnumMap<>(CancellableOperationType.class);
 
     private final TopologyService topologyService;
 
@@ -58,49 +56,45 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
     }
 
     @Override
-    public void register(OperationCancelHandler handler, CancellableOperationType type) {
+    public void register(CancellableOperationType type, OperationCancelHandler handler, boolean local) {
         Objects.requireNonNull(handler, "handler");
         Objects.requireNonNull(type, "type");
 
-        if (!(handler instanceof NodeOperationCancelHandler) && !(handler instanceof ClusterWideOperationCancelHandler)) {
-            throw new IllegalArgumentException("Unsupported handler type [cls=" + handler.getClass().getName() + "].");
-        }
-
-        OperationCancelHandler prevHandler = handlers.putIfAbsent(type, handler);
+        CancelHandlerDescriptor prevHandler = handlers.putIfAbsent(type, new CancelHandlerDescriptor(handler, local));
 
         if (prevHandler != null) {
             throw new IllegalArgumentException("A handler for the specified type has already been registered "
-                    + "[type=" + type + ", prev=" + prevHandler + "].");
+                    + "[type=" + type + ", prev=" + prevHandler.handler + "].");
         }
     }
 
     @Override
-    public ClusterWideOperationCancelHandler handler(CancellableOperationType type) {
-        OperationCancelHandler handler = handlerOrThrow(type);
+    public OperationCancelHandler handler(CancellableOperationType type) {
+        CancelHandlerDescriptor handlerDescriptor = handlerOrThrow(type);
 
-        if (handler instanceof NodeOperationCancelHandler) {
-            return new NodeToClusterCancelHandlerAdapter(
-                    (NodeOperationCancelHandler) handler,
+        OperationCancelHandler handler = handlerDescriptor.handler;
+
+        if (handlerDescriptor.local) {
+            return new LocalToClusterCancelHandlerWrapper(
+                    handler,
                     type,
                     topologyService,
                     messageService
             );
         }
 
-        assert handler instanceof ClusterWideOperationCancelHandler : handler;
-
-        return (ClusterWideOperationCancelHandler) handler;
+        return handler;
     }
 
-    private OperationCancelHandler handlerOrThrow(CancellableOperationType type) {
+    private CancelHandlerDescriptor handlerOrThrow(CancellableOperationType type) {
         Objects.requireNonNull(type, "type");
-        OperationCancelHandler handler = handlers.get(type);
+        CancelHandlerDescriptor handlerDescriptor = handlers.get(type);
 
-        if (handler == null) {
+        if (handlerDescriptor == null) {
             throw new IllegalArgumentException("No registered handler [type=" + type + "].");
         }
 
-        return handler;
+        return handlerDescriptor;
     }
 
     private static CancelOperationResponse errorResponse(Throwable t) {
@@ -114,10 +108,11 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
             try {
                 CancelOperationRequest request = (CancelOperationRequest) networkMessage;
                 CancellableOperationType type = CancellableOperationType.valueOf(request.type());
-                OperationCancelHandler handler = handlerOrThrow(type);
+                CancelHandlerDescriptor handlerDescriptor = handlerOrThrow(type);
+                OperationCancelHandler handler = handlerDescriptor.handler;
                 UUID operationId = request.id();
 
-                assert handler instanceof NodeOperationCancelHandler : handler;
+                assert handlerDescriptor.local : "Handler must be local " + handler;
 
                 handler.cancelAsync(operationId).whenComplete(
                         (result, throwable) -> {
@@ -135,6 +130,16 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
             } catch (Throwable t) {
                 messageService.respond(clusterNode, errorResponse(t), correlationId);
             }
+        }
+    }
+
+    private static class CancelHandlerDescriptor {
+        private final OperationCancelHandler handler;
+        private final boolean local;
+
+        private CancelHandlerDescriptor(OperationCancelHandler handler, boolean local) {
+            this.handler = handler;
+            this.local = local;
         }
     }
 }

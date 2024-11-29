@@ -1089,7 +1089,7 @@ public class IgniteImpl implements Ignite {
         );
 
         systemViewManager.register(qryEngine);
-        cancelHandlerRegistry.register(qryEngine, CancellableOperationType.SQL_QUERY);
+        cancelHandlerRegistry.register(CancellableOperationType.SQL_QUERY, qryEngine, true);
 
         sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
 

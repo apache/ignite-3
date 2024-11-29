@@ -26,35 +26,31 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.common.cancel.api.CancellableOperationType;
-import org.apache.ignite.internal.sql.common.cancel.api.ClusterWideOperationCancelHandler;
-import org.apache.ignite.internal.sql.common.cancel.api.NodeOperationCancelHandler;
+import org.apache.ignite.internal.sql.common.cancel.api.OperationCancelHandler;
 import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationRequest;
 import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 
 /**
- * Adapter for {@link NodeOperationCancelHandler} that calls a local cancel handler on each node in the cluster.
- *
- * @see NodeOperationCancelHandler
- * @see ClusterWideOperationCancelHandler
+ * Wrapper for {@link OperationCancelHandler} that calls a local cancel handler on each node in the cluster.
  */
-class NodeToClusterCancelHandlerAdapter implements ClusterWideOperationCancelHandler {
+class LocalToClusterCancelHandlerWrapper implements OperationCancelHandler {
     /** Messages factory. */
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(NodeToClusterCancelHandlerAdapter.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LocalToClusterCancelHandlerWrapper.class);
 
     /** Maximum time to wait for a remote response. */
     private static final long RESPONSE_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(5);
 
-    private final NodeOperationCancelHandler localHandler;
+    private final OperationCancelHandler localHandler;
     private final CancellableOperationType type;
     private final TopologyService topologyService;
     private final MessagingService messageService;
 
-    NodeToClusterCancelHandlerAdapter(
-            NodeOperationCancelHandler localHandler,
+    LocalToClusterCancelHandlerWrapper(
+            OperationCancelHandler localHandler,
             CancellableOperationType type,
             TopologyService topologyService,
             MessagingService messageService

@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -41,14 +40,11 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.common.cancel.api.CancellableOperationType;
-import org.apache.ignite.internal.sql.common.cancel.api.ClusterWideOperationCancelHandler;
-import org.apache.ignite.internal.sql.common.cancel.api.NodeOperationCancelHandler;
 import org.apache.ignite.internal.sql.common.cancel.api.OperationCancelHandler;
 import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationRequest;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.hamcrest.Matchers;
@@ -71,31 +67,42 @@ public class CancelHandlerRegistryTest extends BaseIgniteAbstractTest {
     private MessagingService messagingService;
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
+    @SuppressWarnings({"ThrowableNotThrown", "DataFlowIssue"})
     public void testRegistration() {
         CancelHandlerRegistryImpl manager = createManager(nodeName -> null);
 
-        ClusterWideOperationCancelHandler clusterWideHandler = mock(ClusterWideOperationCancelHandler.class);
-        NodeOperationCancelHandler nodeHandler = mock(NodeOperationCancelHandler.class);
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> manager.register(CancellableOperationType.SQL_QUERY, null, true),
+                "handler"
+        );
 
-        manager.register(clusterWideHandler, CancellableOperationType.SQL_QUERY);
+        IgniteTestUtils.assertThrows(
+                NullPointerException.class,
+                () -> manager.register(null, v -> null, true),
+                "type"
+        );
+
+        OperationCancelHandler nodeHandler = mock(OperationCancelHandler.class);
+
+        manager.register(CancellableOperationType.SQL_QUERY, nodeHandler, false);
 
         IgniteTestUtils.assertThrows(
                 IllegalArgumentException.class,
-                () -> manager.register(nodeHandler, CancellableOperationType.SQL_QUERY),
+                () -> manager.register(CancellableOperationType.SQL_QUERY, nodeHandler, true),
                 "A handler for the specified type has already been registered "
         );
 
         IgniteTestUtils.assertThrows(
                 IllegalArgumentException.class,
-                () -> manager.register(clusterWideHandler, CancellableOperationType.SQL_QUERY),
+                () -> manager.register(CancellableOperationType.SQL_QUERY, nodeHandler, false),
                 "A handler for the specified type has already been registered "
         );
 
-        manager.register(nodeHandler, CancellableOperationType.TRANSACTION);
+        manager.register(CancellableOperationType.TRANSACTION, nodeHandler, true);
 
-        assertThat(manager.handler(CancellableOperationType.SQL_QUERY), is(clusterWideHandler));
-        assertThat(manager.handler(CancellableOperationType.TRANSACTION), instanceOf(ClusterWideOperationCancelHandler.class));
+        assertThat(manager.handler(CancellableOperationType.SQL_QUERY), is(nodeHandler));
+        assertThat(manager.handler(CancellableOperationType.TRANSACTION), is(not(nodeHandler)));
 
         IgniteTestUtils.assertThrows(
                 IllegalArgumentException.class,
@@ -105,39 +112,13 @@ public class CancelHandlerRegistryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @SuppressWarnings({"ThrowableNotThrown", "DataFlowIssue"})
-    public void testRegistrationWithInvalidParams() {
-        CancelHandlerRegistryImpl manager = createManager(nodeName -> null);
-
-        IgniteTestUtils.assertThrows(
-                NullPointerException.class,
-                () -> manager.register(null, CancellableOperationType.SQL_QUERY),
-                "handler"
-        );
-
-        IgniteTestUtils.assertThrows(
-                NullPointerException.class,
-                () -> manager.register(v -> null, null),
-                "type"
-        );
-
-        UnsupportedHandler unsupportedHandler = new UnsupportedHandler();
-
-        IgniteTestUtils.assertThrows(
-                IllegalArgumentException.class,
-                () -> manager.register(unsupportedHandler, CancellableOperationType.SQL_QUERY),
-                "Unsupported handler type [cls=" + unsupportedHandler.getClass().getName() + "]."
-        );
-    }
-
-    @Test
     public void testSuccessfulCancelOnLocalDoesNotProducesNetworkRequests() {
         CancelHandlerRegistryImpl manager = createManager(nodeName -> {
             throw new IllegalStateException("Shouldn't be called");
         });
 
-        manager.register(new LocalHandler(true), CancellableOperationType.SQL_QUERY);
-        ClusterWideOperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
+        manager.register(CancellableOperationType.SQL_QUERY, new LocalHandler(true), true);
+        OperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
 
         assertThat(await(handler.cancelAsync(UUID.randomUUID())), is(true));
 
@@ -149,8 +130,8 @@ public class CancelHandlerRegistryTest extends BaseIgniteAbstractTest {
     public void testSuccessfulCancelOnRemote() {
         CancelHandlerRegistryImpl manager = createManager(nodeName -> nodeName.equals(node(2).name()));
 
-        manager.register(new LocalHandler(false), CancellableOperationType.SQL_QUERY);
-        ClusterWideOperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
+        manager.register(CancellableOperationType.SQL_QUERY, new LocalHandler(false), true);
+        OperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
 
         assertThat(handler.cancelAsync(UUID.randomUUID()), willBe(true));
 
@@ -163,8 +144,8 @@ public class CancelHandlerRegistryTest extends BaseIgniteAbstractTest {
         NullPointerException expected = new NullPointerException("Expected");
 
         CancelHandlerRegistryImpl manager = createManager(nodeName -> true);
-        manager.register(new LocalHandler(expected), CancellableOperationType.SQL_QUERY);
-        ClusterWideOperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
+        manager.register(CancellableOperationType.SQL_QUERY, new LocalHandler(expected), true);
+        OperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
 
         //noinspection ThrowableNotThrown
         IgniteTestUtils.assertThrows(expected.getClass(),
@@ -190,8 +171,8 @@ public class CancelHandlerRegistryTest extends BaseIgniteAbstractTest {
                 return false;
             });
 
-            manager.register(new LocalHandler(false), CancellableOperationType.SQL_QUERY);
-            ClusterWideOperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
+            manager.register(CancellableOperationType.SQL_QUERY, new LocalHandler(false), true);
+            OperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
 
             //noinspection ThrowableNotThrown
             IgniteTestUtils.assertThrows(expected.getClass(),
@@ -213,8 +194,8 @@ public class CancelHandlerRegistryTest extends BaseIgniteAbstractTest {
                 return true;
             });
 
-            manager.register(new LocalHandler(false), CancellableOperationType.SQL_QUERY);
-            ClusterWideOperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
+            manager.register(CancellableOperationType.SQL_QUERY, new LocalHandler(false), true);
+            OperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
 
             // The remote error must be logged, but since the
             // operation is cancelled, the future completes successfully.
@@ -243,8 +224,8 @@ public class CancelHandlerRegistryTest extends BaseIgniteAbstractTest {
 
             CancelHandlerRegistryImpl manager = createManager(respHandler, 200);
 
-            manager.register(new LocalHandler(false), CancellableOperationType.SQL_QUERY);
-            ClusterWideOperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
+            manager.register(CancellableOperationType.SQL_QUERY, new LocalHandler(false), true);
+            OperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
 
             //noinspection ThrowableNotThrown
             IgniteTestUtils.assertThrows(TimeoutException.class,
@@ -272,8 +253,8 @@ public class CancelHandlerRegistryTest extends BaseIgniteAbstractTest {
 
             CancelHandlerRegistryImpl manager = createManager(respHandler, 200);
 
-            manager.register(new LocalHandler(false), CancellableOperationType.SQL_QUERY);
-            ClusterWideOperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
+            manager.register(CancellableOperationType.SQL_QUERY, new LocalHandler(false), true);
+            OperationCancelHandler handler = manager.handler(CancellableOperationType.SQL_QUERY);
 
             // The remote error must be logged, but since the
             // operation is cancelled, the future completes successfully.
@@ -324,7 +305,7 @@ public class CancelHandlerRegistryTest extends BaseIgniteAbstractTest {
         return new LogicalNode(new UUID(0, idx), name, new NetworkAddress("localhost", 123));
     }
 
-    private static class LocalHandler implements NodeOperationCancelHandler {
+    private static class LocalHandler implements OperationCancelHandler {
         private final Boolean localResult;
         private final Throwable throwable;
 
@@ -345,13 +326,6 @@ public class CancelHandlerRegistryTest extends BaseIgniteAbstractTest {
             }
 
             return CompletableFuture.failedFuture(throwable);
-        }
-    }
-
-    private static class UnsupportedHandler implements OperationCancelHandler {
-        @Override
-        public CompletableFuture<Boolean> cancelAsync(UUID objectId) {
-            return CompletableFutures.falseCompletedFuture();
         }
     }
 }

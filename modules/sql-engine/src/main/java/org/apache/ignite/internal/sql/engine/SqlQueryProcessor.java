@@ -54,7 +54,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.sql.common.cancel.api.NodeOperationCancelHandler;
+import org.apache.ignite.internal.sql.common.cancel.api.OperationCancelHandler;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
@@ -112,7 +112,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  *  Main implementation of {@link QueryProcessor}.
  */
-public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, NodeOperationCancelHandler {
+public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, OperationCancelHandler {
     /** Default time-zone ID. */
     public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 

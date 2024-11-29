@@ -22,6 +22,11 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Handler that can cancel operations of a certain type.
+ *
+ * <p>When registering a handler in the {@link CancelHandlerRegistry registry}, you must specify
+ * whether the handler can cancel the operation on the local node only or on the entire cluster.
+ *
+ * @see CancelHandlerRegistry#register(CancellableOperationType, OperationCancelHandler, boolean)
  */
 @FunctionalInterface
 public interface OperationCancelHandler {
