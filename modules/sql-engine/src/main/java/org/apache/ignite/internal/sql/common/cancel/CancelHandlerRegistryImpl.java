@@ -79,7 +79,7 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
         OperationCancelHandler handler = handlerOrThrow(type);
 
         if (handler instanceof NodeOperationCancelHandler) {
-            return new NodeToClusterCancelHandlerWrapper(
+            return new NodeToClusterCancelHandlerAdapter(
                     (NodeOperationCancelHandler) handler,
                     type,
                     topologyService,

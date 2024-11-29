@@ -33,17 +33,17 @@ import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationResp
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 
 /**
- * Wrapper for {@link NodeOperationCancelHandler} that calls a local cancel handler on each node in the cluster.
+ * Adapter for {@link NodeOperationCancelHandler} that calls a local cancel handler on each node in the cluster.
  *
  * @see NodeOperationCancelHandler
  * @see ClusterWideOperationCancelHandler
  */
-class NodeToClusterCancelHandlerWrapper implements ClusterWideOperationCancelHandler {
+class NodeToClusterCancelHandlerAdapter implements ClusterWideOperationCancelHandler {
     /** Messages factory. */
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(NodeToClusterCancelHandlerWrapper.class);
+    private static final IgniteLogger LOG = Loggers.forClass(NodeToClusterCancelHandlerAdapter.class);
 
     /** Maximum time to wait for a remote response. */
     private static final long RESPONSE_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(5);
@@ -53,7 +53,7 @@ class NodeToClusterCancelHandlerWrapper implements ClusterWideOperationCancelHan
     private final TopologyService topologyService;
     private final MessagingService messageService;
 
-    NodeToClusterCancelHandlerWrapper(
+    NodeToClusterCancelHandlerAdapter(
             NodeOperationCancelHandler localHandler,
             CancellableOperationType type,
             TopologyService topologyService,
