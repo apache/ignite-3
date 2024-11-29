@@ -1257,6 +1257,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             : "Unexpected primary replica state STOPPED [groupId=" + groupId
                                 + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
                                 + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
+
+                    assert replicaManager.replica(groupId) != null;
                 } else if (context.reservedForPrimary) {
                     context.assertReservation(groupId, parameters.startTime());
 
@@ -1277,10 +1279,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters) {
             if (localNodeId.equals(parameters.leaseholderId())) {
-                ReplicaStateContext context = replicaContexts.get(parameters.groupId());
+                ReplicationGroupId groupId = parameters.groupId();
+                ReplicaStateContext context = replicaContexts.get(groupId);
 
                 if (context != null) {
                     synchronized (context) {
+                        if (parameters.leaseholderId().equals(localNodeId)) {
+                            assert replicaManager.replica(groupId) != null;
+                        }
+
                         context.assertReservation(parameters.groupId(), parameters.startTime());
                         // Unreserve if primary replica expired, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
@@ -1406,40 +1413,57 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 LOG.debug("Weak replica stop [grpId={}, state={}, reason={}, reservedForPrimary={}, future={}].", groupId, state,
                         reason, context.reservedForPrimary, context.previousOperationFuture);
 
-                if (reason == WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS) {
-                    if (state == ReplicaState.ASSIGNED) {
-                        if (context.reservedForPrimary) {
+                switch (reason) {
+                    case EXCLUDED_FROM_ASSIGNMENTS: {
+                        if (state == ReplicaState.ASSIGNED) {
+                            if (!context.reservedForPrimary) {
+                                return stopReplica(groupId, context, stopOperation);
+                            }
+
                             context.replicaState = ReplicaState.PRIMARY_ONLY;
                             // Intentionally do not return future here: it can freeze the handling of assignment changes.
                             planDeferredReplicaStop(groupId, context, null, stopOperation);
+                        } else if (state == ReplicaState.STARTING) {
+                            return stopReplica(groupId, context, stopOperation);
+                        } else if (state == ReplicaState.STOPPED) {
+                            // We need to stop replica and destroy storages anyway, because they can be already created.
+                            return stopReplica(groupId, context, stopOperation);
+                        } // else: no-op.
+
+                        break;
+                    }
+
+                    case RESTART: {
+                        // Explicit restart: always stop.
+                        if (context.reservedForPrimary) {
+                            // If is primary, turning off the primary first.
+                            context.replicaState = ReplicaState.RESTART_PLANNED;
+                            return replicaManager.stopLeaseProlongation(groupId, null)
+                                    .thenCompose(leaseExpirationTime ->
+                                            planDeferredReplicaStop(groupId, context, leaseExpirationTime, stopOperation)
+                                    );
                         } else {
                             return stopReplica(groupId, context, stopOperation);
                         }
-                    } else if (state == ReplicaState.STARTING) {
-                        return stopReplica(groupId, context, stopOperation);
-                    } else if (state == ReplicaState.STOPPED) {
-                        // We need to stop replica and destroy storages anyway, because they can be already created.
-                        return stopReplica(groupId, context, stopOperation);
-                    } // else: no-op.
-                } else if (reason == WeakReplicaStopReason.RESTART) {
-                    // Explicit restart: always stop.
-                    if (context.reservedForPrimary) {
-                        // If is primary, turning off the primary first.
-                        context.replicaState = ReplicaState.RESTART_PLANNED;
-                        return replicaManager.stopLeaseProlongation(groupId, null)
-                                .thenCompose(leaseExpirationTime ->
-                                        planDeferredReplicaStop(groupId, context, leaseExpirationTime, stopOperation)
-                                );
-                    } else {
+                    }
+
+                    case PRIMARY_EXPIRED: {
+                        if (state == ReplicaState.PRIMARY_ONLY) {
+                            return stopReplica(groupId, context, stopOperation);
+                        } // else: no-op.
+
+                        break;
+                    }
+
+                    case SHUTDOWN: {
+                        // On Ignite node's shutdown we're just stopping a replica regardless the state.
                         return stopReplica(groupId, context, stopOperation);
                     }
-                } else {
-                    assert reason == WeakReplicaStopReason.PRIMARY_EXPIRED : "Unknown replica stop reason: " + reason;
 
-                    if (state == ReplicaState.PRIMARY_ONLY) {
-                        return stopReplica(groupId, context, stopOperation);
-                    } // else: no-op.
-                }
+                    default: {
+                        throw new IllegalStateException("Unknown replica stop reason: " + reason);
+                    }
+                };
                 // State #RESTART_PLANNED is also no-op because replica will be stopped within deferred operation.
 
                 LOG.debug("Weak replica stop (sync part) complete [grpId={}, state={}].", groupId, context.replicaState);
@@ -1522,15 +1546,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 }
 
                 return context.reservedForPrimary;
-            }
-        }
-
-        @TestOnly
-        boolean isReplicaPrimaryOnly(ReplicationGroupId groupId) {
-            ReplicaStateContext context = getContext(groupId);
-
-            synchronized (context) {
-                return context.replicaState == ReplicaState.PRIMARY_ONLY;
             }
         }
     }
@@ -1683,7 +1698,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         PRIMARY_EXPIRED,
 
         /** Explicit manual replica restart for disaster recovery purposes. */
-        RESTART
+        RESTART,
+
+        /** If the local node is stopping. */
+        SHUTDOWN
     }
 
     // TODO: IGNITE-22630 Fix serialization into message

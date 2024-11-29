@@ -1459,7 +1459,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     for (int p = 0; p < internalTable.partitions(); p++) {
                         TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
-                        stopReplicaFutures[p] = stopPartition(replicationGroupId, table);
+                        stopReplicaFutures[p] = replicaMgr.weakStopReplica(
+                                replicationGroupId,
+                                WeakReplicaStopReason.SHUTDOWN,
+                                () -> stopPartition(replicationGroupId, table)
+                        );
                     }
 
                     allOf(stopReplicaFutures).get(10, TimeUnit.SECONDS);
