@@ -34,7 +34,7 @@ import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 /**
  * Collection of {@link StripedExecutor executors} for the network based on {@link ChannelType#id()}.
  *
- * <p>Executors are created once in the constructor, so it is important that all {@link ChannelType} are registered at the time the
+ * <p>Executors are created once in the constructor, so it is important that all {@link ChannelType}s are registered at the time the
  * constructor is called. This was done intentionally to optimize and get rid of contention.</p>
  */
 class CriticalStripedExecutors implements ManuallyCloseable {
@@ -76,7 +76,7 @@ class CriticalStripedExecutors implements ManuallyCloseable {
     }
 
     /**
-     * Returns executor to executes a command on a stripe with the given index.Ø
+     * Returns executor to execute a command on a stripe with the given index.
      *
      * @param channelTypeId {@link ChannelType#id() Channel type ID}.
      * @param stripeIndex Index of the stripe.

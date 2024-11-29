@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** {@link ChannelType} registerer. */
-public class ChannelTypeRegisterer {
+/** {@link ChannelType} registrar. */
+public class ChannelTypeRegistrar {
     private final Map<Short, ChannelType> channelTypeById = new ConcurrentHashMap<>();
 
     /**

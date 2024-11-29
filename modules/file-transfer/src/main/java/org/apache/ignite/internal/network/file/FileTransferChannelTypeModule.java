@@ -19,13 +19,13 @@ package org.apache.ignite.internal.network.file;
 
 import com.google.auto.service.AutoService;
 import org.apache.ignite.internal.network.ChannelTypeModule;
-import org.apache.ignite.internal.network.ChannelTypeRegisterer;
+import org.apache.ignite.internal.network.ChannelTypeRegistrar;
 
-/** {@link ChannelTypeModule} for code-deployment module. */
+/** {@link ChannelTypeModule} for file-transfer module. */
 @AutoService(ChannelTypeModule.class)
 public class FileTransferChannelTypeModule implements ChannelTypeModule {
     @Override
-    public void register(ChannelTypeRegisterer channelTypeRegisterer) {
-        channelTypeRegisterer.register(Channel.FILE_TRANSFER_CHANNEL);
+    public void register(ChannelTypeRegistrar channelTypeRegistrar) {
+        channelTypeRegistrar.register(Channel.FILE_TRANSFER_CHANNEL);
     }
 }

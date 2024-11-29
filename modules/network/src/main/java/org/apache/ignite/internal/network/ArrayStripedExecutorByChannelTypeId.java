@@ -21,7 +21,7 @@ import java.util.Arrays;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.thread.StripedExecutor;
 
-/** Map-based implementation for increased performance. */
+/** Array-based implementation for increased performance. */
 class ArrayStripedExecutorByChannelTypeId implements StripedExecutorByChannelTypeId {
     private final StripedExecutor[] array;
 

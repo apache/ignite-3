@@ -20,9 +20,9 @@ package org.apache.ignite.internal.network;
 import java.util.ServiceLoader;
 
 /**
- * Registerer of {@link ChannelType} for each module that should be loaded into the via the {@link ServiceLoader} and then received
+ * Registrar of {@link ChannelType} for each module that should be loaded into the via the {@link ServiceLoader} and then received
  * via {@link ChannelTypeRegistry}.
  */
 public interface ChannelTypeModule {
-    void register(ChannelTypeRegisterer channelTypeRegisterer);
+    void register(ChannelTypeRegistrar channelTypeRegistrar);
 }

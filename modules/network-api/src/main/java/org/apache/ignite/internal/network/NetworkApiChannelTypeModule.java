@@ -23,7 +23,7 @@ import com.google.auto.service.AutoService;
 @AutoService(ChannelTypeModule.class)
 public class NetworkApiChannelTypeModule implements ChannelTypeModule {
     @Override
-    public void register(ChannelTypeRegisterer channelTypeRegisterer) {
-        channelTypeRegisterer.register(ChannelType.DEFAULT);
+    public void register(ChannelTypeRegistrar channelTypeRegistrar) {
+        channelTypeRegistrar.register(ChannelType.DEFAULT);
     }
 }

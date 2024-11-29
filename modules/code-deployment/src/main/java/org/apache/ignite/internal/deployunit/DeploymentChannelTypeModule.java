@@ -19,13 +19,13 @@ package org.apache.ignite.internal.deployunit;
 
 import com.google.auto.service.AutoService;
 import org.apache.ignite.internal.network.ChannelTypeModule;
-import org.apache.ignite.internal.network.ChannelTypeRegisterer;
+import org.apache.ignite.internal.network.ChannelTypeRegistrar;
 
 /** {@link ChannelTypeModule} for code-deployment module. */
 @AutoService(ChannelTypeModule.class)
 public class DeploymentChannelTypeModule implements ChannelTypeModule {
     @Override
-    public void register(ChannelTypeRegisterer channelTypeRegisterer) {
-        channelTypeRegisterer.register(DeployMessagingService.DEPLOYMENT_CHANNEL);
+    public void register(ChannelTypeRegistrar channelTypeRegistrar) {
+        channelTypeRegistrar.register(DeployMessagingService.DEPLOYMENT_CHANNEL);
     }
 }

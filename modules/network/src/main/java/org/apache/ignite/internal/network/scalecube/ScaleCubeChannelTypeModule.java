@@ -19,13 +19,13 @@ package org.apache.ignite.internal.network.scalecube;
 
 import com.google.auto.service.AutoService;
 import org.apache.ignite.internal.network.ChannelTypeModule;
-import org.apache.ignite.internal.network.ChannelTypeRegisterer;
+import org.apache.ignite.internal.network.ChannelTypeRegistrar;
 
 /** {@link ChannelTypeModule} for ScaleCube in network module. */
 @AutoService(ChannelTypeModule.class)
 public class ScaleCubeChannelTypeModule implements ChannelTypeModule {
     @Override
-    public void register(ChannelTypeRegisterer channelTypeRegisterer) {
-        channelTypeRegisterer.register(ScaleCubeDirectMarshallerTransport.SCALE_CUBE_CHANNEL_TYPE);
+    public void register(ChannelTypeRegistrar channelTypeRegistrar) {
+        channelTypeRegistrar.register(ScaleCubeDirectMarshallerTransport.SCALE_CUBE_CHANNEL_TYPE);
     }
 }

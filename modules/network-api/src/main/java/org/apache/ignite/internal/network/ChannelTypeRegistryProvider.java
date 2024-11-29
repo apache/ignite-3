@@ -29,7 +29,7 @@ public class ChannelTypeRegistryProvider {
      * @param classLoader Classloader to use, {@code null} if use the system class loader.
      */
     public static ChannelTypeRegistry loadByServiceLoader(@Nullable ClassLoader classLoader) {
-        var channelTypeRegisterer = new ChannelTypeRegisterer();
+        var channelTypeRegisterer = new ChannelTypeRegistrar();
 
         for (ChannelTypeModule moduleRegisterer : ServiceLoader.load(ChannelTypeModule.class, classLoader)) {
             moduleRegisterer.register(channelTypeRegisterer);

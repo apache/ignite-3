@@ -23,7 +23,7 @@ import com.google.auto.service.AutoService;
 @AutoService(ChannelTypeModule.class)
 public class TestNetworkChannelTypeModule implements ChannelTypeModule {
     @Override
-    public void register(ChannelTypeRegisterer channelTypeRegisterer) {
-        channelTypeRegisterer.register(DefaultMessagingServiceTest.TEST_CHANNEL);
+    public void register(ChannelTypeRegistrar channelTypeRegistrar) {
+        channelTypeRegistrar.register(DefaultMessagingServiceTest.TEST_CHANNEL);
     }
 }
