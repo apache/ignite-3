@@ -237,6 +237,11 @@ public class FakeCompute implements IgniteComputeInternal {
         public Marshaller<R, byte[]> resultMarshaller() {
             return null;
         }
+
+        @Override
+        public boolean marshalResult() {
+            return false;
+        }
     }
 
     private <R> TaskExecution<R> taskExecution(CompletableFuture<R> result) {
@@ -311,6 +316,11 @@ public class FakeCompute implements IgniteComputeInternal {
         @Override
         public @Nullable Marshaller<R, byte[]> resultMarshaller() {
             return marshaller;
+        }
+
+        @Override
+        public boolean marshalResult() {
+            return false;
         }
     }
 

@@ -15,17 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.compute;
 
-import org.apache.ignite.sql.ColumnType;
+import static org.apache.ignite.lang.ErrorGroups.Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR;
 
-/**
- * The type of the object that can be passed/returned to/from the compute job. In can be a native type that is represented by
- * {@link ColumnType} or a marshalled object/tuple.
- */
-class ComputeJobType {
-    static final int NATIVE = 0;
-    static final int MARSHALLED_TUPLE = 1;
-    static final int MARSHALLED_CUSTOM = 2;
-    static final int MARSHALLED_POJO = 3;
+import org.apache.ignite.lang.IgniteException;
+
+/** POJO conversion exception. */
+public class PojoConversionException extends IgniteException {
+    PojoConversionException(String message) {
+        super(UNSUPPORTED_OBJECT_TYPE_ERR, message);
+    }
+
+    PojoConversionException(String message, Throwable cause) {
+        super(UNSUPPORTED_OBJECT_TYPE_ERR, message, cause);
+    }
 }
