@@ -17,6 +17,7 @@ namespace Apache.Ignite;
 
 using System;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 /// <summary>
 /// Extension method for setting up Apache Ignite services in an <see cref="Microsoft.Extensions.DependencyInjection.IServiceCollection" />.
@@ -27,18 +28,140 @@ public static class IgniteServiceCollectionExtensions
     ///  Registers an <see cref="IgniteClientGroup" /> and an <see cref="IIgnite" />.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
-    /// <returns>SThe same service collection so that multiple calls can be chained.</returns>
-    public static IServiceCollection AddIgniteClientGroup(this IServiceCollection services)
+    /// <param name="configuration">
+    /// <see cref="IgniteClientGroupConfiguration" /> instance.
+    /// </param>
+    /// <param name="clientGroupLifetime">
+    /// The lifetime with which to register the <see cref="IgniteClientGroup" /> service in the container.
+    /// Defaults to <see cref="ServiceLifetime.Singleton" />.
+    /// </param>
+    /// <returns>Original service collection to chain multiple calls.</returns>
+    public static IServiceCollection AddIgniteClientGroup(
+        this IServiceCollection services,
+        IgniteClientGroupConfiguration configuration,
+        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton)
     {
-        AddIgniteClientGroupCore(services);
+        AddIgniteClientGroupCore(services, (_, _) => configuration, clientGroupLifetime);
+
+        return services;
+    }
+
+    /// <summary>
+    ///  Registers an <see cref="IgniteClientGroup" /> and an <see cref="IIgnite" />.
+    /// </summary>
+    /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
+    /// <param name="configure">
+    /// Function to build the <see cref="IgniteClientGroupConfiguration" />.
+    /// </param>
+    /// <param name="clientGroupLifetime">
+    /// The lifetime with which to register the <see cref="IgniteClientGroup" /> service in the container.
+    /// Defaults to <see cref="ServiceLifetime.Singleton" />.
+    /// </param>
+    /// <returns>Original service collection to chain multiple calls.</returns>
+    public static IServiceCollection AddIgniteClientGroup(
+        this IServiceCollection services,
+        Func<IServiceProvider, IgniteClientGroupConfiguration> configure,
+        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton)
+    {
+        AddIgniteClientGroupCore(services, (sp, _) => configure(sp), clientGroupLifetime);
+
+        return services;
+    }
+
+    /// <summary>
+    ///  Registers an <see cref="IgniteClientGroup" /> and an <see cref="IIgnite" />.
+    /// </summary>
+    /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
+    /// <param name="serviceKey">
+    /// The <see cref="ServiceDescriptor.ServiceKey"/> of the client group.
+    /// </param>
+    /// <param name="configuration">
+    /// <see cref="IgniteClientGroupConfiguration" /> instance.
+    /// </param>
+    /// <param name="clientGroupLifetime">
+    /// The lifetime with which to register the <see cref="IgniteClientGroup" /> service in the container.
+    /// Defaults to <see cref="ServiceLifetime.Singleton" />.
+    /// </param>
+    /// <returns>Original service collection to chain multiple calls.</returns>
+    public static IServiceCollection AddIgniteClientGroupKeyed(
+        this IServiceCollection services,
+        object? serviceKey,
+        IgniteClientGroupConfiguration configuration,
+        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton)
+    {
+        AddIgniteClientGroupCore(services, (_, _) => configuration, clientGroupLifetime, serviceKey);
+
+        return services;
+    }
+
+    /// <summary>
+    ///  Registers an <see cref="IgniteClientGroup" /> and an <see cref="IIgnite" />.
+    /// </summary>
+    /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
+    /// <param name="serviceKey">
+    /// The <see cref="ServiceDescriptor.ServiceKey"/> of the client group.
+    /// </param>
+    /// <param name="configure">
+    /// Function to build the <see cref="IgniteClientGroupConfiguration" />.
+    /// </param>
+    /// <param name="clientGroupLifetime">
+    /// The lifetime with which to register the <see cref="IgniteClientGroup" /> service in the container.
+    /// Defaults to <see cref="ServiceLifetime.Singleton" />.
+    /// </param>
+    /// <returns>Original service collection to chain multiple calls.</returns>
+    public static IServiceCollection AddIgniteClientGroupKeyed(
+        this IServiceCollection services,
+        object? serviceKey,
+        Func<IServiceProvider, IgniteClientGroupConfiguration> configure,
+        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton)
+    {
+        AddIgniteClientGroupCore(
+            services,
+            (sp, _) => configure(sp),
+            clientGroupLifetime,
+            serviceKey);
+
+        return services;
+    }
+
+    /// <summary>
+    ///  Registers an <see cref="IgniteClientGroup" /> and an <see cref="IIgnite" />.
+    /// </summary>
+    /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
+    /// <param name="serviceKey">
+    /// The <see cref="ServiceDescriptor.ServiceKey"/> of the client group.
+    /// </param>
+    /// <param name="configure">
+    /// Function to build the <see cref="IgniteClientGroupConfiguration" />.
+    /// </param>
+    /// <param name="clientGroupLifetime">
+    /// The lifetime with which to register the <see cref="IgniteClientGroup" /> service in the container.
+    /// Defaults to <see cref="ServiceLifetime.Singleton" />.
+    /// </param>
+    /// <returns>Original service collection to chain multiple calls.</returns>
+    public static IServiceCollection AddIgniteClientGroupKeyed(
+        this IServiceCollection services,
+        object? serviceKey,
+        Func<IServiceProvider, object?, IgniteClientGroupConfiguration> configure,
+        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton)
+    {
+        AddIgniteClientGroupCore(services, configure, clientGroupLifetime, serviceKey);
 
         return services;
     }
 
     private static IServiceCollection AddIgniteClientGroupCore(
         IServiceCollection services,
+        Func<IServiceProvider, object?, IgniteClientGroupConfiguration> configure,
+        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton,
         object? key = null)
     {
+        services.TryAdd(new ServiceDescriptor(
+            typeof(IgniteClientGroup),
+            key,
+            (sp, keyInner) => new IgniteClientGroup(configure(sp, keyInner)),
+            clientGroupLifetime));
+
         return services;
     }
 }
