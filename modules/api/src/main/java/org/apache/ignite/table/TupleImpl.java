@@ -19,6 +19,7 @@ package org.apache.ignite.table;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -348,7 +349,7 @@ class TupleImpl implements Tuple, Serializable {
      * @throws IOException            If failed.
      * @throws ClassNotFoundException If failed.
      */
-    private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
 
         // Recover column name->index mapping.
@@ -366,7 +367,7 @@ class TupleImpl implements Tuple, Serializable {
      * @param out Output object stream.
      * @throws IOException If failed.
      */
-    private void writeObject(java.io.ObjectOutputStream out) throws IOException {
+    private void writeObject(ObjectOutputStream out) throws IOException {
         out.defaultWriteObject();
     }
 
