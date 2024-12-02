@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
@@ -38,12 +39,16 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests distribution zone command exception handling. */
+@ExtendWith(ExecutorServiceExtension.class)
 public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     private DdlCommandHandler commandHandler;
 
@@ -53,13 +58,16 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     private ClockWaiter clockWaiter;
 
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
+
     @BeforeEach
     void before() {
         HybridClock clock = new HybridClockImpl();
         catalogManager = createTestCatalogManager("test", clock);
         assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        clockWaiter = new ClockWaiter("test", clock);
+        clockWaiter = new ClockWaiter("test", clock, scheduledExecutor);
         assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         commandHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);

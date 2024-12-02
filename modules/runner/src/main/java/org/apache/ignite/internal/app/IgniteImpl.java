@@ -577,7 +577,7 @@ public class IgniteImpl implements Ignite {
 
         clock = new HybridClockImpl();
 
-        clockWaiter = new ClockWaiter(name, clock);
+        clockWaiter = new ClockWaiter(name, clock, threadPoolsManager.commonScheduler());
 
         RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftExtensionConfiguration.KEY).raft();
 
