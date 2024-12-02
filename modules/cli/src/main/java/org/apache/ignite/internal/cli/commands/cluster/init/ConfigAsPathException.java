@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.init;
 
-/** Exception thrown when config file parse failed. */
-public class ConfigFileParseException extends RuntimeException {
-    public ConfigFileParseException(String message) {
-        super(message);
+/**
+ * Exception throws when config file path passed to config content option.
+ */
+public class ConfigAsPathException extends RuntimeException {
+    private static final long serialVersionUID = -7683264630128999379L;
+
+    private final String path;
+
+    public ConfigAsPathException(String path) {
+        this.path = path;
     }
 
-
-    public ConfigFileParseException(String message, Throwable cause) {
-        super(message, cause);
+    public String path() {
+        return path;
     }
 }
