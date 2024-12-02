@@ -1245,7 +1245,9 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     @Override
     public CompletableFuture<Boolean> isAlive() {
-        return metaStorageSvcFut.thenCompose(service -> service.currentRevision().handle((unused, t) -> t != null));
+        return metaStorageSvcFut.thenCompose(
+                service -> service.currentRevisions().handle((unused, t) -> t != null)
+        );
     }
 
     @Override

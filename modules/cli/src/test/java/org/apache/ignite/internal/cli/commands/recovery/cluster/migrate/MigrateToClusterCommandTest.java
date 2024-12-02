@@ -24,9 +24,11 @@ import static org.mockserver.model.JsonBody.json;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.cli.commands.IgniteCliInterfaceTestBase;
-import org.apache.ignite.rest.client.model.ClusterState;
-import org.apache.ignite.rest.client.model.ClusterStateClusterTag;
-import org.apache.ignite.rest.client.model.ClusterStatus;
+import org.apache.ignite.rest.client.model.ClusterStateDto;
+import org.apache.ignite.rest.client.model.ClusterStateDtoClusterTag;
+import org.apache.ignite.rest.client.model.ClusterStateDtoCmgStatus;
+import org.apache.ignite.rest.client.model.ClusterStateDtoMetastoreStatus;
+import org.apache.ignite.rest.client.model.GroupStatus;
 import org.apache.ignite.rest.client.model.MigrateRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,13 +60,12 @@ class MigrateToClusterCommandTest extends IgniteCliInterfaceTestBase {
     }
 
     private static void respondWithClusterState() {
-        ClusterState clusterState = new ClusterState()
-                .cmgNodes(List.of("node"))
-                .msNodes(List.of("node"))
+        ClusterStateDto clusterState = new ClusterStateDto()
+                .cmgStatus(new ClusterStateDtoCmgStatus().groupStatus(GroupStatus.HEALTHY).aliveNodes(List.of("node")))
+                .metastoreStatus(new ClusterStateDtoMetastoreStatus().groupStatus(GroupStatus.HEALTHY).aliveNodes(List.of("node")))
                 .igniteVersion("version")
-                .clusterStatus(ClusterStatus.HEALTHY)
                 .clusterTag(
-                        new ClusterStateClusterTag()
+                        new ClusterStateDtoClusterTag()
                                 .clusterName("clusterName")
                                 .clusterId(UUID.fromString("e0655494-eb02-4757-89db-ae562a170280"))
                 );
