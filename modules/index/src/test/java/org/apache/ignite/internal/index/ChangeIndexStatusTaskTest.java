@@ -59,6 +59,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -91,7 +92,9 @@ import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutExce
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
@@ -103,6 +106,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /** For {@link ChangeIndexStatusTask} testing. */
+@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(MockitoExtension.class)
 public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
@@ -111,8 +115,11 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
+
     @Spy
-    private final ClockWaiter clockWaiter = new ClockWaiter(NODE_NAME, clock);
+    private final ClockWaiter clockWaiter = new ClockWaiter(NODE_NAME, clock, scheduledExecutor);
 
     private final MetaStorageManager metastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 

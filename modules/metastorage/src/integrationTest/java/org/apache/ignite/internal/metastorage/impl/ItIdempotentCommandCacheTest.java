@@ -240,7 +240,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     readOperationForCompactionTracker
             );
 
-            clockWaiter = new ClockWaiter(clusterService.nodeName(), clock);
+            clockWaiter = new ClockWaiter(clusterService.nodeName(), clock, scheduledExecutorService);
 
             clockService = new ClockServiceImpl(
                     clock,
