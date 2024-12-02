@@ -102,7 +102,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /** For {@link ChangeIndexStatusTask} testing. */
@@ -118,8 +117,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     @InjectExecutorService
     private ScheduledExecutorService scheduledExecutor;
 
-    @Spy
-    private final ClockWaiter clockWaiter = new ClockWaiter(NODE_NAME, clock, scheduledExecutor);
+    private ClockWaiter clockWaiter;
 
     private final MetaStorageManager metastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
@@ -145,6 +143,8 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
+        clockWaiter = spy(new ClockWaiter(NODE_NAME, clock, scheduledExecutor));
+
         clockService = new TestClockService(clock, clockWaiter);
 
         catalogManager = createTestCatalogManager(metastore, clockWaiter, clock);
