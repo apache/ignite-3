@@ -29,6 +29,7 @@ import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
@@ -89,6 +90,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private final int[] insertRowMapping;
 
+    private final RowFactory<RowT> rowFactory;
+
     private List<RowT> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
     private long updatedRows;
@@ -106,13 +109,15 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      * @param table A table to update.
      * @param op A type of the update operation.
      * @param updateColumns Enumeration of columns to update if applicable.
+     * @param rowFactory Row factory.
      */
     public ModifyNode(
             ExecutionContext<RowT> ctx,
             UpdatableTable table,
             long sourceId,
             TableModify.Operation op,
-            @Nullable List<String> updateColumns
+            @Nullable List<String> updateColumns,
+            RowFactory<RowT> rowFactory
     ) {
         super(ctx);
 
@@ -127,6 +132,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                         .filter(Predicate.not(ColumnDescriptor::virtual))
                         .mapToInt(ColumnDescriptor::logicalIndex)
                         .toArray();
+
+        this.rowFactory = rowFactory;
     }
 
     /** {@inheritDoc} */
@@ -303,11 +310,9 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         assert updateColumns != null;
 
-        RowHandler<RowT> handler = context().rowHandler();
-
         int[] targetMapping = applyOffset(mapping, offset);
 
-        rows.replaceAll(row -> handler.map(row, targetMapping));
+        rows.replaceAll(row -> rowFactory.map(row, targetMapping));
     }
 
     /** Adds the provided offset to each value in the mapping. */
@@ -394,7 +399,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
 
         if (rowsToInsert != null) {
-            rowsToInsert.replaceAll(row -> handler.map(row, insertRowMapping));
+            rowsToInsert.replaceAll(row -> rowFactory.map(row, insertRowMapping));
         }
 
         if (rowsToUpdate != null) {

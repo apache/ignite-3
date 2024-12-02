@@ -103,22 +103,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         return new ObjectsArrayRowWrapper(schemaBuilder.build(), values);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public RowWrapper map(RowWrapper row, int[] mapping) {
-        Object[] fields = new Object[mapping.length];
-        Builder schemaBuilder = RowSchema.builder();
-        List<TypeSpec> originalFields = row.rowSchema().fields();
-
-        for (int i = 0; i < mapping.length; i++) {
-            int mappedIdx = mapping[i];
-            fields[i] = row.get(mappedIdx);
-            schemaBuilder.addField(originalFields.get(mappedIdx));
-        }
-
-        return new ObjectsArrayRowWrapper(schemaBuilder.build(), fields);
-    }
-
     @Override
     public int columnCount(RowWrapper row) {
         return row.columnsCount();
@@ -188,6 +172,18 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             public RowSchema rowSchema() {
                 return rowSchema;
             }
+
+            @Override
+            public RowWrapper map(RowWrapper row, int[] mapping) {
+                assert mapping.length == rowSchema.fields().size();
+                Object[] fields = new Object[mapping.length];
+
+                for (int i = 0; i < mapping.length; i++) {
+                    fields[i] = row.get(mapping[i]);
+                }
+
+                return new ObjectsArrayRowWrapper(rowSchema, fields);
+            }
         };
     }
 
@@ -214,6 +210,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         private final Object[] row;
 
         ObjectsArrayRowWrapper(RowSchema rowSchema, Object[] row) {
+            assert row.length == rowSchema.fields().size();
             this.rowSchema = rowSchema;
             this.row = row;
         }
