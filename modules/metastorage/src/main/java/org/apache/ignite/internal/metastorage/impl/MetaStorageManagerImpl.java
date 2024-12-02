@@ -68,6 +68,7 @@ import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
+import org.apache.ignite.internal.metastorage.command.marshaller.ThreadLocalMetastoreCommandsMarshaller;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -549,6 +550,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                         raftGroupOptionsConfigurer.configure(options);
 
                         RaftGroupOptions groupOptions = (RaftGroupOptions) options;
+                        groupOptions.commandsMarshaller(new ThreadLocalMetastoreCommandsMarshaller(clusterService.serializationRegistry()));
                         groupOptions.externallyEnforcedConfigIndex(metaStorageInfo.metastorageRepairingConfigIndex());
                         groupOptions.snapshotStorageFactory(new MetaStorageSnapshotStorageFactory(storage));
                     }
