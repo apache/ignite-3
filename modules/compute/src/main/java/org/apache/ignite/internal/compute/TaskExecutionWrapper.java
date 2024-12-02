@@ -73,4 +73,9 @@ class TaskExecutionWrapper<R> implements TaskExecution<R>, MarshallerProvider<R>
 
         return null;
     }
+
+    @Override
+    public boolean marshalResult() {
+        return delegate instanceof MarshallerProvider && ((MarshallerProvider<R>) delegate).marshalResult();
+    }
 }

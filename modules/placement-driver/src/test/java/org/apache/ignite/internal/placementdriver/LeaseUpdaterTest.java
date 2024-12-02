@@ -21,8 +21,8 @@ import static java.util.Collections.emptyMap;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
@@ -34,9 +34,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteOrder;
@@ -73,6 +73,7 @@ import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.leases.Leases;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -80,6 +81,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
@@ -94,26 +96,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
+    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
     /** Empty leases. */
     private final Leases leases = new Leases(emptyMap(), BYTE_EMPTY_ARRAY);
     /** Cluster nodes. */
     private final LogicalNode stableNode = new LogicalNode(randomUUID(), "test-node-stable", NetworkAddress.from("127.0.0.1:10000"));
     private final LogicalNode pendingNode = new LogicalNode(randomUUID(), "test-node-pending", NetworkAddress.from("127.0.0.1:10001"));
-    @Mock
-    private ClusterService clusterService;
-    @Mock
-    private MetaStorageManager metaStorageManager;
+
     @Mock
     private LogicalTopologyService topologyService;
-    @Mock
-    private LeaseTracker leaseTracker;
-    @Mock
-    private Cursor<Entry> msStableAssignmentsEntriesCursor;
-    @Mock
-    private Cursor<Entry> msPendingAssignmentsEntriesCursor;
-
-    @InjectConfiguration
-    private ReplicationConfiguration replicationConfiguration;
 
     /** Lease updater for tests. */
     private LeaseUpdater leaseUpdater;
@@ -124,7 +115,13 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     private volatile Consumer<Lease> renewLeaseConsumer = null;
 
     @BeforeEach
-    void setUp() {
+    void setUp(
+            @Mock ClusterService clusterService,
+            @Mock LeaseTracker leaseTracker,
+            @Mock MetaStorageManager metaStorageManager,
+            @Mock MessagingService messagingService,
+            @InjectConfiguration ReplicationConfiguration replicationConfiguration
+    ) {
         HybridClockImpl clock = new HybridClockImpl();
 
         Entry stableEntry = new EntryImpl(
@@ -141,16 +138,20 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 clock.now()
         );
 
-        when(msStableAssignmentsEntriesCursor.iterator()).thenReturn(List.of(stableEntry).iterator());
-        when(msPendingAssignmentsEntriesCursor.iterator()).thenReturn(List.of(pendingEntry).iterator());
-        when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
+        when(messagingService.invoke(anyString(), any(), anyLong()))
+                .then(i -> completedFuture(PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse().accepted(true).build()));
+
+        when(clusterService.messagingService()).thenReturn(messagingService);
+
         lenient().when(leaseTracker.leasesCurrent()).thenReturn(leases);
         lenient().when(leaseTracker.getLease(any(ReplicationGroupId.class))).then(i -> Lease.emptyLease(i.getArgument(0)));
+
         when(metaStorageManager.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(1, -1)));
-        when(metaStorageManager.getLocally(eq(ByteArray.fromString(STABLE_ASSIGNMENTS_PREFIX)), any(ByteArray.class), anyLong()))
-                .thenReturn(msStableAssignmentsEntriesCursor);
-        when(metaStorageManager.getLocally(eq(ByteArray.fromString(PENDING_ASSIGNMENTS_PREFIX)), any(ByteArray.class), anyLong()))
-                .thenReturn(msPendingAssignmentsEntriesCursor);
+        when(metaStorageManager.prefixLocally(eq(new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES)), anyLong()))
+                .thenReturn(Cursor.fromIterable(List.of(stableEntry)));
+        when(metaStorageManager.prefixLocally(eq(new ByteArray(PENDING_ASSIGNMENTS_PREFIX_BYTES)), anyLong()))
+                .thenReturn(Cursor.fromIterable(List.of(pendingEntry)));
+
         when(topologyService.logicalTopologyOnLeader()).thenReturn(completedFuture(new LogicalTopologySnapshot(1, List.of(stableNode))));
 
         lenient().when(metaStorageManager.invoke(any(Condition.class), any(Operation.class), any(Operation.class)))
@@ -276,12 +277,12 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     public void testLeaseRenew() throws Exception {
         initAndActivateLeaseUpdater();
 
-        Lease lease = awaitForLease();
+        Lease lease = awaitForLease(true);
 
         assertTrue(lease.getStartTime().compareTo(lease.getExpirationTime()) < 0);
         assertEquals(stableNode.name(), lease.getLeaseholder());
 
-        Lease renewedLease = awaitForLease();
+        Lease renewedLease = awaitForLease(true);
 
         assertTrue(lease.getStartTime().compareTo(renewedLease.getStartTime()) < 0);
         assertTrue(lease.getExpirationTime().compareTo(renewedLease.getExpirationTime()) < 0);
@@ -316,9 +317,41 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
      * @throws InterruptedException if the wait is interrupted.
      */
     private Lease awaitForLease() throws InterruptedException {
+        return awaitForLease(false);
+    }
+
+    /**
+     * Waits for lease write to Meta storage.
+     *
+     * @param needAccepted Whether to wait only for accepted lease.
+     * @return A lease.
+     * @throws InterruptedException if the wait is interrupted.
+     */
+    private Lease awaitForLease(boolean needAccepted) throws InterruptedException {
+        return awaitForLease(needAccepted, null);
+    }
+
+    /**
+     * Waits for lease write to Meta storage.
+     *
+     * @param needAccepted Whether to wait only for accepted lease.
+     * @param previousLease Previous lease. If not null, then wait for any lease having expiration time other than the previous has (i.e.
+     *      either another lease or prolonged lease).
+     * @return A lease.
+     * @throws InterruptedException if the wait is interrupted.
+     */
+    private Lease awaitForLease(boolean needAccepted, @Nullable Lease previousLease) throws InterruptedException {
         AtomicReference<Lease> renewedLease = new AtomicReference<>();
 
         renewLeaseConsumer = lease -> {
+            if (needAccepted && !lease.isAccepted()) {
+                return;
+            }
+
+            if (previousLease != null && previousLease.getExpirationTime().equals(lease.getExpirationTime())) {
+                return;
+            }
+
             renewedLease.set(lease);
 
             renewLeaseConsumer = null;
@@ -334,7 +367,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
      *
      * @return The lease updater thread.
      */
-    private Thread getUpdaterThread() {
+    private static @Nullable Thread getUpdaterThread() {
         Set<Thread> threads = Thread.getAllStackTraces().keySet().stream()
                 .filter(t -> t.getName().contains("lease-updater")).collect(toSet());
 

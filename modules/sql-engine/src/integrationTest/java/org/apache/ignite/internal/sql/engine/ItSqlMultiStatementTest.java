@@ -123,8 +123,8 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
 
         String expectedMessage = "Unexpected number of query parameters";
 
-        assertThrowsSqlException(STMT_VALIDATION_ERR, expectedMessage, () -> runScript(sql, null, 0));
-        assertThrowsSqlException(STMT_VALIDATION_ERR, expectedMessage, () -> runScript(sql, null, 0, 1, 2, 3, 4, 5));
+        assertThrowsSqlException(STMT_VALIDATION_ERR, expectedMessage, () -> runScript(sql, 0));
+        assertThrowsSqlException(STMT_VALIDATION_ERR, expectedMessage, () -> runScript(sql, 0, 1, 2, 3, 4, 5));
     }
 
     @Test

@@ -42,7 +42,8 @@ import org.apache.ignite.network.ClusterNode;
 public class DeployMessagingService {
     private static final IgniteLogger LOG = Loggers.forClass(DeployMessagingService.class);
 
-    private static final ChannelType DEPLOYMENT_CHANNEL = ChannelType.register((short) 2, "DeploymentUnits");
+    /** Channel type for code deployment. */
+    static final ChannelType DEPLOYMENT_CHANNEL = new ChannelType((short) 2, "DeploymentUnits");
 
     /**
      * Cluster service.
