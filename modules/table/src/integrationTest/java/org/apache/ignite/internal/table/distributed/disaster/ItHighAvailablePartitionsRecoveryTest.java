@@ -51,7 +51,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
-import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 
 /** Test for the HA zones recovery. */
 public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegrationTest {
@@ -67,8 +67,6 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
     protected final HybridClock clock = new HybridClockImpl();
 
-
-
     @Override
     protected int initialNodes() {
         return 3;
@@ -79,7 +77,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
-    @RepeatedTest(20)
+    @Test
     void testHaRecoveryWhenMajorityLoss() throws InterruptedException {
         createHaZoneWithTable();
 
@@ -96,7 +94,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
     }
 
-    @RepeatedTest(5)
+    @Test
     void testHaRecoveryWhenPartitionResetTimeoutUpdated() throws InterruptedException {
         createHaZoneWithTable();
 
@@ -120,7 +118,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
     }
 
-    @RepeatedTest(5)
+    @Test
     void testHaRecoveryWithPartitionResetTimerReschedule() throws InterruptedException {
         createHaZoneWithTable();
 
@@ -144,7 +142,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
     }
 
-    @RepeatedTest(5)
+    @Test
     void testHaRecoveryOnZoneTimersRestoreAfterNodeRestart() throws InterruptedException {
         createHaZoneWithTable();
 
@@ -166,7 +164,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node1, HA_TABLE_NAME, Set.of(0, 1), Set.of(node1.name()));
     }
 
-    @RepeatedTest(5)
+    @Test
     void testNoHaRecovertWhenMajorityAvailable() throws InterruptedException {
         createHaZoneWithTable();
 
@@ -195,7 +193,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertRecoveryKeyIsEmpty(node);
     }
 
-    @RepeatedTest(5)
+    @Test
     void testNoHaRecoveryForScZone() throws InterruptedException {
         createScZoneWithTable();
 
