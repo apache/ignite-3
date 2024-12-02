@@ -819,7 +819,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      */
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1)
-    void testThoPhaseResetEqualLogIndex() throws Exception {
+    void testTwoPhaseResetEqualLogIndex() throws Exception {
         int partId = 0;
 
         IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
