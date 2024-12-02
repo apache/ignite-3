@@ -15,38 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
-
-import java.util.EnumSet;
-import java.util.Set;
+package org.apache.ignite.internal.sql.engine.api.kill;
 
 /**
- * Possible query types.
+ * Registry of handlers that can kill a specific operation.
  */
-public enum SqlQueryType {
-    /** Query. */
-    QUERY,
-
-    /** DML. */
-    DML,
-
-    /** DDL. */
-    DDL,
-
-    /** Explain. */
-    EXPLAIN,
-
-    /** Transaction control statements such as {@code START TRANSACTION}, {@code COMMIT},  etc. */
-    TX_CONTROL,
-
-    /** Kill statement. */
-    KILL
-
-    ;
-
-    /** A set of statement types that can run only in single statement mode. **/
-    public static final Set<SqlQueryType> SINGLE_STMT_TYPES = EnumSet.complementOf(EnumSet.of(TX_CONTROL));
-
-    /** A set of all query types. **/
-    public static final Set<SqlQueryType> ALL = Set.of(values());
+public interface KillHandlerRegistry {
+    /**
+     * Registers a kill handler.
+     *
+     * @param handler Handler to register.
+     */
+    void register(OperationKillHandler handler);
 }

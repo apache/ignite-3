@@ -54,9 +54,10 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.sql.common.cancel.api.OperationCancelHandler;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
@@ -74,6 +75,7 @@ import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProviderImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
+import org.apache.ignite.internal.sql.engine.kill.KillHandlerRegistryImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -112,7 +114,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  *  Main implementation of {@link QueryProcessor}.
  */
-public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, OperationCancelHandler {
+public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     /** Default time-zone ID. */
     public static final ZoneId DEFAULT_TIME_ZONE_ID = ZoneId.of("UTC");
 
@@ -163,6 +165,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, Op
     private final FailureManager failureManager;
 
     private final SystemViewManager systemViewManager;
+
+    private final KillHandlerRegistryImpl killHandlerRegistry;
 
     private volatile QueryExecutor queryExecutor;
 
@@ -219,7 +223,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, Op
             TransactionInflights transactionInflights,
             TxManager txManager,
             LowWatermark lowWaterMark,
-            ScheduledExecutorService commonScheduler
+            ScheduledExecutorService commonScheduler,
+            KillHandlerRegistryImpl killHandlerRegistry
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -240,6 +245,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, Op
         this.txTracker = new InflightTransactionTracker(transactionInflights);
         this.txManager = txManager;
         this.commonScheduler = commonScheduler;
+        this.killHandlerRegistry = killHandlerRegistry;
         sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -332,6 +338,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, Op
                 dependencyResolver,
                 tableFunctionRegistry,
                 clockService,
+                killHandlerRegistry,
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
 
@@ -358,6 +365,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, Op
         registerService(sqlStatisticManager);
 
         services.forEach(LifecycleAware::start);
+
+        killHandlerRegistry.register(new SqlQueryKillHandler());
 
         return nullCompletedFuture();
     }
@@ -433,13 +442,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, Op
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    @Override
-    public CompletableFuture<Boolean> cancelAsync(UUID queryId) {
-        Objects.requireNonNull(queryId, "queryId");
-
-        return queryExecutor.cancelQuery(queryId);
     }
 
     private <T extends LifecycleAware> T registerService(T service) {
@@ -595,6 +597,27 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider, Op
 
         public CompletableFuture<Void> prefetchFuture() {
             return prefetchFuture;
+        }
+    }
+
+    private class SqlQueryKillHandler implements OperationKillHandler {
+        @Override
+        public CompletableFuture<Boolean> cancelAsync(String operationId) {
+            Objects.requireNonNull(operationId, "operationId");
+
+            UUID queryId = UUID.fromString(operationId);
+
+            return queryExecutor.cancelQuery(queryId);
+        }
+
+        @Override
+        public boolean local() {
+            return true;
+        }
+
+        @Override
+        public CancellableOperationType type() {
+            return CancellableOperationType.QUERY;
         }
     }
 }

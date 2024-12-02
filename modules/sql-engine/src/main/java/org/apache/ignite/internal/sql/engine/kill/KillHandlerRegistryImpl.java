@@ -15,31 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.common.cancel;
+package org.apache.ignite.internal.sql.engine.kill;
 
 import java.util.EnumMap;
 import java.util.Objects;
-import java.util.UUID;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.sql.common.cancel.api.CancelHandlerRegistry;
-import org.apache.ignite.internal.sql.common.cancel.api.CancellableOperationType;
-import org.apache.ignite.internal.sql.common.cancel.api.OperationCancelHandler;
-import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationRequest;
-import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationResponse;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
+import org.apache.ignite.internal.sql.engine.kill.messages.CancelOperationRequest;
+import org.apache.ignite.internal.sql.engine.kill.messages.CancelOperationResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@link CancelHandlerRegistry}.
+ * Implementation of {@link KillHandlerRegistry}.
  */
-public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
+public class KillHandlerRegistryImpl implements KillHandlerRegistry {
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
-    private final EnumMap<CancellableOperationType, CancelHandlerDescriptor> handlers = new EnumMap<>(CancellableOperationType.class);
+    private final EnumMap<CancellableOperationType, OperationKillHandler> handlers = new EnumMap<>(CancellableOperationType.class);
 
     private final TopologyService topologyService;
 
@@ -48,7 +47,7 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
     /**
      * Constructor.
      */
-    public CancelHandlerRegistryImpl(TopologyService topologyService, MessagingService messageService) {
+    public KillHandlerRegistryImpl(TopologyService topologyService, MessagingService messageService) {
         this.topologyService = topologyService;
         this.messageService = messageService;
 
@@ -56,25 +55,28 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
     }
 
     @Override
-    public void register(CancellableOperationType type, OperationCancelHandler handler, boolean local) {
+    public void register(OperationKillHandler handler) {
         Objects.requireNonNull(handler, "handler");
-        Objects.requireNonNull(type, "type");
+        Objects.requireNonNull(handler.type(), "handler type cannot be null");
 
-        CancelHandlerDescriptor prevHandler = handlers.putIfAbsent(type, new CancelHandlerDescriptor(handler, local));
+        OperationKillHandler prevHandler = handlers.putIfAbsent(handler.type(), handler);
 
         if (prevHandler != null) {
             throw new IllegalArgumentException("A handler for the specified type has already been registered "
-                    + "[type=" + type + ", prev=" + prevHandler.handler + "].");
+                    + "[type=" + handler.type() + ", prev=" + handler + "].");
         }
     }
 
-    @Override
-    public OperationCancelHandler handler(CancellableOperationType type) {
-        CancelHandlerDescriptor handlerDescriptor = handlerOrThrow(type);
+    /**
+     * Returns a handler that can kill an operation of the specified type across the entire cluster.
+     *
+     * @param type Type of the cancellable operation.
+     * @return Handler that can kill an operation of the specified type across the entire cluster.
+     */
+    public OperationKillHandler handler(CancellableOperationType type) {
+        OperationKillHandler handler = handlerOrThrow(type);
 
-        OperationCancelHandler handler = handlerDescriptor.handler;
-
-        if (handlerDescriptor.local) {
+        if (handler.local()) {
             return new LocalToClusterCancelHandlerWrapper(
                     handler,
                     type,
@@ -86,15 +88,15 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
         return handler;
     }
 
-    private CancelHandlerDescriptor handlerOrThrow(CancellableOperationType type) {
+    private OperationKillHandler handlerOrThrow(CancellableOperationType type) {
         Objects.requireNonNull(type, "type");
-        CancelHandlerDescriptor handlerDescriptor = handlers.get(type);
+        OperationKillHandler handler = handlers.get(type);
 
-        if (handlerDescriptor == null) {
+        if (handler == null) {
             throw new IllegalArgumentException("No registered handler [type=" + type + "].");
         }
 
-        return handlerDescriptor;
+        return handler;
     }
 
     private static CancelOperationResponse errorResponse(Throwable t) {
@@ -108,11 +110,10 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
             try {
                 CancelOperationRequest request = (CancelOperationRequest) networkMessage;
                 CancellableOperationType type = CancellableOperationType.valueOf(request.type());
-                CancelHandlerDescriptor handlerDescriptor = handlerOrThrow(type);
-                OperationCancelHandler handler = handlerDescriptor.handler;
-                UUID operationId = request.id();
+                OperationKillHandler handler = handlerOrThrow(type);
+                String operationId = request.id();
 
-                assert handlerDescriptor.local : "Handler must be local " + handler;
+                assert handler.local() : "Handler must be local " + handler;
 
                 handler.cancelAsync(operationId).whenComplete(
                         (result, throwable) -> {
@@ -130,16 +131,6 @@ public class CancelHandlerRegistryImpl implements CancelHandlerRegistry {
             } catch (Throwable t) {
                 messageService.respond(clusterNode, errorResponse(t), correlationId);
             }
-        }
-    }
-
-    private static class CancelHandlerDescriptor {
-        private final OperationCancelHandler handler;
-        private final boolean local;
-
-        private CancelHandlerDescriptor(OperationCancelHandler handler, boolean local) {
-            this.handler = handler;
-            this.local = local;
         }
     }
 }

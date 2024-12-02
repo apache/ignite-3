@@ -15,13 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.common.cancel.api;
+package org.apache.ignite.internal.sql.engine.kill.messages;
+
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * Type of the operation that can be cancelled.
+ * Request to kill an operation.
+ *
+ * @see CancelOperationResponse
  */
-public enum CancellableOperationType {
-    SQL_QUERY,
-    TRANSACTION,
-    COMPUTE_JOB;
+@Transferable(SqlQueryMessageGroup.OPERATION_CANCEL_REQUEST)
+public interface CancelOperationRequest extends NetworkMessage {
+    /** Returns operation ID. */
+    String id();
+
+    /** Returns type of the operation. */
+    String type();
 }

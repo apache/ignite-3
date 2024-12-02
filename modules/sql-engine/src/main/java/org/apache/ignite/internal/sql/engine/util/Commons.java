@@ -104,6 +104,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlConformance;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
@@ -787,6 +788,10 @@ public final class Commons {
 
         if (SqlKind.DDL.contains(sqlKind)) {
             return SqlQueryType.DDL;
+        }
+
+        if (sqlNode instanceof IgniteSqlKill) {
+            return SqlQueryType.KILL;
         }
 
         switch (sqlKind) {

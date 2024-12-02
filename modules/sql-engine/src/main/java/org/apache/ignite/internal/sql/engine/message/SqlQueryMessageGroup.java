@@ -20,8 +20,8 @@ package org.apache.ignite.internal.sql.engine.message;
 import static org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup.GROUP_TYPE;
 
 import org.apache.ignite.internal.network.annotations.MessageGroup;
-import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationRequest;
-import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationResponse;
+import org.apache.ignite.internal.sql.engine.kill.messages.CancelOperationRequest;
+import org.apache.ignite.internal.sql.engine.kill.messages.CancelOperationResponse;
 
 /**
  * Message types for the sql query processing module.

@@ -15,27 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.common.cancel.api;
+package org.apache.ignite.internal.sql.engine.api.kill;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Handler that can cancel operations of a certain type.
  *
- * <p>When registering a handler in the {@link CancelHandlerRegistry registry}, you must specify
- * whether the handler can cancel the operation on the local node only or on the entire cluster.
- *
- * @see CancelHandlerRegistry#register(CancellableOperationType, OperationCancelHandler, boolean)
+ * @see KillHandlerRegistry#register(OperationKillHandler)
  */
-@FunctionalInterface
-public interface OperationCancelHandler {
+public interface OperationKillHandler {
     /**
      * Cancels an operation with the specified ID.
      *
-     * @param objectId ID of the operation to cancel.
+     * @param operationId ID of the operation to cancel.
      * @return {@code true} if the operation was successfully canceled,
      *         {@code false} if a specific operation was not found or is inactive.
      */
-    CompletableFuture<Boolean> cancelAsync(UUID objectId);
+    CompletableFuture<Boolean> cancelAsync(String operationId);
+
+    /**
+     * Returns whether the handler can abort operations only on local node or across the entire cluster.
+     *
+     * @return {@code True} if the handler can abort operations only on local node,
+     *         {@code false} if the handler can abort operations across the entire cluster.
+     */
+    boolean local();
+
+    /**
+     * Returns the type of the operation that this handler can cancel.
+     *
+     * @return Type of the operation that this handler can cancel.
+     */
+    CancellableOperationType type();
 }

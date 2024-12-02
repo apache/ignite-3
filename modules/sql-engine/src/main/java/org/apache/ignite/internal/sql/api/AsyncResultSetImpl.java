@@ -72,7 +72,9 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public boolean hasRowSet() {
-        return cursor.queryType() == SqlQueryType.QUERY || cursor.queryType() == SqlQueryType.EXPLAIN;
+        return cursor.queryType() == SqlQueryType.QUERY
+                || cursor.queryType() == SqlQueryType.EXPLAIN
+                || cursor.queryType() == SqlQueryType.KILL;
     }
 
     /** {@inheritDoc} */

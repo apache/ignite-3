@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.common.cancel.messages;
+package org.apache.ignite.internal.sql.engine.kill.messages;
 
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Marshallable;
@@ -24,7 +24,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Contains the result of the remote cancel operation.
+ * Contains the result of the remote kill operation.
  *  and vice versa, in case of an error the result must be zero.
  *
  * @see CancelOperationRequest
@@ -35,7 +35,7 @@ public interface CancelOperationResponse extends NetworkMessage {
      * Returns the result of canceling a remote operation.
      * If the result is {@code null} then {@link #error()} must not be {@code null}.
      *
-     * @return Result of the remote cancel operation, or {@code null} in case of error.
+     * @return Result of the remote kill operation, or {@code null} in case of error.
      */
     @Nullable Boolean result();
 

@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.common.cancel;
+package org.apache.ignite.internal.sql.engine.kill;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
 import java.util.List;
@@ -31,20 +31,21 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.common.cancel.api.CancellableOperationType;
-import org.apache.ignite.internal.sql.common.cancel.api.OperationCancelHandler;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration tests for {@link OperationCancelHandler}.
+ * Integration tests for 'KILL QUERY' statement.
  */
-public class ItCancelHandlerRegistryTest extends BaseSqlIntegrationTest {
+public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     @AfterEach
     public void checkResourceLeak() {
         assertThat(txManager().pending(), is(0));
@@ -61,13 +62,13 @@ public class ItCancelHandlerRegistryTest extends BaseSqlIntegrationTest {
         assertThat(queries.size(), is(1));
         UUID targetQueryId = queries.get(0).id();
 
-        OperationCancelHandler handler = handler(node);
-
-        assertThat(handler.cancelAsync(targetQueryId), willBe(true));
+        checkKillQuery(node, targetQueryId, true);
 
         assertThat(runningQueries(), is(empty()));
         expectQueryCancelled(new DrainCursor(cursor));
-        assertThat(handler.cancelAsync(targetQueryId), willBe(false));
+
+        checkKillQuery(node, targetQueryId, false);
+        checkKillQueryNoWait(node, targetQueryId);
     }
 
     @Test
@@ -81,21 +82,37 @@ public class ItCancelHandlerRegistryTest extends BaseSqlIntegrationTest {
         assertThat(queries.size(), is(1));
         UUID targetQueryId = queries.get(0).id();
 
-        OperationCancelHandler remoteHandler = handler(remote);
-
-        assertThat(remoteHandler.cancelAsync(targetQueryId), willBe(true));
+        checkKillQuery(remote, targetQueryId, true);
 
         assertThat(runningQueries(), is(empty()));
         expectQueryCancelled(new DrainCursor(cursor));
 
-        assertThat(remoteHandler.cancelAsync(targetQueryId), willBe(false));
-        assertThat(handler(local).cancelAsync(targetQueryId), willBe(false));
+        checkKillQuery(remote, targetQueryId, false);
+        checkKillQuery(local, targetQueryId, false);
     }
 
-    private static OperationCancelHandler handler(Ignite node) {
-        return unwrapIgniteImpl(node)
-                .cancelHandlersRegistry()
-                .handler(CancellableOperationType.SQL_QUERY);
+    void checkKillQuery(Ignite node, UUID queryId, boolean expectedResult) {
+        String query = IgniteStringFormatter.format("KILL QUERY '{}'", queryId);
+
+        List<List<Object>> res = sql(node, null, null, null, query);
+
+        assertThat(res, hasSize(1));
+        assertThat(res.get(0), hasSize(1));
+        assertThat(res.get(0).get(0), is(expectedResult));
+    }
+
+    void checkKillQueryNoWait(Ignite node, UUID queryId) {
+        String query = IgniteStringFormatter.format("KILL QUERY '{}' NO WAIT", queryId);
+
+        List<List<Object>> res = sql(node, null, null, null, query);
+
+        assertThat(res, hasSize(0));
+    }
+
+    private static OperationKillHandler handler(Ignite node) {
+        return ((KillHandlerRegistryImpl) unwrapIgniteImpl(node)
+                .cancelHandlersRegistry())
+                .handler(CancellableOperationType.QUERY);
     }
 
     private static List<QueryInfo> runningQueries() {

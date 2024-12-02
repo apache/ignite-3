@@ -60,11 +60,13 @@ import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DdlSqlToCommandConverter;
+import org.apache.ignite.internal.sql.engine.prepare.kill.KillSqlCommandConverter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -105,6 +107,8 @@ public class PrepareServiceImpl implements PrepareService {
     private final AtomicLong planIdGen = new AtomicLong();
 
     private final DdlSqlToCommandConverter ddlConverter;
+
+    private final KillSqlCommandConverter killCmdConverter = new KillSqlCommandConverter();
 
     private final Cache<CacheKey, CompletableFuture<QueryPlan>> cache;
 
@@ -262,6 +266,8 @@ public class PrepareServiceImpl implements PrepareService {
                 return prepareQuery(parsedResult, planningContext);
             case DDL:
                 return prepareDdl(parsedResult, planningContext);
+            case KILL:
+                return prepareKill(parsedResult, planningContext);
             case DML:
                 return prepareDml(parsedResult, planningContext);
             case EXPLAIN:
@@ -277,6 +283,14 @@ public class PrepareServiceImpl implements PrepareService {
         assert sqlNode instanceof SqlDdl : sqlNode == null ? "null" : sqlNode.getClass().getName();
 
         return CompletableFuture.completedFuture(new DdlPlan(nextPlanId(), ddlConverter.convert((SqlDdl) sqlNode, ctx)));
+    }
+
+    private CompletableFuture<QueryPlan> prepareKill(ParsedResult parsedResult, PlanningContext ctx) {
+        SqlNode sqlNode = parsedResult.parsedTree();
+
+        assert sqlNode instanceof IgniteSqlKill : sqlNode == null ? "null" : sqlNode.getClass().getName();
+
+        return CompletableFuture.completedFuture(new KillPlan(nextPlanId(), killCmdConverter.convert((IgniteSqlKill) sqlNode)));
     }
 
     private CompletableFuture<QueryPlan> prepareExplain(

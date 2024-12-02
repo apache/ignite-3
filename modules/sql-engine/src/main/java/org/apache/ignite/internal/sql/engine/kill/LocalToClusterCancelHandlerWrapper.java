@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.common.cancel;
+package org.apache.ignite.internal.sql.engine.kill;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -25,16 +24,16 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.sql.common.cancel.api.CancellableOperationType;
-import org.apache.ignite.internal.sql.common.cancel.api.OperationCancelHandler;
-import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationRequest;
-import org.apache.ignite.internal.sql.common.cancel.messages.CancelOperationResponse;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
+import org.apache.ignite.internal.sql.engine.kill.messages.CancelOperationRequest;
+import org.apache.ignite.internal.sql.engine.kill.messages.CancelOperationResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 
 /**
- * Wrapper for {@link OperationCancelHandler} that calls a local cancel handler on each node in the cluster.
+ * Wrapper for {@link OperationKillHandler} that calls a local kill handler on each node in the cluster.
  */
-class LocalToClusterCancelHandlerWrapper implements OperationCancelHandler {
+class LocalToClusterCancelHandlerWrapper implements OperationKillHandler {
     /** Messages factory. */
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
@@ -44,13 +43,13 @@ class LocalToClusterCancelHandlerWrapper implements OperationCancelHandler {
     /** Maximum time to wait for a remote response. */
     private static final long RESPONSE_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(5);
 
-    private final OperationCancelHandler localHandler;
+    private final OperationKillHandler localHandler;
     private final CancellableOperationType type;
     private final TopologyService topologyService;
     private final MessagingService messageService;
 
     LocalToClusterCancelHandlerWrapper(
-            OperationCancelHandler localHandler,
+            OperationKillHandler localHandler,
             CancellableOperationType type,
             TopologyService topologyService,
             MessagingService messageService
@@ -62,7 +61,17 @@ class LocalToClusterCancelHandlerWrapper implements OperationCancelHandler {
     }
 
     @Override
-    public CompletableFuture<Boolean> cancelAsync(UUID operationId) {
+    public boolean local() {
+        return false;
+    }
+
+    @Override
+    public CancellableOperationType type() {
+        return type;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> cancelAsync(String operationId) {
         return localHandler.cancelAsync(operationId)
                 .thenCompose((result) -> {
                     if (Boolean.TRUE.equals(result)) {
@@ -106,7 +115,7 @@ class LocalToClusterCancelHandlerWrapper implements OperationCancelHandler {
                         })
                         .whenComplete((ignore, err) -> {
                             if (err != null) {
-                                LOG.warn("Failed to send a request to cancel the operation to the remote node "
+                                LOG.warn("Failed to send a request to kill the operation to the remote node "
                                         + "[operationId={}, type={}, node={}].", err, request.id(), request.type(), node.name());
                             }
                         })
