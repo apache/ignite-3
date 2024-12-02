@@ -47,14 +47,18 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
 
     final HybridClock clock = new HybridClockImpl();
 
-    private final ClockWaiter clockWaiter = new ClockWaiter("test-node", clock, scheduledExecutor);
+    private ClockWaiter clockWaiter;
 
-    final ClockService clockService = new TestClockService(clock, clockWaiter);
+    ClockService clockService;
 
     CatalogManagerImpl catalogManager;
 
     @BeforeEach
     void setUp() {
+        clockWaiter = new ClockWaiter("test-node", clock, scheduledExecutor);
+
+        clockService = new TestClockService(clock, clockWaiter);
+
         catalogManager = spy(createCatalogManager("test-node"));
     }
 
