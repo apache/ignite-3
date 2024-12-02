@@ -25,7 +25,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 public static class IgniteServiceCollectionExtensions
 {
     /// <summary>
-    ///  Registers an <see cref="IgniteClientGroup" /> and an <see cref="IIgnite" />.
+    ///  Registers an <see cref="IgniteClientGroup" />.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="configuration">
@@ -47,7 +47,7 @@ public static class IgniteServiceCollectionExtensions
     }
 
     /// <summary>
-    ///  Registers an <see cref="IgniteClientGroup" /> and an <see cref="IIgnite" />.
+    ///  Registers an <see cref="IgniteClientGroup" />.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="configure">
@@ -69,7 +69,7 @@ public static class IgniteServiceCollectionExtensions
     }
 
     /// <summary>
-    ///  Registers an <see cref="IgniteClientGroup" /> and an <see cref="IIgnite" />.
+    ///  Registers an <see cref="IgniteClientGroup" />.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="serviceKey">
@@ -95,7 +95,7 @@ public static class IgniteServiceCollectionExtensions
     }
 
     /// <summary>
-    ///  Registers an <see cref="IgniteClientGroup" /> and an <see cref="IIgnite" />.
+    ///  Registers an <see cref="IgniteClientGroup" />.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="serviceKey">
@@ -125,7 +125,7 @@ public static class IgniteServiceCollectionExtensions
     }
 
     /// <summary>
-    ///  Registers an <see cref="IgniteClientGroup" /> and an <see cref="IIgnite" />.
+    ///  Registers an <see cref="IgniteClientGroup" />.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="serviceKey">
@@ -159,7 +159,7 @@ public static class IgniteServiceCollectionExtensions
         services.TryAdd(new ServiceDescriptor(
             typeof(IgniteClientGroup),
             key,
-            (sp, keyInner) => new IgniteClientGroup(configure(sp, keyInner)),
+            (sp, innerKey) => new IgniteClientGroup(configure(sp, innerKey)),
             clientGroupLifetime));
 
         return services;
