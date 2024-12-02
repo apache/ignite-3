@@ -575,6 +575,21 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(execution.cancelAsync(), willBe(true));
     }
 
+    @Test
+    void tupleSerialization() {
+        Ignite entryNode = node(0);
+        ClusterNode executeNode = clusterNode(node(1));
+
+        // Execute the job on remote node to trigger serialization
+        Integer result = entryNode.compute().execute(
+                JobTarget.node(executeNode),
+                JobDescriptor.builder(TupleJob.class).units(units()).build(),
+                Tuple.create().set("COUNT", 1)
+        );
+
+        assertThat(result, is(1));
+    }
+
     static Ignite node(int i) {
         return CLUSTER.node(i);
     }

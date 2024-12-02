@@ -39,6 +39,7 @@ import java.util.Set;
 import org.apache.ignite.internal.network.serialization.ClassDescriptor;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
@@ -260,6 +261,15 @@ class DefaultUserObjectMarshallerWithSerializableTest {
         SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields result = marshalAndUnmarshalNonNull(oririnalObject);
 
         assertThat(result.value, is(42));
+    }
+
+    @Test
+    void tupleSerialization() throws Exception {
+        Tuple originalObject = Tuple.create().set("INT", 1);
+
+        Tuple result = marshalAndUnmarshalNonNull(originalObject);
+
+        assertThat(result.intValue("INT"), is(1));
     }
 
     /**
