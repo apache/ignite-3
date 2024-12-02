@@ -177,11 +177,18 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                     stateMachine.queueJob(jobId);
                     run();
                 } else {
-                    if (queueEntry.isInterrupted()) {
-                        stateMachine.cancelJob(jobId);
-                    } else {
-                        stateMachine.failJob(jobId);
+                    try {
+                        if (queueEntry.isInterrupted()) {
+                            stateMachine.cancelJob(jobId);
+                        } else {
+                            stateMachine.failJob(jobId);
+                        }
+                    // TODO: Need to be refactored after https://issues.apache.org/jira/browse/IGNITE-23769
+                    } catch (IllegalJobStatusTransition err) {
+                        throwable.addSuppressed(err);
+                        result.completeExceptionally(throwable);
                     }
+
                     result.completeExceptionally(throwable);
                 }
             } else {
