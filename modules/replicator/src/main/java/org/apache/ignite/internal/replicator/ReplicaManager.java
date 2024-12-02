@@ -1457,6 +1457,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                     case SHUTDOWN: {
                         // On Ignite node's shutdown we're just stopping a replica regardless the state.
+                        context.unreserve();
                         return stopReplica(groupId, context, stopOperation);
                     }
 
