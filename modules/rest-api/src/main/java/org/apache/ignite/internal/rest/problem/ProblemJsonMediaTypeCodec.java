@@ -39,7 +39,7 @@ public class ProblemJsonMediaTypeCodec implements MediaTypeCodec {
 
     @Override
     public Collection<MediaType> getMediaTypes() {
-        return List.of(ProblemJsonMediaType.APPLICATION_JSON_PROBLEM_TYPE);
+        return List.of(ProblemJsonMediaType.APPLICATION_PROBLEM_JSON_TYPE);
     }
 
     @Override

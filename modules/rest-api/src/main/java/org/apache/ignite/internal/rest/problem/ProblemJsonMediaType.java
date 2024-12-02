@@ -26,7 +26,7 @@ public final class ProblemJsonMediaType extends MediaType {
     /**
      * Media type for problem json.
      */
-    public static final ProblemJsonMediaType APPLICATION_JSON_PROBLEM_TYPE = new ProblemJsonMediaType("application/json+problem");
+    public static final ProblemJsonMediaType APPLICATION_PROBLEM_JSON_TYPE = new ProblemJsonMediaType("application/problem+json");
 
     private ProblemJsonMediaType(String name) {
         super(name);
