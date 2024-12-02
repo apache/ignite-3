@@ -63,7 +63,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
     private static final String SC_TABLE_NAME = "SC_TABLE";
 
-    private static final int PARTITION_NUMBERS = 2;
+    private static final int PARTITIONS_NUMBER = 2;
 
     protected final HybridClock clock = new HybridClockImpl();
 
@@ -291,7 +291,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
     private void createHaZoneWithTable() throws InterruptedException {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='HIGH_AVAILABILITY'",
-                HA_ZONE_NAME, initialNodes(), PARTITION_NUMBERS, DEFAULT_STORAGE_PROFILE
+                HA_ZONE_NAME, initialNodes(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE
         ));
 
         executeSql(String.format(
@@ -309,7 +309,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
     private void createScZoneWithTable() {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='STRONG_CONSISTENCY'",
-                SC_ZONE_NAME, initialNodes(), PARTITION_NUMBERS, DEFAULT_STORAGE_PROFILE
+                SC_ZONE_NAME, initialNodes(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE
         ));
 
         executeSql(String.format(
@@ -407,7 +407,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
             });
 
-            return PARTITION_NUMBERS * initialNodes() == numberOfInitializedReplicas.get();
+            return PARTITIONS_NUMBER * initialNodes() == numberOfInitializedReplicas.get();
         }, 10_000));
     }
 }
