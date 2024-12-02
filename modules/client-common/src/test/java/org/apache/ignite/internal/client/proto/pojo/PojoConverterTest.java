@@ -17,12 +17,13 @@
 
 package org.apache.ignite.internal.client.proto.pojo;
 
-import static org.apache.ignite.internal.client.proto.pojo.PojoConverter.fromTuple;
-import static org.apache.ignite.internal.client.proto.pojo.PojoConverter.toTuple;
+import static org.apache.ignite.internal.compute.PojoConverter.fromTuple;
+import static org.apache.ignite.internal.compute.PojoConverter.toTuple;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import org.apache.ignite.internal.compute.PojoConversionException;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 

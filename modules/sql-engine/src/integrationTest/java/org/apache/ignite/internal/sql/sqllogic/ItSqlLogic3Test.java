@@ -15,19 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.internal.sql.sqllogic;
 
 /**
- * Throws when register channel with already used identifier.
+ * Test suite to run SQL test scripts.
+ *
+ * @see ItSqlLogicTest
  */
-public class ChannelTypeAlreadyExist extends RuntimeException {
-    /**
-     * Constructor.
-     *
-     * @param id Channel identifier.
-     * @param name Channel name.
-     */
-    public ChannelTypeAlreadyExist(short id, String name) {
-        super("Channel " + name + " can't be registered because id " + id + " already used.");
-    }
+@SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql/group3")
+public class ItSqlLogic3Test extends ItSqlLogicTest {
+
 }
