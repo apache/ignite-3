@@ -722,7 +722,11 @@ public class IgniteImpl implements Ignite {
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
+        SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry
+                .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
+
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageExtensionConfiguration.KEY).metaStorage());
+        metaStorageMgr.setMaxClockSkew(schemaSyncConfig.maxClockSkew().value());
 
         systemDisasterRecoveryManager = new SystemDisasterRecoveryManagerImpl(
                 name,
@@ -742,9 +746,6 @@ public class IgniteImpl implements Ignite {
                 readOperationForCompactionTracker,
                 clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
         );
-
-        SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry
-                .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
         clockService = new ClockServiceImpl(clock, clockWaiter, () -> schemaSyncConfig.maxClockSkew().value());
 

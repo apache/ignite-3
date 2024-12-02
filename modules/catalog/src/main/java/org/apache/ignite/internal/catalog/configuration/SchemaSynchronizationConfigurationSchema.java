@@ -42,5 +42,5 @@ public class SchemaSynchronizationConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1)
     @Immutable
-    public long maxClockSkew = 500;
+    public int maxClockSkew = 500;
 }

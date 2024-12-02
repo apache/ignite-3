@@ -289,7 +289,7 @@ public class NodeImpl implements Node, RaftServerService {
         // task list for batch
         private final List<LogEntryAndClosure> tasks = new ArrayList<>(NodeImpl.this.raftOptions.getApplyBatch());
 
-        private HybridTimestamp safeTs = null;
+        private @Nullable HybridTimestamp safeTs = null;
 
         @Override
         public void onEvent(final LogEntryAndClosure event, final long sequence, final boolean endOfBatch) {

@@ -33,7 +33,7 @@ public interface Command extends NetworkMessage {
     default void patch(HybridTimestamp safeTs) {}
 
     /**
-     * Holds request initiator (which is always primary replica) time.
+     * Holds request's initiator (which is always a primary replica) time.
      *
      * @return The timestamp.
      */

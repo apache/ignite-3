@@ -451,6 +451,8 @@ public class JraftServerImpl implements RaftServer {
             // Thread pools are shared by all raft groups.
             NodeOptions nodeOptions = opts.copy();
 
+            nodeOptions.setElectionTimeoutMs(Math.max(nodeOptions.getElectionTimeoutMs(), groupOptions.maxClockSkew()));
+
             nodeOptions.setLogUri(nodeIdStrForStorage(nodeId));
 
             Path serverDataPath = serverDataPathForNodeId(nodeId, groupOptions);
