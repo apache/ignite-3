@@ -167,7 +167,7 @@ public class ClusterInitOptions {
         }
     }
 
-    public String readConfigAsPath() {
+    String readConfigAsPath() {
         if (clusterConfigOptions == null || clusterConfigOptions.config == null) {
             throw new ConfigFileParseException("Couldn't parse cluster configuration file.");
         }
