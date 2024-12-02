@@ -60,6 +60,7 @@ import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStateResponse;
 import org.apache.ignite.internal.compute.message.JobStatesResponse;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
@@ -509,7 +510,7 @@ public class ComputeUtils {
             // Value is represented by 3 tuple elements: type, scale, value.
             var builder = new BinaryTupleBuilder(3, 3, false);
             ClientBinaryTupleUtils.appendObject(builder, result);
-            return new ComputeJobDataHolder(NATIVE, builder.build().array());
+            return new ComputeJobDataHolder(NATIVE, IgniteUtils.byteBufferToByteArray(builder.build()));
         }
 
         try {
