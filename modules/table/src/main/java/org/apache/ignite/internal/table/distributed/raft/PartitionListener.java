@@ -831,8 +831,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      */
     private boolean isPrimaryInGroupTopology() {
         assert currentGroupTopology != null : "Current group topology is null";
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23030 Seems that we have a bug. Lease related information is not restored on
-        // TODO snapshot load.
+
         if (storage.primaryReplicaNodeName() == null) {
             return true;
         } else {

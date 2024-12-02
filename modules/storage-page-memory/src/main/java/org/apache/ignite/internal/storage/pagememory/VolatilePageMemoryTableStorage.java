@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -37,6 +39,8 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
  * Implementation of {@link AbstractPageMemoryTableStorage} for in-memory case.
  */
 public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemoryTableStorage.class);
+
     private final VolatilePageMemoryStorageEngine engine;
 
     private final VolatilePageMemoryDataRegion dataRegion;
@@ -174,7 +178,11 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
         VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = (VolatilePageMemoryMvPartitionStorage) mvPartitionStorage;
 
-        volatilePartitionStorage.destroyStructures();
+        volatilePartitionStorage.destroyStructures().whenComplete((res, ex) -> {
+            if (ex != null) {
+                LOG.error("Could not destroy structures", ex);
+            }
+        });
 
         int partitionId = mvPartitionStorage.partitionId();
 

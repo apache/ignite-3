@@ -28,6 +28,8 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
@@ -42,6 +44,8 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,6 +59,10 @@ public class TestMvTableStorage implements MvTableStorage {
     private final Map<Integer, HashIndices> hashIndicesById = new ConcurrentHashMap<>();
 
     private final StorageTableDescriptor tableDescriptor;
+
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     /**
      * Class for storing Sorted Indices for a particular partition.
@@ -111,19 +119,31 @@ public class TestMvTableStorage implements MvTableStorage {
         mvPartitionStorages = new MvPartitionStorages<>(tableDescriptor.getId(), tableDescriptor.getPartitions());
     }
 
+    private <T> T inBusyLock(Supplier<T> fn) {
+        return IgniteUtils.inBusyLock(busyLock, fn);
+    }
+
     @Override
     public CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId) {
-        return mvPartitionStorages.create(partitionId, partId -> spy(new TestMvPartitionStorage(partId)));
+        return inBusyLock(() -> mvPartitionStorages.create(partitionId, partId -> spy(new TestMvPartitionStorage(partId))));
     }
 
     @Override
     public @Nullable MvPartitionStorage getMvPartition(int partitionId) {
-        return mvPartitionStorages.get(partitionId);
+        return inBusyLock(() -> mvPartitionStorages.get(partitionId));
     }
 
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) {
-        return mvPartitionStorages.destroy(partitionId, this::destroyPartition);
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
+
+        try {
+            return mvPartitionStorages.destroy(partitionId, this::destroyPartition);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     private CompletableFuture<Void> destroyPartition(TestMvPartitionStorage mvPartitionStorage) {
@@ -150,51 +170,63 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
-        TestMvPartitionStorage mvPartitionStorage = mvPartitionStorages.get(partitionId);
+        return inBusyLock(() -> {
+            TestMvPartitionStorage mvPartitionStorage = mvPartitionStorages.get(partitionId);
 
-        if (mvPartitionStorage == null) {
-            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
-        }
+            if (mvPartitionStorage == null) {
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            }
 
-        SortedIndices sortedIndices = sortedIndicesById.computeIfAbsent(
-                indexDescriptor.id(),
-                id -> new SortedIndices(indexDescriptor)
-        );
+            SortedIndices sortedIndices = sortedIndicesById.computeIfAbsent(
+                    indexDescriptor.id(),
+                    id -> new SortedIndices(indexDescriptor)
+            );
 
-        return sortedIndices.getOrCreateStorage(partitionId);
+            return sortedIndices.getOrCreateStorage(partitionId);
+        });
     }
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
-        TestMvPartitionStorage mvPartitionStorage = mvPartitionStorages.get(partitionId);
+        return inBusyLock(() -> {
+            TestMvPartitionStorage mvPartitionStorage = mvPartitionStorages.get(partitionId);
 
-        if (mvPartitionStorage == null) {
-            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
-        }
+            if (mvPartitionStorage == null) {
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            }
 
-        HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
-                indexDescriptor.id(),
-                id -> new HashIndices(indexDescriptor)
-        );
+            HashIndices sortedIndices = hashIndicesById.computeIfAbsent(
+                    indexDescriptor.id(),
+                    id -> new HashIndices(indexDescriptor)
+            );
 
-        return sortedIndices.getOrCreateStorage(partitionId);
+            return sortedIndices.getOrCreateStorage(partitionId);
+        });
     }
 
     @Override
     public CompletableFuture<Void> destroyIndex(int indexId) {
-        HashIndices hashIndices = hashIndicesById.remove(indexId);
-
-        if (hashIndices != null) {
-            hashIndices.storageByPartitionId.values().forEach(TestHashIndexStorage::destroy);
+        if (!busyLock.enterBusy()) {
+            return  nullCompletedFuture();
         }
 
-        SortedIndices sortedIndices = sortedIndicesById.remove(indexId);
+        try {
+            HashIndices hashIndices = hashIndicesById.remove(indexId);
 
-        if (sortedIndices != null) {
-            sortedIndices.storageByPartitionId.values().forEach(TestSortedIndexStorage::destroy);
+            if (hashIndices != null) {
+                hashIndices.storageByPartitionId.values().forEach(TestHashIndexStorage::destroy);
+            }
+
+            SortedIndices sortedIndices = sortedIndicesById.remove(indexId);
+
+            if (sortedIndices != null) {
+                sortedIndices.storageByPartitionId.values().forEach(TestSortedIndexStorage::destroy);
+            }
+
+            return nullCompletedFuture();
+        } finally {
+            busyLock.leaveBusy();
         }
-
-        return nullCompletedFuture();
     }
 
     @Override
@@ -204,6 +236,10 @@ public class TestMvTableStorage implements MvTableStorage {
 
     @Override
     public void close() throws StorageException {
+        if (!blockBusyLockIfNotBlocked()) {
+            return;
+        }
+
         try {
             closeAllManually(mvPartitionStorages.getAllForCloseOrDestroy().get(10, TimeUnit.SECONDS));
         } catch (Exception e) {
@@ -211,92 +247,116 @@ public class TestMvTableStorage implements MvTableStorage {
         }
     }
 
+    private boolean blockBusyLockIfNotBlocked() {
+        if (!closed.compareAndSet(false, true)) {
+            return false;
+        }
+
+        busyLock.block();
+
+        return true;
+    }
+
     @Override
     public CompletableFuture<Void> destroy() {
+        if (!blockBusyLockIfNotBlocked()) {
+            return nullCompletedFuture();
+        }
+
         return mvPartitionStorages.getAllForCloseOrDestroy()
                 .thenCompose(mvStorages -> allOf(mvStorages.stream().map(this::destroyPartition).toArray(CompletableFuture[]::new)));
     }
 
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
-        return mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
-            mvPartitionStorage.startRebalance();
+        return inBusyLock(() -> {
+            return mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
+                mvPartitionStorage.startRebalance();
 
-            testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::startRebalance);
+                testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::startRebalance);
 
-            testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::startRebalance);
+                testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::startRebalance);
 
-            return nullCompletedFuture();
+                return nullCompletedFuture();
+            });
         });
     }
 
     @Override
     public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
-        return mvPartitionStorages.abortRebalance(partitionId, mvPartitionStorage -> {
-            mvPartitionStorage.abortRebalance();
+        return inBusyLock(() -> {
+            return mvPartitionStorages.abortRebalance(partitionId, mvPartitionStorage -> {
+                mvPartitionStorage.abortRebalance();
 
-            testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::abortRebalance);
+                testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::abortRebalance);
 
-            testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::abortRebalance);
+                testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::abortRebalance);
 
-            return nullCompletedFuture();
+                return nullCompletedFuture();
+            });
         });
     }
 
     @Override
     public CompletableFuture<Void> finishRebalancePartition(int partitionId, MvPartitionMeta partitionMeta) {
-        return mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
-            mvPartitionStorage.finishRebalance(partitionMeta);
+        return inBusyLock(() -> {
+            return mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
+                mvPartitionStorage.finishRebalance(partitionMeta);
 
-            if (partitionMeta.primaryReplicaNodeId() != null) {
-                assert partitionMeta.primaryReplicaNodeId() != null;
+                if (partitionMeta.primaryReplicaNodeId() != null) {
+                    assert partitionMeta.primaryReplicaNodeId() != null;
 
-                mvPartitionStorage.updateLease(
-                        partitionMeta.leaseStartTime(),
-                        partitionMeta.primaryReplicaNodeId(),
-                        partitionMeta.primaryReplicaNodeName()
-                );
-            }
+                    mvPartitionStorage.updateLease(
+                            partitionMeta.leaseStartTime(),
+                            partitionMeta.primaryReplicaNodeId(),
+                            partitionMeta.primaryReplicaNodeName()
+                    );
+                }
 
-            testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::finishRebalance);
+                testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::finishRebalance);
 
-            testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::finishRebalance);
+                testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::finishRebalance);
 
-            return nullCompletedFuture();
+                return nullCompletedFuture();
+            });
         });
     }
 
     @Override
     public CompletableFuture<Void> clearPartition(int partitionId) {
-        return mvPartitionStorages.clear(partitionId, mvPartitionStorage -> {
-            mvPartitionStorage.clear();
+        return inBusyLock(() -> {
+            return mvPartitionStorages.clear(partitionId, mvPartitionStorage -> {
+                mvPartitionStorage.clear();
 
-            testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::clear);
-            testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::clear);
+                testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::clear);
+                testSortedIndexStorageStream(partitionId).forEach(TestSortedIndexStorage::clear);
 
-            return nullCompletedFuture();
+                return nullCompletedFuture();
+            });
         });
     }
 
     @Override
     public @Nullable IndexStorage getIndex(int partitionId, int indexId) {
-        if (mvPartitionStorages.get(partitionId) == null) {
-            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
-        }
+        return inBusyLock(() -> {
+            if (mvPartitionStorages.get(partitionId) == null) {
+                throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+            }
 
-        HashIndices hashIndices = hashIndicesById.get(indexId);
+            HashIndices hashIndices = hashIndicesById.get(indexId);
 
-        if (hashIndices != null) {
-            return hashIndices.storageByPartitionId.get(partitionId);
-        }
+            if (hashIndices != null) {
+                return hashIndices.storageByPartitionId.get(partitionId);
+            }
 
-        SortedIndices sortedIndices = sortedIndicesById.get(indexId);
+            SortedIndices sortedIndices = sortedIndicesById.get(indexId);
 
-        if (sortedIndices != null) {
-            return sortedIndices.storageByPartitionId.get(partitionId);
-        }
+            if (sortedIndices != null) {
+                return sortedIndices.storageByPartitionId.get(partitionId);
+            }
 
-        return null;
+            return null;
+        });
     }
 
     private Stream<TestHashIndexStorage> testHashIndexStorageStream(Integer partitionId) {
