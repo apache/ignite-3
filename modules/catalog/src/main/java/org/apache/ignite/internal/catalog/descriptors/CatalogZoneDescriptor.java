@@ -198,17 +198,17 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     private static class ZoneDescriptorSerializer implements CatalogObjectSerializer<CatalogZoneDescriptor> {
         @Override
         public CatalogZoneDescriptor readFrom(IgniteDataInput input) throws IOException {
-            int id = input.readInt();
+            int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readLong();
+            long updateToken = input.readVarInt();
 
             CatalogStorageProfilesDescriptor catalogStorageProfilesDescriptor = CatalogStorageProfilesDescriptor.SERIALIZER.readFrom(input);
 
-            int partitions = input.readInt();
-            int replicas = input.readInt();
-            int dataNodesAutoAdjust = input.readInt();
-            int dataNodesAutoAdjustScaleUp = input.readInt();
-            int dataNodesAutoAdjustScaleDown = input.readInt();
+            int partitions = input.readVarIntAsInt();
+            int replicas = input.readVarIntAsInt();
+            int dataNodesAutoAdjust = input.readVarIntAsInt();
+            int dataNodesAutoAdjustScaleUp = input.readVarIntAsInt();
+            int dataNodesAutoAdjustScaleDown = input.readVarIntAsInt();
             String filter = input.readUTF();
             ConsistencyMode consistencyMode = ConsistencyMode.forId(input.readByte());
 
@@ -229,17 +229,17 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
 
         @Override
         public void writeTo(CatalogZoneDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeInt(descriptor.id());
+            output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
-            output.writeLong(descriptor.updateToken());
+            output.writeVarInt(descriptor.updateToken());
 
             CatalogStorageProfilesDescriptor.SERIALIZER.writeTo(descriptor.storageProfiles(), output);
 
-            output.writeInt(descriptor.partitions());
-            output.writeInt(descriptor.replicas());
-            output.writeInt(descriptor.dataNodesAutoAdjust());
-            output.writeInt(descriptor.dataNodesAutoAdjustScaleUp());
-            output.writeInt(descriptor.dataNodesAutoAdjustScaleDown());
+            output.writeVarInt(descriptor.partitions());
+            output.writeVarInt(descriptor.replicas());
+            output.writeVarInt(descriptor.dataNodesAutoAdjust());
+            output.writeVarInt(descriptor.dataNodesAutoAdjustScaleUp());
+            output.writeVarInt(descriptor.dataNodesAutoAdjustScaleDown());
             output.writeUTF(descriptor.filter());
             output.writeByte(descriptor.consistencyMode().id());
         }

@@ -205,6 +205,8 @@ public class PlacementDriverManager implements IgniteComponent {
                 leaseUpdater.deInit();
             });
 
+            assignmentsTracker.stopTrack();
+
             leaseTracker.stopTrack();
         });
     }
@@ -272,6 +274,8 @@ public class PlacementDriverManager implements IgniteComponent {
         assert recoveryFinishedFuture.isDone();
 
         long recoveryRevision = recoveryFinishedFuture.join().revision();
+
+        assignmentsTracker.startTrack();
 
         leaseTracker.startTrack(recoveryRevision);
     }

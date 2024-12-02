@@ -17,59 +17,36 @@
 
 package org.apache.ignite.internal.network;
 
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
- * Data class with channel information.
- *      May be used as channel pointer in {@link MessagingService} for sending messages in exclusive channel.
+ * Data class with channel information. May be used as channel pointer in {@link MessagingService} for sending messages in exclusive
+ * channel.
+ *
+ * <p>Each new instance must be registered in {@link ChannelTypeRegistry} using {@link ChannelTypeModule}.</p>
  */
 public final class ChannelType {
-    static {
-        Map<Short, ChannelType> tmpChannels = new ConcurrentHashMap<>(IgniteUtils.capacity(Short.MAX_VALUE));
-        ChannelType defaultChannel = new ChannelType((short) 0, "Default");
-        tmpChannels.put((short) 0, defaultChannel);
+    /** Default channel type. */
+    public static final ChannelType DEFAULT = new ChannelType((short) 0, "Default");
 
-        DEFAULT = defaultChannel;
-        channels = tmpChannels;
-    }
-
-    public static final ChannelType DEFAULT;
-
-    private static final Map<Short, ChannelType> channels;
-
-    /**
-     * Channel identifier.
-     */
     private final short id;
 
-    /**
-     * Channel name.
-     */
     private final String name;
 
-    private ChannelType(short id, String name) {
+    /** Constructor. */
+    public ChannelType(short id, String name) {
+        assert id >= 0 : id;
+
         this.id = id;
         this.name = name;
     }
 
-    /**
-     * Channel identifier, must be unique for each implementation.
-     *
-     * @return Channel identifier.
-     */
+    /** Channel ID, must be unique for each implementation. */
     public short id() {
         return id;
     }
 
-    /**
-     * Returns channel name.
-     *
-     * @return Channel name.
-     */
+    /** Returns channel name. */
     public String name() {
         return name;
     }
@@ -85,43 +62,11 @@ public final class ChannelType {
             return false;
         }
         ChannelType type = (ChannelType) obj;
-        return Objects.equals(id(), type.id());
+        return id() == type.id();
     }
 
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-    /**
-     * Try to register channel with provided identifier. If identifier already used
-     *    by another channel will throw {@link ChannelTypeAlreadyExist}.
-     *
-     * @param id Channel identifier. Must be positive.
-     * @param name Channel name.
-     * @return Register channel or existed one.
-     * @throws ChannelTypeAlreadyExist In case when channel identifier already used with another name.
-     */
-    public static ChannelType register(short id, String name) {
-        if (id < 0) {
-            throw new IllegalArgumentException("Negative identifier is not supported.");
-        }
-        ChannelType newChannel = new ChannelType(id, name);
-        ChannelType channelType = channels.putIfAbsent(id, newChannel);
-        if (channelType != null) {
-            throw new ChannelTypeAlreadyExist(id, name);
-        }
-        return newChannel;
-    }
-
-    /**
-     * Returns channel with provided identifier or
-     *      {@code null} if channel with id doesn't registered yet.
-     *
-     * @param id Channel identifier.
-     * @return Channel with provided identifier or {@code null} if channel with id doesn't registered yet.
-     */
-    public static ChannelType getChannel(short id) {
-        return channels.get(id);
     }
 }

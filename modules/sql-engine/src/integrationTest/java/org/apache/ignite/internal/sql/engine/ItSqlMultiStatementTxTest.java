@@ -49,7 +49,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  *
  * @see SqlQueryType#TX_CONTROL
  */
-@SuppressWarnings("ThrowableNotThrown")
 public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     /** Default number of rows in the big table. */
     private static final int BIG_TABLE_ROWS_COUNT = Commons.IN_BUFFER_SIZE * 6;
@@ -264,7 +263,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
             InternalTransaction tx = (InternalTransaction) igniteTx().begin();
 
             assertThrowsSqlException(RUNTIME_ERR, "DDL doesn't support transactions.",
-                    () -> runScript(ddlStatement, tx));
+                    () -> runScript(tx, null, ddlStatement));
 
             assertEquals(1, txManager().pending());
             tx.rollback();
@@ -351,12 +350,12 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     @Test
     void transactionControlStatementFailsWithExternalTransaction() {
         InternalTransaction tx1 = (InternalTransaction) igniteTx().begin();
-        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript("COMMIT", tx1));
+        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript(tx1, null, "COMMIT"));
         assertEquals(1, txManager().pending());
         tx1.rollback();
 
         InternalTransaction tx2 = (InternalTransaction) igniteTx().begin();
-        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript("START TRANSACTION", tx2));
+        assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript(tx2, null, "START TRANSACTION"));
         assertEquals(1, txManager().pending());
         tx2.rollback();
 

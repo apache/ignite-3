@@ -63,6 +63,7 @@ import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -98,6 +99,7 @@ public class FakeCompute implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            @Nullable CancellationToken cancellationToken,
             Object args) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
@@ -137,17 +139,18 @@ public class FakeCompute implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            @Nullable CancellationToken cancellationToken,
             Object args
     ) {
         return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
     }
 
-    @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
+    private <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
+            @Nullable T args) {
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
             return executeAsyncWithFailover(
-                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), args
+                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), cancellationToken, args
             );
         } else if (target instanceof ColocatedJobTarget) {
             return jobExecution(future != null ? future : completedFuture((R) nodeName));
@@ -157,8 +160,20 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
-        return sync(executeAsync(target, descriptor, args));
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
+        return submit(target, descriptor, null, arg);
+    }
+
+    @Override
+    public <T, R> CompletableFuture<R> executeAsync(JobTarget target, JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return submit(target, descriptor, cancellationToken, arg).resultAsync();
+    }
+
+    @Override
+    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
+            @Nullable T args) {
+        return sync(executeAsync(target, descriptor, cancellationToken, args));
     }
 
     @Override
@@ -176,8 +191,14 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return sync(executeMapReduceAsync(taskDescriptor, arg));
+    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
+            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return submitMapReduce(taskDescriptor, arg).resultAsync();
+    }
+
+    @Override
+    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
     }
 
     private <R> JobExecution<R> completedExecution(R result) {
@@ -236,6 +257,11 @@ public class FakeCompute implements IgniteComputeInternal {
         @Override
         public Marshaller<R, byte[]> resultMarshaller() {
             return null;
+        }
+
+        @Override
+        public boolean marshalResult() {
+            return false;
         }
     }
 
@@ -311,6 +337,11 @@ public class FakeCompute implements IgniteComputeInternal {
         @Override
         public @Nullable Marshaller<R, byte[]> resultMarshaller() {
             return marshaller;
+        }
+
+        @Override
+        public boolean marshalResult() {
+            return false;
         }
     }
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.type;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -59,6 +60,29 @@ public class VarlenNativeType extends NativeType {
         return len;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        VarlenNativeType that = (VarlenNativeType) o;
+        return len == that.len;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), len);
+    }
+
+    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(VarlenNativeType.class.getSimpleName(), "name", spec(), "len", len);

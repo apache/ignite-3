@@ -119,9 +119,9 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     private static class SchemaDescriptorSerializer implements CatalogObjectSerializer<CatalogSchemaDescriptor> {
         @Override
         public CatalogSchemaDescriptor readFrom(IgniteDataInput input) throws IOException {
-            int id = input.readInt();
+            int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readLong();
+            long updateToken = input.readVarInt();
             CatalogTableDescriptor[] tables = readArray(CatalogTableDescriptor.SERIALIZER, input, CatalogTableDescriptor.class);
             CatalogIndexDescriptor[] indexes = readArray(CatalogSerializationUtils.IDX_SERIALIZER, input, CatalogIndexDescriptor.class);
             CatalogSystemViewDescriptor[] systemViews =
@@ -132,9 +132,9 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
 
         @Override
         public void writeTo(CatalogSchemaDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeInt(descriptor.id());
+            output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
-            output.writeLong(descriptor.updateToken());
+            output.writeVarInt(descriptor.updateToken());
             writeArray(descriptor.tables(), CatalogTableDescriptor.SERIALIZER, output);
             writeArray(descriptor.indexes(), CatalogSerializationUtils.IDX_SERIALIZER, output);
             writeArray(descriptor.systemViews(), CatalogSystemViewDescriptor.SERIALIZER, output);

@@ -217,7 +217,6 @@ public class ReplicaImpl implements Replica {
             if (msg.force()) {
                 // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
                 // group leader are received.
-
                 return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
                         .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
                                 msg.leaseStartTime().longValue(),

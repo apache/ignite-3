@@ -392,18 +392,16 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
                         .ok(),
 
                 // incompatible types.
-                // https://issues.apache.org/jira/browse/IGNITE-19503
-                /*
-                checkStatement(setup)
-                        .table("t1", "int_col", NativeTypes.INT32)
-                        .sql("UPDATE t1 SET str_col='1111'::UUID")
-                        .fail("!!!!"),
 
                 checkStatement(setup)
                         .table("t1", "int_col", NativeTypes.INT32)
-                        .sql("INSERT INTO t1 VALUES('1111'::UUID)")
-                        .fail("!!!!"),
-                 */
+                        .sql("UPDATE t1 SET str_col='1111'::UUID")
+                        .fails("Cannot assign to target field 'STR_COL' of type VARCHAR(65536) from source field 'EXPR$0' of type UUID"),
+
+                checkStatement(setup)
+                        .table("t3", "int_col", NativeTypes.INT32)
+                        .sql("INSERT INTO t3 VALUES('1111'::UUID)")
+                        .fails("Cannot assign to target field 'INT_COL' of type INTEGER from source field 'EXPR$0' of type UUID"),
 
                 checkStatement(setup)
                         .sql("SELECT uuid_col FROM t1 UNION SELECT ?", "str")

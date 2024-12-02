@@ -171,8 +171,19 @@ public class PublicApiThreadingIgniteSql implements IgniteSql, Wrapper {
     }
 
     @Override
+    public void executeScript(@Nullable CancellationToken cancellationToken, String query, @Nullable Object... arguments) {
+        execUserSyncOperation(() -> sql.executeScript(cancellationToken, query, arguments));
+    }
+
+    @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
         return doAsyncOperation(() -> sql.executeScriptAsync(query, arguments));
+    }
+
+    @Override
+    public CompletableFuture<Void> executeScriptAsync(@Nullable CancellationToken cancellationToken, String query,
+            @Nullable Object... arguments) {
+        return doAsyncOperation(() -> sql.executeScriptAsync(cancellationToken, query, arguments));
     }
 
     private <T> CompletableFuture<AsyncResultSet<T>> doAsyncOperationForResultSet(

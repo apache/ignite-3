@@ -19,15 +19,19 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
@@ -38,6 +42,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -62,6 +68,7 @@ import org.jetbrains.annotations.TestOnly;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockSettings;
 import org.mockito.quality.Strictness;
+import org.mockito.stubbing.Answer;
 
 /**
  * MetaStorageManager dummy implementation.
@@ -77,6 +84,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     private static final UUID TEST_NODE_ID = UUID.randomUUID();
 
     private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
+
+    @Nullable
+    private Consumer<Boolean> afterInvokeInterceptor;
 
     /** Creates standalone MetaStorage manager. */
     public static StandaloneMetaStorageManager create() {
@@ -218,6 +228,34 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         when(cmgManagerMock.clusterState()).thenReturn(completedFuture(clusterState));
     }
 
+    public void setAfterInvokeInterceptor(@Nullable Consumer<Boolean> afterInvokeInterceptor) {
+        this.afterInvokeInterceptor = afterInvokeInterceptor;
+    }
+
+    @Override
+    public CompletableFuture<Boolean> invoke(Condition cond, Operation success, Operation failure) {
+        return super.invoke(cond, success, failure)
+                .thenApply(res -> {
+                    if (afterInvokeInterceptor != null) {
+                        afterInvokeInterceptor.accept(res);
+                    }
+
+                    return res;
+                });
+    }
+
+    @Override
+    public CompletableFuture<Boolean> invoke(Condition cond, List<Operation> success, List<Operation> failure) {
+        return super.invoke(cond, success, failure)
+                .thenApply(res -> {
+                    if (afterInvokeInterceptor != null) {
+                        afterInvokeInterceptor.accept(res);
+                    }
+
+                    return res;
+                });
+    }
+
     private static RaftManager mockRaftManager() {
         ArgumentCaptor<RaftGroupListener> listenerCaptor = ArgumentCaptor.forClass(RaftGroupListener.class);
         RaftManager raftManager = mock(RaftManager.class, LENIENT_SETTINGS);
@@ -246,7 +284,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             throw new RuntimeException(e);
         }
 
-        when(raftGroupService.run(any())).thenAnswer(invocation -> {
+        Answer<Object> answer = invocation -> {
             RaftGroupListener listener = listenerCaptor.getValue();
             // Both onBeforeApply and command processing within listener should be thread-safe.
             // onBeforeApply is guarded by group specific monitor, precisely synchronized (groupIdSyncMonitor(request.groupId())).
@@ -261,7 +299,9 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
                 return runCommand(command, listener);
             }
-        });
+        };
+        lenient().when(raftGroupService.run(any())).thenAnswer(answer);
+        lenient().when(raftGroupService.run(any(), anyLong())).thenAnswer(answer);
 
         return raftManager;
     }

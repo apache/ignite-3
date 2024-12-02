@@ -111,14 +111,14 @@ public class VersionedUpdate implements UpdateLogEvent {
 
         @Override
         public VersionedUpdate readFrom(IgniteDataInput input) throws IOException {
-            int ver = input.readInt();
-            long delayDurationMs = input.readLong();
+            int ver = input.readVarIntAsInt();
+            long delayDurationMs = input.readVarInt();
 
-            int size = input.readInt();
+            int size = input.readVarIntAsInt();
             List<UpdateEntry> entries = new ArrayList<>(size);
 
             for (int i = 0; i < size; i++) {
-                short entryTypeId = input.readShort();
+                short entryTypeId = (short) input.readVarIntAsInt();
 
                 CatalogObjectSerializer<MarshallableEntry> serializer = serializers.get(entryTypeId);
 
@@ -130,12 +130,12 @@ public class VersionedUpdate implements UpdateLogEvent {
 
         @Override
         public void writeTo(VersionedUpdate update, IgniteDataOutput output) throws IOException {
-            output.writeInt(update.version());
-            output.writeLong(update.delayDurationMs());
+            output.writeVarInt(update.version());
+            output.writeVarInt(update.delayDurationMs());
 
-            output.writeInt(update.entries().size());
+            output.writeVarInt(update.entries().size());
             for (UpdateEntry entry : update.entries()) {
-                output.writeShort(entry.typeId());
+                output.writeVarInt(entry.typeId());
 
                 serializers.get(entry.typeId()).writeTo(entry, output);
             }

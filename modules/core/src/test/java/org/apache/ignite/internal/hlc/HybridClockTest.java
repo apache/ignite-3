@@ -17,21 +17,18 @@
 
 package org.apache.ignite.internal.hlc;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -40,27 +37,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 class HybridClockTest extends BaseIgniteAbstractTest {
-    /**
-     * Mock of a system clock.
-     */
-    private static MockedStatic<HybridClockImpl> clockMock;
-
     @Mock
     private ClockUpdateListener updateListener;
 
-    @AfterEach
-    public void afterEach() {
-        closeClockMock();
-    }
+    private long mockedTime;
 
     /**
      * Tests a {@link HybridClock#now()}.
      */
     @Test
     public void testNow() {
-        clockMock = mockToEpochMilli(100);
+        mockedTime = 100;
 
-        HybridClock clock = new HybridClockImpl();
+        HybridClock clock = new TestHybridClock(() -> mockedTime);
 
         assertTimestampEquals(100, new HybridTimestamp(100, 1), clock::now);
 
@@ -76,9 +65,9 @@ class HybridClockTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testTick() {
-        clockMock = mockToEpochMilli(100);
+        mockedTime = 100;
 
-        HybridClock clock = new HybridClockImpl();
+        HybridClock clock = new TestHybridClock(() -> mockedTime);
 
         assertTimestampEquals(100, new HybridTimestamp(100, 1),
                 () -> clock.update(new HybridTimestamp(50, 1)));
@@ -86,13 +75,13 @@ class HybridClockTest extends BaseIgniteAbstractTest {
         assertTimestampEquals(100, new HybridTimestamp(100, 2),
                 () -> clock.update(new HybridTimestamp(60, 1000)));
 
-        assertTimestampEquals(200, new HybridTimestamp(200, 0),
+        assertTimestampEquals(200, new HybridTimestamp(100, 3),
                 () -> clock.update(new HybridTimestamp(70, 1)));
 
-        assertTimestampEquals(50, new HybridTimestamp(200, 1),
+        assertTimestampEquals(50, new HybridTimestamp(100, 4),
                 () -> clock.update(new HybridTimestamp(70, 1)));
 
-        assertTimestampEquals(500, new HybridTimestamp(500, 0),
+        assertTimestampEquals(500, new HybridTimestamp(100, 5),
                 () -> clock.update(new HybridTimestamp(70, 1)));
 
         assertTimestampEquals(500, new HybridTimestamp(600, 1),
@@ -103,17 +92,9 @@ class HybridClockTest extends BaseIgniteAbstractTest {
     }
 
     private void assertTimestampEquals(long sysTime, HybridTimestamp expTs, Supplier<HybridTimestamp> clo) {
-        closeClockMock();
-
-        clockMock = mockToEpochMilli(sysTime);
+        mockedTime = sysTime;
 
         assertEquals(expTs, clo.get());
-    }
-
-    private void closeClockMock() {
-        if (clockMock != null && !clockMock.isClosed()) {
-            clockMock.close();
-        }
     }
 
     @Test
@@ -162,13 +143,5 @@ class HybridClockTest extends BaseIgniteAbstractTest {
         clock.now();
 
         verify(updateListener, never()).onUpdate(anyLong());
-    }
-
-    private static MockedStatic<HybridClockImpl> mockToEpochMilli(long expected) {
-        MockedStatic<HybridClockImpl> clockMock = mockStatic(HybridClockImpl.class);
-
-        clockMock.when(HybridClockImpl::currentTime).thenReturn(expected << LOGICAL_TIME_BITS_SIZE);
-
-        return clockMock;
     }
 }

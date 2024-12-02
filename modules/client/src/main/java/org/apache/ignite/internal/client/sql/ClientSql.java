@@ -190,6 +190,13 @@ public class ClientSql implements IgniteSql {
 
     /** {@inheritDoc} */
     @Override
+    public void executeScript(@Nullable CancellationToken cancellationToken, String query, @Nullable Object... arguments) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Support cancellation token.
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
             @Nullable CancellationToken cancellationToken,
@@ -333,6 +340,14 @@ public class ClientSql implements IgniteSql {
         };
 
         return ch.serviceAsync(ClientOp.SQL_EXEC_SCRIPT, payloadWriter, null);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> executeScriptAsync(@Nullable CancellationToken cancellationToken, String query,
+            @Nullable Object... arguments) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Support cancellation token.
+        throw new UnsupportedOperationException();
     }
 
     private static void packProperties(

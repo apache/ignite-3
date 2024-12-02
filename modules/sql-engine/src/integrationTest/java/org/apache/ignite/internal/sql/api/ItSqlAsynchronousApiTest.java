@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -55,7 +56,6 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * Tests for asynchronous SQL API.
  */
-@SuppressWarnings("ThrowableNotThrown")
 public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     @Test
     public void pageSequence() {
@@ -120,6 +120,13 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
 
             return sql.executeAsync(transaction, token, query);
         });
+
+        // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+        cancelHandle.cancel();
+
+        expectQueryCancelled(() -> await(sql.executeAsync(null, token, "SELECT 1")));
     }
 
     @Test
@@ -219,6 +226,11 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     @Override
     protected void executeScript(IgniteSql sql, String query, Object... args) {
         await(sql.executeScriptAsync(query, args));
+    }
+
+    @Override
+    protected void executeScript(IgniteSql sql, CancellationToken cancellationToken, String query, Object... args) {
+        await(sql.executeScriptAsync(cancellationToken, query, args));
     }
 
     @Override

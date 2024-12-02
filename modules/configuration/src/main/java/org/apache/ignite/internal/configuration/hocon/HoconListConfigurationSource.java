@@ -133,7 +133,7 @@ class HoconListConfigurationSource implements ConfigurationSource {
 
             String key = (String) keyValue.unwrapped();
 
-            List<String> path = appendKey(this.path, syntheticKeyName);
+            List<String> path = appendKey(this.path, key);
 
             node.construct(key, new HoconObjectConfigurationSource(syntheticKeyName, path, hoconCfg), false);
         }

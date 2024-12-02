@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine.EN
 
 import com.google.auto.service.AutoService;
 import java.nio.file.Path;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -53,13 +54,14 @@ public class RocksDbDataStorageModule implements DataStorageModule {
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureManager failureManager,
             LogSyncer logSyncer,
-            HybridClock clock
+            HybridClock clock,
+            ScheduledExecutorService commonScheduler
     ) throws StorageException {
         StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage();
         RocksDbStorageEngineConfiguration engineConfig = ((RocksDbStorageEngineExtensionConfiguration) storageConfig.engines()).rocksdb();
 
         assert engineConfig != null;
 
-        return new RocksDbStorageEngine(igniteInstanceName, engineConfig, storageConfig, storagePath, logSyncer);
+        return new RocksDbStorageEngine(igniteInstanceName, engineConfig, storageConfig, storagePath, logSyncer, commonScheduler);
     }
 }

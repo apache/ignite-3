@@ -291,19 +291,19 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
     private static class TableDescriptorSerializer implements CatalogObjectSerializer<CatalogTableDescriptor> {
         @Override
         public CatalogTableDescriptor readFrom(IgniteDataInput input) throws IOException {
-            int id = input.readInt();
+            int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readLong();
+            long updateToken = input.readVarInt();
 
             CatalogTableSchemaVersions schemaVersions = CatalogTableSchemaVersions.SERIALIZER.readFrom(input);
             List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, input);
             String storageProfile = input.readUTF();
 
-            int schemaId = input.readInt();
-            int pkIndexId = input.readInt();
-            int zoneId = input.readInt();
+            int schemaId = input.readVarIntAsInt();
+            int pkIndexId = input.readVarIntAsInt();
+            int zoneId = input.readVarIntAsInt();
 
-            int pkKeysLen = input.readInt();
+            int pkKeysLen = input.readVarIntAsInt();
             int[] pkColumnIndexes = input.readIntArray(pkKeysLen);
             List<String> primaryKeyColumns = new ArrayList<>(pkColumnIndexes.length);
 
@@ -311,7 +311,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
                 primaryKeyColumns.add(columns.get(idx).name());
             }
 
-            int colocationColumnsLen = input.readInt();
+            int colocationColumnsLen = input.readVarIntAsInt();
 
             List<String> colocationColumns;
 
@@ -344,28 +344,28 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
         @Override
         public void writeTo(CatalogTableDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeInt(descriptor.id());
+            output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
-            output.writeLong(descriptor.updateToken());
+            output.writeVarInt(descriptor.updateToken());
             CatalogTableSchemaVersions.SERIALIZER.writeTo(descriptor.schemaVersions(), output);
             writeList(descriptor.columns(), CatalogTableColumnDescriptor.SERIALIZER, output);
             output.writeUTF(descriptor.storageProfile());
 
-            output.writeInt(descriptor.schemaId());
-            output.writeInt(descriptor.primaryKeyIndexId());
-            output.writeInt(descriptor.zoneId());
+            output.writeVarInt(descriptor.schemaId());
+            output.writeVarInt(descriptor.primaryKeyIndexId());
+            output.writeVarInt(descriptor.zoneId());
 
             int[] pkIndexes = resolvePkColumnIndexes(descriptor);
 
-            output.writeInt(pkIndexes.length);
+            output.writeVarInt(pkIndexes.length);
             output.writeIntArray(pkIndexes);
 
             if (descriptor.colocationColumns() == descriptor.primaryKeyColumns()) {
-                output.writeInt(-1);
+                output.writeVarInt(-1);
             } else {
                 int[] colocationIndexes = resolveColocationColumnIndexes(pkIndexes, descriptor);
 
-                output.writeInt(colocationIndexes.length);
+                output.writeVarInt(colocationIndexes.length);
                 output.writeIntArray(colocationIndexes);
             }
         }
