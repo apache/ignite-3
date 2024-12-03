@@ -76,8 +76,6 @@ public class RebalanceUtil {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtil.class);
 
-    public static final String PENDING_CHANGE_TRIGGER_PREFIX = "pending.change.trigger.";
-
     /**
      * Status values for methods like {@link #updatePendingAssignmentsKeys}.
      */
@@ -392,6 +390,11 @@ public class RebalanceUtil {
 
     /** Key prefix for switch append assignments. */
     public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "assignments.switch.append.";
+
+    /** Key prefix for change trigger keys. */
+    public static final String PENDING_CHANGE_TRIGGER_PREFIX = "pending.change.trigger.";
+
+    public static final byte[] PENDING_CHANGE_TRIGGER_PREFIX_BYTES = PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
 
     /**
      * Key that is needed for skipping stale events of pending key change.

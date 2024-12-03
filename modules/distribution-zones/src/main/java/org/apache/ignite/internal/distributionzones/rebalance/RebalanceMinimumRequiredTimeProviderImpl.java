@@ -20,10 +20,9 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 import static java.lang.Math.min;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_CHANGE_TRIGGER_PREFIX;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_CHANGE_TRIGGER_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -40,6 +39,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -70,11 +70,11 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
 
         long minTimestamp = metaStorageSafeTime;
 
-        Map<Integer, Map<Integer, Assignments>> stableAssignments = readAssignments(STABLE_ASSIGNMENTS_PREFIX, appliedRevision);
-        Map<Integer, Map<Integer, Assignments>> pendingAssignments = readAssignments(PENDING_ASSIGNMENTS_PREFIX, appliedRevision);
+        Map<Integer, Map<Integer, Assignments>> stableAssignments = readAssignments(STABLE_ASSIGNMENTS_PREFIX_BYTES, appliedRevision);
+        Map<Integer, Map<Integer, Assignments>> pendingAssignments = readAssignments(PENDING_ASSIGNMENTS_PREFIX_BYTES, appliedRevision);
 
         Map<Integer, Long> pendingChangeTriggerRevisions = readPendingChangeTriggerRevisions(
-                PENDING_CHANGE_TRIGGER_PREFIX,
+                PENDING_CHANGE_TRIGGER_PREFIX_BYTES,
                 appliedRevision
         );
 
@@ -246,7 +246,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
     /**
      * Reads assignments from the metastorage locally. The resulting map is a {@code tableId -> {partitionId -> assignments}} mapping.
      */
-    Map<Integer, Map<Integer, Assignments>> readAssignments(String prefix, long appliedRevision) {
+    Map<Integer, Map<Integer, Assignments>> readAssignments(byte[] prefix, long appliedRevision) {
         Map<Integer, Map<Integer, Assignments>> assignments = new HashMap<>();
 
         try (Cursor<Entry> entries = readLocallyByPrefix(prefix, appliedRevision)) {
@@ -255,8 +255,9 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
                     continue;
                 }
 
-                int tableId = RebalanceUtil.extractTableId(entry.key(), prefix);
-                int partitionId = RebalanceUtil.extractPartitionNumber(entry.key());
+                TablePartitionId tablePartitionId = RebalanceUtil.extractTablePartitionId(entry.key(), prefix);
+                int tableId = tablePartitionId.tableId();
+                int partitionId = tablePartitionId.partitionId();
 
                 assignments.computeIfAbsent(tableId, id -> new HashMap<>())
                         .put(partitionId, Assignments.fromBytes(entry.value()));
@@ -266,7 +267,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         return assignments;
     }
 
-    Map<Integer, Long> readPendingChangeTriggerRevisions(String prefix, long appliedRevision) {
+    Map<Integer, Long> readPendingChangeTriggerRevisions(byte[] prefix, long appliedRevision) {
         Map<Integer, Long> revisions = new HashMap<>();
 
         try (Cursor<Entry> entries = readLocallyByPrefix(prefix, appliedRevision)) {
@@ -275,7 +276,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
                     continue;
                 }
 
-                int tableId = RebalanceUtil.extractTableId(entry.key(), prefix);
+                int tableId = RebalanceUtil.extractTablePartitionId(entry.key(), prefix).tableId();
 
                 byte[] value = entry.value();
                 long revision = ByteUtils.bytesToLongKeepingOrder(value);
@@ -287,11 +288,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         return revisions;
     }
 
-    private Cursor<Entry> readLocallyByPrefix(String prefix, long revision) {
-        return metaStorageManager.getLocally(
-                ByteArray.fromString(prefix),
-                ByteArray.fromString(incrementLastChar(prefix)),
-                revision
-        );
+    private Cursor<Entry> readLocallyByPrefix(byte[] prefix, long revision) {
+        return metaStorageManager.prefixLocally(new ByteArray(prefix),revision);
     }
 }
