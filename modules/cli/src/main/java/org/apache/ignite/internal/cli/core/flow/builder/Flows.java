@@ -172,6 +172,23 @@ public final class Flows {
     }
 
     /**
+     * Create new {@link FlowBuilder} which starts from yes/no question and pass the result of the {@code onAccept}
+     * call on positive answer or interrupts the flow on negative answer.
+     *
+     * @param question question UI component.
+     * @param onAccept mapping function.
+     * @param <I> input type.
+     * @param <O> output type.
+     * @return new {@link FlowBuilder}.
+     */
+    public static <I, O> FlowBuilder<I, O> acceptQuestion(QuestionUiComponent question, Function<I, O> onAccept) {
+        return question(question.render(),
+                List.of(new AcceptedQuestionAnswer<>((a, i) -> onAccept.apply(i)),
+                        new InterruptQuestionAnswer<>())
+        );
+    }
+
+    /**
      * Create new {@link Flow} which asks questions and returns the result of answer.
      *
      * @param question question text.

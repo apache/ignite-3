@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network;
+package org.apache.ignite.internal.compute;
 
-/**
- * Throws when register channel with already used identifier.
- */
-public class ChannelTypeAlreadyExist extends RuntimeException {
-    /**
-     * Constructor.
-     *
-     * @param id Channel identifier.
-     * @param name Channel name.
-     */
-    public ChannelTypeAlreadyExist(short id, String name) {
-        super("Channel " + name + " can't be registered because id " + id + " already used.");
+import static org.apache.ignite.lang.ErrorGroups.Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR;
+
+import org.apache.ignite.lang.IgniteException;
+
+/** POJO conversion exception. */
+public class PojoConversionException extends IgniteException {
+    PojoConversionException(String message) {
+        super(UNSUPPORTED_OBJECT_TYPE_ERR, message);
+    }
+
+    PojoConversionException(String message, Throwable cause) {
+        super(UNSUPPORTED_OBJECT_TYPE_ERR, message, cause);
     }
 }

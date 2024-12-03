@@ -41,6 +41,7 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.components.LogSyncer;
@@ -53,7 +54,9 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageProfile;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
@@ -66,6 +69,7 @@ import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
 
 /** Contains tests for {@link SharedRocksDbInstance}. */
+@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     private RocksDbStorageEngine engine;
@@ -79,9 +83,11 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
             // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
             @InjectConfiguration("mock.profiles.default {engine = rocksdb, size = 16777216, writeBufferSize = 67108864}")
             StorageConfiguration storageConfiguration,
-            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig
+            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
+            @InjectExecutorService
+            ScheduledExecutorService scheduledExecutor
     ) throws Exception {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
+        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class), scheduledExecutor);
 
         engine.start();
 

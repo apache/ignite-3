@@ -46,7 +46,10 @@ public class ScriptTransactionContext implements QueryTransactionContext {
     private volatile @Nullable ScriptTransactionWrapperImpl wrapper;
 
     /** Constructor. */
-    public ScriptTransactionContext(QueryTransactionContext txContext, TransactionTracker txTracker) {
+    public ScriptTransactionContext(
+            QueryTransactionContext txContext,
+            TransactionTracker txTracker
+    ) {
         this.txContext = txContext;
         this.txTracker = txTracker;
     }

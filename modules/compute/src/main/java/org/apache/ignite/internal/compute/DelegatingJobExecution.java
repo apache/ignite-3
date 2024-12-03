@@ -65,4 +65,13 @@ class DelegatingJobExecution<R> implements JobExecution<R>, MarshallerProvider<R
             throw new RuntimeException(e);
         }
     }
+
+    @Override
+    public boolean marshalResult() {
+        try {
+            return delegate.thenApply(JobExecutionInternal::marshalResult).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
