@@ -15,32 +15,14 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply plugin: 'java-library'
 
-description = 'ignite-arch-test'
+apply from: "$rootDir/buildscripts/publishing.gradle"
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-}
+description = "Starter for Apache Ignite 3"
 
 dependencies {
-    parent.subprojects {
-        if (it != this.project) {
-            testImplementation it
-        }
-    }
-
-    testImplementation libs.archunit.core
-    testImplementation libs.archunit.junit5
-    testImplementation testFixtures(project(':ignite-core'))
+    api(project(":spring-boot-ignite-client-autoconfigure"))
+    api(project(":ignite-client"))
 }
 
-tasks.withType(Test).configureEach {
-    parent.subprojects.forEach {
-        dependsOn it.getTasksByName("testClasses", true)
-        dependsOn it.getTasksByName("integrationTestClasses", true)
-        dependsOn it.getTasksByName("testFixturesClasses", true)
-    }
-}

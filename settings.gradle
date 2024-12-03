@@ -94,6 +94,9 @@ include(':ignite-configuration-root')
 include(':ignite-configuration-system')
 include(':ignite-system-disaster-recovery')
 include(':ignite-system-disaster-recovery-api')
+include(':spring-boot-ignite-client-autoconfigure')
+include(':spring-boot-starter-ignite-client')
+include(':spring-boot-starter-ignite-client-example')
 
 project(":ignite-examples").projectDir = file('examples')
 project(":ignite-dev-utilities").projectDir = file('dev-utilities')
@@ -173,6 +176,9 @@ project(":ignite-configuration-root").projectDir = file('modules/configuration-r
 project(":ignite-configuration-system").projectDir = file('modules/configuration-system')
 project(":ignite-system-disaster-recovery").projectDir = file('modules/system-disaster-recovery')
 project(":ignite-system-disaster-recovery-api").projectDir = file('modules/system-disaster-recovery-api')
+project(":spring-boot-ignite-client-autoconfigure").projectDir = file('modules/spring/spring-boot-ignite-client-autoconfigure')
+project(":spring-boot-starter-ignite-client").projectDir = file('modules/spring/spring-boot-starter-ignite-client')
+project(":spring-boot-starter-ignite-client-example").projectDir = file('modules/spring/spring-boot-starter-ignite-client-example')
 
 ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
 

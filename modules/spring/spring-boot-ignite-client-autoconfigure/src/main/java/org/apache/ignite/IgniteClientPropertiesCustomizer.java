@@ -15,32 +15,15 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite;
 
-description = 'ignite-arch-test'
+import java.util.function.Consumer;
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
-}
-
-dependencies {
-    parent.subprojects {
-        if (it != this.project) {
-            testImplementation it
-        }
-    }
-
-    testImplementation libs.archunit.core
-    testImplementation libs.archunit.junit5
-    testImplementation testFixtures(project(':ignite-core'))
-}
-
-tasks.withType(Test).configureEach {
-    parent.subprojects.forEach {
-        dependsOn it.getTasksByName("testClasses", true)
-        dependsOn it.getTasksByName("integrationTestClasses", true)
-        dependsOn it.getTasksByName("testFixturesClasses", true)
-    }
+/**
+ * Interface that can be implemented by beans wishing to customize the
+ * auto-configured {@link IgniteClientProperties}.
+ */
+@FunctionalInterface
+public interface IgniteClientPropertiesCustomizer  extends Consumer<IgniteClientProperties> {
+    /* No-op. */
 }
