@@ -37,6 +37,7 @@ import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
@@ -109,15 +110,13 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      * @param table A table to update.
      * @param op A type of the update operation.
      * @param updateColumns Enumeration of columns to update if applicable.
-     * @param rowFactory Row factory.
      */
     public ModifyNode(
             ExecutionContext<RowT> ctx,
             UpdatableTable table,
             long sourceId,
             TableModify.Operation op,
-            @Nullable List<String> updateColumns,
-            RowFactory<RowT> rowFactory
+            @Nullable List<String> updateColumns
     ) {
         super(ctx);
 
@@ -133,7 +132,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                         .mapToInt(ColumnDescriptor::logicalIndex)
                         .toArray();
 
-        this.rowFactory = rowFactory;
+        RowSchema rowSchema = rowSchemaForTableDescriptor(table.descriptor());
+        this.rowFactory = ctx.rowHandler().factory(rowSchema);
     }
 
     /** {@inheritDoc} */
@@ -474,5 +474,23 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
 
         return mapping;
+    }
+
+    private static RowSchema rowSchemaForTableDescriptor(TableDescriptor descriptor) {
+        int columnCount = storedRowsCount(descriptor);
+
+        NativeType[] mapping = new NativeType[columnCount];
+
+        for (int i = 0; i < columnCount; i++) {
+            ColumnDescriptor columnDescriptor = descriptor.columnDescriptor(i);
+            mapping[columnDescriptor.logicalIndex()] = columnDescriptor.physicalType();
+        }
+
+        RowSchema.Builder fieldTypes = RowSchema.builder();
+        for (NativeType nativeType : mapping) {
+            fieldTypes.addField(nativeType);
+        }
+
+        return fieldTypes.build();
     }
 }

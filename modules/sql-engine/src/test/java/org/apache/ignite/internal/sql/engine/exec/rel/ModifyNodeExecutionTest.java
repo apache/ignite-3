@@ -111,7 +111,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.INSERT, null, rowFactory
+                context, updatableTable, SOURCE_ID, Operation.INSERT, null
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -144,7 +144,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.UPDATE, null, rowFactory
+                context, updatableTable, SOURCE_ID, Operation.UPDATE, null
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -177,7 +177,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.DELETE, null, rowFactory
+                context, updatableTable, SOURCE_ID, Operation.DELETE, null
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -210,7 +210,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.INSERT, null, rowFactory
+                context, updatableTable, SOURCE_ID, Operation.INSERT, null
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -238,7 +238,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.UPDATE, null, rowFactory
+                context, updatableTable, SOURCE_ID, Operation.UPDATE, null
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -266,7 +266,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.DELETE, null, rowFactory
+                context, updatableTable, SOURCE_ID, Operation.DELETE, null
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -393,7 +393,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.MERGE, List.of("C1"), rowFactory
+                context, updatableTable, SOURCE_ID, Operation.MERGE, List.of("C1")
         );
         modifyNode.register(List.of(sourceNode));
         modifyNode.onRegister(downstream);
