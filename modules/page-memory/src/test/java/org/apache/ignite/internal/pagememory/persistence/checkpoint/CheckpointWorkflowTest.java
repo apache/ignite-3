@@ -232,7 +232,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 verify(tracker, never()).onWriteLockWaitStart();
                 verify(tracker, never()).onMarkCheckpointBeginStart();
                 verify(tracker, never()).onMarkCheckpointBeginEnd();
-                verify(tracker, never()).onWriteLockRelease();
+                verify(tracker, never()).onWriteLockHoldStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
 
@@ -258,7 +258,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 verify(tracker, times(1)).onWriteLockWaitStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginStart();
                 verify(tracker, never()).onMarkCheckpointBeginEnd();
-                verify(tracker, never()).onWriteLockRelease();
+                verify(tracker, never()).onWriteLockHoldStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
 
@@ -286,7 +286,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 verify(tracker, times(1)).onWriteLockWaitStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginEnd();
-                verify(tracker, times(1)).onWriteLockRelease();
+                verify(tracker, times(1)).onWriteLockHoldStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
 
@@ -308,7 +308,7 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         verify(tracker, times(1)).onWriteLockWaitStart();
         verify(tracker, times(1)).onMarkCheckpointBeginStart();
         verify(tracker, times(1)).onMarkCheckpointBeginEnd();
-        verify(tracker, times(1)).onWriteLockRelease();
+        verify(tracker, times(1)).onWriteLockHoldStart();
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesStart();
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesEnd();
 
