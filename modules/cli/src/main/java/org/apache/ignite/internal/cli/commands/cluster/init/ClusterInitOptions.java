@@ -187,8 +187,7 @@ public class ClusterInitOptions {
 
     private static boolean tryParseConfig(String config) {
         try {
-            Config configFactory = ConfigFactory.empty();
-            configFactory.withFallback(ConfigFactory.parseString(config));
+            ConfigFactory.parseString(config);
             return true;
         } catch (ConfigException e) {
             return false;
