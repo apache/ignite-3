@@ -102,7 +102,8 @@ public class KillHandlerRegistryImpl implements KillHandlerRegistry {
         OperationKillHandler handler = handlers.get(type);
 
         if (handler == null) {
-            throw new IllegalArgumentException("No handler is registered for the specified type [type=" + type + "].");
+            throw new IllegalArgumentException("No handler is registered for the specified type "
+                    + "[type=" + type + ", local=" + local + "].");
         }
 
         return handler;
