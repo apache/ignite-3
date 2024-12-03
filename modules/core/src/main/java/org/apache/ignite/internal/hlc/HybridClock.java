@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.hlc;
 
-import org.jetbrains.annotations.Nullable;
-
 /**
  * A Hybrid Logical Clock.
  */
@@ -31,7 +29,7 @@ public interface HybridClock {
     long nowLong();
 
     /**
-     * Creates a timestamp for new event. A timestamp is guarantied to be unique and monotonically grown.
+     * Creates a timestamp for new event. A timestamp is guarantied to be unique and monotonically grown and be after the causal.
      *
      * @return The hybrid timestamp.
      */

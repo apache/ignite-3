@@ -44,12 +44,10 @@ import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.server.ChecksumAndRevisions;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
-import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
-import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
@@ -62,7 +60,7 @@ import org.jetbrains.annotations.TestOnly;
  * Meta storage listener.
  * TODO: IGNITE-14693 Implement Meta storage exception handling logic.
  */
-public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandler {
+public class MetaStorageListener implements RaftGroupListener {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final MetaStorageWriteHandler writeHandler;
@@ -208,11 +206,6 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    @Override
-    public boolean onBeforeApply(Command command) {
-        return writeHandler.beforeApply(command);
     }
 
     @Override

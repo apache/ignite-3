@@ -519,7 +519,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         assert localMetaStorageConfiguration != null : "Meta Storage configuration has not been set";
 
         CompletableFuture<TopologyAwareRaftGroupService> serviceFuture = CompletableFuture.supplyAsync(() -> {
-            TopologyAwareRaftGroupService service = startRaftNodeItself(configuration, localPeer, metaStorageInfo, disruptorConfig, maxClockSkew);
+            TopologyAwareRaftGroupService service =
+                    startRaftNodeItself(configuration, localPeer, metaStorageInfo, disruptorConfig, maxClockSkew);
 
             raftNodeStarted.complete(null);
 
