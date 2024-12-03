@@ -111,7 +111,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
             Map.Entry<Long, CatalogZoneDescriptor> zone = map.floorEntry(zoneRevision);
             long timestamp = metaStorageManager.timestampByRevisionLocally(zone.getValue().updateToken()).longValue();
 
-            timestamp = ttttime(zoneDescriptors, timestamp, latestTimestamp);
+            timestamp = ceilTime(zoneDescriptors, timestamp, latestTimestamp);
 
             minTimestamp = min(minTimestamp, timestamp);
 
@@ -198,7 +198,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         return zoneDeletionTimestamps;
     }
 
-    static long ttttime(NavigableMap<Long, CatalogZoneDescriptor> zoneDescriptors, long timestamp, long latestTimestamp) {
+    static long ceilTime(NavigableMap<Long, CatalogZoneDescriptor> zoneDescriptors, long timestamp, long latestTimestamp) {
         // We determine the "next" zone version, the one that comes after the version that corresponds to "timestamp".
         // "ceilingKey" accepts an inclusive boundary, while we have an exclusive one. "+ 1" converts ">=" into ">".
         Long ceilingKey = zoneDescriptors.ceilingKey(timestamp + 1);
@@ -224,7 +224,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
                 // If assignments are empty, we shall use the earliest known timestamp for the zone.
                 .orElse(zoneDescriptors.firstEntry().getKey());
 
-        return ttttime(zoneDescriptors, timestamp, latestTimestamp);
+        return ceilTime(zoneDescriptors, timestamp, latestTimestamp);
     }
 
     /**
