@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import static org.apache.ignite.internal.client.proto.ClientComputeJobPacker.packJobArgument;
 import static org.apache.ignite.internal.client.proto.ClientComputeJobPacker.packJobResult;
+import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
 import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobResult;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.PooledByteBufAllocator;
@@ -38,6 +42,8 @@ import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.client.proto.pojo.Pojo;
 import org.apache.ignite.internal.client.proto.pojo.StaticFieldPojo;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.MarshallingException;
 import org.apache.ignite.marshalling.UnmarshallingException;
@@ -78,6 +84,13 @@ class ClientComputeJobPackerUnpackerTest {
         return List.of(Pojo.generateTestPojo());
     }
 
+    private static List<Arguments> notMarshalled() {
+        return List.of(
+                arguments(Tuple.create(), ComputeJobDataType.TUPLE),
+                arguments(Pojo.generateTestPojo(), ComputeJobDataType.POJO)
+        );
+    }
+
     private ClientMessagePacker messagePacker;
 
     @BeforeEach
@@ -107,6 +120,23 @@ class ClientComputeJobPackerUnpackerTest {
 
             // Then.
             assertEquals(arg, res);
+        }
+    }
+
+    @MethodSource("notMarshalled")
+    @ParameterizedTest
+    void notMarshalledArgument(Object arg, ComputeJobDataType type) {
+        // When pack job argument without marshaller.
+        packJobArgument(arg, null, messagePacker);
+        byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
+
+        // And unpack without marshaller.
+        try (var messageUnpacker = messageUnpacker(data)) {
+            var res = unpackJobArgumentWithoutMarshaller(messageUnpacker);
+
+            // Then argument is unpacked but not unmarshalled.
+            ComputeJobDataHolder argument = assertInstanceOf(ComputeJobDataHolder.class, res);
+            assertEquals(type, argument.type());
         }
     }
 

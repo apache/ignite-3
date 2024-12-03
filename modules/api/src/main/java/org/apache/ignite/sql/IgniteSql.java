@@ -382,11 +382,32 @@ public interface IgniteSql {
     /**
      * Executes a multi-statement SQL query.
      *
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @throws SqlException If failed.
+     */
+    void executeScript(@Nullable CancellationToken cancellationToken, String query, @Nullable Object... arguments);
+
+    /**
+     * Executes a multi-statement SQL query.
+     *
      * @param query SQL query template.
      * @param arguments Arguments for the template (optional).
      * @return Operation future.
      * @throws SqlException If failed.
      */
     CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments);
+
+    /**
+     * Executes a multi-statement SQL query.
+     *
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param query SQL query template.
+     * @param arguments Arguments for the template (optional).
+     * @return Operation future.
+     * @throws SqlException If failed.
+     */
+    CompletableFuture<Void> executeScriptAsync(@Nullable CancellationToken cancellationToken, String query, @Nullable Object... arguments);
 
 }

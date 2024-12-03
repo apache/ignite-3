@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemory
 
 import com.google.auto.service.AutoService;
 import java.nio.file.Path;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
@@ -54,7 +55,8 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureManager failureManager,
             LogSyncer logSyncer,
-            HybridClock clock
+            HybridClock clock,
+            ScheduledExecutorService commonScheduler
     ) throws StorageException {
         StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage();
 

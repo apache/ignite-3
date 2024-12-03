@@ -18,10 +18,9 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.equalTo;
-import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -33,12 +32,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.internal.runner.app.Jobs.ArgMarshallingJob;
 import org.apache.ignite.internal.runner.app.Jobs.ArgumentAndResultMarshallingJob;
+import org.apache.ignite.internal.runner.app.Jobs.ArgumentStringListMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.ArgumentStringMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.MapReduce;
@@ -47,8 +48,8 @@ import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
 import org.apache.ignite.internal.runner.app.Jobs.PojoJobWithCustomMarshallers;
 import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
 import org.apache.ignite.internal.runner.app.Jobs.ResultMarshallingJob;
+import org.apache.ignite.internal.runner.app.Jobs.ResultStringListUnMarshaller;
 import org.apache.ignite.internal.runner.app.Jobs.ResultStringUnMarshaller;
-import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
@@ -154,6 +155,37 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
                         + ":unmarshalledOnClient",
                 result
         );
+    }
+
+    @Test
+    void customResultAndArgumentMarshallerExecutedOnDifferentNode() {
+        // Given client node and target node.
+        String clientAddress = getClientAddresses().get(0);
+        ClusterNode targetNode = node(1);
+
+        try (IgniteClient client = IgniteClient.builder().addresses(clientAddress).build()) {
+            // When run job with custom marshaller for string result.
+            String result = client.compute().execute(
+                    JobTarget.node(targetNode),
+                    // The job defines custom marshaller for both argument and result.
+                    JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
+                            // The client must define both marshaller as well.
+                            .argumentMarshaller(new ArgumentStringMarshaller())
+                            .resultMarshaller(new ResultStringUnMarshaller())
+                            .build(),
+                    "Input"
+            );
+
+            // Then both client and server marshaller were called for argument and for result.
+            assertEquals("Input"
+                            + ":marshalledOnClient"
+                            + ":unmarshalledOnServer"
+                            + ":processedOnServer"
+                            + ":marshalledOnServer"
+                            + ":unmarshalledOnClient",
+                    result
+            );
+        }
     }
 
     @ParameterizedTest
@@ -271,17 +303,34 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         // When.
         List<String> result = client().compute().executeMapReduce(
                 TaskDescriptor.builder(MapReduce.class)
-                        .splitJobArgumentMarshaller(ByteArrayMarshaller.create())
-                        .reduceJobResultMarshaller(ByteArrayMarshaller.create())
+                        .splitJobArgumentMarshaller(new ArgumentStringListMarshaller())
+                        .reduceJobResultMarshaller(new ResultStringListUnMarshaller())
                         .build(),
-                // input_O goes to 0 node and input_1 goes to 1 node
+                // input_0 goes to 0 node and input_1 goes to 1 node
                 List.of("Input_0", "Input_1")
         );
 
         // Then.
-        assertThat(result, hasItem(containsString("Input_0:marshalledOnClient:unmarshalledOnServer:processedOnServer")));
-        // And
-        assertThat(result, hasItem(containsString("Input_1:marshalledOnClient:unmarshalledOnServer:processedOnServer")));
+        assertThat(result, contains(
+                "Input_0"
+                        + ":listMarshalledOnClient" // Split argument marshalled on the client
+                        // Job argument is marshalled even if the target node is the same because we're using submit
+                        + ":marshalledOnClient"
+                        + ":unmarshalledOnServer" // Job argument unmarshalled on the target node
+                        + ":processedOnServer" // Job processed on the target node
+                        // Job result is not marshalled because it's a local execution
+                        + ":listMarshalledOnServer" // Reduce job result marshalled on the client handler node
+                        + ":listUnmarshalledOnClient", // Reduce job result unmarshalled on the client
+                "Input_1"
+                        + ":listMarshalledOnClient" // Split argument marshalled on the client
+                        + ":marshalledOnClient" // Job argument is marshalled on the client handler node
+                        + ":unmarshalledOnServer" // Job argument unmarshalled on the target node
+                        + ":processedOnServer" // Job processed on the target node
+                        + ":marshalledOnServer" // Job result marshalled on the target node
+                        + ":unmarshalledOnClient" // Job result unmarshalled on the client handler node
+                        + ":listMarshalledOnServer" // Reduce job result marshalled on the client handler node
+                        + ":listUnmarshalledOnClient" // Reduce job result unmarshalled on the client
+        ));
     }
 
     @Test

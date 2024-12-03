@@ -283,7 +283,10 @@ public class MetricsTests
 
         AssertMetricGreaterOrEqual(MetricNames.StreamerBatchesSent, 1);
         cts.Cancel();
-        Assert.CatchAsync<OperationCanceledException>(async () => await task);
+
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await task);
+        Assert.IsInstanceOf<OperationCanceledException>(ex.InnerException);
+        Assert.AreEqual(ErrorGroups.Common.Internal, ex.Code);
 
         AssertMetricGreaterOrEqual(MetricNames.StreamerBatchesSent, 1);
         AssertMetric(MetricNames.StreamerBatchesActive, 0);

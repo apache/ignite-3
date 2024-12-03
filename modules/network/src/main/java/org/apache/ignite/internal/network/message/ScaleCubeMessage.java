@@ -26,8 +26,10 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper for ScaleCube's {@link Message}. {@link Message#data} is stored in {@link #data} or {@link #message} depending on the type of the
- * data (whether it is a {@link NetworkMessage} or not) and {@link Message#headers} are stored in {@link #headers}.
+ * Wrapper for ScaleCube's {@link Message}.
+ *
+ * <p>{@link Message#data()} is stored in {@link #data} or {@link #message} depending on the type of
+ * the data (whether it is a {@link NetworkMessage} or not) and {@link Message#headers()} are stored in {@link #headers}.
  */
 @Transferable(NetworkMessageTypes.SCALE_CUBE_MESSAGE)
 public interface ScaleCubeMessage extends NetworkMessage {
@@ -39,4 +41,17 @@ public interface ScaleCubeMessage extends NetworkMessage {
     NetworkMessage message();
 
     Map<String, String> headers();
+
+    @Override
+    default String toStringForLightLogging() {
+        Object data = data();
+
+        String dataString = data == null ? "null" : data.getClass().getName();
+
+        NetworkMessage message = message();
+
+        String messageString = message == null ? "null" : message.toStringForLightLogging();
+
+        return getClass().getName() + ": [data=" + dataString + ", message=" + messageString + "]";
+    }
 }

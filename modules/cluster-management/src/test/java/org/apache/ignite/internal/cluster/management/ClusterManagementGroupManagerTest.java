@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -97,6 +98,8 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
                 .build();
 
         when(raftGroupService.run(any()))
+                .thenReturn(nullCompletedFuture());
+        when(raftGroupService.run(any(), anyLong()))
                 .thenReturn(nullCompletedFuture());
 
         when(raftGroupService.run(any(InitCmgStateCommand.class)))

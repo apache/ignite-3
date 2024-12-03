@@ -59,6 +59,8 @@ import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ViewUtils;
+import org.apache.ignite.lang.CancelHandleHelper;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
@@ -90,12 +92,24 @@ public class ClientCompute implements IgniteCompute {
         this.tables = tables;
     }
 
-    @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T arg) {
+    private <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
+            @Nullable T arg) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
-        return new ClientJobExecution<>(ch, submit0(target, descriptor, arg), descriptor.resultMarshaller(), descriptor.resultClass());
+        ClientJobExecution<R> execution = new ClientJobExecution<>(ch, submit0(target, descriptor, arg), descriptor.resultMarshaller(),
+                descriptor.resultClass());
+
+        if (cancellationToken != null) {
+            CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+        }
+
+        return execution;
+    }
+
+    @Override
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
+        return submit(target, descriptor, null, arg);
     }
 
     private <T, R> CompletableFuture<SubmitResult> submit0(JobTarget target, JobDescriptor<T, R> descriptor, T arg) {
@@ -120,8 +134,15 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
-        return sync(executeAsync(target, descriptor, args));
+    public <T, R> CompletableFuture<R> executeAsync(JobTarget target, JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return submit(target, descriptor, cancellationToken, arg).resultAsync();
+    }
+
+    @Override
+    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
+            @Nullable T arg) {
+        return sync(executeAsync(target, descriptor, cancellationToken, arg));
     }
 
     private <T, R> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
@@ -159,9 +180,9 @@ public class ClientCompute implements IgniteCompute {
                 .thenCompose(Function.identity());
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(Set<ClusterNode> nodes, JobDescriptor<T, R> descriptor, T arg) {
+    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(Set<ClusterNode> nodes, JobDescriptor<T, R> descriptor,
+            @Nullable T arg) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
 
@@ -183,19 +204,36 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
+    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
+            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return submitMapReduce(taskDescriptor, cancellationToken, arg).resultAsync();
+    }
+
+    @Override
     public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return submitMapReduce(taskDescriptor, null, arg);
+    }
+
+    private <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken,
+            @Nullable T arg) {
         Objects.requireNonNull(taskDescriptor);
 
-        return new ClientTaskExecution<>(ch,
+        ClientTaskExecution<R> clientExecution = new ClientTaskExecution<>(ch,
                 doExecuteMapReduceAsync(taskDescriptor, arg),
                 taskDescriptor.reduceJobResultMarshaller(),
                 taskDescriptor.reduceJobResultClass()
         );
+
+        if (cancellationToken != null) {
+            CancelHandleHelper.addCancelAction(cancellationToken, clientExecution::cancelAsync, clientExecution.resultAsync());
+        }
+
+        return clientExecution;
     }
 
     @Override
-    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return sync(executeMapReduceAsync(taskDescriptor, arg));
+    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
     }
 
     private <T, R> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {

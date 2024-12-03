@@ -1,0 +1,141 @@
+# name: test/sql/aggregate/aggregates/test_covar.test
+# description: Test COVAR operators
+# group: [aggregates]
+# feature: SQL T621(Enhanced numeric functions)
+# Ignored: https://issues.apache.org/jira/browse/IGNITE-14641
+
+
+# test incorrect usage of COVAR_POP function
+statement error
+SELECT COVAR_POP()
+
+statement error
+SELECT COVAR_POP(1, 2, 3)
+
+statement error
+SELECT COVAR_POP(COVAR_POP(1))
+
+# test incorrect usage of COVAR_SAMP function
+statement error
+SELECT COVAR_SAMP()
+
+statement error
+SELECT COVAR_SAMP(1, 2, 3)
+
+statement error
+SELECT COVAR_SAMP(COVAR_SAMP(1))
+
+# test population covariance on scalar values
+query RRRR
+SELECT COVAR_POP(3,3), COVAR_POP(NULL,3), COVAR_POP(3,NULL), COVAR_POP(NULL,NULL)
+----
+0.000000
+NULL
+NULL
+NULL
+
+# test sample covariance on scalar values
+query RRRR
+SELECT COVAR_SAMP(3,3), COVAR_SAMP(NULL,3), COVAR_SAMP(3,NULL), COVAR_SAMP(NULL,NULL)
+----
+NULL
+NULL
+NULL
+NULL
+
+# test population covariance on a sequence
+statement ok
+CREATE SEQUENCE seqx;
+
+statement ok
+CREATE SEQUENCE seqy;
+
+query R
+SELECT COVAR_POP(nextval('seqx'),nextval('seqy'))
+----
+0.000000
+
+query R
+SELECT COVAR_POP(nextval('seqx'),nextval('seqy'))
+----
+0.000000
+
+# test population covariance on a set of values
+statement ok
+CREATE TABLE integers(x INTEGER, y INTEGER);
+
+statement ok
+INSERT INTO integers VALUES (10,NULL), (10,11), (20,22), (25,NULL), (30,35)
+
+query RRRRR
+SELECT COVAR_POP(x,y), COVAR_POP(x,1), COVAR_POP(1,y), COVAR_POP(x,NULL), COVAR_POP(NULL,y) FROM integers
+----
+80.000000
+0.000000
+0.000000
+NULL
+NULL
+
+query RRRRR
+SELECT COVAR_SAMP(x,y), COVAR_SAMP(x,1), COVAR_SAMP(1,y), COVAR_SAMP(x,NULL), COVAR_SAMP(NULL,y) FROM integers
+----
+120.000000
+0.000000
+0.000000
+NULL
+NULL
+
+# test covar on empty set
+query RR
+SELECT COVAR_POP(x,y), COVAR_SAMP(x,y) FROM integers WHERE x > 100
+----
+NULL
+NULL
+
+# test covar with only null inputs
+query RR
+SELECT COVAR_POP(NULL, NULL), COVAR_SAMP(NULL, NULL) FROM integers
+----
+NULL
+NULL
+
+#Query with many different filter clauses (e.g. 5 aggregates, 5 different filters)
+statement ok
+create table t_2(a int, b int, c int, d int, e int);
+
+statement ok
+insert into t_2 select x a, length(x) b, mod(x,100) c, 5 d, 10000 e from table(system_range(0, 999));
+
+query IIIII
+select count (a) filter (where a>10 and a < 15), count (b) filter (where b between 1 and 3),
+    count (c) filter ( where c < 10), count (d) filter (where d =5), count(e) filter (where e < 10)
+    from t_2;
+----
+4	1000	100	1000	0
+
+query IIIII
+select count (a) filter (where a>10 and a < 15), count (b) filter (where b between 1 and 3),
+    count (c) filter ( where c < 10), count (d) filter (where d =5), count(e) filter (where e < 10)
+    from t_2
+    group by b;
+----
+0	10	10	10	0
+4	90	0	90	0
+0	900	90	900	0
+
+
+#Filter with some more complex aggregates: COVAR_POP (multiple input columns), STRING_AGG (strings) and ARRAY_AGG (lists)
+query II
+select COVAR_POP(a,b) filter (where a < 100), COVAR_POP(a,b) filter (where b <5) from t_2;
+----
+4.5	49.95
+
+query II
+select COVAR_POP(a,c) filter (where a < 100), COVAR_POP(a,c) filter (where c <50)
+from t_2
+group by b;
+----
+8.250000	8.250000
+674.916667	133.250000
+NULL	208.250000
+

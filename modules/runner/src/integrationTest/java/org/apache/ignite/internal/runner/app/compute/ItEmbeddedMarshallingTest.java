@@ -131,6 +131,24 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
     }
 
     @Test
+    void local() {
+        // Given entry node.
+        var node = server(0);
+
+        // When.
+        String result = node.compute().execute(
+                JobTarget.node(node(0)),
+                JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
+                        .argumentMarshaller(new ArgumentStringMarshaller())
+                        .resultMarshaller(new ResultStringUnMarshaller())
+                        .build(),
+                "Input"
+        );
+
+        assertEquals("Input:marshalledOnClient:unmarshalledOnServer:processedOnServer", result);
+    }
+
+    @Test
     void broadcastExecute() {
         // Given entry node.
         var node = server(0);

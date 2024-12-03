@@ -1165,10 +1165,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             }.visit(mappedFragment.fragment().root());
         }
 
-        private CompletableFuture<Void> close() {
-            return close(QueryCompletionReason.CLOSE);
-        }
-
         private CompletableFuture<Void> close(QueryCompletionReason reason) {
             if (!cancelled.compareAndSet(false, true)) {
                 return cancelFut;
@@ -1303,7 +1299,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     fut.thenAccept(batch -> {
                         if (!batch.hasMore()) {
-                            DistributedQueryManager.this.close();
+                            DistributedQueryManager.this.close(QueryCompletionReason.CLOSE);
                         }
                     });
 
@@ -1311,8 +1307,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 }
 
                 @Override
-                public CompletableFuture<Void> closeAsync() {
-                    return DistributedQueryManager.this.close();
+                public CompletableFuture<Void> closeAsync(boolean cancelled) {
+                    QueryCompletionReason reason = cancelled
+                            ? QueryCompletionReason.CANCEL
+                            : QueryCompletionReason.CLOSE;
+
+                    return DistributedQueryManager.this.close(reason);
                 }
             };
         }
@@ -1383,7 +1383,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     /** Represents reasons why a query was completed. */
-    private enum QueryCompletionReason {
+    enum QueryCompletionReason {
         CLOSE,
         CANCEL,
         TIMEOUT,

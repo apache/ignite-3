@@ -70,6 +70,7 @@ class Query {
 
     private volatile ExecutionPhase currentPhase = ExecutionPhase.REGISTERED;
 
+    /** Constructs the query. */
     Query(
             Instant createdAt,
             QueryExecutor executor,
@@ -77,8 +78,7 @@ class Query {
             String sql,
             SqlProperties properties,
             QueryTransactionContext txContext,
-            Object[] params,
-            @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture
+            Object[] params
     ) {
         this.createdAt = createdAt;
         this.executor = executor;
@@ -87,12 +87,13 @@ class Query {
         this.properties = properties;
         this.txContext = txContext;
         this.params = params;
-        this.nextCursorFuture = nextCursorFuture;
 
         this.parentId = null;
         this.statementNum = -1;
+        this.nextCursorFuture = null;
     }
 
+    /** Constructs the child query. */
     Query(
             Instant createdAt,
             Query parent,
@@ -113,7 +114,6 @@ class Query {
         this.txContext = txContext;
         this.params = params;
         this.nextCursorFuture = nextCursorFuture;
-
         this.parsedResult = parsedResult;
     }
 

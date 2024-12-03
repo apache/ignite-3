@@ -189,4 +189,10 @@ class FailSafeJobExecution<T> implements JobExecution<T>, MarshallerProvider<T> 
 
         return null;
     }
+
+    @Override
+    public boolean marshalResult() {
+        JobExecution<T> exec = runningJobExecution.get();
+        return exec instanceof MarshallerProvider && ((MarshallerProvider<T>) exec).marshalResult();
+    }
 }
