@@ -503,12 +503,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         CompletableFuture<Iterator<InternalSqlRow>> resFut =
                 (cmd.noWait() ? CompletableFutures.falseCompletedFuture() : killFut)
-                .thenApply(applied -> {
+                .thenApply(cancelled -> {
                     if (cmd.noWait()) {
                         return Collections.<InternalSqlRow>emptyIterator();
                     }
 
-                    return (applied ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator();
+                    return (cancelled ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator();
                 })
                 .exceptionally(th -> {
                     Throwable e = ExceptionUtils.unwrapCause(th);

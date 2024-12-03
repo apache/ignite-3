@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare.kill;
 
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * SQL KILL command.
@@ -58,10 +59,7 @@ public class KillCommand {
 
     @Override
     public String toString() {
-        return "KillCommand{"
-                + "operationId='" + operationId + '\''
-                + ", type=" + type
-                + ", noWait=" + noWait + '}';
+        return S.toString(KillCommand.class, this);
     }
 
     private KillCommand(String operationId, CancellableOperationType type, boolean noWait) {
