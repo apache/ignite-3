@@ -289,6 +289,6 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
     }
 
     private Cursor<Entry> readLocallyByPrefix(byte[] prefix, long revision) {
-        return metaStorageManager.prefixLocally(new ByteArray(prefix),revision);
+        return metaStorageManager.prefixLocally(new ByteArray(prefix), revision);
     }
 }
