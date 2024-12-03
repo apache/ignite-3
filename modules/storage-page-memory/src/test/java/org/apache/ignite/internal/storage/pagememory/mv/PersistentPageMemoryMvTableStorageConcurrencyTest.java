@@ -48,7 +48,7 @@ class PersistentPageMemoryMvTableStorageConcurrencyTest extends AbstractMvTableS
             @WorkDirectory Path workDir,
             @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+            @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
             StorageConfiguration storageConfig
     ) {
         var ioRegistry = new PageIoRegistry();
