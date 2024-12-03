@@ -227,25 +227,33 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.destroy(partitionId, mvPartitionStorage -> {
-            try (WriteBatch writeBatch = new WriteBatch()) {
-                mvPartitionStorage.transitionToDestroyedState();
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
 
-                // Operation to delete partition data should be fast, since we will write only the range of keys for deletion, and the
-                // RocksDB itself will then destroy the data on flush.
-                mvPartitionStorage.destroyData(writeBatch);
+        try {
+            return mvPartitionStorages.destroy(partitionId, mvPartitionStorage -> {
+                try (WriteBatch writeBatch = new WriteBatch()) {
+                    mvPartitionStorage.transitionToDestroyedState();
 
-                indexes.destroyAllIndexesForPartition(partitionId, writeBatch);
+                    // Operation to delete partition data should be fast, since we will write only the range of keys for deletion, and the
+                    // RocksDB itself will then destroy the data on flush.
+                    mvPartitionStorage.destroyData(writeBatch);
 
-                rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+                    indexes.destroyAllIndexesForPartition(partitionId, writeBatch);
 
-                return nullCompletedFuture();
-            } catch (RocksDBException e) {
-                throw new IgniteRocksDbException(
-                        String.format("Error when destroying storage: [%s]", mvPartitionStorages.createStorageInfo(partitionId)), e
-                );
-            }
-        }));
+                    rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
+
+                    return nullCompletedFuture();
+                } catch (RocksDBException e) {
+                    throw new IgniteRocksDbException(
+                            String.format("Error when destroying storage: [%s]", mvPartitionStorages.createStorageInfo(partitionId)), e
+                    );
+                }
+            });
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override
