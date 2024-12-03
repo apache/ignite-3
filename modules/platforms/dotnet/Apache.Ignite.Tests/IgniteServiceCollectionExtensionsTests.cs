@@ -38,30 +38,15 @@ public class IgniteServiceCollectionExtensionsTests
     public void StopServer() => _server.Dispose();
 
     [Test]
-    public async Task TestRegisterConfigurationInstance()
+    public async Task TestRegisterSingleInstance()
     {
-        var services = new ServiceCollection();
-        services.AddIgniteClientGroup(CreateGroupConfig());
+        await ValidateRegisterSingleClient(
+                services => services.AddIgniteClientGroup(CreateGroupConfig()),
+                services => services.GetService<IgniteClientGroup>());
 
-        var serviceProvider = services.BuildServiceProvider();
-
-        var group = serviceProvider.GetService<IgniteClientGroup>();
-        var group2 = serviceProvider.GetService<IgniteClientGroup>();
-
-        Assert.That(group, Is.Not.Null);
-        Assert.That(group2, Is.Not.Null);
-        Assert.AreSame(group, group2);
-
-        IIgnite client = await group.GetIgniteAsync();
-        IIgnite client2 = await group.GetIgniteAsync();
-        IIgnite client3 = await group2.GetIgniteAsync();
-
-        Assert.That(client, Is.Not.Null);
-        Assert.AreSame(client, client2);
-        Assert.AreSame(client, client2);
-        Assert.AreSame(client, client3);
-
-        await client.Tables.GetTablesAsync();
+        await ValidateRegisterSingleClient(
+            services => services.AddIgniteClientGroupKeyed("key", CreateGroupConfig()),
+            services => services.GetKeyedService<IgniteClientGroup>("key"));
     }
 
     [Test]
@@ -152,6 +137,33 @@ public class IgniteServiceCollectionExtensionsTests
         ValidateKeyedRegistrationScope(
             lifetime,
             (s, key) => s.AddIgniteClientGroupKeyed(key, (_, _) => CreateGroupConfig(), lifetime));
+    }
+
+    private static async Task ValidateRegisterSingleClient(Action<ServiceCollection> register, Func<IServiceProvider, IgniteClientGroup?> resolve)
+    {
+        var services = new ServiceCollection();
+
+        register(services);
+
+        var serviceProvider = services.BuildServiceProvider();
+
+        var group = resolve(serviceProvider);
+        var group2 = resolve(serviceProvider);
+
+        Assert.That(group, Is.Not.Null);
+        Assert.That(group2, Is.Not.Null);
+        Assert.AreSame(group, group2);
+
+        IIgnite client = await group.GetIgniteAsync();
+        IIgnite client2 = await group.GetIgniteAsync();
+        IIgnite client3 = await group2.GetIgniteAsync();
+
+        Assert.That(client, Is.Not.Null);
+        Assert.AreSame(client, client2);
+        Assert.AreSame(client, client2);
+        Assert.AreSame(client, client3);
+
+        await client.Tables.GetTablesAsync();
     }
 
     private static void ValidateKeyedRegistrationScope(ServiceLifetime lifetime, Action<ServiceCollection, object> register)
