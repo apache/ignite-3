@@ -22,9 +22,9 @@ namespace Apache.Ignite
     using Network;
 
     /// <summary>
-    /// Ignite client.
+    /// Ignite client. Extends <see cref="IIgnite"/> with client-specific functionality.
     /// <para />
-    /// Extends <see cref="IIgnite"/> with client-specific functionality.
+    /// All Ignite APIs are thread-safe, unless noted otherwise.
     /// </summary>
     public interface IIgniteClient : IIgnite, IDisposable
     {
