@@ -131,7 +131,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
 
             if (comparator.compare(newEntry, current) <= 0) {
                 throw new IgniteInternalException(REPLICATION_SAFE_TIME_REORDERING_ERR,
-                        "Safe timestamp reordering detected: old=" + current.getKey() + ", new=" + newEntry.get1());
+                        "Safe timestamp reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1() + ']');
             }
 
             CURRENT.set(this, newEntry);
