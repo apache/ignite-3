@@ -521,7 +521,7 @@ public class LeaseUpdater {
                         toBeNegotiated.put(grpId, new LeaseAgreement(newLease, force));
                     } else if (canBeProlonged) {
                         // Old lease is renewed.
-                        prolongLease(grpId, lease, renewedLeases, newExpirationTimestamp);
+                        renewedLeases.put(grpId, prolongLease(lease, newExpirationTimestamp));
                     }
                 } else if (canBeProlonged) {
                     prolongableLeaseGroupIds.add(grpId);
@@ -542,6 +542,12 @@ public class LeaseUpdater {
                 );
             }
 
+            boolean emptyAssignments = aggregatedStableAndPendingAssignmentsByGroups.isEmpty();
+            if (renewedLeases.isEmpty() && (!emptyAssignments || leasesCurrent.leaseByGroupId().isEmpty())) {
+                LOG.debug("No leases to update found.");
+                return;
+            }
+
             leasesCurrent.leaseByGroupId().forEach(renewedLeases::putIfAbsent);
 
             for (Iterator<Entry<ReplicationGroupId, Lease>> iter = renewedLeases.entrySet().iterator(); iter.hasNext(); ) {
@@ -552,18 +558,12 @@ public class LeaseUpdater {
                 if (clockService.before(lease.getExpirationTime(), currentTime)
                         && !groupsAmongCurrentStableAndPendingAssignments.contains(groupId)) {
                     iter.remove();
-                } else if (prolongableLeaseGroupIds.contains(groupId)
-                        && !lease.getExpirationTime().equals(newExpirationTimestamp)) {
-                    entry.setValue(prolongLease(groupId, lease, null, newExpirationTimestamp));
+                } else if (prolongableLeaseGroupIds.contains(groupId)) {
+                    entry.setValue(prolongLease(lease, newExpirationTimestamp));
                 }
             }
 
             byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
-
-            if (Arrays.equals(leasesCurrent.leasesBytes(), renewedValue)) {
-                LOG.debug("No leases to update found.");
-                return;
-            }
 
             msManager.invoke(
                     or(notExists(key), value(key).eq(leasesCurrent.leasesBytes())),
@@ -654,27 +654,17 @@ public class LeaseUpdater {
         /**
          * Prolongs the lease.
          *
-         * @param grpId Replication group id.
          * @param lease Lease to prolong.
-         * @param renewedLeases Map of leases.
          * @param newExpirationTimestamp New expiration timestamp.
          * @return Prolonged lease.
          */
         private Lease prolongLease(
-                ReplicationGroupId grpId,
                 Lease lease,
-                @Nullable Map<ReplicationGroupId, Lease> renewedLeases,
                 HybridTimestamp newExpirationTimestamp
         ) {
-            Lease renewedLease = lease.prolongLease(newExpirationTimestamp);
-
-            if (renewedLeases != null) {
-                renewedLeases.put(grpId, renewedLease);
-            }
-
             leaseUpdateStatistics.onLeaseProlong();
 
-            return renewedLease;
+            return lease.prolongLease(newExpirationTimestamp);
         }
 
         /**

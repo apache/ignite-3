@@ -414,14 +414,6 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         return leases.leases();
     }
 
-    private void waitForLease() throws InterruptedException {
-        assertTrue(waitForCondition(() -> {
-            Lease lease = getLeaseFromMs();
-
-            return lease != null;
-        }, 10_000));
-    }
-
     private void waitForAcceptedLease() throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             Lease lease = getLeaseFromMs();
