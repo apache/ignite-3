@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.rest.matcher;
 
-import static org.apache.ignite.internal.rest.problem.ProblemJsonMediaType.APPLICATION_PROBLEM_JSON_TYPE;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
@@ -74,7 +73,7 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
      */
     public static MicronautHttpResponseMatcher<Problem> isProblemResponse(HttpStatus status, ProblemMatcher problemMatcher) {
         return MicronautHttpResponseMatcher.<Problem>hasStatus(status)
-                .withMediaType(APPLICATION_PROBLEM_JSON_TYPE)
+                .withMediaType(org.apache.ignite.internal.rest.constants.MediaType.PROBLEM_JSON)
                 .withBody(problemMatcher.withStatus(status.getCode()), Problem.class);
     }
 
@@ -109,8 +108,8 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
      * @param mediaType Media type.
      * @return Matcher.
      */
-    public MicronautHttpResponseMatcher<T> withMediaType(MediaType mediaType) {
-        this.mediaTypeMatcher = equalTo(mediaType.getName());
+    public MicronautHttpResponseMatcher<T> withMediaType(String mediaType) {
+        this.mediaTypeMatcher = equalTo(mediaType);
         return this;
     }
 
