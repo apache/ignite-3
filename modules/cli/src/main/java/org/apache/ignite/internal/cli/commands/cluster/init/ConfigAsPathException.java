@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto.pojo;
+package org.apache.ignite.internal.cli.commands.cluster.init;
 
-import static org.apache.ignite.lang.ErrorGroups.Marshalling.UNSUPPORTED_OBJECT_TYPE_ERR;
+/**
+ * Exception throws when config file path passed to config content option.
+ */
+public class ConfigAsPathException extends RuntimeException {
+    private static final long serialVersionUID = -7683264630128999379L;
 
-import org.apache.ignite.lang.IgniteException;
+    private final String path;
 
-/** POJO conversion exception. */
-public class PojoConversionException extends IgniteException {
-    PojoConversionException(String message) {
-        super(UNSUPPORTED_OBJECT_TYPE_ERR, message);
+    public ConfigAsPathException(String path) {
+        this.path = path;
     }
 
-    PojoConversionException(String message, Throwable cause) {
-        super(UNSUPPORTED_OBJECT_TYPE_ERR, message, cause);
+    public String path() {
+        return path;
     }
 }

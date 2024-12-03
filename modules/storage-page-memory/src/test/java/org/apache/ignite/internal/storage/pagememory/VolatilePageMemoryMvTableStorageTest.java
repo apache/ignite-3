@@ -59,7 +59,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     @BeforeEach
     void setUp(
             @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
+            @InjectConfiguration("mock.profiles.default = {engine = aimem}")
             StorageConfiguration storageConfig
     ) {
         var ioRegistry = new PageIoRegistry();

@@ -69,4 +69,11 @@ public class DelegatingTaskExecution<I, M, T, R> implements TaskExecution<R>, Ma
 
         return delegate.join().resultMarshaller();
     }
+
+    @Override
+    public boolean marshalResult() {
+        assert delegate.isDone() : "Task execution is supposed to be done before calling `marshalResult()`";
+
+        return delegate.join().marshalResult();
+    }
 }

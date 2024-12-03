@@ -56,14 +56,14 @@ public class GradualTaskExecutor implements ManuallyCloseable {
             @Override
             public void run() {
                 try {
-                    if (cancelled) {
-                        future.completeExceptionally(new CancellationException("The executor has been closed"));
+                    if (task.isCompleted()) {
+                        future.complete(null);
 
                         return;
                     }
 
-                    if (task.isCompleted()) {
-                        future.complete(null);
+                    if (cancelled) {
+                        future.completeExceptionally(cancellationException());
 
                         return;
                     }
@@ -73,7 +73,7 @@ public class GradualTaskExecutor implements ManuallyCloseable {
                     if (task.isCompleted()) {
                         future.complete(null);
                     } else if (cancelled) {
-                        future.completeExceptionally(new CancellationException("The executor has been closed"));
+                        future.completeExceptionally(cancellationException());
                     } else {
                         executor.execute(this);
                     }
@@ -103,7 +103,11 @@ public class GradualTaskExecutor implements ManuallyCloseable {
     public void close() {
         cancelled = true;
 
-        inFlightFutures.cancelInFlightFutures();
+        inFlightFutures.failInFlightFutures(cancellationException());
+    }
+
+    private static GradualTaskCancellationException cancellationException() {
+        return new GradualTaskCancellationException("The executor has been closed");
     }
 
     /**
@@ -111,5 +115,12 @@ public class GradualTaskExecutor implements ManuallyCloseable {
      */
     public ExecutorService executorService() {
         return executor;
+    }
+
+    /** Used to complete {@link GradualTaskExecutor} futures when the executor gets cancelled. */
+    public static class GradualTaskCancellationException extends CancellationException {
+        GradualTaskCancellationException(String message) {
+            super(message);
+        }
     }
 }

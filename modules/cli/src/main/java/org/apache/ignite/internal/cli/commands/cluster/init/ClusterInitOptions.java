@@ -38,6 +38,9 @@ import com.typesafe.config.ConfigRenderOptions;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -138,7 +141,14 @@ public class ClusterInitOptions {
         if (clusterConfigOptions == null) {
             return null;
         } else if (clusterConfigOptions.config != null) {
-            return clusterConfigOptions.config;
+            String config = clusterConfigOptions.config;
+            if (tryParseConfig(config)) {
+                return config;
+            }
+            if (checkConfigAsPath(config)) {
+                throw new ConfigAsPathException(config);
+            }
+            return config;
         } else if (clusterConfigOptions.files != null) {
             Config config = ConfigFactory.empty();
 
@@ -160,6 +170,38 @@ public class ClusterInitOptions {
         }
     }
 
+    String readConfigAsPath() {
+        if (clusterConfigOptions == null || clusterConfigOptions.config == null) {
+            throw new ConfigFileParseException("Couldn't parse cluster configuration file.");
+        }
+        Path file = Paths.get(clusterConfigOptions.config);
+        try {
+            String content = Files.readString(file);
+            return ConfigFactory.parseString(content).root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(true));
+        } catch (IOException e) {
+            throw new IgniteCliException("Couldn't read cluster configuration file " + file, e);
+        } catch (ConfigException e) {
+            throw new ConfigFileParseException("Couldn't parse cluster configuration file " + file, e);
+        }
+    }
+
+    private static boolean tryParseConfig(String config) {
+        try {
+            ConfigFactory.parseString(config);
+            return true;
+        } catch (ConfigException e) {
+            return false;
+        }
+    }
+
+    private static boolean checkConfigAsPath(String config) {
+        try {
+            Paths.get(config);
+            return true;
+        } catch (InvalidPathException e) {
+            return false;
+        }
+    }
 
     private static class DuplicatesChecker {
         private final String optionToCheck;

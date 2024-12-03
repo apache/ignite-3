@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeS
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
@@ -41,9 +42,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
@@ -67,10 +66,7 @@ import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarsha
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.thread.StripedExecutor;
 import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
-import org.apache.ignite.internal.worker.CriticalStripedThreadPoolExecutor;
-import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
@@ -81,12 +77,6 @@ import org.jetbrains.annotations.TestOnly;
 /** Default messaging service implementation. */
 public class DefaultMessagingService extends AbstractMessagingService {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultMessagingService.class);
-
-    /**
-     * Maximum number of stripes in the thread pool in which incoming network messages for the {@link ChannelType#DEFAULT} channel
-     * are handled.
-     */
-    private static final int DEFAULT_CHANNEL_INBOUND_WORKERS = 4;
 
     /** Network messages factory. */
     private final NetworkMessagesFactory factory;
@@ -117,7 +107,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final CriticalSingleThreadExecutor outboundExecutor;
 
     /** Executors for inbound messages. */
-    private final LazyStripedExecutors inboundExecutors;
+    private final CriticalStripedExecutors inboundExecutors;
 
     /** Network timeout worker thread. */
     private final TimeoutWorker timeoutWorker;
@@ -144,6 +134,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param marshaller Marshaller.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
      * @param failureManager Failure processor.
+     * @param channelTypeRegistry {@link ChannelType} registry.
      */
     public DefaultMessagingService(
             String nodeName,
@@ -153,7 +144,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             ClassDescriptorRegistry classDescriptorRegistry,
             UserObjectMarshaller marshaller,
             CriticalWorkerRegistry criticalWorkerRegistry,
-            FailureManager failureManager
+            FailureManager failureManager,
+            ChannelTypeRegistry channelTypeRegistry
     ) {
         this.factory = factory;
         this.topologyService = topologyService;
@@ -166,7 +158,13 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 IgniteThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
         );
 
-        inboundExecutors = new CriticalLazyStripedExecutors(nodeName, "MessagingService-inbound", criticalWorkerRegistry);
+        inboundExecutors = new CriticalStripedExecutors(
+                nodeName,
+                "MessagingService-inbound",
+                criticalWorkerRegistry,
+                channelTypeRegistry,
+                LOG
+        );
 
         timeoutWorker = new TimeoutWorker(
                 LOG,
@@ -637,7 +635,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /**
      * Stops the messaging service.
      */
-    public void stop() {
+    public void stop() throws Exception {
         var exception = new NodeStoppingException();
 
         requestsMap.values().forEach(fut -> fut.future().completeExceptionally(exception));
@@ -648,14 +646,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         recipientInetAddrByNodeId.clear();
 
-        inboundExecutors.close();
-        shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
-
-        awaitForWorkersStop(List.of(timeoutWorker), true, LOG);
-    }
-
-    private static int stripeCountForIndex(int executorIndex) {
-        return executorIndex == ChannelType.DEFAULT.id() ? DEFAULT_CHANNEL_INBOUND_WORKERS : 1;
+        closeAll(
+                inboundExecutors::close,
+                () -> shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS),
+                () -> awaitForWorkersStop(List.of(timeoutWorker), true, LOG)
+        );
     }
 
     // TODO: IGNITE-18493 - remove/move this
@@ -695,45 +690,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
     @TestOnly
     public ConnectionManager connectionManager() {
         return connectionManager;
-    }
-
-    private static class CriticalLazyStripedExecutors extends LazyStripedExecutors {
-        private final String nodeName;
-        private final String poolName;
-
-        private final CriticalWorkerRegistry workerRegistry;
-
-        private final List<CriticalWorker> registeredWorkers = new CopyOnWriteArrayList<>();
-
-        CriticalLazyStripedExecutors(String nodeName, String poolName, CriticalWorkerRegistry workerRegistry) {
-            this.nodeName = nodeName;
-            this.poolName = poolName;
-            this.workerRegistry = workerRegistry;
-        }
-
-        @Override
-        protected StripedExecutor newStripedExecutor(int executorIndex) {
-            int stripeCount = stripeCountForIndex(executorIndex);
-
-            ThreadFactory threadFactory = IgniteThreadFactory.create(nodeName, poolName + "-" + executorIndex, LOG, NOTHING_ALLOWED);
-            CriticalStripedThreadPoolExecutor executor = new CriticalStripedThreadPoolExecutor(stripeCount, threadFactory, false, 0);
-
-            for (CriticalWorker worker : executor.workers()) {
-                workerRegistry.register(worker);
-                registeredWorkers.add(worker);
-            }
-
-            return executor;
-        }
-
-        @Override
-        protected void onStoppingInitiated() {
-            super.onStoppingInitiated();
-
-            for (CriticalWorker worker : registeredWorkers) {
-                workerRegistry.unregister(worker);
-            }
-        }
     }
 
     /**

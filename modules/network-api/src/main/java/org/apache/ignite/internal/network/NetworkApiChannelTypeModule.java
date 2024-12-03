@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
+package org.apache.ignite.internal.network;
 
-import org.apache.ignite.sql.ColumnType;
+import com.google.auto.service.AutoService;
 
-/**
- * The type of the object that can be passed/returned to/from the compute job. In can be a native type that is represented by
- * {@link ColumnType} or a marshalled object/tuple.
- */
-class ComputeJobType {
-    static final int NATIVE = 0;
-    static final int MARSHALLED_TUPLE = 1;
-    static final int MARSHALLED_CUSTOM = 2;
-    static final int MARSHALLED_POJO = 3;
+/** {@link ChannelTypeModule} for network-api module. */
+@AutoService(ChannelTypeModule.class)
+public class NetworkApiChannelTypeModule implements ChannelTypeModule {
+    @Override
+    public void register(ChannelTypeRegistrar channelTypeRegistrar) {
+        channelTypeRegistrar.register(ChannelType.DEFAULT);
+    }
 }

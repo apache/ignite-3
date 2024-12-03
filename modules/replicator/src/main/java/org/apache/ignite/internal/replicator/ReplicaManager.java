@@ -385,7 +385,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private void handleReplicaRequest(ReplicaRequest request, ClusterNode sender, @Nullable Long correlationId) {
-        if (!busyLock.readLock().tryLock()) {
+        if (!enterBusy()) {
             if (LOG.isInfoEnabled()) {
                 LOG.info("Failed to process replica request (the node is stopping) [request={}].", request);
             }
@@ -492,7 +492,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 }
             });
         } finally {
-            busyLock.readLock().unlock();
+            leaveBusy();
         }
     }
 
@@ -525,7 +525,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         var msg = (PlacementDriverReplicaMessage) msg0;
 
-        if (!busyLock.readLock().tryLock()) {
+        if (!enterBusy()) {
             if (LOG.isInfoEnabled()) {
                 LOG.info("Failed to process placement driver message (the node is stopping) [msg={}].", msg);
             }
@@ -546,7 +546,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         }
                     });
         } finally {
-            busyLock.readLock().unlock();
+            leaveBusy();
         }
     }
 
@@ -659,7 +659,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration
     ) throws NodeStoppingException {
-        if (!busyLock.readLock().tryLock()) {
+        if (!enterBusy()) {
             throw new NodeStoppingException();
         }
 
@@ -683,7 +683,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     )
             );
         } finally {
-            busyLock.readLock().unlock();
+            leaveBusy();
         }
     }
 
@@ -836,14 +836,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @throws NodeStoppingException If the node is stopping.
      */
     public CompletableFuture<Boolean> stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
-        if (!busyLock.readLock().tryLock()) {
+        if (!enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
             return stopReplicaInternal(replicaGrpId);
         } finally {
-            busyLock.readLock().unlock();
+            leaveBusy();
         }
     }
 
@@ -863,7 +863,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 LOG.error("Error when notifying about BEFORE_REPLICA_STOPPED event.", e);
             }
 
-            if (!busyLock.readLock().tryLock()) {
+            if (!enterBusy()) {
                 isRemovedFuture.completeExceptionally(new NodeStoppingException());
 
                 return;
@@ -896,7 +896,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return null;
                 });
             } finally {
-                busyLock.readLock().unlock();
+                leaveBusy();
             }
         });
 
@@ -954,7 +954,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return nullCompletedFuture();
         }
 
-        busyLock.writeLock().lock();
+        blockBusy();
 
         int shutdownTimeoutSeconds = 10;
 
@@ -1282,7 +1282,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 if (context != null) {
                     synchronized (context) {
                         context.assertReservation(parameters.groupId(), parameters.startTime());
-                        // Unreserve if primary replica expired, only if its lease start time is greater,
+                        // Unreserve if primary replica expired, only if its lease start time is equal to reservation time,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
                             context.unreserve();
@@ -1481,6 +1481,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 Supplier<CompletableFuture<Void>> deferredStopOperation
         ) {
             synchronized (context) {
+                // TODO IGNITE-23702: proper sync with waiting of expiration event, and proper deferred stop after cancellation of
+                //     reservation made by a lease that was not negotiated.
                 context.deferredStopReadyFuture = leaseExpirationTime == null
                         ? new CompletableFuture<>()
                         : replicaManager.clockService.waitFor(leaseExpirationTime);
@@ -1518,7 +1520,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         throw new AssertionError("Unexpected replica reservation with " + state + " state [groupId=" + groupId + "].");
                     }
                 } else if (state != ReplicaState.RESTART_PLANNED) {
-                    context.reserve(leaseStartTime);
+                    context.reserve(groupId, leaseStartTime);
                 }
 
                 return context.reservedForPrimary;
@@ -1588,12 +1590,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             this.previousOperationFuture = previousOperationFuture;
         }
 
-        void reserve(HybridTimestamp leaseStartTime) {
-            reservedForPrimary = true;
+        void reserve(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
+            if (reservedForPrimary && this.leaseStartTime != null && leaseStartTime.compareTo(this.leaseStartTime) < 0) {
+                // Newer lease may reserve this replica when it's already reserved by older one: this means than older one is no longer
+                // valid and most likely has not been negotiated and is discarded. By the same reason we shouldn't process the attempt
+                // of reservation by older lease, which is not likely and means reordering of message handling.
+                throw new IllegalArgumentException(format("Replica reservation failed: newer lease has already reserved this replica ["
+                        + "groupId={}, requestedLeaseStartTime={}, newerLeaseStartTime={}].", groupId, leaseStartTime,
+                        this.leaseStartTime));
+            }
             this.leaseStartTime = leaseStartTime;
+            reservedForPrimary = true;
         }
 
         void unreserve() {
+            // TODO IGNITE-23702: should also lead to replica stop if it is PRIMARY_ONLY.
             reservedForPrimary = false;
             leaseStartTime = null;
         }
@@ -1695,5 +1706,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         throw new AssertionError("Not supported: " + replicationGroupId);
+    }
+
+    private boolean enterBusy() {
+        return !busyLock.isWriteLockedByCurrentThread() && busyLock.readLock().tryLock();
+    }
+
+    private void leaveBusy() {
+        busyLock.readLock().unlock();
+    }
+
+    private void blockBusy() {
+        busyLock.writeLock().lock();
     }
 }

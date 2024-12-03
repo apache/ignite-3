@@ -23,9 +23,12 @@ namespace Apache.Ignite;
 public sealed record IgniteClientGroupConfiguration
 {
     /// <summary>
-    /// Gets or sets the group size (maximum number of clients).
+    /// Gets or sets the group size (maximum number of client instances - see <see cref="IIgniteClient"/>).
+    /// <para />
+    /// Defaults to 1.
+    /// One client is enough for most use cases: it is thread-safe, implements request multiplexing, and connects to multiple cluster nodes.
     /// </summary>
-    public int Size { get; set; }
+    public int Size { get; set; } = 1;
 
     /// <summary>
     /// Gets or sets the client configuration.
