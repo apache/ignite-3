@@ -66,4 +66,9 @@ public class JobExecutionWrapper<R> implements JobExecution<R>, MarshallerProvid
 
         return null;
     }
+
+    @Override
+    public boolean marshalResult() {
+        return delegate instanceof MarshallerProvider && ((MarshallerProvider<R>) delegate).marshalResult();
+    }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto.pojo;
+package org.apache.ignite.internal.compute;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;

@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.proto;
-
-import org.apache.ignite.sql.ColumnType;
+package org.apache.ignite.internal.cli.commands.cluster.init;
 
 /**
- * The type of the object that can be passed/returned to/from the compute job. In can be a native type that is represented by
- * {@link ColumnType} or a marshalled object/tuple.
+ * Exception throws when config file path passed to config content option.
  */
-class ComputeJobType {
-    static final int NATIVE = 0;
-    static final int MARSHALLED_TUPLE = 1;
-    static final int MARSHALLED_CUSTOM = 2;
-    static final int MARSHALLED_POJO = 3;
+public class ConfigAsPathException extends RuntimeException {
+    private static final long serialVersionUID = -7683264630128999379L;
+
+    private final String path;
+
+    public ConfigAsPathException(String path) {
+        this.path = path;
+    }
+
+    public String path() {
+        return path;
+    }
 }

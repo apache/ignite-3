@@ -37,16 +37,26 @@ public class JobExecutionInternal<R> implements MarshallerProvider<R> {
 
     private final Marshaller<R, byte[]> marshaller;
 
+    private final boolean marshalResult;
+
     /**
      * Constructor.
      *
      * @param execution Internal execution state.
      * @param isInterrupted Flag which is passed to the execution context so that the job can check it for cancellation request.
+     * @param marshaller Result marshaller.
+     * @param marshalResult Flag indicating whether the marshalling of the result will be needed.
      */
-    JobExecutionInternal(QueueExecution<R> execution, AtomicBoolean isInterrupted, @Nullable Marshaller<R, byte[]> marshaller) {
+    JobExecutionInternal(
+            QueueExecution<R> execution,
+            AtomicBoolean isInterrupted,
+            @Nullable Marshaller<R, byte[]> marshaller,
+            boolean marshalResult
+    ) {
         this.execution = execution;
         this.isInterrupted = isInterrupted;
         this.marshaller = marshaller;
+        this.marshalResult = marshalResult;
     }
 
     public CompletableFuture<R> resultAsync() {
@@ -81,5 +91,10 @@ public class JobExecutionInternal<R> implements MarshallerProvider<R> {
     @Override
     public @Nullable Marshaller<R, byte[]> resultMarshaller() {
         return marshaller;
+    }
+
+    @Override
+    public boolean marshalResult() {
+        return marshalResult;
     }
 }

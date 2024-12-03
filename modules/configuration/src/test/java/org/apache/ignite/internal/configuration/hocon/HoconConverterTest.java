@@ -699,6 +699,12 @@ public class HoconConverterTest {
                 "rootInjectedName.nested' configuration doesn't have the 'someName' sub-configuration"
         );
 
+        // Check injected name field value in path
+        assertThrowsIllegalArgException(
+                () -> change("rootInjectedName.nestedNamed = [{someName = foo, nonExistingValue = bar}]"),
+                "rootInjectedName.nestedNamed.foo' configuration doesn't have the 'nonExistingValue' sub-configuration"
+        );
+
         assertThrowsIllegalArgException(
                 () -> asHoconStr(List.of("rootInjectedName"), "nested", "someName"),
                 "Configuration value 'rootInjectedName.nested.someName' has not been found"

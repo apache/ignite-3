@@ -27,6 +27,7 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,6 +42,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
@@ -49,8 +51,29 @@ public interface ComputeComponent extends IgniteComponent {
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            T arg
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
     );
+
+    /**
+     * Executes a job of the given class on the current node.
+     *
+     *
+     * @param options Job execution options.
+     * @param units Deployment units which will be loaded for execution.
+     * @param jobClassName Name of the job class.
+     * @param arg Job args.
+     * @param <R> Job result type.
+     * @return Job execution object.
+     */
+    default <T, R> JobExecution<R> executeLocally(
+            ExecutionOptions options,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            @Nullable T arg
+    ) {
+        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, null, arg);
+    }
 
     /**
      * Executes a job of the given class on the current node with default execution options {@link ExecutionOptions#DEFAULT}.
@@ -66,7 +89,7 @@ public interface ComputeComponent extends IgniteComponent {
             String jobClassName,
             T arg
     ) {
-        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, arg);
+        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, null, arg);
     }
 
     /**
@@ -76,6 +99,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param remoteNode Remote node name.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
@@ -85,6 +109,7 @@ public interface ComputeComponent extends IgniteComponent {
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
+            @Nullable CancellationToken cancellationToken,
             T arg
     );
 
@@ -104,7 +129,7 @@ public interface ComputeComponent extends IgniteComponent {
             String jobClassName,
             T arg
     ) {
-        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, arg);
+        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, null, arg);
     }
 
     /**
@@ -116,6 +141,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Job args.
      * @param <R> Job result type.
      * @return Job execution object.
@@ -126,7 +152,8 @@ public interface ComputeComponent extends IgniteComponent {
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            T arg
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
     );
 
     /**

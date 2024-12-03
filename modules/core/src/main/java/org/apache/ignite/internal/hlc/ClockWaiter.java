@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.hlc;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -25,35 +25,26 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 
 /**
- * Allows to wait for the supplied clock to reach a required timesdtamp. It only uses the clock itself,
+ * Allows to wait for the supplied clock to reach a required timestamp. It only uses the clock itself,
  * no SafeTime mechanisms are involved.
  */
 public class ClockWaiter implements IgniteComponent {
-    private final IgniteLogger log = Loggers.forClass(ClockWaiter.class);
-
-    private final String nodeName;
     private final HybridClock clock;
-
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean(false);
 
@@ -66,7 +57,7 @@ public class ClockWaiter implements IgniteComponent {
     private final Runnable triggerClockUpdate = this::triggerTrackerUpdate;
 
     /** Executor on which short-lived tasks are scheduled that are needed to timely complete awaiting futures. */
-    private volatile ScheduledExecutorService scheduler;
+    private final ScheduledExecutorService scheduler;
 
     /** Executor that executes completion of futures returned to the user, so it might take arbitrarily heavy operations. */
     private final ExecutorService futureExecutor;
@@ -76,10 +67,11 @@ public class ClockWaiter implements IgniteComponent {
      *
      * @param nodeName Name of the current Ignite node.
      * @param clock Clock to look at.
+     * @param scheduler Executor on which short-lived tasks are scheduled that are needed to timely complete awaiting futures.
      */
-    public ClockWaiter(String nodeName, HybridClock clock) {
-        this.nodeName = nodeName;
+    public ClockWaiter(String nodeName, HybridClock clock, ScheduledExecutorService scheduler) {
         this.clock = clock;
+        this.scheduler = scheduler;
 
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
                 2,
@@ -87,7 +79,7 @@ public class ClockWaiter implements IgniteComponent {
                 10,
                 SECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "clock-waiter-future-executor", log)
+                NamedThreadFactory.create(nodeName, "clock-waiter-future-executor", Loggers.forClass(ClockWaiter.class))
         );
         executor.allowCoreThreadTimeOut(true);
 
@@ -98,8 +90,6 @@ public class ClockWaiter implements IgniteComponent {
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         clock.addUpdateListener(updateListener);
 
-        scheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "clock-waiter-scheduler", log));
-
         return nullCompletedFuture();
     }
 
@@ -109,40 +99,17 @@ public class ClockWaiter implements IgniteComponent {
             return nullCompletedFuture();
         }
 
-        busyLock.block();
-
         clock.removeUpdateListener(updateListener);
 
         nowTracker.close();
 
-        // We do shutdownNow() right away without doing usual shutdown()+awaitTermination() because
-        // this would make us wait till all the scheduled tasks get executed (which might take a lot
-        // of time). An alternative would be to track all ScheduledFutures (which are not same as the
-        // user-facing futures we return from the tracker), but we don't need them for anything else,
-        // so it's simpler to just use shutdownNow().
-        scheduler.shutdownNow();
-
         IgniteUtils.shutdownAndAwaitTermination(futureExecutor, 10, SECONDS);
-
-        try {
-            scheduler.awaitTermination(10, SECONDS);
-        } catch (InterruptedException e) {
-            return failedFuture(e);
-        }
 
         return nullCompletedFuture();
     }
 
     private void onUpdate(long newTs) {
-        if (!busyLock.enterBusy()) {
-            return;
-        }
-
-        try {
-            nowTracker.update(newTs, null);
-        } finally {
-            busyLock.leaveBusy();
-        }
+        nowTracker.update(newTs, null);
     }
 
     /**
@@ -155,15 +122,7 @@ public class ClockWaiter implements IgniteComponent {
      * @return A future that completes when the timestamp is reached by the clock's time.
      */
     public CompletableFuture<Void> waitFor(HybridTimestamp targetTimestamp) {
-        if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            return doWaitFor(targetTimestamp);
-        } finally {
-            busyLock.leaveBusy();
-        }
+        return doWaitFor(targetTimestamp);
     }
 
     private CompletableFuture<Void> doWaitFor(HybridTimestamp targetTimestamp) {
@@ -204,6 +163,6 @@ public class ClockWaiter implements IgniteComponent {
     }
 
     private void triggerTrackerUpdate() {
-        onUpdate(clock.nowLong());
+        runAsync(() -> onUpdate(clock.nowLong()), futureExecutor);
     }
 }

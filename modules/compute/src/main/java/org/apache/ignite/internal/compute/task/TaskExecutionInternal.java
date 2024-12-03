@@ -312,6 +312,12 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
         return reduceResultMarshallerRef;
     }
 
+    @Override
+    public boolean marshalResult() {
+        // Not needed because split/reduce jobs always run on the client handler node
+        return false;
+    }
+
     private static class SplitResult<I, M, T, R> {
         private final MapReduceTask<I, M, T, R> task;
 
