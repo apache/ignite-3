@@ -26,6 +26,9 @@ import org.jetbrains.annotations.Nullable;
  * Common interface for commands carrying safe time.
  */
 public interface SafeTimePropagatingCommand extends WriteCommand {
+    @Override
+    HybridTimestamp initiatorTime();
+
     /** Safe time. */
     @WithSetter
     @Nullable HybridTimestamp safeTime();
@@ -35,5 +38,10 @@ public interface SafeTimePropagatingCommand extends WriteCommand {
      */
     default void safeTime(HybridTimestamp safeTime) {
         // No-op.
+    }
+
+    @Override
+    default void patch(HybridTimestamp safeTs) {
+        safeTime(safeTs);
     }
 }

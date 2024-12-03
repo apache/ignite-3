@@ -98,6 +98,29 @@ public class HybridClockImpl implements HybridClock {
     }
 
     @Override
+    public HybridTimestamp now(HybridTimestamp causal) {
+        return hybridTimestamp(nowLong(causal));
+    }
+
+    @Override
+    public final long nowLong(HybridTimestamp causal) {
+        while (true) {
+            long now = max(currentTime(), causal.longValue());
+
+            // Read the latest time after accessing UTC time to reduce contention.
+            long oldLatestTime = latestTime;
+
+            if (oldLatestTime >= now) {
+                return LATEST_TIME.incrementAndGet(this);
+            }
+
+            if (LATEST_TIME.compareAndSet(this, oldLatestTime, now)) {
+                return now;
+            }
+        }
+    }
+
+    @Override
     public final HybridTimestamp current() {
         return hybridTimestamp(currentLong());
     }
@@ -134,6 +157,23 @@ public class HybridClockImpl implements HybridClock {
 
                     return hybridTimestamp(newLatestTime);
                 }
+            }
+        }
+    }
+
+    @Override
+    public void setIfGreater(HybridTimestamp timestamp) {
+        while (true) {
+            HybridTimestamp latest = hybridTimestamp(latestTime);
+
+            if (timestamp.compareTo(latest) <= 0) {
+                return;
+            }
+
+            if (LATEST_TIME.compareAndSet(this, latest.longValue(), timestamp.longValue())) {
+                notifyUpdateListeners(timestamp.longValue());
+
+                break;
             }
         }
     }

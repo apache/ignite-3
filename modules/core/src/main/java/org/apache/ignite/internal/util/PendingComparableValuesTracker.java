@@ -19,6 +19,7 @@ package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICATION_SAFE_TIME_REORDERING_ERR;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -30,6 +31,7 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -107,6 +109,35 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
             } finally {
                 leaveBusy();
             }
+        }
+    }
+
+    /**
+     * Strict update. Always called from the same updater thread.
+     *
+     * @param newValue New value.
+     * @param futureResult A result that will be used to complete a future returned by the
+     *         {@link PendingComparableValuesTracker#waitFor(Comparable)}.
+     */
+    public void updateStrict(T newValue, @Nullable R futureResult) {
+        if (!busyLock.readLock().tryLock()) {
+            throw new TrackerClosedException();
+        }
+
+        try {
+            Map.Entry<T, @Nullable R> current = this.current;
+
+            IgniteBiTuple<T, @Nullable R> newEntry = new IgniteBiTuple<>(newValue, futureResult);
+
+            if (comparator.compare(newEntry, current) <= 0) {
+                throw new IgniteInternalException(REPLICATION_SAFE_TIME_REORDERING_ERR,
+                        "Safe timestamp reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1() + ']');
+            }
+
+            CURRENT.set(this, newEntry);
+            completeWaitersOnUpdate(newValue, futureResult);
+        } finally {
+            busyLock.readLock().unlock();
         }
     }
 

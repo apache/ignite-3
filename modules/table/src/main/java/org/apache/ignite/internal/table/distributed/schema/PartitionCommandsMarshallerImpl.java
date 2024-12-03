@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.table.distributed.schema;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.partition.replicator.network.command.CatalogVersionAware;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
-import org.apache.ignite.internal.util.VarIntUtils;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 
 /**
  * Default {@link PartitionCommandsMarshaller} implementation.
@@ -32,13 +33,19 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
     }
 
     @Override
+    public void patch(ByteBuffer raw, HybridTimestamp safeTs) {
+        raw.putLong(4, safeTs.longValue());
+    }
+
+    @Override
     protected void beforeWriteMessage(Object o, ByteBuffer buffer) {
         int requiredCatalogVersion = o instanceof CatalogVersionAware
                 ? ((CatalogVersionAware) o).requiredCatalogVersion()
                 : NO_VERSION_REQUIRED;
 
         stream.setBuffer(buffer);
-        stream.writeInt(requiredCatalogVersion);
+        stream.writeFixedInt(requiredCatalogVersion);
+        stream.writeFixedLong(0);
     }
 
     @Override
@@ -46,11 +53,21 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
         raw = raw.duplicate();
 
         int requiredCatalogVersion = readRequiredCatalogVersion(raw);
+        long safeTs = readSafeTimestamp(raw);
+
+        System.out.println("rqv:" + requiredCatalogVersion);
+        System.out.println("safeTs:" + safeTs);
 
         T res = super.unmarshall(raw);
 
+        System.out.println("cmd:" + res.getClass().getName());
+
         if (res instanceof CatalogVersionAware) {
             ((CatalogVersionAware) res).requiredCatalogVersion(requiredCatalogVersion);
+        }
+
+        if (res instanceof SafeTimePropagatingCommand && safeTs != 0) {
+            ((SafeTimePropagatingCommand) res).safeTime(HybridTimestamp.hybridTimestamp(safeTs));
         }
 
         return res;
@@ -64,6 +81,11 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
      */
     @Override
     public int readRequiredCatalogVersion(ByteBuffer raw) {
-        return (int) VarIntUtils.readVarInt(raw);
+        return raw.getInt();
+    }
+
+    @Override
+    public long readSafeTimestamp(ByteBuffer raw) {
+        return raw.getLong();
     }
 }

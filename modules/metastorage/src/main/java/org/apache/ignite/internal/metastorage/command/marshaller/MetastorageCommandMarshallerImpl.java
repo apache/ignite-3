@@ -15,63 +15,47 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.marshaller;
+package org.apache.ignite.internal.metastorage.command.marshaller;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.internal.partition.replicator.network.command.CatalogVersionAware;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 
-/**
- * Default {@link PartitionCommandsMarshaller} implementation.
- */
-public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller implements PartitionCommandsMarshaller {
-    public PartitionCommandsMarshallerImpl(MessageSerializationRegistry serializationRegistry, ByteBuffersPool cache) {
+public class MetastorageCommandMarshallerImpl extends OptimizedMarshaller implements MetastorageCommandMarshaller {
+    public MetastorageCommandMarshallerImpl(MessageSerializationRegistry serializationRegistry, ByteBuffersPool cache) {
         super(serializationRegistry, cache);
     }
 
     @Override
     public void patch(ByteBuffer raw, HybridTimestamp safeTs) {
-        raw.putLong(4, safeTs.longValue());
+        raw.putLong(0, safeTs.longValue());
     }
 
     @Override
     protected void beforeWriteMessage(Object o, ByteBuffer buffer) {
-        int requiredCatalogVersion = o instanceof CatalogVersionAware
-                ? ((CatalogVersionAware) o).requiredCatalogVersion()
-                : PartitionCommandsMarshaller.NO_VERSION_REQUIRED;
-
         stream.setBuffer(buffer);
-        stream.writeFixedInt(requiredCatalogVersion);
-        stream.writeFixedLong(0); // TODO FIXME optimize double write.
+        stream.writeFixedLong(0);
     }
 
     @Override
     public <T> T unmarshall(ByteBuffer raw) {
         raw = raw.duplicate();
 
-        int requiredCatalogVersion = readRequiredCatalogVersion(raw);
         long safeTs = readSafeTimestamp(raw);
+
+        System.out.println("safeTs:" + safeTs);
 
         T res = super.unmarshall(raw);
 
-        if (res instanceof CatalogVersionAware) {
-            ((CatalogVersionAware) res).requiredCatalogVersion(requiredCatalogVersion);
-        }
+        System.out.println("cmd:" + res.getClass().getName());
 
-        // Apply patched value.
         if (res instanceof SafeTimePropagatingCommand && safeTs != 0) {
             ((SafeTimePropagatingCommand) res).safeTime(HybridTimestamp.hybridTimestamp(safeTs));
         }
 
         return res;
-    }
-
-    @Override
-    public int readRequiredCatalogVersion(ByteBuffer raw) {
-        return raw.getInt();
     }
 
     @Override

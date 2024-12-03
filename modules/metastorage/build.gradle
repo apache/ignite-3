@@ -28,6 +28,7 @@ dependencies {
     implementation project(':ignite-configuration-system')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-network-api')
+    implementation project(':ignite-network')
     implementation project(':ignite-vault')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-raft')

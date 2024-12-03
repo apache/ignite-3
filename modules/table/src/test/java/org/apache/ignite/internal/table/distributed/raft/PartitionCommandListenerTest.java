@@ -422,10 +422,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         verify(mvPartitionStorage, times(2)).runConsistently(any(WriteClosure.class));
         verify(mvPartitionStorage, times(3)).lastApplied(anyLong(), anyLong());
 
-        assertThat(updateCommandClosureResultCaptor.getAllValues(),
-                containsInAnyOrder(new UpdateCommandResult(true, false),
-                        new UpdateCommandResult(true, false))
-        );
+        List<UpdateCommandResult> allValues = updateCommandClosureResultCaptor.getAllValues();
+        assertThat(allValues, containsInAnyOrder(new Throwable[]{null, null}));
         assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null, null}));
 
         // Checks for TxStateStorage.

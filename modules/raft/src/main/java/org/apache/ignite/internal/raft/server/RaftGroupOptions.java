@@ -58,6 +58,8 @@ public class RaftGroupOptions {
      */
     private @Nullable Long externallyEnforcedConfigIndex;
 
+    private int maxClockSkew;
+
     /**
      * Returns default options as defined by classic Raft (so stores are persistent).
      *
@@ -233,5 +235,14 @@ public class RaftGroupOptions {
     public RaftGroupOptions externallyEnforcedConfigIndex(@Nullable Long index) {
         externallyEnforcedConfigIndex = index;
         return this;
+    }
+
+    public RaftGroupOptions maxClockSkew(int maxClockSkew) {
+        this.maxClockSkew = maxClockSkew;
+        return this;
+    }
+
+    public int maxClockSkew() {
+        return maxClockSkew;
     }
 }

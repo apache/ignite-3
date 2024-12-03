@@ -20,6 +20,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.ArrayUtils.EMPTY_BYTE_BUFFER;
+
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
@@ -41,12 +42,15 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
+import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
+import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
@@ -285,8 +289,10 @@ public class NodeImpl implements Node, RaftServerService {
         // task list for batch
         private final List<LogEntryAndClosure> tasks = new ArrayList<>(NodeImpl.this.raftOptions.getApplyBatch());
 
+        private @Nullable HybridTimestamp safeTs = null;
+
         @Override
-        public void onEvent(final LogEntryAndClosure event, final long sequence, final boolean endOfBatch) throws Exception {
+        public void onEvent(final LogEntryAndClosure event, final long sequence, final boolean endOfBatch) {
             if (event.shutdownLatch != null) {
                 if (!this.tasks.isEmpty()) {
                     executeApplyingTasks(this.tasks);
@@ -295,6 +301,26 @@ public class NodeImpl implements Node, RaftServerService {
                 event.shutdownLatch.countDown();
                 return;
             }
+
+            // Patch safe timestamp.
+            if (event.done instanceof CommandClosure) {
+                CommandClosure<?> cmd = (CommandClosure<?>) event.done;
+                Command command = cmd.command();
+
+                // Tick once per batch.
+                if (safeTs == null) {
+                    safeTs = command.initiatorTime() == null ? clock.now() : clock.now(command.initiatorTime());
+                }
+
+                // Binary patch.
+                options.getCommandsMarshaller().patch(event.entry.getData(), safeTs);
+
+                // Object patch.
+                command.patch(safeTs);
+
+                System.out.println("DBG: apply patch " + safeTs + " " + groupId);
+            }
+            // TODO call once per batch.
 
             this.tasks.add(event);
             if (this.tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {
@@ -308,6 +334,7 @@ public class NodeImpl implements Node, RaftServerService {
                 task.reset();
             }
             this.tasks.clear();
+            this.safeTs = null;
         }
     }
 
@@ -579,14 +606,6 @@ public class NodeImpl implements Node, RaftServerService {
 
     public HybridClock clock() {
         return clock;
-    }
-
-    public HybridTimestamp clockNow() {
-        return clock.now();
-    }
-
-    public HybridTimestamp clockUpdate(HybridTimestamp timestamp) {
-        return clock.update(timestamp);
     }
 
     private boolean initSnapshotStorage() {
@@ -889,7 +908,7 @@ public class NodeImpl implements Node, RaftServerService {
         final long bootstrapLogTerm = opts.getLastLogIndex() > 0 ? 1 : 0;
         final LogId bootstrapId = new LogId(opts.getLastLogIndex(), bootstrapLogTerm);
         this.options = opts.getNodeOptions() == null ? new NodeOptions() : opts.getNodeOptions();
-        this.clock = options.getClock();
+        this.clock = this.options.getClock() == null ? new HybridClockImpl() : this.options.getClock();
         this.raftOptions = this.options.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());
         this.options.setFsm(opts.getFsm());
@@ -984,8 +1003,8 @@ public class NodeImpl implements Node, RaftServerService {
         Requires.requireNonNull(opts.getServiceFactory(), "Null jraft service factory");
         Requires.requireNonNull(opts.getCommandsMarshaller(), "Null commands marshaller");
         this.serviceFactory = opts.getServiceFactory();
-        this.clock = opts.getClock();
         this.options = opts;
+        this.clock = this.options.getClock() == null ? new HybridClockImpl() : this.options.getClock();
         this.raftOptions = opts.getRaftOptions();
         this.metrics = new NodeMetrics(opts.isEnableMetrics());
         this.serverId.setPriority(opts.getElectionPriority());
@@ -1917,6 +1936,8 @@ public class NodeImpl implements Node, RaftServerService {
 
     @Override
     public void apply(final Task task) {
+        LOG.info("DBG: apply task: " + groupId);
+
         if (this.shutdownLatch != null) {
             Utils.runClosureInThread(this.getOptions().getCommonExecutor(), task.getDone(), new Status(RaftError.ENODESHUTDOWN, "Node is shutting down."));
             throw new IllegalStateException("Node is shutting down");
@@ -2929,6 +2950,7 @@ public class NodeImpl implements Node, RaftServerService {
                     "Raft node receives higher term request_vote_response."));
                 return;
             }
+
             // check granted quorum?
             if (response.granted()) {
                 this.voteCtx.grant(peerId);

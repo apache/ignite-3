@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator.marshaller;
+package org.apache.ignite.internal.metastorage.command.marshaller;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.util.DefaultByteBuffersPool;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller.ByteBuffersPool;
 
-/**
- * Thread-local variant of {@link PartitionCommandsMarshaller}.
- */
-public class ThreadLocalPartitionCommandsMarshaller implements PartitionCommandsMarshaller {
+public class ThreadLocalMetastoreCommandsMarshaller implements MetastorageCommandMarshaller {
     /** Thread-local optimized marshaller holder. Not static, because it depends on serialization registry. */
-    private final ThreadLocal<PartitionCommandsMarshaller> marshaller;
+    private final ThreadLocal<MetastorageCommandMarshallerImpl> marshaller;
 
     /** Shared pool of byte buffers for all thread-local instances. */
     private final ByteBuffersPool pool = new DefaultByteBuffersPool(Runtime.getRuntime().availableProcessors());
@@ -37,8 +35,13 @@ public class ThreadLocalPartitionCommandsMarshaller implements PartitionCommands
      *
      * @param serializationRegistry Serialization registry.
      */
-    public ThreadLocalPartitionCommandsMarshaller(MessageSerializationRegistry serializationRegistry) {
-        marshaller = ThreadLocal.withInitial(() -> new PartitionCommandsMarshallerImpl(serializationRegistry, pool));
+    public ThreadLocalMetastoreCommandsMarshaller(MessageSerializationRegistry serializationRegistry) {
+        marshaller = ThreadLocal.withInitial(() -> new MetastorageCommandMarshallerImpl(serializationRegistry, pool));
+    }
+
+    @Override
+    public void patch(ByteBuffer raw, HybridTimestamp safeTs) {
+        marshaller.get().patch(raw, safeTs);
     }
 
     @Override
@@ -52,12 +55,8 @@ public class ThreadLocalPartitionCommandsMarshaller implements PartitionCommands
     }
 
     @Override
-    public int readRequiredCatalogVersion(ByteBuffer raw) {
-        return marshaller.get().readRequiredCatalogVersion(raw);
-    }
-
-    @Override
     public long readSafeTimestamp(ByteBuffer raw) {
         return marshaller.get().readSafeTimestamp(raw);
     }
 }
+

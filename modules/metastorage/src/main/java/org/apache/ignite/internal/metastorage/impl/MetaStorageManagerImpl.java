@@ -68,6 +68,7 @@ import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
+import org.apache.ignite.internal.metastorage.command.marshaller.ThreadLocalMetastoreCommandsMarshaller;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
@@ -204,6 +205,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     private final MetastorageDivergencyValidator divergencyValidator = new MetastorageDivergencyValidator();
 
     private final RecoveryRevisionsListenerImpl recoveryRevisionsListener;
+
+    private volatile int maxClockSkew;
 
     /**
      * The constructor.
@@ -516,7 +519,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         assert localMetaStorageConfiguration != null : "Meta Storage configuration has not been set";
 
         CompletableFuture<TopologyAwareRaftGroupService> serviceFuture = CompletableFuture.supplyAsync(() -> {
-            TopologyAwareRaftGroupService service = startRaftNodeItself(configuration, localPeer, metaStorageInfo, disruptorConfig);
+            TopologyAwareRaftGroupService service =
+                    startRaftNodeItself(configuration, localPeer, metaStorageInfo, disruptorConfig, maxClockSkew);
 
             raftNodeStarted.complete(null);
 
@@ -533,7 +537,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             PeersAndLearners configuration,
             Peer localPeer,
             MetaStorageInfo metaStorageInfo,
-            RaftNodeDisruptorConfiguration disruptorConfig
+            RaftNodeDisruptorConfiguration disruptorConfig,
+            int maxClockSkew
     ) {
         MetaStorageListener raftListener = new MetaStorageListener(storage, clock, clusterTime, this::onConfigurationCommitted);
 
@@ -549,6 +554,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                         raftGroupOptionsConfigurer.configure(options);
 
                         RaftGroupOptions groupOptions = (RaftGroupOptions) options;
+                        groupOptions.maxClockSkew(maxClockSkew);
+                        groupOptions.commandsMarshaller(new ThreadLocalMetastoreCommandsMarshaller(clusterService.serializationRegistry()));
                         groupOptions.externallyEnforcedConfigIndex(metaStorageInfo.metastorageRepairingConfigIndex());
                         groupOptions.snapshotStorageFactory(new MetaStorageSnapshotStorageFactory(storage));
                     }
@@ -690,6 +697,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
      */
     public final void configure(MetaStorageConfiguration metaStorageConfiguration) {
         this.metaStorageConfiguration = metaStorageConfiguration;
+    }
+
+    public final void setMaxClockSkew(int maxClockSkew) {
+        this.maxClockSkew = maxClockSkew;
     }
 
     @Override

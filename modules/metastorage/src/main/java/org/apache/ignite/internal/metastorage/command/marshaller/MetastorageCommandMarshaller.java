@@ -15,29 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft;
+package org.apache.ignite.internal.metastorage.command.marshaller;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.jetbrains.annotations.Nullable;
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.raft.Marshaller;
 
-/**
- * A marker interface for replication group command.
- */
-public interface Command extends NetworkMessage {
+public interface MetastorageCommandMarshaller extends Marshaller {
     /**
-     * This is called before a command is submitted to RAFT pipeline.
-     *
-     * @param safeTs Safe timestamp.
+     * Optional flag.
      */
-    default void patch(HybridTimestamp safeTs) {}
+    int NOT_REQUIRED = -1;
 
-    /**
-     * Holds request's initiator (which is always a primary replica) time.
-     *
-     * @return The timestamp.
-     */
-    default @Nullable HybridTimestamp initiatorTime() {
-        return null;
-    };
+    long readSafeTimestamp(ByteBuffer raw);
 }
