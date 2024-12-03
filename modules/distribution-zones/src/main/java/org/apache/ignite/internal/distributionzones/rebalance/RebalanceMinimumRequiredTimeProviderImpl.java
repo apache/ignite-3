@@ -19,7 +19,9 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.lang.Math.min;
 import static java.util.Collections.emptyMap;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_CHANGE_TRIGGER_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
@@ -38,6 +40,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 
 /**
@@ -56,36 +59,13 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         this.catalogService = catalogService;
     }
 
-    /**
-     * {@inheritDoc}
-     *
-     * <p>How it works. We choose the minimal timestamp amongst the following:
-     * <ul>
-     *     <li>
-     *         If there's a table, that doesn't have a full set of stable assignments, including no assignments at all, then use the
-     *         timestamp that will be associated with the earliest available version of the zone in the catalog. This situation implies that
-     *         table has not yet saved the initial distribution.
-     *     </li>
-     *     <li>
-     *         If there's a table, that has a full set of stable assignments, and does not have a full set of pending assignments, including
-     *         no pending assignments at all, then use the timestamp that will be associated with the version of the zone in the catalog,
-     *         that corresponds to current stable assignments. This situation implies that table has not yet completed the rebalance, or
-     *         there's no pending rebalance at all.
-     *     </li>
-     *     <li>
-     *         If there's a table, that has a full set of pending assignments, then use the timestamp that will be associated with the
-     *         version of the zone in the catalog, that corresponds to current pending assignments. This situation implies active ongoing
-     *         rebalance.
-     *     </li>
-     * </ul>
-     */
     @Override
     public long minimumRequiredTime() {
         // Use the same revision to read all the data, in order to guarantee consistency of data.
         long appliedRevision = metaStorageManager.appliedRevision();
 
         // Ignore the real safe time, having a time associated with revision is enough. Also, acquiring real safe time would be
-        // unnecessarily more complicated due to possible data races.
+        // unnecessarily more complicated due to handling of possible data races.
         long metaStorageSafeTime = metaStorageManager.timestampByRevisionLocally(appliedRevision).longValue();
 
         long minTimestamp = metaStorageSafeTime;
@@ -93,47 +73,86 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         Map<Integer, Map<Integer, Assignments>> stableAssignments = readAssignments(STABLE_ASSIGNMENTS_PREFIX, appliedRevision);
         Map<Integer, Map<Integer, Assignments>> pendingAssignments = readAssignments(PENDING_ASSIGNMENTS_PREFIX, appliedRevision);
 
+        Map<Integer, Long> pendingChangeTriggerRevisions = readPendingChangeTriggerRevisions(
+                PENDING_CHANGE_TRIGGER_PREFIX,
+                appliedRevision
+        );
+
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         Map<Integer, Integer> tableIdToZoneIdMap = tableIdToZoneIdMap(earliestCatalogVersion, latestCatalogVersion);
-        Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZones = allZones(earliestCatalogVersion, latestCatalogVersion);
+        Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByTimestamp = allZonesByTimestamp(
+                earliestCatalogVersion,
+                latestCatalogVersion
+        );
+        Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByRevision = allZonesByRevision(allZonesByTimestamp);
         Map<Integer, Long> zoneDeletionTimestamps = zoneDeletionTimestamps(earliestCatalogVersion, latestCatalogVersion);
 
         for (Map.Entry<Integer, Integer> entry : tableIdToZoneIdMap.entrySet()) {
             Integer tableId = entry.getKey();
             Integer zoneId = entry.getValue();
 
-            NavigableMap<Long, CatalogZoneDescriptor> zoneDescriptors = allZones.get(zoneId);
+            NavigableMap<Long, CatalogZoneDescriptor> zoneDescriptors = allZonesByTimestamp.get(zoneId);
             int zonePartitions = zoneDescriptors.lastEntry().getValue().partitions();
 
-            // Having empty maps instead of nulls greatly simplifies the code that follows.
-            Map<Integer, Assignments> stableTableAssignments = stableAssignments.getOrDefault(tableId, emptyMap());
-            Map<Integer, Assignments> pendingTableAssignments = pendingAssignments.getOrDefault(tableId, emptyMap());
+            Long pendingChangeTriggerKey = pendingChangeTriggerRevisions.get(tableId);
 
+            // +-1 here ir required for 2 reasons:
+            // - we need timestamp right before deletion, if zone is deleted, thus we must subtract 1;
+            // - we need a "metaStorageSafeTime" if zone is not deleted, without any subtractions.
             long latestTimestamp = zoneDeletionTimestamps.getOrDefault(zoneId, metaStorageSafeTime + 1) - 1;
 
-            if (stableTableAssignments.size() != zonePartitions || pendingTableAssignments.size() != zonePartitions) {
-                long timestamp = findProperTimestampForAssignments(stableTableAssignments, zoneDescriptors, latestTimestamp);
+            long zoneRevision = pendingChangeTriggerKey == null
+                    ? zoneDescriptors.firstEntry().getValue().updateToken()
+                    : pendingChangeTriggerKey;
 
-                minTimestamp = min(minTimestamp, timestamp);
-            } else {
-                assert pendingTableAssignments.size() == zonePartitions;
+            NavigableMap<Long, CatalogZoneDescriptor> map = allZonesByRevision.get(zoneId);
+            Map.Entry<Long, CatalogZoneDescriptor> zone = map.floorEntry(zoneRevision);
+            long timestamp = metaStorageManager.timestampByRevisionLocally(zone.getValue().updateToken()).longValue();
 
-                long timestamp = findProperTimestampForAssignments(pendingTableAssignments, zoneDescriptors, latestTimestamp);
+            timestamp = ttttime(zoneDescriptors, timestamp, latestTimestamp);
 
-                minTimestamp = min(minTimestamp, timestamp);
+            minTimestamp = min(minTimestamp, timestamp);
+
+            // Having empty map instead of null simplifies the code that follows.
+            Map<Integer, Assignments> pendingTableAssignments = pendingAssignments.getOrDefault(tableId, emptyMap());
+
+            if (!pendingTableAssignments.isEmpty()) {
+                long pendingTimestamp = findProperTimestampForAssignments(
+                        pendingTableAssignments.size() == zonePartitions
+                                ? pendingTableAssignments
+                                : stableAssignments.getOrDefault(tableId, emptyMap()),
+                        zoneDescriptors,
+                        latestTimestamp
+                );
+
+                minTimestamp = min(minTimestamp, pendingTimestamp);
             }
         }
 
         return minTimestamp;
     }
 
+    static Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByRevision(
+            Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZones
+    ) {
+        return allZones.entrySet().stream().collect(toMap(Map.Entry::getKey, entry -> {
+            NavigableMap<Long, CatalogZoneDescriptor> mapByRevision = new TreeMap<>();
+
+            for (CatalogZoneDescriptor zone : entry.getValue().values()) {
+                mapByRevision.put(zone.updateToken(), zone);
+            }
+
+            return mapByRevision;
+        }));
+    }
+
     /**
      * Detects all changes in zones configurations and arranges them in a convenient map. It maps {@code zoneId} into a sorted map, that
      * contains a {@code alterTime -> zoneDescriptor} mapping.
      */
-    Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZones(
+    Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByTimestamp(
             int earliestCatalogVersion,
             int latestCatalogVersion
     ) {
@@ -145,11 +164,12 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
             for (CatalogZoneDescriptor zone : catalog.zones()) {
                 NavigableMap<Long, CatalogZoneDescriptor> map = allZones.computeIfAbsent(zone.id(), id -> new TreeMap<>());
 
-                if (map.isEmpty() || !map.lastEntry().getValue().equals(zone)) {
+                if (map.isEmpty() || map.lastEntry().getValue().updateToken() != zone.updateToken()) {
                     map.put(catalog.time(), zone);
                 }
             }
         }
+
         return allZones;
     }
 
@@ -178,6 +198,15 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         return zoneDeletionTimestamps;
     }
 
+    static long ttttime(NavigableMap<Long, CatalogZoneDescriptor> zoneDescriptors, long timestamp, long latestTimestamp) {
+        // We determine the "next" zone version, the one that comes after the version that corresponds to "timestamp".
+        // "ceilingKey" accepts an inclusive boundary, while we have an exclusive one. "+ 1" converts ">=" into ">".
+        Long ceilingKey = zoneDescriptors.ceilingKey(timestamp + 1);
+
+        // While having it, we either decrement it to get "previous moment in time", or if there's no "next" version then we use "safeTime".
+        return ceilingKey == null ? latestTimestamp : ceilingKey - 1;
+    }
+
     /**
      * Detects the specific zone version, associated with the most recent entry of the assignments set, and returns the highest possible
      * timestamp that can be used to read that zone from the catalog. Returns {@code latestTimestamp} if that timestamp corresponds to
@@ -195,11 +224,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
                 // If assignments are empty, we shall use the earliest known timestamp for the zone.
                 .orElse(zoneDescriptors.firstEntry().getKey());
 
-        // We determine the "next" zone version, the one that comes after the version that corresponds to "timestamp".
-        // "ceilingKey" accepts an inclusive boundary, while we have an exclusive one. "+ 1" converts ">=" into ">".
-        Long ceilingKey = zoneDescriptors.ceilingKey(timestamp + 1);
-        // While having it, we either decrement it to get "previous moment in time", or if there's no "next" version then we use "safeTime".
-        return ceilingKey == null ? latestTimestamp : ceilingKey - 1;
+        return ttttime(zoneDescriptors, timestamp, latestTimestamp);
     }
 
     /**
@@ -239,6 +264,27 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         }
 
         return assignments;
+    }
+
+    Map<Integer, Long> readPendingChangeTriggerRevisions(String prefix, long appliedRevision) {
+        Map<Integer, Long> revisions = new HashMap<>();
+
+        try (Cursor<Entry> entries = readLocallyByPrefix(prefix, appliedRevision)) {
+            for (Entry entry : entries) {
+                if (entry.empty() || entry.tombstone()) {
+                    continue;
+                }
+
+                int tableId = RebalanceUtil.extractTableId(entry.key(), prefix);
+
+                byte[] value = entry.value();
+                long revision = ByteUtils.bytesToLongKeepingOrder(value);
+
+                revisions.compute(tableId, (k, prev) -> prev == null ? revision : min(prev, revision));
+            }
+        }
+
+        return revisions;
     }
 
     private Cursor<Entry> readLocallyByPrefix(String prefix, long revision) {
