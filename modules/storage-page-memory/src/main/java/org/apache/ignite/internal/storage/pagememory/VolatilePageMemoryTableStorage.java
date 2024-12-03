@@ -180,7 +180,10 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         volatilePartitionStorage.destroyStructures().whenComplete((res, ex) -> {
             if (ex != null) {
-                LOG.error("Could not destroy structures", ex);
+                LOG.error(
+                        "Could not destroy structures: [tableId={}, partitionId={}]",
+                        ex, getTableId(), volatilePartitionStorage.partitionId()
+                );
             }
         });
 
