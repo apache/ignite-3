@@ -113,7 +113,7 @@ class IgniteExceptionHandlerTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("igniteExceptions")
-    void shouldHandleIgniteException(IgniteException givenIgniteException, ProblemBuilder<? extends Problem, ?> expectedProblem) {
+    void shouldHandleIgniteException(IgniteException givenIgniteException, ProblemBuilder expectedProblem) {
         HttpResponse<? extends Problem> response = exceptionHandler.handle(request, givenIgniteException);
 
         Problem problem = response.body();
