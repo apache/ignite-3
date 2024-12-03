@@ -101,7 +101,7 @@ public interface RowHandler<RowT> {
         RowSchema rowSchema();
 
         /**
-         * Creates a new row from provided source row and containing only the fields specified in the provided mapping.
+         * The result row will satisfy the current factory's schema.
          *
          * <p>For example:
          * <pre>
