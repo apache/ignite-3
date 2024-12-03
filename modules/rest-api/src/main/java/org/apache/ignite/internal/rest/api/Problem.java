@@ -25,7 +25,6 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.rest.constants.HttpCode;
-import org.apache.ignite.internal.rest.problem.Builder;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -87,13 +86,13 @@ public class Problem {
     }
 
     /** Returns {@link ProblemBuilder}. */
-    public static <T extends Problem, B extends ProblemBuilder<T, B>> ProblemBuilder<T, B> builder() {
-        return new ProblemBuilder<>();
+    public static ProblemBuilder builder() {
+        return new ProblemBuilder();
     }
 
     /** Returns {@link ProblemBuilder} with http status and title. */
-    public static <T extends Problem, B extends ProblemBuilder<T, B>> ProblemBuilder<T, B> fromHttpCode(HttpCode httpCode) {
-        ProblemBuilder<T, B> builder = new ProblemBuilder<>();
+    public static ProblemBuilder fromHttpCode(HttpCode httpCode) {
+        ProblemBuilder builder = new ProblemBuilder();
         builder.status(httpCode.code());
         builder.title(httpCode.message());
 
@@ -174,66 +173,65 @@ public class Problem {
     }
 
     /** Builder for {@link Problem}. */
-    public static class ProblemBuilder<T extends Problem, B extends ProblemBuilder<T, B>> implements Builder<T, B> {
-        protected String title;
+    public static class ProblemBuilder {
+        private String title;
 
-        protected int status;
+        private int status;
 
-        protected String code;
+        private String code;
 
-        protected String type;
+        private String type;
 
-        protected String detail;
+        private String detail;
 
-        protected String node;
+        private String node;
 
-        protected UUID traceId;
+        private UUID traceId;
 
-        protected Collection<InvalidParam> invalidParams;
+        private Collection<InvalidParam> invalidParams;
 
-        public B title(String title) {
+        public ProblemBuilder title(String title) {
             this.title = title;
-            return (B) this;
+            return this;
         }
 
-        public B status(int status) {
+        public ProblemBuilder status(int status) {
             this.status = status;
-            return (B) this;
+            return this;
         }
 
-        public B code(String code) {
+        public ProblemBuilder code(String code) {
             this.code = code;
-            return (B) this;
+            return this;
         }
 
-        public B type(String type) {
+        public ProblemBuilder type(String type) {
             this.type = type;
-            return (B) this;
+            return this;
         }
 
-        public B detail(String detail) {
+        public ProblemBuilder detail(String detail) {
             this.detail = detail;
-            return (B) this;
+            return this;
         }
 
-        public B node(String node) {
+        public ProblemBuilder node(String node) {
             this.node = node;
-            return (B) this;
+            return this;
         }
 
-        public B traceId(UUID traceId) {
+        public ProblemBuilder traceId(UUID traceId) {
             this.traceId = traceId;
-            return (B) this;
+            return this;
         }
 
-        public B invalidParams(Collection<InvalidParam> invalidParams) {
+        public ProblemBuilder invalidParams(Collection<InvalidParam> invalidParams) {
             this.invalidParams = invalidParams;
-            return (B) this;
+            return this;
         }
 
-        @Override
-        public T build() {
-            return (T) new Problem(title, status, code, type, detail, node, traceId, invalidParams);
+        public Problem build() {
+            return new Problem(title, status, code, type, detail, node, traceId, invalidParams);
         }
     }
 }
