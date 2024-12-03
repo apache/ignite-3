@@ -87,7 +87,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
      */
     public void update(T newValue, @Nullable R futureResult) {
         while (true) {
-            if (!busyLock.readLock().tryLock()) {
+            if (!enterBusy()) {
                 throw new TrackerClosedException();
             }
 
@@ -105,7 +105,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
                     break;
                 }
             } finally {
-                busyLock.readLock().unlock();
+                leaveBusy();
             }
         }
     }
@@ -119,7 +119,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
      * @param valueToWait Value to wait.
      */
     public CompletableFuture<R> waitFor(T valueToWait) {
-        if (!busyLock.readLock().tryLock()) {
+        if (!enterBusy()) {
             return failedFuture(new TrackerClosedException());
         }
 
@@ -132,7 +132,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
 
             return addNewWaiter(valueToWait);
         } finally {
-            busyLock.readLock().unlock();
+            leaveBusy();
         }
     }
 
@@ -142,14 +142,14 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
      * @throws TrackerClosedException if the tracker is closed.
      */
     public T current() {
-        if (!busyLock.readLock().tryLock()) {
+        if (!enterBusy()) {
             throw new TrackerClosedException();
         }
 
         try {
             return current.getKey();
         } finally {
-            busyLock.readLock().unlock();
+            leaveBusy();
         }
     }
 
@@ -159,7 +159,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
             return;
         }
 
-        busyLock.writeLock().lock();
+        blockBusy();
 
         TrackerClosedException trackerClosedException = new TrackerClosedException();
 
@@ -201,5 +201,17 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
     /** Returns true if this tracker contains no waiters. */
     public boolean isEmpty() {
         return valueFutures.isEmpty();
+    }
+
+    private boolean enterBusy() {
+        return !busyLock.isWriteLockedByCurrentThread() && busyLock.readLock().tryLock();
+    }
+
+    private void leaveBusy() {
+        busyLock.readLock().unlock();
+    }
+
+    private void blockBusy() {
+        busyLock.writeLock().lock();
     }
 }

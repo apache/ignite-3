@@ -106,7 +106,7 @@ public class IgniteStripedReadWriteLock implements ReadWriteLock {
      * @return {@code true} if the current thread holds the write lock and {@code false} otherwise
      */
     public boolean isWriteLockedByCurrentThread() {
-        return locks[locks.length - 1].isWriteLockedByCurrentThread();
+        return locks[curIdx()].isWriteLockedByCurrentThread();
     }
 
     /**
