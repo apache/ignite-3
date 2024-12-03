@@ -55,7 +55,7 @@ public class ItThinClientTupleComputeMarshallingTest extends ClusterPerClassInte
     void beforeAll() {
         sql(format("CREATE TABLE {} ({} INT PRIMARY KEY, {} VARCHAR)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL));
         sql(format("INSERT INTO {} ({}, {}) VALUES (2, 'hi')", TABLE_NAME, COLUMN_KEY, COLUMN_VAL));
-        
+
         String address = "127.0.0.1:" + unwrapIgniteImpl(node(0)).clientAddress().port();
         client = IgniteClient.builder().addresses(address).build();
     }
