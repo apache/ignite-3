@@ -38,51 +38,62 @@ public class IgniteServiceCollectionExtensionsTests
     public void StopServer() => _server.Dispose();
 
     [Test]
-    public async Task TestRegisterSingleInstance()
+    public async Task TestRegisterSingleClient()
     {
         await ValidateRegisterSingleClient(
-                services => services.AddIgniteClientGroup(CreateGroupConfig()),
-                services => services.GetService<IgniteClientGroup>());
+            services => services.AddIgniteClientGroup(CreateGroupConfig()),
+            services => services.GetService<IgniteClientGroup>());
 
         await ValidateRegisterSingleClient(
-            services => services.AddIgniteClientGroupKeyed("key", CreateGroupConfig()),
-            services => services.GetKeyedService<IgniteClientGroup>("key"));
+            services => services.AddIgniteClientGroup(_ => CreateGroupConfig()),
+            services => services.GetService<IgniteClientGroup>());
+
+        const string serviceKey = "key";
+
+        await ValidateRegisterSingleClient(
+            services => services.AddIgniteClientGroupKeyed(serviceKey, CreateGroupConfig()),
+            services => services.GetKeyedService<IgniteClientGroup>(serviceKey));
+
+        await ValidateRegisterSingleClient(
+            services => services.AddIgniteClientGroupKeyed(serviceKey, _ => CreateGroupConfig()),
+            services => services.GetKeyedService<IgniteClientGroup>(serviceKey));
+
+        await ValidateRegisterSingleClient(
+            services => services.AddIgniteClientGroupKeyed(serviceKey, (_, _) => CreateGroupConfig()),
+            services => services.GetKeyedService<IgniteClientGroup>(serviceKey));
     }
 
     [Test]
     public async Task TestRegisterConfigurationInstanceRoundRobin()
     {
-        var services = new ServiceCollection();
         const int count = 3;
-        services.AddIgniteClientGroup(CreateGroupConfig(size: count));
 
-        var serviceProvider = services.BuildServiceProvider();
+        await ValidateRegisterRoundRobin(
+            count,
+            services => services.AddIgniteClientGroup(CreateGroupConfig(count)),
+            services => services.GetService<IgniteClientGroup>());
 
-        var group = serviceProvider.GetService<IgniteClientGroup>();
+        await ValidateRegisterRoundRobin(
+            count,
+            services => services.AddIgniteClientGroup(_ => CreateGroupConfig(count)),
+            services => services.GetService<IgniteClientGroup>());
 
-        Assert.That(group, Is.Not.Null);
+        const string? serviceKey = "key";
 
-        await ValidateUniqueClientCount(group, count);
+        await ValidateRegisterRoundRobin(
+            count,
+            services => services.AddIgniteClientGroupKeyed(serviceKey, CreateGroupConfig(count)),
+            services => services.GetKeyedService<IgniteClientGroup>(serviceKey));
 
-        await (await group.GetIgniteAsync()).Tables.GetTablesAsync();
-    }
+        await ValidateRegisterRoundRobin(
+            count,
+            services => services.AddIgniteClientGroupKeyed(serviceKey, _ => CreateGroupConfig(count)),
+            services => services.GetKeyedService<IgniteClientGroup>(serviceKey));
 
-    [Test]
-    public async Task TestRegisterConfigurationRoundRobinFunc()
-    {
-        var services = new ServiceCollection();
-        const int count = 3;
-        services.AddIgniteClientGroup(_ => CreateGroupConfig(size: count));
-
-        var serviceProvider = services.BuildServiceProvider();
-
-        var group = serviceProvider.GetService<IgniteClientGroup>();
-
-        Assert.That(group, Is.Not.Null);
-
-        await ValidateUniqueClientCount(group, count);
-
-        await (await group.GetIgniteAsync()).Tables.GetTablesAsync();
+        await ValidateRegisterRoundRobin(
+            count,
+            services => services.AddIgniteClientGroupKeyed(serviceKey, (_, _) => CreateGroupConfig(count)),
+            services => services.GetKeyedService<IgniteClientGroup>(serviceKey));
     }
 
     [Test]
@@ -166,6 +177,31 @@ public class IgniteServiceCollectionExtensionsTests
         await client.Tables.GetTablesAsync();
     }
 
+    private static async Task ValidateRegisterRoundRobin(
+        int count,
+        Action<ServiceCollection> register,
+        Func<IServiceProvider, IgniteClientGroup?> resolve)
+    {
+        var services = new ServiceCollection();
+
+        register(services);
+
+        var serviceProvider = services.BuildServiceProvider();
+
+        var group = resolve(serviceProvider);
+
+        Assert.That(group, Is.Not.Null);
+
+        var clients = await Task.WhenAll(
+            Enumerable.Range(0, count + 1).Select(async _ => await group.GetIgniteAsync()));
+
+        var uniqueClients = clients.Distinct().ToArray();
+
+        Assert.That(uniqueClients.Length, Is.EqualTo(count));
+
+        await clients.First().Tables.GetTablesAsync();
+    }
+
     private static void ValidateKeyedRegistrationScope(ServiceLifetime lifetime, Action<ServiceCollection, object> register)
     {
         var services = new ServiceCollection();
@@ -190,18 +226,6 @@ public class IgniteServiceCollectionExtensionsTests
 
         Assert.AreEqual(1, servicesDescriptors.Select(sd => sd.Lifetime).Distinct().Count());
         Assert.AreEqual(lifetime, servicesDescriptors.First().Lifetime);
-    }
-
-    private static async Task<IIgnite[]> ValidateUniqueClientCount(IgniteClientGroup group, int count)
-    {
-        var clients = await Task.WhenAll(
-            Enumerable.Range(0, count + 1).Select(async _ => await group.GetIgniteAsync()));
-
-        var uniqueClients = clients.Distinct().ToArray();
-
-        Assert.That(uniqueClients.Length, Is.EqualTo(count));
-
-        return uniqueClients;
     }
 
     private IgniteClientGroupConfiguration CreateGroupConfig(int size = 1) =>
