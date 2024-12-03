@@ -142,6 +142,9 @@ public class ClusterInitOptions {
             return null;
         } else if (clusterConfigOptions.config != null) {
             String config = clusterConfigOptions.config;
+            if (tryParseConfig(config)) {
+                return config;
+            }
             if (checkConfigAsPath(config)) {
                 throw new ConfigAsPathException(config);
             }
@@ -179,6 +182,16 @@ public class ClusterInitOptions {
             throw new IgniteCliException("Couldn't read cluster configuration file " + file, e);
         } catch (ConfigException e) {
             throw new ConfigFileParseException("Couldn't parse cluster configuration file " + file, e);
+        }
+    }
+
+    private static boolean tryParseConfig(String config) {
+        try {
+            Config configFactory = ConfigFactory.empty();
+            configFactory.withFallback(ConfigFactory.parseString(config));
+            return true;
+        } catch (ConfigException e) {
+            return false;
         }
     }
 
