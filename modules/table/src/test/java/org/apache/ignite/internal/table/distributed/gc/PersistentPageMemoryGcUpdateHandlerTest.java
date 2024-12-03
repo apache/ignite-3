@@ -55,7 +55,7 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
     void setUp(
             TestInfo testInfo,
             @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+            @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
             StorageConfiguration storageConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();

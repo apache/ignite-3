@@ -154,15 +154,17 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testDestroyIndex() {
+        TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId());
+
+        when(tableViewInternal.internalTable().storage().destroyIndex(anyInt()))
+                .thenReturn(nullCompletedFuture());
+
         createIndex(TABLE_NAME, INDEX_NAME);
 
-        int tableId = tableId();
         int indexId = indexId();
 
         dropIndex(INDEX_NAME);
         assertThat(fireDestroyEvent(), willCompleteSuccessfully());
-
-        TableViewInternal tableViewInternal = tableViewInternalByTableId.get(tableId);
 
         verify(tableViewInternal).unregisterIndex(indexId);
         verify(tableViewInternal.internalTable().storage()).destroyIndex(indexId);

@@ -21,43 +21,60 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.mockito.Mockito.mock;
 
+import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.storage.AbstractMvPartitionStorageConcurrencyTest;
+import org.apache.ignite.internal.storage.AbstractMvTableStorageConcurrencyTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
-import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPartitionStorageConcurrencyTest {
-    private VolatilePageMemoryStorageEngine engine;
-
-    private VolatilePageMemoryTableStorage table;
+@ExtendWith(WorkDirectoryExtension.class)
+class PersistentPageMemoryMvTableStorageConcurrencyTest extends AbstractMvTableStorageConcurrencyTest {
+    private PersistentPageMemoryStorageEngine engine;
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = aimem}") StorageConfiguration storageConfig
+            @WorkDirectory Path workDir,
+            @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
+            PersistentPageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
+            StorageConfiguration storageConfig
     ) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("node", engineConfig, storageConfig, ioRegistry, clock);
+        engine = new PersistentPageMemoryStorageEngine(
+                "test",
+                engineConfig,
+                storageConfig,
+                ioRegistry,
+                workDir,
+                null,
+                mock(FailureManager.class),
+                mock(LogSyncer.class),
+                clock
+        );
 
         engine.start();
 
-        table = engine.createMvTable(
+        tableStorage = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
-                mock(StorageIndexDescriptorSupplier.class)
+                indexDescriptorSupplier
         );
 
-        initialize(table);
+        initialize();
     }
 
     @AfterEach
@@ -66,8 +83,16 @@ class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPart
         super.tearDown();
 
         IgniteUtils.closeAllManually(
-                table,
+                tableStorage,
                 engine == null ? null : engine::stop
+        );
+    }
+
+    @Override
+    protected MvTableStorage createMvTableStorage() {
+        return engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
+                indexDescriptorSupplier
         );
     }
 }

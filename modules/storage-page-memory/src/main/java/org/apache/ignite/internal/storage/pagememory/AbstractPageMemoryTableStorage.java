@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -33,7 +34,9 @@ import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor.GradualTaskCancellationException;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -46,6 +49,8 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
+import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -153,7 +158,15 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) {
-        return busy(() -> mvPartitionStorages.destroy(partitionId, this::destroyMvPartitionStorage));
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
+
+        try {
+            return mvPartitionStorages.destroy(partitionId, this::destroyMvPartitionStorage);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override
@@ -196,13 +209,34 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             for (int i = 0; i < storages.size(); i++) {
                 AbstractPageMemoryMvPartitionStorage storage = storages.get(i);
 
-                destroyFutures[i] = storage.runConsistently(locker -> storage.destroyIndex(indexId));
+                try {
+                    destroyFutures[i] = storage.runConsistently(locker -> storage.destroyIndex(indexId))
+                            .handle((res, ex) -> {
+                                if (ex != null && isIgnorableIndexDestructionException(ex)) {
+                                    return CompletableFutures.<Void>nullCompletedFuture();
+                                }
+                                return CompletableFutures.completedOrFailedFuture(res, ex);
+                            })
+                            .thenCompose(identity());
+                } catch (StorageDestroyedException e) {
+                    destroyFutures[i] = nullCompletedFuture();
+                }
             }
 
             return allOf(destroyFutures);
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private static boolean isIgnorableIndexDestructionException(Throwable ex) {
+        Throwable cause = ExceptionUtils.unwrapCause(ex);
+
+        // Ignore StorageDestroyedException as all we want is to destroy the storage.
+        return cause instanceof StorageDestroyedException
+                // Also ignore GradualTaskCancellationException as it means that either the partition has been destroyed
+                // or that the node is being stopped (and we cannot proceed; destruction will be reattempted after restart).
+                || cause instanceof GradualTaskCancellationException;
     }
 
     @Override

@@ -15,40 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index;
+package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-import static org.mockito.Mockito.mock;
 
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.AbstractMvTableStorageConcurrencyTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
 
-/**
- * Sorted index test implementation for volatile page memory storage.
- */
-@ExtendWith(ConfigurationExtension.class)
-class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedIndexStorageTest {
+class VolatilePageMemoryMvTableStorageConcurrencyTest extends AbstractMvTableStorageConcurrencyTest {
     private VolatilePageMemoryStorageEngine engine;
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration
-            VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = aimem}")
-            StorageConfiguration storageConfig
+            @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.profiles.default = {engine = aimem}") StorageConfiguration storageConfig
     ) {
-        PageIoRegistry ioRegistry = new PageIoRegistry();
+        var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
@@ -56,19 +48,25 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
 
         engine.start();
 
-        tableStorage = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
-                mock(StorageIndexDescriptorSupplier.class)
-        );
-
-        initialize(tableStorage, engineConfig.pageSize().value());
+        initialize();
     }
 
     @AfterEach
-    void tearDown() throws Exception {
-        closeAll(
-                tableStorage == null ? null : tableStorage::close,
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+
+        IgniteUtils.closeAllManually(
+                tableStorage,
                 engine == null ? null : engine::stop
+        );
+    }
+
+    @Override
+    protected MvTableStorage createMvTableStorage() {
+        return engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
+                indexDescriptorSupplier
         );
     }
 }

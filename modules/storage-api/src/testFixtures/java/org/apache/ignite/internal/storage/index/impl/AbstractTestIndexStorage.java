@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Test-only abstract index storage class.
  */
-abstract class AbstractTestIndexStorage implements IndexStorage {
+public abstract class AbstractTestIndexStorage implements IndexStorage {
     private volatile boolean destroyed;
 
     private volatile boolean rebalance;
@@ -128,6 +128,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
         nextRowIdToBuild = initialRowIdToBuild();
     }
 
+    /** Destroys the storage. */
     public void destroy() {
         destroyed = true;
 
