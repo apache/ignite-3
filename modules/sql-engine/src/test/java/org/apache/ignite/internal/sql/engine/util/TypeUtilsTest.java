@@ -80,8 +80,8 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
     private static final BaseTypeSpec INT64 = RowSchemaTypes.nativeType(NativeTypes.INT64);
     private static final BaseTypeSpec FLOAT = RowSchemaTypes.nativeType(NativeTypes.FLOAT);
     private static final BaseTypeSpec DOUBLE = RowSchemaTypes.nativeType(NativeTypes.DOUBLE);
-    private static final BaseTypeSpec STRING = RowSchemaTypes.nativeType(NativeTypes.STRING);
-    private static final BaseTypeSpec BYTES = RowSchemaTypes.nativeType(NativeTypes.BYTES);
+    private static final BaseTypeSpec STRING = RowSchemaTypes.nativeType(NativeTypes.stringOf(65536));
+    private static final BaseTypeSpec BYTES = RowSchemaTypes.nativeType(NativeTypes.blobOf(65536));
     private static final BaseTypeSpec UUID = RowSchemaTypes.nativeType(NativeTypes.UUID);
 
     @Test

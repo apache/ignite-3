@@ -70,6 +70,7 @@ public class ExecutionOptions {
         return Objects.hash(priority, maxRetries);
     }
 
+    /** Compose execution options.  */
     public static ExecutionOptions from(JobExecutionOptions jobExecutionOptions) {
         return builder().priority(jobExecutionOptions.priority()).maxRetries(jobExecutionOptions.maxRetries()).build();
     }

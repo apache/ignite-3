@@ -53,7 +53,7 @@ public class ReversedDeadlockPreventionTest extends AbstractDeadlockPreventionTe
 
     @Override
     protected DeadlockPreventionPolicy deadlockPreventionPolicy() {
-        return new DeadlockPreventionPolicyImpl(TxIdComparators.REVERSE, 0);
+        return new DeadlockPreventionPolicyImpl(TxIdComparators.REVERSED, 0);
     }
 
     @Test

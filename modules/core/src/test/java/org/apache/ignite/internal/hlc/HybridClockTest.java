@@ -75,13 +75,13 @@ class HybridClockTest extends BaseIgniteAbstractTest {
         assertTimestampEquals(100, new HybridTimestamp(100, 2),
                 () -> clock.update(new HybridTimestamp(60, 1000)));
 
-        assertTimestampEquals(200, new HybridTimestamp(200, 0),
+        assertTimestampEquals(200, new HybridTimestamp(100, 3),
                 () -> clock.update(new HybridTimestamp(70, 1)));
 
-        assertTimestampEquals(50, new HybridTimestamp(200, 1),
+        assertTimestampEquals(50, new HybridTimestamp(100, 4),
                 () -> clock.update(new HybridTimestamp(70, 1)));
 
-        assertTimestampEquals(500, new HybridTimestamp(500, 0),
+        assertTimestampEquals(500, new HybridTimestamp(100, 5),
                 () -> clock.update(new HybridTimestamp(70, 1)));
 
         assertTimestampEquals(500, new HybridTimestamp(600, 1),

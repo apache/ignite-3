@@ -165,6 +165,7 @@ import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.metrics.sources.OsMetricSource;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ChannelTypeRegistryProvider;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
@@ -368,6 +369,8 @@ public class IgniteImpl implements Ignite {
 
     private final LogicalTopologyService logicalTopologyService;
 
+    private final ComponentWorkingDir partitionsWorkDir;
+
     private final ComponentWorkingDir metastorageWorkDir;
 
     /** Client handler module. */
@@ -568,19 +571,20 @@ public class IgniteImpl implements Ignite {
                 new VaultStaleIds(vaultMgr),
                 clusterIdService,
                 criticalWorkerRegistry,
-                failureManager
+                failureManager,
+                ChannelTypeRegistryProvider.loadByServiceLoader(serviceProviderClassLoader)
         );
 
         clock = new HybridClockImpl();
 
-        clockWaiter = new ClockWaiter(name, clock);
+        clockWaiter = new ClockWaiter(name, clock, threadPoolsManager.commonScheduler());
 
         RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftExtensionConfiguration.KEY).raft();
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19051
         RaftGroupEventsClientListener raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
-        ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
+        partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
 
         partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 "table data log",
@@ -841,7 +845,8 @@ public class IgniteImpl implements Ignite {
                 longJvmPauseDetector,
                 failureManager,
                 partitionsLogStorageFactory,
-                clock
+                clock,
+                threadPoolsManager.commonScheduler()
         );
 
         dataStorageMgr = new DataStorageManager(
@@ -998,6 +1003,7 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 rebalanceScheduler,
+                threadPoolsManager.commonScheduler(),
                 clockService,
                 outgoingSnapshotsManager,
                 distributionZoneManager,
@@ -1823,8 +1829,23 @@ public class IgniteImpl implements Ignite {
     }
 
     @TestOnly
+    public ComponentWorkingDir partitionsWorkDir() {
+        return partitionsWorkDir;
+    }
+
+    @TestOnly
     public ComponentWorkingDir metastorageWorkDir() {
         return metastorageWorkDir;
+    }
+
+    @TestOnly
+    public LogStorageFactory partitionsLogStorageFactory() {
+        return partitionsLogStorageFactory;
+    }
+
+    @TestOnly
+    public LogStorageFactory volatileLogStorageFactory() {
+        return volatileLogStorageFactoryCreator.factory(raftMgr.volatileRaft().logStorageBudget().value());
     }
 
     /** Returns the node's transaction manager. */

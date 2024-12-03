@@ -53,7 +53,7 @@ public class ClientSchemasGetRequest {
                 // Return the latest schema.
                 out.packInt(1);
 
-                return schemaVersions.schemaVersionAtNow(table.tableId())
+                return schemaVersions.schemaVersionAtCurrentTime(table.tableId())
                         .thenAccept(version -> {
                             SchemaDescriptor schema = table.schemaView().schema(version);
 

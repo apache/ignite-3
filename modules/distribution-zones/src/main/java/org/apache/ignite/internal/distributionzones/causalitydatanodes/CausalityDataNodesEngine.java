@@ -241,15 +241,11 @@ public class CausalityDataNodesEngine {
                 // Update the data nodes set with pending data from augmentation map
                 subAugmentationMap.forEach((rev, augmentation) -> {
                     if (augmentation.addition() && rev > scaleUpTriggerRevision && rev <= lastScaleUpRevision) {
-                        for (Node node : augmentation.nodes()) {
-                            finalDataNodes.add(node);
-                        }
+                        finalDataNodes.addAll(augmentation.nodes());
                     }
 
                     if (!augmentation.addition() && rev > scaleDownTriggerRevision && rev <= lastScaleDownRevision) {
-                        for (Node node : augmentation.nodes()) {
-                            finalDataNodes.remove(node);
-                        }
+                        finalDataNodes.removeAll(augmentation.nodes());
                     }
                 });
             }

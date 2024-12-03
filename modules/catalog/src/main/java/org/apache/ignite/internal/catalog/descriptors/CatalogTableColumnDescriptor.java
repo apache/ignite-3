@@ -146,15 +146,15 @@ public class CatalogTableColumnDescriptor {
         @Override
         public CatalogTableColumnDescriptor readFrom(IgniteDataInput input) throws IOException {
             String name = input.readUTF();
-            int typeId = input.readInt();
+            int typeId = input.readVarIntAsInt();
             ColumnType type = ColumnType.getById(typeId);
 
             assert type != null : "Unknown column type: " + typeId;
 
             boolean nullable = input.readBoolean();
-            int precision = input.readInt();
-            int scale = input.readInt();
-            int length = input.readInt();
+            int precision = input.readVarIntAsInt();
+            int scale = input.readVarIntAsInt();
+            int length = input.readVarIntAsInt();
 
             DefaultValue defaultValue = DefaultValue.readFrom(input);
 
@@ -164,11 +164,11 @@ public class CatalogTableColumnDescriptor {
         @Override
         public void writeTo(CatalogTableColumnDescriptor descriptor, IgniteDataOutput output) throws IOException {
             output.writeUTF(descriptor.name());
-            output.writeInt(descriptor.type().id());
+            output.writeVarInt(descriptor.type().id());
             output.writeBoolean(descriptor.nullable());
-            output.writeInt(descriptor.precision());
-            output.writeInt(descriptor.scale());
-            output.writeInt(descriptor.length());
+            output.writeVarInt(descriptor.precision());
+            output.writeVarInt(descriptor.scale());
+            output.writeVarInt(descriptor.length());
 
             DefaultValue.writeTo(descriptor.defaultValue(), output);
         }
