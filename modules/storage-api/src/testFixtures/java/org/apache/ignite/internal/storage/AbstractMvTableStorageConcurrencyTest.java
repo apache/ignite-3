@@ -26,35 +26,27 @@ import static org.hamcrest.Matchers.notNullValue;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.junit.jupiter.api.RepeatedTest;
-import org.junit.jupiter.api.Test;
 
 /**
  * Test to check for race conditions in MV table storage.
  */
 @SuppressWarnings("JUnitTestMethodInProductSource")
 public abstract class AbstractMvTableStorageConcurrencyTest extends BaseMvTableStorageTest {
-    /** To be used in a loop. {@link RepeatedTest} has a smaller failure rate due to recreating the storage every time. */
-    private static final int REPEATS = 100;
+    @RepeatedTest(100)
+    void destroyTableAndPartitionAndIndexes() {
+        getOrCreateMvPartition(tableStorage, PARTITION_ID);
 
-    @Test
-    void destroyTableAndPartitionAndIndexes() throws Exception {
-        for (int i = 0; i < REPEATS; i++) {
-            recreateTableStorage();
+        SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
+        assertThat(sortedIndexStorage, is(notNullValue()));
 
-            getOrCreateMvPartition(tableStorage, PARTITION_ID);
+        HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
+        assertThat(hashIndexStorage, is(notNullValue()));
 
-            SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
-            assertThat(sortedIndexStorage, is(notNullValue()));
-
-            HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
-            assertThat(hashIndexStorage, is(notNullValue()));
-
-            runRace(
-                    () -> tableStorage.destroy().get(10, SECONDS),
-                    () -> tableStorage.destroyPartition(PARTITION_ID).get(10, SECONDS),
-                    () -> tableStorage.destroyIndex(sortedIdx.id()).get(10, SECONDS),
-                    () -> tableStorage.destroyIndex(hashIdx.id()).get(10, SECONDS)
-            );
-        }
+        runRace(
+                () -> tableStorage.destroy().get(10, SECONDS),
+                () -> tableStorage.destroyPartition(PARTITION_ID).get(10, SECONDS),
+                () -> tableStorage.destroyIndex(sortedIdx.id()).get(10, SECONDS),
+                () -> tableStorage.destroyIndex(hashIdx.id()).get(10, SECONDS)
+        );
     }
 }
