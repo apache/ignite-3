@@ -24,7 +24,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Contains the result of the remote kill operation.
+ * Contains the result of the remote cancel operation.
  *  and vice versa, in case of an error the result must be zero.
  *
  * @see CancelOperationRequest
@@ -32,18 +32,18 @@ import org.jetbrains.annotations.Nullable;
 @Transferable(SqlQueryMessageGroup.OPERATION_CANCEL_RESPONSE)
 public interface CancelOperationResponse extends NetworkMessage {
     /**
-     * Returns the result of canceling a remote operation.
+     * Returns the result of canceling an operation on the remote node.
      * If the result is {@code null} then {@link #error()} must not be {@code null}.
      *
-     * @return Result of the remote kill operation, or {@code null} in case of error.
+     * @return Result of canceling an operation on the remote node, or {@code null} in case of error.
      */
     @Nullable Boolean result();
 
     /**
-     * Returns the error that occurred when canceling a remote operation.
+     * Returns the error that occurred when canceling an operation on the remote node.
      * If the {@code error} is {@code null} then {@link #result()} must not be {@code null}.
      *
-     * @return Error that occurred when canceling a remote operation, or {@code null} if there was no error.
+     * @return Error that occurred when canceling an operation on the remote node., or {@code null} if there was no error.
      */
     @Marshallable
     @Nullable Throwable error();

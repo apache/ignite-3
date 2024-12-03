@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.api.kill;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Handler that can cancel operations of a certain type.
+ * Handler that can abort operations of a certain type.
  *
  * @see KillHandlerRegistry#register(OperationKillHandler)
  */

@@ -18,8 +18,9 @@
 package org.apache.ignite.internal.sql.engine.api.kill;
 
 /**
- * Registry of handlers that can kill a specific operation.
+ * Registry of handlers that can abort a specific operation.
  */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface KillHandlerRegistry {
     /**
      * Registers a kill handler.

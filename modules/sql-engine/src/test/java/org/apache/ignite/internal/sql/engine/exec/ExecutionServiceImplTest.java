@@ -83,6 +83,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -94,6 +95,8 @@ import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
@@ -121,6 +124,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueModifyPlan;
+import org.apache.ignite.internal.sql.engine.prepare.KillPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -210,6 +214,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private final List<QueryTaskExecutor> executers = new ArrayList<>();
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
+    private final KillHandlerRegistryImpl killHandlerRegistry =
+            new KillHandlerRegistryImpl(mock(TopologyService.class), mock(MessagingService.class));
 
     private ClusterNode firstNode;
 
@@ -999,6 +1006,49 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void testTimeoutKill() {
+        SqlOperationContext planCtx = operationContext(null).build();
+        QueryPlan plan = prepare("KILL QUERY '" + randomUUID() + '\'', planCtx);
+
+        assertInstanceOf(KillPlan.class, plan);
+
+        int deadlineMillis = 500;
+
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
+
+        Duration delay = Duration.of(deadlineMillis * 4, ChronoUnit.MILLIS);
+
+        killHandlerRegistry.register(new OperationKillHandler() {
+            @Override
+            public CompletableFuture<Boolean> cancelAsync(String operationId) {
+                return CompletableFuture.supplyAsync(() -> {
+                    try {
+                        Thread.sleep(delay.toMillis());
+
+                        return true;
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+
+                        throw new CompletionException(e);
+                    }
+                });
+            }
+
+            @Override
+            public boolean local() {
+                return false;
+            }
+
+            @Override
+            public CancellableOperationType type() {
+                return CancellableOperationType.QUERY;
+            }
+        });
+
+        awaitExecutionTimeout(execService, plan, deadlineMillis, QueryCancelledException.class);
+    }
+
+    @Test
     public void testTimeoutSelectCount() {
         // SELECT COUNT(*) does not run in transactional context.
         QueryTransactionContext txContext = ImplicitTxContext.INSTANCE;
@@ -1132,7 +1182,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps, tableFunctionRegistry),
                 clockService,
-                mock(KillHandlerRegistryImpl.class),
+                killHandlerRegistry,
                 SHUTDOWN_TIMEOUT
         );
 

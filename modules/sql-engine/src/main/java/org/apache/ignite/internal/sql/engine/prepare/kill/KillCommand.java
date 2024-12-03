@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare.kill;
 
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
 
 /**
  * SQL KILL command.
@@ -25,12 +26,22 @@ import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 public class KillCommand {
     private final String operationId;
     private final CancellableOperationType type;
-    private final boolean nowait;
+    private final boolean noWait;
 
-    KillCommand(String operationId, CancellableOperationType type, boolean nowait) {
-        this.operationId = operationId;
-        this.nowait = nowait;
-        this.type = type;
+    /**
+     * Creates KILL command from the AST node.
+     *
+     * @param sqlKill SQL KILL AST.
+     * @return Kill command.
+     */
+    public static KillCommand fromSqlCall(IgniteSqlKill sqlKill) {
+        String operationId = sqlKill.objectId().getValueAs(String.class);
+
+        assert operationId != null;
+
+        CancellableOperationType type = CancellableOperationType.valueOf(sqlKill.objectType().name());
+
+        return new KillCommand(operationId, type, Boolean.TRUE.equals(sqlKill.noWait()));
     }
 
     public String operationId() {
@@ -41,15 +52,21 @@ public class KillCommand {
         return type;
     }
 
-    public boolean nowait() {
-        return nowait;
+    public boolean noWait() {
+        return noWait;
     }
 
     @Override
     public String toString() {
-        return "KillCommandDescriptor{"
-                + "objectId='" + operationId + '\''
+        return "KillCommand{"
+                + "operationId='" + operationId + '\''
                 + ", type=" + type
-                + ", nowait=" + nowait + '}';
+                + ", noWait=" + noWait + '}';
+    }
+
+    private KillCommand(String operationId, CancellableOperationType type, boolean noWait) {
+        this.operationId = operationId;
+        this.noWait = noWait;
+        this.type = type;
     }
 }

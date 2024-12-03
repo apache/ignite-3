@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.kill;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -36,14 +37,15 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
-import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration tests for 'KILL QUERY' statement.
+ * Integration tests for SQL '{@code KILL}' statement.
  */
 public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     @AfterEach
@@ -53,10 +55,33 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    public void testKillQueryMetadata() {
+        assertQuery("KILL QUERY '00000000-0000-0000-0000-000000000000'")
+                .columnMetadata(
+                        new MetadataMatcher().name("CANCELLED").type(ColumnType.BOOLEAN).nullable(false)
+                )
+                .check();
+    }
+
+    @Test
+    public void killWithInvalidQueryIdentifier() {
+        assertThrowsSqlException(
+                Common.INTERNAL_ERR,
+                "Invalid UUID string: 123",
+                () -> sql("KILL QUERY '123'")
+        );
+    }
+
+    @Test
+    public void kilNonExistentQuery() {
+        checkKillQuery(CLUSTER.aliveNode(), UUID.randomUUID(), false);
+    }
+
+    @Test
     public void killQueryFromLocal() {
         Ignite node = CLUSTER.aliveNode();
 
-        AsyncSqlCursor<InternalSqlRow> cursor = executeQuery(node, "SELECT 1");
+        AsyncSqlCursor<InternalSqlRow> cursor = executeQueryInternal(node, "SELECT 1");
 
         List<QueryInfo> queries = runningQueries();
         assertThat(queries.size(), is(1));
@@ -76,7 +101,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         Ignite local = CLUSTER.node(0);
         Ignite remote = CLUSTER.node(2);
 
-        AsyncSqlCursor<InternalSqlRow> cursor = executeQuery(local, "SELECT 1");
+        AsyncSqlCursor<InternalSqlRow> cursor = executeQueryInternal(local, "SELECT 1");
 
         List<QueryInfo> queries = runningQueries();
         assertThat(queries.size(), is(1));
@@ -91,7 +116,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         checkKillQuery(local, targetQueryId, false);
     }
 
-    void checkKillQuery(Ignite node, UUID queryId, boolean expectedResult) {
+    private static void checkKillQuery(Ignite node, UUID queryId, boolean expectedResult) {
         String query = IgniteStringFormatter.format("KILL QUERY '{}'", queryId);
 
         List<List<Object>> res = sql(node, null, null, null, query);
@@ -101,18 +126,12 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         assertThat(res.get(0).get(0), is(expectedResult));
     }
 
-    void checkKillQueryNoWait(Ignite node, UUID queryId) {
+    private static void checkKillQueryNoWait(Ignite node, UUID queryId) {
         String query = IgniteStringFormatter.format("KILL QUERY '{}' NO WAIT", queryId);
 
         List<List<Object>> res = sql(node, null, null, null, query);
 
         assertThat(res, hasSize(0));
-    }
-
-    private static OperationKillHandler handler(Ignite node) {
-        return ((KillHandlerRegistryImpl) unwrapIgniteImpl(node)
-                .cancelHandlersRegistry())
-                .handler(CancellableOperationType.QUERY);
     }
 
     private static List<QueryInfo> runningQueries() {
@@ -121,7 +140,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
                 .collect(Collectors.toList());
     }
 
-    private static AsyncSqlCursor<InternalSqlRow> executeQuery(Ignite node, String query) {
+    private static AsyncSqlCursor<InternalSqlRow> executeQueryInternal(Ignite node, String query) {
         IgniteImpl ignite = unwrapIgniteImpl(node);
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut = ignite.queryEngine().queryAsync(

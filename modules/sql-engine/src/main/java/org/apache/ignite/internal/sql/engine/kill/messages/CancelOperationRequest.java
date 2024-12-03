@@ -22,7 +22,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
- * Request to kill an operation.
+ * Request to cancel an operation.
  *
  * @see CancelOperationResponse
  */

@@ -33,9 +33,8 @@ import org.apache.ignite.sql.ResultSetMetadata;
 public class KillPlan implements QueryPlan {
     /** Kill command metadata holder. */
     private static final ResultSetMetadata KILL_METADATA = new ResultSetMetadataImpl(List.of(
-            new ColumnMetadataImpl("APPLIED", ColumnType.BOOLEAN, 1, ColumnMetadata.UNDEFINED_SCALE, true, null)));
+            new ColumnMetadataImpl("CANCELLED", ColumnType.BOOLEAN, 1, ColumnMetadata.UNDEFINED_SCALE, false, null)));
 
-    /** DDL has no parameters. */
     private static final ParameterMetadata EMPTY_PARAMETERS = new ParameterMetadata(Collections.emptyList());
 
     private final PlanId id;

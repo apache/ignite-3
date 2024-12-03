@@ -39,8 +39,8 @@ public enum SqlQueryType {
     /** Transaction control statements such as {@code START TRANSACTION}, {@code COMMIT},  etc. */
     TX_CONTROL,
 
-    /** Kill statement. */
-    KILL
+    /** Kill statement (such as {@code KILL QUERY <ID>}, {@code KILL TRANSACTION <ID>}, etc.  */
+    KILL,
 
     ;
 

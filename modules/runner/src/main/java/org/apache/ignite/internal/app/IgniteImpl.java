@@ -227,7 +227,6 @@ import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtens
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
 import org.apache.ignite.internal.sql.engine.kill.KillHandlerRegistryImpl;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
@@ -464,8 +463,6 @@ public class IgniteImpl implements Ignite {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
-
-    private final KillHandlerRegistry killHandlerRegistry;
 
     /**
      * The Constructor.
@@ -948,11 +945,6 @@ public class IgniteImpl implements Ignite {
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-        killHandlerRegistry = new KillHandlerRegistryImpl(
-                clusterSvc.topologyService(),
-                clusterSvc.messagingService()
-        );
-
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 
         LockManager lockMgr = new HeapLockManager();
@@ -1085,7 +1077,7 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                (KillHandlerRegistryImpl) killHandlerRegistry
+                new KillHandlerRegistryImpl(clusterSvc.topologyService(), clusterSvc.messagingService())
         );
 
         systemViewManager.register(qryEngine);
@@ -1567,11 +1559,6 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public QueryProcessor queryEngine() {
         return qryEngine;
-    }
-
-    @TestOnly
-    public KillHandlerRegistry cancelHandlersRegistry() {
-        return killHandlerRegistry;
     }
 
     @TestOnly

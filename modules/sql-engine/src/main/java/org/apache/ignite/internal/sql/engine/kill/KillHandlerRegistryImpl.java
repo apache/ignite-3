@@ -38,7 +38,9 @@ import org.jetbrains.annotations.Nullable;
 public class KillHandlerRegistryImpl implements KillHandlerRegistry {
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
-    private final EnumMap<CancellableOperationType, OperationKillHandler> handlers = new EnumMap<>(CancellableOperationType.class);
+    private final EnumMap<CancellableOperationType, OperationKillHandler> localHandlers = new EnumMap<>(CancellableOperationType.class);
+
+    private final EnumMap<CancellableOperationType, OperationKillHandler> clusterHandlers = new EnumMap<>(CancellableOperationType.class);
 
     private final TopologyService topologyService;
 
@@ -59,7 +61,22 @@ public class KillHandlerRegistryImpl implements KillHandlerRegistry {
         Objects.requireNonNull(handler, "handler");
         Objects.requireNonNull(handler.type(), "handler type cannot be null");
 
-        OperationKillHandler prevHandler = handlers.putIfAbsent(handler.type(), handler);
+        OperationKillHandler clusterWideHandler;
+
+        if (handler.local()) {
+            localHandlers.putIfAbsent(handler.type(), handler);
+
+            clusterWideHandler = new LocalToClusterCancelHandlerWrapper(
+                    handler,
+                    handler.type(),
+                    topologyService,
+                    messageService
+            );
+        } else {
+            clusterWideHandler = handler;
+        }
+
+        OperationKillHandler prevHandler = clusterHandlers.putIfAbsent(handler.type(), clusterWideHandler);
 
         if (prevHandler != null) {
             throw new IllegalArgumentException("A handler for the specified type has already been registered "
@@ -68,32 +85,24 @@ public class KillHandlerRegistryImpl implements KillHandlerRegistry {
     }
 
     /**
-     * Returns a handler that can kill an operation of the specified type across the entire cluster.
+     * Returns a handler that can abort an operation of the specified type across the entire cluster.
      *
      * @param type Type of the cancellable operation.
-     * @return Handler that can kill an operation of the specified type across the entire cluster.
+     * @return Handler that can abort an operation of the specified type across the entire cluster.
      */
     public OperationKillHandler handler(CancellableOperationType type) {
-        OperationKillHandler handler = handlerOrThrow(type);
-
-        if (handler.local()) {
-            return new LocalToClusterCancelHandlerWrapper(
-                    handler,
-                    type,
-                    topologyService,
-                    messageService
-            );
-        }
-
-        return handler;
+        return handlerOrThrow(type, false);
     }
 
-    private OperationKillHandler handlerOrThrow(CancellableOperationType type) {
+    private OperationKillHandler handlerOrThrow(CancellableOperationType type, boolean local) {
         Objects.requireNonNull(type, "type");
+
+        EnumMap<CancellableOperationType, OperationKillHandler> handlers = local ? localHandlers : clusterHandlers;
+
         OperationKillHandler handler = handlers.get(type);
 
         if (handler == null) {
-            throw new IllegalArgumentException("No registered handler [type=" + type + "].");
+            throw new IllegalArgumentException("No handler is registered for the specified type [type=" + type + "].");
         }
 
         return handler;
@@ -110,10 +119,8 @@ public class KillHandlerRegistryImpl implements KillHandlerRegistry {
             try {
                 CancelOperationRequest request = (CancelOperationRequest) networkMessage;
                 CancellableOperationType type = CancellableOperationType.valueOf(request.type());
-                OperationKillHandler handler = handlerOrThrow(type);
+                OperationKillHandler handler = handlerOrThrow(type, true);
                 String operationId = request.id();
-
-                assert handler.local() : "Handler must be local " + handler;
 
                 handler.cancelAsync(operationId).whenComplete(
                         (result, throwable) -> {

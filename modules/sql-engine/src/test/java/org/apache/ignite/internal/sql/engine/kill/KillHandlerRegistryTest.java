@@ -104,7 +104,7 @@ public class KillHandlerRegistryTest extends BaseIgniteAbstractTest {
         IgniteTestUtils.assertThrows(
                 IllegalArgumentException.class,
                 () -> manager.handler(CancellableOperationType.COMPUTE),
-                "No registered handler [type=" + CancellableOperationType.COMPUTE.name() + "]."
+                "No handler is registered for the specified type [type=" + CancellableOperationType.COMPUTE.name() + "]."
         );
     }
 

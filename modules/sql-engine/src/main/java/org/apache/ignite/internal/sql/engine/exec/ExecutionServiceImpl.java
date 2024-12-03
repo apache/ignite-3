@@ -501,10 +501,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         CompletableFuture<Boolean> killFut = killHandlerRegistry.handler(cmd.type())
                 .cancelAsync(cmd.operationId());
 
-        CompletableFuture<Iterator<InternalSqlRow>> ret =
-                (cmd.nowait() ? CompletableFutures.trueCompletedFuture() : killFut)
+        CompletableFuture<Iterator<InternalSqlRow>> resFut =
+                (cmd.noWait() ? CompletableFutures.falseCompletedFuture() : killFut)
                 .thenApply(applied -> {
-                    if (cmd.nowait()) {
+                    if (cmd.noWait()) {
                         return Collections.<InternalSqlRow>emptyIterator();
                     }
 
@@ -523,7 +523,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         PrefetchCallback callback = operationContext.prefetchCallback();
         if (callback != null) {
-            ret.whenCompleteAsync((res, err) -> callback.onPrefetchComplete(err), taskExecutor);
+            resFut.whenCompleteAsync((res, err) -> callback.onPrefetchComplete(err), taskExecutor);
         }
 
         QueryCancel queryCancel = operationContext.cancel();
@@ -531,11 +531,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         queryCancel.add(timeout -> {
             if (timeout) {
-                ret.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
+                resFut.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
             }
         });
 
-        return new IteratorToDataCursorAdapter<>(ret, Runnable::run);
+        return new IteratorToDataCursorAdapter<>(resFut, Runnable::run);
     }
 
     private static RuntimeException convertDdlException(Throwable e) {
