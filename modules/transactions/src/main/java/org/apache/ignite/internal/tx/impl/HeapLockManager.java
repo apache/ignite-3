@@ -44,8 +44,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
@@ -74,10 +77,12 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Additionally limits the lock map size.
  */
 public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventParameters> implements LockManager {
+    private static final IgniteLogger LOG = Loggers.forClass(HeapLockManager.class);
+
     /**
      * Table size. TODO make it configurable IGNITE-20694
      */
-    public static final int SLOTS = 131072;
+    public static final int SLOTS = 1_048_576;
 
     /**
      * Striped lock concurrency.
@@ -124,6 +129,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * Coarse locks.
      */
     private final ConcurrentHashMap<Object, CoarseLockState> coarseMap = new ConcurrentHashMap<>();
+
+    /**
+     * The value is true if all slots were exhausted and lock states started to share. False at start.
+     */
+    private final AtomicBoolean isSlotsExhausted = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -288,6 +298,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     res[0] = v;
                 }
             } else {
+                if (isSlotsExhausted.compareAndExchange(false, true)) {
+                    LOG.warn("Log manager runs out of slots. So the lock state starts to share, and conflicts may appear frequently.");
+                }
+
                 res[0] = v;
             }
 
