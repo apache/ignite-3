@@ -166,7 +166,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).upsertAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(1)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -199,7 +199,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).deleteAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(1)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -255,7 +255,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).upsertAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(1)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -283,7 +283,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).deleteAll(any(), any(), any());
-        verify(updatableTable, times(2)).descriptor();
+        verify(updatableTable, times(1)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -390,6 +390,8 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Builder inputRowBuilder = RowSchema.builder();
         srcFactory.rowSchema().fields().forEach(inputRowBuilder::addField);
         dstFactory.rowSchema().fields().forEach(inputRowBuilder::addField);
+        inputRowBuilder.addField(NativeTypes.INT32, true); //updated field value
+
         RowFactory<RowWrapper> inputRowFactory = rowHandler.factory(inputRowBuilder.build());
 
         Node<RowWrapper> sourceNode = new ScanNode<>(
