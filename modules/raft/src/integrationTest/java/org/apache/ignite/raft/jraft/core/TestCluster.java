@@ -41,7 +41,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -96,7 +96,7 @@ public class TestCluster {
     private final ConcurrentMap<PeerId, RaftGroupService> serverMap = new ConcurrentHashMap<>();
     private final int electionTimeoutMs;
     private final Lock lock = new ReentrantLock();
-    private @Nullable Consumer<NodeOptions> optsClo;
+    private @Nullable BiConsumer<PeerId, NodeOptions> optsClo;
 
     /** Test info. */
     private final TestInfo testInfo;
@@ -154,7 +154,7 @@ public class TestCluster {
         List<TestPeer> peers,
         LinkedHashSet<TestPeer> learners,
         int electionTimeoutMs,
-        @Nullable Consumer<NodeOptions> optsClo,
+        @Nullable BiConsumer<PeerId, NodeOptions> optsClo,
         TestInfo testInfo
     ) {
         this.name = name;
@@ -278,7 +278,7 @@ public class TestCluster {
             assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
             if (optsClo != null)
-                optsClo.accept(nodeOptions);
+                optsClo.accept(peer.getPeerId(), nodeOptions);
 
             RaftGroupService server = new RaftGroupService(this.name, peer.getPeerId(),
                 nodeOptions, rpcServer, nodeManager) {
@@ -609,7 +609,7 @@ public class TestCluster {
         }
     }
 
-    public void setNodeOptionsCustomizer(Consumer<NodeOptions> customizer) {
+    public void setNodeOptionsCustomizer(BiConsumer<PeerId, NodeOptions> customizer) {
         this.optsClo = customizer;
     }
 }
