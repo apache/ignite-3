@@ -46,10 +46,13 @@ public class LeaseAgreement {
      * The agreement, which has not try negotiating yet. We assume that it is {@link #ready()} and not {@link #isAccepted()}
      * which allows both initiation and retries of negotiation.
      */
-    static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, nullCompletedFuture());
+    static final LeaseAgreement UNDEFINED_AGREEMENT = new LeaseAgreement(null, nullCompletedFuture(), false);
 
     /** Lease. */
     private final Lease lease;
+
+    /** Forced agreement. */
+    private final boolean forced;
 
     /** Future to {@link LeaseGrantedMessageResponse} response. */
     private final CompletableFuture<LeaseGrantedMessageResponse> responseFut;
@@ -58,9 +61,10 @@ public class LeaseAgreement {
      * The constructor.
      *
      * @param lease Lease.
+     * @param forced Forced agreement.
      */
-    public LeaseAgreement(Lease lease) {
-        this(lease, new CompletableFuture<>());
+    public LeaseAgreement(Lease lease, boolean forced) {
+        this(lease, new CompletableFuture<>(), forced);
     }
 
     /**
@@ -68,10 +72,12 @@ public class LeaseAgreement {
      *
      * @param lease Lease.
      * @param remoteNodeResponseFuture The future of response from the remote node which is negotiating the agreement.
+     * @param forced Forced agreement.
      */
-    private LeaseAgreement(Lease lease, CompletableFuture<LeaseGrantedMessageResponse> remoteNodeResponseFuture) {
+    private LeaseAgreement(Lease lease, CompletableFuture<LeaseGrantedMessageResponse> remoteNodeResponseFuture, boolean forced) {
         this.lease = lease;
         this.responseFut = requireNonNull(remoteNodeResponseFuture);
+        this.forced = forced;
     }
 
     /**
@@ -81,6 +87,24 @@ public class LeaseAgreement {
      */
     public Lease getLease() {
         return lease;
+    }
+
+    /**
+     * Group id of lease.
+     *
+     * @return Group id.
+     */
+    public ReplicationGroupId groupId() {
+        return lease.replicationGroupId();
+    }
+
+    /**
+     * Gets a forced agreement flag.
+     *
+     * @return Forced agreement flag.
+     */
+    public boolean forced() {
+        return forced;
     }
 
     /**

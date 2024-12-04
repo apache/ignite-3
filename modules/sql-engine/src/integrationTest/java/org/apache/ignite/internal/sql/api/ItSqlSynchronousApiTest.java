@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -74,8 +75,19 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
                     .build();
 
             Transaction transaction = igniteTx().begin();
+
+            transactions.add(transaction);
+
             return sql.execute(transaction, token, statement);
         });
+
+        // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+        cancelHandle.cancel();
+
+        //noinspection resource
+        expectQueryCancelled(() -> sql.execute(null, token, "SELECT 1"));
     }
 
     @Test
@@ -91,6 +103,9 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         // with transaction
         executeAndCancel((token) -> {
             Transaction transaction = igniteTx().begin();
+
+            transactions.add(transaction);
+
             return sql.execute(transaction, token, query);
         });
     }
@@ -158,6 +173,11 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     @Override
     protected void executeScript(IgniteSql sql, String query, Object... args) {
         sql.executeScript(query, args);
+    }
+
+    @Override
+    protected void executeScript(IgniteSql sql, CancellationToken cancellationToken, String query, Object... args) {
+        sql.executeScript(cancellationToken, query, args);
     }
 
     @Override

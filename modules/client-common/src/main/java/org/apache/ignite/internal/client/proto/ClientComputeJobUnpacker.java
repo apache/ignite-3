@@ -17,16 +17,14 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_CUSTOM;
-import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_POJO;
-import static org.apache.ignite.internal.client.proto.ComputeJobType.MARSHALLED_TUPLE;
-import static org.apache.ignite.internal.client.proto.ComputeJobType.NATIVE;
-import static org.apache.ignite.internal.client.proto.pojo.PojoConverter.fromTuple;
+import static org.apache.ignite.internal.compute.PojoConverter.fromTuple;
 import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 
 import java.lang.reflect.InvocationTargetException;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
-import org.apache.ignite.internal.client.proto.pojo.PojoConversionException;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.ComputeJobDataType;
+import org.apache.ignite.internal.compute.PojoConversionException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnmarshallingException;
 import org.jetbrains.annotations.Nullable;
@@ -54,8 +52,12 @@ public final class ClientComputeJobUnpacker {
 
         // Underlying byte array expected to be in the following format: | typeId | value |.
         int typeId = unpacker.unpackInt();
+        ComputeJobDataType type = ComputeJobDataType.fromId(typeId);
+        if (type == null) {
+            throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
+        }
 
-        switch (typeId) {
+        switch (type) {
             case NATIVE:
                 if (marshaller != null) {
                     throw new UnmarshallingException(
@@ -64,7 +66,7 @@ public final class ClientComputeJobUnpacker {
                 }
 
                 return unpacker.unpackObjectFromBinaryTuple();
-            case MARSHALLED_TUPLE:
+            case TUPLE:
                 return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
 
             case MARSHALLED_CUSTOM:
@@ -75,7 +77,7 @@ public final class ClientComputeJobUnpacker {
                 }
                 return tryUnmarshalOrCast(marshaller, unpacker.readBinary());
 
-            case MARSHALLED_POJO:
+            case POJO:
                 if (resultClass == null) {
                     throw new UnmarshallingException(
                             "Can not unpack object because the pojo class is not provided but the object was packed as pojo. "
@@ -85,7 +87,7 @@ public final class ClientComputeJobUnpacker {
                 return unpackPojo(unpacker, resultClass);
 
             default:
-                throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
+                throw new UnmarshallingException("Unsupported compute job type: " + type);
         }
     }
 
@@ -118,17 +120,20 @@ public final class ClientComputeJobUnpacker {
         }
 
         int typeId = unpacker.unpackInt();
+        ComputeJobDataType type = ComputeJobDataType.fromId(typeId);
+        if (type == null) {
+            throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
+        }
 
-        switch (typeId) {
+        switch (type) {
             case NATIVE:
                 return unpacker.unpackObjectFromBinaryTuple();
-            case MARSHALLED_TUPLE: // Fallthrough, the pojo is unmarshalled during execution when the concrete type is known.
-            case MARSHALLED_POJO:
-                return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
+            case TUPLE: // Fallthrough, these types are unmarshalled just before execution.
+            case POJO:
             case MARSHALLED_CUSTOM:
-                return unpacker.readBinary();
+                return new ComputeJobDataHolder(type, unpacker.readBinary());
             default:
-                throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
+                throw new UnmarshallingException("Unsupported compute job type: " + type);
         }
     }
 }

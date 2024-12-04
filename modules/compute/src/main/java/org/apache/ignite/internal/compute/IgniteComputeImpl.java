@@ -67,6 +67,8 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.CancelHandleHelper;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
@@ -108,8 +110,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         tables.setStreamerReceiverRunner(this);
     }
 
-    @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
+    <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
+            @Nullable T args) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
@@ -121,7 +123,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
             return new ResultUnmarshallingJobExecution<>(
                     executeAsyncWithFailover(
-                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(),
+                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), cancellationToken,
                             tryMarshalOrCast(argumentMarshaller, args)
                     ),
                     resultMarshaller
@@ -143,7 +145,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, mapper),
                                         descriptor.units(),
                                         descriptor.jobClassName(),
-                                        descriptor.options(),
+                                        descriptor.options(), cancellationToken,
                                         tryMarshalOrCast(argumentMarshaller, args)
                                 )));
 
@@ -155,6 +157,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                 descriptor.units(),
                                 descriptor.jobClassName(),
                                 descriptor.options(),
+                                cancellationToken,
                                 tryMarshalOrCast(argumentMarshaller, args)))
                         .thenApply(job -> (JobExecution<R>) job);
             }
@@ -166,8 +169,20 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, T args) {
-        return sync(executeAsync(target, descriptor, args));
+    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
+        return submit(target, descriptor, null, arg);
+    }
+
+    @Override
+    public <T, R> CompletableFuture<R> executeAsync(JobTarget target, JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return submit(target, descriptor, cancellationToken, arg).resultAsync();
+    }
+
+    @Override
+    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
+            @Nullable T args) {
+        return sync(executeAsync(target, descriptor, cancellationToken, args));
     }
 
     @Override
@@ -176,6 +191,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            @Nullable CancellationToken cancellationToken,
             @Nullable Object arg
     ) {
         Set<ClusterNode> candidates = new HashSet<>();
@@ -201,6 +217,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         units,
                         jobClassName,
                         options,
+                        cancellationToken,
                         arg
                 ));
     }
@@ -222,16 +239,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
+            @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
 
         if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(options, units, jobClassName, arg);
+            return computeComponent.executeLocally(options, units, jobClassName, cancellationToken, arg);
         } else {
             return computeComponent.executeRemotelyWithFailover(
-                    targetNode, nextWorkerSelector, units, jobClassName, options, arg
-            );
+                    targetNode, nextWorkerSelector, units, jobClassName, options, cancellationToken, arg);
         }
     }
 
@@ -263,12 +280,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            @Nullable CancellationToken cancellationToken,
             @Nullable Object arg) {
         return primaryReplicaForPartitionByTupleKey(table, key)
                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
-                        units, jobClassName, options, arg
+                        units, jobClassName, options, cancellationToken, arg
                 ));
     }
 
@@ -334,22 +352,39 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                             executeOnOneNodeWithFailover(
                                                     node, CompletableFutures::nullCompletedFuture,
                                                     descriptor.units(), descriptor.jobClassName(),
-                                                    descriptor.options(), tryMarshalOrCast(argumentMarshaller, args))),
+                                                    descriptor.options(), null, tryMarshalOrCast(argumentMarshaller, args))),
                                     resultMarshaller);
                         }));
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        Objects.requireNonNull(taskDescriptor);
-
-        return new TaskExecutionWrapper<>(
-                computeComponent.executeTask(this::submitJob, taskDescriptor.units(), taskDescriptor.taskClassName(), arg));
+    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
+            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return submitMapReduce(taskDescriptor, cancellationToken, arg).resultAsync();
     }
 
     @Override
-    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return sync(executeMapReduceAsync(taskDescriptor, arg));
+    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return submitMapReduce(taskDescriptor, null, arg);
+    }
+
+    <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken,
+            @Nullable T arg) {
+        Objects.requireNonNull(taskDescriptor);
+
+        TaskExecutionWrapper<R> execution = new TaskExecutionWrapper<>(
+                computeComponent.executeTask(this::submitJob, taskDescriptor.units(), taskDescriptor.taskClassName(), arg));
+
+        if (cancellationToken != null) {
+            CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+        }
+
+        return execution;
+    }
+
+    @Override
+    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
     }
 
     private <M, T> JobExecution<T> submitJob(MapReduceJob<M, T> runner) {
@@ -397,6 +432,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 deploymentUnits,
                 StreamerReceiverJob.class.getName(),
                 JobExecutionOptions.DEFAULT,
+                null,
                 payload);
 
         return jobExecution.resultAsync()

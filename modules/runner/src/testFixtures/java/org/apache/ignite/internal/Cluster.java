@@ -54,6 +54,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -381,6 +382,13 @@ public class Cluster {
     }
 
     /**
+     * Returns an Ignite node (a member of the cluster) by its index.
+     */
+    public @Nullable Ignite nullableNode(int index) {
+        return nodes.get(index);
+    }
+
+    /**
      * Returns a node that is not stopped and not knocked out (so it can be used to interact with the cluster).
      */
     public Ignite aliveNode() {
@@ -390,6 +398,14 @@ public class Cluster {
                 .mapToObj(nodes::get)
                 .findAny()
                 .orElseThrow(() -> new IllegalStateException("There is no single alive node that would not be knocked out"));
+    }
+
+    protected List<IgniteBiTuple<Integer, Ignite>> aliveNodesWithIndices() {
+        return IntStream.range(0, nodes.size())
+                .filter(index -> nodes.get(index) != null)
+                .filter(index -> !knockedOutNodesIndices.contains(index))
+                .mapToObj(index -> new IgniteBiTuple<>(index, nodes.get(index)))
+                .collect(toList());
     }
 
     /**

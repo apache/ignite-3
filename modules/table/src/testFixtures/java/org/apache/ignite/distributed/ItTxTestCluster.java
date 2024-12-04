@@ -173,7 +173,6 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -209,8 +208,6 @@ public class ItTxTestCluster {
     private static final IgniteLogger LOG = Loggers.forClass(ItTxTestCluster.class);
 
     public static final int NODE_PORT_BASE = 20_000;
-
-    private static final RaftMessagesFactory FACTORY = new RaftMessagesFactory();
 
     private ClusterService client;
 
@@ -403,8 +400,8 @@ public class ItTxTestCluster {
 
             ClusterNode node = clusterService.topologyService().localMember();
 
-            HybridClock clock = new HybridClockImpl();
-            ClockWaiter clockWaiter = new ClockWaiter("test-node" + i, clock);
+            HybridClock clock = createClock(node);
+            ClockWaiter clockWaiter = new ClockWaiter("test-node" + i, clock, executor);
             assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
             TestClockService clockService = new TestClockService(clock, clockWaiter);
 
@@ -465,7 +462,7 @@ public class ItTxTestCluster {
                     Set.of(PartitionReplicationMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
                     partitionOperationsExecutor,
-                    () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                    this::getSafeTimePropagationTimeout,
                     new NoOpFailureManager(),
                     commandMarshaller,
                     raftClientFactory,
@@ -547,6 +544,14 @@ public class ItTxTestCluster {
         igniteTransactions = new IgniteTransactionsImpl(clientTxManager, timestampTracker);
 
         assertNotNull(clientTxManager);
+    }
+
+    protected HybridClock createClock(ClusterNode node) {
+        return new HybridClockImpl();
+    }
+
+    protected long getSafeTimePropagationTimeout() {
+        return DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
     }
 
     protected TxManagerImpl newTxManager(
@@ -1027,8 +1032,8 @@ public class ItTxTestCluster {
 
         assertTrue(waitForTopology(client, nodes + 1, 1000));
 
-        clientClock = new HybridClockImpl();
-        clientClockWaiter = new ClockWaiter("client-node", clientClock);
+        clientClock = createClock(client.topologyService().localMember());
+        clientClockWaiter = new ClockWaiter("client-node", clientClock, executor);
         assertThat(clientClockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
         clientClockService = new TestClockService(clientClock, clientClockWaiter);
 

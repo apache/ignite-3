@@ -66,7 +66,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.ScheduledExecutorService;
@@ -132,8 +131,9 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -142,7 +142,6 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CursorUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -160,7 +159,7 @@ import org.mockito.quality.Strictness;
 
 /** Tests scenarios for table manager. */
 // TODO: test demands for reworking https://issues.apache.org/jira/browse/IGNITE-22388
-@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
     /** The name of the table which is preconfigured. */
@@ -262,7 +261,11 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Catalog manager. */
     private CatalogManager catalogManager;
 
+    @InjectExecutorService(threadCount = 5, allowedOperations = {STORAGE_READ, STORAGE_WRITE})
     private ExecutorService partitionOperationsExecutor;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
 
     private TestLowWatermark lowWatermark;
 
@@ -317,11 +320,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         tblManagerFut = new CompletableFuture<>();
 
         mockMetastore();
-
-        partitionOperationsExecutor = Executors.newFixedThreadPool(
-                5,
-                IgniteThreadFactory.create("test", "partition-operations", log, STORAGE_READ, STORAGE_WRITE)
-        );
     }
 
     @AfterEach
@@ -343,9 +341,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 () -> assertThat(
                         stopAsync(componentContext, dsm, sm, indexMetaStorage, catalogManager, catalogMetastore),
                         willCompleteSuccessfully()
-                ),
-                partitionOperationsExecutor == null ? null
-                        : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
+                )
         );
     }
 
@@ -833,7 +829,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 sm = new SchemaManager(revisionUpdater, catalogManager),
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
-                mock(ScheduledExecutorService.class),
+                scheduledExecutor,
+                scheduledExecutor,
                 new TestClockService(clock),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 distributionZoneManager,
@@ -902,7 +899,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                         null,
                         mock(FailureManager.class),
                         mock(LogSyncer.class),
-                        clock
+                        clock,
+                        scheduledExecutor
                 ),
                 storageConfiguration
         );

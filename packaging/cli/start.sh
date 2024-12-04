@@ -22,19 +22,10 @@
 LOG_DIR="@LOG_DIR@"
 CLASSPATH="@LIB_DIR@/@APP_JAR@:@LIB_DIR@/*"
 MAIN_CLASS="@MAIN_CLASS@"
-ARGS="@ARGS@"
 
 DEFAULT_JVM_OPTS="-Dfile.encoding=UTF-8 \
     -XX:+HeapDumpOnOutOfMemoryError \
     -XX:+ExitOnOutOfMemoryError \
     -XX:HeapDumpPath=${LOG_DIR}"
 
-
-CMD="${JAVACMD} \
-${DEFAULT_JVM_OPTS} \
--classpath ${CLASSPATH} \
-${MAIN_CLASS} \
-${ARGS}"
-
-${CMD}
-
+${JAVACMD} ${DEFAULT_JVM_OPTS} -classpath ${CLASSPATH} ${MAIN_CLASS} "$@"

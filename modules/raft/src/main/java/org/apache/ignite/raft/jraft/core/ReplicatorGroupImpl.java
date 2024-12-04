@@ -119,9 +119,14 @@ public class ReplicatorGroupImpl implements ReplicatorGroup {
         assert client != null;
 
         if (!client.connect(peer)) {
-            LOG.error("Fail to check replicator connection to peer={}, replicatorType={}.", peer, replicatorType);
+            if (!failureReplicators.containsKey(peer)) {
+                LOG.error("Fail to check replicator connection to peer={}, replicatorType={}.", peer, replicatorType);
+            }
+
             this.failureReplicators.put(peer, replicatorType);
             return false;
+        } else {
+            failureReplicators.remove(peer);
         }
 
 //        if (!sync) {

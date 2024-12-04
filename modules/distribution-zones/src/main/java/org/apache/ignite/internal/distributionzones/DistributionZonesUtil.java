@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -77,6 +78,9 @@ public class DistributionZonesUtil {
 
     /** Key prefix for zone's data nodes. */
     public static final String DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "value.";
+
+    public static final byte[] DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES =
+            DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX.getBytes(StandardCharsets.UTF_8);
 
     /** Key prefix for zone's scale up change trigger key. */
     private static final String DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX =
@@ -164,7 +168,7 @@ public class DistributionZonesUtil {
      * @return ByteArray representation.
      */
     public static ByteArray zoneDataNodesKey() {
-        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
+        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES);
     }
 
     /**

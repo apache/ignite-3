@@ -49,6 +49,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -152,7 +153,9 @@ public class CmgRaftService implements ManuallyCloseable {
                 .clusterTag(clusterTag)
                 .build();
 
-        return raftService.run(command)
+        // Using NO_TIMEOUT because we want a node that doesn't see CMG majority at start to hang out until someone else starts; otherwise,
+        // if we employ a timeout here, node-by-node starts might cause inability to form a cluster.
+        return raftService.run(command, RaftCommandRunner.NO_TIMEOUT)
                 .thenAccept(response -> {
                     if (response instanceof ValidationErrorResponse) {
                         throw new JoinDeniedException("Join request denied, reason: " + ((ValidationErrorResponse) response).reason());

@@ -61,6 +61,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     private volatile boolean closed = false;
 
+    private volatile boolean cancelled = false;
+
     /**
      * Amount of rows which were requested from a source.
      *
@@ -124,17 +126,17 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     public CompletableFuture<BatchedResult<OutRowT>> requestNextAsync(int rows) {
         CompletableFuture<BatchedResult<OutRowT>> next = new CompletableFuture<>();
 
-        Throwable t = ex.get();
-
-        if (t != null) {
-            next.completeExceptionally(t);
-
-            return next;
-        }
-
         synchronized (lock) {
+            Throwable t = ex.get();
+
+            if (t != null) {
+                next.completeExceptionally(t);
+
+                return next;
+            }
+
             if (closed) {
-                next.completeExceptionally(new CursorClosedException());
+                next.completeExceptionally(cancelled ? new QueryCancelledException() : new CursorClosedException());
 
                 return next;
             }
@@ -149,9 +151,11 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> closeAsync() {
+    public CompletableFuture<Void> closeAsync(boolean cancelled) {
         if (!closed) {
             synchronized (lock) {
+                this.cancelled = cancelled;
+
                 if (!closed) {
                     Throwable th = ex.get();
 

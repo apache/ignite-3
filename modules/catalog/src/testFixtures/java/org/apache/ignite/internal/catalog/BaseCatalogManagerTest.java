@@ -35,6 +35,7 @@ import static org.mockito.Mockito.spy;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -63,13 +64,17 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Base class for testing the {@link CatalogManager}.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
@@ -81,6 +86,9 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     protected static final String INDEX_NAME_2 = "myIndex2";
 
     protected final HybridClock clock = new HybridClockImpl();
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
 
     ClockWaiter clockWaiter;
 
@@ -101,10 +109,10 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
         partitionIdleSafeTimePropagationPeriod.set(CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
 
-        metastore = StandaloneMetaStorageManager.create(NODE_NAME);
+        metastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
         updateLog = spy(new UpdateLogImpl(metastore));
-        clockWaiter = spy(new ClockWaiter(NODE_NAME, clock));
+        clockWaiter = spy(new ClockWaiter(NODE_NAME, clock, scheduledExecutor));
 
         clockService = new TestClockService(clock, clockWaiter);
 

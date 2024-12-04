@@ -101,6 +101,8 @@ import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.TransactionInflights.ReadWriteTxContext;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
+import org.apache.ignite.internal.tx.views.LocksViewProvider;
+import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -433,7 +435,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public @Nullable TxStateMeta stateMeta(UUID txId) {
-        return inBusyLock(busyLock, () -> txStateVolatileStorage.state(txId));
+        return txStateVolatileStorage.state(txId);
+    }
+
+    @TestOnly
+    public Collection<TxStateMeta> states() {
+        return txStateVolatileStorage.states();
     }
 
     @Override
@@ -442,13 +449,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
+    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit) {
         TxState finalState;
 
         finishedTxs.add(1);
 
         if (commit) {
-            timestampTracker.update(clockService.current());
+            timestampTracker.update(ts);
 
             finalState = COMMITTED;
         } else {
@@ -460,7 +467,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         finalState,
                         old == null ? null : old.txCoordinatorId(),
                         old == null ? null : old.commitPartitionId(),
-                        old == null ? null : old.commitTimestamp()
+                        ts
                 ));
 
         decrementRwTxCount(txId);
@@ -930,7 +937,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public List<SystemView<?>> systemViews() {
-        return List.of(txViewProvider.get());
+        LocksViewProvider lockViewProvider = new LocksViewProvider(lockManager::locks);
+
+        return List.of(
+                txViewProvider.get(),
+                lockViewProvider.get()
+        );
     }
 
     static class TransactionFailureHandler {
