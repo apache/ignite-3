@@ -22,7 +22,7 @@ import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 
 import java.lang.reflect.InvocationTargetException;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
-import org.apache.ignite.internal.compute.ComputeJobArgumentHolder;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.internal.compute.PojoConversionException;
 import org.apache.ignite.marshalling.Marshaller;
@@ -131,7 +131,7 @@ public final class ClientComputeJobUnpacker {
             case TUPLE: // Fallthrough, these types are unmarshalled just before execution.
             case POJO:
             case MARSHALLED_CUSTOM:
-                return new ComputeJobArgumentHolder(type, unpacker.readBinary());
+                return new ComputeJobDataHolder(type, unpacker.readBinary());
             default:
                 throw new UnmarshallingException("Unsupported compute job type: " + type);
         }

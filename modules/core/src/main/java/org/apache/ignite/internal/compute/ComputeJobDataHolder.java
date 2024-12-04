@@ -18,14 +18,13 @@
 package org.apache.ignite.internal.compute;
 
 /**
- * Holds marshalled binary data for the compute job argument, used for the optimization to reduce number of conversions in case when thin
- * client requests job execution on another node. In this case, the argument (POJO or a Tuple) is packed on the client, unpacked as a byte
- * array on the client handler node, wrapped in this object, passed on the remote node and is unmarshalled just before the job execution. If
- * the argument was passed in this way, then the result of the job is marshalled to the byte buffer on the target node, wrapped in the
- * {@link ComputeJobResultHolder}, passed back to the client handler node, packed as a byte buffer, returned to the client and unpacked
- * there.
+ * Holds marshalled binary data for the compute, used for the optimization to reduce number of conversions in case when thin client requests
+ * job execution on another node. In this case, the argument (POJO or a Tuple) is packed on the client, unpacked as a byte array on the
+ * client handler node, wrapped in this object, passed on the remote node and is unmarshalled just before the job execution. If the argument
+ * was passed in this way, then the result of the job is marshalled to the byte array on the target node, wrapped in this object, passed
+ * back to the client handler node, packed as a byte array, returned to the client and unpacked there.
  */
-public class ComputeJobArgumentHolder {
+public class ComputeJobDataHolder {
     private final ComputeJobDataType type;
 
     private final byte[] data;
@@ -36,7 +35,7 @@ public class ComputeJobArgumentHolder {
      * @param type Job argument type.
      * @param data Marshalled data.
      */
-    public ComputeJobArgumentHolder(ComputeJobDataType type, byte[] data) {
+    public ComputeJobDataHolder(ComputeJobDataType type, byte[] data) {
         this.type = type;
         this.data = data;
     }
