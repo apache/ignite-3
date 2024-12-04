@@ -256,9 +256,9 @@ class DefaultUserObjectMarshallerWithSerializableTest {
 
     @Test
     void supportsSerialPersistedFieldsNamesDifferentFromRealFieldNamesWithPutFields() throws Exception {
-        var oririnalObject = new SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields(42);
+        var originalObject = new SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields(42);
 
-        SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields result = marshalAndUnmarshalNonNull(oririnalObject);
+        SerializableWithSerialPersistentFieldsDifferingFromRealFieldNamesAndPutFields result = marshalAndUnmarshalNonNull(originalObject);
 
         assertThat(result.value, is(42));
     }

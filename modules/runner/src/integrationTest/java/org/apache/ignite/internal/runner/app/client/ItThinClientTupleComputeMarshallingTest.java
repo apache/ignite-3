@@ -144,8 +144,8 @@ public class ItThinClientTupleComputeMarshallingTest extends ClusterPerClassInte
     static class TupleResultJob implements ComputeJob<Integer, Tuple> {
         @Override
         public @Nullable CompletableFuture<Tuple> executeAsync(JobExecutionContext context, @Nullable Integer key) {
-            // todo: There is no table for some reason in context.ignite().
-            return completedFuture(Tuple.create().set(COLUMN_VAL, "hi"));
+            return context.ignite().tables().tableAsync(TABLE_NAME)
+                    .thenApply(table -> table.keyValueView().get(null, Tuple.create().set(COLUMN_VAL, key)));
         }
     }
 
