@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
@@ -125,14 +126,15 @@ public class MockNode {
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, this.workDir.resolve("cmg/meta"));
 
+        LogicalTopology logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
         this.clusterManager = new ClusterManagementGroupManager(
                 vaultManager,
                 new SystemDisasterRecoveryStorage(vaultManager),
                 clusterService,
-                new ClusterInitializer(clusterService, hocon -> hocon, new TestConfigurationValidator()),
+                new ClusterInitializer(clusterService, logicalTopology, hocon -> hocon, new TestConfigurationValidator()),
                 raftManager,
                 clusterStateStorage,
-                new LogicalTopologyImpl(clusterStateStorage),
+                logicalTopology,
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
                 failureManager,
                 clusterIdHolder,
