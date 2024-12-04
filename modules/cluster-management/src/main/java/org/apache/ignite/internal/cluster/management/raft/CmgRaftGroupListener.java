@@ -22,6 +22,7 @@ import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -30,6 +31,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
@@ -165,7 +167,14 @@ public class CmgRaftGroupListener implements RaftGroupListener {
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
         if (!busyLock.enterBusy()) {
+            // Here, we just complete the closures with an exception and then return. From the point of view of JRaft, this means that
+            // we 'applied' the commands, even though we didn't. JRaft will wrongly increment its appliedIndex. But it doesn't seem to be
+            // a problem because the current run is being finished (the node is stopping itself), and the only way to persist appliedIndex
+            // (which might affect subsequent runs) is to save it into snapshot, but we use the busy lock in #onSnapshotSave(), so
+            // the snapshot with wrong appliedIndex will not be saved.
             iterator.forEachRemaining(clo -> clo.result(new ShutdownException()));
+
+            return;
         }
 
         try {
@@ -179,39 +188,52 @@ public class CmgRaftGroupListener implements RaftGroupListener {
         while (iterator.hasNext()) {
             CommandClosure<WriteCommand> clo = iterator.next();
 
-            WriteCommand command = clo.command();
+            try {
+                WriteCommand command = clo.command();
 
-            if (command instanceof InitCmgStateCommand) {
-                Serializable response = initCmgState((InitCmgStateCommand) command);
+                if (command instanceof InitCmgStateCommand) {
+                    Serializable response = initCmgState((InitCmgStateCommand) command);
 
-                clo.result(response);
-            } else if (command instanceof UpdateClusterStateCommand) {
-                UpdateClusterStateCommand updateClusterStateCommand = (UpdateClusterStateCommand) command;
-                storageManager.putClusterState(updateClusterStateCommand.clusterState());
-                clo.result(null);
-            } else if (command instanceof JoinRequestCommand) {
-                ValidationResult response = validateNode((JoinRequestCommand) command);
+                    clo.result(response);
+                } else if (command instanceof UpdateClusterStateCommand) {
+                    UpdateClusterStateCommand updateClusterStateCommand = (UpdateClusterStateCommand) command;
+                    storageManager.putClusterState(updateClusterStateCommand.clusterState());
+                    clo.result(null);
+                } else if (command instanceof JoinRequestCommand) {
+                    ValidationResult response = validateNode((JoinRequestCommand) command);
 
-                clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
-            } else if (command instanceof JoinReadyCommand) {
-                ValidationResult response = completeValidation((JoinReadyCommand) command);
+                    clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
+                } else if (command instanceof JoinReadyCommand) {
+                    ValidationResult response = completeValidation((JoinReadyCommand) command);
 
-                if (response.isValid()) {
-                    // It is valid, the topology has been changed.
+                    if (response.isValid()) {
+                        // It is valid, the topology has been changed.
+                        onLogicalTopologyChanged.accept(clo.term());
+                    }
+
+                    clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
+                } else if (command instanceof NodesLeaveCommand) {
+                    removeNodesFromLogicalTopology((NodesLeaveCommand) command);
+
                     onLogicalTopologyChanged.accept(clo.term());
+
+                    clo.result(null);
+                } else if (command instanceof ChangeMetaStorageInfoCommand) {
+                    changeMetastorageNodes((ChangeMetaStorageInfoCommand) command);
+
+                    clo.result(null);
                 }
+            } catch (Throwable e) {
+                LOG.error(
+                        "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
+                        e,
+                        clo.index(), clo.term(), clo.command()
+                );
 
-                clo.result(response.isValid() ? null : new ValidationErrorResponse(response.errorDescription()));
-            } else if (command instanceof NodesLeaveCommand) {
-                removeNodesFromLogicalTopology((NodesLeaveCommand) command);
+                clo.result(e);
 
-                onLogicalTopologyChanged.accept(clo.term());
-
-                clo.result(null);
-            } else if (command instanceof ChangeMetaStorageInfoCommand) {
-                changeMetastorageNodes((ChangeMetaStorageInfoCommand) command);
-
-                clo.result(null);
+                // Rethrowing to let JRaft know that the state machine might be broken.
+                throw e;
             }
         }
     }
@@ -328,7 +350,11 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        storageManager.snapshot(path)
+        inBusyLock(busyLock, () -> onSnapshotSaveBusy(path, doneClo));
+    }
+
+    private CompletableFuture<Void> onSnapshotSaveBusy(Path path, Consumer<Throwable> doneClo) {
+        return storageManager.snapshot(path)
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 

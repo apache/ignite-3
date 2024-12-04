@@ -158,7 +158,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static final long WAIT_TIMEOUT = SECONDS.toMillis(10);
 
     // Configuration
-    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+    @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
     private StorageConfiguration storageConfiguration;
     @InjectConfiguration
     private GcConfiguration gcConfig;

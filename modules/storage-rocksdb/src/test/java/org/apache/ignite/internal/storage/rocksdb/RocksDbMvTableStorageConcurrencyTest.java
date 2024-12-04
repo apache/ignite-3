@@ -15,24 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.mv;
+package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.storage.AbstractMvPartitionStorageGcTest;
+import org.apache.ignite.internal.storage.AbstractMvTableStorageConcurrencyTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -40,44 +38,29 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-class PersistentPageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionStorageGcTest {
-    private PersistentPageMemoryStorageEngine engine;
-
-    private MvTableStorage table;
+class RocksDbMvTableStorageConcurrencyTest extends AbstractMvTableStorageConcurrencyTest {
+    private RocksDbStorageEngine engine;
 
     @BeforeEach
     void setUp(
             @WorkDirectory Path workDir,
-            @InjectConfiguration("mock.checkpoint.checkpointDelayMillis = 0")
-            PersistentPageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
-            StorageConfiguration storageConfig
+            @InjectConfiguration("mock.flushDelayMillis = 0")
+            RocksDbStorageEngineConfiguration engineConfig,
+            // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
+            @InjectConfiguration("mock.profiles.default = {engine = rocksdb, size = 16777216, writeBufferSize = 67108864}")
+            StorageConfiguration storageConfiguration,
+            @InjectExecutorService
+            ScheduledExecutorService scheduledExecutor
     ) {
-        var ioRegistry = new PageIoRegistry();
-
-        ioRegistry.loadFromServiceLoader();
-
-        engine = new PersistentPageMemoryStorageEngine(
-                "test",
-                engineConfig,
-                storageConfig,
-                ioRegistry,
-                workDir,
-                null,
-                mock(FailureManager.class),
-                mock(LogSyncer.class),
-                clock
-        );
+        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class), scheduledExecutor);
 
         engine.start();
 
-        table = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
-                mock(StorageIndexDescriptorSupplier.class)
-        );
+        tableStorage = createMvTableStorage();
 
-        initialize(table);
+        initialize();
     }
 
     @AfterEach
@@ -86,8 +69,16 @@ class PersistentPageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionSt
         super.tearDown();
 
         IgniteUtils.closeAllManually(
-                table,
+                tableStorage,
                 engine == null ? null : engine::stop
+        );
+    }
+
+    @Override
+    protected MvTableStorage createMvTableStorage() {
+        return engine.createMvTable(
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, "default"),
+                indexDescriptorSupplier
         );
     }
 }

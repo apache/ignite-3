@@ -216,7 +216,6 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         Runnable onReleaseWriteLock = mock(Runnable.class);
 
         workflow.addCheckpointListener(new TestCheckpointListener(events) {
-            /** {@inheritDoc} */
             @Override
             public void beforeCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
                 super.beforeCheckpointBegin(progress, exec);
@@ -230,9 +229,11 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), empty());
 
                 verify(tracker, never()).onWriteLockWaitStart();
+                verify(tracker, never()).onWriteLockWaitEnd();
+                verify(tracker, never()).onWriteLockHoldStart();
+                verify(tracker, never()).onWriteLockHoldEnd();
                 verify(tracker, never()).onMarkCheckpointBeginStart();
                 verify(tracker, never()).onMarkCheckpointBeginEnd();
-                verify(tracker, never()).onWriteLockRelease();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
 
@@ -242,7 +243,6 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 verify(onReleaseWriteLock, never()).run();
             }
 
-            /** {@inheritDoc} */
             @Override
             public void onMarkCheckpointBegin(CheckpointProgress progress, @Nullable Executor exec) throws IgniteInternalCheckedException {
                 super.onMarkCheckpointBegin(progress, exec);
@@ -256,9 +256,11 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 assertThat(checkpointStateArgumentCaptor.getAllValues(), equalTo(List.of(LOCK_TAKEN)));
 
                 verify(tracker, times(1)).onWriteLockWaitStart();
+                verify(tracker, times(1)).onWriteLockWaitEnd();
+                verify(tracker, times(1)).onWriteLockHoldStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginStart();
                 verify(tracker, never()).onMarkCheckpointBeginEnd();
-                verify(tracker, never()).onWriteLockRelease();
+                verify(tracker, never()).onWriteLockHoldEnd();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
 
@@ -268,7 +270,6 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 verify(onReleaseWriteLock, never()).run();
             }
 
-            /** {@inheritDoc} */
             @Override
             public void onCheckpointBegin(CheckpointProgress progress) throws IgniteInternalCheckedException {
                 super.onCheckpointBegin(progress);
@@ -284,9 +285,11 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
                 assertThat(pagesCountArgumentCaptor.getAllValues(), equalTo(List.of(3)));
 
                 verify(tracker, times(1)).onWriteLockWaitStart();
+                verify(tracker, times(1)).onWriteLockWaitEnd();
+                verify(tracker, times(1)).onWriteLockHoldStart();
+                verify(tracker, times(1)).onWriteLockHoldEnd();
                 verify(tracker, times(1)).onMarkCheckpointBeginStart();
                 verify(tracker, times(1)).onMarkCheckpointBeginEnd();
-                verify(tracker, times(1)).onWriteLockRelease();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesStart();
                 verify(tracker, never()).onSplitAndSortCheckpointPagesEnd();
 
@@ -306,9 +309,11 @@ public class CheckpointWorkflowTest extends BaseIgniteAbstractTest {
         );
 
         verify(tracker, times(1)).onWriteLockWaitStart();
+        verify(tracker, times(1)).onWriteLockWaitEnd();
+        verify(tracker, times(1)).onWriteLockHoldStart();
+        verify(tracker, times(1)).onWriteLockHoldEnd();
         verify(tracker, times(1)).onMarkCheckpointBeginStart();
         verify(tracker, times(1)).onMarkCheckpointBeginEnd();
-        verify(tracker, times(1)).onWriteLockRelease();
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesStart();
         verify(tracker, times(1)).onSplitAndSortCheckpointPagesEnd();
 

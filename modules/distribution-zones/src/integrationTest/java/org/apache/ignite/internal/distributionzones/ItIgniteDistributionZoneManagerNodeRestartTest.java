@@ -286,7 +286,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
-        var clockWaiter = new ClockWaiter(name, clock);
+        var clockWaiter = new ClockWaiter(name, clock, commonScheduledExecutorService);
 
         var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter));
 

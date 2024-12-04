@@ -15,20 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.problem;
+package org.apache.ignite.internal.storage;
 
-import io.micronaut.http.MediaType;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 
-/**
- * Media type for problem json.
- */
-public final class ProblemJsonMediaType extends MediaType {
-    /**
-     * Media type for problem json.
-     */
-    public static final ProblemJsonMediaType APPLICATION_JSON_PROBLEM_TYPE = new ProblemJsonMediaType("application/json+problem");
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.junit.jupiter.api.BeforeEach;
 
-    private ProblemJsonMediaType(String name) {
-        super(name);
+class TestMvTableStorageConcurrencyTest extends AbstractMvTableStorageConcurrencyTest {
+    @BeforeEach
+    void setUp() {
+        initialize();
+    }
+
+    @Override
+    protected MvTableStorage createMvTableStorage() {
+        return new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT);
     }
 }
