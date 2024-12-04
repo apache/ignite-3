@@ -56,23 +56,21 @@ class SpecialSerializationMethodsImpl implements SpecialSerializationMethods {
     }
 
     private static Method writeReplaceInvoker(ClassDescriptor descriptor) {
-        try {
-            Method method = descriptor.localClass().getDeclaredMethod("writeReplace");
-            method.setAccessible(true);
-            return method;
-        } catch (ReflectiveOperationException e) {
-            throw new ReflectionException("Cannot find writeReplace() in " + descriptor.localClass(), e);
+        Method method = Classes.getWriteReplace(descriptor.localClass());
+        if (method == null) {
+            throw new ReflectionException("Cannot find writeReplace() in " + descriptor.localClass(), null);
         }
+        method.setAccessible(true);
+        return method;
     }
 
     private static Method readResolveInvoker(ClassDescriptor descriptor) {
-        try {
-            Method method = descriptor.localClass().getDeclaredMethod("readResolve");
-            method.setAccessible(true);
-            return method;
-        } catch (ReflectiveOperationException e) {
-            throw new ReflectionException("Cannot find readResolve() in " + descriptor.localClass(), e);
+        Method method = Classes.getReadResolve(descriptor.localClass());
+        if (method == null) {
+            throw new ReflectionException("Cannot find readResolve() in " + descriptor.localClass(), null);
         }
+        method.setAccessible(true);
+        return method;
     }
 
     private static Method writeObjectInvoker(ClassDescriptor descriptor) {

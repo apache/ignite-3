@@ -153,12 +153,34 @@ public class Classes {
      * @return Method.
      */
     @Nullable
-    private static Method getWriteReplace(Class<?> clazz) {
-        try {
-            return clazz.getDeclaredMethod("writeReplace");
-        } catch (NoSuchMethodException e) {
-            return null;
+    static Method getWriteReplace(Class<?> clazz) {
+        return findInheritableMethod(clazz, "writeReplace");
+    }
+
+    /**
+     * Gets a method with the signature
+     * {@code ANY-ACCESS-MODIFIER Object readResolve() throws ObjectStreamException}.
+     *
+     * @param clazz Class.
+     * @return Method.
+     */
+    @Nullable
+    static Method getReadResolve(Class<?> clazz) {
+        return findInheritableMethod(clazz, "readResolve");
+    }
+
+    @Nullable
+    private static Method findInheritableMethod(Class<?> clazz, String name) {
+        Method method = null;
+        while (clazz != null) {
+            try {
+                method = clazz.getDeclaredMethod(name);
+                break;
+            } catch (NoSuchMethodException ex) {
+                clazz = clazz.getSuperclass();
+            }
         }
+        return method;
     }
 
     private Classes() {
