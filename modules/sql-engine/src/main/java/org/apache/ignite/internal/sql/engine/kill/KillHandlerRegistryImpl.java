@@ -119,9 +119,9 @@ public class KillHandlerRegistryImpl implements KillHandlerRegistry {
 
             try {
                 CancelOperationRequest request = (CancelOperationRequest) networkMessage;
-                CancellableOperationType type = CancellableOperationType.valueOf(request.type());
+                CancellableOperationType type = CancellableOperationType.fromId(request.typeId());
                 OperationKillHandler handler = handlerOrThrow(type, true);
-                String operationId = request.id();
+                String operationId = request.operationId();
 
                 handler.cancelAsync(operationId).whenComplete(
                         (result, throwable) -> {

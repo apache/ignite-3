@@ -29,8 +29,8 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 @Transferable(SqlQueryMessageGroup.OPERATION_CANCEL_REQUEST)
 public interface CancelOperationRequest extends NetworkMessage {
     /** Returns operation ID. */
-    String id();
+    String operationId();
 
-    /** Returns type of the operation. */
-    String type();
+    /** Returns type ID of the operation. */
+    int typeId();
 }

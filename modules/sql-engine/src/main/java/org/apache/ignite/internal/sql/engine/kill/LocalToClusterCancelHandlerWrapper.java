@@ -79,8 +79,8 @@ class LocalToClusterCancelHandlerWrapper implements OperationKillHandler {
                     }
 
                     CancelOperationRequest request = FACTORY.cancelOperationRequest()
-                            .id(operationId)
-                            .type(type.name())
+                            .operationId(operationId)
+                            .typeId(type.id())
                             .build();
 
                     return broadcastCancel(request);
@@ -100,7 +100,8 @@ class LocalToClusterCancelHandlerWrapper implements OperationKillHandler {
 
                             if (remoteErr != null) {
                                 LOG.warn("Remote node returned an error while canceling the operation "
-                                        + "[operationId={}, type={}, node={}].", remoteErr, request.id(), request.type(), node.name());
+                                                + "[operationId={}, typeId={}, node={}].", remoteErr,
+                                        request.operationId(), request.typeId(), node.name());
                             }
 
                             if (response.error() != null) {
@@ -116,7 +117,7 @@ class LocalToClusterCancelHandlerWrapper implements OperationKillHandler {
                         .whenComplete((ignore, err) -> {
                             if (err != null) {
                                 LOG.warn("Failed to send a request to kill the operation to the remote node "
-                                        + "[operationId={}, type={}, node={}].", err, request.id(), request.type(), node.name());
+                                        + "[operationId={}, type={}, node={}].", err, request.operationId(), request.typeId(), node.name());
                             }
                         })
                 )

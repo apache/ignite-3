@@ -21,7 +21,36 @@ package org.apache.ignite.internal.sql.engine.api.kill;
  * Type of the operation that can be cancelled.
  */
 public enum CancellableOperationType {
-    QUERY,
-    TRANSACTION,
-    COMPUTE;
+    QUERY(0),
+    TRANSACTION(1),
+    COMPUTE(2);
+
+    private static final CancellableOperationType[] VALS = new CancellableOperationType[values().length];
+
+    private final int id;
+
+    CancellableOperationType(int id) {
+        this.id = id;
+    }
+
+    static {
+        for (CancellableOperationType type : values()) {
+            assert VALS[type.id] == null : "Found duplicate id " + type.id;
+
+            VALS[type.id()] = type;
+        }
+    }
+
+    /** Returns operation type by identifier. */
+    public static CancellableOperationType fromId(int id) {
+        if (id >= 0 && id < VALS.length) {
+            return VALS[id];
+        }
+
+        throw new IllegalArgumentException("Incorrect index status identifier: " + id);
+    }
+
+    public int id() {
+        return id;
+    }
 }

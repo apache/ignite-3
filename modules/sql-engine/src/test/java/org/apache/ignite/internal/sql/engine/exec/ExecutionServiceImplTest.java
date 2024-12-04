@@ -1012,26 +1012,12 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertInstanceOf(KillPlan.class, plan);
 
-        int deadlineMillis = 500;
-
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-
-        Duration delay = Duration.of(deadlineMillis * 4, ChronoUnit.MILLIS);
 
         killHandlerRegistry.register(new OperationKillHandler() {
             @Override
             public CompletableFuture<Boolean> cancelAsync(String operationId) {
-                return CompletableFuture.supplyAsync(() -> {
-                    try {
-                        Thread.sleep(delay.toMillis());
-
-                        return true;
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-
-                        throw new CompletionException(e);
-                    }
-                });
+                return new CompletableFuture<>();
             }
 
             @Override
@@ -1045,7 +1031,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         });
 
-        awaitExecutionTimeout(execService, plan, deadlineMillis, QueryCancelledException.class);
+        awaitExecutionTimeout(execService, plan, 500, QueryCancelledException.class);
     }
 
     @Test
