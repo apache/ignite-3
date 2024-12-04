@@ -30,6 +30,9 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.CATCHING_UP;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
@@ -38,6 +41,7 @@ import static org.apache.ignite.internal.table.distributed.disaster.DisasterReco
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.DEGRADED;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.READ_ONLY;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
@@ -123,6 +127,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     /** Single key for writing disaster recovery requests into meta-storage. */
     static final ByteArray RECOVERY_TRIGGER_KEY = new ByteArray("disaster.recovery.trigger");
+    static final ByteArray RECOVERY_TRIGGER_KEY_REVISION = new ByteArray("disaster.recovery.trigger.revision");
 
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
@@ -279,7 +284,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             if (!partitionsToReset.isEmpty()) {
                 tablesResetFuts.add(resetPartitions(
-                        zoneDescriptor.name(), table.id(), partitionsToReset, false));
+                        zoneDescriptor.name(), table.id(), partitionsToReset, false, revision));
             }
         }
 
@@ -308,8 +313,15 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @return Future that completes when partitions are reset.
      */
+    @TestOnly
     public CompletableFuture<Void> resetAllPartitions(String zoneName, String tableName, boolean manualUpdate) {
-        return resetPartitions(zoneName, tableName, emptySet(), manualUpdate);
+        return resetPartitions(zoneName, tableName, emptySet(), manualUpdate, 0);
+    }
+
+    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate) {
+        int tableId = tableDescriptor(catalogLatestVersion(), tableName).id();
+
+        return resetPartitions(zoneName, tableId, partitionIds, manualUpdate, 0);
     }
 
     /**
@@ -324,10 +336,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @return Future that completes when partitions are reset.
      */
-    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate) {
+    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate, long triggerRevision) {
         int tableId = tableDescriptor(catalogLatestVersion(), tableName).id();
 
-        return resetPartitions(zoneName, tableId, partitionIds, manualUpdate);
+        return resetPartitions(zoneName, tableId, partitionIds, manualUpdate, triggerRevision);
     }
 
     /**
@@ -342,7 +354,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @return Future that completes when partitions are reset.
      */
-    private CompletableFuture<Void> resetPartitions(String zoneName, int tableId, Set<Integer> partitionIds, boolean manualUpdate) {
+    private CompletableFuture<Void> resetPartitions(String zoneName, int tableId, Set<Integer> partitionIds, boolean manualUpdate, long triggerRevision) {
         try {
             Catalog catalog = catalogLatestVersion();
 
@@ -351,11 +363,31 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             checkPartitionsRange(partitionIds, Set.of(zone));
 
             return processNewRequest(
-                    new GroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), tableId, partitionIds, manualUpdate)
+                    new GroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), tableId, partitionIds, manualUpdate),
+                    triggerRevision
             );
         } catch (Throwable t) {
             return failedFuture(t);
         }
+    }
+
+    private void putRecoveryTriggerIfRevisionIsNotProcessed(
+            byte[] revisionBytes,
+            byte[] recoveryTriggerValue,
+            UUID operationId
+    ) {
+        metaStorageManager.invoke(
+                notExists(RECOVERY_TRIGGER_KEY_REVISION).or(value(RECOVERY_TRIGGER_KEY).lt(revisionBytes)),
+                List.of(
+                        put(RECOVERY_TRIGGER_KEY, recoveryTriggerValue),
+                        put(RECOVERY_TRIGGER_KEY_REVISION, revisionBytes)
+                ),
+                List.of())
+                .thenAccept(wasWrite -> {
+                    if (!wasWrite) {
+                        ongoingOperationsById.remove(operationId).complete(null);
+                    }
+                });
     }
 
     /**
@@ -569,22 +601,36 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return zoneDescriptors;
     }
 
+    private CompletableFuture<Void> processNewRequest(DisasterRecoveryRequest request) {
+        return processNewRequest(request, 0);
+    }
+
     /**
      * Creates new operation future, associated with the request, and writes it into meta-storage.
      *
      * @param request Request.
      * @return Operation future.
      */
-    private CompletableFuture<Void> processNewRequest(DisasterRecoveryRequest request) {
+    private CompletableFuture<Void> processNewRequest(DisasterRecoveryRequest request, long revision) {
         UUID operationId = request.operationId();
 
         CompletableFuture<Void> operationFuture = new CompletableFuture<Void>()
                 .whenComplete((v, throwable) -> ongoingOperationsById.remove(operationId))
                 .orTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
+        byte[] serializedRequest = VersionedSerialization.toBytes(request, DisasterRecoveryRequestSerializer.INSTANCE);
+
         ongoingOperationsById.put(operationId, operationFuture);
 
-        metaStorageManager.put(RECOVERY_TRIGGER_KEY, VersionedSerialization.toBytes(request, DisasterRecoveryRequestSerializer.INSTANCE));
+        if (revision != 0) {
+            putRecoveryTriggerIfRevisionIsNotProcessed(
+                    longToBytesKeepingOrder(revision),
+                    serializedRequest,
+                    operationId
+            );
+        } else {
+            metaStorageManager.put(RECOVERY_TRIGGER_KEY, serializedRequest);
+        }
 
         return operationFuture;
     }

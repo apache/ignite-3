@@ -51,6 +51,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /** Test for the HA zones recovery. */
@@ -69,7 +70,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
     @Override
     protected int initialNodes() {
-        return 3;
+        return 7;
     }
 
     @Override
@@ -92,6 +93,31 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertRecoveryRequestForHaZone(node);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
+    }
+
+    @RepeatedTest(5)
+    void testHaRecoveryWhenMajorityLossNoRedundantResetRequests() throws InterruptedException {
+        createHaZoneWithTable();
+
+        IgniteImpl node = igniteImpl(0);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        stopNodes(1, 2, 3);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        stopNodes(4, 5);
+
+        waitAndAssertRecoveryKeyIsNotEmpty(node);
+
+        IgniteImpl node6 = igniteImpl(6);
+
+        assertTrue(waitForCondition(() -> node.disasterRecoveryManager().ongoingOperationsById().isEmpty(), 10_000));
+        assertTrue(waitForCondition(() -> node6.disasterRecoveryManager().ongoingOperationsById().isEmpty(), 10_000));
+
+        assertRecoveryRequestWasOnlyOne(node);
+        assertRecoveryRequestWasOnlyOne(node6);
     }
 
     @Test

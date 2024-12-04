@@ -293,7 +293,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 zoneName,
                 QUALIFIED_TABLE_NAME,
                 Set.of(anotherPartId),
-                true
+                true,
+                0
         );
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
