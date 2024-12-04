@@ -171,16 +171,14 @@ public class Classes {
 
     @Nullable
     private static Method findInheritableMethod(Class<?> clazz, String name) {
-        Method method = null;
         while (clazz != null) {
             try {
-                method = clazz.getDeclaredMethod(name);
-                break;
+                return clazz.getDeclaredMethod(name);
             } catch (NoSuchMethodException ex) {
                 clazz = clazz.getSuperclass();
             }
         }
-        return method;
+        return null;
     }
 
     private Classes() {
