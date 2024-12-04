@@ -33,11 +33,12 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
+import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
 import org.jetbrains.annotations.Nullable;
@@ -91,7 +92,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private final int[] insertRowMapping;
 
-    private final RowFactory<RowT> rowFactory;
+    private final RowFactory<RowT> mappedRowFactory;
 
     private List<RowT> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
@@ -108,15 +109,18 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      *
      * @param ctx An execution context.
      * @param table A table to update.
+     * @param sourceId Source id.
      * @param op A type of the update operation.
      * @param updateColumns Enumeration of columns to update if applicable.
+     * @param inputRowFactory Row factory for input row.
      */
     public ModifyNode(
             ExecutionContext<RowT> ctx,
             UpdatableTable table,
             long sourceId,
             TableModify.Operation op,
-            @Nullable List<String> updateColumns
+            @Nullable List<String> updateColumns,
+            RowFactory<RowT> inputRowFactory
     ) {
         super(ctx);
 
@@ -128,12 +132,13 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.mapping = mapping(table.descriptor(), updateColumns);
 
         this.insertRowMapping = StreamSupport.stream(table.descriptor().spliterator(), false)
-                        .filter(Predicate.not(ColumnDescriptor::virtual))
-                        .mapToInt(ColumnDescriptor::logicalIndex)
-                        .toArray();
+                .filter(Predicate.not(ColumnDescriptor::virtual))
+                .mapToInt(ColumnDescriptor::logicalIndex)
+                .toArray();
 
-        RowSchema rowSchema = rowSchemaForTableDescriptor(table.descriptor());
-        this.rowFactory = ctx.rowHandler().factory(rowSchema);
+        RowSchema mappedRowSchema = getMappedRowSchema(inputRowFactory);
+
+        this.mappedRowFactory = ctx.rowHandler().factory(mappedRowSchema);
     }
 
     /** {@inheritDoc} */
@@ -312,7 +317,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         int[] targetMapping = applyOffset(mapping, offset);
 
-        rows.replaceAll(row -> rowFactory.map(row, targetMapping));
+        rows.replaceAll(row -> mappedRowFactory.map(row, targetMapping));
     }
 
     /** Adds the provided offset to each value in the mapping. */
@@ -399,7 +404,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
 
         if (rowsToInsert != null) {
-            rowsToInsert.replaceAll(row -> rowFactory.map(row, insertRowMapping));
+            rowsToInsert.replaceAll(row -> mappedRowFactory.map(row, insertRowMapping));
         }
 
         if (rowsToUpdate != null) {
@@ -476,21 +481,19 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         return mapping;
     }
 
-    private static RowSchema rowSchemaForTableDescriptor(TableDescriptor descriptor) {
-        int columnCount = storedRowsCount(descriptor);
-
-        NativeType[] mapping = new NativeType[columnCount];
-
-        for (int i = 0; i < columnCount; i++) {
-            ColumnDescriptor columnDescriptor = descriptor.columnDescriptor(i);
-            mapping[columnDescriptor.logicalIndex()] = columnDescriptor.physicalType();
+    private RowSchema getMappedRowSchema(RowFactory<RowT> inputRowFactory) {
+        RowSchema schema;
+        if (mapping != null) {
+            List<TypeSpec> fields = inputRowFactory.rowSchema().fields();
+            Builder builder = RowSchema.builder();
+            for (int i : mapping) {
+                TypeSpec typeSpec = fields.get(i);
+                builder.addField(typeSpec);
+            }
+            schema = builder.build();
+        } else {
+            schema = inputRowFactory.rowSchema();
         }
-
-        RowSchema.Builder fieldTypes = RowSchema.builder();
-        for (NativeType nativeType : mapping) {
-            fieldTypes.addField(nativeType);
-        }
-
-        return fieldTypes.build();
+        return schema;
     }
 }

@@ -52,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.row.BaseTypeSpec;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
 import org.apache.ignite.internal.sql.engine.framework.DataProvider;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptorImpl;
@@ -111,7 +112,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.INSERT, null
+                context, updatableTable, SOURCE_ID, Operation.INSERT, null, rowFactory
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -132,7 +133,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).insertAll(any(), any(), any());
-        verify(updatableTable, times(3)).descriptor();
+        verify(updatableTable, times(2)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -144,7 +145,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.UPDATE, null
+                context, updatableTable, SOURCE_ID, Operation.UPDATE, null, rowFactory
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -165,7 +166,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).upsertAll(any(), any(), any());
-        verify(updatableTable, times(3)).descriptor();
+        verify(updatableTable, times(2)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -177,7 +178,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.DELETE, null
+                context, updatableTable, SOURCE_ID, Operation.DELETE, null, rowFactory
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -198,7 +199,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         assertThat(result.get(0), notNullValue());
         assertThat(handler.get(0, result.get(0)), is((long) sourceSize));
         verify(updatableTable, times(numberOfBatches(sourceSize))).deleteAll(any(), any(), any());
-        verify(updatableTable, times(3)).descriptor();
+        verify(updatableTable, times(2)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -210,7 +211,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.INSERT, null
+                context, updatableTable, SOURCE_ID, Operation.INSERT, null, rowFactory
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -226,7 +227,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).insertAll(any(), any(), any());
-        verify(updatableTable, times(3)).descriptor();
+        verify(updatableTable, times(2)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -238,7 +239,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.UPDATE, null
+                context, updatableTable, SOURCE_ID, Operation.UPDATE, null, rowFactory
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -254,7 +255,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).upsertAll(any(), any(), any());
-        verify(updatableTable, times(3)).descriptor();
+        verify(updatableTable, times(2)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -266,7 +267,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Node<RowWrapper> sourceNode = createSource(sourceSize, context);
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.DELETE, null
+                context, updatableTable, SOURCE_ID, Operation.DELETE, null, rowFactory
         );
 
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
@@ -282,7 +283,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).deleteAll(any(), any(), any());
-        verify(updatableTable, times(3)).descriptor();
+        verify(updatableTable, times(2)).descriptor();
         verifyNoMoreInteractions(updatableTable);
     }
 
@@ -386,6 +387,11 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         RowWrapper mergeRow1 = rowHandler.concat(rowHandler.concat(srcRow1, dstRow1), noUpdate);
         RowWrapper mergeRow2 = rowHandler.concat(rowHandler.concat(srcRow2, dstRow2), update);
 
+        Builder inputRowBuilder = RowSchema.builder();
+        srcFactory.rowSchema().fields().forEach(inputRowBuilder::addField);
+        dstFactory.rowSchema().fields().forEach(inputRowBuilder::addField);
+        RowFactory<RowWrapper> inputRowFactory = rowHandler.factory(inputRowBuilder.build());
+
         Node<RowWrapper> sourceNode = new ScanNode<>(
                 context, DataProvider.fromCollection(List.of(mergeRow1, mergeRow2))
         );
@@ -393,7 +399,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         TestDownstream<RowWrapper> downstream = new TestDownstream<>();
 
         ModifyNode<RowWrapper> modifyNode = new ModifyNode<>(
-                context, updatableTable, SOURCE_ID, Operation.MERGE, List.of("C1")
+                context, updatableTable, SOURCE_ID, Operation.MERGE, List.of("C1"), inputRowFactory
         );
         modifyNode.register(List.of(sourceNode));
         modifyNode.onRegister(downstream);
