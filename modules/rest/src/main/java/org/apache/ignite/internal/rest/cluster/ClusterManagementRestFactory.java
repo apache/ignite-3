@@ -23,6 +23,7 @@ import jakarta.inject.Singleton;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.metastorage.impl.MetastoreGroupAvailabilityService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.rest.RestFactory;
 
 /**
@@ -36,14 +37,19 @@ public class ClusterManagementRestFactory implements RestFactory {
 
     private MetastoreGroupAvailabilityService metastoreGroupAvailabilityService;
 
+    private TopologyService topologyService;
+
     /** Constructor. */
     public ClusterManagementRestFactory(
             ClusterInitializer clusterInitializer,
             ClusterManagementGroupManager cmgManager,
-            MetastoreGroupAvailabilityService metastoreAvailabilityService
+            MetastoreGroupAvailabilityService metastoreAvailabilityService,
+            TopologyService topologyService
     ) {
         this.clusterInitializer = clusterInitializer;
         this.cmgManager = cmgManager;
+        this.metastoreGroupAvailabilityService = metastoreAvailabilityService;
+        this.topologyService = topologyService;
     }
 
     @Bean
@@ -64,10 +70,17 @@ public class ClusterManagementRestFactory implements RestFactory {
         return metastoreGroupAvailabilityService;
     }
 
+    @Bean
+    @Singleton
+    public TopologyService topologyService() {
+        return topologyService;
+    }
+
     @Override
     public void cleanResources() {
         clusterInitializer = null;
         cmgManager = null;
         metastoreGroupAvailabilityService = null;
+        topologyService = null;
     }
 }

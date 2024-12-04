@@ -20,10 +20,13 @@ package org.apache.ignite.internal.rest.cluster;
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -37,7 +40,6 @@ import org.apache.ignite.internal.rest.api.cluster.GroupState;
 import org.apache.ignite.internal.rest.api.cluster.GroupStatus;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.rest.cluster.exception.InvalidArgumentClusterInitializationException;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 
@@ -70,37 +72,60 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
         this.metastoreAvailabilityService = metastoreAvailabilityService;
     }
 
+    private GroupState metastorageGroupState() {
+        try {
+            CompletableFuture<GroupStatus> matastorageStatusFut = metastoreAvailabilityService.isAlive()
+                    .thenApply(isAlive1 -> isAlive1 ? GroupStatus.HEALTHY : GroupStatus.MAJORITY_LOST);
+            CompletableFuture<Set<String>> availableMembersFut = metastoreAvailabilityService.availableMembers();
+
+            return new GroupState(availableMembersFut.get(), matastorageStatusFut.get());
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private GroupState cmGroupState() {
+        try {
+            return clusterManagementGroupManager.availableMembers().thenApply(members -> {
+                        GroupState state = members != null
+                                ? new GroupState(members, GroupStatus.HEALTHY)
+                                : new GroupState(Collections.emptyList(), GroupStatus.MAJORITY_LOST);
+                        return state;
+                    }
+            ).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private ClusterState clusterState1() {
+        try {
+            return clusterManagementGroupManager.clusterState().get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<ClusterStateDto> clusterState() {
-        CompletableFuture<GroupState> metastoreFut = CompletableFutures.combine(
-                metastoreAvailabilityService.isAlive()
-                        .thenApply(isAlive1 ->  isAlive1 ? GroupStatus.HEALTHY : GroupStatus.MAJORITY_LOST),
-                metastoreAvailabilityService.availableMembers(),
-                (groupStatus, strings) -> new GroupState(strings, groupStatus)
-        );
+        GroupState metastorageGroupState = metastorageGroupState();
+        GroupState cmGroupState = cmGroupState();
+        ClusterState state = clusterState1();
 
-        CompletableFuture<ClusterStateDtoBuilder> builderFut = clusterManagementGroupManager.clusterState()
-                .handle((state, t) -> {
-                    ClusterStateDtoBuilder builder = ClusterStateDtoBuilder.newInstance();
-                    if (state != null) {
-                        builder.igniteVersion(state.version())
-                                .clusterTag(new ClusterTag(state.clusterTag().clusterName(), state.clusterTag().clusterId()))
-                                .formerClusterIds(state.formerClusterIds());
-                    } else {
-                        builder.igniteVersion("N/A").clusterTag(new ClusterTag("N/A", null));
-                    }
-                    return builder;
-                }).thenCompose(builder -> clusterManagementGroupManager.availableMembers().handle((members, t) -> {
-                    GroupState state = members != null
-                            ? new GroupState(members, GroupStatus.HEALTHY)
-                            : new GroupState(Collections.emptyList(), GroupStatus.MAJORITY_LOST);
-                    return builder.cmgStatus(state);
-                }));
+        ClusterStateDtoBuilder builder = ClusterStateDtoBuilder.newInstance();
+        if (state != null) {
+            builder.igniteVersion(state.version())
+                    .clusterTag(new ClusterTag(state.clusterTag().clusterName(), state.clusterTag().clusterId()))
+                    .formerClusterIds(state.formerClusterIds());
+        } else {
+            builder.igniteVersion("N/A").clusterTag(new ClusterTag("N/A", null));
+        }
 
-
-        return CompletableFutures.combine(builderFut, metastoreFut,
-                (builder, metastore) -> builder.metastoreStatus(metastore).build()
+        return CompletableFuture.completedFuture(
+                builder.cmgStatus(cmGroupState)
+                        .metastoreStatus(metastorageGroupState)
+                        .build()
         );
     }
 

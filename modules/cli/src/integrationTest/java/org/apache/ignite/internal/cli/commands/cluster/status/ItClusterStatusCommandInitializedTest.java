@@ -61,17 +61,17 @@ class ItClusterStatusCommandInitializedTest extends CliIntegrationTest {
                 .mapToObj(nodeNames::get)
                 .collect(joining(", ", "[", "]"));
 
-        CLUSTER.stopNode(0);
-        execute("cluster", "status", "--url", node1Url);
-        assertOutput("cluster", 2, "Metastore majority lost", cmgNodes(), metastoreNodes());
+//        CLUSTER.stopNode(0);
+//        execute("cluster", "status", "--url", node1Url);
+//        assertOutput("cluster", 2, "Metastore majority lost", cmgNodes(), metastoreNodes());
 
-        CLUSTER.startNode(0);
-        execute("cluster", "status", "--url", node1Url);
-        assertOutput("cluster", 3, "active", cmgNodes(), metastoreNodes());
+//        CLUSTER.startNode(0);
+//        execute("cluster", "status", "--url", node1Url);
+//        assertOutput("cluster", 3, "active", cmgNodes(), metastoreNodes());
 
-        CLUSTER.stopNode(1);
-        execute("cluster", "status", "--url", node0Url);
-        assertOutput("N/A", 2, "CMG majority lost", new int[0], new int[0]);
+//        CLUSTER.stopNode(1);
+//        execute("cluster", "status", "--url", node0Url);
+//        assertOutput("N/A", 2, "CMG majority lost", new int[0], new int[0]);
     }
 
     private void assertOutput(

@@ -1208,7 +1208,8 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(
                 clusterInitializer,
                 cmgMgr,
-                metaStorageMgr
+                metaStorageMgr,
+                clusterSvc.topologyService()
         );
         Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name,
                 new JdbcPortProviderImpl(nodeCfgMgr.configurationRegistry()));

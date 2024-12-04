@@ -44,7 +44,7 @@ public class ClusterStatusCall implements Call<UrlCallInput, ClusterStateOutput>
      * See {@link org.apache.ignite.internal.rest.cluster.ClusterManagementController}
      * {@link org.apache.ignite.internal.raft.configuration.RaftConfigurationSchema}.
      */
-    private static final int READ_TIMEOUT = 20_000;
+    private static final int READ_TIMEOUT = 40_000;
 
     private final PhysicalTopologyCall physicalTopologyCall;
 
