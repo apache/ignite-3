@@ -68,6 +68,7 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.test.ConditionalWatchInhibitor;
@@ -391,6 +392,28 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         metaStorageManager.remove(stablePartAssignmentsKey(GROUP_ID));
 
         assertTrue(waitForCondition(() -> getAllLeasesFromMs().isEmpty(), 20_000));
+    }
+
+    @Test
+    public void testLeasesCleanupOfOneGroupFromMultiple() throws InterruptedException {
+        leaseGrantedMessageHandler = (n, lgm) -> completedFuture(createLeaseGrantedMessageResponse(true));
+
+        TablePartitionId groupId0 = new TablePartitionId(0, 0);
+        TablePartitionId groupId1 = new TablePartitionId(0, 1);
+
+        metaStorageManager.put(stablePartAssignmentsKey(groupId0), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp));
+        metaStorageManager.put(stablePartAssignmentsKey(groupId1), Assignments.toBytes(Set.of(forPeer(NODE_1_NAME)), assignmentsTimestamp));
+
+        waitForAcceptedLease();
+        assertTrue(waitForCondition(() -> getAllLeasesFromMs().stream().allMatch(Lease::isAccepted), 3_000));
+
+        metaStorageManager.remove(stablePartAssignmentsKey(groupId0));
+
+        assertTrue(waitForCondition(() -> {
+            Collection<Lease> leases = getAllLeasesFromMs();
+            return leases.size() == 1 && leases.stream()
+                    .allMatch(lease -> lease.replicationGroupId().equals(groupId1) && lease.isAccepted());
+        }, 20_000));
     }
 
     @Nullable
