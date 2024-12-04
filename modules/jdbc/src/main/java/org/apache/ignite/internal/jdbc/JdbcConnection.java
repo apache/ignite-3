@@ -79,7 +79,7 @@ public class JdbcConnection implements Connection {
     /** Statements modification mutex. */
     private final Object stmtsMux = new Object();
 
-    private final AtomicLong tokenGenerator = new AtomicLong(Long.MIN_VALUE);
+    private final AtomicLong tokenGenerator = new AtomicLong();
 
     /** Handler. */
     private final JdbcQueryEventHandler handler;
