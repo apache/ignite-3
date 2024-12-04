@@ -29,6 +29,7 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -46,6 +47,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options Job execution options.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @param payload Arguments of the job.
      * @return CompletableFuture Job result.
      */
@@ -54,6 +56,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            @Nullable CancellationToken cancellationToken,
             @Nullable Object payload
     );
 
@@ -66,6 +69,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options job execution options (priority, max retries).
+     * @param cancellationToken Cancellation token or {@code null}.
      * @param payload Arguments of the job.
      * @param <R> Job result type.
      * @return Job execution object.
@@ -76,6 +80,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
+            @Nullable CancellationToken cancellationToken,
             Object payload);
 
     /**

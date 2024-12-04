@@ -166,6 +166,7 @@ import org.apache.ignite.internal.metrics.messaging.MetricMessaging;
 import org.apache.ignite.internal.metrics.sources.JvmMetricSource;
 import org.apache.ignite.internal.metrics.sources.OsMetricSource;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ChannelTypeRegistryProvider;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
@@ -572,12 +573,13 @@ public class IgniteImpl implements Ignite {
                 new VaultStaleIds(vaultMgr),
                 clusterIdService,
                 criticalWorkerRegistry,
-                failureManager
+                failureManager,
+                ChannelTypeRegistryProvider.loadByServiceLoader(serviceProviderClassLoader)
         );
 
         clock = new HybridClockImpl();
 
-        clockWaiter = new ClockWaiter(name, clock);
+        clockWaiter = new ClockWaiter(name, clock, threadPoolsManager.commonScheduler());
 
         RaftConfiguration raftConfiguration = nodeConfigRegistry.getConfiguration(RaftExtensionConfiguration.KEY).raft();
 
@@ -847,7 +849,8 @@ public class IgniteImpl implements Ignite {
                 longJvmPauseDetector,
                 failureManager,
                 partitionsLogStorageFactory,
-                clock
+                clock,
+                threadPoolsManager.commonScheduler()
         );
 
         dataStorageMgr = new DataStorageManager(
@@ -1004,6 +1007,7 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 rebalanceScheduler,
+                threadPoolsManager.commonScheduler(),
                 clockService,
                 outgoingSnapshotsManager,
                 distributionZoneManager,

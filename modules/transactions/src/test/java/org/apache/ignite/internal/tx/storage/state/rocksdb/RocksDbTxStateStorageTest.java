@@ -26,11 +26,11 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -45,6 +45,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Tx storage test for RocksDB implementation.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @WorkDirectory
@@ -52,9 +53,11 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
 
     private TxStateRocksDbSharedStorage sharedStorage;
 
-    private final ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    @InjectExecutorService
+    private ExecutorService executor;
 
     @Override
     protected TxStateRocksDbTableStorage createTableStorage() {
@@ -68,8 +71,7 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     @Override
     @BeforeEach
     protected void beforeTest() {
-        sharedStorage =
-                new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, mock(LogSyncer.class), () -> 0);
+        sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, mock(LogSyncer.class), () -> 0);
         sharedStorage.start();
 
         super.beforeTest();
@@ -80,11 +82,7 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
     protected void afterTest() throws Exception {
         super.afterTest();
 
-        IgniteUtils.closeAllManually(
-                sharedStorage,
-                () -> IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS),
-                () -> IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS)
-        );
+        IgniteUtils.closeAllManually(sharedStorage);
     }
 
     @Test

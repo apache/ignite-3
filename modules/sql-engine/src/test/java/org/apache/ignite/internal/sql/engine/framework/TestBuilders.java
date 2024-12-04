@@ -45,7 +45,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -82,6 +85,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -131,6 +135,7 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -140,6 +145,7 @@ import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
@@ -677,7 +683,11 @@ public class TestBuilders {
                 }
             }
 
-            ClockWaiter clockWaiter = new ClockWaiter("test", clock);
+            ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
+                    NamedThreadFactory.create("test", "common-scheduled-executors", LOG)
+            );
+
+            var clockWaiter = new ClockWaiter("test", clock, scheduledExecutor);
             var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
 
             Runnable initClosure = () -> {
@@ -685,6 +695,8 @@ public class TestBuilders {
 
                 initAction(catalogManager);
             };
+
+            RunnableX stopClosure = () -> IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
             List<LogicalNode> logicalNodes = nodeNames.stream()
                     .map(name -> {
@@ -764,7 +776,8 @@ public class TestBuilders {
                     catalogManager,
                     prepareService,
                     clockWaiter,
-                    initClosure
+                    initClosure,
+                    stopClosure
             );
         }
 

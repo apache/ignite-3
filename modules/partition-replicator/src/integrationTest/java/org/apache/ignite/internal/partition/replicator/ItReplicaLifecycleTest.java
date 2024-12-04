@@ -1160,7 +1160,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            clockWaiter = new ClockWaiter(name, hybridClock);
+            clockWaiter = new ClockWaiter(name, hybridClock, threadPoolsManager.commonScheduler());
 
             ClockService clockService = new ClockServiceImpl(
                     hybridClock,
@@ -1209,7 +1209,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                             null,
                             failureManager,
                             partitionsLogStorageFactory,
-                            hybridClock
+                            hybridClock,
+                            scheduledExecutorService
                     ),
                     storageConfiguration
             );
@@ -1326,6 +1327,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
                     rebalanceScheduler,
+                    threadPoolsManager.commonScheduler(),
                     clockService,
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     distributionZoneManager,

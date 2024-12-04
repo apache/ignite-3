@@ -19,10 +19,13 @@ package org.apache.ignite.internal.replicator;
 
 // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Should be refactored to ZonePartitionId.
 
+import java.util.regex.Pattern;
+
 /**
  * The class is used to identify a table replication group.
  */
 public class TablePartitionId implements PartitionGroupId {
+    private static final Pattern DELIMITER_PATTERN = Pattern.compile("_part_");
 
     /** Table id. */
     private final int tableId;
@@ -48,7 +51,7 @@ public class TablePartitionId implements PartitionGroupId {
      * @return An table partition id.
      */
     public static TablePartitionId fromString(String str) {
-        String[] parts = str.split("_part_");
+        String[] parts = DELIMITER_PATTERN.split(str);
 
         return new TablePartitionId(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
     }

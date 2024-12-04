@@ -61,6 +61,8 @@ import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.CancelHandleHelper;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -124,6 +126,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
+            @Nullable CancellationToken cancellationToken,
             I arg
     ) {
         if (!busyLock.enterBusy()) {
@@ -133,8 +136,10 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         }
 
         try {
+            CompletableFuture<JobContext> classLoaderFut = jobContextManager.acquireClassLoader(units);
+
             CompletableFuture<JobExecutionInternal<R>> future =
-                    mapClassLoaderExceptions(jobContextManager.acquireClassLoader(units), jobClassName)
+                    mapClassLoaderExceptions(classLoaderFut, jobClassName)
                             .thenApply(context -> {
                                 JobExecutionInternal<R> execution = execJob(context, options, jobClassName, arg);
                                 execution.resultAsync().whenComplete((result, e) -> context.close());
@@ -143,8 +148,16 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
                             });
 
             inFlightFutures.registerFuture(future);
+            inFlightFutures.registerFuture(classLoaderFut);
 
             JobExecution<R> result = new DelegatingJobExecution<>(future);
+
+            if (cancellationToken != null) {
+                CancelHandleHelper.addCancelAction(cancellationToken, classLoaderFut);
+                CancelHandleHelper.addCancelAction(cancellationToken, future);
+                CancelHandleHelper.addCancelAction(cancellationToken, result::cancelAsync, result.resultAsync());
+            }
+
             result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
             return result;
         } finally {
@@ -192,6 +205,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
+            @Nullable CancellationToken cancellationToken,
             T arg
     ) {
         if (!busyLock.enterBusy()) {
@@ -208,6 +222,11 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             inFlightFutures.registerFuture(resultFuture);
 
             JobExecution<R> result = new RemoteJobExecution<>(remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging);
+
+            if (cancellationToken != null) {
+                CancelHandleHelper.addCancelAction(cancellationToken, result::cancelAsync, result.resultAsync());
+            }
+
             jobIdFuture.thenAccept(jobId -> executionManager.addExecution(jobId, result));
             return result;
         } finally {
@@ -222,12 +241,13 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            T arg
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
     ) {
         JobExecution<R> result = (JobExecution<R>) new ComputeJobFailover<>(
                 this, logicalTopologyService, topologyService,
                 remoteNode, nextWorkerSelector, failoverExecutor, units,
-                jobClassName, options, arg
+                jobClassName, options, cancellationToken, arg
         ).failSafeExecute();
 
         result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));

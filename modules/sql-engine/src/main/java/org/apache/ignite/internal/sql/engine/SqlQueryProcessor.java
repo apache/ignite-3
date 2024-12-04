@@ -543,7 +543,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         }
 
         return (int) executor.runningQueries().stream()
-                .filter(info -> info.phase() == ExecutionPhase.EXECUTING)
+                .filter(info -> info.phase() == ExecutionPhase.EXECUTING && !info.script())
                 .count();
     }
 

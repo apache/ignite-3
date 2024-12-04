@@ -24,6 +24,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -70,20 +71,48 @@ class TxAwareAsyncCursor<T> implements AsyncDataCursor<T> {
     }
 
     @Override
-    public CompletableFuture<Void> closeAsync() {
+    public CompletableFuture<Void> closeAsync(boolean cancelled) {
         if (!closed.compareAndSet(false, true)) {
             return closeResult;
         }
 
-        dataCursor.closeAsync()
-                .thenCompose(ignored -> txWrapper.commitImplicit())
-                .whenComplete((r, e) -> {
-                    if (e != null) {
-                        closeResult.completeExceptionally(e);
-                    } else {
-                        closeResult.complete(null);
-                    }
-                });
+        CompletableFuture<Void> closeFuture;
+
+        if (cancelled) {
+            closeFuture = txWrapper.rollback(new QueryCancelledException())
+                    .handle((none, rollbackErr) -> {
+                        return dataCursor.closeAsync(true)
+                                .handle((res, closeErr) -> {
+                                    Throwable err = rollbackErr;
+
+                                    if (closeErr != null) {
+                                        if (rollbackErr != null) {
+                                            closeErr.addSuppressed(rollbackErr);
+                                        }
+
+                                        err = closeErr;
+                                    }
+
+                                    if (err != null) {
+                                        throw new CompletionException(err);
+                                    }
+
+                                    return res;
+                                });
+                    })
+                    .thenCompose(Function.identity());
+        } else {
+            closeFuture = dataCursor.closeAsync()
+                    .thenCompose(ignored -> txWrapper.commitImplicit());
+        }
+
+        closeFuture.whenComplete((r, e) -> {
+            if (e != null) {
+                closeResult.completeExceptionally(e);
+            } else {
+                closeResult.complete(null);
+            }
+        });
 
         return closeResult;
     }

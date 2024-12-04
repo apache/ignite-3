@@ -18,12 +18,15 @@
 package org.apache.ignite.internal.storage.rocksdb.engine;
 
 import java.nio.file.Path;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,6 +34,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Implementation of the {@link AbstractStorageEngineTest} for the {@link RocksDbStorageEngine#ENGINE_NAME} engine.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
 public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
     @InjectConfiguration("mock.flushDelayMillis = 0")
@@ -42,6 +46,9 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
     @WorkDirectory
     private Path workDir;
 
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
+
     @Override
     protected StorageEngine createEngine() {
         return new RocksDbStorageEngine(
@@ -49,7 +56,8 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
                 engineConfiguration,
                 storageConfiguration,
                 workDir,
-                logSyncer
+                logSyncer,
+                scheduledExecutor
         );
     }
 }

@@ -45,7 +45,7 @@ class VolatilePageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndex
     void setUp(
             @InjectConfiguration
             VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
+            @InjectConfiguration("mock.profiles.default = {engine = aimem}")
             StorageConfiguration storageConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();

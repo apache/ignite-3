@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -395,7 +396,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new VaultStaleIds(vault),
                 clusterIdService,
                 workerRegistry,
-                failureProcessor
+                failureProcessor,
+                defaultChannelTypeRegistry()
         );
 
         var hybridClock = new HybridClockImpl();
@@ -546,7 +548,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
-        var clockWaiter = new ClockWaiter(name, hybridClock);
+        var clockWaiter = new ClockWaiter(name, hybridClock, scheduledExecutorService);
 
         SchemaSynchronizationConfiguration schemaSyncConfiguration = clusterConfigRegistry
                 .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
@@ -654,7 +656,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         null,
                         failureProcessor,
                         partitionsLogStorageFactory,
-                        hybridClock
+                        hybridClock,
+                        scheduledExecutorService
                 ),
                 storageConfiguration
         );
@@ -722,6 +725,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 rebalanceScheduler,
+                threadPoolsManager.commonScheduler(),
                 clockService,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 distributionZoneManager,
