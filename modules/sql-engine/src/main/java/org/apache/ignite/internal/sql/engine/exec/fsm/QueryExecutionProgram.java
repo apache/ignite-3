@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
+import static org.apache.ignite.lang.ErrorGroups.Replicator;
+import static org.apache.ignite.lang.ErrorGroups.Transactions;
+
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 
 /**
  * Generic execution program, which accepts query string and initialization parameters as input, and returns cursor as result.
@@ -66,18 +70,22 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
 
     static boolean errorHandler(Query query, Throwable th) {
         if (canRecover(query, th)) {
-            SqlOperationContext context = query.operationContext;
+            if (nodeLeft(th)) {
+                SqlOperationContext context = query.operationContext;
 
-            assert context != null;
+                assert context != null;
 
-            // ensured by canRecover() method
-            assert th instanceof UnknownNodeException : th;
+                // ensured by nodeLeft() method
+                assert th instanceof UnknownNodeException : th;
 
-            UnknownNodeException exception = (UnknownNodeException) th;
+                UnknownNodeException exception = (UnknownNodeException) th;
 
-            context.excludeNode(exception.nodeName());
+                context.excludeNode(exception.nodeName());
 
-            return true;
+                return true;
+            } else if (lockConflict(th) || replicaMiss(th)) {
+                return true;
+            }
         }
 
         query.onError(th);
@@ -97,6 +105,18 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
             return false;
         }
 
+        return nodeLeft(th) || lockConflict(th) || replicaMiss(th);
+    }
+
+    private static boolean nodeLeft(Throwable th) {
         return th instanceof UnknownNodeException;
+    }
+
+    private static boolean lockConflict(Throwable th) {
+        return ExceptionUtils.extractCodeFrom(th) == Transactions.ACQUIRE_LOCK_ERR;
+    }
+
+    private static boolean replicaMiss(Throwable th) {
+        return ExceptionUtils.extractCodeFrom(th) == Replicator.REPLICA_MISS_ERR;
     }
 }

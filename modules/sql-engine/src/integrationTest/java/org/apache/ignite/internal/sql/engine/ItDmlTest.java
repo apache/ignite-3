@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -38,6 +39,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Phaser;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -47,6 +49,7 @@ import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
@@ -1045,6 +1048,37 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         }
 
         assertTrue(interceptor.getFails().isEmpty(), "Expected no fail handler invocation");
+    }
+
+    @Test
+    void ensureLockConflictAreProperlyHandledForImplicitTransactions() {
+        sql("CREATE TABLE my (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO my VALUES (1, 0), (2, 0), (3, 0), (4, 0)");
+
+        int parties = 2;
+        Phaser phaser = new Phaser(parties);
+
+        int operationCount = 10;
+        List<CompletableFuture<?>> results = new ArrayList<>(parties);
+        for (int i = 0; i < parties; i++) {
+            int newValue = i + 1;
+            results.add(runAsync(() -> {
+
+                for (int opNo = 0; opNo < operationCount; opNo++) {
+                    phaser.awaitAdvanceInterruptibly(phaser.arrive());
+
+                    sql("UPDATE my SET val = ?", newValue);
+                }
+            }));
+        }
+
+        // all queries are expected to complete successfully
+        await(CompletableFutures.allOf(results));
+
+        // make sure state is consistent
+        assertQuery("SELECT COUNT(*), COUNT(DISTINCT val) FROM my")
+                .returns(4L, 1L)
+                .check();
     }
 
     private static Stream<Arguments> decimalLimits() {
