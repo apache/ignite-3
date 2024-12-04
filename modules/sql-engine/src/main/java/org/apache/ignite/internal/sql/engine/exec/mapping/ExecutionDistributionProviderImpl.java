@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -143,43 +140,9 @@ public class ExecutionDistributionProviderImpl implements ExecutionDistributionP
             List<TablePartitionId> replicationGroupIds,
             HybridTimestamp operationTime
     ) {
-        CompletableFuture<List<TokenizedAssignments>> f = placementDriver.getAssignments(
+        return placementDriver.getAssignments(
                 replicationGroupIds,
                 operationTime
         );
-
-        return f.thenCompose(assignments -> {
-            // Collect missed assignments indexes if found.
-            IntList missedAssignments = new IntArrayList(0);
-
-            for (int i = 0; i < assignments.size(); i++) {
-                if (assignments.get(i) == null) {
-                    missedAssignments.add(i);
-                }
-            }
-
-            if (missedAssignments.isEmpty()) {
-                return completedFuture(assignments);
-            }
-
-            // assignments are not ready yet, let's fall back to primary replicas
-            List<CompletableFuture<TokenizedAssignments>> primaryReplicaAssignment = new ArrayList<>(missedAssignments.size());
-
-            for (int i = 0; i < missedAssignments.size(); i++) {
-                primaryReplicaAssignment.add(primaryReplica(replicationGroupIds.get(missedAssignments.getInt(i)), operationTime));
-            }
-
-            CompletableFuture<Void> all = CompletableFuture.allOf(primaryReplicaAssignment.toArray(new CompletableFuture[0]));
-            return all.thenApply(ignore -> {
-                // Creates a mutable copy and replace missed assignments with primary replicas.
-                List<TokenizedAssignments> finalAssignments = new ArrayList<>(assignments);
-
-                for (int i = 0; i < missedAssignments.size(); i++) {
-                    finalAssignments.set(missedAssignments.getInt(i), primaryReplicaAssignment.get(i).join());
-                }
-
-                return finalAssignments;
-            });
-        });
     }
 }
