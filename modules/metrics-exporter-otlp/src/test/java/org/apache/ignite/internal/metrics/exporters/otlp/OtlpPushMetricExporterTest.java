@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicDoubleMetric;
 import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
@@ -49,10 +49,10 @@ import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricProvider;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
-import org.apache.ignite.internal.metrics.exporters.configuration.OtlpExporterView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
@@ -91,8 +91,6 @@ class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
                     )
             );
 
-    private MetricProvider metricsProvider;
-
     private MetricExporter metricsExporter;
 
     private OtlpPushMetricExporter exporter;
@@ -102,13 +100,15 @@ class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        OtlpExporterView exporterConf = (OtlpExporterView) metricConfiguration.exporters().get("otlp").value();
-        metricsProvider = mock(MetricProvider.class);
-        Map<String, MetricSet> metrics = Map.of(metricSet.name(), metricSet);
-        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
+        MetricManager metricManager = new MetricManagerImpl();
+
+        metricManager.registerSource(new TestMetricSource(SRC_NAME, metricSet));
+        metricManager.enable(SRC_NAME);
+
+        metricManager.configure(metricConfiguration, () -> CLUSTER_ID, "nodeName");
 
         exporter = new OtlpPushMetricExporter();
-        exporter.start(metricsProvider, exporterConf, () -> CLUSTER_ID, "nodeName");
+        metricManager.start(Map.of("otlp", exporter));
 
         metricsExporter = mock(MetricExporter.class);
         exporter.reporter().exporter(metricsExporter);
@@ -154,6 +154,21 @@ class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
                         point.getCounts().stream().mapToLong(Long::longValue).toArray()
                 );
             }
+        }
+    }
+
+    private static class TestMetricSource extends AbstractMetricSource {
+        private final MetricSet metricSet;
+
+        TestMetricSource(String name, MetricSet metricSet) {
+            super(name);
+
+            this.metricSet = metricSet;
+        }
+
+        @Override
+        protected Holder createHolder() {
+            return () -> metricSet;
         }
     }
 }

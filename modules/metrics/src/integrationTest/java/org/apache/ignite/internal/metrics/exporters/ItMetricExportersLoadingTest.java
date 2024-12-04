@@ -91,6 +91,33 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @Test
+    public void shouldChangePeriod() throws Exception {
+        MetricManager metricManager = new MetricManagerImpl();
+
+        metricManager.configure(metricConfiguration, UUID::randomUUID, "test-node");
+
+        TestMetricsSource src = new TestMetricsSource("TestMetricsSource");
+
+        metricManager.registerSource(src);
+
+        metricManager.enable(src.name());
+
+        try (OutputStream pushOutputStream = new ByteArrayOutputStream()) {
+            TestPushMetricExporter.setOutputStream(pushOutputStream);
+
+            assertEquals(0, pushOutputStream.toString().length());
+
+            assertThat(metricManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
+
+            src.inc();
+
+            waitForOutput(pushOutputStream, "TestMetricsSource:\nMetric:1");
+
+
+        }
+    }
+
     private void waitForOutput(OutputStream outputStream, String content) {
         while (!outputStream.toString().contains(content)) {
             LockSupport.parkNanos(100_000_000);
