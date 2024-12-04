@@ -20,12 +20,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 /// <summary>
-/// Extension method for setting up Apache Ignite services in an <see cref="Microsoft.Extensions.DependencyInjection.IServiceCollection" />.
+/// Extension methods for setting up Apache Ignite services
+/// in an <see cref="Microsoft.Extensions.DependencyInjection.IServiceCollection" />.
 /// </summary>
 public static class IgniteServiceCollectionExtensions
 {
     /// <summary>
-    ///  Registers an <see cref="IgniteClientGroup" />.
+    /// Registers an <see cref="IgniteClientGroup" />.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="configuration">
@@ -39,15 +40,11 @@ public static class IgniteServiceCollectionExtensions
     public static IServiceCollection AddIgniteClientGroup(
         this IServiceCollection services,
         IgniteClientGroupConfiguration configuration,
-        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton)
-    {
+        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton) =>
         AddIgniteClientGroupCore(services, (_, _) => configuration, clientGroupLifetime);
 
-        return services;
-    }
-
     /// <summary>
-    ///  Registers an <see cref="IgniteClientGroup" />.
+    /// Registers an <see cref="IgniteClientGroup" />.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="configure">
@@ -61,15 +58,11 @@ public static class IgniteServiceCollectionExtensions
     public static IServiceCollection AddIgniteClientGroup(
         this IServiceCollection services,
         Func<IServiceProvider, IgniteClientGroupConfiguration> configure,
-        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton)
-    {
+        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton) =>
         AddIgniteClientGroupCore(services, (sp, _) => configure(sp), clientGroupLifetime);
 
-        return services;
-    }
-
     /// <summary>
-    ///  Registers an <see cref="IgniteClientGroup" />.
+    /// Registers an <see cref="IgniteClientGroup" />.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="serviceKey">
@@ -87,15 +80,11 @@ public static class IgniteServiceCollectionExtensions
         this IServiceCollection services,
         object? serviceKey,
         IgniteClientGroupConfiguration configuration,
-        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton)
-    {
+        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton) =>
         AddIgniteClientGroupCore(services, (_, _) => configuration, clientGroupLifetime, serviceKey);
 
-        return services;
-    }
-
     /// <summary>
-    ///  Registers an <see cref="IgniteClientGroup" />.
+    /// Registers an <see cref="IgniteClientGroup" />.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="serviceKey">
@@ -113,19 +102,15 @@ public static class IgniteServiceCollectionExtensions
         this IServiceCollection services,
         object? serviceKey,
         Func<IServiceProvider, IgniteClientGroupConfiguration> configure,
-        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton)
-    {
+        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton) =>
         AddIgniteClientGroupCore(
             services,
             (sp, _) => configure(sp),
             clientGroupLifetime,
             serviceKey);
 
-        return services;
-    }
-
     /// <summary>
-    ///  Registers an <see cref="IgniteClientGroup" />.
+    /// Registers an <see cref="IgniteClientGroup" />.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="serviceKey">
@@ -143,12 +128,8 @@ public static class IgniteServiceCollectionExtensions
         this IServiceCollection services,
         object? serviceKey,
         Func<IServiceProvider, object?, IgniteClientGroupConfiguration> configure,
-        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton)
-    {
+        ServiceLifetime clientGroupLifetime = ServiceLifetime.Singleton) =>
         AddIgniteClientGroupCore(services, configure, clientGroupLifetime, serviceKey);
-
-        return services;
-    }
 
     private static IServiceCollection AddIgniteClientGroupCore(
         IServiceCollection services,

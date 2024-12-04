@@ -101,7 +101,8 @@ public class IgniteServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
 
-        services.AddIgniteClientGroup(CreateGroupConfig(), lifetime);
+        var resServices = services.AddIgniteClientGroup(CreateGroupConfig(), lifetime);
+        Assert.AreSame(services, resServices);
 
         var servicesDescriptors = services
             .Where(sd => sd.ServiceType == typeof(IgniteClientGroup))
@@ -116,7 +117,8 @@ public class IgniteServiceCollectionExtensionsTests
     {
         var services = new ServiceCollection();
 
-        services.AddIgniteClientGroup(_ => CreateGroupConfig(), lifetime);
+        var resServices = services.AddIgniteClientGroup(_ => CreateGroupConfig(), lifetime);
+        Assert.AreSame(services, resServices);
 
         var servicesDescriptors = services
             .Where(sd => sd.ServiceType == typeof(IgniteClientGroup))
