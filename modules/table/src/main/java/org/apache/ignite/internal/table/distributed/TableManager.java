@@ -62,7 +62,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -138,7 +137,6 @@ import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEven
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEventParameters;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
-import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
@@ -165,7 +163,6 @@ import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageUtils;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
-import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaSyncService;
@@ -2289,17 +2286,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TablePartitionIdMessage partitionIdMessage = ReplicaMessageUtils
                     .toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, replicationGroupId);
 
-            ByteBuffer pendingAssignmentsBytes = ByteBuffer.wrap(pendingAssignments.toBytes())
-                    .order(BinaryTuple.ORDER);
-
-            BinaryTupleMessage pendingAssignmentsMessage = TABLE_MESSAGES_FACTORY.binaryTupleMessage()
-                    .elementCount(pendingAssignments.nodes().size())
-                    .tuple(pendingAssignmentsBytes)
-                    .build();
-
             ChangePeersAndLearnersAsyncReplicaRequest request = TABLE_MESSAGES_FACTORY.changePeersAndLearnersAsyncReplicaRequest()
                     .groupId(partitionIdMessage)
-                    .pendingAssignments(pendingAssignmentsMessage)
+                    .pendingAssignments(pendingAssignments.toBytes())
                     .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
                     .build();
 

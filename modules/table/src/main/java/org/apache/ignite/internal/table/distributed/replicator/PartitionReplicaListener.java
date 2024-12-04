@@ -658,9 +658,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private static PeersAndLearners peersConfigurationFromMessage(ChangePeersAndLearnersAsyncReplicaRequest request) {
-        BinaryTuple pendingAssignmentsTuple = request.pendingAssignments().asBinaryTuple();
-
-        Assignments pendingAssignments = fromBytes(pendingAssignmentsTuple.byteBuffer().array());
+        Assignments pendingAssignments = fromBytes(request.pendingAssignments());
 
         return fromAssignments(pendingAssignments.nodes());
     }
