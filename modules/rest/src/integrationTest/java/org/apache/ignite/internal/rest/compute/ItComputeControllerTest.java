@@ -21,7 +21,6 @@ import static io.micronaut.http.HttpRequest.DELETE;
 import static io.micronaut.http.HttpRequest.PUT;
 import static io.micronaut.http.HttpStatus.CONFLICT;
 import static io.micronaut.http.HttpStatus.NOT_FOUND;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.isProblemResponse;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.canceled;
@@ -111,10 +110,6 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
             assertThat(states.get(localJobId), executing(localJobId));
             assertThat(states.get(remoteJobId), executing(remoteJobId));
         });
-    }
-
-    private static ClusterNode clusterNode(Ignite ignite) {
-        return unwrapIgniteImpl(ignite).node();
     }
 
     @Test

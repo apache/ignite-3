@@ -40,7 +40,9 @@ public class IgniteClientGroupTests
     [Test]
     public async Task TestGetClient()
     {
-        using IgniteClientGroup group = CreateGroup();
+        using var group = new IgniteClientGroup(
+            new IgniteClientGroupConfiguration { ClientConfiguration = new(_server.Endpoint) });
+
         IIgnite client = await group.GetIgniteAsync();
         IIgnite client2 = await group.GetIgniteAsync();
 
