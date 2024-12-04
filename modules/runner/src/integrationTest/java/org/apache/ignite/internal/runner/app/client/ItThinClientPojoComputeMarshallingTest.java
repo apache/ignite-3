@@ -17,21 +17,27 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobDescriptor.Builder;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.runner.app.Jobs.MapReducePojo;
 import org.apache.ignite.internal.runner.app.Jobs.PojoArg;
+import org.apache.ignite.internal.runner.app.Jobs.PojoArgNativeResult;
 import org.apache.ignite.internal.runner.app.Jobs.PojoJob;
 import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
 import org.apache.ignite.internal.runner.app.Jobs.TwoStringPojo;
 import org.apache.ignite.marshalling.UnmarshallingException;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -39,17 +45,29 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Test the OOTB support for POJOs in compute api.
  */
-@SuppressWarnings({"resource", "ThrowableNotThrown"})
-public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClientTest {
+@SuppressWarnings("ThrowableNotThrown")
+public class ItThinClientPojoComputeMarshallingTest extends ClusterPerClassIntegrationTest {
+    private IgniteClient client;
+
+    @BeforeAll
+    void openClient() {
+        String address = "127.0.0.1:" + unwrapIgniteImpl(node(0)).clientAddress().port();
+        client = IgniteClient.builder().addresses(address).build();
+    }
+
+    @AfterAll
+    void closeClient() {
+        client.close();
+    }
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
     void pojoJob(int targetNodeIdx) {
         // Given target node.
-        var targetNode = node(targetNodeIdx);
+        var targetNode = clusterNode(targetNodeIdx);
 
         // When run job with provided pojo result class.
-        PojoResult result = client().compute().execute(
+        PojoResult result = client.compute().execute(
                 JobTarget.node(targetNode),
                 JobDescriptor.builder(PojoJob.class).resultClass(PojoResult.class).build(),
                 new PojoArg().setIntValue(2).setStrValue("1")
@@ -63,10 +81,10 @@ public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClient
     @ValueSource(ints = {0, 1})
     void childPojoJob(int targetNodeIdx) {
         // Given target node.
-        var targetNode = node(targetNodeIdx);
+        var targetNode = clusterNode(targetNodeIdx);
 
         // When run job with provided pojo result class.
-        PojoResult result = client().compute().execute(
+        PojoResult result = client.compute().execute(
                 JobTarget.node(targetNode),
                 JobDescriptor.builder(PojoJob.class).resultClass(PojoResult.class).build(),
                 new PojoArg().setStrValue("1").setChildPojo(new PojoArg().setStrValue("1"))
@@ -80,11 +98,11 @@ public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClient
     @ValueSource(ints = {0, 1})
     void pojoJobWithDifferentClass(int targetNodeIdx) {
         // Given target node.
-        var targetNode = node(targetNodeIdx);
+        var targetNode = clusterNode(targetNodeIdx);
 
         // When run job with pojo result class which is different from the actual class in the job.
         Builder<PojoArg, PojoResult1> builder = JobDescriptor.builder(PojoJob.class.getName());
-        PojoResult1 result = client().compute().execute(
+        PojoResult1 result = client.compute().execute(
                 JobTarget.node(targetNode),
                 builder.resultClass(PojoResult1.class).build(),
                 new PojoArg().setIntValue(2).setStrValue("1")
@@ -96,14 +114,31 @@ public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClient
 
     @ParameterizedTest
     @ValueSource(ints = {0, 1})
+    void pojoArgNativeResult(int targetNodeIdx) {
+        // Given target node.
+        var targetNode = clusterNode(targetNodeIdx);
+
+        // When run job with pojo argument and native result.
+        String result = client.compute().execute(
+                JobTarget.node(targetNode),
+                JobDescriptor.builder(PojoArgNativeResult.class).build(),
+                new PojoArg().setStrValue("1")
+        );
+
+        // Then the job returns the expected result.
+        assertThat(result, is("1"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
     void pojoJobWithoutResultClass(int targetNodeIdx) {
         // Given target node.
-        var targetNode = node(targetNodeIdx);
+        var targetNode = clusterNode(targetNodeIdx);
 
         // When run job with custom marshaller for pojo argument and result.
         assertThrows(
                 UnmarshallingException.class,
-                () -> client().compute().execute(
+                () -> client.compute().execute(
                         JobTarget.node(targetNode),
                         JobDescriptor.builder(PojoJob.class).build(),
                         new PojoArg().setIntValue(2).setStrValue("1")
@@ -120,7 +155,7 @@ public class ItThinClientPojoComputeMarshallingTest extends ItAbstractThinClient
     @Test
     void mapReduce() {
         // When.
-        TwoStringPojo result = client().compute().executeMapReduce(
+        TwoStringPojo result = client.compute().executeMapReduce(
                 TaskDescriptor.builder(MapReducePojo.class)
                         .reduceJobResultClass(TwoStringPojo.class)
                         .build(),

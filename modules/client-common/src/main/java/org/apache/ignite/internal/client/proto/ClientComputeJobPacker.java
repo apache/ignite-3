@@ -64,20 +64,19 @@ public final class ClientComputeJobPacker {
      * @param <T> Result type.
      */
     public static <T> void packJobResult(@Nullable T res, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
-        pack(res, marshaller, packer);
+        if (res instanceof ComputeJobDataHolder) {
+            ComputeJobDataHolder resultDataHolder = (ComputeJobDataHolder) res;
+            packer.packInt(resultDataHolder.type().id());
+            packer.packBinary(resultDataHolder.data());
+        } else {
+            pack(res, marshaller, packer);
+        }
     }
 
     /** Packs object in the format: | typeId | value |. */
     private static <T> void pack(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
         if (obj == null) {
             packer.packNil();
-            return;
-        }
-
-        if (obj instanceof ComputeJobDataHolder) {
-            ComputeJobDataHolder dataHolder = (ComputeJobDataHolder) obj;
-            packer.packInt(dataHolder.type().id());
-            packer.packBinary(dataHolder.data());
             return;
         }
 

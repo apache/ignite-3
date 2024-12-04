@@ -18,63 +18,67 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.catalog.ColumnType;
-import org.apache.ignite.catalog.definitions.TableDefinition;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test the OOTB support for Tuples in compute api.
  */
-@SuppressWarnings("resource")
-public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClientTest {
+public class ItThinClientTupleComputeMarshallingTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
 
-    @BeforeEach
-    void setUp() {
-        client().catalog().createTable(
-                TableDefinition.builder(TABLE_NAME)
-                        .columns(
-                                column("key_col", ColumnType.INT32),
-                                column("value_col", ColumnType.VARCHAR)
-                        ).primaryKey("key_col")
-                        .build()
-        );
+    private static final String COLUMN_KEY = "key_col";
 
-        client().tables().table(TABLE_NAME).keyValueView().put(
-                null,
-                Tuple.create().set("key_col", 2),
-                Tuple.create().set("value_col", "hi")
-        );
+    private static final String COLUMN_VAL = "value_col";
+
+    private IgniteClient client;
+
+    @BeforeAll
+    void beforeAll() {
+        sql(format("CREATE TABLE {} ({} INT PRIMARY KEY, {} VARCHAR)", TABLE_NAME, COLUMN_KEY, COLUMN_VAL));
+        sql(format("INSERT INTO {} ({}, {}) VALUES (2, 'hi')", TABLE_NAME, COLUMN_KEY, COLUMN_VAL));
+
+        String address = "127.0.0.1:" + unwrapIgniteImpl(node(0)).clientAddress().port();
+        client = IgniteClient.builder().addresses(address).build();
     }
 
-    @AfterEach
-    void tearDown() {
-        client().catalog().dropTable(TABLE_NAME);
+    @AfterAll
+    void afterAll() {
+        dropAllTables();
+
+        client.close();
     }
 
-    @Test
-    void tupleFromTableApiAsArgument() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void tupleFromTableApiAsArgument(int targetNodeIdx) {
+        // Given target node.
+        var targetNode = clusterNode(targetNodeIdx);
+
         // Given tuple from the table.
-        var tup = client().tables().table(TABLE_NAME).keyValueView().get(null, Tuple.create().set("key_col", 2));
+        var tup = client.tables().table(TABLE_NAME).keyValueView().get(null, Tuple.create().set(COLUMN_KEY, 2));
 
         // When execute job with the tuple as an argument.
-        String result = client().compute().execute(
-                JobTarget.node(node(1)),
+        String result = client.compute().execute(
+                JobTarget.node(targetNode),
                 JobDescriptor.builder(TupleArgJob.class).build(),
                 tup
         );
@@ -83,27 +87,35 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
         assertThat(result, is("hi"));
     }
 
-    @Test
-    void tupleFromTableReturned() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void tupleFromTableReturned(int targetNodeIdx) {
+        // Given target node.
+        var targetNode = clusterNode(targetNodeIdx);
+
         // Given.
         var key = 2;
 
         // When execute job that returns tuple from the table.
-        Tuple result = client().compute().execute(
-                JobTarget.node(node(1)),
+        Tuple result = client.compute().execute(
+                JobTarget.node(targetNode),
                 JobDescriptor.builder(TupleResultJob.class).build(),
                 key
         );
 
         // Then tuple is returned.
-        assertThat(result.stringValue("value_col"), is("hi"));
+        assertThat(result.stringValue(COLUMN_VAL), is("hi"));
     }
 
     /**
      * Tests that the nested tuples are correctly serialized and deserialized.
      */
-    @Test
-    void nestedTuplesArgumentSerialization() {
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void nestedTuplesArgumentSerialization(int targetNodeIdx) {
+        // Given target node.
+        var targetNode = clusterNode(targetNodeIdx);
+
         var argument = Tuple.create(
                 Map.of("level1_key1", Tuple.create(
                                 Map.of("level2_key1", Tuple.create(
@@ -120,8 +132,8 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
                 )
         );
 
-        Tuple resultTuple = client().compute().execute(
-                JobTarget.node(node(1)),
+        Tuple resultTuple = client.compute().execute(
+                JobTarget.node(targetNode),
                 JobDescriptor.builder(TupleComputeJob.class).build(),
                 argument
         );
@@ -133,7 +145,7 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
         @Override
         public @Nullable CompletableFuture<Tuple> executeAsync(JobExecutionContext context, @Nullable Integer key) {
             // todo: There is no table for some reason in context.ignite().
-            return completedFuture(Tuple.create().set("value_col", "hi"));
+            return completedFuture(Tuple.create().set(COLUMN_VAL, "hi"));
         }
     }
 
@@ -144,7 +156,7 @@ public class ItThinClientTupleComputeMarshallingTest extends ItAbstractThinClien
                 return completedFuture("null");
             }
 
-            return completedFuture(arg.stringValue("value_col"));
+            return completedFuture(arg.stringValue(COLUMN_VAL));
         }
     }
 
