@@ -145,7 +145,7 @@ public class ItThinClientTupleComputeMarshallingTest extends ClusterPerClassInte
         @Override
         public @Nullable CompletableFuture<Tuple> executeAsync(JobExecutionContext context, @Nullable Integer key) {
             return context.ignite().tables().tableAsync(TABLE_NAME)
-                    .thenApply(table -> table.keyValueView().get(null, Tuple.create().set(COLUMN_VAL, key)));
+                    .thenApply(table -> table.keyValueView().get(null, Tuple.create().set(COLUMN_KEY, key)));
         }
     }
 
