@@ -355,7 +355,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         // Size of the mapping always matches the size of full row, so in any case we will get
         // an offset of the first column of the update part
         // see javadoc of ModifyNode for details on possible formats of rows passed to the node
-        int updateColumnOffset = rowSize - (mapping.length + updateColumns.size());
+        int fullRowOffset = rowSize - (mapping.length + updateColumns.size());
 
         if (!hasUpsertSemantic(rowSize)) {
             // WHEN MATCHED clause only
@@ -374,7 +374,9 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                 // that belongs to the destination table has a NULL value. Otherwise it belongs to the WHEN MATCH clause.
 
                 boolean insertRow = true;
-                for (int i = updateColumnOffset; i < updateColumnOffset + mapping.length; i++) {
+                // Checks all fields in the original row.
+                // If all of them are null then row existed and need to update it, otherwise insert a new row.
+                for (int i = fullRowOffset; i < fullRowOffset + mapping.length; i++) {
                     if (!handler.isNull(i, row)) {
                         insertRow = false;
                         break;
