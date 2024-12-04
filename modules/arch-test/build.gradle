@@ -20,9 +20,11 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
 description = 'ignite-arch-test'
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+if (!JavaVersion.current().isJava11Compatible()) {
+    java {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
 }
 
 dependencies {
