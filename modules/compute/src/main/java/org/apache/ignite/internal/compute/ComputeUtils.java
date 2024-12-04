@@ -60,7 +60,6 @@ import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStateResponse;
 import org.apache.ignite.internal.compute.message.JobStatesResponse;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
@@ -365,7 +364,7 @@ public class ComputeUtils {
     /**
      * Unmarshals the input using provided marshaller if input is a byte array. If no marshaller is provided, then, if the input is a
      * {@link Tuple} and provided pojo type is not {@code null} and not a {@link Tuple}, unmarshals the input as a pojo using the provided
-     * pojo type. If the input is a {@link ComputeJobDataHolder}, extracts the data from it and unmarshals using the same strategy.
+     * pojo type. If the input is a {@link ComputeJobResultHolder}, extracts the data from it and unmarshals using the same strategy.
      *
      * @param marshaller Optional marshaller to unmarshal the input.
      * @param input Input object.
@@ -382,8 +381,8 @@ public class ComputeUtils {
             return null;
         }
 
-        if (input instanceof ComputeJobDataHolder) {
-            return unmarshalFromDataHolder(marshaller, (ComputeJobDataHolder) input, pojoType);
+        if (input instanceof ComputeJobArgumentHolder) {
+            return unmarshalInputFromDataHolder(marshaller, (ComputeJobArgumentHolder) input, pojoType);
         }
 
         if (marshaller == null) {
@@ -415,7 +414,7 @@ public class ComputeUtils {
     }
 
     /**
-     * Unmarshals the input from the {@link ComputeJobDataHolder} using provided marshaller if input was marshalled on the client. If the
+     * Unmarshals the input from the {@link ComputeJobResultHolder} using provided marshaller if input was marshalled on the client. If the
      * input was marshalled as a {@link Tuple} or POJO, then, if provided pojo type is not {@code null} and not a {@link Tuple}, unmarshals
      * the input as a pojo using the provided pojo type, otherwise unmarshals it as a {@link Tuple}.
      *
@@ -425,9 +424,9 @@ public class ComputeUtils {
      * @param <T> Result type.
      * @return Unmarshalled object.
      */
-    private static <T> @Nullable T unmarshalFromDataHolder(
+    private static <T> @Nullable T unmarshalInputFromDataHolder(
             @Nullable Marshaller<T, byte[]> marshaller,
-            ComputeJobDataHolder argumentHolder,
+            ComputeJobArgumentHolder argumentHolder,
             @Nullable Class<?> pojoType
     ) {
         ComputeJobDataType type = argumentHolder.type();
@@ -479,7 +478,7 @@ public class ComputeUtils {
     /**
      * Marshals the job result using either provided marshaller if not {@code null} or depending on the type of the result either as a
      * {@link Tuple}, a native type (see {@link ColumnType}) or a POJO. Wraps the marshalled data with the data type in the
-     * {@link ComputeJobDataHolder} to be unmarshalled on the client.
+     * {@link ComputeJobResultHolder} to be unmarshalled on the client.
      *
      * @param result Compute job result.
      * @param marshaller Optional result marshaller.
@@ -487,7 +486,7 @@ public class ComputeUtils {
      * @return Data holder.
      */
     @Nullable
-    static ComputeJobDataHolder marshalAndWrapResult(Object result, @Nullable Marshaller<Object, byte[]> marshaller) {
+    static ComputeJobResultHolder marshalAndWrapResult(Object result, @Nullable Marshaller<Object, byte[]> marshaller) {
         if (result == null) {
             return null;
         }
@@ -497,12 +496,12 @@ public class ComputeUtils {
             if (data == null) {
                 return null;
             }
-            return new ComputeJobDataHolder(MARSHALLED_CUSTOM, data);
+            return new ComputeJobResultHolder(MARSHALLED_CUSTOM, data);
         }
 
         if (result instanceof Tuple) {
             Tuple tuple = (Tuple) result;
-            return new ComputeJobDataHolder(TUPLE, TupleWithSchemaMarshalling.marshal(tuple));
+            return new ComputeJobResultHolder(TUPLE, TupleWithSchemaMarshalling.marshal(tuple));
         }
 
         if (isNativeType(result.getClass())) {
@@ -510,13 +509,13 @@ public class ComputeUtils {
             // Value is represented by 3 tuple elements: type, scale, value.
             var builder = new BinaryTupleBuilder(3, 3, false);
             ClientBinaryTupleUtils.appendObject(builder, result);
-            return new ComputeJobDataHolder(NATIVE, IgniteUtils.byteBufferToByteArray(builder.build()));
+            return new ComputeJobResultHolder(NATIVE, builder.build());
         }
 
         try {
             // TODO https://issues.apache.org/jira/browse/IGNITE-23320
             Tuple tuple = toTuple(result);
-            return new ComputeJobDataHolder(POJO, TupleWithSchemaMarshalling.marshal(tuple));
+            return new ComputeJobResultHolder(POJO, TupleWithSchemaMarshalling.marshal(tuple));
         } catch (PojoConversionException e) {
             throw new MarshallingException("Can't pack object", e);
         }

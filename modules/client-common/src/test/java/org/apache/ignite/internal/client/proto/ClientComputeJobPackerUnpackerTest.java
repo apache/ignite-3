@@ -42,7 +42,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.client.proto.pojo.Pojo;
 import org.apache.ignite.internal.client.proto.pojo.StaticFieldPojo;
-import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.ComputeJobArgumentHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.MarshallingException;
@@ -135,7 +135,7 @@ class ClientComputeJobPackerUnpackerTest {
             var res = unpackJobArgumentWithoutMarshaller(messageUnpacker);
 
             // Then argument is unpacked but not unmarshalled.
-            ComputeJobDataHolder argument = assertInstanceOf(ComputeJobDataHolder.class, res);
+            ComputeJobArgumentHolder argument = assertInstanceOf(ComputeJobArgumentHolder.class, res);
             assertEquals(type, argument.type());
         }
     }

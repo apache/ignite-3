@@ -27,7 +27,7 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
-import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.ComputeJobResultHolder;
 import org.apache.ignite.internal.compute.PojoConversionException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.MarshallingException;
@@ -74,10 +74,10 @@ public final class ClientComputeJobPacker {
             return;
         }
 
-        if (obj instanceof ComputeJobDataHolder) {
-            ComputeJobDataHolder dataHolder = (ComputeJobDataHolder) obj;
+        if (obj instanceof ComputeJobResultHolder) {
+            ComputeJobResultHolder dataHolder = (ComputeJobResultHolder) obj;
             packer.packInt(dataHolder.type().id());
-            packer.packBinary(dataHolder.data());
+            packer.packByteBuffer(dataHolder.data());
             return;
         }
 

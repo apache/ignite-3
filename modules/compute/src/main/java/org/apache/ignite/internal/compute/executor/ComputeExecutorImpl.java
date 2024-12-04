@@ -30,7 +30,7 @@ import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
-import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.ComputeJobResultHolder;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
@@ -96,7 +96,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
         // If input is of this type, this means that the request came from the thin client and packing the result to the byte array will be
         // needed in any case. In order to minimize conversion, marshal the result here.
-        boolean marshalResult = input instanceof ComputeJobDataHolder;
+        boolean marshalResult = input instanceof ComputeJobResultHolder;
 
         QueueExecution<R> execution = executorService.submit(
                 unmarshalExecMarshal(input, jobClass, jobInstance, context, inputMarshaller),

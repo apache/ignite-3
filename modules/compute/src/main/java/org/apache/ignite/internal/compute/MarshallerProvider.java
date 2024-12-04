@@ -30,7 +30,7 @@ public interface MarshallerProvider<R> {
     /**
      * If {@code true}, then the result should be marshalled.
      *
-     * @see ComputeJobDataHolder
+     * @see ComputeJobResultHolder
      */
     boolean marshalResult();
 }
