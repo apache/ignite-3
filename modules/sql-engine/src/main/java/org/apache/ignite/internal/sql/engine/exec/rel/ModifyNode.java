@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 import org.apache.calcite.rel.core.TableModify;
+import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -94,6 +95,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     private final RowFactory<RowT> mappedRowFactory;
 
+    private final RowFactory<RowT> mappedInsertRowFactory;
+
     private List<RowT> rows = new ArrayList<>(MODIFY_BATCH_SIZE);
 
     private long updatedRows;
@@ -129,16 +132,24 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.modifyOp = op;
         this.updateColumns = updateColumns;
 
-        this.mapping = mapping(table.descriptor(), updateColumns);
+        int fullRowSize = inputRowFactory.rowSchema().fields().size();
+        this.mapping = mapping(table.descriptor(), updateColumns, fullRowSize);
 
-        this.insertRowMapping = StreamSupport.stream(table.descriptor().spliterator(), false)
-                .filter(Predicate.not(ColumnDescriptor::virtual))
-                .mapToInt(ColumnDescriptor::logicalIndex)
-                .toArray();
+        // insert mapping actually can be required only for INSERT and MERGE operations
+        if (op == Operation.INSERT || op == Operation.MERGE) {
+            this.insertRowMapping = StreamSupport.stream(table.descriptor().spliterator(), false)
+                    .filter(Predicate.not(ColumnDescriptor::virtual))
+                    .mapToInt(ColumnDescriptor::logicalIndex)
+                    .toArray();
+        } else {
+            this.insertRowMapping = null;
+        }
 
-        RowSchema mappedRowSchema = getMappedRowSchema(inputRowFactory);
+        RowSchema mappedRowSchema = getMappedRowSchema(inputRowFactory, mapping);
+        RowSchema mappedInsertRowSchema = getMappedRowSchema(inputRowFactory, insertRowMapping);
 
         this.mappedRowFactory = ctx.rowHandler().factory(mappedRowSchema);
+        this.mappedInsertRowFactory = ctx.rowHandler().factory(mappedInsertRowSchema);
     }
 
     /** {@inheritDoc} */
@@ -246,7 +257,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
                 break;
             case UPDATE:
-                inlineUpdates(0, rows);
+                inlineUpdates(rows);
 
                 modifyResult = table.upsertAll(context(), rows, colocationGroup);
 
@@ -306,8 +317,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                 && (rows.size() >= MODIFY_BATCH_SIZE || (!rows.isEmpty() && waiting == -1));
     }
 
-    /** See {@link #mapping(TableDescriptor, List)}. */
-    private void inlineUpdates(int offset, List<RowT> rows) {
+    /** See {@link #mapping(TableDescriptor, List, int)}. */
+    private void inlineUpdates(List<RowT> rows) {
         if (mapping == null) {
             // the node inserts or deletes rows only
             return;
@@ -315,24 +326,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
         assert updateColumns != null;
 
-        int[] targetMapping = applyOffset(mapping, offset);
-
-        rows.replaceAll(row -> mappedRowFactory.map(row, targetMapping));
-    }
-
-    /** Adds the provided offset to each value in the mapping. */
-    private static int[] applyOffset(int[] srcMapping, int offset) {
-        if (offset == 0) {
-            return srcMapping;
-        }
-
-        int[] targetMapping = new int[srcMapping.length];
-
-        for (int i = 0; i < targetMapping.length; i++) {
-            targetMapping[i] = srcMapping[i] + offset;
-        }
-
-        return targetMapping;
+        rows.replaceAll(row -> mappedRowFactory.map(row, mapping));
     }
 
     /**
@@ -352,7 +346,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert mapping != null;
 
         List<RowT> rowsToInsert = null;
-        List<RowT> rowsToUpdate = null;
+        List<RowT> rowsToUpdate;
 
         int rowSize = handler.columnCount(rows.get(0));
 
@@ -404,11 +398,11 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
 
         if (rowsToInsert != null) {
-            rowsToInsert.replaceAll(row -> mappedRowFactory.map(row, insertRowMapping));
+            rowsToInsert.replaceAll(row -> mappedInsertRowFactory.map(row, insertRowMapping));
         }
 
         if (rowsToUpdate != null) {
-            inlineUpdates(updateColumnOffset, rowsToUpdate);
+            inlineUpdates(rowsToUpdate);
         }
 
         return new Pair<>(rowsToInsert, rowsToUpdate);
@@ -456,17 +450,25 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      * @param updateColumns Enumeration of columns to update.
      * @return A mapping to inline the updates into the row.
      */
-    private static int @Nullable [] mapping(TableDescriptor descriptor, @Nullable List<String> updateColumns) {
+    private static int @Nullable [] mapping(TableDescriptor descriptor, @Nullable List<String> updateColumns, int fullRowSize) {
         if (updateColumns == null) {
             return null;
         }
 
         int columnCount = storedRowsCount(descriptor);
 
+        // MERGE clause can use format [insert row type] + [full row type] + [columns to update] which is bigger on
+        // size of [full row type] then different type of formats, so we can detect it and use for right column mapping.
+        // see javadoc of ModifyNode for details on possible formats of rows passed to the node
+        int mergeOffset = 0;
+        if (fullRowSize == (columnCount * 2 + updateColumns.size())) {
+            mergeOffset = columnCount;
+        }
+
         int[] mapping = new int[columnCount];
 
         for (int i = 0; i < columnCount; i++) {
-            mapping[i] = i;
+            mapping[i] = i + mergeOffset;
         }
 
         for (int i = 0; i < updateColumns.size(); i++) {
@@ -475,13 +477,13 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
             assert !columnDescriptor.virtual() : "Virtual column can't be updated";
 
-            mapping[columnDescriptor.logicalIndex()] = columnCount + i;
+            mapping[columnDescriptor.logicalIndex()] = columnCount + i + mergeOffset;
         }
 
         return mapping;
     }
 
-    private RowSchema getMappedRowSchema(RowFactory<RowT> inputRowFactory) {
+    private RowSchema getMappedRowSchema(RowFactory<RowT> inputRowFactory, int[] mapping) {
         RowSchema schema;
         if (mapping != null) {
             List<TypeSpec> fields = inputRowFactory.rowSchema().fields();
