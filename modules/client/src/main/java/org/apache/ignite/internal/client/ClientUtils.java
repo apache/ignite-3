@@ -109,6 +109,9 @@ public class ClientUtils {
             case ClientOp.JDBC_EXEC:
                 return null;
 
+            case ClientOp.JDBC_CANCEL:
+                return null;
+
             case ClientOp.JDBC_NEXT:
                 return null;
 
