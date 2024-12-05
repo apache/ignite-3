@@ -507,20 +507,24 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     private void notifyWatches() {
-        if (!areWatchesStarted() || updatedEntries.isEmpty()) {
+        if (!areWatchesStarted()) {
             updatedEntries.clear();
 
             return;
         }
 
-        long revision = updatedEntries.get(0).revision();
+        long newRevision = rev;
 
-        HybridTimestamp ts = revToTsMap.get(revision);
-        assert ts != null : revision;
+        HybridTimestamp ts = revToTsMap.get(newRevision);
+        assert ts != null : newRevision;
 
-        watchProcessor.notifyWatches(List.copyOf(updatedEntries), ts);
+        if (updatedEntries.isEmpty()) {
+            watchProcessor.updateRevision(newRevision, ts);
+        } else {
+            watchProcessor.notifyWatches(List.copyOf(updatedEntries), ts);
 
-        updatedEntries.clear();
+            updatedEntries.clear();
+        }
     }
 
     @Override
@@ -731,7 +735,6 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         var updatedEntry = new EntryImpl(key, val.tombstone() ? null : bytes, curRev, val.operationTimestamp());
 
         updatedEntries.add(updatedEntry);
-
     }
 
     private void doPutAll(long curRev, List<byte[]> keys, List<byte[]> bytesList, KeyValueUpdateContext context) {

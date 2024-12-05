@@ -98,6 +98,7 @@ import org.apache.ignite.internal.metastorage.server.NotifyWatchProcessorEvent;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.UpdateEntriesEvent;
+import org.apache.ignite.internal.metastorage.server.UpdateRevisionEvent;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
 import org.apache.ignite.internal.raft.IndexWithTerm;
@@ -1144,10 +1145,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * Adds modified entries to the watch event queue.
      */
     private void queueWatchEvent() {
-        if (updatedEntries.isEmpty()) {
-            return;
-        }
-
         switch (recoveryStatus.get()) {
             case INITIAL:
                 // Watches haven't been enabled yet, no need to queue any events, they will be replayed upon recovery.
@@ -1155,25 +1152,14 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
                 break;
             case IN_PROGRESS:
-                UpdatedEntries copy = updatedEntries.transfer();
-
-                var event = new UpdateEntriesEvent(copy.updatedEntries, copy.ts);
-
-                addToNotifyWatchProcessorEventsBeforeStartingWatches(event);
+                addToNotifyWatchProcessorEventsBeforeStartingWatches(updatedEntries.toNotifyWatchProcessorEvent(rev));
 
                 break;
             default:
-                notifyWatches();
+                updatedEntries.toNotifyWatchProcessorEvent(rev).notify(watchProcessor);
 
                 break;
         }
-    }
-
-    private void notifyWatches() {
-        UpdatedEntries copy = updatedEntries.transfer();
-
-        assert copy.ts != null;
-        watchProcessor.notifyWatches(copy.updatedEntries, copy.ts);
     }
 
     private Set<NotifyWatchProcessorEvent> collectNotifyWatchProcessorEventsFromStorage(long lowerRevision, long upperRevision) {
@@ -1308,6 +1294,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         @Nullable
         private HybridTimestamp ts;
 
+        private long revision = -1;
+
         private UpdatedEntries() {
             this.updatedEntries = new ArrayList<>();
         }
@@ -1329,6 +1317,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             updatedEntries.clear();
 
             ts = null;
+            revision = -1;
         }
 
         UpdatedEntries transfer() {
@@ -1339,6 +1328,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             clear();
 
             return transferredValue;
+        }
+
+        NotifyWatchProcessorEvent toNotifyWatchProcessorEvent(long newRevision) {
+            UpdatedEntries copy = transfer();
+
+            return copy.updatedEntries.isEmpty() ? new UpdateRevisionEvent(newRevision, copy.ts)
+                    : new UpdateEntriesEvent(copy.updatedEntries, copy.ts);
         }
     }
 
