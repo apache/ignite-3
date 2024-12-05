@@ -245,6 +245,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *      volatile tables.
      * @param groupIdConverter Temporary converter to support the zone based partitions in tests.
+     * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this method
     @TestOnly
@@ -304,8 +305,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftCommandsMarshaller Command marshaller for raft groups creation.
      * @param raftGroupServiceFactory A factory for raft-clients creation.
      * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
+     * @param partitionRaftConfigurer Configurer of raft options on raft group creation.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *      volatile tables.
+     * @param replicaStartStopExecutor Executor for asynchronous replicas lifecycle management.
+     * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
      */
     public ReplicaManager(
             String nodeName,
@@ -1264,7 +1268,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
-            TablePartitionId replicationGroupId = (TablePartitionId) parameters.groupId();
+            ReplicationGroupId replicationGroupId = parameters.groupId();
             ReplicaStateContext context = getContext(replicationGroupId);
 
             synchronized (context) {
@@ -1320,7 +1324,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         // TODO: move to Replica https://issues.apache.org/jira/browse/IGNITE-23750
-        private void registerFailoverCallback(TablePartitionId replicationGroupId) {
+        private void registerFailoverCallback(ReplicationGroupId replicationGroupId) {
             CompletableFuture<Replica> replicaFuture = replicaManager.replica(replicationGroupId);
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-23753
@@ -1330,7 +1334,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return;
             }
 
-            replicaFuture.thenApply(electedPrimaryReplica -> {
+            replicaFuture.thenCompose(electedPrimaryReplica -> {
                 onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
                         electedPrimaryReplica,
                         replicationGroupId,
@@ -1363,18 +1367,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         private void changePeersAndLearnersAsyncIfPendingExists(
                 Replica primaryReplica,
-                TablePartitionId replicationGroupId,
+                ReplicationGroupId replicationGroupId,
                 long term
         ) {
             getPendingAssignmentsSupplier.apply(replicationGroupId).exceptionally(e -> {
-                LOG.error(
-                        format(
-                                "Couldn't fetch pending assignments for rebalance failover [groupId={}, term={}].",
-                                replicationGroupId,
-                                term
-                        ),
-                        e
-                );
+                LOG.error("Couldn't fetch pending assignments for rebalance failover [groupId={}, term={}].", e, replicationGroupId, term);
 
                 return null;
             }).thenCompose(pendingsBytes -> {
@@ -1393,14 +1390,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 return primaryReplica.raftClient().changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
             }).exceptionally(e -> {
-                LOG.error(
-                        format(
-                               "Failover ChangePeersAndLearners failed [groupId={}, term={}].",
-                               replicationGroupId,
-                               term
-                        ),
-                        e
-                );
+                LOG.error("Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicationGroupId, term);
 
                 return null;
             });

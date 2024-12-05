@@ -76,6 +76,7 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
      *
      * @param leaseholder Lease holder consistent ID, {@code null} if nothing holds the lease.
      * @param leaseholderId Lease holder ID, {@code null} if nothing holds the lease.
+     * @param replicationGroupId ID of the replication group for which one the lease is granted.
      */
     public TestReplicaMetaImpl(@Nullable String leaseholder, @Nullable UUID leaseholderId, ReplicationGroupId replicationGroupId) {
         this(leaseholder, leaseholderId, MIN_VALUE, MAX_VALUE, replicationGroupId);
@@ -109,6 +110,7 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
      * @param leaseholderId Lease holder ID, {@code null} if nothing holds the lease.
      * @param startTime Start lease timestamp.
      * @param expirationTime Lease expiration timestamp.
+     * @param replicationGroupId ID of the replication group for which one the lease is granted.
      */
     private TestReplicaMetaImpl(
             @Nullable String leaseholder,
