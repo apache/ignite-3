@@ -421,10 +421,20 @@ public class WatchProcessor implements ManuallyCloseable {
 
                     watchEventHandlingCallback.onSafeTimeAdvanced(time);
                 }, watchExecutor)
-                .whenComplete((ignored, e) -> {
-                    if (e != null) {
-                        failureManager.process(new FailureContext(CRITICAL_ERROR, e));
-                    }
-                });
+                .whenComplete((ignored, e) -> notifyFailureHandlerOnFirstFailureInNotificationChain(e));
+    }
+
+    /**
+     * Updates the metastorage revision in the WatchEvent queue. It should be used for those cases when the revision has been updated but
+     * no {@link Entry}s have been updated.
+     *
+     * @param newRevision New metastorage revision.
+     * @param time Metastorage revision update timestamp.
+     */
+    void updateOnlyRevision(long newRevision, HybridTimestamp time) {
+        notificationFuture = notificationFuture
+                .thenComposeAsync(unused -> notifyUpdateRevisionListeners(newRevision), watchExecutor)
+                .thenRunAsync(() -> invokeOnRevisionCallback(newRevision, time), watchExecutor)
+                .whenComplete((ignored, e) -> notifyFailureHandlerOnFirstFailureInNotificationChain(e));
     }
 }
