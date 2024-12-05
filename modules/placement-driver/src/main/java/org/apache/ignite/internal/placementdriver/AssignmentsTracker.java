@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.placementdriver;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.StringUtils.incrementLastChar;
 
 import java.util.List;
 import java.util.Map;
@@ -219,12 +217,11 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             byte[] assignmentsMetastoreKeyPrefix,
             Map<ReplicationGroupId, TokenizedAssignments> groupIdToAssignmentsMap
     ) {
-        var startKey = new ByteArray(assignmentsMetastoreKeyPrefix);
-        // FIXME: Remove intermediate string conversion, see https://issues.apache.org/jira/browse/IGNITE-23771
-        ByteArray endKey = ByteArray.fromString(incrementLastChar(new String(assignmentsMetastoreKeyPrefix, UTF_8)));
+        var prefix = new ByteArray(assignmentsMetastoreKeyPrefix);
+
         long revision = recoveryRevisions.revision();
 
-        try (Cursor<Entry> cursor = msManager.getLocally(startKey, endKey, revision)) {
+        try (Cursor<Entry> cursor = msManager.prefixLocally(prefix, revision)) {
             for (Entry entry : cursor) {
                 if (entry.tombstone()) {
                     continue;

@@ -125,6 +125,21 @@ public class ClusterInitCallInput implements CallInput {
             return this;
         }
 
+        public ClusterInitCallInputBuilder metaStorageNodes(List<String> metaStorageNodes) {
+            this.metaStorageNodes = metaStorageNodes;
+            return this;
+        }
+
+        public ClusterInitCallInputBuilder cmgNodes(List<String> cmgNodes) {
+            this.cmgNodes = cmgNodes;
+            return this;
+        }
+
+        public ClusterInitCallInputBuilder clusterName(String clusterName) {
+            this.clusterName = clusterName;
+            return this;
+        }
+
         /**
          * Extract cluster initialization options.
          *

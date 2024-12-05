@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.CursorUtils.emptyCursor;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,7 +31,6 @@ import static org.mockito.Mockito.when;
 
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -43,7 +42,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
-import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -51,21 +49,17 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.AbstractTopologyAwareGroupServiceTest;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 /**
  * Placement driver active actor test.
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
     private final Map<String, PlacementDriverManager> placementDriverManagers = new HashMap<>();
 
@@ -78,22 +72,18 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
     @BeforeEach
     public void setUp() {
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(0, -1)));
-        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(trueCompletedFuture());
         when(msm.getLocally(any(), anyLong())).then(invocation -> emptyMetastoreEntry());
-        when(msm.getLocally(any(), any(), anyLong())).then(invocation -> Cursor.fromIterable(List.of()));
+        when(msm.prefixLocally(any(), anyLong())).then(invocation -> emptyCursor());
     }
 
     @AfterEach
-    @Override
-    public void tearDown() throws Exception {
+    public void stopPlacementDriverManagers() {
         for (PlacementDriverManager pdMgr : placementDriverManagers.values()) {
             pdMgr.beforeNodeStop();
             assertThat(pdMgr.stopAsync(new ComponentContext()), willCompleteSuccessfully());
         }
 
         placementDriverManagers.clear();
-
-        super.tearDown();
     }
 
     @Override

@@ -223,10 +223,6 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
         }
     }
 
-    private static ClusterNode clusterNode(Ignite node) {
-        return unwrapIgniteImpl(node).node();
-    }
-
     private static class InfiniteMapReduceJob implements ComputeJob<Void, Void> {
         @Override
         public CompletableFuture<Void> executeAsync(JobExecutionContext context, Void input) {

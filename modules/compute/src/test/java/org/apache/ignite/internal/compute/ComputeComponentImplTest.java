@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.awaitility.Awaitility.await;
@@ -38,8 +39,10 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -104,6 +107,7 @@ import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
@@ -193,6 +197,29 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(execution.changePriorityAsync(1), willBe(false));
 
         assertThatNoRequestsWereSent();
+    }
+
+    @Test
+    void testLongPreExecutionInitialization() {
+        CompletableFuture<?> infiniteFuture = new CompletableFuture<>();
+
+        doReturn(infiniteFuture)
+                .when(jobContextManager).acquireClassLoader(List.of());
+
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        JobExecution<String> execution = computeComponent.executeLocally(DEFAULT, List.of(), SimpleJob.class.getName(),
+                cancelHandle.token(), "");
+
+        assertFalse(infiniteFuture.isDone());
+        assertFalse(execution.resultAsync().isDone());
+
+        cancelHandle.cancel();
+
+        assertThat(cancelHandle.cancelAsync(), willSucceedFast());
+
+        assertTrue(infiniteFuture.isCompletedExceptionally());
+        assertTrue(execution.resultAsync().isDone());
     }
 
     @Test

@@ -94,7 +94,15 @@ public class ExecutionManager {
         JobExecution<?> execution = executions.get(jobId);
         if (execution != null) {
             if (execution instanceof MarshallerProvider) {
-                Marshaller<Object, byte[]> marshaller = ((MarshallerProvider) execution).resultMarshaller();
+                MarshallerProvider provider = (MarshallerProvider) execution;
+                Marshaller<Object, byte[]> marshaller = provider.resultMarshaller();
+
+                // If result needs to be marshalled, then job execution request came from the client and we need to marshal the result and
+                // return the wrapper object back to the client handler node so it can pass the binary data directly back to client.
+                if (provider.marshalResult()) {
+                    return execution.resultAsync().thenApply(result -> ComputeUtils.marshalAndWrapResult(result, marshaller));
+                }
+
                 if (marshaller != null) {
                     return execution.resultAsync().thenApply(marshaller::marshal);
                 }

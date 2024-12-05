@@ -15,20 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.problem;
+package org.apache.ignite.internal.network;
 
-import io.micronaut.http.MediaType;
+import java.util.ServiceLoader;
 
 /**
- * Media type for problem json.
+ * Registrar of {@link ChannelType} for each module that should be loaded into the via the {@link ServiceLoader} and then received
+ * via {@link ChannelTypeRegistry}.
  */
-public final class ProblemJsonMediaType extends MediaType {
-    /**
-     * Media type for problem json.
-     */
-    public static final ProblemJsonMediaType APPLICATION_JSON_PROBLEM_TYPE = new ProblemJsonMediaType("application/json+problem");
-
-    private ProblemJsonMediaType(String name) {
-        super(name);
-    }
+public interface ChannelTypeModule {
+    void register(ChannelTypeRegistrar channelTypeRegistrar);
 }

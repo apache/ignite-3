@@ -29,14 +29,15 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -58,6 +59,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
@@ -119,6 +121,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
+import org.apache.ignite.internal.sql.engine.message.QueryBatchRequestMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponseImpl;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
@@ -319,7 +322,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
      * The very simple case where a query is cancelled in the middle of a normal execution.
      */
     @Test
-    public void testCancelOnInitiator() throws InterruptedException {
+    public void testCancel() throws InterruptedException {
         ExecutionServiceImpl<?> execService = executionServices.get(0);
         SqlOperationContext ctx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
@@ -337,7 +340,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         CompletionStage<?> batchFut = cursor.requestNextAsync(1);
 
-        await(execService.cancel(ctx.queryId()));
+        ctx.cancel().cancel();
 
         assertTrue(waitForCondition(
                 () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
@@ -470,48 +473,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         awaitContextCancellation(execNodes);
     }
-
-    /**
-     * The very simple case where a query is cancelled in the middle of a normal execution on non-initiator node.
-     */
-    @Test
-    public void testCancelOnRemote() throws InterruptedException {
-        ExecutionService execService = executionServices.get(0);
-        SqlOperationContext ctx = createContext();
-        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
-
-        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
-
-        AsyncCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
-
-        assertTrue(waitForCondition(
-                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
-                        .mapToInt(i -> i).sum() == 4, TIMEOUT_IN_MS));
-
-        List<AbstractNode<?>> execNodes = executionServices.stream()
-                .flatMap(s -> s.localFragments(ctx.queryId()).stream()).collect(Collectors.toList());
-
-        var batchFut = cursor.requestNextAsync(1);
-
-        await(executionServices.get(1).cancel(ctx.queryId()));
-
-        assertTrue(waitForCondition(
-                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
-                        .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
-
-        awaitContextCancellation(execNodes);
-
-        await(batchFut.exceptionally(ex -> {
-            assertInstanceOf(CompletionException.class, ex);
-            assertInstanceOf(SqlException.class, ex.getCause());
-            assertInstanceOf(QueryCancelledException.class, ex.getCause().getCause());
-            assertNull(ex.getCause().getCause().getCause());
-
-            return null;
-        }));
-        assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
-    }
-
 
     /**
      * Emulate exception during initialization of context. Cursor shouldn't hung.
@@ -877,7 +838,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 + nl
                 + "  Local fragments:" + nl
                 + "    id=0, state=opened, canceled=false, class=Inbox  (root)" + nl
-                + "    id=1, state=opened, canceled=false, class=Outbox" + nl, ctx.queryId());
+                + "    id=1, state=opened, canceled=false, class=Outbox" + nl, new ExecutionId(ctx.queryId(), 0));
 
         assertThat(debugInfoCoordinator, equalTo(expectedOnCoordinator));
 
@@ -886,7 +847,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 + "  Coordinator node: node_1" + nl
                 + nl
                 + "  Local fragments:" + nl
-                + "    id=1, state=opened, canceled=false, class=Outbox" + nl, ctx.queryId());
+                + "    id=1, state=opened, canceled=false, class=Outbox" + nl, new ExecutionId(ctx.queryId(), 0));
 
         assertThat(debugInfo2, equalTo(expectedOnNonCoordinator));
         assertThat(debugInfo3, equalTo(expectedOnNonCoordinator));
@@ -1116,6 +1077,72 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         Throwable err = exHolder.get();
         if (err != null) {
             throw err;
+        }
+    }
+
+    @Test
+    void executionsWithTheSameQueryIdMustNotInterfere() {
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", createContext());
+
+        String expectedExceptionMessage = "This is expected";
+
+        TestNode corruptedNode = testCluster.node(nodeNames.get(2));
+        corruptedNode.interceptor((nodeName, msg, original) -> {
+            if (msg instanceof QueryBatchRequestMessage) {
+                corruptedNode.messageService().send(nodeName, new SqlQueryMessagesFactory().errorMessage()
+                        .queryId(((QueryBatchRequestMessage) msg).queryId())
+                        .executionToken(((QueryBatchRequestMessage) msg).executionToken())
+                        .fragmentId(((QueryBatchRequestMessage) msg).fragmentId())
+                        .message(expectedExceptionMessage)
+                        .traceId(((QueryBatchRequestMessage) msg).queryId())
+                        .code(Common.INTERNAL_ERR)
+                        .build()
+                );
+            } else {
+                original.onMessage(nodeName, msg);
+            }
+
+            return nullCompletedFuture();
+        });
+
+        SqlOperationContext ctx = createContext();
+
+        Queue<Throwable> exceptions = new ConcurrentLinkedQueue<>();
+        BiFunction<AsyncDataCursor<InternalSqlRow>, Integer, CompletableFuture<Void>> retryChainBuilder = new BiFunction<>() {
+            @Override
+            public CompletableFuture<Void> apply(
+                    @Nullable AsyncDataCursor<InternalSqlRow> cursor, Integer remainingAttempts
+            ) {
+                CompletableFuture<Void> previousStep;
+                if (cursor == null) {
+                    previousStep = nullCompletedFuture();
+                } else {
+                    previousStep = cursor.onFirstPageReady()
+                            .thenCompose(none -> cursor.onClose())
+                            .exceptionally(ex -> {
+                                exceptions.add(ex);
+
+                                return null;
+                            });
+                }
+
+                if (remainingAttempts > 0) {
+                    return previousStep
+                            .thenCompose(ignored -> executionServices.get(0).executePlan(plan, ctx))
+                            .thenCompose(c -> this.apply(c, remainingAttempts - 1));
+                }
+
+                return previousStep;
+            }
+        };
+
+        int retryCount = 20;
+        await(retryChainBuilder.apply(null, retryCount));
+
+        assertThat(exceptions, hasSize(retryCount));
+
+        for (Throwable th : exceptions) {
+            assertThat(th.getMessage(), containsString(expectedExceptionMessage));
         }
     }
 
@@ -1517,13 +1544,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<Outbox<?>> outbox(UUID qryId, long exchangeId) {
-            return delegate.outbox(qryId, exchangeId);
+        public CompletableFuture<Outbox<?>> outbox(ExecutionId executionId, long exchangeId) {
+            return delegate.outbox(executionId, exchangeId);
         }
 
         @Override
-        public Inbox<?> inbox(UUID qryId, long exchangeId) {
-            return delegate.inbox(qryId, exchangeId);
+        public Inbox<?> inbox(ExecutionId executionId, long exchangeId) {
+            return delegate.inbox(executionId, exchangeId);
         }
     }
 

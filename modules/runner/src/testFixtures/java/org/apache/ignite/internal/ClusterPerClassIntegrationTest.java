@@ -49,6 +49,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -516,5 +517,20 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
                 List.of("ID", "NAME", "SALARY"),
                 Stream.of(people).map(person -> new Object[]{person.id, person.name, person.salary}).toArray(Object[][]::new)
         );
+    }
+
+    /**
+     * Returns an Ignite node (a member of the cluster) by its index.
+     */
+    protected static Ignite node(int index) {
+        return CLUSTER.node(index);
+    }
+
+    protected static ClusterNode clusterNode(int index) {
+        return clusterNode(node(index));
+    }
+
+    protected static ClusterNode clusterNode(Ignite node) {
+        return unwrapIgniteImpl(node).node();
     }
 }

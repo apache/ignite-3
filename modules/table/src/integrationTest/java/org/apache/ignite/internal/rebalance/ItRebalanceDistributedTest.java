@@ -1272,7 +1272,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            clockWaiter = new ClockWaiter(name, hybridClock);
+            clockWaiter = new ClockWaiter(name, hybridClock, threadPoolsManager.commonScheduler());
 
             ClockService clockService = new ClockServiceImpl(
                     hybridClock,
