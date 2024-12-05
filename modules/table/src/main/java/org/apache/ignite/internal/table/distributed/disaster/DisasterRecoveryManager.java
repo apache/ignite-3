@@ -118,7 +118,7 @@ import org.jetbrains.annotations.TestOnly;
  * Manager, responsible for "disaster recovery" operations.
  * Internally it triggers meta-storage updates, in order to acquire unique causality token.
  * As a reaction to these updates, manager performs actual recovery operations,
- * such as {@link #resetPartitions(String, String, Set, boolean)}.
+ * such as {@link #resetPartitions(String, String, Set, boolean, long)}.
  * More details are in the <a href="https://issues.apache.org/jira/browse/IGNITE-21140">epic</a>.
  */
 public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvider {
@@ -127,7 +127,12 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     /** Single key for writing disaster recovery requests into meta-storage. */
     static final ByteArray RECOVERY_TRIGGER_KEY = new ByteArray("disaster.recovery.trigger");
-    static final ByteArray RECOVERY_TRIGGER_KEY_REVISION = new ByteArray("disaster.recovery.trigger.revision");
+
+    /**
+     * Metastorage key to store the revision of logical event, which start the recovery process.
+     * It's needed to skip the stale recovery triggers.
+     */
+    static final ByteArray RECOVERY_TRIGGER_REVISION_KEY = new ByteArray("disaster.recovery.trigger.revision");
 
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
@@ -313,15 +318,25 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @return Future that completes when partitions are reset.
      */
-    @TestOnly
-    public CompletableFuture<Void> resetAllPartitions(String zoneName, String tableName, boolean manualUpdate) {
-        return resetPartitions(zoneName, tableName, emptySet(), manualUpdate, 0);
+    public CompletableFuture<Void> resetAllPartitions(String zoneName, String tableName, boolean manualUpdate, long triggerRevision) {
+        return resetPartitions(zoneName, tableName, emptySet(), manualUpdate, triggerRevision);
     }
 
-    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate) {
+    /**
+     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
+     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
+     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
+     * so that a new leader could be elected.
+     *
+     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
+     * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
+     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
+     * @return Future that completes when partitions are reset.
+     */
+    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
         int tableId = tableDescriptor(catalogLatestVersion(), tableName).id();
 
-        return resetPartitions(zoneName, tableId, partitionIds, manualUpdate, 0);
+        return resetPartitions(zoneName, tableId, partitionIds, true, 0);
     }
 
     /**
@@ -334,9 +349,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
+     * @param triggerRevision Revision of the event, which produce this reset.
      * @return Future that completes when partitions are reset.
      */
-    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate, long triggerRevision) {
+    public CompletableFuture<Void> resetPartitions(
+            String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate, long triggerRevision) {
         int tableId = tableDescriptor(catalogLatestVersion(), tableName).id();
 
         return resetPartitions(zoneName, tableId, partitionIds, manualUpdate, triggerRevision);
@@ -352,9 +369,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param tableId Table id.
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
+     * @param triggerRevision Revision of the event, which produce this reset.
      * @return Future that completes when partitions are reset.
      */
-    private CompletableFuture<Void> resetPartitions(String zoneName, int tableId, Set<Integer> partitionIds, boolean manualUpdate, long triggerRevision) {
+    private CompletableFuture<Void> resetPartitions(
+            String zoneName, int tableId, Set<Integer> partitionIds, boolean manualUpdate, long triggerRevision) {
         try {
             Catalog catalog = catalogLatestVersion();
 
@@ -377,10 +396,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             UUID operationId
     ) {
         metaStorageManager.invoke(
-                notExists(RECOVERY_TRIGGER_KEY_REVISION).or(value(RECOVERY_TRIGGER_KEY).lt(revisionBytes)),
+                notExists(RECOVERY_TRIGGER_REVISION_KEY).or(value(RECOVERY_TRIGGER_KEY).lt(revisionBytes)),
                 List.of(
                         put(RECOVERY_TRIGGER_KEY, recoveryTriggerValue),
-                        put(RECOVERY_TRIGGER_KEY_REVISION, revisionBytes)
+                        put(RECOVERY_TRIGGER_REVISION_KEY, revisionBytes)
                 ),
                 List.of())
                 .thenAccept(wasWrite -> {

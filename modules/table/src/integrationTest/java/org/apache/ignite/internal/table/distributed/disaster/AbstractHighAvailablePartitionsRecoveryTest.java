@@ -50,6 +50,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 
+/** Parent for tests of HA zones feature. */
 public abstract class AbstractHighAvailablePartitionsRecoveryTest extends ClusterPerTestIntegrationTest {
     protected static final String HA_ZONE_NAME = "HA_ZONE";
 
@@ -99,8 +100,8 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     }
 
-    protected void waitAndAssertStableAssignmentsOfPartitionEqualTo(IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes)
-            throws InterruptedException {
+    protected void waitAndAssertStableAssignmentsOfPartitionEqualTo(
+            IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes) throws InterruptedException {
 
         assertTrue(waitForCondition(() ->
                         nodes.equals(
