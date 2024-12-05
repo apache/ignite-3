@@ -15,14 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.problem;
+package org.apache.ignite.internal.jdbc.proto.event;
+
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Generic interface for builders.
- *
- * @param <T> built type.
- * @param <B> builder type.
+ * JDBC query cancel result.
  */
-public interface Builder<T, B extends Builder<T, B>> {
-    T build();
+public class JdbcQueryCancelResult extends Response {
+    /**
+     * Default constructor is used for deserialization.
+     */
+    public JdbcQueryCancelResult() { }
+
+    /**
+     * Constructor.
+     *
+     * @param status Status code.
+     * @param err    Error message.
+     */
+    public JdbcQueryCancelResult(int status, String err) {
+        super(status, err);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(JdbcQueryCancelResult.class, this);
+    }
 }

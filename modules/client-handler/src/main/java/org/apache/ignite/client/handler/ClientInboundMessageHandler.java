@@ -49,6 +49,7 @@ import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteCol
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteMapReduceRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest;
+import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcCancelRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcCloseRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcColumnMetadataRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcConnectRequest;
@@ -716,6 +717,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.JDBC_EXEC:
                 return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler);
+
+            case ClientOp.JDBC_CANCEL:
+                return ClientJdbcCancelRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC_BATCH:
                 return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
