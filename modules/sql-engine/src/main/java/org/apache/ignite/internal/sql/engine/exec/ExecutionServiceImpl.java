@@ -588,6 +588,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     }
 
     /** Returns local fragments for the query with given id. */
+    @TestOnly
     public List<AbstractNode<?>> localFragments(UUID queryId) {
         return queryManagerMap.entrySet().stream()
                 .filter(e -> e.getKey().queryId().equals(queryId))

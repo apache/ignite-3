@@ -35,6 +35,9 @@ public interface QueryStartResponse extends NetworkMessage, Serializable {
      */
     UUID queryId();
 
+    /**
+     * Get execution token.
+     */
     int executionToken();
 
     /**

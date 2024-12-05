@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1043,7 +1044,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void executionsWithTheSameQueryIdMustNotInterfere() {
-        QueryPlan plan = prepare("SELECT * FROM test_tbl", operationContext(null).build());
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", createContext());
 
         String expectedExceptionMessage = "This is expected";
 
@@ -1066,7 +1067,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         });
 
-        SqlOperationContext ctx = operationContext(null).build();
+        SqlOperationContext ctx = createContext();
 
         Queue<Throwable> exceptions = new ConcurrentLinkedQueue<>();
         BiFunction<AsyncDataCursor<InternalSqlRow>, Integer, CompletableFuture<Void>> retryChainBuilder = new BiFunction<>() {
@@ -1099,6 +1100,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         int retryCount = 20;
         await(retryChainBuilder.apply(null, retryCount));
+
+        assertThat(exceptions, hasSize(retryCount));
 
         for (Throwable th : exceptions) {
             assertThat(th.getMessage(), containsString(expectedExceptionMessage));

@@ -30,6 +30,9 @@ public interface ExecutionContextAwareMessage extends NetworkMessage, Serializab
      */
     UUID queryId();
 
+    /**
+     * Get execution token.
+     */
     int executionToken();
 
     /**
