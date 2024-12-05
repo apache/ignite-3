@@ -99,6 +99,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -589,7 +590,7 @@ public class TestBuilders {
         public ExecutionContext<Object[]> build() {
             return new ExecutionContext<>(
                     Objects.requireNonNull(executor, "executor"),
-                    queryId,
+                    new ExecutionId(queryId, 0),
                     Objects.requireNonNull(node, "node"),
                     node.name(),
                     description,

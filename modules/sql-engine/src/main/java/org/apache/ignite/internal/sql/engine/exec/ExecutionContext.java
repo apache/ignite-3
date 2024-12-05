@@ -68,7 +68,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final QueryTaskExecutor executor;
 
-    private final UUID qryId;
+    private final ExecutionId executionId;
 
     private final FragmentDescription description;
 
@@ -102,7 +102,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * Constructor.
      *
      * @param executor Task executor.
-     * @param qryId Query ID.
+     * @param executionId Execution ID.
      * @param localNode Local node.
      * @param originatingNodeName Name of the node that initiated the query.
      * @param description Partitions information.
@@ -115,7 +115,7 @@ public class ExecutionContext<RowT> implements DataContext {
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
             QueryTaskExecutor executor,
-            UUID qryId,
+            ExecutionId executionId,
             ClusterNode localNode,
             String originatingNodeName,
             FragmentDescription description,
@@ -126,7 +126,7 @@ public class ExecutionContext<RowT> implements DataContext {
             @Nullable QueryCancel cancel
     ) {
         this.executor = executor;
-        this.qryId = qryId;
+        this.executionId = executionId;
         this.description = description;
         this.handler = handler;
         this.params = params;
@@ -145,7 +145,7 @@ public class ExecutionContext<RowT> implements DataContext {
         startTs = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
 
         if (LOG.isTraceEnabled()) {
-            LOG.trace("Context created [qryId={}, fragmentId={}]", qryId, fragmentId());
+            LOG.trace("Context created [executionId={}, fragmentId={}]", executionId, fragmentId());
         }
     }
 
@@ -153,7 +153,15 @@ public class ExecutionContext<RowT> implements DataContext {
      * Get query ID.
      */
     public UUID queryId() {
-        return qryId;
+        return executionId.queryId();
+    }
+
+    public int executionToken() {
+        return executionId.executionToken();
+    }
+
+    public ExecutionId executionId() {
+        return executionId;
     }
 
     /**
@@ -334,7 +342,7 @@ public class ExecutionContext<RowT> implements DataContext {
             return;
         }
 
-        executor.execute(qryId, fragmentId(), () -> {
+        executor.execute(queryId(), fragmentId(), () -> {
             try {
                 if (!isCancelled()) {
                     task.run();
@@ -362,7 +370,7 @@ public class ExecutionContext<RowT> implements DataContext {
     public CompletableFuture<?> submit(RunnableX task, Consumer<Throwable> onError) {
         assert !isCancelled() : "Call submit after execution was cancelled.";
 
-        return executor.submit(qryId, fragmentId(), () -> {
+        return executor.submit(queryId(), fragmentId(), () -> {
             try {
                 task.run();
             } catch (Throwable e) {
@@ -387,7 +395,7 @@ public class ExecutionContext<RowT> implements DataContext {
         boolean res = !cancelFlag.get() && cancelFlag.compareAndSet(false, true);
 
         if (res && LOG.isTraceEnabled()) {
-            LOG.trace("Context cancelled [qryId={}, fragmentId={}]", qryId, fragmentId());
+            LOG.trace("Context cancelled [executionId={}, fragmentId={}]", executionId, fragmentId());
         }
 
         return res;
@@ -440,12 +448,12 @@ public class ExecutionContext<RowT> implements DataContext {
 
         ExecutionContext<?> context = (ExecutionContext<?>) o;
 
-        return qryId.equals(context.qryId) && description.fragmentId() == context.description.fragmentId();
+        return executionId.equals(context.executionId) && description.fragmentId() == context.description.fragmentId();
     }
 
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(qryId, description.fragmentId());
+        return Objects.hash(executionId, description.fragmentId());
     }
 }
