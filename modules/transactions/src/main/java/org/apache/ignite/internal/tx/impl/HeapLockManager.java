@@ -292,16 +292,16 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 if (v == null) {
                     res[0] = slots[index];
                     assert !res[0].markedForRemove;
+
+                    if (isSlotsExhausted.compareAndExchange(false, true)) {
+                        LOG.warn("Log manager runs out of slots. So the lock state starts to share, and conflicts may appear frequently.");
+                    }
                 } else {
                     v.markedForRemove = false;
                     v.key = k;
                     res[0] = v;
                 }
             } else {
-                if (isSlotsExhausted.compareAndExchange(false, true)) {
-                    LOG.warn("Log manager runs out of slots. So the lock state starts to share, and conflicts may appear frequently.");
-                }
-
                 res[0] = v;
             }
 
