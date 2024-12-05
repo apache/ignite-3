@@ -435,7 +435,7 @@ public class WatchProcessor implements ManuallyCloseable {
      * @param newRevision New metastorage revision.
      * @param time Metastorage revision update timestamp.
      */
-    void updateRevision(long newRevision, HybridTimestamp time) {
+    void updateOnlyRevision(long newRevision, HybridTimestamp time) {
         notificationFuture = notificationFuture
                 .thenComposeAsync(unused -> notifyUpdateRevisionListeners(newRevision), watchExecutor)
                 .thenRunAsync(() -> invokeOnRevisionCallback(newRevision, time), watchExecutor)

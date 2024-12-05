@@ -23,14 +23,14 @@ import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /** Notifies the {@link WatchProcessor} to update the revision without updating the {@link Entry entries}. */
-public class UpdateRevisionEvent implements NotifyWatchProcessorEvent {
+public class UpdateOnlyRevisionEvent implements NotifyWatchProcessorEvent {
     private final long newRevision;
 
     @IgniteToStringInclude
     private final HybridTimestamp timestamp;
 
     /** Constructor. */
-    public UpdateRevisionEvent(long newRevision, HybridTimestamp timestamp) {
+    public UpdateOnlyRevisionEvent(long newRevision, HybridTimestamp timestamp) {
         this.newRevision = newRevision;
         this.timestamp = timestamp;
     }
@@ -42,7 +42,7 @@ public class UpdateRevisionEvent implements NotifyWatchProcessorEvent {
 
     @Override
     public void notify(WatchProcessor watchProcessor) {
-        watchProcessor.updateRevision(newRevision, timestamp);
+        watchProcessor.updateOnlyRevision(newRevision, timestamp);
     }
 
     @Override

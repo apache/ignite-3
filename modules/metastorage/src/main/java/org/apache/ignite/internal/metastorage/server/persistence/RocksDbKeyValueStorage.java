@@ -98,7 +98,7 @@ import org.apache.ignite.internal.metastorage.server.NotifyWatchProcessorEvent;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.Statement;
 import org.apache.ignite.internal.metastorage.server.UpdateEntriesEvent;
-import org.apache.ignite.internal.metastorage.server.UpdateRevisionEvent;
+import org.apache.ignite.internal.metastorage.server.UpdateOnlyRevisionEvent;
 import org.apache.ignite.internal.metastorage.server.Value;
 import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
 import org.apache.ignite.internal.raft.IndexWithTerm;
@@ -979,12 +979,14 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
 
         if (currentRevision != 0) {
-            Set<NotifyWatchProcessorEvent> fromStorage = collectNotifyWatchProcessorEventsFromStorage(startRevision, currentRevision);
+            Set<UpdateEntriesEvent> updateEntriesEvents = collectUpdateEntriesEventsFromStorage(startRevision, currentRevision);
+            Set<UpdateOnlyRevisionEvent> updateOnlyRevisionEvents = collectUpdateRevisionEventsFromStorage(startRevision, currentRevision);
 
             rwLock.writeLock().lock();
 
             try {
-                notifyWatchProcessorEventsBeforeStartingWatches.addAll(fromStorage);
+                notifyWatchProcessorEventsBeforeStartingWatches.addAll(updateEntriesEvents);
+                notifyWatchProcessorEventsBeforeStartingWatches.addAll(updateOnlyRevisionEvents);
 
                 drainNotifyWatchProcessorEventsBeforeStartingWatches();
 
@@ -1162,7 +1164,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
     }
 
-    private Set<NotifyWatchProcessorEvent> collectNotifyWatchProcessorEventsFromStorage(long lowerRevision, long upperRevision) {
+    private Set<UpdateEntriesEvent> collectUpdateEntriesEventsFromStorage(long lowerRevision, long upperRevision) {
         long minWatchRevision = Math.max(lowerRevision, watchProcessor.minWatchRevision().orElse(-1));
 
         if (minWatchRevision > upperRevision) {
@@ -1172,7 +1174,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         var updatedEntries = new ArrayList<Entry>();
         HybridTimestamp ts = null;
 
-        var events = new TreeSet<NotifyWatchProcessorEvent>();
+        var events = new TreeSet<UpdateEntriesEvent>();
 
         try (
                 var upperBound = new Slice(longToBytes(upperRevision + 1));
@@ -1238,6 +1240,40 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         return events;
     }
 
+    private Set<UpdateOnlyRevisionEvent> collectUpdateRevisionEventsFromStorage(long lowerRevision, long upperRevision) {
+        var events = new TreeSet<UpdateOnlyRevisionEvent>();
+
+        try (
+                var upperBound = new Slice(longToBytes(upperRevision + 1));
+                var options = new ReadOptions().setIterateUpperBound(upperBound);
+                RocksIterator it = revisionToTs.newIterator(options)
+        ) {
+            it.seek(longToBytes(lowerRevision));
+
+            for (; it.isValid(); it.next()) {
+                byte[] rocksKey = it.key();
+                byte[] rocksValue = it.value();
+
+                long revision = bytesToLong(rocksKey);
+                HybridTimestamp time = hybridTimestamp(bytesToLong(rocksValue));
+
+                UpdateOnlyRevisionEvent event = new UpdateOnlyRevisionEvent(revision, time);
+
+                boolean added = events.add(event);
+
+                assert added : event;
+
+                try {
+                    it.status();
+                } catch (RocksDBException e) {
+                    throw new MetaStorageException(OP_EXECUTION_ERR, e);
+                }
+            }
+        }
+
+        return events;
+    }
+
     @Override
     public HybridTimestamp timestampByRevision(long revision) {
         rwLock.readLock().lock();
@@ -1294,8 +1330,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         @Nullable
         private HybridTimestamp ts;
 
-        private long revision = -1;
-
         private UpdatedEntries() {
             this.updatedEntries = new ArrayList<>();
         }
@@ -1317,7 +1351,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             updatedEntries.clear();
 
             ts = null;
-            revision = -1;
         }
 
         UpdatedEntries transfer() {
@@ -1333,7 +1366,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         NotifyWatchProcessorEvent toNotifyWatchProcessorEvent(long newRevision) {
             UpdatedEntries copy = transfer();
 
-            return copy.updatedEntries.isEmpty() ? new UpdateRevisionEvent(newRevision, copy.ts)
+            return copy.updatedEntries.isEmpty() ? new UpdateOnlyRevisionEvent(newRevision, copy.ts)
                     : new UpdateEntriesEvent(copy.updatedEntries, copy.ts);
         }
     }

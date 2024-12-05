@@ -487,6 +487,14 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
                     fillNotifyWatchProcessorEventsFromUpdatedEntries();
                 });
+
+        for (long revision = startRevision; revision <= rev; revision++) {
+            HybridTimestamp time = revToTsMap.get(revision);
+
+            assert time != null : revision;
+
+            notifyWatchProcessorEventsBeforeStartingWatches.add(new UpdateOnlyRevisionEvent(revision, time));
+        }
     }
 
     private void fillNotifyWatchProcessorEventsFromUpdatedEntries() {
@@ -519,7 +527,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         assert ts != null : newRevision;
 
         if (updatedEntries.isEmpty()) {
-            watchProcessor.updateRevision(newRevision, ts);
+            watchProcessor.updateOnlyRevision(newRevision, ts);
         } else {
             watchProcessor.notifyWatches(List.copyOf(updatedEntries), ts);
 
