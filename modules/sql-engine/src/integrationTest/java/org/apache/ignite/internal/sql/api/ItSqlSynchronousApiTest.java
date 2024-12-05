@@ -39,6 +39,7 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -159,6 +160,11 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         syncProcessor.process(rs);
 
         return syncProcessor;
+    }
+
+    @Override
+    protected void execute(IgniteSql sql, @Nullable Transaction tx, @Nullable CancellationToken token, String query) {
+        sql.executeAsync(tx, token, query).join();
     }
 
     protected ResultProcessor execute(int expectedPages, Transaction tx, IgniteSql sql, String query, Object... args) {

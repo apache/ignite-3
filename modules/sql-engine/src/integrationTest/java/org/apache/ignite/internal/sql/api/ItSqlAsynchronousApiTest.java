@@ -50,6 +50,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -221,6 +222,11 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         await(sql.executeAsync(tx, statement, args).thenCompose(asyncProcessor));
 
         return asyncProcessor;
+    }
+
+    @Override
+    protected void execute(IgniteSql sql, @Nullable Transaction tx, @Nullable CancellationToken token, String query) {
+        sql.execute(tx, token, query);
     }
 
     @Override
