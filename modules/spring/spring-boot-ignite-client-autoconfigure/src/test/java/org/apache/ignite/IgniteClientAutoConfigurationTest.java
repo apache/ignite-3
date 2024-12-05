@@ -179,5 +179,4 @@ public class IgniteClientAutoConfigurationTest extends BaseIgniteAbstractTest {
 
         throw new AssertionError("Exception '" + expectedType + "' not found");
     }
-
 }

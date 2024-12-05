@@ -25,4 +25,3 @@ dependencies {
     api(project(":spring-boot-ignite-client-autoconfigure"))
     api(project(":ignite-client"))
 }
-
