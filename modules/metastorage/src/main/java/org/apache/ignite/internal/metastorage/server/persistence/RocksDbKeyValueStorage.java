@@ -986,6 +986,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             try {
                 notifyWatchProcessorEventsBeforeStartingWatches.addAll(updateEntriesEvents);
+                // Adds events for which there were no entries updates but the revision was updated.
                 notifyWatchProcessorEventsBeforeStartingWatches.addAll(updateOnlyRevisionEvents);
 
                 drainNotifyWatchProcessorEventsBeforeStartingWatches();

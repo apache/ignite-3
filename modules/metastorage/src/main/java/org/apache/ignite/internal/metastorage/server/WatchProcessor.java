@@ -421,11 +421,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
                     watchEventHandlingCallback.onSafeTimeAdvanced(time);
                 }, watchExecutor)
-                .whenComplete((ignored, e) -> {
-                    if (e != null) {
-                        failureManager.process(new FailureContext(CRITICAL_ERROR, e));
-                    }
-                });
+                .whenComplete((ignored, e) -> notifyFailureHandlerOnFirstFailureInNotificationChain(e));
     }
 
     /**
@@ -439,10 +435,6 @@ public class WatchProcessor implements ManuallyCloseable {
         notificationFuture = notificationFuture
                 .thenComposeAsync(unused -> notifyUpdateRevisionListeners(newRevision), watchExecutor)
                 .thenRunAsync(() -> invokeOnRevisionCallback(newRevision, time), watchExecutor)
-                .whenComplete((ignored, e) -> {
-                    if (e != null) {
-                        failureManager.process(new FailureContext(CRITICAL_ERROR, e));
-                    }
-                });
+                .whenComplete((ignored, e) -> notifyFailureHandlerOnFirstFailureInNotificationChain(e));
     }
 }

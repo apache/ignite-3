@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.metastorage.server.AbstractKeyValueStor
 import static org.apache.ignite.internal.metastorage.server.BasicOperationsKeyValueStorageTest.createCommandId;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.util.ArrayUtils.INT_EMPTY_ARRAY;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -37,30 +37,30 @@ import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type;
 
 /**
- * Enumeration for testing storage revision change notification. It is expected that there is already a {@link Entry} with key {@code 0} in
- * the storage.
+ * Enumeration for testing storage revision change notification. It is expected that there is already an {@link Entry} with key {@code 0}
+ * in the storage.
  */
 enum UpdateRevisionOperation {
     // Simple operations.
     PUT_NEW(storage -> put(storage, 1)),
     PUT_ALL_NEW(storage -> putAll(storage, 1)),
-    PUT_EXISTS(storage -> put(storage, 0)),
-    PUT_ALL_EXISTS(storage -> putAll(storage, 0)),
-    REMOVE_EXISTS(storage -> remove(storage, 0)),
-    REMOVE_ALL_EXISTS(storage -> removeAll(storage, 0)),
-    REMOVE_NOT_EXISTS(storage -> remove(storage, 1)),
-    REMOVE_ALL_NOT_EXISTS(storage -> removeAll(storage, 1)),
+    PUT_EXISTING(storage -> put(storage, 0)),
+    PUT_ALL_EXISTING(storage -> putAll(storage, 0)),
+    REMOVE_EXISTING(storage -> remove(storage, 0)),
+    REMOVE_ALL_EXISTING(storage -> removeAll(storage, 0)),
+    REMOVE_NOT_EXISTING(storage -> remove(storage, 1)),
+    REMOVE_ALL_NOT_EXISTING(storage -> removeAll(storage, 1)),
     PUT_ALL_EMPTY(storage -> putAll(storage, INT_EMPTY_ARRAY)),
     REMOVE_ALL_EMPTY(storage -> removeAll(storage, INT_EMPTY_ARRAY)),
     // Invoke operations.
     INVOKE_PUT_NEW(storage -> invokeSuccessCondition(storage, putOperation(1))),
     INVOKE_IF_PUT_NEW(storage -> invokeIfSuccessCondition(storage, putOperation(1))),
-    INVOKE_PUT_EXISTS(storage -> invokeSuccessCondition(storage, putOperation(0))),
-    INVOKE_IF_PUT_EXISTS(storage -> invokeIfSuccessCondition(storage, putOperation(0))),
-    INVOKE_REMOVE_EXISTS(storage -> invokeSuccessCondition(storage, removeOperation(0))),
-    INVOKE_IF_REMOVE_EXISTS(storage -> invokeIfSuccessCondition(storage, removeOperation(0))),
-    INVOKE_REMOVE_NOT_EXISTS(storage -> invokeSuccessCondition(storage, removeOperation(1))),
-    INVOKE_IF_REMOVE_NOT_EXISTS(storage -> invokeIfSuccessCondition(storage, removeOperation(1))),
+    INVOKE_PUT_EXISTING(storage -> invokeSuccessCondition(storage, putOperation(0))),
+    INVOKE_IF_PUT_EXISTING(storage -> invokeIfSuccessCondition(storage, putOperation(0))),
+    INVOKE_REMOVE_EXISTING(storage -> invokeSuccessCondition(storage, removeOperation(0))),
+    INVOKE_IF_REMOVE_EXISTING(storage -> invokeIfSuccessCondition(storage, removeOperation(0))),
+    INVOKE_REMOVE_NOT_EXISTING(storage -> invokeSuccessCondition(storage, removeOperation(1))),
+    INVOKE_IF_REMOVE_NOT_EXISTING(storage -> invokeIfSuccessCondition(storage, removeOperation(1))),
     INVOKE_NOOP(storage -> invokeSuccessCondition(storage, noop())),
     INVOKE_IF_NOOP(storage -> invokeIfSuccessCondition(storage, noop()));
 
@@ -73,7 +73,8 @@ enum UpdateRevisionOperation {
     void execute(KeyValueStorage storage) {
         Entry entry = storage.get(key(0));
 
-        assertTrue(!entry.empty() && !entry.tombstone());
+        assertFalse(entry.empty());
+        assertFalse(entry.tombstone());
 
         function.accept(storage);
     }
@@ -83,10 +84,7 @@ enum UpdateRevisionOperation {
     }
 
     private static void putAll(KeyValueStorage storage, int... keys) {
-        List<byte[]> keyList = IntStream.of(keys).mapToObj(AbstractKeyValueStorageTest::key).collect(toList());
-        List<byte[]> valueList = IntStream.of(keys).mapToObj(UpdateRevisionOperation::value).collect(toList());
-
-        storage.putAll(keyList, valueList, randomKvContext());
+        storage.putAll(toListKeyByteArray(keys), toListValueByteArray(keys), randomKvContext());
     }
 
     private static void remove(KeyValueStorage storage, int key) {
@@ -94,9 +92,7 @@ enum UpdateRevisionOperation {
     }
 
     private static void removeAll(KeyValueStorage storage, int... keys) {
-        List<byte[]> keyList = IntStream.of(keys).mapToObj(AbstractKeyValueStorageTest::key).collect(toList());
-
-        storage.removeAll(keyList, randomKvContext());
+        storage.removeAll(toListKeyByteArray(keys), randomKvContext());
     }
 
     private static void invokeSuccessCondition(KeyValueStorage storage, Operation operation) {
@@ -139,5 +135,13 @@ enum UpdateRevisionOperation {
 
     private static ByteArray keyByteArray(int key) {
         return new ByteArray(key(key));
+    }
+
+    private static List<byte[]> toListKeyByteArray(int... keys) {
+        return IntStream.of(keys).mapToObj(AbstractKeyValueStorageTest::key).collect(toList());
+    }
+
+    private static List<byte[]> toListValueByteArray(int... keys) {
+        return IntStream.of(keys).mapToObj(UpdateRevisionOperation::value).collect(toList());
     }
 }
