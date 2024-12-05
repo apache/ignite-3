@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -51,13 +51,15 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests to verify catalog compaction.
  */
-class ItCatalogCompactionTest extends ClusterPerTestIntegrationTest {
+class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     private static final int CLUSTER_SIZE = 3;
 
     /** How often we update the low water mark. */
@@ -102,7 +104,7 @@ class ItCatalogCompactionTest extends ClusterPerTestIntegrationTest {
     }
 
     @Override
-    protected void customizeInitParameters(InitParametersBuilder builder) {
+    protected void configureInitParameters(InitParametersBuilder builder) {
         String clusterConfiguration = format(
                 "ignite { gc: {lowWatermark: { dataAvailabilityTime: {}, updateInterval: {} } } }",
                 // dataAvailabilityTime is 2 x updateFrequency by default
@@ -112,9 +114,9 @@ class ItCatalogCompactionTest extends ClusterPerTestIntegrationTest {
         builder.clusterConfiguration(clusterConfiguration);
     }
 
-    @BeforeEach
+    @BeforeAll
     void enableCompaction() {
-        List<Ignite> nodes = cluster.runningNodes().collect(Collectors.toList());
+        List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
         assertEquals(initialNodes(), nodes.size());
 
         for (var node : nodes) {
@@ -123,11 +125,16 @@ class ItCatalogCompactionTest extends ClusterPerTestIntegrationTest {
         }
     }
 
+    @BeforeEach
+    public void beforeEach() {
+        dropAllTables();
+    }
+
     @Test
     void testGlobalMinimumTxRequiredTime() {
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
-        IgniteImpl node1 = unwrapIgniteImpl(cluster.node(1));
-        IgniteImpl node2 = unwrapIgniteImpl(cluster.node(2));
+        IgniteImpl node0 = unwrapIgniteImpl(CLUSTER.node(0));
+        IgniteImpl node1 = unwrapIgniteImpl(CLUSTER.node(1));
+        IgniteImpl node2 = unwrapIgniteImpl(CLUSTER.node(2));
 
         List<CatalogCompactionRunner> compactors = List.of(
                 node0.catalogCompactionRunner(),
@@ -136,14 +143,14 @@ class ItCatalogCompactionTest extends ClusterPerTestIntegrationTest {
         );
 
         // The test requires that no one else change the schema while it is running.
-        await(((SystemViewManagerImpl) unwrapIgniteImpl(cluster.aliveNode()).systemViewManager()).completeRegistration());
+        await(((SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager()).completeRegistration());
 
         Catalog catalog1 = getLatestCatalog(node2);
 
         Transaction tx1 = node0.transactions().begin();
 
         // Changing the catalog and starting transaction.
-        executeSql("create table a(a int primary key)");
+        sql("create table a(a int primary key)");
         Catalog catalog2 = getLatestCatalog(node0);
         assertThat(catalog2.version(), is(catalog1.version() + 1));
         List<Transaction> txs2 = Stream.of(node1, node2).map(node -> node.transactions().begin()).collect(Collectors.toList());
@@ -152,7 +159,7 @@ class ItCatalogCompactionTest extends ClusterPerTestIntegrationTest {
                 .collect(Collectors.toList());
 
         // Changing the catalog again and starting transaction.
-        executeSql("alter table a add column (b int)");
+        sql("alter table a add column (b int)");
         Catalog catalog3 = getLatestCatalog(node1);
         assertThat(catalog3.version(), is(catalog2.version() + 1));
         List<Transaction> txs3 = Stream.of(node0, node2).map(node -> node.transactions().begin()).collect(Collectors.toList());
@@ -200,18 +207,18 @@ class ItCatalogCompactionTest extends ClusterPerTestIntegrationTest {
         ignoredReadonlyTxs.forEach(Transaction::rollback);
     }
 
-    @Test
+    @RepeatedTest(3)
     public void testCompactionRun() throws InterruptedException {
-        executeSql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
+        sql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
                 CLUSTER_SIZE, CLUSTER_SIZE)
         );
 
-        executeSql("alter zone test set default");
+        sql("alter zone test set default");
 
-        executeSql("create table a(a int primary key)");
-        executeSql("alter table a add column b int");
+        sql("create table a(a int primary key)");
+        sql("alter table a add column b int");
 
-        Ignite ignite = cluster.aliveNode();
+        Ignite ignite = CLUSTER.aliveNode();
 
         log.info("Awaiting for the first compaction to run...");
 
@@ -220,14 +227,14 @@ class ItCatalogCompactionTest extends ClusterPerTestIntegrationTest {
 
         log.info("Awaiting for the second compaction to run...");
 
-        executeSql("alter table a add column c int");
+        sql("alter table a add column c int");
 
         int catalogVersion2 = getLatestCatalogVersion(ignite);
         assertTrue(catalogVersion1 < catalogVersion2, "Catalog version should have changed");
 
         expectEarliestCatalogVersion(catalogVersion2 - 1);
 
-        executeSql("drop table a");
+        sql("drop table a");
 
         log.info("Awaiting for the third compaction to run...");
 
@@ -254,11 +261,11 @@ class ItCatalogCompactionTest extends ClusterPerTestIntegrationTest {
         return catalog;
     }
 
-    private void expectEarliestCatalogVersion(int expectedVersion) throws InterruptedException {
+    private static void expectEarliestCatalogVersion(int expectedVersion) throws InterruptedException {
         long waitTime = COMPACTION_INTERVAL_MS;
 
         boolean compacted = IgniteTestUtils.waitForCondition(() -> {
-            for (var node : cluster.runningNodes().collect(Collectors.toList())) {
+            for (var node : CLUSTER.runningNodes().collect(Collectors.toList())) {
                 IgniteImpl ignite = unwrapIgniteImpl(node);
                 CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
 
