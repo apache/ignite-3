@@ -30,6 +30,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -60,7 +61,7 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
 
         assertTrue(
                 waitForCondition(() -> sql("SELECT * FROM system.sql_queries").size() == 2, 5_000),
-                "Query didn't appear in running queries view or disappeared too fast"
+                "Query didn't appear in running queries view or disappeared too soon"
         );
 
         stmt.cancel();
@@ -69,7 +70,7 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
         stmt.cancel();
 
         assertThrowsSqlException(
-                "The query was cancelled while executing.",
+                QueryCancelledException.CANCEL_MSG,
                 () -> await(result)
         );
     }
@@ -98,7 +99,7 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
         stmt.cancel();
 
         assertThrowsSqlException(
-                "The query was cancelled while executing.",
+                QueryCancelledException.CANCEL_MSG,
                 stmt::getMoreResults
         );
     }
@@ -121,10 +122,14 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
 
             stmt.cancel();
 
-            assertThrowsSqlException("The query was cancelled while executing.", () -> {
-                //noinspection StatementWithEmptyBody
-                while (rs.next()) { }
-            });
+            assertThrowsSqlException(
+                    QueryCancelledException.CANCEL_MSG,
+                    () -> {
+                        //noinspection StatementWithEmptyBody
+                        while (rs.next()) {
+                        }
+                    }
+            );
         }
 
         {
@@ -148,10 +153,13 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
 
             stmt.cancel();
 
-            assertThrowsSqlException("The query was cancelled while executing.", () -> {
-                //noinspection StatementWithEmptyBody
-                while (rs1.next()) { }
-            });
+            assertThrowsSqlException(
+                    QueryCancelledException.CANCEL_MSG, () -> {
+                        //noinspection StatementWithEmptyBody
+                        while (rs1.next()) {
+                        }
+                    }
+            );
 
             //noinspection StatementWithEmptyBody
             while (rs2.next()) { }
@@ -169,13 +177,13 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
 
             assertTrue(
                     waitForCondition(() -> sql("SELECT * FROM system.sql_queries").size() == 2, 5_000),
-                    "Query didn't appear in running queries view or disappeared too fast"
+                    "Query didn't appear in running queries view or disappeared too soon"
             );
 
             ps.cancel();
 
             assertThrowsSqlException(
-                    "The query was cancelled while executing.",
+                    QueryCancelledException.CANCEL_MSG,
                     () -> await(result)
             );
         }
@@ -192,13 +200,13 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
 
         assertTrue(
                 waitForCondition(() -> sql("SELECT * FROM system.sql_queries").size() >= 2, 5_000),
-                "Query didn't appear in running queries view or disappeared too fast"
+                "Query didn't appear in running queries view or disappeared too soon"
         );
 
         stmt.cancel();
 
         assertThrowsSqlException(
-                "The query was cancelled while executing.",
+                QueryCancelledException.CANCEL_MSG,
                 () -> await(result)
         );
     }
@@ -223,13 +231,13 @@ public class ItJdbcStatementCancelSelfTest extends AbstractJdbcSelfTest {
 
             assertTrue(
                     waitForCondition(() -> sql("SELECT * FROM system.sql_queries").size() >= 2, 5_000),
-                    "Query didn't appear in running queries view or disappeared too fast"
+                    "Query didn't appear in running queries view or disappeared too soon"
             );
 
             ps.cancel();
 
             assertThrowsSqlException(
-                    "The query was cancelled while executing.",
+                    QueryCancelledException.CANCEL_MSG,
                     () -> await(result)
             );
         }

@@ -510,10 +510,8 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
         cursorFuture
                 .thenCompose(cursorChainTraverser)
-                .handle((ignored, ex) -> {
-                    if (ex != null) {
-                        action.run();
-                    }
+                .exceptionally(ex -> {
+                    action.run();
 
                     return null;
                 });
