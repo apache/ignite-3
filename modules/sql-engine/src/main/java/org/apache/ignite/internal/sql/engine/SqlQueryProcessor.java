@@ -73,9 +73,9 @@ import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry
 import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProviderImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
-import org.apache.ignite.internal.sql.engine.kill.KillHandlerRegistryImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
@@ -166,7 +166,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private final SystemViewManager systemViewManager;
 
-    private final KillHandlerRegistryImpl killHandlerRegistry;
+    private final KillCommandHandler killCommandHandler;
 
     private volatile QueryExecutor queryExecutor;
 
@@ -224,7 +224,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             TxManager txManager,
             LowWatermark lowWaterMark,
             ScheduledExecutorService commonScheduler,
-            KillHandlerRegistryImpl killHandlerRegistry
+            KillCommandHandler killCommandHandler
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -245,7 +245,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.txTracker = new InflightTransactionTracker(transactionInflights);
         this.txManager = txManager;
         this.commonScheduler = commonScheduler;
-        this.killHandlerRegistry = killHandlerRegistry;
+        this.killCommandHandler = killCommandHandler;
         sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -338,7 +338,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 dependencyResolver,
                 tableFunctionRegistry,
                 clockService,
-                killHandlerRegistry,
+                killCommandHandler,
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
 
@@ -366,7 +366,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
         services.forEach(LifecycleAware::start);
 
-        killHandlerRegistry.register(new SqlQueryKillHandler());
+        killCommandHandler.register(new SqlQueryKillHandler());
 
         return nullCompletedFuture();
     }

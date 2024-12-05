@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.kill.messages;
+package org.apache.ignite.internal.sql.engine.message;
 
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 
 /**
  * Request to cancel an operation.

@@ -33,7 +33,6 @@ import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -83,6 +82,8 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommand;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
@@ -91,7 +92,6 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.AsyncRootNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
-import org.apache.ignite.internal.sql.engine.kill.KillHandlerRegistryImpl;
 import org.apache.ignite.internal.sql.engine.message.ErrorMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryCloseMessage;
@@ -106,7 +106,6 @@ import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.KillPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.kill.KillCommand;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
@@ -179,7 +178,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final ClockService clockService;
 
-    private final KillHandlerRegistryImpl killHandlerRegistry;
+    private final KillCommandHandler killCommandHandler;
 
     /**
      * Constructor.
@@ -193,7 +192,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param handler Row handler.
      * @param implementorFactory Relational node implementor factory.
      * @param clockService Clock service.
-     * @param killHandlerRegistry Kill handlers registry.
+     * @param killCommandHandler Kill handlers registry.
      * @param shutdownTimeout Shutdown timeout.
      */
     public ExecutionServiceImpl(
@@ -208,7 +207,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExecutionDependencyResolver dependencyResolver,
             ImplementorFactory<RowT> implementorFactory,
             ClockService clockService,
-            KillHandlerRegistryImpl killHandlerRegistry,
+            KillCommandHandler killCommandHandler,
             long shutdownTimeout
     ) {
         this.localNode = topSrvc.localMember();
@@ -223,7 +222,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.dependencyResolver = dependencyResolver;
         this.implementorFactory = implementorFactory;
         this.clockService = clockService;
-        this.killHandlerRegistry = killHandlerRegistry;
+        this.killCommandHandler = killCommandHandler;
         this.shutdownTimeout = shutdownTimeout;
     }
 
@@ -244,7 +243,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param dependencyResolver Dependency resolver.
      * @param tableFunctionRegistry Table function registry.
      * @param clockService Clock service.
-     * @param killHandlerRegistry Kill handlers registry.
+     * @param killCommandHandler Kill handlers registry.
      * @param shutdownTimeout Shutdown timeout.
      * @return An execution service.
      */
@@ -262,7 +261,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExecutionDependencyResolver dependencyResolver,
             TableFunctionRegistry tableFunctionRegistry,
             ClockService clockService,
-            KillHandlerRegistryImpl killHandlerRegistry,
+            KillCommandHandler killCommandHandler,
             long shutdownTimeout
     ) {
         return new ExecutionServiceImpl<>(
@@ -283,7 +282,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         tableFunctionRegistry
                 ),
                 clockService,
-                killHandlerRegistry,
+                killCommandHandler,
                 shutdownTimeout
         );
     }
@@ -498,18 +497,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     ) {
         KillCommand cmd = plan.command();
 
-        CompletableFuture<Boolean> killFut = killHandlerRegistry.handler(cmd.type())
-                .cancelAsync(cmd.operationId());
-
-        CompletableFuture<Iterator<InternalSqlRow>> resFut =
-                (cmd.noWait() ? CompletableFutures.falseCompletedFuture() : killFut)
-                .thenApply(cancelled -> {
-                    if (cmd.noWait()) {
-                        return Collections.<InternalSqlRow>emptyIterator();
-                    }
-
-                    return (cancelled ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator();
-                })
+        CompletableFuture<Iterator<InternalSqlRow>> ret = killCommandHandler.handle(cmd)
+                .thenApply(cancelled -> (cancelled ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator())
                 .exceptionally(th -> {
                     Throwable e = ExceptionUtils.unwrapCause(th);
 
@@ -523,7 +512,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         PrefetchCallback callback = operationContext.prefetchCallback();
         if (callback != null) {
-            resFut.whenCompleteAsync((res, err) -> callback.onPrefetchComplete(err), taskExecutor);
+            ret.whenCompleteAsync((res, err) -> callback.onPrefetchComplete(err), taskExecutor);
         }
 
         QueryCancel queryCancel = operationContext.cancel();
@@ -531,11 +520,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         queryCancel.add(timeout -> {
             if (timeout) {
-                resFut.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
+                ret.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
             }
         });
 
-        return new IteratorToDataCursorAdapter<>(resFut, Runnable::run);
+        return new IteratorToDataCursorAdapter<>(ret, Runnable::run);
     }
 
     private static RuntimeException convertDdlException(Throwable e) {

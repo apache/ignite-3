@@ -73,6 +73,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -101,6 +102,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestC
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImplTest.TestExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
@@ -114,7 +116,6 @@ import org.apache.ignite.internal.sql.engine.framework.ImplicitTxContext;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.PredefinedSchemaManager;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.kill.KillHandlerRegistryImpl;
 import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
@@ -215,8 +216,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-    private final KillHandlerRegistryImpl killHandlerRegistry =
-            new KillHandlerRegistryImpl(mock(TopologyService.class), mock(MessagingService.class));
+    private final KillCommandHandler killCommandHandler =
+            new KillCommandHandler(nodeNames.get(0), mock(LogicalTopologyService.class), mock(MessagingService.class));
 
     private ClusterNode firstNode;
 
@@ -1014,7 +1015,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         ExecutionServiceImpl<?> execService = executionServices.get(0);
 
-        killHandlerRegistry.register(new OperationKillHandler() {
+        killCommandHandler.register(new OperationKillHandler() {
             @Override
             public CompletableFuture<Boolean> cancelAsync(String operationId) {
                 return new CompletableFuture<>();
@@ -1168,7 +1169,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps, tableFunctionRegistry),
                 clockService,
-                killHandlerRegistry,
+                killCommandHandler,
                 SHUTDOWN_TIMEOUT
         );
 

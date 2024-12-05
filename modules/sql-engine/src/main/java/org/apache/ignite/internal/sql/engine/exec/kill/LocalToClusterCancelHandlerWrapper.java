@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.kill;
+package org.apache.ignite.internal.sql.engine.exec.kill;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
-import org.apache.ignite.internal.sql.engine.kill.messages.CancelOperationRequest;
-import org.apache.ignite.internal.sql.engine.kill.messages.CancelOperationResponse;
+import org.apache.ignite.internal.sql.engine.message.CancelOperationRequest;
+import org.apache.ignite.internal.sql.engine.message.CancelOperationResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 
 /**
@@ -45,18 +45,21 @@ class LocalToClusterCancelHandlerWrapper implements OperationKillHandler {
 
     private final OperationKillHandler localHandler;
     private final CancellableOperationType type;
-    private final TopologyService topologyService;
+    private final String localNodeName;
+    private final LogicalTopologyService logicalTopologyService;
     private final MessagingService messageService;
 
     LocalToClusterCancelHandlerWrapper(
             OperationKillHandler localHandler,
             CancellableOperationType type,
-            TopologyService topologyService,
+            String localNodeName,
+            LogicalTopologyService logicalTopologyService,
             MessagingService messageService
     ) {
         this.localHandler = localHandler;
         this.type = type;
-        this.topologyService = topologyService;
+        this.localNodeName = localNodeName;
+        this.logicalTopologyService = logicalTopologyService;
         this.messageService = messageService;
     }
 
@@ -90,9 +93,9 @@ class LocalToClusterCancelHandlerWrapper implements OperationKillHandler {
     private CompletableFuture<Boolean> broadcastCancel(CancelOperationRequest request) {
         CompletableFuture<Boolean> result = new CompletableFuture<>();
 
-        CompletableFuture<?>[] futures = topologyService.allMembers()
+        CompletableFuture<?>[] futures = logicalTopologyService.localLogicalTopology().nodes()
                 .stream()
-                .filter(node -> !node.name().equals(topologyService.localMember().name()))
+                .filter(node -> !node.name().equals(localNodeName))
                 .map(node -> messageService.invoke(node, request, RESPONSE_TIMEOUT_MS)
                         .thenAccept(msg -> {
                             CancelOperationResponse response = (CancelOperationResponse) msg;

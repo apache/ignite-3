@@ -22,7 +22,7 @@ handler that can abort an operation of a certain type. It needs to be
 implemented by the component that wants to handle the KILL command.
 
 [KillHandlerRegistry](src/main/java/org/apache/ignite/internal/sql/engine/api/kill/KillHandlerRegistry.java) -
-registry of all local kill handlers. All handlers must be registered during node startup.
+registry of all kill handlers. All handlers must be registered during node startup.
 
 [CancellableOperationType](src/main/java/org/apache/ignite/internal/sql/engine/api/kill/CancellableOperationType.java) -
 enumeration of operations that can be cancelled.

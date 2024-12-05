@@ -72,9 +72,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public boolean hasRowSet() {
-        return cursor.queryType() == SqlQueryType.QUERY
-                || cursor.queryType() == SqlQueryType.EXPLAIN
-                || cursor.queryType() == SqlQueryType.KILL;
+        return cursor.queryType() == SqlQueryType.QUERY || cursor.queryType() == SqlQueryType.EXPLAIN;
     }
 
     /** {@inheritDoc} */
@@ -92,11 +90,11 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public boolean wasApplied() {
-        if (cursor.queryType() != SqlQueryType.DDL) {
+        if (cursor.queryType() != SqlQueryType.DDL && cursor.queryType() != SqlQueryType.KILL) {
             return false;
         }
 
-        assert curPage.items().get(0).get(0) instanceof Boolean : "Invalid DDL result: " + curPage;
+        assert curPage.items().get(0).get(0) instanceof Boolean : "Invalid DDL/KILL result: " + curPage;
 
         return (boolean) curPage.items().get(0).get(0);
     }

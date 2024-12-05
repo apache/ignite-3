@@ -32,7 +32,6 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
-import org.apache.ignite.internal.sql.engine.kill.messages.CancelOperationRequest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;

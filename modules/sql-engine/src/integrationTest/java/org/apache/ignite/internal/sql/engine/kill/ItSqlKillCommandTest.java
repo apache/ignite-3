@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQuer
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
-import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
 import java.util.List;
@@ -41,6 +40,8 @@ import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -58,7 +59,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     public void testKillQueryMetadata() {
         assertQuery("KILL QUERY '00000000-0000-0000-0000-000000000000'")
                 .columnMetadata(
-                        new MetadataMatcher().name("CANCELLED").type(ColumnType.BOOLEAN).nullable(false)
+                        new MetadataMatcher().name("APPLIED").type(ColumnType.BOOLEAN).nullable(false)
                 )
                 .check();
     }
@@ -93,7 +94,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         expectQueryCancelled(new DrainCursor(cursor));
 
         checkKillQuery(node, targetQueryId, false);
-        checkKillQueryNoWait(node, targetQueryId);
+        checkKillQuery(node, targetQueryId, true, true);
     }
 
     @Test
@@ -117,21 +118,17 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     }
 
     private static void checkKillQuery(Ignite node, UUID queryId, boolean expectedResult) {
-        String query = IgniteStringFormatter.format("KILL QUERY '{}'", queryId);
-
-        List<List<Object>> res = sql(node, null, null, null, query);
-
-        assertThat(res, hasSize(1));
-        assertThat(res.get(0), hasSize(1));
-        assertThat(res.get(0).get(0), is(expectedResult));
+        checkKillQuery(node, queryId, expectedResult, false);
     }
 
-    private static void checkKillQueryNoWait(Ignite node, UUID queryId) {
-        String query = IgniteStringFormatter.format("KILL QUERY '{}' NO WAIT", queryId);
+    private static void checkKillQuery(Ignite node, UUID queryId, boolean expectedResult, boolean noWait) {
+        String query = IgniteStringFormatter
+                .format("KILL QUERY '{}'{}", queryId, noWait ? " NO WAIT" : "");
 
-        List<List<Object>> res = sql(node, null, null, null, query);
-
-        assertThat(res, hasSize(0));
+        try (ResultSet<SqlRow> res = node.sql().execute(null, query)) {
+            assertThat(res.hasRowSet(), is(false));
+            assertThat(res.wasApplied(), is(expectedResult));
+        }
     }
 
     private static List<QueryInfo> runningQueries() {

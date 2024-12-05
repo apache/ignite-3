@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.prepare.kill;
+package org.apache.ignite.internal.sql.engine.exec.kill;
 
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
@@ -28,6 +28,15 @@ public class KillCommand {
     private final String operationId;
     private final CancellableOperationType type;
     private final boolean noWait;
+
+    /**
+     * Creates KILL command.
+     */
+    public KillCommand(String operationId, CancellableOperationType type, boolean noWait) {
+        this.operationId = operationId;
+        this.noWait = noWait;
+        this.type = type;
+    }
 
     /**
      * Creates KILL command from the AST node.
@@ -60,11 +69,5 @@ public class KillCommand {
     @Override
     public String toString() {
         return S.toString(KillCommand.class, this);
-    }
-
-    private KillCommand(String operationId, CancellableOperationType type, boolean noWait) {
-        this.operationId = operationId;
-        this.noWait = noWait;
-        this.type = type;
     }
 }

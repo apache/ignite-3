@@ -22,7 +22,7 @@ import java.util.List;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.prepare.kill.KillCommand;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommand;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -33,7 +33,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 public class KillPlan implements QueryPlan {
     /** Kill command metadata holder. */
     private static final ResultSetMetadata KILL_METADATA = new ResultSetMetadataImpl(List.of(
-            new ColumnMetadataImpl("CANCELLED", ColumnType.BOOLEAN, 1, ColumnMetadata.UNDEFINED_SCALE, false, null)));
+            new ColumnMetadataImpl("APPLIED", ColumnType.BOOLEAN, 1, ColumnMetadata.UNDEFINED_SCALE, false, null)));
 
     private static final ParameterMetadata EMPTY_PARAMETERS = new ParameterMetadata(Collections.emptyList());
 

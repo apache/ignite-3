@@ -30,15 +30,17 @@ public interface OperationKillHandler {
      *
      * @param operationId ID of the operation to cancel.
      * @return {@code true} if the operation was successfully canceled,
-     *         {@code false} if a specific operation was not found or is inactive.
+     *         {@code false} if a specific operation was not found.
      */
     CompletableFuture<Boolean> cancelAsync(String operationId);
 
     /**
      * Returns whether the handler can abort operations only on local node or across the entire cluster.
+     * If a handler can only abort operations on the local node, then distributed coordination will
+     * be performed by the SQL engine.
      *
      * @return {@code True} if the handler can abort operations only on local node,
-     *         {@code false} if the handler can abort operations across the entire cluster.
+     *         {@code false} if the handler can abort operations across the entire cluster (in such a case .
      */
     boolean local();
 

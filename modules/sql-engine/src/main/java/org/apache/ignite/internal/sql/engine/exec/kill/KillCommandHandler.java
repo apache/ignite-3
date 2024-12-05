@@ -15,42 +15,46 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.kill;
+package org.apache.ignite.internal.sql.engine.exec.kill;
 
 import java.util.EnumMap;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
-import org.apache.ignite.internal.sql.engine.kill.messages.CancelOperationRequest;
-import org.apache.ignite.internal.sql.engine.kill.messages.CancelOperationResponse;
+import org.apache.ignite.internal.sql.engine.message.CancelOperationRequest;
+import org.apache.ignite.internal.sql.engine.message.CancelOperationResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@link KillHandlerRegistry}.
+ * Handler of SQL KILL command.
  */
-public class KillHandlerRegistryImpl implements KillHandlerRegistry {
+public class KillCommandHandler implements KillHandlerRegistry {
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
     private final EnumMap<CancellableOperationType, OperationKillHandler> localHandlers = new EnumMap<>(CancellableOperationType.class);
 
     private final EnumMap<CancellableOperationType, OperationKillHandler> clusterHandlers = new EnumMap<>(CancellableOperationType.class);
 
-    private final TopologyService topologyService;
+    private final String localNodeName;
+
+    private final LogicalTopologyService logicalTopologyService;
 
     private final MessagingService messageService;
 
     /**
      * Constructor.
      */
-    public KillHandlerRegistryImpl(TopologyService topologyService, MessagingService messageService) {
-        this.topologyService = topologyService;
+    public KillCommandHandler(String localNodeName, LogicalTopologyService logicalTopologyService, MessagingService messageService) {
+        this.localNodeName = localNodeName;
+        this.logicalTopologyService = logicalTopologyService;
         this.messageService = messageService;
 
         messageService.addMessageHandler(SqlQueryMessageGroup.class, this::onMessage);
@@ -69,7 +73,8 @@ public class KillHandlerRegistryImpl implements KillHandlerRegistry {
             clusterWideHandler = new LocalToClusterCancelHandlerWrapper(
                     handler,
                     handler.type(),
-                    topologyService,
+                    localNodeName,
+                    logicalTopologyService,
                     messageService
             );
         } else {
@@ -85,16 +90,24 @@ public class KillHandlerRegistryImpl implements KillHandlerRegistry {
     }
 
     /**
-     * Returns a handler that can abort an operation of the specified type across the entire cluster.
+     * Executes the SQL KILL command.
      *
-     * @param type Type of the cancellable operation.
-     * @return Handler that can abort an operation of the specified type across the entire cluster.
+     * @param cmd Kill command.
+     * @return Future representing the result of the command execution.
      */
-    public OperationKillHandler handler(CancellableOperationType type) {
-        return handlerOrThrow(type, false);
+    public CompletableFuture<Boolean> handle(KillCommand cmd) {
+        OperationKillHandler handler = handlerOrThrow(cmd.type(), false);
+
+        CompletableFuture<Boolean> killFut = handler.cancelAsync(cmd.operationId());
+
+        if (cmd.noWait()) {
+            return CompletableFuture.completedFuture(true);
+        }
+
+        return killFut;
     }
 
-    private OperationKillHandler handlerOrThrow(CancellableOperationType type, boolean local) {
+    OperationKillHandler handlerOrThrow(CancellableOperationType type, boolean local) {
         Objects.requireNonNull(type, "type");
 
         EnumMap<CancellableOperationType, OperationKillHandler> handlers = local ? localHandlers : clusterHandlers;
