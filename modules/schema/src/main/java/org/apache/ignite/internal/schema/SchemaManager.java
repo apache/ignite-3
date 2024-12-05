@@ -182,22 +182,13 @@ public class SchemaManager implements IgniteComponent {
         SchemaDescriptor prevSchema = searchSchemaByVersion(tableId, prevVersion);
 
         if (prevSchema == null) {
-            prevSchema = loadSchemaDescriptor(tableId, prevVersion);
+            prevSchema = loadRequeiredSchemaDescriptor(tableId, prevVersion);
         }
 
         schema.columnMapping(SchemaUtils.columnMapper(prevSchema, schema));
     }
 
-    /**
-     * Loads the table schema descriptor by version from local Metastore storage.
-     * If called with a schema version for which the schema is not yet saved to the Metastore, an exception
-     * will be thrown.
-     *
-     * @param tblId Table id.
-     * @param ver Schema version (must not be higher than the latest version saved to the  Metastore).
-     * @return Schema representation.
-     */
-    private SchemaDescriptor loadSchemaDescriptor(int tblId, int ver) {
+    private SchemaDescriptor loadRequeiredSchemaDescriptor(int tblId, int ver) {
         int catalogVersion = catalogService.latestCatalogVersion();
 
         while (catalogVersion >= catalogService.earliestCatalogVersion()) {
@@ -210,6 +201,33 @@ public class SchemaManager implements IgniteComponent {
             }
 
             return CatalogToSchemaDescriptorConverter.convert(tableDescriptor, ver);
+        }
+
+        throw new AssertionError(format("Schema descriptor is not found [tableId={}, schemaId={}]", tblId, ver));
+    }
+
+    /**
+     * Loads the table schema descriptor by version from local Metastore storage.
+     * If called with a schema version for which the schema is not yet saved to the Metastore, an exception
+     * will be thrown.
+     *
+     * @param tblId Table id.
+     * @param ver Schema version (must not be higher than the latest version saved to the  Metastore).
+     * @return Schema representation.
+     */
+    private @Nullable SchemaDescriptor loadOptionalSchemaDescriptor(int tblId, int ver) {
+        int catalogVersion = catalogService.latestCatalogVersion();
+
+        while (catalogVersion >= catalogService.earliestCatalogVersion()) {
+            CatalogTableDescriptor tableDescriptor = catalogService.table(tblId, catalogVersion);
+
+            if (tableDescriptor == null) {
+                catalogVersion--;
+
+                continue;
+            }
+
+            return CatalogToSchemaDescriptorConverter.convertIfExists(tableDescriptor, ver);
         }
 
         throw new AssertionError(format("Schema descriptor is not found [tableId={}, schemaId={}]", tblId, ver));
@@ -245,7 +263,7 @@ public class SchemaManager implements IgniteComponent {
      */
     private SchemaRegistryImpl createSchemaRegistry(int tableId, SchemaDescriptor initialSchema) {
         return new SchemaRegistryImpl(
-                ver -> inBusyLock(busyLock, () -> loadSchemaDescriptor(tableId, ver)),
+                ver -> inBusyLock(busyLock, () -> loadOptionalSchemaDescriptor(tableId, ver)),
                 initialSchema
         );
     }
