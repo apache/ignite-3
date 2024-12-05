@@ -15,28 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message;
+package org.apache.ignite.internal.jdbc.proto.event;
 
-import java.io.Serializable;
-import java.util.UUID;
-import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Execution context is used to determine a stripe where to process a message.
+ * JDBC query cancel result.
  */
-public interface ExecutionContextAwareMessage extends NetworkMessage, Serializable {
+public class JdbcQueryCancelResult extends Response {
     /**
-     * Get query ID.
+     * Default constructor is used for deserialization.
      */
-    UUID queryId();
+    public JdbcQueryCancelResult() { }
 
     /**
-     * Get execution token.
+     * Constructor.
+     *
+     * @param status Status code.
+     * @param err    Error message.
      */
-    int executionToken();
+    public JdbcQueryCancelResult(int status, String err) {
+        super(status, err);
+    }
 
-    /**
-     * Get fragment ID.
-     */
-    long fragmentId();
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(JdbcQueryCancelResult.class, this);
+    }
 }

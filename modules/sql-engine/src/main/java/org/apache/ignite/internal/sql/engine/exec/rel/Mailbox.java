@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import java.util.UUID;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 
 /**
  * Mailbox interface.
@@ -25,10 +25,10 @@ import java.util.UUID;
  */
 public interface Mailbox<T> extends Node<T> {
     /**
-     * Get query ID.
+     * Get execution ID.
      */
-    default UUID queryId() {
-        return context().queryId();
+    default ExecutionId executionId() {
+        return context().executionId();
     }
 
     /**

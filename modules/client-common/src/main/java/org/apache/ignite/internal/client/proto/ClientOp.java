@@ -180,6 +180,9 @@ public class ClientOp {
     /** Check if all tuples with the given keys collection exist. */
     public static final int TUPLE_CONTAINS_ALL_KEYS = 67;
 
+    /** Cancels the execution of JDBC statement. */
+    public static final int JDBC_CANCEL = 68;
+
     /** Reserved for extensions: min. */
     @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_START = 1000;

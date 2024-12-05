@@ -232,6 +232,14 @@ public class Jobs {
         }
     }
 
+    /** Job that accepts POJO and returns a string value. */
+    public static class PojoArgNativeResult implements ComputeJob<PojoArg, String> {
+        @Override
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, @Nullable PojoArg arg) {
+            return completedFuture(arg.strValue);
+        }
+    }
+
     /** POJO argument for {@link PojoJobWithCustomMarshallers} and {@link PojoJob}. */
     public static class PojoArg {
         String strValue;
