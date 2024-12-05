@@ -390,7 +390,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         Builder inputRowBuilder = RowSchema.builder();
         srcFactory.rowSchema().fields().forEach(inputRowBuilder::addField);
         dstFactory.rowSchema().fields().forEach(inputRowBuilder::addField);
-        inputRowBuilder.addField(NativeTypes.INT32, true); //updated field value
+        inputRowBuilder.addField(NativeTypes.INT32, true); // updated field value
 
         RowFactory<RowWrapper> inputRowFactory = rowHandler.factory(inputRowBuilder.build());
 
