@@ -182,7 +182,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
 
     @Test
     void testConfigurationUpdate() {
-        metricManager.enable(SRC_NAME);
+        metricManager.enable(metricSet.name());
 
         withLogInspector(
                 evt -> evt.getMessage().getFormattedMessage().contains("Metric report"),
@@ -220,7 +220,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
 
     @Test
     void testSkipReconfigureScheduledTask() {
-        metricManager.enable(SRC_NAME);
+        metricManager.enable(metricSet.name());
 
         withLogInspector(
                 evt -> evt.getMessage().getFormattedMessage().contains("Metric report"),
