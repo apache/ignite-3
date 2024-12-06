@@ -644,13 +644,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(1, getAllTablesFut.join().size());
     }
 
-    @Disabled("reason")
+    @Disabled("IGNITE-23780")
     @Test
     void testStoragesGetClearedInMiddleOfFailedTxStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(true);
     }
 
-    @Disabled("reason")
+    @Disabled("IGNITE-23780")
     @Test
     void testStoragesGetClearedInMiddleOfFailedPartitionStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(false);
