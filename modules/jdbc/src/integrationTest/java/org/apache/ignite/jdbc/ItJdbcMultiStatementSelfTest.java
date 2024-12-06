@@ -272,13 +272,13 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     public void testMiscDmlExecute() throws Exception {
         boolean res = stmt.execute("DROP TABLE IF EXISTS TEST_TX; DROP TABLE IF EXISTS SOME_UNEXISTING_TBL;");
         assertFalse(res);
-        assertEquals(0, stmt.getUpdateCount());
+        assertEquals(1, stmt.getUpdateCount());
         assertFalse(stmt.getMoreResults());
         assertEquals(0, stmt.getUpdateCount());
 
         res = stmt.execute("CREATE TABLE TEST_TX (ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) ");
         assertFalse(res);
-        assertEquals(0, stmt.getUpdateCount());
+        assertEquals(1, stmt.getUpdateCount());
         assertFalse(stmt.getMoreResults());
         assertNull(stmt.getResultSet());
 
@@ -556,10 +556,10 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertEquals(-1, stmt.getUpdateCount());
 
         stmt.execute("DROP TABLE IF EXISTS TEST_TX; DROP TABLE IF EXISTS PUBLIC.TRANSACTIONS;");
-        assertEquals(0, stmt.getUpdateCount());
+        assertEquals(1, stmt.getUpdateCount());
 
         stmt.execute("CREATE TABLE TEST_TX (ID INT PRIMARY KEY, AGE INT, NAME VARCHAR) ");
-        assertEquals(0, stmt.getUpdateCount());
+        assertEquals(1, stmt.getUpdateCount());
     }
 
     @Test

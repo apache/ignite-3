@@ -121,6 +121,10 @@ public class MessageServiceImpl implements MessageService {
     }
 
     private void onMessage(String consistentId, NetworkMessage msg) {
+        if (msg instanceof CancelOperationRequest) {
+            return;
+        }
+
         if (msg instanceof ExecutionContextAwareMessage) {
             ExecutionContextAwareMessage msg0 = (ExecutionContextAwareMessage) msg;
             taskExecutor.execute(msg0.queryId(), msg0.fragmentId(), () -> onMessageInternal(consistentId, msg));
