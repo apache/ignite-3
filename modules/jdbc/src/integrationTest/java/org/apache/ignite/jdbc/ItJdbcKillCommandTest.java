@@ -43,101 +43,29 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
 
     @Test
     public void killUsingUpdate() throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
-            try (ResultSet rs = stmt.executeQuery(QUERY)) {
-                assertThat(rs.next(), is(true));
-                assertThat(rs.getInt(1), is(0));
-
-                List<QueryInfo> queries = runningQueries();
-
-                assertThat(queries, hasSize(1));
-
-                UUID existingQuery = queries.get(0).id();
-
-                // No-op.
-                assertThat(executeKillUsingUpdate(UUID.randomUUID()), is(0));
-                assertThat(runningQueries(), hasSize(1));
-
-                // Actual kill.
-                assertThat(executeKillUsingUpdate(existingQuery), is(0));
-                assertThat(runningQueries(), hasSize(0));
-
-                //noinspection ThrowableNotThrown
-                assertThrowsSqlException(
-                        QueryCancelledException.CANCEL_MSG, () -> {
-                            //noinspection StatementWithEmptyBody
-                            while (rs.next()) {
-                            }
-                        }
-                );
+        checkKillQuery(queryId -> {
+            try (Statement stmt = conn.createStatement()) {
+                return stmt.executeUpdate("KILL QUERY '" + queryId + "'");
             }
-        }
+        }, 0);
     }
 
     @Test
     public void killUsingPreparedStatement() throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
-            try (ResultSet rs = stmt.executeQuery(QUERY)) {
-                assertThat(rs.next(), is(true));
-                assertThat(rs.getInt(1), is(0));
-
-                List<QueryInfo> queries = runningQueries();
-
-                assertThat(queries, hasSize(1));
-
-                UUID existingQuery = queries.get(0).id();
-
-                // No-op.
-                assertThat(executeKillUsingPreparedStatementUpdate(UUID.randomUUID()), is(0));
-                assertThat(runningQueries(), hasSize(1));
-
-                // Actual kill.
-                assertThat(executeKillUsingPreparedStatementUpdate(existingQuery), is(0));
-                assertThat(runningQueries(), hasSize(0));
-
-                //noinspection ThrowableNotThrown
-                assertThrowsSqlException(
-                        QueryCancelledException.CANCEL_MSG, () -> {
-                            //noinspection StatementWithEmptyBody
-                            while (rs.next()) {
-                            }
-                        }
-                );
+        checkKillQuery(queryId -> {
+            try (PreparedStatement stmt = conn.prepareStatement("KILL QUERY '" + queryId + "'")) {
+                return stmt.executeUpdate();
             }
-        }
+        }, 0);
     }
 
     @Test
     public void killUsingExecute() throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
-            try (ResultSet rs = stmt.executeQuery(QUERY)) {
-                assertThat(rs.next(), is(true));
-                assertThat(rs.getInt(1), is(0));
-
-                List<QueryInfo> queries = runningQueries();
-
-                assertThat(queries, hasSize(1));
-
-                UUID existingQuery = queries.get(0).id();
-
-                // No-op.
-                assertThat(executeKillUsingExecute(UUID.randomUUID()), is(false));
-                assertThat(runningQueries(), hasSize(1));
-
-                // Actual kill.
-                assertThat(executeKillUsingExecute(existingQuery), is(false));
-                assertThat(runningQueries(), hasSize(0));
-
-                //noinspection ThrowableNotThrown
-                assertThrowsSqlException(
-                        QueryCancelledException.CANCEL_MSG, () -> {
-                            //noinspection StatementWithEmptyBody
-                            while (rs.next()) {
-                            }
-                        }
-                );
+        checkKillQuery(queryId -> {
+            try (Statement stmt = conn.createStatement()) {
+                return stmt.execute("KILL QUERY '" + queryId + "'");
             }
-        }
+        }, false);
     }
 
     @Test
@@ -151,7 +79,7 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
     }
 
     @Test
-    public void dynamicParametersNotAllowed() throws SQLException {
+    public void dynamicParametersNotSupported() throws SQLException {
         try (PreparedStatement pstmt = conn.prepareStatement("KILL QUERY ?")) {
             pstmt.setString(1, UUID.randomUUID().toString());
 
@@ -163,21 +91,35 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
         }
     }
 
-    private static int executeKillUsingUpdate(UUID targetId) throws SQLException {
+    private static <T> void checkKillQuery(Checker<T> checker, T expected) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
-            return stmt.executeUpdate("KILL QUERY '" + targetId + "'");
-        }
-    }
+            try (ResultSet rs = stmt.executeQuery(QUERY)) {
+                assertThat(rs.next(), is(true));
+                assertThat(rs.getInt(1), is(0));
 
-    private static int executeKillUsingPreparedStatementUpdate(UUID targetId) throws SQLException {
-        try (PreparedStatement stmt = conn.prepareStatement("KILL QUERY '" + targetId + "'")) {
-            return stmt.executeUpdate();
-        }
-    }
+                List<QueryInfo> queries = runningQueries();
 
-    private static boolean executeKillUsingExecute(UUID targetId) throws SQLException {
-        try (Statement stmt = conn.createStatement()) {
-            return stmt.execute("KILL QUERY '" + targetId + "'");
+                assertThat(queries, hasSize(1));
+
+                UUID existingQuery = queries.get(0).id();
+
+                // No-op.
+                assertThat(checker.check(UUID.randomUUID()), is(expected));
+                assertThat(runningQueries(), hasSize(1));
+
+                // Actual kill.
+                assertThat(checker.check(existingQuery), is(expected));
+                assertThat(runningQueries(), hasSize(0));
+
+                //noinspection ThrowableNotThrown
+                assertThrowsSqlException(
+                        QueryCancelledException.CANCEL_MSG, () -> {
+                            //noinspection StatementWithEmptyBody
+                            while (rs.next()) {
+                            }
+                        }
+                );
+            }
         }
     }
 
@@ -185,5 +127,10 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.node(0));
         SqlQueryProcessor queryProcessor = (SqlQueryProcessor) ignite.queryEngine();
         return queryProcessor.runningQueries();
+    }
+
+    @FunctionalInterface
+    interface Checker<T> {
+        T check(UUID queryId) throws SQLException;
     }
 }
