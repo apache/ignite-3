@@ -190,7 +190,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param handler Row handler.
      * @param implementorFactory Relational node implementor factory.
      * @param clockService Clock service.
-     * @param killCommandHandler Kill handlers registry.
+     * @param killCommandHandler Kill command handler.
      * @param shutdownTimeout Shutdown timeout.
      */
     public ExecutionServiceImpl(
@@ -241,7 +241,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param dependencyResolver Dependency resolver.
      * @param tableFunctionRegistry Table function registry.
      * @param clockService Clock service.
-     * @param killCommandHandler Kill handlers registry.
+     * @param killCommandHandler Kill command handler.
      * @param shutdownTimeout Shutdown timeout.
      * @return An execution service.
      */
@@ -492,8 +492,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     Throwable e = ExceptionUtils.unwrapCause(th);
 
                     if (e instanceof IgniteInternalCheckedException) {
-                        throw new IgniteInternalException(INTERNAL_ERR, "Failed to execute KILL statement [cmd=" + cmd
-                                + ", err=" + e.getMessage() + ']', e);
+                        throw new IgniteInternalException(INTERNAL_ERR, "Failed to execute KILL statement"
+                                + " [command=" + cmd + ", err=" + e.getMessage() + ']', e);
                     }
 
                     throw (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteInternalException(INTERNAL_ERR, e);

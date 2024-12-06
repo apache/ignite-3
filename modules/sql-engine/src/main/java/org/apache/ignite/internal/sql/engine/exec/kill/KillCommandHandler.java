@@ -70,7 +70,7 @@ public class KillCommandHandler implements KillHandlerRegistry {
         if (handler.local()) {
             localHandlers.putIfAbsent(handler.type(), handler);
 
-            clusterWideHandler = new LocalToClusterCancelHandlerWrapper(
+            clusterWideHandler = new LocalToClusterKillHandlerWrapper(
                     handler,
                     handler.type(),
                     localNodeName,
@@ -90,7 +90,7 @@ public class KillCommandHandler implements KillHandlerRegistry {
     }
 
     /**
-     * Executes the SQL KILL command.
+     * Handles the SQL KILL command.
      *
      * @param cmd Kill command.
      * @return Future representing the result of the command execution.

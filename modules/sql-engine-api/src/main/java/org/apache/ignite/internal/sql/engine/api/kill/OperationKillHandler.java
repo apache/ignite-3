@@ -46,8 +46,6 @@ public interface OperationKillHandler {
 
     /**
      * Returns the type of the operation that this handler can cancel.
-     *
-     * @return Type of the operation that this handler can cancel.
      */
     CancellableOperationType type();
 }

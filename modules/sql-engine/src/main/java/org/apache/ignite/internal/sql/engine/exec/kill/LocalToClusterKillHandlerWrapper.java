@@ -31,14 +31,14 @@ import org.apache.ignite.internal.sql.engine.message.CancelOperationResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 
 /**
- * Wrapper for {@link OperationKillHandler} that calls a local kill handler on each node in the cluster.
+ * Wrapper for {@link OperationKillHandler} that calls a local handler on each node in the cluster.
  */
-class LocalToClusterCancelHandlerWrapper implements OperationKillHandler {
+class LocalToClusterKillHandlerWrapper implements OperationKillHandler {
     /** Messages factory. */
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
 
     /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(LocalToClusterCancelHandlerWrapper.class);
+    private static final IgniteLogger LOG = Loggers.forClass(LocalToClusterKillHandlerWrapper.class);
 
     /** Maximum time to wait for a remote response. */
     private static final long RESPONSE_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(5);
@@ -49,13 +49,15 @@ class LocalToClusterCancelHandlerWrapper implements OperationKillHandler {
     private final LogicalTopologyService logicalTopologyService;
     private final MessagingService messageService;
 
-    LocalToClusterCancelHandlerWrapper(
+    LocalToClusterKillHandlerWrapper(
             OperationKillHandler localHandler,
             CancellableOperationType type,
             String localNodeName,
             LogicalTopologyService logicalTopologyService,
             MessagingService messageService
     ) {
+        assert localHandler.local() : "handler must be local";
+
         this.localHandler = localHandler;
         this.type = type;
         this.localNodeName = localNodeName;
@@ -119,8 +121,9 @@ class LocalToClusterCancelHandlerWrapper implements OperationKillHandler {
                         })
                         .whenComplete((ignore, err) -> {
                             if (err != null) {
-                                LOG.warn("Failed to send a request to kill the operation to the remote node "
-                                        + "[operationId={}, type={}, node={}].", err, request.operationId(), request.typeId(), node.name());
+                                LOG.warn("Failed to send a request to cancel the operation to the remote node "
+                                        + "[operationId={}, typeId={}, node={}].", err,
+                                        request.operationId(), request.typeId(), node.name());
                             }
                         })
                 )

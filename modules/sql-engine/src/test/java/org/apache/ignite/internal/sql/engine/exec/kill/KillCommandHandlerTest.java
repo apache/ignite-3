@@ -71,40 +71,40 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
     @Test
     @SuppressWarnings({"ThrowableNotThrown", "DataFlowIssue"})
     public void testRegistration() {
-        KillCommandHandler registry = createRegistry(nodeName -> null);
+        KillCommandHandler cmdHandler = createCommandHandler(nodeName -> null);
 
         IgniteTestUtils.assertThrows(
                 NullPointerException.class,
-                () -> registry.register(null),
+                () -> cmdHandler.register(null),
                 "handler"
         );
 
         IgniteTestUtils.assertThrows(
                 NullPointerException.class,
-                () -> registry.register(new TestKillHandler(null, null, true, null)),
+                () -> cmdHandler.register(new TestKillHandler(null, null, true, null)),
                 "type"
         );
 
         TestKillHandler nodeQueryKillHandler = new TestKillHandler(null, null, true, CancellableOperationType.QUERY);
 
-        registry.register(nodeQueryKillHandler);
+        cmdHandler.register(nodeQueryKillHandler);
 
         IgniteTestUtils.assertThrows(
                 IllegalArgumentException.class,
-                () -> registry.register(new TestKillHandler(null, null, false, CancellableOperationType.QUERY)),
+                () -> cmdHandler.register(new TestKillHandler(null, null, false, CancellableOperationType.QUERY)),
                 "A handler for the specified type has already been registered [type=" + CancellableOperationType.QUERY.name()
         );
 
         TestKillHandler clusterWideTxKillHandler = new TestKillHandler(null, null, false, CancellableOperationType.TRANSACTION);
 
-        registry.register(clusterWideTxKillHandler);
+        cmdHandler.register(clusterWideTxKillHandler);
 
-        assertThat(registry.handlerOrThrow(CancellableOperationType.QUERY, false), is(not(nodeQueryKillHandler)));
-        assertThat(registry.handlerOrThrow(CancellableOperationType.TRANSACTION, false), is(clusterWideTxKillHandler));
+        assertThat(cmdHandler.handlerOrThrow(CancellableOperationType.QUERY, false), is(not(nodeQueryKillHandler)));
+        assertThat(cmdHandler.handlerOrThrow(CancellableOperationType.TRANSACTION, false), is(clusterWideTxKillHandler));
 
         IgniteTestUtils.assertThrows(
                 IllegalArgumentException.class,
-                () -> registry.handle(newCmd(CancellableOperationType.COMPUTE)),
+                () -> cmdHandler.handle(newCmd(CancellableOperationType.COMPUTE)),
                 "No handler is registered for the specified type "
                         + "[type=" + CancellableOperationType.COMPUTE.name() + ", local=false]."
         );
@@ -112,15 +112,15 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testSuccessfulCancelOnLocalDoesNotProducesNetworkRequests() {
-        KillCommandHandler registry = createRegistry(nodeName -> {
+        KillCommandHandler cmdHandler = createCommandHandler(nodeName -> {
             throw new IllegalStateException("Shouldn't be called");
         });
 
-        registry.register(new TestKillHandler(true));
+        cmdHandler.register(new TestKillHandler(true));
 
         KillCommand killCommand = newCmd(CancellableOperationType.QUERY);
 
-        assertThat(registry.handle(killCommand), willBe(true));
+        assertThat(cmdHandler.handle(killCommand), willBe(true));
 
         verify(messagingService, never())
                 .invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong());
@@ -132,12 +132,12 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testSuccessfulCancelOnRemote() {
-        KillCommandHandler registry = createRegistry(nodeName -> nodeName.equals(node(2).name()));
+        KillCommandHandler cmdHandler = createCommandHandler(nodeName -> nodeName.equals(node(2).name()));
 
-        registry.register(new TestKillHandler(false));
+        cmdHandler.register(new TestKillHandler(false));
         KillCommand killCommand = newCmd(CancellableOperationType.QUERY);
 
-        assertThat(registry.handle(killCommand), willBe(true));
+        assertThat(cmdHandler.handle(killCommand), willBe(true));
 
         verify(messagingService, times(TOPOLOGY.size() - 1))
                 .invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong());
@@ -147,13 +147,13 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
     public void testCancelFinishesWithErrorOnLocalNode() {
         NullPointerException expected = new NullPointerException("Expected");
 
-        KillCommandHandler registry = createRegistry(nodeName -> true);
-        registry.register(new TestKillHandler(null, expected, true, CancellableOperationType.QUERY));
+        KillCommandHandler cmdHandler = createCommandHandler(nodeName -> true);
+        cmdHandler.register(new TestKillHandler(null, expected, true, CancellableOperationType.QUERY));
         KillCommand killCommand = newCmd(CancellableOperationType.QUERY);
 
         //noinspection ThrowableNotThrown
         IgniteTestUtils.assertThrows(expected.getClass(),
-                () -> await(registry.handle(killCommand)),
+                () -> await(cmdHandler.handle(killCommand)),
                 expected.getMessage()
         );
 
@@ -167,7 +167,7 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
 
         // One remote node reports error, other remote node returns FALSE.
         {
-            KillCommandHandler registry = createRegistry(nodeName -> {
+            KillCommandHandler cmdHandler = createCommandHandler(nodeName -> {
                 if (nodeName.equals(node(1).name())) {
                     throw expected;
                 }
@@ -175,12 +175,12 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
                 return false;
             });
 
-            registry.register(new TestKillHandler(false));
+            cmdHandler.register(new TestKillHandler(false));
             KillCommand killCommand = newCmd(CancellableOperationType.QUERY);
 
             //noinspection ThrowableNotThrown
             IgniteTestUtils.assertThrows(expected.getClass(),
-                    () -> await(registry.handle(killCommand)),
+                    () -> await(cmdHandler.handle(killCommand)),
                     expected.getMessage()
             );
 
@@ -190,7 +190,7 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
 
         // One remote node reports error, other remote node returns TRUE.
         {
-            KillCommandHandler registry = createRegistry(nodeName -> {
+            KillCommandHandler cmdHandler = createCommandHandler(nodeName -> {
                 if (nodeName.equals(node(1).name())) {
                     throw expected;
                 }
@@ -198,12 +198,12 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
                 return true;
             });
 
-            registry.register(new TestKillHandler(false));
+            cmdHandler.register(new TestKillHandler(false));
             KillCommand killCommand = newCmd(CancellableOperationType.QUERY);
 
             // The remote error must be logged, but since the
             // operation is cancelled, the future completes successfully.
-            assertThat(registry.handle(killCommand), willBe(true));
+            assertThat(cmdHandler.handle(killCommand), willBe(true));
 
             verify(messagingService, times(TOPOLOGY.size() - 1))
                     .invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong());
@@ -226,14 +226,14 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
                 return false;
             };
 
-            KillCommandHandler registry = createRegistry(respHandler, 200);
+            KillCommandHandler cmdHandler = createCommandHandler(respHandler, 200);
 
-            registry.register(new TestKillHandler(false));
+            cmdHandler.register(new TestKillHandler(false));
             KillCommand killCommand = newCmd(CancellableOperationType.QUERY);
 
             //noinspection ThrowableNotThrown
             IgniteTestUtils.assertThrows(TimeoutException.class,
-                    () -> await(registry.handle(killCommand)),
+                    () -> await(cmdHandler.handle(killCommand)),
                     null
             );
 
@@ -255,25 +255,25 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
                 return true;
             };
 
-            KillCommandHandler registry = createRegistry(respHandler, 200);
+            KillCommandHandler cmdHandler = createCommandHandler(respHandler, 200);
 
-            registry.register(new TestKillHandler(false));
+            cmdHandler.register(new TestKillHandler(false));
             KillCommand killCommand = newCmd(CancellableOperationType.QUERY);
 
             // The remote error must be logged, but since the
             // operation is cancelled, the future completes successfully.
-            assertThat(registry.handle(killCommand), willBe(true));
+            assertThat(cmdHandler.handle(killCommand), willBe(true));
 
             verify(messagingService, times(TOPOLOGY.size() - 1))
                     .invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong());
         }
     }
 
-    private KillCommandHandler createRegistry(Function<String, Boolean> respHnd) {
-        return createRegistry(respHnd, DEFAULT_TIMEOUT);
+    private KillCommandHandler createCommandHandler(Function<String, Boolean> respHnd) {
+        return createCommandHandler(respHnd, DEFAULT_TIMEOUT);
     }
 
-    private KillCommandHandler createRegistry(Function<String, Boolean> respHnd, long timeout) {
+    private KillCommandHandler createCommandHandler(Function<String, Boolean> respHnd, long timeout) {
         ClusterNode initiator = node(0);
 
         messagingService = mock(MessagingService.class);

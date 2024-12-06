@@ -24,7 +24,6 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Contains the result of the remote cancel operation.
- *  and vice versa, in case of an error the result must be zero.
  *
  * @see CancelOperationRequest
  */

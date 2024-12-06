@@ -47,7 +47,7 @@ public enum CancellableOperationType {
             return VALS[id];
         }
 
-        throw new IllegalArgumentException("Incorrect index status identifier: " + id);
+        throw new IllegalArgumentException("Incorrect operation type identifier: " + id);
     }
 
     public int id() {
