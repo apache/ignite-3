@@ -730,7 +730,8 @@ public class IgniteImpl implements Ignite {
                 .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageExtensionConfiguration.KEY).metaStorage());
-        metaStorageMgr.setMaxClockSkew(schemaSyncConfig.maxClockSkew().value());
+        //TODO FIXME metaStorageMgr.setMaxClockSkew(schemaSyncConfig.maxClockSkew().value().intValue());
+        metaStorageMgr.setMaxClockSkew(500);
 
         systemDisasterRecoveryManager = new SystemDisasterRecoveryManagerImpl(
                 name,
