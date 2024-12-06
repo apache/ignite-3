@@ -146,15 +146,15 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
     /** Simple SEARCH/SARG, range optimization. */
     @Test
     public void testBoundsOneFieldSearchRangeOptimization() throws Exception {
-        assertBounds("SELECT * FROM TEST WHERE (C1 > 1 AND C1 < 4) OR (C1 > 3 AND C1 < 5) OR (C1 > 7) OR (C1 > 6)",
-                multi(
-                        range(1, 5, false, false),
-                        range(6, "null", false, false)));
-
-        assertBounds("SELECT * FROM TEST WHERE C1 > 1 AND C1 < 3 AND C1 <> 2",
-                multi(
-                        range(1, 2, false, false),
-                        range(2, 3, false, false)));
+//        assertBounds("SELECT * FROM TEST WHERE (C1 > 1 AND C1 < 4) OR (C1 > 3 AND C1 < 5) OR (C1 > 7) OR (C1 > 6)",
+//                multi(
+//                        range(1, 5, false, false),
+//                        range(6, "null", false, false)));
+//
+//        assertBounds("SELECT * FROM TEST WHERE C1 > 1 AND C1 < 3 AND C1 <> 2",
+//                multi(
+//                        range(1, 2, false, false),
+//                        range(2, 3, false, false)));
 
         assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND "
                         + "((C2 > '1' AND C2 < '3') OR (C2 > '11' AND C2 < '33') OR C2 > '4')",

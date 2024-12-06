@@ -131,15 +131,14 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .fails("Values passed to IN operator must have compatible types"),
 
+                sql("SELECT CAST(? as INT) IN (1, 2)", "1")
+                        .parameterTypes(nullable(NativeTypes.STRING))
+                        .project("SEARCH(CAST(?0):INTEGER, Sarg[1, 2])"),
+
                 sql("SELECT ? IN ('1', 2)", 2)
                         .parameterTypes(nullable(NativeTypes.INT32))
                         .fails("Values in expression list must have compatible types")
         );
-
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23039 Add support for Sarg serialization/deserialization
-        // sql("SELECT ? IN (1, 2)", "1")
-        //        .parameterTypes(nullable(NativeTypes.STRING))
-        //        .project("SEARCH(CAST(?0):INTEGER, Sarg[1, 2])"),
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-22084: Sql. Add support for row data type.
         // sql("SELECT (?,?) IN ((1,2))", 1, 2)
