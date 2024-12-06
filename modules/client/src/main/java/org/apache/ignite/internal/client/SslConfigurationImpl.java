@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.SslConfiguration;
 import org.jetbrains.annotations.Nullable;
 
