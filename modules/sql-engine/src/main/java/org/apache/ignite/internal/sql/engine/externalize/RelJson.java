@@ -18,15 +18,21 @@
 package org.apache.ignite.internal.sql.engine.externalize;
 
 import static org.apache.calcite.sql.type.SqlTypeUtil.isApproximateNumeric;
+import static org.apache.calcite.rel.externalize.RelJson.sargFromJson;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.IgniteUtils.igniteClassLoader;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Range;
+import com.google.common.collect.RangeSet;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
@@ -61,6 +67,7 @@ import org.apache.calcite.rel.RelInput;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.CorrelationId;
+import org.apache.calcite.rel.externalize.RelEnumTypes;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl.JavaType;
@@ -74,7 +81,6 @@ import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexOver;
 import org.apache.calcite.rex.RexSlot;
-import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.rex.RexVariable;
 import org.apache.calcite.rex.RexWindow;
 import org.apache.calcite.rex.RexWindowBound;
@@ -104,6 +110,8 @@ import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlNameMatchers;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.RangeSets;
+import org.apache.calcite.util.Sarg;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
@@ -120,12 +128,18 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Utilities for converting {@link RelNode} into JSON format.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
 class RelJson {
+    private static final ObjectMapper OBJECT_MAPPER =
+            new ObjectMapper()
+                    .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true);
+
     @SuppressWarnings("PublicInnerClass")
     @FunctionalInterface
     public interface RelFactory extends Function<RelInput, RelNode> {
@@ -305,6 +319,12 @@ class RelJson {
             return toJson((RelDataType) value);
         } else if (value instanceof RelDataTypeField) {
             return toJson((RelDataTypeField) value);
+        } else if (value instanceof Sarg) {
+            return toJson((Sarg) value);
+        } else if (value instanceof RangeSet) {
+            return toJson((RangeSet) value);
+        } else if (value instanceof Range) {
+            return toJson((Range) value);
         } else if (value instanceof ByteString) {
             return toJson((ByteString) value);
         } else if (value instanceof SearchBounds) {
@@ -342,6 +362,33 @@ class RelJson {
         map.put("name", node.getName());
         map.put("rexList", toJson(node.rexList));
         return map;
+    }
+
+    private <C extends Comparable<C>> Object toJson(Sarg<C> node) {
+        final Map<String, @Nullable Object> map = map();
+        map.put("rangeSet", toJson(node.rangeSet));
+        map.put("nullAs", RelEnumTypes.fromEnum(node.nullAs));
+        return map;
+    }
+
+    @SuppressWarnings({"BetaApi"}) // RangeSet GA in Guava 32
+    private <C extends Comparable<C>> List<List<String>> toJson(
+            RangeSet<C> rangeSet) {
+        List<List<String>> list = new ArrayList<>();
+
+        try {
+            RangeSets.forEach(rangeSet,
+                    RangeToJsonConverter.<C>instance().andThen(list::add));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize RangeSet: ", e);
+        }
+        return list;
+    }
+
+    /** Serializes a {@link Range} that can be deserialized using
+     * {@link org.apache.calcite.rel.externalize.RelJson#rangeFromJson(List)}. */
+    private <C extends Comparable<C>> List<String> toJson(Range<C> range) {
+        return RangeSets.map(range, RangeToJsonConverter.instance());
     }
 
     private Object toJson(RelDataType node) {
@@ -410,9 +457,6 @@ class RelJson {
     }
 
     private Object toJson(RexNode node) {
-        // removes calls to SEARCH and the included Sarg and converts them to comparisons
-        node = RexUtil.expandSearch(Commons.emptyCluster().getRexBuilder(), null, node);
-
         Map<String, Object> map;
         switch (node.getKind()) {
             case FIELD_ACCESS:
@@ -865,6 +909,12 @@ class RelJson {
                 Object literal = map.get("literal");
                 RelDataType type = toType(typeFactory, map.get("type"));
 
+                if (literal instanceof Map
+                        && ((Map<?, ?>) literal).containsKey("rangeSet")) {
+                    Sarg sarg = sargFromJson((Map) literal);
+                    return rexBuilder.makeSearchArgumentLiteral(sarg, type);
+                }
+
                 if (literal == null) {
                     return rexBuilder.makeNullLiteral(type);
                 }
@@ -923,7 +973,7 @@ class RelJson {
         List<SqlOperator> operators = new ArrayList<>();
 
         FRAMEWORK_CONFIG.getOperatorTable().lookupOperatorOverloads(
-                new SqlIdentifier(name, new SqlParserPos(0, 0)),
+                new SqlIdentifier(name, SqlParserPos.ZERO),
                 null,
                 sqlSyntax,
                 operators,
@@ -1042,5 +1092,70 @@ class RelJson {
             list.add(toRex(relInput, operand));
         }
         return list;
+    }
+
+    /** Implementation of {@link RangeSets.Handler} that converts a {@link Range}
+     * event to a list of strings.
+     *
+     * @param <V> Range value type
+     */
+    private static class RangeToJsonConverter<V>
+            implements RangeSets.Handler<@NonNull V, List<String>> {
+        private static final RangeToJsonConverter INSTANCE =
+                new RangeToJsonConverter<>();
+
+        private static <C extends Comparable<C>> RangeToJsonConverter<C> instance() {
+            return INSTANCE;
+        }
+
+        @Override public List<String> all() {
+            return ImmutableList.of("all");
+        }
+
+        @Override public List<String> atLeast(@NonNull V lower) {
+            return ImmutableList.of("atLeast", toJson(lower));
+        }
+
+        @Override public List<String> atMost(@NonNull V upper) {
+            return ImmutableList.of("atMost", toJson(upper));
+        }
+
+        @Override public List<String> greaterThan(@NonNull V lower) {
+            return ImmutableList.of("greaterThan", toJson(lower));
+        }
+
+        @Override public List<String> lessThan(@NonNull V upper) {
+            return ImmutableList.of("lessThan", toJson(upper));
+        }
+
+        @Override public List<String> singleton(@NonNull V value) {
+            return ImmutableList.of("singleton", toJson(value));
+        }
+
+        @Override public List<String> closed(@NonNull V lower, @NonNull V upper) {
+            return ImmutableList.of("closed", toJson(lower), toJson(upper));
+        }
+
+        @Override public List<String> closedOpen(@NonNull V lower,
+                @NonNull V upper) {
+            return ImmutableList.of("closedOpen", toJson(lower), toJson(upper));
+        }
+
+        @Override public List<String> openClosed(@NonNull V lower,
+                @NonNull V upper) {
+            return ImmutableList.of("openClosed", toJson(lower), toJson(upper));
+        }
+
+        @Override public List<String> open(@NonNull V lower, @NonNull V upper) {
+            return ImmutableList.of("open", toJson(lower), toJson(upper));
+        }
+
+        private static String toJson(Object o) {
+            try {
+                return OBJECT_MAPPER.writeValueAsString(o);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException("Failed to serialize Range endpoint: ", e);
+            }
+        }
     }
 }
