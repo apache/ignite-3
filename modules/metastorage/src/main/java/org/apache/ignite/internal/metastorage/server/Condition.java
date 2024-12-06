@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import java.util.Collection;
+import java.util.List;
+import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 
 /**
  * Defines interface for boolean condition which could be applied to an array of entries.
  *
- * @see KeyValueStorage#invoke(Condition, Collection, Collection)
+ * @see KeyValueStorage#invoke(Condition, List, List, KeyValueUpdateContext, CommandId)
  */
 public interface Condition {
     /**

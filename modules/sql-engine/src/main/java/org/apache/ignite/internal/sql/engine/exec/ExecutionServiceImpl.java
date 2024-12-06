@@ -77,7 +77,6 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleString;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
-import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
@@ -334,9 +333,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         operationContext.notifyTxUsed(txWrapper);
 
-        PrefetchCallback prefetchCallback = operationContext.prefetchCallback();
-
-        assert prefetchCallback != null;
+        PrefetchCallback prefetchCallback = queryManager.prefetchCallback;
 
         CompletableFuture<Void> firstPageReady = prefetchCallback.prefetchFuture();
 
@@ -397,7 +394,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 return executeQuery(operationContext, (MultiStepPlan) plan);
             case EXPLAIN:
-                return completedFuture(executeExplain(operationContext, (ExplainPlan) plan));
+                return completedFuture(executeExplain((ExplainPlan) plan));
             case DDL:
                 return completedFuture(executeDdl(operationContext, (DdlPlan) plan));
             case KILL:
@@ -441,9 +438,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             txWrapper = NoopTransactionWrapper.INSTANCE;
         }
 
-        PrefetchCallback prefetchCallback = operationContext.prefetchCallback();
-
-        assert prefetchCallback != null;
+        PrefetchCallback prefetchCallback = new PrefetchCallback();
 
         AsyncCursor<InternalSqlRow> dataCursor = plan.execute(ectx, txWrapper.unwrap(), tableRegistry, prefetchCallback);
 
@@ -462,11 +457,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 .exceptionally(th -> {
                     throw convertDdlException(th);
                 });
-
-        PrefetchCallback callback = operationContext.prefetchCallback();
-        if (callback != null) {
-            ret.whenCompleteAsync((res, err) -> callback.onPrefetchComplete(err), taskExecutor);
-        }
 
         QueryCancel queryCancel = operationContext.cancel();
         assert queryCancel != null;
@@ -499,11 +489,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     throw (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteInternalException(INTERNAL_ERR, e);
                 });
 
-        PrefetchCallback callback = operationContext.prefetchCallback();
-        if (callback != null) {
-            ret.whenCompleteAsync((res, err) -> callback.onPrefetchComplete(err), taskExecutor);
-        }
-
         QueryCancel queryCancel = operationContext.cancel();
         assert queryCancel != null;
 
@@ -533,15 +518,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteInternalException(INTERNAL_ERR, e);
     }
 
-    private AsyncDataCursor<InternalSqlRow> executeExplain(SqlOperationContext operationContext, ExplainPlan plan) {
-        QueryPrefetchCallback callback = operationContext.prefetchCallback();
+    @SuppressWarnings("MethodMayBeStatic")
+    private AsyncDataCursor<InternalSqlRow> executeExplain(ExplainPlan plan) {
         String planString = plan.plan().explain();
 
         InternalSqlRow res = new InternalSqlRowSingleString(planString);
-
-        if (callback != null) {
-            taskExecutor.execute(() -> callback.onPrefetchComplete(null));
-        }
 
         return new IteratorToDataCursorAdapter<>(List.of(res).iterator());
     }
@@ -807,7 +788,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private final SqlOperationContext ctx;
 
         private final CompletableFuture<Void> cancelFut = new CompletableFuture<>();
-
+        private final PrefetchCallback prefetchCallback = new PrefetchCallback();
         private final AtomicBoolean cancelled = new AtomicBoolean();
 
         private final Map<RemoteFragmentKey, CompletableFuture<Void>> remoteFragmentInitCompletion = new HashMap<>();
@@ -839,12 +820,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 root.exceptionally(t -> {
                     this.close(QueryCompletionReason.ERROR);
-
-                    QueryPrefetchCallback callback = ctx.prefetchCallback();
-
-                    if (callback != null) {
-                        taskExecutor.execute(() -> callback.onPrefetchComplete(t));
-                    }
 
                     return null;
                 });
@@ -932,12 +907,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         inRow -> new InternalSqlRowImpl<>(inRow, ectx.rowHandler(), internalTypeConverter));
                 node.onRegister(rootNode);
 
-                CompletableFuture<Void> prefetchFut = rootNode.startPrefetch();
-                QueryPrefetchCallback callback = ctx.prefetchCallback();
+                rootNode.startPrefetch()
+                        .whenCompleteAsync((res, err) -> prefetchCallback.onPrefetchComplete(err), taskExecutor);
 
-                if (callback != null) {
-                    prefetchFut.whenCompleteAsync((res, err) -> callback.onPrefetchComplete(err), taskExecutor);
-                }
+                assert root != null;
 
                 root.complete(rootNode);
             }
