@@ -395,7 +395,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         rocksResources.add(defaultWriteOptions);
 
         // Checksums must be written durably to make sure we notice Metastorage divergence when it happens.
-        checksumWriteOptions = new WriteOptions().setSync(true);
+        checksumWriteOptions = new WriteOptions().setSync(false).setDisableWAL(true);
         rocksResources.add(checksumWriteOptions);
 
         List<ColumnFamilyDescriptor> descriptors = cfDescriptors();
