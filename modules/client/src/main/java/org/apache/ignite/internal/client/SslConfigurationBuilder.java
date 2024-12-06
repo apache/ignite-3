@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.client;
 
-import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.SslConfiguration;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,8 +24,6 @@ import org.jetbrains.annotations.Nullable;
 public class SslConfigurationBuilder {
 
     private boolean enabled = false;
-
-    private ClientAuthenticationMode clientAuth = ClientAuthenticationMode.NONE;
 
     private @Nullable Iterable<String> ciphers;
 
@@ -41,17 +38,6 @@ public class SslConfigurationBuilder {
     /** Enabled/disabled setter. */
     public SslConfigurationBuilder enabled(boolean enabled) {
         this.enabled = enabled;
-        return this;
-    }
-
-    /** SSL client authentication setter. */
-    public SslConfigurationBuilder clientAuth(@Nullable ClientAuthenticationMode clientAuth) {
-        if (clientAuth == null) {
-            this.clientAuth = ClientAuthenticationMode.NONE;
-            return this;
-        }
-
-        this.clientAuth = clientAuth;
         return this;
     }
 
@@ -88,7 +74,7 @@ public class SslConfigurationBuilder {
     /** Build SslConfiguration instance. */
     public SslConfiguration build() {
         return new SslConfigurationImpl(
-                enabled, clientAuth, ciphers,
+                enabled, ciphers,
                 keyStorePath, keyStorePassword,
                 trustStorePath, trustStorePassword
         );

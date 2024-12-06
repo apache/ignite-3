@@ -25,8 +25,6 @@ import org.jetbrains.annotations.Nullable;
 public class SslConfigurationImpl implements SslConfiguration {
     private final boolean enabled;
 
-    private final ClientAuthenticationMode clientAuth;
-
     private final @Nullable Iterable<String> ciphers;
 
     private final @Nullable String keyStorePath;
@@ -40,7 +38,6 @@ public class SslConfigurationImpl implements SslConfiguration {
     /** Main constructor. */
     SslConfigurationImpl(
             boolean enabled,
-            ClientAuthenticationMode clientAuth,
             @Nullable Iterable<String> ciphers,
             @Nullable String keyStorePath,
             @Nullable String keyStorePassword,
@@ -48,7 +45,6 @@ public class SslConfigurationImpl implements SslConfiguration {
             @Nullable String trustStorePassword
     ) {
         this.enabled = enabled;
-        this.clientAuth = clientAuth;
         this.ciphers = ciphers;
         this.keyStorePath = keyStorePath;
         this.keyStorePassword = keyStorePassword;
@@ -60,12 +56,6 @@ public class SslConfigurationImpl implements SslConfiguration {
     @Override
     public boolean enabled() {
         return enabled;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ClientAuthenticationMode clientAuthenticationMode() {
-        return clientAuth;
     }
 
     @Override

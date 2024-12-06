@@ -25,9 +25,6 @@ public interface SslConfiguration {
     /** If set to {@code true} then the SSL connection will be used to interact with Ignite 3 node. */
     boolean enabled();
 
-    /** Client authentication configuration. */
-    ClientAuthenticationMode clientAuthenticationMode();
-
     /** List of ciphers that will be used to setup the SSL connection. */
     @Nullable Iterable<String> ciphers();
 
