@@ -44,6 +44,9 @@ public class IgniteMath {
     private static final BigDecimal UPPER_FLOAT_BIG_DECIMAL = new BigDecimal(String.valueOf(Float.MAX_VALUE));
     private static final BigDecimal LOWER_FLOAT_BIG_DECIMAL = UPPER_FLOAT_BIG_DECIMAL.negate();
 
+    private static final double UPPER_FLOAT_DOUBLE = Double.parseDouble("" + Float.MAX_VALUE);
+    private static final double LOWER_FLOAT_DOUBLE = Double.parseDouble("" + (-Float.MAX_VALUE));
+
     /** Decimal rounding mode. */
     public static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_UP;
 
@@ -427,22 +430,25 @@ public class IgniteMath {
 
     /** Cast value to {@code float}, throwing an exception if the result overflows. */
     public static float convertToFloatExact(Number x) {
-        BigDecimal value;
-
         if (x instanceof BigDecimal) {
-            value = (BigDecimal) x;
+            BigDecimal value = (BigDecimal) x;
+
+            if (value.compareTo(UPPER_FLOAT_BIG_DECIMAL) > 0) {
+                throw outOfRangeForTypeException(SqlTypeName.REAL);
+            }
+            if (value.compareTo(LOWER_FLOAT_BIG_DECIMAL) < 0) {
+                throw outOfRangeForTypeException(SqlTypeName.REAL);
+            }
+
+            return value.floatValue();
         } else {
-            value = new BigDecimal(x.toString());
-        }
+            double v = x.doubleValue();
+            if (v > UPPER_FLOAT_DOUBLE || v < LOWER_FLOAT_DOUBLE) {
+                throw outOfRangeForTypeException(SqlTypeName.REAL);
+            }
 
-        if (value.compareTo(UPPER_FLOAT_BIG_DECIMAL) > 0) {
-            throw outOfRangeForTypeException(SqlTypeName.REAL);
+            return x.floatValue();
         }
-        if (value.compareTo(LOWER_FLOAT_BIG_DECIMAL) < 0) {
-            throw outOfRangeForTypeException(SqlTypeName.REAL);
-        }
-
-        return value.floatValue();
     }
 
     /** Cast value to {@code double}, throwing an exception if the result overflows. */

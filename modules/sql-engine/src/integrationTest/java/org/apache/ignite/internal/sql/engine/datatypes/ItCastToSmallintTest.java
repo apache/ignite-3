@@ -45,6 +45,11 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
+    @Override
+    protected int initialNodes() {
+        return 1;
+    }
+
     @BeforeAll
     static void createTable() {
         sql("CREATE TABLE test (val SMALLINT)");
@@ -62,11 +67,6 @@ public class ItCastToSmallintTest extends BaseSqlIntegrationTest {
     void clearTable() {
         sql("DELETE FROM test");
         sql("DELETE FROM src");
-    }
-
-    @Override
-    protected int initialNodes() {
-        return 1;
     }
 
     @ParameterizedTest

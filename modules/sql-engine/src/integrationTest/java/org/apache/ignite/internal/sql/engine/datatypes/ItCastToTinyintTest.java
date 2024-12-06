@@ -45,6 +45,11 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 public class ItCastToTinyintTest extends BaseSqlIntegrationTest {
+    @Override
+    protected int initialNodes() {
+        return 1;
+    }
+
     @BeforeAll
     static void createTable() {
         sql("CREATE TABLE test (val TINYINT)");
