@@ -1112,7 +1112,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
                 .groupId(toReplicationGroupIdMessage(replica.groupId()))
-                .proposedSafeTime(proposedSafeTime)
                 .build();
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {

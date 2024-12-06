@@ -34,7 +34,8 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
     @Override
     public void patch(ByteBuffer raw, HybridTimestamp safeTs) {
-        raw.putLong(4, safeTs.longValue());
+        ByteBuffer dup = raw.duplicate().order(ORDER);
+        dup.putLong(4, safeTs.longValue());
     }
 
     @Override
@@ -45,12 +46,12 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
         stream.setBuffer(buffer);
         stream.writeFixedInt(requiredCatalogVersion);
-        stream.writeFixedLong(0); // TODO FIXME optimize double write.
+        stream.writeFixedLong(0);
     }
 
     @Override
     public <T> T unmarshall(ByteBuffer raw) {
-        raw = raw.duplicate();
+        raw = raw.duplicate().order(ORDER);
 
         int requiredCatalogVersion = readRequiredCatalogVersion(raw);
         long safeTs = readSafeTimestamp(raw);

@@ -212,31 +212,33 @@ public class PartitionListener implements RaftGroupListener {
 
             storage.acquirePartitionSnapshotsReadLock();
 
-            // We don't need update result if update is already applied.
-            if (commandIndex > storage.lastAppliedIndex()) {
-                try {
-                    if (command instanceof UpdateCommand) {
-                        result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
-                    } else if (command instanceof UpdateAllCommand) {
-                        result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
-                    } else if (command instanceof FinishTxCommand) {
-                        result = handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
-                    } else if (command instanceof WriteIntentSwitchCommand) {
-                        handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
-                    } else if (command instanceof SafeTimeSyncCommand) {
-                        handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
-                    } else if (command instanceof BuildIndexCommand) {
-                        handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
-                    } else if (command instanceof PrimaryReplicaChangeCommand) {
-                        handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
-                    } else if (command instanceof VacuumTxStatesCommand) {
-                        handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm);
-                    } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-                        handleUpdateMinimalActiveTxTimeCommand((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex, commandTerm);
-                    } else {
-                        assert false : "Command was not found [cmd=" + command + ']';
-                    }
+            try {
+                boolean[] applied = {false};
 
+                if (command instanceof UpdateCommand) {
+                    result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm, applied);
+                } else if (command instanceof UpdateAllCommand) {
+                    result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm, applied);
+                } else if (command instanceof FinishTxCommand) {
+                    result = handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm, applied);
+                } else if (command instanceof WriteIntentSwitchCommand) {
+                    handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm, applied);
+                } else if (command instanceof SafeTimeSyncCommand) {
+                    handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm, applied);
+                } else if (command instanceof BuildIndexCommand) {
+                    handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm, applied);
+                } else if (command instanceof PrimaryReplicaChangeCommand) {
+                    handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm, applied);
+                } else if (command instanceof VacuumTxStatesCommand) {
+                    handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm, applied);
+                } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
+                    handleUpdateMinimalActiveTxTimeCommand((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex, commandTerm,
+                            applied);
+                } else {
+                    assert false : "Command was not found [cmd=" + command + ']';
+                }
+
+                if (applied[0]) {
                     // Adjust safe time before completing update to reduce waiting.
                     if (command instanceof SafeTimePropagatingCommand) {
                         SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
@@ -247,21 +249,21 @@ public class PartitionListener implements RaftGroupListener {
                     }
 
                     updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
-                } catch (IgniteInternalException e) {
-                    result = e;
-                } catch (CompletionException e) {
-                    result = e.getCause();
-                } catch (Throwable t) {
-                    LOG.error(
-                            "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
-                            t,
-                            clo.index(), clo.index(), command
-                    );
-
-                    throw t;
-                } finally {
-                    storage.releasePartitionSnapshotsReadLock();
                 }
+            } catch (IgniteInternalException e) {
+                result = e;
+            } catch (CompletionException e) {
+                result = e.getCause();
+            } catch (Throwable t) {
+                LOG.error(
+                        "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
+                        t,
+                        clo.index(), clo.index(), command
+                );
+
+                throw t;
+            } finally {
+                storage.releasePartitionSnapshotsReadLock();
             }
 
             // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
@@ -277,7 +279,12 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
+    private UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return null;
+        }
+
         if (cmd.leaseStartTime() != null) {
             long leaseStartTime = cmd.leaseStartTime();
 
@@ -292,6 +299,8 @@ public class PartitionListener implements RaftGroupListener {
                 );
             }
         }
+
+        applied[0] = true;
 
         UUID txId = cmd.txId();
 
@@ -330,7 +339,12 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private UpdateCommandResult handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
+    private UpdateCommandResult handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return null;
+        }
+
         if (cmd.leaseStartTime() != null) {
             long leaseStartTime = cmd.leaseStartTime();
 
@@ -345,6 +359,8 @@ public class PartitionListener implements RaftGroupListener {
                 );
             }
         }
+
+        applied[0] = true;
 
         UUID txId = cmd.txId();
 
@@ -380,8 +396,15 @@ public class PartitionListener implements RaftGroupListener {
      * @return The actually stored transaction state {@link TransactionResult}.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
-    private @Nullable TransactionResult handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
+    private @Nullable TransactionResult handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm, boolean[] applied)
             throws IgniteInternalException {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= txStateStorage.lastAppliedIndex()) {
+            return null;
+        }
+
+        applied[0] = true;
+
         UUID txId = cmd.txId();
 
         TxState stateToSet = cmd.commit() ? COMMITTED : ABORTED;
@@ -433,7 +456,14 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private void handleWriteIntentSwitchCommand(WriteIntentSwitchCommand cmd, long commandIndex, long commandTerm) {
+    private void handleWriteIntentSwitchCommand(WriteIntentSwitchCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        applied[0] = true;
+
         UUID txId = cmd.txId();
 
         markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
@@ -454,7 +484,14 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex RAFT index of the command.
      * @param commandTerm RAFT term of the command.
      */
-    private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
+    private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        applied[0] = true;
+
         // We MUST bump information about last updated index+term.
         // See a comment in #onWrite() for explanation.
         advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
@@ -566,7 +603,14 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex RAFT index of the command.
      * @param commandTerm RAFT term of the command.
      */
-    void handleBuildIndexCommand(BuildIndexCommand cmd, long commandIndex, long commandTerm) {
+    void handleBuildIndexCommand(BuildIndexCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        applied[0] = true;
+
         IndexMeta indexMeta = indexMetaStorage.indexMeta(cmd.indexId());
 
         if (indexMeta == null || indexMeta.isDropped()) {
@@ -615,7 +659,15 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Command index.
      * @param commandTerm Command term.
      */
-    private void handlePrimaryReplicaChangeCommand(PrimaryReplicaChangeCommand cmd, long commandIndex, long commandTerm) {
+    private void handlePrimaryReplicaChangeCommand(PrimaryReplicaChangeCommand cmd, long commandIndex, long commandTerm,
+            boolean[] applied) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        applied[0] = true;
+
         storage.runConsistently(locker -> {
             storage.updateLease(cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
 
@@ -632,11 +684,26 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Command index.
      * @param commandTerm Command term.
      */
-    private void handleVacuumTxStatesCommand(VacuumTxStatesCommand cmd, long commandIndex, long commandTerm) {
+    private void handleVacuumTxStatesCommand(VacuumTxStatesCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        applied[0] = true;
+
         txStateStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
     }
 
-    private void handleUpdateMinimalActiveTxTimeCommand(UpdateMinimumActiveTxBeginTimeCommand cmd, long commandIndex, long commandTerm) {
+    private void handleUpdateMinimalActiveTxTimeCommand(UpdateMinimumActiveTxBeginTimeCommand cmd, long commandIndex, long commandTerm,
+            boolean[] applied) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        applied[0] = true;
+
         long timestamp = cmd.timestamp();
 
         storage.flush(false).whenComplete((r, t) -> {

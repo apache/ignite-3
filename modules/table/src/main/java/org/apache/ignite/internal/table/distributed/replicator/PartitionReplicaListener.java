@@ -1115,7 +1115,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
 
         return applyCmdWithExceptionHandling(
-                REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTime(request.proposedSafeTime()).build()
+                REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().initiatorTime(clockService.now()).build()
         ).thenApply(res -> null);
     }
 
@@ -1749,10 +1749,11 @@ public class PartitionReplicaListener implements ReplicaListener {
             int catalogVersion,
             List<TablePartitionIdMessage> partitionIds
     ) {
+        HybridTimestamp now = clockService.now();
         FinishTxCommandBuilder finishTxCmdBldr = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
                 .txId(transactionId)
                 .commit(commit)
-                .safeTime(clockService.now())
+                .initiatorTime(now)
                 .requiredCatalogVersion(catalogVersion)
                 .partitionIds(partitionIds);
 
@@ -1852,7 +1853,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .txId(transactionId)
                 .commit(commit)
                 .commitTimestamp(commitTimestamp)
-                .safeTime(clockService.now())
+                .initiatorTime(clockService.now())
                 .requiredCatalogVersion(catalogVersion)
                 .build();
 
@@ -3503,7 +3504,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadOnlyReplicaRequest) {
             return isLocalNodePrimaryReplicaAt(current);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-            return isLocalNodePrimaryReplicaAt(((ReplicaSafeTimeSyncRequest) request).proposedSafeTime());
+            return isLocalNodePrimaryReplicaAt(current);
         } else {
             return completedFuture(new IgniteBiTuple<>(null, null));
         }
@@ -4012,7 +4013,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<?> processMinimumActiveTxTimeReplicaRequest(UpdateMinimumActiveTxBeginTimeReplicaRequest request) {
         Command cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.updateMinimumActiveTxBeginTimeCommand()
                 .timestamp(request.timestamp())
-                .safeTime(clockService.now())
+                .initiatorTime(clockService.now())
                 .build();
 
         // The timestamp must increase monotonically, otherwise it will have to be

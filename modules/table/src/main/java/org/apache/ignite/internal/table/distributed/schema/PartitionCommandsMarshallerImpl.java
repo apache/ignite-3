@@ -34,7 +34,8 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
     @Override
     public void patch(ByteBuffer raw, HybridTimestamp safeTs) {
-        raw.putLong(4, safeTs.longValue());
+        ByteBuffer dup = raw.duplicate().order(ORDER);
+        dup.putLong(4, safeTs.longValue());
     }
 
     @Override
@@ -50,13 +51,13 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
     @Override
     public <T> T unmarshall(ByteBuffer raw) {
-        raw = raw.duplicate();
+        raw = raw.duplicate().order(ORDER);
 
         int requiredCatalogVersion = readRequiredCatalogVersion(raw);
         long safeTs = readSafeTimestamp(raw);
 
         System.out.println("rqv:" + requiredCatalogVersion);
-        System.out.println("safeTs:" + safeTs);
+        System.out.println("safeTs:" + HybridTimestamp.nullableHybridTimestamp(safeTs));
 
         T res = super.unmarshall(raw);
 

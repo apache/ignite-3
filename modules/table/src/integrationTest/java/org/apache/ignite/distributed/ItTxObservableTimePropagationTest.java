@@ -141,7 +141,6 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
                 var fsm = (JraftServerImpl.DelegatingStateMachine) raftNode.getOptions().getFsm();
                 PartitionListener listener = (PartitionListener) fsm.getListener();
                 PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = listener.getSafeTime();
-                HybridClock clock = raftNode.clock();
 
                 try {
                     assertTrue(IgniteTestUtils.waitForCondition(() -> safeTime.current().equals(commitTs), 30_000),
