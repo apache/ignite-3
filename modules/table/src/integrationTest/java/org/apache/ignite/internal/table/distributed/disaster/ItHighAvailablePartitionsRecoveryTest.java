@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
@@ -162,6 +163,28 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         assertRecoveryRequestWasOnlyOne(node1);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node1, HA_TABLE_NAME, Set.of(0, 1), Set.of(node1.name()));
+    }
+
+    @Test
+    void testScaleUpAfterReset() throws InterruptedException {
+        createHaZoneWithTable();
+
+        IgniteImpl node = igniteImpl(0);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        stopNodes(1, 2);
+
+        waitAndAssertRecoveryKeyIsNotEmpty(node, 30_000);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
+
+        startNode(1);
+        startNode(2);
+
+        Set<String> expectedAssignmentsAfterScaleUp = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), expectedAssignmentsAfterScaleUp);
     }
 
     @Test
@@ -303,7 +326,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
         awaitForAllNodesTableGroupInitialization();
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), HA_TABLE_NAME, Set.of(0, 1), allNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(igniteImpl(0), HA_TABLE_NAME, Set.of(0, 1), allNodes);
     }
 
     private void createScZoneWithTable() {
@@ -388,7 +411,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
 
     private void awaitForAllNodesTableGroupInitialization() throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            AtomicLong numberOfInitializedReplicas = new AtomicLong(0);
+            AtomicInteger numberOfInitializedReplicas = new AtomicInteger(0);
 
             runningNodes().forEach(ignite -> {
                 IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);

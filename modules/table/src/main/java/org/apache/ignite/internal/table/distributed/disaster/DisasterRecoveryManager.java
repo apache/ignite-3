@@ -272,7 +272,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
                 TablePartitionId partitionId = new TablePartitionId(table.id(), partId);
 
-                if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision).size() < zoneDescriptor.replicas() / 2 + 1) {
+                if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision).size() < (zoneDescriptor.replicas() / 2 + 1)) {
                     partitionsToReset.add(partId);
                 }
             }
