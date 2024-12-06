@@ -221,6 +221,12 @@ public class WatchProcessor implements ManuallyCloseable {
 
                                 return notificationFuture;
                             }, watchExecutor);
+                }, watchExecutor)
+                .whenCompleteAsync((unused, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Failed to notify watches.", throwable);
+                        notifyFailureHandlerOnFirstFailureInNotificationChain(throwable);
+                    }
                 }, watchExecutor);
 
         notificationFuture = newFuture;
