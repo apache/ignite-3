@@ -14,13 +14,11 @@
 # limitations under the License.
 
 import os
-
 import psutil
+import pyignite3
 import signal
 import subprocess
 import time
-
-import pyignite3
 
 server_host = os.getenv("IGNITE_CLUSTER_HOST", '127.0.0.1')
 server_addresses_invalid = [server_host + ':10000']
@@ -119,8 +117,7 @@ def start_cluster(debug=False, jvm_opts='') -> subprocess.Popen:
                           '-Djava.net.preferIPv4Stack=true -Xdebug -Xnoagent -Djava.compiler=NONE ' \
                           '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005 '
 
-    ignite_cmd = [runner, ':ignite-runner:runnerPlatformTest', '--no-daemon', '-x', 'compileJava', '-x',
-                  'compileTestFixturesJava', '-x', 'compileIntegrationTestJava', '-x',  'compileTestJava']
+    ignite_cmd = [runner, ':ignite-runner:runnerPlatformTest']
 
     print('Starting Ignite runner:', ignite_cmd)
 

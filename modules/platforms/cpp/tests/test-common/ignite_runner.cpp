@@ -47,12 +47,7 @@ void ignite_runner::start() {
     args.emplace_back(SYSTEM_SHELL_ARG_0);
 
     std::string command{GRADLEW_SCRIPT};
-    command += " :ignite-runner:runnerPlatformTest"
-               " --no-daemon"
-               " -x compileJava"
-               " -x compileTestFixturesJava"
-               " -x compileIntegrationTestJava"
-               " -x compileTestJava";
+    command += " :ignite-runner:runnerPlatformTest";
 
     args.emplace_back(command);
 
