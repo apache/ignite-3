@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 //CHECKSTYLE:OFF
 
 import org.apache.calcite.DataContext;
+import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.adapter.enumerable.PhysType;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.avatica.util.ByteString;
@@ -60,14 +61,17 @@ import org.apache.calcite.runtime.SpatialTypeFunctions;
 import org.apache.calcite.schema.FunctionContext;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlOperator;
+import org.apache.calcite.sql.SqlWindowTableFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
+import org.apache.calcite.util.Util;
 
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableList;
@@ -84,16 +88,19 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
+import static org.apache.calcite.linq4j.tree.Expressions.constant;
 import static org.apache.calcite.sql.fun.SqlLibraryOperators.TRANSLATE3;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CASE;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CHAR_LENGTH;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.OCTET_LENGTH;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.PREV;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SEARCH;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUBSTRING;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
@@ -294,22 +301,29 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
   /**
    * Used for safe operators that return null if an exception is thrown.
    */
-  private static Expression expressionHandlingSafe(Expression body, boolean safe) {
-    return safe ? safeExpression(body) : body;
+  private Expression expressionHandlingSafe(
+      Expression body, boolean safe, RelDataType targetType) {
+    return safe ? safeExpression(body, targetType) : body;
   }
 
-  private static Expression safeExpression(Expression body) {
+  private Expression safeExpression(Expression body, RelDataType targetType) {
     final ParameterExpression e_ =
         Expressions.parameter(Exception.class, new BlockBuilder().newName("e"));
 
-    return Expressions.call(
-        Expressions.lambda(
-            Expressions.block(
-                Expressions.tryCatch(
-                    Expressions.return_(null, body),
-                Expressions.catch_(e_,
-                    Expressions.return_(null, Expressions.constant(null)))))),
-        BuiltInMethod.FUNCTION0_APPLY.method);
+    // The type received for the targetType is never nullable.
+    // But safe casts may return null
+    RelDataType nullableTargetType = typeFactory.createTypeWithNullability(targetType, true);
+    Expression result =
+        Expressions.call(
+            Expressions.lambda(
+                Expressions.block(
+                    Expressions.tryCatch(
+                        Expressions.return_(null, body),
+                        Expressions.catch_(e_,
+                            Expressions.return_(null, constant(null)))))),
+            BuiltInMethod.FUNCTION0_APPLY.method);
+    // FUNCTION0 always returns Object, so we need a cast to the target type
+    return ConverterUtils.convert(result, nullableTargetType);
   }
 
   Expression translateCast(
@@ -320,7 +334,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       ConstantExpression format) {
     Expression convert = getConvertExpression(sourceType, targetType, operand, format);
     Expression convert2 = checkExpressionPadTruncate(convert, sourceType, targetType, operand);
-    Expression convert3 = expressionHandlingSafe(convert2, safe);
+    Expression convert3 = expressionHandlingSafe(convert2, safe, targetType);
     return scaleValue(sourceType, targetType, convert3);
   }
 
@@ -471,9 +485,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 operand));
       case BINARY:
       case VARBINARY:
-          return RexImpTable.optimize2(
-                  operand,
-                  Expressions.call(IgniteMethod.BYTESTRING_TO_STRING.method(), operand));
+        return RexImpTable.optimize2(
+                operand,
+                Expressions.call(IgniteMethod.BYTESTRING_TO_STRING.method(), operand));
 
       default:
         return defaultExpression.get();
@@ -910,18 +924,10 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
         return Expressions.constant(bd, javaClass);
       }
       assert javaClass == BigDecimal.class;
-      return Expressions.call(
-              IgniteSqlFunctions.class,
-              "toBigDecimal",
-              /*
-              The ConstantExpression class, when converting from BigDecimal to Bigdecimal,
-              removes trailing zeros from the original object, regardless of the original scale value.
-              Therefore, BigDecimal must be converted to a string to avoid this.
-               */
-              Expressions.constant(bd.toString()),
-              Expressions.constant(type.getPrecision()),
-              Expressions.constant(type.getScale())
-      );
+      return Expressions.new_(BigDecimal.class,
+          Expressions.constant(
+              requireNonNull(bd,
+                  () -> "value for " + literal).toString()));
     case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
       Object val = literal.getValueAs(Long.class);
 
@@ -1123,7 +1129,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
   /** If an expression is a {@code NUMERIC} derived from an {@code INTERVAL},
    * scales it appropriately; returns the operand unchanged if the conversion
-   * is not from {@code INTERVAL} to {@code NUMERIC}. */
+   * is not from {@code INTERVAL} to {@code NUMERIC}.
+   * Does <b>not</b> scale values of type DECIMAL, these are expected
+   * to be already scaled. */
   private static Expression scaleValue(
       RelDataType sourceType,
       RelDataType targetType,
@@ -1131,6 +1139,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     final SqlTypeFamily targetFamily = targetType.getSqlTypeName().getFamily();
     final SqlTypeFamily sourceFamily = sourceType.getSqlTypeName().getFamily();
     if (targetFamily == SqlTypeFamily.NUMERIC
+        // multiplyDivide cannot handle DECIMALs, but for DECIMAL
+        // destination types the result is already scaled.
+        && targetType.getSqlTypeName() != SqlTypeName.DECIMAL
         && (sourceFamily == SqlTypeFamily.INTERVAL_YEAR_MONTH
             || sourceFamily == SqlTypeFamily.INTERVAL_DAY_TIME)) {
       // Scale to the given field.
@@ -1508,12 +1519,32 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     if (rexWithStorageTypeResultMap.containsKey(key)) {
       return rexWithStorageTypeResultMap.get(key);
     }
+    // Calcite implementation is not applicable
+    // SELECT CAST(? AS DECIMAL(1, 2)) with dyn param: new BigDecimal("0.12"), need to fail
+/*    final Type storageType = currentStorageType != null
+        ? currentStorageType : typeFactory.getJavaClass(dynamicParam.getType());
+
+    final boolean isNumeric = SqlTypeFamily.NUMERIC.contains(dynamicParam.getType());
+
+    // For numeric types, use java.lang.Number to prevent cast exception
+    // when the parameter type differs from the target type
+
+    final Expression valueExpression = isNumeric
+        ? EnumUtils.convert(
+            EnumUtils.convert(
+                Expressions.call(root, BuiltInMethod.DATA_CONTEXT_GET.method,
+                    Expressions.constant("?" + dynamicParam.getIndex())),
+                java.lang.Number.class),
+            storageType)
+        : EnumUtils.convert(
+            Expressions.call(root, BuiltInMethod.DATA_CONTEXT_GET.method,
+                Expressions.constant("?" + dynamicParam.getIndex())),
+            storageType);*/
     final Type paramType = ((IgniteTypeFactory) typeFactory).getResultClass(dynamicParam.getType());
-
     final Expression ctxGet = Expressions.call(root, IgniteMethod.CONTEXT_GET_PARAMETER_VALUE.method(),
-        Expressions.constant("?" + dynamicParam.getIndex()), Expressions.constant(paramType));
-
+            Expressions.constant("?" + dynamicParam.getIndex()), Expressions.constant(paramType));
     final Expression valueExpression =  ConverterUtils.convert(ctxGet, dynamicParam.getType());
+
     final ParameterExpression valueVariable =
         Expressions.parameter(valueExpression.getType(),
             list.newName("value_dynamic_param"));

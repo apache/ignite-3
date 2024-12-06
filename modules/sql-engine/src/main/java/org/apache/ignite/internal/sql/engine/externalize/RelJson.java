@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.avatica.AvaticaUtils;
 import org.apache.calcite.avatica.util.ByteString;
@@ -590,6 +591,10 @@ class RelJson {
         map.put("name", operator.getName());
         map.put("kind", toJson(operator.kind));
         map.put("syntax", toJson(operator.getSyntax()));
+
+        if (operator.getOperandTypeChecker() != null && operator.getAllowedSignatures() != null) {
+            map.put("signature", toJson(operator.getAllowedSignatures()));
+        }
         return map;
     }
 
@@ -876,6 +881,12 @@ class RelJson {
                     literal = new BigDecimal(((Number) literal).longValue());
                 }
 
+                // Stub, it need to be fixed https://issues.apache.org/jira/browse/IGNITE-23873
+                if (type.getSqlTypeName() == SqlTypeName.DOUBLE && literal instanceof String
+                        && Double.isNaN(Double.parseDouble(literal.toString()))) {
+                    literal = Double.NaN;
+                }
+
                 if (literal instanceof BigInteger) {
                     // If the literal is a BigInteger, RexBuilder assumes it represents a long value
                     // within the valid range and converts it without checking the bounds. If the
@@ -920,6 +931,8 @@ class RelJson {
         String name = map.get("name").toString();
         SqlKind sqlKind = toEnum(map.get("kind"));
         SqlSyntax sqlSyntax = toEnum(map.get("syntax"));
+        String sig = (String) map.get("signature");
+        Predicate signature = s -> sig == null || sig.equals(s);
         List<SqlOperator> operators = new ArrayList<>();
 
         FRAMEWORK_CONFIG.getOperatorTable().lookupOperatorOverloads(
@@ -931,10 +944,19 @@ class RelJson {
         );
 
         for (SqlOperator operator : operators) {
+            if (operator.kind == sqlKind && (operator.getOperandTypeChecker() == null || signature.test(operator.getAllowedSignatures()))) {
+                return operator;
+            }
+        }
+
+        // Fallback still need for IgniteSqlOperatorTable.EQUALS and so on operators, can be removed
+        // after operandTypeChecker will be aligned
+        for (SqlOperator operator : operators) {
             if (operator.kind == sqlKind) {
                 return operator;
             }
         }
+
         String cls = (String) map.get("class");
         if (cls != null) {
             return AvaticaUtils.instantiatePlugin(SqlOperator.class, cls);

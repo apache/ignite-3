@@ -342,6 +342,30 @@ public class IgniteSqlFunctions {
         }
     }
 
+    // LN, LOG, LOG10, LOG2
+
+    /** SQL {@code LOG(number, number2)} function applied to double values. */
+    public static double log(double d0, double d1) {
+        return Math.log(d0) / Math.log(d1);
+    }
+
+    /** SQL {@code LOG(number, number2)} function applied to
+     * double and BigDecimal values. */
+    public static double log(double d0, BigDecimal d1) {
+        return Math.log(d0) / Math.log(d1.doubleValue());
+    }
+
+    /** SQL {@code LOG(number, number2)} function applied to
+     * BigDecimal and double values. */
+    public static double log(BigDecimal d0, double d1) {
+        return Math.log(d0.doubleValue()) / Math.log(d1);
+    }
+
+    /** SQL {@code LOG(number, number2)} function applied to double values. */
+    public static double log(BigDecimal d0, BigDecimal d1) {
+        return Math.log(d0.doubleValue()) / Math.log(d1.doubleValue());
+    }
+
     private static BigDecimal processValueWithIntegralPart(Number value, int precision, int scale) {
         BigDecimal dec = convertToBigDecimal(value);
 

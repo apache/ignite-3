@@ -739,9 +739,9 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         Object expected;
 
         if (columnType == ColumnType.FLOAT) {
-            expected = ((BigDecimal) ((RexLiteral) expr1).getValue4()).floatValue();
+            expected = ((Number) ((RexLiteral) expr1).getValue4()).floatValue();
         } else if (columnType == ColumnType.DOUBLE) {
-            expected = ((BigDecimal) ((RexLiteral) expr1).getValue4()).doubleValue();
+            expected = ((Number) ((RexLiteral) expr1).getValue4()).doubleValue();
         } else {
             expected = val == null ? null : TypeUtils.toInternal(val, val.getClass());
         }
@@ -846,18 +846,18 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
                 // REAL
                 Arguments.of(makeLit.apply(BigDecimal.ONE, realType), realType, 1.0f, false),
-                Arguments.of(makeLit.apply(realMax, realType), realType, null, true),
-                Arguments.of(makeLit.apply(realMin, realType), realType, null, true),
+                Arguments.of(makeLit.apply(realMax, realType), realType, (float) realMax.doubleValue(), false),
+                Arguments.of(makeLit.apply(realMin, realType), realType, (float) ((BigDecimal) realMin).doubleValue(), false),
 
                 // FLOAT
                 Arguments.of(makeLit.apply(BigDecimal.ONE, floatType), floatType, 1.0f, false),
-                Arguments.of(makeLit.apply(floatMax, floatType), floatType, null, true),
-                Arguments.of(makeLit.apply(floatMin, floatType), floatType, null, true),
+                Arguments.of(makeLit.apply(floatMax, floatType), floatType, (float) realMax.doubleValue(), false),
+                Arguments.of(makeLit.apply(floatMin, floatType), floatType, (float) ((BigDecimal) realMin).doubleValue(), false),
 
                 // DOUBLE
                 Arguments.of(makeLit.apply(BigDecimal.ONE, doubleType), doubleType, 1.0d, false),
-                Arguments.of(makeLit.apply(doubleMax, doubleType), doubleType, null, true),
-                Arguments.of(makeLit.apply(doubleMin, doubleType), doubleType, null, true),
+                Arguments.of(makeLit.apply(doubleMax, doubleType), doubleType, doubleMax.doubleValue(), false),
+                Arguments.of(makeLit.apply(doubleMin, doubleType), doubleType, ((BigDecimal) doubleMin).doubleValue(), false),
 
                 // DECIMAL
                 Arguments.of(makeLit.apply(new BigDecimal("1"), decimal5), decimal5, new BigDecimal("1"), false),

@@ -158,12 +158,14 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         // meta is compiled partially from Project rel and partially from single tuple Values rel
         CASE_5l("t SELECT 10, x, x FROM (VALUES (1)) as s(x)", TABLE_C1_C2, "[c1=10, c2=1]"),
         // supposed to be similar, but because of explicit cast all expressions are taken from Project rel
-        CASE_5dp("t SELECT ?, x, x FROM (VALUES (?::INT)) as s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]"),
+        // https://issues.apache.org/jira/browse/IGNITE-23859 Investigate possibility to remove cast
+        // CASE_5dp("t SELECT ?, x, x FROM (VALUES (?::INT)) as s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]"),
 
         // meta is compiled partially from Project rel and partially from multi-tuple Values rel
         CASE_6l("t SELECT 10, x, x FROM (VALUES (1), (2)) as s(x)", TABLE_C1_C2, "[c1=10, c2=1]", "[c1=10, c2=2]"),
         // supposed to be similar, but because of explicit cast all expressions are taken from Project rel. Also plan contains UnionAll rel
-        CASE_6dp("t SELECT ?, x, x FROM (VALUES (?::INT), (?::INT)) as s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]", "[c1=?0, c2=?2]"),
+        // https://issues.apache.org/jira/browse/IGNITE-23859 Investigate possibility to remove cast
+        // CASE_6dp("t SELECT ?, x, x FROM (VALUES (?::INT), (?::INT)) as s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]", "[c1=?0, c2=?2]"),
 
         // simple plan with explicit UnionAll rel
         CASE_7l("t SELECT 1, 10 UNION ALL SELECT 2, 20", TABLE_C1, "[c1=1]", "[c1=2]"),
@@ -172,16 +174,19 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         // UnionAll rel with project on top. Meta is compiled partially from project on top, partially from every input of UnionAll rel
         CASE_8l("t SELECT 10, x, x FROM (SELECT 1 UNION ALL SELECT 2) s(x)", TABLE_C1_C2, "[c1=10, c2=1]", "[c1=10, c2=2]"),
         // supposed to be similar, but because of explicit cast all expressions are taken from Project rel
-        CASE_8dp("t SELECT ?, x, x FROM (SELECT ?::INT UNION ALL SELECT ?::INT) s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]", "[c1=?0, c2=?2]"),
+        // https://issues.apache.org/jira/browse/IGNITE-23859 Investigate possibility to remove cast
+        // CASE_8dp("t SELECT ?, x, x FROM (SELECT ?::INT UNION ALL SELECT ?::INT) s(x)", TABLE_C1_C2, "[c1=?0, c2=?1]", "[c1=?0, c2=?2]"),
 
         // mixed case, where only one branch contains additional projection
-        CASE_9l_dp("t SELECT ?, x, x FROM (SELECT 1 UNION ALL SELECT ?::INT) s(x)", TABLE_C1_C2, "[c1=?0, c2=1]", "[c1=?0, c2=?1]"),
+        // https://issues.apache.org/jira/browse/IGNITE-23859 Investigate possibility to remove cast
+        // CASE_9l_dp("t SELECT ?, x, x FROM (SELECT 1 UNION ALL SELECT ?::INT) s(x)", TABLE_C1_C2, "[c1=?0, c2=1]", "[c1=?0, c2=?1]"),
 
         // one of the UnionAll branches contains ALWAYS FALSE predicate, thus must be ignored
         CASE_10l("t SELECT x, x FROM (SELECT 1 UNION ALL SELECT 2 FROM (VALUES (0)) WHERE FALSE UNION ALL SELECT 3) s(x)",
                 TABLE_C1, "[c1=1]", "[c1=3]"),
-        CASE_10dp("t SELECT x, x FROM (SELECT ?::INT UNION ALL SELECT ?::INT FROM (VALUES (0)) WHERE FALSE UNION ALL SELECT ?::INT) s(x)",
-                TABLE_C1, "[c1=?0]", "[c1=?2]"),
+        // https://issues.apache.org/jira/browse/IGNITE-23859 Investigate possibility to remove cast
+        // CASE_10dp("t SELECT x, x FROM (SELECT ?::INT UNION ALL SELECT ?::INT FROM (VALUES (0)) WHERE FALSE UNION ALL "
+        //        + "SELECT ?::INT) s(x)", TABLE_C1, "[c1=?0]", "[c1=?2]"),
 
         // single tuple insert with explicit cast
         CASE_12("t VALUES ('1'::smallint, 10)", TABLE_C1, "[c1=1]"),

@@ -102,6 +102,7 @@ public class ItAlterTableAlterColumnTest extends BaseSqlIntegrationTest {
         arguments.add(Arguments.of("SMALLINT", Short.MAX_VALUE, ColumnType.INT32, "INT", Integer.MAX_VALUE));
         arguments.add(Arguments.of("INT", Integer.MAX_VALUE, ColumnType.INT64, "BIGINT", Long.MAX_VALUE));
         arguments.add(Arguments.of("FLOAT", Float.MAX_VALUE, ColumnType.DOUBLE, "DOUBLE", Double.MAX_VALUE));
+        arguments.add(Arguments.of("FLOAT", Float.MIN_VALUE, ColumnType.DOUBLE, "DOUBLE", Double.MIN_VALUE));
         arguments.add(Arguments.of("VARCHAR(10)", "'" + "c".repeat(10) + "'", ColumnType.STRING,
                 "VARCHAR(20)", "'" + "c".repeat(20) + "'"));
         arguments.add(Arguments.of("VARBINARY(1)", "x'01'", ColumnType.BYTE_ARRAY,
