@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.ssl;
 
-import static org.apache.ignite.client.ClientAuthenticationMode.REQUIRE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
@@ -479,7 +478,6 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                             .enabled(true)
                             .trustStorePath(trustStorePath)
                             .trustStorePassword(password)
-                            .clientAuth(REQUIRE)
                             .keyStorePath(keyStorePath)
                             .keyStorePassword(password)
                             .build();
