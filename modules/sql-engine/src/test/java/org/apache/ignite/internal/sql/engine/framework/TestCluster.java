@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.ClockWaiter;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
@@ -48,6 +49,7 @@ public class TestCluster implements LifecycleAware {
     private final Map<String, TestNode> nodeByName;
     private final List<LifecycleAware> components;
     private final Runnable initClosure;
+    private final RunnableX stopClosure;
     private final CatalogManager catalogManager;
     private final ConcurrentMap<String, ScannableTable> dataProvidersByTableName;
     private final ConcurrentMap<String, AssignmentsProvider> assignmentsProvidersByTableName;
@@ -59,7 +61,8 @@ public class TestCluster implements LifecycleAware {
             CatalogManager catalogManager,
             PrepareService prepareService,
             ClockWaiter clockWaiter,
-            Runnable initClosure
+            Runnable initClosure,
+            RunnableX stopClosure
     ) {
         this.dataProvidersByTableName = dataProvidersByTableName;
         this.assignmentsProvidersByTableName = assignmentsProvidersByTableName;
@@ -71,6 +74,7 @@ public class TestCluster implements LifecycleAware {
         );
         this.initClosure = initClosure;
         this.catalogManager = catalogManager;
+        this.stopClosure = stopClosure;
     }
 
     public CatalogManager catalogManager() {
@@ -107,6 +111,12 @@ public class TestCluster implements LifecycleAware {
 
         Collections.reverse(closeables);
         IgniteUtils.closeAll(closeables);
+
+        try {
+            stopClosure.run();
+        } catch (Throwable t) {
+            throw new Exception(t);
+        }
     }
 
     public void setAssignmentsProvider(String tableName, AssignmentsProvider assignmentsProvider) {

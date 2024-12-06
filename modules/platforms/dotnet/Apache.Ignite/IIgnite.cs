@@ -28,6 +28,8 @@ namespace Apache.Ignite
     /// <summary>
     /// Ignite API entry point.
     /// <para />
+    /// All Ignite APIs are thread-safe, unless noted otherwise.
+    /// <para />
     /// Implementation can be a thin client (see <see cref="IIgniteClient"/> and <see cref="IgniteClient.StartAsync"/>),
     /// or a direct IPC connection for server-side functionality like compute.
     /// </summary>
