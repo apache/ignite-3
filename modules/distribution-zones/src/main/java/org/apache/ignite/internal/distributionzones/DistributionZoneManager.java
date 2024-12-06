@@ -391,6 +391,10 @@ public class DistributionZoneManager extends
     ) {
         long updateTimestamp = timestampByRevision(causalityToken);
 
+        if (updateTimestamp == -1) {
+            return;
+        }
+
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
