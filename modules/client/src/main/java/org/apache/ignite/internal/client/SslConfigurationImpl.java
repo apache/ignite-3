@@ -35,7 +35,7 @@ public class SslConfigurationImpl implements SslConfiguration {
     private final @Nullable String trustStorePassword;
 
     /** Main constructor. */
-    SslConfigurationImpl(
+    public SslConfigurationImpl(
             boolean enabled,
             @Nullable Iterable<String> ciphers,
             @Nullable String keyStorePath,
