@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -39,6 +41,7 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
+import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -111,7 +114,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         });
     }
 
-    private static void executeAndCancel(Function<CancellationToken, ResultSet<SqlRow>> execute) throws InterruptedException {
+    private void executeAndCancel(Function<CancellationToken, ResultSet<SqlRow>> execute) throws InterruptedException {
         CancelHandle cancelHandle = CancelHandle.create();
 
         CountDownLatch latch = new CountDownLatch(1);
@@ -135,6 +138,9 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
 
         cancelHandle.cancelAsync().join();
+
+        // Expect all transactions to be rollbacked
+        assertThat(txManager().pending(), is(0));
     }
 
     @Override

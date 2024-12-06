@@ -975,7 +975,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void cancelLongRunningDml() throws InterruptedException {
+    public void cancelLongRunningStatement() throws InterruptedException {
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE test (id INT PRIMARY KEY)");
@@ -1001,9 +1001,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         // Query was actually cancelled.
         assertThat(queryProcessor().runningQueries(), is(0));
         expectQueryCancelled(() -> await(f));
-
-        // BUT the  transaction may still be in progress (FAILING HERE).
-        Awaitility.await().untilAsserted(() -> assertThat(txManager().pending(), is(0)));
+        assertThat(txManager().pending(), is(0));
     }
 
     @Test

@@ -66,8 +66,8 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-23646")
     @Override
-    public void cancelLongRunningDml() throws InterruptedException {
-        super.cancelLongRunningDml();
+    public void cancelLongRunningStatement() throws InterruptedException {
+        super.cancelLongRunningStatement();
     }
 
     @Override
