@@ -634,7 +634,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
 
                     // run update of raft configuration if this node is a leader
-                    LOG.info("Current node={} is the leader of partition raft group={}. "
+                    LOG.debug("Current node={} is the leader of partition raft group={}. "
                                     + "Initiate rebalance process for partition={}, table={}",
                             leaderWithTerm.leader(),
                             replicaGrpId,
