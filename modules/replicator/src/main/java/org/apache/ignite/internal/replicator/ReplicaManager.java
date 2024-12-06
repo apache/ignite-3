@@ -353,7 +353,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 getPendingAssignmentsSupplier,
                 failureManager,
                 this
-        )
+        );
 
         // This pool MUST be single-threaded to make sure idle safe time propagation attempts are not reordered on it.
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
@@ -1431,7 +1431,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             term);
 
                     return null;
-                }).thenCompose(inBusyLock(busyLock, () -> (Function<Replica, CompletableFuture<Void>>) pendingsBytes -> {
+                }).thenCompose(inBusyLock(busyLock, () -> (Function<byte[], CompletableFuture<Void>>) pendingsBytes -> {
                     if (pendingsBytes == null) {
                         return nullCompletedFuture();
                     }
