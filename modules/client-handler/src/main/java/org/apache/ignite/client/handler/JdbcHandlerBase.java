@@ -108,7 +108,13 @@ abstract class JdbcHandlerBase {
                     return new JdbcQuerySingleResult(cursorId, updCount, cur.hasNextResult());
                 }
                 case DDL:
-                case KILL:
+                case KILL: {
+                    assert batch.items().get(0).get(0) instanceof Boolean : "Invalid DDL/KILL result: " + batch.items();
+
+                    boolean applied = (boolean) batch.items().get(0).get(0);
+
+                    return new JdbcQuerySingleResult(cursorId, applied ? 1 : 0, cur.hasNextResult());
+                }
                 case TX_CONTROL:
                     return new JdbcQuerySingleResult(cursorId, 0, cur.hasNextResult());
                 default:

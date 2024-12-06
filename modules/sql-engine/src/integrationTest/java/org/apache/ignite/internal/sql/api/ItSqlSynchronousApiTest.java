@@ -171,6 +171,11 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
+    protected ResultSet<SqlRow> executeLazy(IgniteSql sql, String query, Object... args) {
+        return sql.execute(null, query, args);
+    }
+
+    @Override
     protected void executeScript(IgniteSql sql, String query, Object... args) {
         sql.executeScript(query, args);
     }

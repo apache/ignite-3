@@ -47,7 +47,7 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
             try (Statement stmt = conn.createStatement()) {
                 return stmt.executeUpdate("KILL QUERY '" + queryId + "'");
             }
-        }, 0);
+        });
     }
 
     @Test
@@ -56,16 +56,20 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
             try (PreparedStatement stmt = conn.prepareStatement("KILL QUERY '" + queryId + "'")) {
                 return stmt.executeUpdate();
             }
-        }, 0);
+        });
     }
 
     @Test
     public void killUsingExecute() throws SQLException {
         checkKillQuery(queryId -> {
             try (Statement stmt = conn.createStatement()) {
-                return stmt.execute("KILL QUERY '" + queryId + "'");
+                boolean hasResultSet = stmt.execute("KILL QUERY '" + queryId + "'");
+
+                assertThat(hasResultSet, is(false));
+
+                return stmt.getUpdateCount();
             }
-        }, false);
+        });
     }
 
     @Test
@@ -91,7 +95,7 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
         }
     }
 
-    private static <T> void checkKillQuery(Checker<T> checker, T expected) throws SQLException {
+    private static void checkKillQuery(Checker checker) throws SQLException {
         try (Statement stmt = conn.createStatement()) {
             try (ResultSet rs = stmt.executeQuery(QUERY)) {
                 assertThat(rs.next(), is(true));
@@ -104,11 +108,11 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
                 UUID existingQuery = queries.get(0).id();
 
                 // No-op.
-                assertThat(checker.check(UUID.randomUUID()), is(expected));
+                assertThat(checker.check(UUID.randomUUID()), is(0));
                 assertThat(runningQueries(), hasSize(1));
 
                 // Actual kill.
-                assertThat(checker.check(existingQuery), is(expected));
+                assertThat(checker.check(existingQuery), is(1));
                 assertThat(runningQueries(), hasSize(0));
 
                 //noinspection ThrowableNotThrown
@@ -130,7 +134,7 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
     }
 
     @FunctionalInterface
-    interface Checker<T> {
-        T check(UUID queryId) throws SQLException;
+    interface Checker {
+        int check(UUID queryId) throws SQLException;
     }
 }
