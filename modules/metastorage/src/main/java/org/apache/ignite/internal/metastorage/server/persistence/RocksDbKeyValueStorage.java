@@ -382,7 +382,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 .setAtomicFlush(true)
                 .setCreateMissingColumnFamilies(true)
                 .setListeners(List.of(flusher.listener()))
-                .setCreateIfMissing(true);
+                .setCreateIfMissing(true)
+                .setAvoidFlushDuringShutdown(true);
 
         rocksResources.add(options);
 
