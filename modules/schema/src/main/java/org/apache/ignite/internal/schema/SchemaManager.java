@@ -188,6 +188,15 @@ public class SchemaManager implements IgniteComponent {
         schema.columnMapping(SchemaUtils.columnMapper(prevSchema, schema));
     }
 
+    /**
+     * Loads the table schema descriptor by version from local Catalog.
+     * If called with a schema version for which the schema is not yet saved to the Catalog, an exception
+     * will be thrown.
+     *
+     * @param tblId Table id.
+     * @param ver Schema version (must not be higher than the latest version saved to the Catalog).
+     * @return Schema representation.
+     */
     private SchemaDescriptor loadRequiredSchemaDescriptor(int tblId, int ver) {
         int catalogVersion = catalogService.latestCatalogVersion();
 
@@ -207,13 +216,12 @@ public class SchemaManager implements IgniteComponent {
     }
 
     /**
-     * Loads the table schema descriptor by version from local Metastore storage.
-     * If called with a schema version for which the schema is not yet saved to the Metastore, an exception
-     * will be thrown.
+     * Loads the table schema descriptor by version from local Catalog.
+     * If called with a schema version for which the schema is not yet saved to the Catalog, {@code null} if returned.
      *
      * @param tblId Table id.
-     * @param ver Schema version (must not be higher than the latest version saved to the  Metastore).
-     * @return Schema representation.
+     * @param ver Schema version (must not be higher than the latest version saved to the Catalog).
+     * @return Schema representation (or {@code null}).
      */
     private @Nullable SchemaDescriptor loadOptionalSchemaDescriptor(int tblId, int ver) {
         int catalogVersion = catalogService.latestCatalogVersion();
