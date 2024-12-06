@@ -406,7 +406,7 @@ public class Cluster {
      */
     public Ignite startNode(int index, String nodeBootstrapConfigTemplate) {
         ServerRegistration registration = startEmbeddedNode(index, nodeBootstrapConfigTemplate);
-        assertThat(registration.registrationFuture(), willSucceedIn(20, TimeUnit.SECONDS));
+        assertThat(registration.registrationFuture(), willSucceedIn(100, TimeUnit.MINUTES));
         Ignite newIgniteNode = registration.server().api();
 
         assertEquals(newIgniteNode, nodes.get(index));

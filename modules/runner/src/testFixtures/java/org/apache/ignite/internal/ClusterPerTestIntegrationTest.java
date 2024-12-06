@@ -47,7 +47,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @SuppressWarnings("ALL")
 @ExtendWith(WorkDirectoryExtension.class)
 public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ClusterPerTestIntegrationTest.class);
+    protected static final IgniteLogger LOG = Loggers.forClass(ClusterPerTestIntegrationTest.class);
 
     /** Nodes bootstrap configuration pattern. */
     private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
