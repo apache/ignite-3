@@ -15,28 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.message;
+package org.apache.ignite.internal.metastorage.server;
 
-import java.io.Serializable;
-import java.util.UUID;
-import org.apache.ignite.internal.network.NetworkMessage;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Execution context is used to determine a stripe where to process a message.
- */
-public interface ExecutionContextAwareMessage extends NetworkMessage, Serializable {
-    /**
-     * Get query ID.
-     */
-    UUID queryId();
+class TestWatchEventHandlingCallback implements WatchEventHandlingCallback {
+    private final Map<Long, CompletableFuture<Void>> futureByRevision = new ConcurrentHashMap<>();
 
-    /**
-     * Get execution token.
-     */
-    int executionToken();
+    @Override
+    public void onRevisionApplied(long revision) {
+        get(revision).complete(null);
+    }
 
-    /**
-     * Get fragment ID.
-     */
-    long fragmentId();
+    CompletableFuture<Void> get(long revision) {
+        return futureByRevision.computeIfAbsent(revision, revision0 -> new CompletableFuture<>());
+    }
 }

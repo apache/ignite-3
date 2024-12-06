@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -59,7 +58,6 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
         SqlOperationContext operationContext = SqlOperationContext.builder()
                 .queryId(query.id)
                 .cancel(query.cancel)
-                .prefetchCallback(new PrefetchCallback())
                 .parameters(query.params)
                 .timeZoneId(timeZoneId)
                 .defaultSchemaName(schemaName)
