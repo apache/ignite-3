@@ -252,6 +252,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.internal.util.MockUtil;
 
 /**
  * Test suite for rebalance process, when replicas' number changed.
@@ -282,22 +283,22 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final int NODE_COUNT = 3;
 
     @InjectConfiguration
-    private static TransactionConfiguration txConfiguration;
+    private TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    private static RaftConfiguration raftConfiguration;
+    private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static SystemLocalConfiguration systemConfiguration;
+    private SystemLocalConfiguration systemConfiguration;
 
     @InjectConfiguration
-    private static NodeAttributesConfiguration nodeAttributes;
+    private NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = \"aipersist\", test.engine=\"test\"}")
-    private static StorageConfiguration storageConfiguration;
+    private StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private static MetaStorageConfiguration metaStorageConfiguration;
+    private MetaStorageConfiguration metaStorageConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -369,6 +370,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     @AfterEach
     void after() {
         nodes.forEach(Node::stop);
+
+        MockUtil.clearAllCaches();
     }
 
     @Test
