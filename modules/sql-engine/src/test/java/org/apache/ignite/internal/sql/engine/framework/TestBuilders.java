@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTes
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -108,6 +109,7 @@ import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
@@ -719,6 +721,14 @@ public class TestBuilders {
 
             ConcurrentMap<String, ScannableTable> dataProvidersByTableName = new ConcurrentHashMap<>();
             ConcurrentMap<String, AssignmentsProvider> assignmentsProviderByTableName = new ConcurrentHashMap<>();
+
+            assignmentsProviderByTableName.put(
+                    Blackhole.TABLE_NAME,
+                    (partCount, ignored) -> IntStream.range(0, partCount)
+                            .mapToObj(partNo -> nodeNames)
+                            .collect(Collectors.toList())
+            );
+
             DefaultDataProvider defaultDataProvider = this.defaultDataProvider;
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
@@ -1464,6 +1474,10 @@ public class TestBuilders {
 
                 @Override
                 public UpdatableTable updatableTable() {
+                    if (Blackhole.TABLE_NAME.equals(table.name())) {
+                        return Blackhole.INSTANCE;
+                    }
+
                     throw new UnsupportedOperationException();
                 }
 
@@ -1762,5 +1776,41 @@ public class TestBuilders {
         }
 
         return provider;
+    }
+
+    private static class Blackhole implements UpdatableTable {
+        static final String TABLE_NAME = "BLACKHOLE";
+
+        private static final TableDescriptor DESCRIPTOR = new TableDescriptorImpl(
+                List.of(new ColumnDescriptorImpl("X", true, false, false, false, 0,
+                        NativeTypes.INT32, DefaultValueStrategy.DEFAULT_NULL, null)), IgniteDistributions.single()
+        );
+
+        private static final UpdatableTable INSTANCE = new Blackhole();
+
+        @Override
+        public TableDescriptor descriptor() {
+            return DESCRIPTOR;
+        }
+
+        @Override
+        public <RowT> CompletableFuture<?> insertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<Void> insert(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT row) {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<?> upsertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<?> deleteAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
+            return nullCompletedFuture();
+        }
     }
 }
