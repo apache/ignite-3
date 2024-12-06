@@ -106,12 +106,13 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
             SslContextBuilder builder = SslContextBuilder.forClient()
                     .trustManager(loadTrustManagerFactory(ssl))
+                    .keyManager(loadKeyManagerFactory(ssl))
                     .ciphers(ssl.ciphers());
 
             SslContext context = builder.build();
 
             ch.pipeline().addFirst("ssl", context.newHandler(ch.alloc()));
-        } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException e) {
+        } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException | UnrecoverableKeyException e) {
             throw new IgniteException(CLIENT_SSL_CONFIGURATION_ERR, "Client SSL configuration error: " + e.getMessage(), e);
         }
     }
