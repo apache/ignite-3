@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -77,7 +79,7 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
 
         var partitionCommandsMarshaller = (PartitionCommandsMarshaller) commandsMarshaller;
 
-        int requiredCatalogVersion = partitionCommandsMarshaller.readRequiredCatalogVersion(ByteBuffer.wrap(command));
+        int requiredCatalogVersion = partitionCommandsMarshaller.readRequiredCatalogVersion(ByteBuffer.wrap(command).order(LITTLE_ENDIAN));
 
         if (requiredCatalogVersion >= 0) {
             if (!isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {
