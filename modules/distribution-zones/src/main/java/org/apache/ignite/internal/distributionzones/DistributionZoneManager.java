@@ -391,10 +391,6 @@ public class DistributionZoneManager extends
     ) {
         long updateTimestamp = timestampByRevision(causalityToken);
 
-        if (updateTimestamp == -1) {
-            return;
-        }
-
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
@@ -418,7 +414,7 @@ public class DistributionZoneManager extends
 
                 zoneState.reschedulePartitionDistributionReset(
                         partitionDistributionResetTimeoutSeconds,
-                        () -> fireTopologyReduceLocalEvent(updateTimestamp, zoneId),
+                        () -> fireTopologyReduceLocalEvent(causalityToken, zoneId),
                         zoneId
                 );
             } else {
@@ -981,13 +977,7 @@ public class DistributionZoneManager extends
                     if (partitionReset != INFINITE_TIMER_VALUE) {
                         zonesState.get(zoneId).reschedulePartitionDistributionReset(
                                 partitionReset,
-                                () -> {
-                                    long timestamp = timestampByRevision(revision);
-
-                                    if (timestamp != -1) {
-                                        fireTopologyReduceLocalEvent(timestamp, zoneId);
-                                    }
-                                },
+                                () -> fireTopologyReduceLocalEvent(revision, zoneId),
                                 zoneId
                         );
                     }
@@ -1029,10 +1019,10 @@ public class DistributionZoneManager extends
 
     }
 
-    private void fireTopologyReduceLocalEvent(long timestamp, int zoneId) {
+    private void fireTopologyReduceLocalEvent(long revision, int zoneId) {
         fireEvent(
                 HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
-                new HaZoneTopologyUpdateEventParams(zoneId, timestamp)
+                new HaZoneTopologyUpdateEventParams(zoneId, revision)
         ).exceptionally(th -> {
             LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
                     + " event processing", th);
