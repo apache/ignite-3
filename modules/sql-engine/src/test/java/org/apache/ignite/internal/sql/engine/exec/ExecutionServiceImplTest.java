@@ -40,8 +40,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
@@ -72,6 +74,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -92,6 +95,7 @@ import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.SqlOperationContext.Builder;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
@@ -134,6 +138,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
+import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
@@ -152,9 +157,14 @@ import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 /**
  * Test class to verify {@link ExecutionServiceImplTest}.
@@ -1081,6 +1091,63 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         }
     }
 
+    @ParameterizedTest
+    @MethodSource("txTypes")
+    public void transactionRollbackOnError(NoOpTransaction tx) {
+        ExecutionService execService = executionServices.get(0);
+        QueryTransactionContext txContext = Mockito.mock(QueryTransactionContext.class);
+
+        SqlOperationContext ctx = operationContext(null)
+                .txContext(txContext)
+                .build();
+
+        QueryTransactionWrapper txWrapper = Mockito.mock(QueryTransactionWrapper.class);
+
+        when(txContext.getOrStartImplicit(anyBoolean())).thenReturn(txWrapper);
+
+        when(txWrapper.unwrap()).thenReturn(tx);
+        when(txWrapper.implicit()).thenReturn(tx.implicit());
+        when(txWrapper.rollback(any())).thenReturn(nullCompletedFuture());
+
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+
+        nodeNames.stream().map(testCluster::node).forEach(TestNode::pauseScan);
+
+        var expectedEx = new RuntimeException("Test error");
+
+        testCluster.node(nodeNames.get(0)).interceptor((nodeName, msg, original) -> {
+            if (msg instanceof QueryStartRequest) {
+                QueryStartRequest queryStart = (QueryStartRequest) msg;
+
+                testCluster.node(nodeNames.get(0)).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
+                        .queryId(queryStart.queryId())
+                        .fragmentId(queryStart.fragmentId())
+                        .error(expectedEx)
+                        .build()
+                );
+            } else {
+                original.onMessage(nodeName, msg);
+            }
+
+            return nullCompletedFuture();
+        });
+
+        RuntimeException actualException = assertWillThrow(execService.executePlan(plan, ctx), RuntimeException.class);
+
+        assertEquals(expectedEx, actualException);
+
+        verify(txWrapper).rollback(any());
+    }
+
+    private static Stream<Arguments> txTypes() {
+        return Stream.of(
+                Arguments.of(Named.named("ro-implicit", NoOpTransaction.readOnly("ro", true))),
+                Arguments.of(Named.named("rw-implicit", NoOpTransaction.readWrite("rw", true))),
+                Arguments.of(Named.named("ro", NoOpTransaction.readOnly("ro", false))),
+                Arguments.of(Named.named("rw", NoOpTransaction.readWrite("rw", false)))
+        );
+    }
+
     /** Creates an execution service instance for the node with given consistent id. */
     public ExecutionServiceImpl<Object[]> create(String nodeName, CacheFactory mappingCacheFactory, QueryTaskExecutor taskExecutor) {
         if (!nodeNames.contains(nodeName)) {
@@ -1164,6 +1231,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private SqlOperationContext.Builder operationContext(@Nullable PrefetchCallback prefetchCallback) {
+        return getBuilder(prefetchCallback);
+    }
+
+    private Builder getBuilder(@Nullable PrefetchCallback prefetchCallback) {
         return SqlOperationContext.builder()
                 .queryId(randomUUID())
                 .cancel(new QueryCancel())
