@@ -59,6 +59,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Client table API implementation.
@@ -182,6 +183,11 @@ public class ClientTable implements Table {
         // In case of unknown version, we request latest from the server and cache it with -1 key
         // to avoid duplicate requests for latest schema.
         return getSchema(latestSchemaVer);
+    }
+
+    @TestOnly
+    public CompletableFuture<ClientSchema> getSchemaByVersion(int schemaVersion) {
+        return getSchema(schemaVersion);
     }
 
     private CompletableFuture<ClientSchema> getSchema(int ver) {
