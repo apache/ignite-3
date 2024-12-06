@@ -182,13 +182,13 @@ public class SchemaManager implements IgniteComponent {
         SchemaDescriptor prevSchema = searchSchemaByVersion(tableId, prevVersion);
 
         if (prevSchema == null) {
-            prevSchema = loadRequeiredSchemaDescriptor(tableId, prevVersion);
+            prevSchema = loadRequiredSchemaDescriptor(tableId, prevVersion);
         }
 
         schema.columnMapping(SchemaUtils.columnMapper(prevSchema, schema));
     }
 
-    private SchemaDescriptor loadRequeiredSchemaDescriptor(int tblId, int ver) {
+    private SchemaDescriptor loadRequiredSchemaDescriptor(int tblId, int ver) {
         int catalogVersion = catalogService.latestCatalogVersion();
 
         while (catalogVersion >= catalogService.earliestCatalogVersion()) {
