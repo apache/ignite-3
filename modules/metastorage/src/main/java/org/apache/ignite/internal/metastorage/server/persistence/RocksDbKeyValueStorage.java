@@ -48,6 +48,7 @@ import static org.apache.ignite.internal.util.ArrayUtils.LONG_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.runWithTimed;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.COMPACTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.MetaStorage.OP_EXECUTION_ERR;
@@ -77,6 +78,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -144,6 +146,10 @@ import org.rocksdb.WriteOptions;
  * entry and the value is a {@code byte[]} that represents a {@code long[]} where every item is a revision of the storage.
  */
 public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
+    /** Test only system property. */
+    @TestOnly
+    public static final String IGNITE_DISABLE_SYNC_AND_WAL_FOR_CHECKSUM = "IGNITE_DISABLE_SYNC_AND_WAL_FOR_CHECKSUM";
+
     /** A revision to store with system entries. */
     private static final long SYSTEM_REVISION_MARKER_VALUE = 0;
 
@@ -395,7 +401,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         rocksResources.add(defaultWriteOptions);
 
         // Checksums must be written durably to make sure we notice Metastorage divergence when it happens.
-        checksumWriteOptions = new WriteOptions().setSync(false).setDisableWAL(true);
+        checksumWriteOptions = new WriteOptions().setSync(true);
         rocksResources.add(checksumWriteOptions);
 
         List<ColumnFamilyDescriptor> descriptors = cfDescriptors();
@@ -519,9 +525,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         rwLock.writeLock().lock();
 
         try {
-            return snapshotManager
-                    .createSnapshot(snapshotPath)
-                    .thenCompose(unused -> flush());
+            return runWithTimed(
+                    String.format(
+                            "doSnapshot: [revision=%s, compactionRevision=%s, snapshotPath=%s]",
+                            rev, compactionRevision, snapshotPath
+                    ),
+                    () -> snapshotManager.createSnapshot(snapshotPath).thenCompose(unused -> flush())
+            );
         } finally {
             rwLock.writeLock().unlock();
         }
@@ -532,22 +542,31 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         rwLock.writeLock().lock();
 
         try {
-            clear();
+            runWithTimed(
+                    String.format("restoreSnapshot: [revision=%s, compactionRevision=%s, path=%s]", rev, compactionRevision, path),
+                    () -> {
+                        clear();
 
-            snapshotManager.restoreSnapshot(path);
+                        snapshotManager.restoreSnapshot(path);
 
-            rev = bytesToLong(data.get(REVISION_KEY));
+                        rev = bytesToLong(data.get(REVISION_KEY));
 
-            byte[] compactionRevisionBytes = data.get(COMPACTION_REVISION_KEY);
+                        byte[] compactionRevisionBytes = data.get(COMPACTION_REVISION_KEY);
 
-            if (compactionRevisionBytes != null) {
-                compactionRevision = bytesToLong(compactionRevisionBytes);
-            }
+                        if (compactionRevisionBytes != null) {
+                            compactionRevision = bytesToLong(compactionRevisionBytes);
+                        }
 
-            notifyRevisionsUpdate();
+                        notifyRevisionsUpdate();
+
+                        log.info(
+                                ">>>>> restoreSnapshot finish: [revision={}, compactionRevision={}, path={}]",
+                                rev, compactionRevision, path
+                        );
+                    });
         } catch (MetaStorageException e) {
             throw e;
-        } catch (Exception e) {
+        } catch (Throwable e) {
             throw new MetaStorageException(RESTORING_STORAGE_ERR, "Failed to restore snapshot", e);
         } finally {
             rwLock.writeLock().unlock();
@@ -683,6 +702,10 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         // better than false negatives (when we let a divergent node join).
         boolean sameChecksumAlreadyExists = validateNoChecksumConflict(newRev, newChecksum);
         if (!sameChecksumAlreadyExists) {
+            if (IgniteSystemProperties.getBoolean(IGNITE_DISABLE_SYNC_AND_WAL_FOR_CHECKSUM, false)) {
+                checksumWriteOptions.setDisableWAL(true).setSync(false);
+            }
+
             revisionToChecksum.put(checksumWriteOptions, revisionBytes, longToBytes(newChecksum));
         }
 

@@ -72,7 +72,9 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.PublicApiThreading;
@@ -85,6 +87,7 @@ import org.jetbrains.annotations.Nullable;
  * Collection of utility methods used throughout the system.
  */
 public class IgniteUtils {
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteUtils.class);
 
     /** The moment will be used as a start monotonic time. */
     private static final long BEGINNING_OF_TIME = System.nanoTime();
@@ -1296,5 +1299,88 @@ public class IgniteUtils {
             // let's switch: false negative can produce assertion errors.
             return true;
         }
+    }
+
+    /** For tests. */
+    public static void runWithTimedSafe(String name, Runnable runnable) {
+        try {
+            runWithTimed(name, runnable::run);
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /** For tests. */
+    public static void runWithTimed(String name, RunnableX runnableX) throws Throwable {
+        long startNanos = System.nanoTime();
+
+        Throwable throwable = null;
+
+        try {
+            runnableX.run();
+        } catch (Throwable t) {
+            throwable = t;
+        }
+
+        printDurationToLogInReadableFormat(name, startNanos, throwable);
+
+        if (throwable != null) {
+            throw throwable;
+        }
+    }
+
+    /** For tests. */
+    public static <T> CompletableFuture<T> runWithTimed(String name, Supplier<CompletableFuture<T>> runnableX) {
+        long startNanos = System.nanoTime();
+
+        return runnableX.get().whenComplete((t, throwable) -> printDurationToLogInReadableFormat(name, startNanos, throwable));
+    }
+
+    private static void printDurationToLogInReadableFormat(String name, long startNanos, @Nullable Throwable t) {
+        long duration0 = System.nanoTime() - startNanos;
+        long duration1 = duration0;
+
+        var sb = new StringBuilder();
+
+        long h = TimeUnit.HOURS.convert(duration0, TimeUnit.NANOSECONDS);
+        if (h > 0) {
+            sb.append(h).append("h ");
+            duration0 -= TimeUnit.NANOSECONDS.convert(h, TimeUnit.HOURS);
+        }
+
+        long m = TimeUnit.MINUTES.convert(duration0, TimeUnit.NANOSECONDS);
+        if (m > 0) {
+            sb.append(m).append("m ");
+            duration0 -= TimeUnit.NANOSECONDS.convert(m, TimeUnit.MINUTES);
+        }
+
+        long s = TimeUnit.SECONDS.convert(duration0, TimeUnit.NANOSECONDS);
+        if (s > 0) {
+            sb.append(s).append("s ");
+            duration0 -= TimeUnit.NANOSECONDS.convert(s, TimeUnit.SECONDS);
+        }
+
+        long ms = TimeUnit.MILLISECONDS.convert(duration0, TimeUnit.NANOSECONDS);
+        if (ms > 0) {
+            sb.append(ms).append("ms ");
+            duration0 -= TimeUnit.NANOSECONDS.convert(ms, TimeUnit.MILLISECONDS);
+        }
+
+        long us = TimeUnit.MILLISECONDS.convert(duration0, TimeUnit.MICROSECONDS);
+        if (us > 0) {
+            sb.append(us).append("us ");
+            duration0 -= TimeUnit.NANOSECONDS.convert(ms, TimeUnit.MICROSECONDS);
+        }
+
+        long ns = TimeUnit.NANOSECONDS.convert(duration0, TimeUnit.NANOSECONDS);
+        if (ns > 0) {
+            sb.append(ns).append("ns ");
+        }
+
+        LOG.info(
+                ">>>>> Finish operation: [name={}, time={}, totalMs={}, totalNs={}]",
+                t,
+                name, sb.toString().trim(), TimeUnit.MILLISECONDS.convert(duration1, TimeUnit.NANOSECONDS), duration1
+        );
     }
 }

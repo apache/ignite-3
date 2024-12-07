@@ -108,6 +108,8 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     @WorkDirectory
     protected Path workDir;
 
+    private TestInfo testInfo;
+
     /**
      * Invoked before each test starts.
      *
@@ -116,11 +118,23 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
      */
     @BeforeEach
     public void startCluster(TestInfo testInfo) throws Exception {
+        this.testInfo = testInfo;
+
+        if (startClusterImmediately()) {
+            startCluster();
+        }
+    }
+
+    protected void startCluster() throws Exception {
         cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
 
         if (initialNodes() > 0) {
             cluster.startAndInit(initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
         }
+    }
+
+    protected boolean startClusterImmediately() {
+        return true;
     }
 
     @AfterEach

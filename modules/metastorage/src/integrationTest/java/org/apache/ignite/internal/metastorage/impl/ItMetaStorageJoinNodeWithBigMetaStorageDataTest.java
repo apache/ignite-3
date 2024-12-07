@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
+import static org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage.IGNITE_DISABLE_SYNC_AND_WAL_FOR_CHECKSUM;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.Constants.KiB;
 import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
+import static org.apache.ignite.internal.util.IgniteUtils.runWithTimed;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -33,13 +35,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Testing the node join speed when the meta storage snapshot size is greater than 100 mega-bytes and there are more than 100 thousand
@@ -48,22 +51,45 @@ import org.junit.jupiter.api.Test;
 public class ItMetaStorageJoinNodeWithBigMetaStorageDataTest extends ClusterPerTestIntegrationTest {
     private static final byte[] VALUE = new byte[KiB];
 
+    @BeforeAll
+    static void beforeAll() {
+        System.clearProperty(IGNITE_DISABLE_SYNC_AND_WAL_FOR_CHECKSUM);
+    }
+
     @Override
     protected int initialNodes() {
         return 2;
     }
 
-    @Test
-    void test() throws Throwable {
+    @Override
+    protected boolean startClusterImmediately() {
+        return false;
+    }
+
+    @ParameterizedTest(name = "disableSyncAndWalForChecksum = {0}, snapshotBeforeRestartNode = {1}")
+    @CsvSource({
+            "true, true",
+            "true, false",
+            "false, true",
+            "false, false"
+    })
+    void test(boolean disableSyncAndWalForChecksum, boolean snapshotBeforeRestartNode) throws Throwable {
+        System.setProperty(IGNITE_DISABLE_SYNC_AND_WAL_FOR_CHECKSUM, Boolean.toString(disableSyncAndWalForChecksum));
+
+        startCluster();
         stopNode(1);
 
         MetaStorageManager metaStorageManager0 = igniteImpl(0).metaStorageManager();
 
         runWithTimed("loadMetaStorageByMemory", () -> loadMetaStorageByMemory(metaStorageManager0, 100));
-        runWithTimed("doSnapshotOnMetaStorageRaftNode", this::doSnapshotOnMetaStorageRaftNode);
+        runWithTimed("doSnapshotOnMetaStorageRaftNodeAfterLoadByMemory", this::doSnapshotOnMetaStorageRaftNode);
         runWithTimed("loadMetaStorageForBigRaftLog", () -> loadMetaStorageForBigRaftLog(metaStorageManager0, 100_000));
 
-        runWithTimed("returnNode", () -> startNode(1));
+        if (snapshotBeforeRestartNode) {
+            runWithTimed("doSnapshotOnMetaStorageRaftNodeBeforeRestartNode", this::doSnapshotOnMetaStorageRaftNode);
+        }
+
+        runWithTimed("restartNode", () -> startNode(1));
     }
 
     private static void loadMetaStorageByMemory(MetaStorageManager metaStorageManager, int mibCount) {
@@ -131,67 +157,5 @@ public class ItMetaStorageJoinNodeWithBigMetaStorageDataTest extends ClusterPerT
 
         assertTrue(snapshotLatch.await(1, TimeUnit.MINUTES), "Snapshot was not finished in time");
         assertTrue(snapshotStatus.get().isOk(), "Snapshot failed: " + snapshotStatus.get());
-    }
-
-    private static void runWithTimed(String name, RunnableX runnableX) throws Throwable {
-        long startNanos = System.nanoTime();
-
-        Throwable throwable = null;
-
-        try {
-            runnableX.run();
-        } catch (Throwable t) {
-            throwable = t;
-        }
-
-        long duration0 = System.nanoTime() - startNanos;
-        long duration1 = duration0;
-
-        var sb = new StringBuilder();
-
-        long h = TimeUnit.HOURS.convert(duration0, TimeUnit.NANOSECONDS);
-        if (h > 0) {
-            sb.append(h).append("h ");
-            duration0 -= TimeUnit.NANOSECONDS.convert(h, TimeUnit.HOURS);
-        }
-
-        long m = TimeUnit.MINUTES.convert(duration0, TimeUnit.NANOSECONDS);
-        if (m > 0) {
-            sb.append(m).append("m ");
-            duration0 -= TimeUnit.NANOSECONDS.convert(m, TimeUnit.MINUTES);
-        }
-
-        long s = TimeUnit.SECONDS.convert(duration0, TimeUnit.NANOSECONDS);
-        if (s > 0) {
-            sb.append(s).append("s ");
-            duration0 -= TimeUnit.NANOSECONDS.convert(s, TimeUnit.SECONDS);
-        }
-
-        long ms = TimeUnit.MILLISECONDS.convert(duration0, TimeUnit.NANOSECONDS);
-        if (ms > 0) {
-            sb.append(ms).append("ms ");
-            duration0 -= TimeUnit.NANOSECONDS.convert(ms, TimeUnit.MILLISECONDS);
-        }
-
-        long us = TimeUnit.MILLISECONDS.convert(duration0, TimeUnit.MICROSECONDS);
-        if (us > 0) {
-            sb.append(us).append("us ");
-            duration0 -= TimeUnit.NANOSECONDS.convert(ms, TimeUnit.MICROSECONDS);
-        }
-
-        long ns = TimeUnit.NANOSECONDS.convert(duration0, TimeUnit.NANOSECONDS);
-        if (ns > 0) {
-            sb.append(ns).append("ns ");
-        }
-
-        LOG.info(
-                ">>>>> Finish operation: [name={}, time={}, totalMs={}, totalNs={}]",
-                throwable,
-                name, sb.toString().trim(), TimeUnit.MILLISECONDS.convert(duration1, TimeUnit.NANOSECONDS), duration1
-        );
-
-        if (throwable != null) {
-            throw throwable;
-        }
     }
 }
