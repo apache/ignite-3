@@ -34,6 +34,7 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
@@ -237,7 +238,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     protected void awaitForAllNodesTableGroupInitialization() throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            AtomicLong numberOfInitializedReplicas = new AtomicLong(0);
+            AtomicInteger numberOfInitializedReplicas = new AtomicInteger(0);
 
             runningNodes().forEach(ignite -> {
                 IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);

@@ -269,11 +269,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     private CompletableFuture<Boolean> onHaZoneTopologyReduce(HaZoneTopologyUpdateEventParams params) {
         int zoneId = params.zoneId();
-        long timestamp = params.timestamp();
+        long revision = params.causalityToken();
+        long timestamp = metaStorageManager.timestampByRevisionLocally(revision).longValue();
 
         CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, timestamp);
         int catalogVersion = catalogManager.activeCatalogVersion(timestamp);
-        long revision = metaStorageManager.revisionByTimestampLocally(HybridTimestamp.hybridTimestamp(timestamp));
 
         List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogVersion, catalogManager);
         List<CompletableFuture<Void>> tablesResetFuts = new ArrayList<>();
@@ -282,7 +282,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
                 TablePartitionId partitionId = new TablePartitionId(table.id(), partId);
 
-                if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision).size() < zoneDescriptor.replicas() / 2 + 1) {
+                if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision).size() < (zoneDescriptor.replicas() / 2 + 1)) {
                     partitionsToReset.add(partId);
                 }
             }

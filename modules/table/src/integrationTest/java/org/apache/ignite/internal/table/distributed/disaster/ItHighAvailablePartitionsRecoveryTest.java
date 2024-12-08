@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.junit.jupiter.api.Test;
 
@@ -124,6 +126,28 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
         assertRecoveryRequestWasOnlyOne(node1);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node1, HA_TABLE_NAME, Set.of(0, 1), Set.of(node1.name()));
+    }
+
+    @Test
+    void testScaleUpAfterReset() throws InterruptedException {
+        createHaZoneWithTable();
+
+        IgniteImpl node = igniteImpl(0);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        stopNodes(1, 2);
+
+        waitAndAssertRecoveryKeyIsNotEmpty(node, 30_000);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
+
+        startNode(1);
+        startNode(2);
+
+        Set<String> expectedAssignmentsAfterScaleUp = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), expectedAssignmentsAfterScaleUp);
     }
 
     @Test
