@@ -157,7 +157,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         CompletableFuture<Set<String>> dataNodesFuture = disasterRecoveryManager.dzManager.dataNodes(msRevision, catalogVersion, zoneId);
 
         return dataNodesFuture.thenCombine(localStates, (dataNodes, localStatesMap) -> {
-            Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology()
+            Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
                     .stream()
                     .map(NodeWithAttributes::nodeName)
                     .collect(toSet());

@@ -28,6 +28,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.CATCHING_UP;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
@@ -53,6 +54,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -87,6 +89,7 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -105,6 +108,7 @@ import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Manager, responsible for "disaster recovery" operations.
@@ -248,9 +252,15 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         );
     }
 
+    @TestOnly
+    public Map<UUID, CompletableFuture<Void>> ongoingOperationsById() {
+        return ongoingOperationsById;
+    }
+
     private CompletableFuture<Boolean> onHaZoneTopologyReduce(HaZoneTopologyUpdateEventParams params) {
         int zoneId = params.zoneId();
-        long timestamp = params.timestamp();
+        long revision = params.causalityToken();
+        long timestamp = metaStorageManager.timestampByRevisionLocally(revision).longValue();
 
         CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, timestamp);
         int catalogVersion = catalogManager.activeCatalogVersion(timestamp);
@@ -260,15 +270,31 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         for (CatalogTableDescriptor table : tables) {
             Set<Integer> partitionsToReset = new HashSet<>();
             for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-23599 implement check for majority loss
-                partitionsToReset.add(partId);
+                TablePartitionId partitionId = new TablePartitionId(table.id(), partId);
+
+                if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision).size() < (zoneDescriptor.replicas() / 2 + 1)) {
+                    partitionsToReset.add(partId);
+                }
             }
 
-            tablesResetFuts.add(resetPartitions(
-                    zoneDescriptor.name(), table.id(), partitionsToReset, false));
+            if (!partitionsToReset.isEmpty()) {
+                tablesResetFuts.add(resetPartitions(
+                        zoneDescriptor.name(), table.id(), partitionsToReset, false));
+            }
         }
 
         return allOf(tablesResetFuts.toArray(new CompletableFuture[]{})).thenApply(r -> false);
+    }
+
+    private Set<Assignment> stableAssignmentsWithOnlyAliveNodes(TablePartitionId partitionId, long revision) {
+        Set<Assignment> stableAssignments = Assignments.fromBytes(
+                metaStorageManager.getLocally(stablePartAssignmentsKey(partitionId), revision).value()).nodes();
+
+        Set<String> logicalTopology = dzManager.logicalTopology(revision)
+                .stream().map(NodeWithAttributes::nodeName).collect(Collectors.toUnmodifiableSet());
+
+        return stableAssignments
+                .stream().filter(a -> logicalTopology.contains(a.consistentId())).collect(Collectors.toUnmodifiableSet());
     }
 
     /**
