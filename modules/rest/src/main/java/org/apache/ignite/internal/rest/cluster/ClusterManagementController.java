@@ -19,17 +19,25 @@ package org.apache.ignite.internal.rest.cluster;
 
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
+import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.impl.MetastoreGroupAvailabilityService;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.cluster.ClusterManagementApi;
-import org.apache.ignite.internal.rest.api.cluster.ClusterState;
+import org.apache.ignite.internal.rest.api.cluster.ClusterStateDto;
+import org.apache.ignite.internal.rest.api.cluster.ClusterStateDtoBuilder;
 import org.apache.ignite.internal.rest.api.cluster.ClusterTag;
+import org.apache.ignite.internal.rest.api.cluster.GroupState;
+import org.apache.ignite.internal.rest.api.cluster.GroupStatus;
 import org.apache.ignite.internal.rest.api.cluster.InitCommand;
 import org.apache.ignite.internal.rest.cluster.exception.InvalidArgumentClusterInitializationException;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -46,6 +54,8 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
 
     private ClusterManagementGroupManager clusterManagementGroupManager;
 
+    private MetastoreGroupAvailabilityService metastoreAvailabilityService;
+
     /**
      * Cluster management controller constructor.
      *
@@ -54,16 +64,69 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
      */
     public ClusterManagementController(
             ClusterInitializer clusterInitializer,
+            MetastoreGroupAvailabilityService metastoreAvailabilityService,
             ClusterManagementGroupManager clusterManagementGroupManager
     ) {
         this.clusterInitializer = clusterInitializer;
         this.clusterManagementGroupManager = clusterManagementGroupManager;
+        this.metastoreAvailabilityService = metastoreAvailabilityService;
+    }
+
+    private GroupState metastorageGroupState() {
+        try {
+            CompletableFuture<GroupStatus> matastorageStatusFut = metastoreAvailabilityService.isAlive()
+                    .thenApply(isAlive1 -> isAlive1 ? GroupStatus.HEALTHY : GroupStatus.MAJORITY_LOST);
+            CompletableFuture<Set<String>> availableMembersFut = metastoreAvailabilityService.availableMembers();
+
+            return new GroupState(availableMembersFut.get(), matastorageStatusFut.get());
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private GroupState cmGroupState() {
+        try {
+            return clusterManagementGroupManager.availableMembers().thenApply(members -> {
+                        GroupState state = members != null
+                                ? new GroupState(members, GroupStatus.HEALTHY)
+                                : new GroupState(Collections.emptyList(), GroupStatus.MAJORITY_LOST);
+                        return state;
+                    }
+            ).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private ClusterState clusterState1() {
+        try {
+            return clusterManagementGroupManager.clusterState().get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ClusterState> clusterState() {
-        return clusterManagementGroupManager.clusterState().thenApply(ClusterManagementController::mapClusterState);
+    public CompletableFuture<ClusterStateDto> clusterState() {
+        GroupState metastorageGroupState = metastorageGroupState();
+        GroupState cmGroupState = cmGroupState();
+        ClusterState state = clusterState1();
+
+        ClusterStateDtoBuilder builder = ClusterStateDtoBuilder.newInstance();
+        if (state != null) {
+            builder.igniteVersion(state.version())
+                    .clusterTag(new ClusterTag(state.clusterTag().clusterName(), state.clusterTag().clusterId()))
+                    .formerClusterIds(state.formerClusterIds());
+        } else {
+            builder.igniteVersion("N/A").clusterTag(new ClusterTag("N/A", null));
+        }
+
+        return CompletableFuture.completedFuture(
+                builder.cmgStatus(cmGroupState)
+                        .metastoreStatus(metastorageGroupState)
+                        .build()
+        );
     }
 
     /** {@inheritDoc} */
@@ -84,16 +147,6 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
         });
     }
 
-    private static ClusterState mapClusterState(org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
-        return new ClusterState(
-                clusterState.cmgNodes(),
-                clusterState.metaStorageNodes(),
-                clusterState.igniteVersion().toString(),
-                new ClusterTag(clusterState.clusterTag().clusterName(), clusterState.clusterTag().clusterId()),
-                clusterState.formerClusterIds()
-        );
-    }
-
     private static RuntimeException mapException(Throwable ex) {
         var cause = ExceptionUtils.unwrapCause(ex);
         if (cause instanceof IgniteInternalException) {
@@ -111,5 +164,6 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
     public void cleanResources() {
         clusterInitializer = null;
         clusterManagementGroupManager = null;
+        metastoreAvailabilityService = null;
     }
 }
