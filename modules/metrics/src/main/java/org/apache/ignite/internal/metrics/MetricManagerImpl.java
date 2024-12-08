@@ -259,7 +259,7 @@ public class MetricManagerImpl implements MetricManager {
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<ExporterView> ctx) {
             MetricExporter exporter = enabledMetricExporters.get(ctx.newValue().exporterName());
 
-            if (exporter != null) {
+            if (exporter != null && ctx.oldValue() != null) {
                 exporter.reconfigure(ctx.newValue());
             }
 

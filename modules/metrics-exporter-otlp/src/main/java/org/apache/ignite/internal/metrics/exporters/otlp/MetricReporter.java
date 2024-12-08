@@ -106,7 +106,9 @@ class MetricReporter implements AutoCloseable {
     }
 
     void report() {
-        exporter.export(metrics);
+        if (!metrics.isEmpty()) {
+            exporter.export(metrics);
+        }
     }
 
     @Override
@@ -118,7 +120,6 @@ class MetricReporter implements AutoCloseable {
     void exporter(MetricExporter exporter) {
         this.exporter = exporter;
     }
-
 
     private static Supplier<Map<String, String>> headers(NamedListView<? extends HeadersView> headers) {
         return () -> headers.stream().collect(Collectors.toUnmodifiableMap(HeadersView::name, HeadersView::header));
