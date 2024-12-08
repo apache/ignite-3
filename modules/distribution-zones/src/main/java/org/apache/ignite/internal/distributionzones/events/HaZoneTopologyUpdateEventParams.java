@@ -17,29 +17,27 @@
 
 package org.apache.ignite.internal.distributionzones.events;
 
-import org.apache.ignite.internal.event.EventParameters;
+import org.apache.ignite.internal.event.CausalEventParameters;
 
 /**
  * Parameters of {@link HaZoneTopologyUpdateEvent}.
  */
 // TODO: https://issues.apache.org/jira/browse/IGNITE-23640 Remove this params together with the event.
 @Deprecated
-public class HaZoneTopologyUpdateEventParams implements EventParameters {
+public class HaZoneTopologyUpdateEventParams extends CausalEventParameters {
     /** Zone id. */
     private final int zoneId;
-
-    /** Long view of{@link org.apache.ignite.internal.hlc.HybridTimestamp}. */
-    private final long timestamp;
 
     /**
      * Constructor.
      *
      * @param zoneId Zone id.
-     * @param timestamp Long view of{@link org.apache.ignite.internal.hlc.HybridTimestamp}.
+     * @param revision Metastorage revision of the original event, which triggered this local event.
      */
-    public HaZoneTopologyUpdateEventParams(int zoneId, long timestamp) {
+    public HaZoneTopologyUpdateEventParams(int zoneId, long revision) {
+        super(revision);
+
         this.zoneId = zoneId;
-        this.timestamp = timestamp;
     }
 
     /**
@@ -49,14 +47,5 @@ public class HaZoneTopologyUpdateEventParams implements EventParameters {
      */
     public int zoneId() {
         return zoneId;
-    }
-
-    /**
-     * Returns long view of {@link org.apache.ignite.internal.hlc.HybridTimestamp}.
-     *
-     * @return Timestamp.
-     */
-    public long timestamp() {
-        return timestamp;
     }
 }
