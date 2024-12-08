@@ -42,10 +42,10 @@ public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHi
 
         stopNodes(2, 3, 4);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node(0).name(), node(1).name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), nodeNames(0, 1));
 
         stopNode(1);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node(0).name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), nodeNames(0));
     }
 }

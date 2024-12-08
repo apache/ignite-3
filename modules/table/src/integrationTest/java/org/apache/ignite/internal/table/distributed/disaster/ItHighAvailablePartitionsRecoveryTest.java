@@ -151,7 +151,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
     }
 
     @Test
-    void testNoHaRecovertWhenMajorityAvailable() throws InterruptedException {
+    void testNoHaRecoveryWhenMajorityAvailable() throws InterruptedException {
         createHaZoneWithTable();
 
         IgniteImpl node = igniteImpl(0);

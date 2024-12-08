@@ -1,13 +1,10 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 
-public class ItHighAvailablePartitionsRecoveryByFilterTest extends AbstractHighAvailablePartitionsRecoveryTest {
+public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends AbstractHighAvailablePartitionsRecoveryTest {
     public static final String EU_NODES_CONFIG = "ignite {\n"
             + "  nodeAttributes.nodeAttributes: {region.attribute = EU, zone.attribute = global},\n"
             + "  network: {\n"
@@ -81,8 +78,8 @@ public class ItHighAvailablePartitionsRecoveryByFilterTest extends AbstractHighA
         return EU_NODES_CONFIG;
     }
 
-    @RepeatedTest(10)
-    void test() throws InterruptedException {
+    @Test
+    void testScaleUpAfterZoneFilterUpdate() throws InterruptedException {
         startNode(1, EU_ONLY_NODES_CONFIG);
         startNode(2, EU_ONLY_NODES_CONFIG);
         startNode(3, GLOBAL_NODES_CONFIG);
@@ -90,12 +87,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterTest extends AbstractHighA
 
         String euFilter = "$[?(@.region == \"EU\")]";
 
-        Set<String> euNodes = List.of(
-                        igniteImpl(0), igniteImpl(1), igniteImpl(2)
-                )
-                .stream()
-                .map(n -> n.name())
-                .collect(Collectors.toUnmodifiableSet());
+        Set<String> euNodes = nodeNames(0, 1, 2);
 
         createHaZoneWithTable(euFilter, euNodes);
 
@@ -107,20 +99,15 @@ public class ItHighAvailablePartitionsRecoveryByFilterTest extends AbstractHighA
 
         stopNodes(1, 2);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), nodeNames(0));
 
         String globalFilter = "$[?(@.zone == \"global\")]";
 
         alterZoneSql(globalFilter, HA_ZONE_NAME);
 
-        System.out.println("------------");
-        Set<String> aliveGlobalNodes = Stream.of(
-                        igniteImpl(0), igniteImpl(3), igniteImpl(4)
-                )
-                .map(IgniteImpl::name)
-                .collect(Collectors.toUnmodifiableSet());
+        Set<String> globalNodes = nodeNames(0, 3, 4);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), aliveGlobalNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), globalNodes);
     }
 
     private void alterZoneSql(String filter, String zoneName) {
