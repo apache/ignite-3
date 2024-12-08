@@ -21,7 +21,7 @@ import java.util.Set;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.junit.jupiter.api.Test;
 
-public class ItHighAvailablePartitoinRecoveryCasesTest extends AbstractHighAvailablePartitionsRecoveryTest {
+public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHighAvailablePartitionsRecoveryTest {
     @Override
     protected int initialNodes() {
         return 5;

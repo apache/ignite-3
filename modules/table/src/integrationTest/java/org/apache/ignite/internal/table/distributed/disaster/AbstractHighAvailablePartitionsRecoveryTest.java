@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
@@ -133,10 +134,10 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         return catalogService.zone(zoneName, clock.nowLong()).id();
     }
 
-    protected void createHaZoneWithTable() throws InterruptedException {
+    protected void createHaZoneWithTable(String filter, Set<String> targetNodes) throws InterruptedException {
         executeSql(String.format(
-                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='HIGH_AVAILABILITY'",
-                HA_ZONE_NAME, initialNodes(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE
+                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='HIGH_AVAILABILITY', DATA_NODES_FILTER='%s'",
+                HA_ZONE_NAME, targetNodes.size(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE, filter
         ));
 
         executeSql(String.format(
@@ -144,11 +145,14 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 HA_TABLE_NAME, HA_ZONE_NAME
         ));
 
+        awaitForAllNodesTableGroupInitialization(targetNodes.size());
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), HA_TABLE_NAME, Set.of(0, 1), targetNodes);
+    }
+    protected void createHaZoneWithTable() throws InterruptedException {
         Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
-        awaitForAllNodesTableGroupInitialization();
-
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), HA_TABLE_NAME, Set.of(0, 1), allNodes);
+        createHaZoneWithTable(DEFAULT_FILTER, allNodes);
     }
 
     protected void createScZoneWithTable() {
@@ -236,7 +240,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         return revision.get();
     }
 
-    protected void awaitForAllNodesTableGroupInitialization() throws InterruptedException {
+    protected void awaitForAllNodesTableGroupInitialization(int numberOfnodes) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             AtomicInteger numberOfInitializedReplicas = new AtomicInteger(0);
 
@@ -257,7 +261,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
             });
 
-            return PARTITIONS_NUMBER * initialNodes() == numberOfInitializedReplicas.get();
+            return PARTITIONS_NUMBER * numberOfnodes == numberOfInitializedReplicas.get();
         }, 10_000));
     }
 }
