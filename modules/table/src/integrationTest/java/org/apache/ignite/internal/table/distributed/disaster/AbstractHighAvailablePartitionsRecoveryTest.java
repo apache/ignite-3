@@ -120,7 +120,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 .collect(Collectors.toUnmodifiableSet()));
     }
 
-    protected final static Entry getRecoveryTriggerKey(IgniteImpl node) {
+    protected static final Entry getRecoveryTriggerKey(IgniteImpl node) {
         return node.metaStorageManager().getLocally(RECOVERY_TRIGGER_KEY, Long.MAX_VALUE);
     }
 
@@ -136,7 +136,8 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     protected final void createHaZoneWithTable(String filter, Set<String> targetNodes) throws InterruptedException {
         executeSql(String.format(
-                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='HIGH_AVAILABILITY', DATA_NODES_FILTER='%s'",
+                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', "
+                        + "CONSISTENCY_MODE='HIGH_AVAILABILITY', DATA_NODES_FILTER='%s'",
                 HA_ZONE_NAME, targetNodes.size(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE, filter
         ));
 
@@ -149,6 +150,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), HA_TABLE_NAME, Set.of(0, 1), targetNodes);
     }
+
     protected final void createHaZoneWithTable() throws InterruptedException {
         Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 

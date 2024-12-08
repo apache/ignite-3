@@ -247,7 +247,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 zoneName,
                 QUALIFIED_TABLE_NAME,
                 true,
-                0
+                -1
         );
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
@@ -399,7 +399,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         blockRebalanceStableSwitch(partId, assignment013);
 
-        CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true, 0);
+        CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true, -1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.DEGRADED);
@@ -418,7 +418,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.DEGRADED);
 
-        resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true, 0);
+        resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true, -1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
@@ -704,7 +704,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 zoneName,
                 QUALIFIED_TABLE_NAME,
                 true,
-                0
+                -1
         );
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -897,7 +897,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 zoneName,
                 QUALIFIED_TABLE_NAME,
                 true,
-                0
+                -1
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());

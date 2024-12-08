@@ -21,6 +21,7 @@ import java.util.Set;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.junit.jupiter.api.Test;
 
+/** Test multiple HA zone partitions recovery in a row. */
 public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHighAvailablePartitionsRecoveryTest {
     @Override
     protected int initialNodes() {

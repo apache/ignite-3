@@ -336,7 +336,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
         int tableId = tableDescriptor(catalogLatestVersion(), tableName).id();
 
-        return resetPartitions(zoneName, tableId, partitionIds, true, 0);
+        return resetPartitions(zoneName, tableId, partitionIds, true, -1);
     }
 
     /**
@@ -396,13 +396,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             UUID operationId
     ) {
         metaStorageManager.invoke(
-                notExists(RECOVERY_TRIGGER_REVISION_KEY).or(value(RECOVERY_TRIGGER_REVISION_KEY).lt(revisionBytes)),
-                List.of(
-                        put(RECOVERY_TRIGGER_KEY, recoveryTriggerValue),
-                        put(RECOVERY_TRIGGER_REVISION_KEY, revisionBytes)
-                ),
-                List.of())
-                .thenAccept(wasWrite -> {
+                        notExists(RECOVERY_TRIGGER_REVISION_KEY).or(value(RECOVERY_TRIGGER_REVISION_KEY).lt(revisionBytes)),
+                        List.of(
+                                put(RECOVERY_TRIGGER_KEY, recoveryTriggerValue),
+                                put(RECOVERY_TRIGGER_REVISION_KEY, revisionBytes)
+                        ),
+                        List.of()
+                ).thenAccept(wasWrite -> {
                     if (!wasWrite) {
                         ongoingOperationsById.remove(operationId).complete(null);
                     }
@@ -621,7 +621,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     private CompletableFuture<Void> processNewRequest(DisasterRecoveryRequest request) {
-        return processNewRequest(request, 0);
+        return processNewRequest(request, -1);
     }
 
     /**
@@ -641,7 +641,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         ongoingOperationsById.put(operationId, operationFuture);
 
-        if (revision != 0) {
+        if (revision != -1) {
             putRecoveryTriggerIfRevisionIsNotProcessed(
                     longToBytesKeepingOrder(revision),
                     serializedRequest,
