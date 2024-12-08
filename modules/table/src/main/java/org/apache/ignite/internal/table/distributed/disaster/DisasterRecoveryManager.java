@@ -396,7 +396,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             UUID operationId
     ) {
         metaStorageManager.invoke(
-                notExists(RECOVERY_TRIGGER_REVISION_KEY).or(value(RECOVERY_TRIGGER_KEY).lt(revisionBytes)),
+                notExists(RECOVERY_TRIGGER_REVISION_KEY).or(value(RECOVERY_TRIGGER_REVISION_KEY).lt(revisionBytes)),
                 List.of(
                         put(RECOVERY_TRIGGER_KEY, recoveryTriggerValue),
                         put(RECOVERY_TRIGGER_REVISION_KEY, revisionBytes)
