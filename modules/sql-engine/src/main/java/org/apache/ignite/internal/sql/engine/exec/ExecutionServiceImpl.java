@@ -332,13 +332,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         CompletableFuture<Void> firstPageReady0 = firstPageReady;
 
-        Predicate<String> nodeExclusionFilter = operationContext.nodeExclusionFilter(); 
+        Predicate<String> nodeExclusionFilter = operationContext.nodeExclusionFilter();
 
-        return queryManager.execute(tx, plan, nodeExclusionFilter).thenApply(dataCursor -> new TxAwareAsyncCursor<>(
+        CompletableFuture<AsyncDataCursor<InternalSqlRow>> f = queryManager.execute(tx, plan,
+                nodeExclusionFilter).thenApply(dataCursor -> new TxAwareAsyncCursor<>(
                 txWrapper,
                 dataCursor,
                 firstPageReady0
         ));
+        return f.whenComplete((r, t) -> {
+            if (t != null) {
+                txWrapper.rollback(t);
+            }
+        });
     }
 
     private static SqlOperationContext createOperationContext(

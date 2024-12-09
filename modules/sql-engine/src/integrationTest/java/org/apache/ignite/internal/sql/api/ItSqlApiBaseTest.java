@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
@@ -77,7 +79,6 @@ import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AssertionFailureBuilder;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -939,7 +940,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23693")
     public void cancelScript() {
         IgniteSql sql = igniteSql();
 
@@ -960,26 +960,47 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         assertThat(scriptFut.isDone(), is(false));
 
-        String expectedErrMsg = "The query was cancelled while executing.";
-
         cancelHandle.cancel();
 
-        assertThrowsSqlException(
-                Sql.EXECUTION_CANCELLED_ERR,
-                expectedErrMsg,
-                () -> IgniteTestUtils.await(scriptFut)
-        );
+        expectQueryCancelled(() -> IgniteTestUtils.await(scriptFut));
 
         assertThat(queryProcessor().runningQueries(), is(0));
         assertThat(txManager().pending(), is(0));
 
         // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
-        assertThrowsSqlException(
-                Sql.EXECUTION_CANCELLED_ERR,
-                expectedErrMsg,
-                () -> executeScript(sql, token, "SELECT 1; SELECT 2;")
-        );
+        expectQueryCancelled(() -> executeScript(sql, token, "SELECT 1; SELECT 2;"));
+
         assertThat(queryProcessor().runningQueries(), is(0));
+        assertThat(txManager().pending(), is(0));
+    }
+
+    @Test
+    public void cancelLongRunningStatement() throws InterruptedException {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE TABLE test (id INT PRIMARY KEY)");
+
+        // Long running DML query uses implicit RW transaction.
+        String query = "INSERT INTO test SELECT x FROM system_range(0, 10000000000);";
+
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+
+        // Run long DML query.
+
+        CompletableFuture<?> f = IgniteTestUtils.runAsync(() -> execute(sql, null, token, query));
+
+        // Wait until the query starts executing.
+        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueries(), greaterThan(0)));
+        // Wait a bit more to improve failure rate.
+        Thread.sleep(500);
+
+        // Wait for query cancel.
+        cancelHandle.cancel();
+
+        // Query was actually cancelled.
+        assertThat(queryProcessor().runningQueries(), is(0));
+        expectQueryCancelled(() -> await(f));
         assertThat(txManager().pending(), is(0));
     }
 
@@ -1092,6 +1113,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     protected ResultProcessor execute(IgniteSql sql, String query, Object... args) {
         return execute(null, null, sql, query, args);
     }
+
+    protected abstract void execute(IgniteSql sql, @Nullable Transaction tx, @Nullable CancellationToken token, String query);
 
     protected abstract void executeScript(IgniteSql sql, String query, Object... args);
 
