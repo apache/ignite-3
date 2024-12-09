@@ -54,6 +54,7 @@ import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
@@ -256,6 +257,21 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 JobDescriptor.builder(failingJobClassName()).units(units()).build(), null));
 
         assertComputeException(ex, "JobException", "Oops");
+    }
+
+    @Test
+    void executesFailingJobOnRemoteNodesWithOptions() {
+        Ignite entryNode = node(0);
+
+        JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
+
+        String result = entryNode.compute().execute(
+                JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
+                JobDescriptor.builder(FailingJobOnFirstExecution.class).units(units()).options(options).build(),
+                null
+        );
+
+        assertThat(result, is("done"));
     }
 
     @Test
