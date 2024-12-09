@@ -19,6 +19,7 @@ package org.apache.ignite.internal.lang;
 
 import static java.lang.invoke.MethodType.methodType;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
+import static org.apache.ignite.lang.ErrorGroups.Common.COMMON_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.util.TraceIdUtils.getOrCreateTraceId;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -199,6 +200,17 @@ public class IgniteExceptionTest {
         UUID traceId = getOrCreateTraceId(cause2);
 
         assertThat(traceId, is(any(UUID.class)));
+    }
+
+    @Test
+    public void testExceptionProperties() {
+        var ex = new IgniteException(UUID.randomUUID(), INTERNAL_ERR, "msg");
+
+        assertEquals(INTERNAL_ERR, ex.code());
+        assertEquals(-1, ex.errorCode());
+        assertEquals(COMMON_ERR_GROUP.groupCode(), ex.groupCode());
+        assertEquals(COMMON_ERR_GROUP.name(), ex.groupName());
+        assertEquals("IGN-CMN--1", ex.codeAsString());
     }
 
     /**
