@@ -26,7 +26,6 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.File;
@@ -40,7 +39,6 @@ import java.security.cert.CertificateException;
 import java.util.concurrent.CompletableFuture;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
-import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.SslConfiguration;
@@ -105,13 +103,11 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
         try {
             SslConfiguration ssl = clientCfg.ssl();
-            SslContextBuilder builder = SslContextBuilder.forClient().trustManager(loadTrustManagerFactory(ssl));
 
-            builder.ciphers(ssl.ciphers());
-            ClientAuth clientAuth = toNettyClientAuth(ssl.clientAuthenticationMode());
-            if (ClientAuth.NONE != clientAuth) {
-                builder.clientAuth(clientAuth).keyManager(loadKeyManagerFactory(ssl));
-            }
+            SslContextBuilder builder = SslContextBuilder.forClient()
+                    .trustManager(loadTrustManagerFactory(ssl))
+                    .keyManager(loadKeyManagerFactory(ssl))
+                    .ciphers(ssl.ciphers());
 
             SslContext context = builder.build();
 
@@ -149,15 +145,6 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         }
 
         return trustManagerFactory;
-    }
-
-    private static ClientAuth toNettyClientAuth(ClientAuthenticationMode igniteClientAuth) {
-        switch (igniteClientAuth) {
-            case NONE: return ClientAuth.NONE;
-            case REQUIRE: return ClientAuth.REQUIRE;
-            case OPTIONAL: return ClientAuth.OPTIONAL;
-            default: throw new IllegalArgumentException("Client authentication type is not supported");
-        }
     }
 
     /** {@inheritDoc} */

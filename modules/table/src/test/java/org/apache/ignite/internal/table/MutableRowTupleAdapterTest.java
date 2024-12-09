@@ -47,6 +47,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
+import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
+import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaAware;
@@ -362,6 +365,24 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
         assertEquals(key1, key2);
         assertEquals(val1, val2);
+    }
+
+    @Test
+    public void testTupleNetworkSerialization() throws Exception {
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+
+        Row row = marshaller.marshal(Tuple.create().set("id", 1L).set("simpleName", "Shirt"));
+
+        Tuple tuple = TableRow.tuple(row);
+
+        var userObjectDescriptorRegistry = new ClassDescriptorRegistry();
+        var userObjectDescriptorFactory = new ClassDescriptorFactory(userObjectDescriptorRegistry);
+
+        var userObjectMarshaller = new DefaultUserObjectMarshaller(userObjectDescriptorRegistry, userObjectDescriptorFactory);
+
+        Tuple unmarshalled = userObjectMarshaller.unmarshal(userObjectMarshaller.marshal(tuple).bytes(), userObjectDescriptorRegistry);
+
+        assertEquals(tuple, unmarshalled);
     }
 
     @Test

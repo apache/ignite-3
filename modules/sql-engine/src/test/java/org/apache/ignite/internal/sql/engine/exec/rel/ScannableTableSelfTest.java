@@ -584,13 +584,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final TestInput input;
 
-        final RowCollectingTableRwoConverter rowConverter;
+        final RowCollectingTableRowConverter rowConverter;
 
         BitSet requiredFields;
 
         Tester(TestInput input) {
             this.input = input;
-            rowConverter = new RowCollectingTableRwoConverter(input);
+            rowConverter = new RowCollectingTableRowConverter(input);
             scannableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
         }
 
@@ -805,13 +805,13 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
     }
 
     // Collects rows received from an input source.
-    static class RowCollectingTableRwoConverter implements TableRowConverter {
+    static class RowCollectingTableRowConverter implements TableRowConverter {
 
         final TestInput testInput;
 
         final List<BinaryRow> converted = new ArrayList<>();
 
-        RowCollectingTableRwoConverter(TestInput testData) {
+        RowCollectingTableRowConverter(TestInput testData) {
             this.testInput = testData;
         }
 
@@ -845,9 +845,9 @@ public class ScannableTableSelfTest extends BaseIgniteAbstractTest {
 
         final AtomicReference<Throwable> err = new AtomicReference<>();
 
-        final RowCollectingTableRwoConverter rowConverter;
+        final RowCollectingTableRowConverter rowConverter;
 
-        ResultCollector(Publisher<?> input, RowCollectingTableRwoConverter rowConverter) {
+        ResultCollector(Publisher<?> input, RowCollectingTableRowConverter rowConverter) {
             this.input = input;
             this.rowConverter = rowConverter;
 
