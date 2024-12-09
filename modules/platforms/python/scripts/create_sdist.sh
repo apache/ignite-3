@@ -20,7 +20,7 @@ PACKAGE_NAME=pyignite3
 
 # Create source dist.
 for PYBIN in /opt/python/*/bin; do
-    if [[ $PYBIN =~ ^(.*)cp39(.*)$ ]] || [[ $PYBIN =~ ^(.*)cp1[012](.*)$ ]]; then
+    if [[ $PYBIN =~ ^(.*)cp39(.*)$ ]] || [[ $PYBIN =~ ^(.*)cp1[0123](.*)$ ]]; then
         cd $PACKAGE_NAME
         "${PYBIN}/python" setup.py sdist --formats=gztar,zip --dist-dir /dist
         break;

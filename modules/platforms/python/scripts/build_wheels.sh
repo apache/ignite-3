@@ -29,7 +29,7 @@ function repair_wheel {
 
 # Compile wheels
 for PYBIN in /opt/python/*/bin; do
-    if [[ $PYBIN =~ ^(.*)cp39(.*)$ ]] || [[ $PYBIN =~ ^(.*)cp1[012](.*)$ ]]; then
+    if [[ $PYBIN =~ ^(.*)cp39(.*)$ ]] || [[ $PYBIN =~ ^(.*)cp1[0123](.*)$ ]]; then
         "${PYBIN}/pip" wheel /$PACKAGE_NAME/ --no-deps -w /wheels
     fi
 done

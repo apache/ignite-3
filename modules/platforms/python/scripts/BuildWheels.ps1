@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-$PyVers="39","310","311","312"
+$PyVers="39","310","311","312","313"
 
 foreach ($Ver in $PyVers)
 {
