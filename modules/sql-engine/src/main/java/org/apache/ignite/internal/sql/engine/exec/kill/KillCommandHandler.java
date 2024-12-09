@@ -21,6 +21,7 @@ import java.util.EnumMap;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
@@ -30,7 +31,9 @@ import org.apache.ignite.internal.sql.engine.message.CancelOperationRequest;
 import org.apache.ignite.internal.sql.engine.message.CancelOperationResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -97,13 +100,20 @@ public class KillCommandHandler implements KillHandlerRegistry {
     public CompletableFuture<Boolean> handle(KillCommand cmd) {
         OperationKillHandler handler = handlerOrThrow(cmd.type(), false);
 
-        CompletableFuture<Boolean> killFut = handler.cancelAsync(cmd.operationId());
+        try {
+            CompletableFuture<Boolean> killFut = handler.cancelAsync(cmd.operationId());
 
-        if (cmd.noWait()) {
-            return CompletableFuture.completedFuture(true);
+            if (cmd.noWait()) {
+                return CompletableFuture.completedFuture(true);
+            }
+
+            return killFut;
+        } catch (IllegalArgumentException e) {
+            String errMessage = IgniteStringFormatter.format(
+                    "Invalid operation ID format [operationId={}, type={}].", cmd.operationId(), cmd.type());
+
+            return CompletableFuture.failedFuture(new SqlException(Sql.RUNTIME_ERR, errMessage, e));
         }
-
-        return killFut;
     }
 
     OperationKillHandler handlerOrThrow(CancellableOperationType type, boolean local) {

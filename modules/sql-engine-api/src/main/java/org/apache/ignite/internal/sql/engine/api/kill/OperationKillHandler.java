@@ -31,6 +31,8 @@ public interface OperationKillHandler {
      * @param operationId ID of the operation to cancel.
      * @return {@code true} if the operation was successfully canceled,
      *         {@code false} if a specific operation was not found.
+     *
+     * @throws IllegalArgumentException If the operation identifier is not in the correct format.
      */
     CompletableFuture<Boolean> cancelAsync(String operationId);
 

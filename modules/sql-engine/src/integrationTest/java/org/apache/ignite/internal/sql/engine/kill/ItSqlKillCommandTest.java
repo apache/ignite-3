@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQuer
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 
 import java.util.List;
@@ -38,9 +40,10 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -66,11 +69,15 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
     @Test
     public void killWithInvalidQueryIdentifier() {
-        assertThrowsSqlException(
-                Common.INTERNAL_ERR,
-                "Invalid UUID string: 123",
-                () -> sql("KILL QUERY '123'")
+        SqlException err = assertThrowsSqlException(
+                SqlException.class,
+                Sql.RUNTIME_ERR,
+                "Invalid operation ID format [operationId=123, type=QUERY]",
+                () -> await(igniteSql().executeAsync(null, "KILL QUERY '123'"))
         );
+
+        assertThat(err.getCause(), instanceOf(IllegalArgumentException.class));
+        assertThat(err.getCause().getMessage(), equalTo("Invalid UUID string: 123"));
     }
 
     @Test
