@@ -184,19 +184,7 @@ public class WatchProcessor implements ManuallyCloseable {
                     long newRevision = updatedEntries.get(0).revision();
 
                     List<Entry> filteredUpdatedEntries = updatedEntries.stream()
-                            .filter(entry -> {
-                                int prefixLength = IDEMPOTENT_COMMAND_PREFIX_BYTES.length;
-
-                                //noinspection SimplifiableIfStatement
-                                if (entry.key().length <= prefixLength) {
-                                    return true;
-                                }
-
-                                return !Arrays.equals(
-                                        entry.key(), 0, prefixLength,
-                                        IDEMPOTENT_COMMAND_PREFIX_BYTES, 0, prefixLength
-                                );
-                            })
+                            .filter(WatchProcessor::isNotIdempotentCacheCommand)
                             .collect(toList());
 
                     // Collect all the events for each watch.
@@ -455,5 +443,19 @@ public class WatchProcessor implements ManuallyCloseable {
                         notifyFailureHandlerOnFirstFailureInNotificationChain(e);
                     }
                 });
+    }
+
+    private static boolean isNotIdempotentCacheCommand(Entry entry) {
+        int prefixLength = IDEMPOTENT_COMMAND_PREFIX_BYTES.length;
+
+        //noinspection SimplifiableIfStatement
+        if (entry.key().length <= prefixLength) {
+            return true;
+        }
+
+        return !Arrays.equals(
+                entry.key(), 0, prefixLength,
+                IDEMPOTENT_COMMAND_PREFIX_BYTES, 0, prefixLength
+        );
     }
 }
