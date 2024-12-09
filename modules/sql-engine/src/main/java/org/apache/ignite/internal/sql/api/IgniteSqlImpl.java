@@ -409,12 +409,6 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         return result.exceptionally((th) -> {
             Throwable cause = ExceptionUtils.unwrapCause(th);
 
-            Throwable e = mapToPublicSqlException(cause);
-
-            e.printStackTrace();
-
-            System.err.println(">>>>>>>>>>>>>>>>>>");
-
             throw new CompletionException(mapToPublicSqlException(cause));
         });
     }

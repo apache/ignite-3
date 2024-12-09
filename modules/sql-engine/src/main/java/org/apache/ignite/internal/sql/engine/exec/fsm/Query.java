@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -69,6 +70,9 @@ class Query {
     private final ConcurrentMap<ExecutionPhase, CompletableFuture<Void>> onPhaseStartedCallback = new ConcurrentHashMap<>();
 
     private volatile ExecutionPhase currentPhase = ExecutionPhase.REGISTERED;
+
+    /** Future that completes when this query is completed and removed from the running queries registry. */
+    private final CompletableFuture<Void> terminationDoneFuture = new CompletableFuture<>();
 
     /** Constructs the query. */
     Query(
@@ -138,9 +142,34 @@ class Query {
         resultHolder.completeExceptionally(th);
     }
 
+    /**
+     * Self-registration of this query in the queries registry.
+     *
+     * @param runningQueries Running queries registry.
+     * @return A future that will complete when the query is removed from the registry.
+     */
+    CompletableFuture<?> register(Map<UUID, Query> runningQueries) {
+        Query old = runningQueries.put(id, this);
+
+        assert old == null : "Query with the same id already registered";
+
+        onPhaseStarted(ExecutionPhase.TERMINATED).whenComplete((ignored, ex) -> {
+            runningQueries.remove(id);
+
+            terminationDoneFuture.complete(null);
+        });
+
+        return terminationDoneFuture;
+    }
+
+    /**
+     * Cancels this query.
+     *
+     * @return Future that completes when the query is cancelled and is removed from the running queries registry.
+     */
     CompletableFuture<Void> cancel() {
         cancel.cancel();
 
-        return onPhaseStarted(ExecutionPhase.TERMINATED);
+        return terminationDoneFuture;
     }
 }
