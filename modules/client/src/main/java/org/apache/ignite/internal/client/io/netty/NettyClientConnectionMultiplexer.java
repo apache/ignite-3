@@ -49,7 +49,6 @@ import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.lang.ErrorGroups.Client;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -116,7 +115,8 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
 
             return builder.build();
         } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException | UnrecoverableKeyException e) {
-            throw new IgniteException(CLIENT_SSL_CONFIGURATION_ERR, "Client SSL configuration error: " + e.getMessage(), e);
+            throw new IgniteClientConnectionException(
+                    CLIENT_SSL_CONFIGURATION_ERR, "Client SSL configuration error: " + e.getMessage(), null, e);
         }
     }
 
