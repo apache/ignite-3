@@ -116,6 +116,10 @@ public enum IgniteMethod {
      */
     TRUNCATE(IgniteSqlFunctions.class, "struncate", true),
 
+    LN(IgniteSqlFunctions.class, "log", true),
+    LOG(IgniteSqlFunctions.class, "log", true),
+    LOG10(IgniteSqlFunctions.class, "log", true),
+
     /**
      * Decimal division as well as division operator used by REDUCE phase of AVG aggregate.
      * See {@link IgniteMath#decimalDivide(BigDecimal, BigDecimal, int, int)}.

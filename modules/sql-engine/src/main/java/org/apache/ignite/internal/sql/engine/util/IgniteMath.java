@@ -44,8 +44,8 @@ public class IgniteMath {
     private static final BigDecimal UPPER_FLOAT_BIG_DECIMAL = new BigDecimal(String.valueOf(Float.MAX_VALUE));
     private static final BigDecimal LOWER_FLOAT_BIG_DECIMAL = UPPER_FLOAT_BIG_DECIMAL.negate();
 
-    private static final double UPPER_FLOAT_DOUBLE = Float.MAX_VALUE;
-    private static final double LOWER_FLOAT_DOUBLE = -Float.MAX_VALUE;
+    private static final double UPPER_FLOAT_DOUBLE = Double.parseDouble("" + Float.MAX_VALUE);
+    private static final double LOWER_FLOAT_DOUBLE = Double.parseDouble("" + (-Float.MAX_VALUE));
 
     /** Decimal rounding mode. */
     public static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_UP;

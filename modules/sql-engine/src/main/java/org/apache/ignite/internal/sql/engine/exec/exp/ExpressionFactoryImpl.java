@@ -353,7 +353,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         RelDataType dataType = literal.getType();
 
         if (SqlTypeUtil.isNumeric(dataType)) {
-            BigDecimal value = (BigDecimal) literal.getValue();
+            Number value = (Number) literal.getValue();
             if (value == null) {
                 return null;
             }
@@ -1223,7 +1223,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    private static Object convertNumericLiteral(RelDataType dataType, BigDecimal value, Class<?> type) {
+    private static Object convertNumericLiteral(RelDataType dataType, Number value, Class<?> type) {
         Primitive primitive = Primitive.ofBoxOr(type);
         assert primitive != null || type == BigDecimal.class : "Neither primitive nor BigDecimal: " + type;
 
