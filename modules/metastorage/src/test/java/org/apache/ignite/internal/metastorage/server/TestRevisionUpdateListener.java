@@ -15,20 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.problem;
+package org.apache.ignite.internal.metastorage.server;
 
-import io.micronaut.http.MediaType;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-/**
- * Media type for problem json.
- */
-public final class ProblemJsonMediaType extends MediaType {
-    /**
-     * Media type for problem json.
-     */
-    public static final ProblemJsonMediaType APPLICATION_PROBLEM_JSON_TYPE = new ProblemJsonMediaType("application/problem+json");
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 
-    private ProblemJsonMediaType(String name) {
-        super(name);
+class TestRevisionUpdateListener implements RevisionUpdateListener {
+    private final Map<Long, CompletableFuture<Void>> futureByRevision = new ConcurrentHashMap<>();
+
+    @Override
+    public CompletableFuture<?> onUpdated(long revision) {
+        get(revision).complete(null);
+
+        return nullCompletedFuture();
+    }
+
+    CompletableFuture<Void> get(long revision) {
+        return futureByRevision.computeIfAbsent(revision, revision0 -> new CompletableFuture<>());
     }
 }

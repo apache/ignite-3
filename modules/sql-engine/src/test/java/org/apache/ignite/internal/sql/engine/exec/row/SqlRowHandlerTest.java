@@ -157,13 +157,16 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         RowFactory<RowWrapper> factory = handler.factory(schema);
 
         RowWrapper srcRow = factory.create(sourceData);
+
         RowWrapper srcBinRow = factory.create(handler.toBinaryTuple(srcRow));
 
-        RowWrapper mappedRow = handler.map(srcRow, mapping);
-        RowWrapper mappedFromBinRow = handler.map(srcBinRow, mapping);
-
         RowSchema mappedSchema = rowSchema(columnTypes.subList(0, mapping.length), Arrays.copyOf(sourceData, mapping.length));
-        RowWrapper deserializedMappedBinRow = handler.factory(mappedSchema).create(handler.toBinaryTuple(mappedFromBinRow));
+        RowFactory<RowWrapper> mappedFactory = handler.factory(mappedSchema);
+
+        RowWrapper mappedRow = mappedFactory.map(srcRow, mapping);
+        RowWrapper mappedFromBinRow = mappedFactory.map(srcBinRow, mapping);
+
+        RowWrapper deserializedMappedBinRow = mappedFactory.create(handler.toBinaryTuple(mappedFromBinRow));
 
         assertThat(handler.columnCount(mappedRow), equalTo(mapping.length));
         assertThat(handler.columnCount(mappedFromBinRow), equalTo(mapping.length));
@@ -175,6 +178,33 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
             assertThat(handler.get(i, mappedFromBinRow), equalTo(expected));
             assertThat(handler.get(i, deserializedMappedBinRow), equalTo(expected));
         }
+    }
+
+    @Test
+    public void testUpdateRowSchemaOnMapping() {
+        RowHandler<RowWrapper> handler = SqlRowHandler.INSTANCE;
+
+        RowSchema rowSchema = RowSchema.builder()
+                .addField(NativeTypes.INT32)
+                .addField(NativeTypes.STRING)
+                .build();
+
+        RowWrapper row1 = handler.factory(rowSchema).rowBuilder()
+                .addField(1).addField("2")
+                .build();
+
+        RowSchema reverseRowSchema = RowSchema.builder()
+                .addField(NativeTypes.STRING)
+                .addField(NativeTypes.INT32)
+                .build();
+
+        RowFactory<RowWrapper> factory = handler.factory(reverseRowSchema);
+
+        RowWrapper reverseMapping = factory.map(row1, new int[]{1, 0});
+
+        BinaryTuple mappedBinaryTuple = handler.toBinaryTuple(reverseMapping);
+        assertEquals("2", mappedBinaryTuple.stringValue(0));
+        assertEquals(1, mappedBinaryTuple.intValue(1));
     }
 
     private static Stream<Arguments> concatTestArguments() {

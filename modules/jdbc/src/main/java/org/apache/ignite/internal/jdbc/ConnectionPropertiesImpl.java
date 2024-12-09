@@ -25,8 +25,6 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.StringTokenizer;
-import java.util.stream.Collectors;
-import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -98,21 +96,9 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty keyStorePassword = new StringProperty("keyStorePassword",
             "Key store password", null, null, false, null);
 
-    /** SSL client authentication. */
-    private final StringProperty clientAuth = new StringProperty("clientAuth",
-            "SSL client authentication", "none", clientAuthValues(), false, null);
-
     /** SSL ciphers list. */
     private final StringProperty ciphers = new StringProperty("ciphers",
             "SSL ciphers", null, null, false, null);
-
-    private static String[] clientAuthValues() {
-        return Arrays.stream(ClientAuthenticationMode.values())
-                .map(Enum::name)
-                .map(String::toLowerCase)
-                .collect(Collectors.toList())
-                .toArray(String[]::new);
-    }
 
     /** Enable SSL. */
     private final BooleanProperty sslEnabled = new BooleanProperty("sslEnabled",
@@ -133,7 +119,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword,
-            sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword,
+            sslEnabled, ciphers, keyStorePath, keyStorePassword,
             username, password, connectionTimeZone
     };
 
@@ -305,18 +291,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public void setSslEnabled(boolean enabled) {
         sslEnabled.setValue(enabled);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setClientAuth(ClientAuthenticationMode clientAuth) {
-        this.clientAuth.setValue(clientAuth.name().toLowerCase());
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ClientAuthenticationMode getClientAuth() {
-        return ClientAuthenticationMode.valueOf(this.clientAuth.value().toUpperCase());
     }
 
     @Override

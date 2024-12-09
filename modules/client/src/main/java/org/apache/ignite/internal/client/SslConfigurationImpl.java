@@ -17,15 +17,12 @@
 
 package org.apache.ignite.internal.client;
 
-import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.SslConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /** SSL configuration. */
 public class SslConfigurationImpl implements SslConfiguration {
     private final boolean enabled;
-
-    private final ClientAuthenticationMode clientAuth;
 
     private final @Nullable Iterable<String> ciphers;
 
@@ -38,9 +35,8 @@ public class SslConfigurationImpl implements SslConfiguration {
     private final @Nullable String trustStorePassword;
 
     /** Main constructor. */
-    SslConfigurationImpl(
+    public SslConfigurationImpl(
             boolean enabled,
-            ClientAuthenticationMode clientAuth,
             @Nullable Iterable<String> ciphers,
             @Nullable String keyStorePath,
             @Nullable String keyStorePassword,
@@ -48,7 +44,6 @@ public class SslConfigurationImpl implements SslConfiguration {
             @Nullable String trustStorePassword
     ) {
         this.enabled = enabled;
-        this.clientAuth = clientAuth;
         this.ciphers = ciphers;
         this.keyStorePath = keyStorePath;
         this.keyStorePassword = keyStorePassword;
@@ -60,12 +55,6 @@ public class SslConfigurationImpl implements SslConfiguration {
     @Override
     public boolean enabled() {
         return enabled;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public ClientAuthenticationMode clientAuthenticationMode() {
-        return clientAuth;
     }
 
     @Override

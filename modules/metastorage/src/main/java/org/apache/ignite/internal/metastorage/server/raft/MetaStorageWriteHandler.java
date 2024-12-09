@@ -29,12 +29,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
@@ -163,18 +161,17 @@ public class MetaStorageWriteHandler {
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
-        } catch (IgniteInternalException e) {
-            clo.result(e);
-        } catch (CompletionException e) {
-            clo.result(e.getCause());
-        } catch (Throwable t) {
+        } catch (Throwable e) {
             LOG.error(
                     "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
-                    t,
+                    e,
                     commandIndex, commandTerm, command
             );
 
-            throw t;
+            clo.result(e);
+
+            // Rethrowing to let JRaft know that the state machine might be broken.
+            throw e;
         }
     }
 

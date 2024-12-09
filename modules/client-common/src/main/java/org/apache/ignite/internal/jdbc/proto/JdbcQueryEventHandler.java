@@ -33,6 +33,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCancelResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 
@@ -116,4 +117,13 @@ public interface JdbcQueryEventHandler {
      * @return Result future.
      */
     CompletableFuture<JdbcFinishTxResult> finishTxAsync(long connectionId, boolean commit);
+
+    /**
+     * Cancels the execution of JDBC statement.
+     *
+     * @param connectionId An identifier of the connection on a server.
+     * @param correlationToken A token associated with the execution.
+     * @return Result future.
+     */
+    CompletableFuture<JdbcQueryCancelResult> cancelAsync(long connectionId, long correlationToken);
 }

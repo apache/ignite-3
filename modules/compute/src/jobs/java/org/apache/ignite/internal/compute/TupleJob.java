@@ -15,14 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.problem;
+package org.apache.ignite.internal.compute;
+
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.table.Tuple;
 
 /**
- * Generic interface for builders.
- *
- * @param <T> built type.
- * @param <B> builder type.
+ * Returns a value of the "COUNT" column as an integer.
  */
-public interface Builder<T, B extends Builder<T, B>> {
-    T build();
+public class TupleJob implements ComputeJob<Tuple, Integer> {
+    @Override
+    public CompletableFuture<Integer> executeAsync(JobExecutionContext jobExecutionContext, Tuple arg) {
+        return completedFuture(arg.intValue("COUNT"));
+    }
 }

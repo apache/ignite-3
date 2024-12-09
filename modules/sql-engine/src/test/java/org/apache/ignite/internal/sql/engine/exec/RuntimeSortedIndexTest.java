@@ -115,7 +115,7 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
         RuntimeSortedIndex<Object[]> idx = new RuntimeSortedIndex<>(
                 new ExecutionContext<>(
                         null,
-                        randomUUID(),
+                        new ExecutionId(randomUUID(), 0),
                         new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
                         "fake-test-node",
                         null,

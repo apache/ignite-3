@@ -15,17 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
+package org.apache.ignite.internal.jdbc.proto.event;
 
-/** Ignite SSL client authentication enum. */
-public enum ClientAuthenticationMode {
-    /** Indicates that the client authentication will not be requested. */
-    NONE,
+import org.apache.ignite.internal.tostring.S;
 
-    /** Indicates that the client authentication will be requested. */
-    OPTIONAL,
+/**
+ * JDBC query cancel result.
+ */
+public class JdbcQueryCancelResult extends Response {
+    /**
+     * Default constructor is used for deserialization.
+     */
+    public JdbcQueryCancelResult() { }
 
-    /** Indicates that the client authentication will be requested and the connection will be closed if the client
-     * certificate is not trusted. */
-    REQUIRE
+    /**
+     * Constructor.
+     *
+     * @param status Status code.
+     * @param err    Error message.
+     */
+    public JdbcQueryCancelResult(int status, String err) {
+        super(status, err);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(JdbcQueryCancelResult.class, this);
+    }
 }
