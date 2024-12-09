@@ -66,7 +66,8 @@ public class RetryReadPolicy extends RetryLimitPolicy {
                 return false;
 
             default:
-                throw new UnsupportedOperationException("Unsupported operation type: " + context.operation());
+                assert false : "Unexpected operation: " + context.operation();
+                return false;
         }
     }
 }

@@ -177,7 +177,6 @@ public class WatchProcessor implements ManuallyCloseable {
     public CompletableFuture<Void> notifyWatches(List<Entry> updatedEntries, HybridTimestamp time) {
         assert time != null;
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23675
         CompletableFuture<Void> newFuture = notificationFuture
                 .thenComposeAsync(v -> {
                     // Revision must be the same for all entries.
@@ -221,6 +220,12 @@ public class WatchProcessor implements ManuallyCloseable {
 
                                 return notificationFuture;
                             }, watchExecutor);
+                }, watchExecutor)
+                .whenCompleteAsync((unused, throwable) -> {
+                    if (throwable != null) {
+                        LOG.error("Failed to notify watches.", throwable);
+                        notifyFailureHandlerOnFirstFailureInNotificationChain(throwable);
+                    }
                 }, watchExecutor);
 
         notificationFuture = newFuture;
@@ -421,10 +426,20 @@ public class WatchProcessor implements ManuallyCloseable {
 
                     watchEventHandlingCallback.onSafeTimeAdvanced(time);
                 }, watchExecutor)
-                .whenComplete((ignored, e) -> {
-                    if (e != null) {
-                        failureManager.process(new FailureContext(CRITICAL_ERROR, e));
-                    }
-                });
+                .whenComplete((ignored, e) -> notifyFailureHandlerOnFirstFailureInNotificationChain(e));
+    }
+
+    /**
+     * Updates the metastorage revision in the WatchEvent queue. It should be used for those cases when the revision has been updated but
+     * no {@link Entry}s have been updated.
+     *
+     * @param newRevision New metastorage revision.
+     * @param time Metastorage revision update timestamp.
+     */
+    void updateOnlyRevision(long newRevision, HybridTimestamp time) {
+        notificationFuture = notificationFuture
+                .thenComposeAsync(unused -> notifyUpdateRevisionListeners(newRevision), watchExecutor)
+                .thenRunAsync(() -> invokeOnRevisionCallback(newRevision, time), watchExecutor)
+                .whenComplete((ignored, e) -> notifyFailureHandlerOnFirstFailureInNotificationChain(e));
     }
 }

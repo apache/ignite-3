@@ -17,28 +17,24 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.util.List;
-import org.apache.ignite.internal.metastorage.CommandId;
-import org.apache.ignite.internal.metastorage.Entry;
+import org.junit.jupiter.api.Test;
 
-/**
- * Defines interface for boolean condition which could be applied to an array of entries.
- *
- * @see KeyValueStorage#invoke(Condition, List, List, KeyValueUpdateContext, CommandId)
- */
-public interface Condition {
-    /**
-     * Returns the keys which identifies an entries which condition will be applied to.
-     *
-     * @return The keys which identifies an entries which condition will be applied to.
-     */
-    byte[][] keys();
+class MetastorageChecksumTest {
+    @Test
+    void removeAllKeysOrderIsInsignificant() {
+        MetastorageChecksum checksum1 = new MetastorageChecksum(42);
+        MetastorageChecksum checksum2 = new MetastorageChecksum(42);
 
-    /**
-     * Tests the given entries on condition.
-     *
-     * @param entries Array of entries which will be tested on the condition. Can't be {@code null}.
-     * @return {@code True} if the given entries satisfies to the condition, otherwise - {@code false}.
-     */
-    boolean test(Entry... entries);
+        byte[] key1 = "abc".getBytes(UTF_8);
+        byte[] key2 = "def".getBytes(UTF_8);
+
+        checksum1.wholeRemoveAll(List.of(key1, key2));
+        checksum2.wholeRemoveAll(List.of(key2, key1));
+
+        assertEquals(checksum1.roundValue(), checksum2.roundValue());
+    }
 }

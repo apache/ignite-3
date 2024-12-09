@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.UUID.randomUUID;
-import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -49,13 +48,11 @@ import static org.mockito.Mockito.when;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
@@ -74,7 +71,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -93,10 +89,8 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
-import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
@@ -679,79 +673,25 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertThat(stopFuture, willSucceedIn(10, TimeUnit.SECONDS));
     }
 
-    /**
-     * Tests the ability to run multiple statements using {@link QueryPrefetchCallback}. Each subsequent
-     * statement begins execution after the prefetching for the previous statement is completed.
-     *
-     * @throws Exception If failed.
-     */
     @Test
-    public void testPrefetchCallbackInvocation() throws Exception {
+    public void ensureFirstPageReadyCallbackIsTriggered() {
         String query = "SELECT * FROM test_tbl";
-        int totalStatements = 20;
-        Collection<CompletableFuture<AsyncDataCursor<InternalSqlRow>>> resultCursors = new ArrayBlockingQueue<>(totalStatements);
-        List<String> queries = IntStream.range(0, totalStatements).boxed().map(n -> query).collect(Collectors.toList());
-        ArrayBlockingQueue<String> queriesQueue = new ArrayBlockingQueue<>(totalStatements, false, queries);
-        AtomicReference<AssertionError> errHolder = new AtomicReference<>();
+        SqlOperationContext context = createContext();
+        QueryPlan plan = prepare(query, context);
+
         ExecutionService execService = executionServices.get(0);
 
-        Supplier<PrefetchCallback> callbackSupplier = new Supplier<>() {
-            @Override
-            public PrefetchCallback get() {
-                PrefetchCallback prefetchCallback = new PrefetchCallback();
+        AsyncDataCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, context));
 
-                prefetchCallback.prefetchFuture().whenComplete((ignored, err) -> {
-                    try {
-                        assertThat(err, nullValue());
-
-                        String sql = queriesQueue.poll();
-
-                        assertThat(sql, notNullValue());
-
-                        SqlOperationContext ctx = createContext(queriesQueue.isEmpty() ? null : get());
-                        QueryPlan plan = prepare(sql, ctx);
-
-                        resultCursors.add(
-                                execService.executePlan(plan, ctx)
-                        );
-                    } catch (AssertionError e) {
-                        errHolder.set(e);
-                    } catch (Throwable t) {
-                        errHolder.set(new AssertionError(t));
-                    }
-                });
-
-                return prefetchCallback;
-            }
-        };
-
-        // Start statements execution.
-        callbackSupplier.get().onPrefetchComplete(null);
-
-        waitForCondition(() -> resultCursors.size() == queries.size(), TIMEOUT_IN_MS);
-
-        if (errHolder.get() != null) {
-            throw errHolder.get();
-        }
-
-        assertEquals(queries.size(), resultCursors.size());
-
-        CompletableFuture<?>[] closeFutures = resultCursors.stream()
-                .map(cursorFuture -> cursorFuture.thenCompose(AsyncCursor::closeAsync))
-                .toArray(CompletableFuture[]::new);
-
-        assertThat(allOf(closeFutures), willCompleteSuccessfully());
+        assertThat(cursor.onFirstPageReady(), willCompleteSuccessfully());
+        assertThat(cursor.closeAsync(), willCompleteSuccessfully());
     }
 
-    /**
-     * Test ensures that an exception during data prefetching is propagated to the callback.
-     */
     @Test
-    public void testErrorIsPropagatedToPrefetchCallback() {
+    public void ensureErrorIsPropagatedToFirstPageReadyCallback() {
         ExecutionService execService = executionServices.get(0);
-        PrefetchCallback prefetchCallback = new PrefetchCallback();
         SqlException expectedException = new SqlException(Common.INTERNAL_ERR, "Expected exception");
-        SqlOperationContext ctx = createContext(prefetchCallback);
+        SqlOperationContext ctx = createContext();
 
         testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
             if (msg instanceof QueryStartRequest) {
@@ -769,9 +709,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         });
 
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
-        AsyncCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
+        AsyncDataCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
 
-        assertThat(prefetchCallback.prefetchFuture(), willThrow(equalTo(expectedException)));
+        assertThat(cursor.onFirstPageReady(), willThrow(equalTo(expectedException)));
 
         assertThat(cursor.closeAsync(), willCompleteSuccessfully());
     }
@@ -781,7 +721,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         ExecutionService execService = executionServices.get(0);
 
         QueryCancel cancel = new QueryCancel();
-        SqlOperationContext ctx = operationContext(null)
+        SqlOperationContext ctx = operationContext()
                 .cancel(cancel)
                 .build();
 
@@ -899,7 +839,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         ExecutionService execService = executionServices.get(0);
 
         // Use a separate context, so planning won't timeout.
-        SqlOperationContext planCtx = operationContext(null).build();
+        SqlOperationContext planCtx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
 
         awaitExecutionTimeout(execService, plan, deadlineMillis, SqlException.class);
@@ -910,13 +850,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         ExecutionService execService = executionServices.get(0);
 
         // Use a separate context, so planning won't timeout.
-        SqlOperationContext planCtx = operationContext(null).build();
+        SqlOperationContext planCtx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl", planCtx);
 
         QueryCancel queryCancel = new QueryCancel();
         CompletableFuture<Void> timeoutFut = setTimeout(queryCancel, 0);
 
-        SqlOperationContext ctx = operationContext(null)
+        SqlOperationContext ctx = operationContext()
                 .cancel(queryCancel)
                 .build();
 
@@ -935,7 +875,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         int deadlineMillis = 500;
 
         // Use a separate context, so planning won't timeout.
-        SqlOperationContext planCtx = operationContext(null).build();
+        SqlOperationContext planCtx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl WHERE id = 1", planCtx);
 
         assertInstanceOf(KeyValueGetPlan.class, plan);
@@ -952,7 +892,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     @Test
     public void testTimeoutKvModify() {
         // Use a separate context, so planning won't timeout.
-        SqlOperationContext planCtx = operationContext(null).build();
+        SqlOperationContext planCtx = createContext();
         QueryPlan plan = prepare("INSERT INTO test_tbl VALUES(1, 2)", planCtx);
 
         assertInstanceOf(KeyValueModifyPlan.class, plan);
@@ -971,7 +911,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     @Test
     public void testTimeoutDdl() {
         // Use a separate context, so planning won't timeout.
-        SqlOperationContext planCtx = operationContext(null).build();
+        SqlOperationContext planCtx = createContext();
         QueryPlan plan = prepare("CREATE TABLE x (id INTEGER PRIMARY KEY, val INTEGER)", planCtx);
 
         assertInstanceOf(DdlPlan.class, plan);
@@ -998,7 +938,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryTransactionContext txContext = ImplicitTxContext.INSTANCE;
 
         // Use a separate context, so planning won't timeout.
-        SqlOperationContext planCtx = operationContext(null)
+        SqlOperationContext planCtx = operationContext()
                 .txContext(txContext)
                 .build();
 
@@ -1014,7 +954,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
         tableRegistry.setGetTableDelay(delay);
 
-        Function<QueryCancel, SqlOperationContext> implicitTx = (cancel) -> operationContext(null)
+        Function<QueryCancel, SqlOperationContext> implicitTx = (cancel) -> operationContext()
                 .cancel(cancel)
                 .txContext(txContext)
                 .build();
@@ -1038,12 +978,12 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 nodeName -> new TestSingleThreadQueryExecutor(nodeName, exHolder)
         );
 
-        QueryPlan plan = prepare("SELECT * FROM test_tbl", operationContext(null).build());
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", createContext());
 
         QueryCancel queryCancel = new QueryCancel();
         CompletableFuture<Void> timeoutFut = setTimeout(queryCancel, 50);
 
-        SqlOperationContext ctx = operationContext(null)
+        SqlOperationContext ctx = operationContext()
                 .cancel(queryCancel)
                 .build();
 
@@ -1217,18 +1157,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private SqlOperationContext createContext() {
-        return createContext(null);
+        return operationContext().build();
     }
 
-    private SqlOperationContext createContext(@Nullable PrefetchCallback prefetchCallback) {
-        return operationContext(prefetchCallback).build();
-    }
-
-    private SqlOperationContext.Builder operationContext(@Nullable PrefetchCallback prefetchCallback) {
+    private SqlOperationContext.Builder operationContext() {
         return SqlOperationContext.builder()
                 .queryId(randomUUID())
                 .cancel(new QueryCancel())
-                .prefetchCallback(prefetchCallback != null ? prefetchCallback : new PrefetchCallback())
                 .operationTime(new HybridClockImpl().now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
@@ -1277,7 +1212,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             Class<? extends RuntimeException> errorClass
     ) {
         // operationContext uses explicit transaction by default.
-        Function<QueryCancel, SqlOperationContext> explicitTx = (cancel) -> operationContext(null)
+        Function<QueryCancel, SqlOperationContext> explicitTx = (cancel) -> operationContext()
                 .cancel(cancel)
                 .build();
 

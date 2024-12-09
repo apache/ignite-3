@@ -97,6 +97,10 @@ public class TestCluster implements LifecycleAware {
 
         nodeByName.values().forEach(TestNode::start);
 
+        nodeByName.values().iterator().next().initSchema(
+                "CREATE TABLE blackhole (x INT PRIMARY KEY)"
+        );
+
         initClosure.run();
     }
 

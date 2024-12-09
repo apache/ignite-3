@@ -157,4 +157,15 @@ public class WatchListenerInhibitor {
     public static <T> T withInhibition(Ignite ignite, Supplier<? extends T> action) {
         return metastorageEventsInhibitor(ignite).withInhibition(action);
     }
+
+    /**
+     * Executes an action enclosed in watch inhibition: that is, before execution inhibition gets started, and after the execution
+     * it gets stopped.
+     *
+     * @param ignite Node on which to inhibit watch processing.
+     * @param action Action to execute.
+     */
+    public static void withInhibition(Ignite ignite, Runnable action) {
+        metastorageEventsInhibitor(ignite).withInhibition(action);
+    }
 }

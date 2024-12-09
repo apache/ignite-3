@@ -56,7 +56,7 @@ public class ClientBinaryTupleUtils {
      * @param index Starting index in the binary tuple.
      * @return Object.
      */
-    static @Nullable Object readObject(BinaryTupleReader reader, int index) {
+    public static @Nullable Object readObject(BinaryTupleReader reader, int index) {
         if (reader.hasNullValue(index)) {
             return null;
         }

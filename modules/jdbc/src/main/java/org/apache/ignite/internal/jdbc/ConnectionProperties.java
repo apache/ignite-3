@@ -19,7 +19,6 @@ package org.apache.ignite.internal.jdbc;
 
 import java.sql.SQLException;
 import java.time.ZoneId;
-import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.internal.client.HostAndPort;
 
 /**
@@ -142,20 +141,6 @@ public interface ConnectionProperties {
      * @param enabled true if SSL is enabled.
      */
     void setSslEnabled(boolean enabled);
-
-    /**
-     * SSL client authentication. Can be NONE, REQUIRE, and OPTIONAL.
-     *
-     * @param clientAuth SSL client authentication.
-     */
-    void setClientAuth(ClientAuthenticationMode clientAuth);
-
-    /**
-     * SSL client authentication.
-     *
-     * @return SSL client authentication.
-     */
-    ClientAuthenticationMode getClientAuth();
 
     /**
      * SSL ciphers.

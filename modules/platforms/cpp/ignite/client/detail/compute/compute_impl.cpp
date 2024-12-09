@@ -81,7 +81,6 @@ void write_object_as_binary_tuple(protocol::writer &writer, const primitive &arg
 void pack_compute_argument(protocol::writer &writer, const binary_object &arg) {
     auto prim = arg.get_primitive();
     if (prim.is_null()) {
-        writer.write(std::int32_t(ignite_type::NIL));
         writer.write_nil();
         return;
     }
