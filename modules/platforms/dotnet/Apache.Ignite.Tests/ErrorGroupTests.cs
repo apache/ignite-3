@@ -194,9 +194,12 @@ namespace Apache.Ignite.Tests
             var ex = new IgniteException(Guid.Empty, ErrorGroups.Common.Internal, "msg");
 
             Assert.AreEqual(ErrorGroups.Common.Internal, ex.Code);
+
             Assert.AreEqual(-1, ex.ErrorCode);
+            Assert.AreEqual("IGN-CMN--1", ex.CodeAsString);
+
+            Assert.AreEqual(1, ex.GroupCode);
             Assert.AreEqual("CMN", ex.GroupName);
-            Assert.AreEqual("IGN-CMN-1", ex.CodeAsString);
         }
 
         private static IEnumerable<(short Code, string Name)> GetErrorGroups() => typeof(ErrorGroups).GetNestedTypes()
