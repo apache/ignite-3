@@ -20,17 +20,14 @@ package org.apache.ignite.internal.rest;
 import static io.micronaut.http.HttpRequest.GET;
 import static io.micronaut.http.HttpRequest.PATCH;
 import static io.micronaut.http.HttpStatus.CONFLICT;
-import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.isProblemResponse;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.stream.Stream;
@@ -91,17 +88,12 @@ public class ItClusterStateHttpServerFilterNotInitializedTest extends ClusterPer
     @ParameterizedTest
     @MethodSource("disabledEndpoints")
     void clusterEndpointsDisabledWhenNotInitialized(HttpRequest<String> request) {
-        HttpClientResponseException ex = assertThrows(
-                HttpClientResponseException.class,
-                () -> client.toBlocking().exchange(request)
-        );
-
-        assertThat(
-                ex.getResponse(),
-                isProblemResponse(CONFLICT, isProblem()
+        assertThrowsProblem(
+                () -> client.toBlocking().exchange(request),
+                CONFLICT,
+                isProblem()
                         .withTitle("Cluster is not initialized")
                         .withDetail("Cluster is not initialized. Call /management/v1/cluster/init in order to initialize cluster.")
-                )
         );
     }
 
