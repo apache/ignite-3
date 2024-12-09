@@ -125,15 +125,6 @@ public final class ClientComputeJobUnpacker {
             throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
         }
 
-        switch (type) {
-            case NATIVE:
-                return unpacker.unpackObjectFromBinaryTuple();
-            case TUPLE: // Fallthrough, these types are unmarshalled just before execution.
-            case POJO:
-            case MARSHALLED_CUSTOM:
-                return new ComputeJobDataHolder(type, unpacker.readBinary());
-            default:
-                throw new UnmarshallingException("Unsupported compute job type: " + type);
-        }
+        return new ComputeJobDataHolder(type, unpacker.readBinary());
     }
 }

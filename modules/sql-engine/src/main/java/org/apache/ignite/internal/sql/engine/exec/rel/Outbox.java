@@ -26,7 +26,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -36,6 +35,7 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Binar
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.MailboxRegistry;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SharedState;
@@ -252,7 +252,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             );
         }
 
-        exchange.sendBatch(nodeName, queryId(), targetFragmentId, exchangeId, batchId, last, rows0)
+        exchange.sendBatch(nodeName, executionId(), targetFragmentId, exchangeId, batchId, last, rows0)
                 .whenComplete((ignored, ex) -> {
                     if (ex == null) {
                         return;
@@ -271,10 +271,10 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
     private void sendError(Throwable original) {
         String nodeName = context().originatingNodeName();
-        UUID queryId = queryId();
+        ExecutionId executionId = executionId();
         long fragmentId = fragmentId();
 
-        exchange.sendError(nodeName, queryId, fragmentId, original)
+        exchange.sendError(nodeName, executionId, fragmentId, original)
                 .whenComplete((ignored, ex) -> {
                     if (ex == null) {
                         return;
@@ -289,8 +289,8 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
                     wrapperEx.addSuppressed(original);
 
-                    LOG.warn("Unable to send error to a remote node [queryId={}, fragmentId={}, targetNode={}]",
-                            queryId, fragmentId, nodeName, wrapperEx);
+                    LOG.warn("Unable to send error to a remote node [executionId={}, fragmentId={}, targetNode={}]",
+                            executionId, fragmentId, nodeName, wrapperEx);
                 });
     }
 

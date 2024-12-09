@@ -35,6 +35,11 @@ public interface ErrorMessage extends NetworkMessage, Serializable {
     UUID queryId();
 
     /**
+     * Get execution token.
+     */
+    int executionToken();
+
+    /**
      * Get fragment ID.
      */
     long fragmentId();

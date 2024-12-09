@@ -15,31 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.rel;
+package org.apache.ignite.internal.metastorage.server;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-/**
- * Mailbox interface.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
- */
-public interface Mailbox<T> extends Node<T> {
-    /**
-     * Get execution ID.
-     */
-    default ExecutionId executionId() {
-        return context().executionId();
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
+
+class TestRevisionUpdateListener implements RevisionUpdateListener {
+    private final Map<Long, CompletableFuture<Void>> futureByRevision = new ConcurrentHashMap<>();
+
+    @Override
+    public CompletableFuture<?> onUpdated(long revision) {
+        get(revision).complete(null);
+
+        return nullCompletedFuture();
     }
 
-    /**
-     * Get fragment ID.
-     */
-    default long fragmentId() {
-        return context().fragmentId();
+    CompletableFuture<Void> get(long revision) {
+        return futureByRevision.computeIfAbsent(revision, revision0 -> new CompletableFuture<>());
     }
-
-    /**
-     * Get exchange ID.
-     */
-    long exchangeId();
 }

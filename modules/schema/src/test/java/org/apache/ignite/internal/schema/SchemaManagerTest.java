@@ -122,6 +122,9 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 TABLE_ID, -1, -1, TABLE_NAME, 0, columns, List.of("k1", "k2"), null, DEFAULT_STORAGE_PROFILE
         );
 
+        when(catalogService.table(TABLE_ID, CATALOG_VERSION_1)).thenReturn(tableDescriptor);
+        when(catalogService.latestCatalogVersion()).thenReturn(CATALOG_VERSION_1);
+
         CompletableFuture<Boolean> future = tableCreatedListener()
                 .notify(new CreateTableEventParameters(CAUSALITY_TOKEN_1, CATALOG_VERSION_1, tableDescriptor));
 
@@ -233,6 +236,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
     private void addSomeColumn() {
         when(catalogService.table(TABLE_ID, CATALOG_VERSION_2)).thenReturn(tableDescriptorAfterColumnAddition());
+        when(catalogService.latestCatalogVersion()).thenReturn(CATALOG_VERSION_2);
 
         AddColumnEventParameters event = new AddColumnEventParameters(
                 CAUSALITY_TOKEN_2,
@@ -282,5 +286,19 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
         SchemaDescriptor schemaDescriptor = schemaRegistry.schema(prevSchemaVersionNotYetTouched);
         assertThat(schemaDescriptor.version(), is(prevSchemaVersionNotYetTouched));
+    }
+
+    @Test
+    void schemaAsyncFutureCompletesEventually() {
+        createSomeTable();
+
+        SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
+
+        CompletableFuture<SchemaDescriptor> version2Future = schemaRegistry.schemaAsync(2);
+        assertThat(version2Future, willTimeoutFast());
+
+        addSomeColumn();
+
+        assertThat(version2Future, willCompleteSuccessfully());
     }
 }
