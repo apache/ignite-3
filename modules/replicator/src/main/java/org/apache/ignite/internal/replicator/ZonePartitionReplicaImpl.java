@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
+import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -87,9 +88,18 @@ public class ZonePartitionReplicaImpl implements Replica {
         return nullCompletedFuture();
     }
 
-    /** {@inheritDoc} */
     @Override
     public void updatePeersAndLearners(PeersAndLearners peersAndLearners) {
         raftClient.updateConfiguration(peersAndLearners);
+    }
+
+    @Override
+    public CompletableFuture<Void> createSnapshotOn(String targetConsistentId) {
+        return raftClient.snapshot(new Peer(targetConsistentId));
+    }
+
+    @Override
+    public CompletableFuture<Void> transferLeadershipTo(String targetConsistentId) {
+        return raftClient.transferLeadership(new Peer(targetConsistentId));
     }
 }
