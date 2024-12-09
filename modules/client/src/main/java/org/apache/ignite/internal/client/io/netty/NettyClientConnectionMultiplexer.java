@@ -50,6 +50,7 @@ import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Netty-based multiplexer.
@@ -74,6 +75,8 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
     @Override
     public void start(IgniteClientConfiguration clientCfg) {
         try {
+            SslContext sslCtx = setupSsl(clientCfg.ssl());
+
             bootstrap.group(workerGroup);
             bootstrap.channel(NioSocketChannel.class);
             bootstrap.option(ChannelOption.TCP_NODELAY, true);
@@ -82,7 +85,10 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
                 @Override
                 public void initChannel(SocketChannel ch) {
-                    setupSsl(ch, clientCfg);
+                    if (sslCtx != null) {
+                        ch.pipeline().addFirst("ssl", sslCtx.newHandler(ch.alloc()));
+                    }
+
                     ch.pipeline().addLast(
                             new ClientMessageDecoder(),
                             new NettyClientMessageHandler());
@@ -96,22 +102,19 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         }
     }
 
-    private void setupSsl(SocketChannel ch, IgniteClientConfiguration clientCfg) {
-        if (clientCfg.ssl() == null || !clientCfg.ssl().enabled()) {
-            return;
+    private static @Nullable SslContext setupSsl(@Nullable SslConfiguration ssl) {
+        if (ssl == null || !ssl.enabled()) {
+            return null;
         }
 
         try {
-            SslConfiguration ssl = clientCfg.ssl();
 
             SslContextBuilder builder = SslContextBuilder.forClient()
                     .trustManager(loadTrustManagerFactory(ssl))
                     .keyManager(loadKeyManagerFactory(ssl))
                     .ciphers(ssl.ciphers());
 
-            SslContext context = builder.build();
-
-            ch.pipeline().addFirst("ssl", context.newHandler(ch.alloc()));
+            return builder.build();
         } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException | UnrecoverableKeyException e) {
             throw new IgniteException(CLIENT_SSL_CONFIGURATION_ERR, "Client SSL configuration error: " + e.getMessage(), e);
         }
