@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
 
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -151,54 +150,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** {@inheritDoc} */
     @Override
     public void onLeaderElected(long term) {
-        if (!busyLock.enterBusy()) {
-            return;
-        }
-
-        try {
-            rebalanceScheduler.schedule(() -> {
-                if (!busyLock.enterBusy()) {
-                    return;
-                }
-
-                try {
-                    rebalanceAttempts.set(0);
-
-                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsKey(tablePartitionId)).get().value();
-
-                    if (pendingAssignmentsBytes != null) {
-                        Set<Assignment> pendingAssignments = Assignments.fromBytes(pendingAssignmentsBytes).nodes();
-
-                        var peers = new HashSet<String>();
-                        var learners = new HashSet<String>();
-
-                        for (Assignment assignment : pendingAssignments) {
-                            if (assignment.isPeer()) {
-                                peers.add(assignment.consistentId());
-                            } else {
-                                learners.add(assignment.consistentId());
-                            }
-                        }
-
-                        LOG.info(
-                                "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
-                                tablePartitionId, peers, learners
-                        );
-
-                        PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
-
-                        partitionMover.movePartition(peersAndLearners, term).get();
-                    }
-                } catch (Exception e) {
-                    // TODO: IGNITE-14693
-                    LOG.warn("Unable to start rebalance [tablePartitionId, term={}]", e, tablePartitionId, term);
-                } finally {
-                    busyLock.leaveBusy();
-                }
-            }, 0, TimeUnit.MILLISECONDS);
-        } finally {
-            busyLock.leaveBusy();
-        }
+       // no-op
     }
 
     /** {@inheritDoc} */
