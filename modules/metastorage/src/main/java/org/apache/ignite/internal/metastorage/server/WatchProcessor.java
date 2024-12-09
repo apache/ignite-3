@@ -20,15 +20,16 @@ package org.apache.ignite.internal.metastorage.server;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
@@ -183,13 +184,20 @@ public class WatchProcessor implements ManuallyCloseable {
                     long newRevision = updatedEntries.get(0).revision();
 
                     List<Entry> filteredUpdatedEntries = updatedEntries.stream()
-                            .filter(entry ->
-                                    entry.key().length <= IDEMPOTENT_COMMAND_PREFIX_BYTES.length
-                                            ||
-                                            entry.key().length > IDEMPOTENT_COMMAND_PREFIX_BYTES.length
-                                                    && !ByteBuffer.wrap(entry.key(), 0, IDEMPOTENT_COMMAND_PREFIX_BYTES.length)
-                                                            .equals(ByteBuffer.wrap(IDEMPOTENT_COMMAND_PREFIX_BYTES)))
-                            .collect(Collectors.toList());
+                            .filter(entry -> {
+                                int prefixLength = IDEMPOTENT_COMMAND_PREFIX_BYTES.length;
+
+                                //noinspection SimplifiableIfStatement
+                                if (entry.key().length <= prefixLength) {
+                                    return true;
+                                }
+
+                                return !Arrays.equals(
+                                        entry.key(), 0, prefixLength,
+                                        IDEMPOTENT_COMMAND_PREFIX_BYTES, 0, prefixLength
+                                );
+                            })
+                            .collect(toList());
 
                     // Collect all the events for each watch.
                     CompletableFuture<List<WatchAndEvents>> watchesAndEventsFuture =
@@ -212,10 +220,6 @@ public class WatchProcessor implements ManuallyCloseable {
 
                                 notificationFuture.whenComplete((unused, e) -> {
                                     maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos);
-
-                                    if (e != null) {
-                                        notifyFailureHandlerOnFirstFailureInNotificationChain(e);
-                                    }
                                 });
 
                                 return notificationFuture;
@@ -259,19 +263,17 @@ public class WatchProcessor implements ManuallyCloseable {
                                     e = e.getCause();
                                 }
 
-                                if (!(e instanceof NodeStoppingException)) {
-                                    notifyFailureHandlerOnFirstFailureInNotificationChain(e);
-                                }
-
                                 watchAndEvents.watch.onError(e);
+
+                                notifyFailureHandlerOnFirstFailureInNotificationChain(e);
                             }
                         });
             } catch (Throwable throwable) {
                 watchAndEvents.watch.onError(throwable);
 
-                notifyWatchFuture = failedFuture(throwable);
-
                 notifyFailureHandlerOnFirstFailureInNotificationChain(throwable);
+
+                notifyWatchFuture = failedFuture(throwable);
             }
 
             notifyWatchFutures[i] = notifyWatchFuture;
@@ -360,6 +362,10 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     private void notifyFailureHandlerOnFirstFailureInNotificationChain(Throwable e) {
+        if (e instanceof NodeStoppingException) {
+            return;
+        }
+
         if (firedFailureOnChain.compareAndSet(false, true)) {
             LOG.info("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
                     + "until a restart. Notifying the FailureManager");
@@ -426,7 +432,11 @@ public class WatchProcessor implements ManuallyCloseable {
 
                     watchEventHandlingCallback.onSafeTimeAdvanced(time);
                 }, watchExecutor)
-                .whenComplete((ignored, e) -> notifyFailureHandlerOnFirstFailureInNotificationChain(e));
+                .whenComplete((ignored, e) -> {
+                    if (e != null) {
+                        notifyFailureHandlerOnFirstFailureInNotificationChain(e);
+                    }
+                });
     }
 
     /**
@@ -440,6 +450,10 @@ public class WatchProcessor implements ManuallyCloseable {
         notificationFuture = notificationFuture
                 .thenComposeAsync(unused -> notifyUpdateRevisionListeners(newRevision), watchExecutor)
                 .thenRunAsync(() -> invokeOnRevisionCallback(newRevision, time), watchExecutor)
-                .whenComplete((ignored, e) -> notifyFailureHandlerOnFirstFailureInNotificationChain(e));
+                .whenComplete((ignored, e) -> {
+                    if (e != null) {
+                        notifyFailureHandlerOnFirstFailureInNotificationChain(e);
+                    }
+                });
     }
 }
