@@ -390,25 +390,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
-    private void putRecoveryTriggerIfRevisionIsNotProcessed(
-            byte[] revisionBytes,
-            byte[] recoveryTriggerValue,
-            UUID operationId
-    ) {
-        metaStorageManager.invoke(
-                        notExists(RECOVERY_TRIGGER_REVISION_KEY).or(value(RECOVERY_TRIGGER_REVISION_KEY).lt(revisionBytes)),
-                        List.of(
-                                put(RECOVERY_TRIGGER_KEY, recoveryTriggerValue),
-                                put(RECOVERY_TRIGGER_REVISION_KEY, revisionBytes)
-                        ),
-                        List.of()
-                ).thenAccept(wasWrite -> {
-                    if (!wasWrite) {
-                        ongoingOperationsById.remove(operationId).complete(null);
-                    }
-                });
-    }
-
     /**
      * Restarts replica service and raft group of passed partitions.
      *
@@ -652,6 +633,25 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
 
         return operationFuture;
+    }
+
+    private void putRecoveryTriggerIfRevisionIsNotProcessed(
+            byte[] revisionBytes,
+            byte[] recoveryTriggerValue,
+            UUID operationId
+    ) {
+        metaStorageManager.invoke(
+                        notExists(RECOVERY_TRIGGER_REVISION_KEY).or(value(RECOVERY_TRIGGER_REVISION_KEY).lt(revisionBytes)),
+                        List.of(
+                                put(RECOVERY_TRIGGER_KEY, recoveryTriggerValue),
+                                put(RECOVERY_TRIGGER_REVISION_KEY, revisionBytes)
+                        ),
+                        List.of()
+                ).thenAccept(wasWrite -> {
+                    if (!wasWrite) {
+                        ongoingOperationsById.remove(operationId).complete(null);
+                    }
+                });
     }
 
     /**

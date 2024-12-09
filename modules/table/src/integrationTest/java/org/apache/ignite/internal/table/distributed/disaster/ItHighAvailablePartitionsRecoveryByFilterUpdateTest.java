@@ -19,72 +19,17 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import java.util.Set;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 /** Test suite for the cases with a recovery of the group replication factor after reset by zone filter update. */
 public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends AbstractHighAvailablePartitionsRecoveryTest {
-    public static final String EU_NODES_CONFIG = "ignite {\n"
-            + "  nodeAttributes.nodeAttributes: {region.attribute = EU, zone.attribute = global},\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "    membership: {\n"
-            + "      membershipSyncInterval: 1000,\n"
-            + "      failurePingInterval: 500,\n"
-            + "      scaleCube: {\n"
-            + "        membershipSuspicionMultiplier: 1,\n"
-            + "        failurePingRequestMembers: 1,\n"
-            + "        gossipInterval: 10\n"
-            + "      },\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} }, \n"
-            + "  rest.port: {}\n"
-            + "}";
 
-    public static final String EU_ONLY_NODES_CONFIG = "ignite {\n"
-            + "  nodeAttributes.nodeAttributes: {region.attribute = EU},\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "    membership: {\n"
-            + "      membershipSyncInterval: 1000,\n"
-            + "      failurePingInterval: 500,\n"
-            + "      scaleCube: {\n"
-            + "        membershipSuspicionMultiplier: 1,\n"
-            + "        failurePingRequestMembers: 1,\n"
-            + "        gossipInterval: 10\n"
-            + "      },\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} }, \n"
-            + "  rest.port: {}\n"
-            + "}";
+    private static final String GLOBAL_EU_NODES_CONFIG = nodeConfig("{region.attribute = EU, zone.attribute = global}");
 
-    public static final String GLOBAL_NODES_CONFIG = "ignite {\n"
-            + "  nodeAttributes.nodeAttributes: {zone.attribute = global},\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    },\n"
-            + "    membership: {\n"
-            + "      membershipSyncInterval: 1000,\n"
-            + "      failurePingInterval: 500,\n"
-            + "      scaleCube: {\n"
-            + "        membershipSuspicionMultiplier: 1,\n"
-            + "        failurePingRequestMembers: 1,\n"
-            + "        gossipInterval: 10\n"
-            + "      },\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} }, \n"
-            + "  rest.port: {}\n"
-            + "}";
+    private static final String EU_ONLY_NODES_CONFIG = nodeConfig("{region.attribute = EU}");
+
+    private static final String GLOBAL_NODES_CONFIG = nodeConfig("{zone.attribute = global}");
 
     @Override
     protected int initialNodes() {
@@ -93,7 +38,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
     @Override
     protected String getNodeBootstrapConfigTemplate() {
-        return EU_NODES_CONFIG;
+        return GLOBAL_EU_NODES_CONFIG;
     }
 
     @Test
@@ -130,5 +75,28 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
     private void alterZoneSql(String filter, String zoneName) {
         executeSql(String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", zoneName, filter));
+    }
+
+    private static String nodeConfig(@Language("HOCON") String nodeAtrributes) {
+        return "ignite {\n"
+                + "  nodeAttributes.nodeAttributes: " + nodeAtrributes + ",\n"
+                + "  network: {\n"
+                + "    port: {},\n"
+                + "    nodeFinder: {\n"
+                + "      netClusterNodes: [ {} ]\n"
+                + "    },\n"
+                + "    membership: {\n"
+                + "      membershipSyncInterval: 1000,\n"
+                + "      failurePingInterval: 500,\n"
+                + "      scaleCube: {\n"
+                + "        membershipSuspicionMultiplier: 1,\n"
+                + "        failurePingRequestMembers: 1,\n"
+                + "        gossipInterval: 10\n"
+                + "      },\n"
+                + "    }\n"
+                + "  },\n"
+                + "  clientConnector: { port:{} }, \n"
+                + "  rest.port: {}\n"
+                + "}";
     }
 }
