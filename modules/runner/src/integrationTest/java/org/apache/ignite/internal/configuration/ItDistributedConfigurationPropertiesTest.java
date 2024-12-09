@@ -189,6 +189,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
+                    logicalTopology,
                     hocon -> hocon,
                     new TestConfigurationValidator()
             );
