@@ -391,7 +391,9 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                                         ? remove(partAssignmentsPlannedKey)
                                         : put(partAssignmentsPlannedKey, plannedAssignmentsBytes)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
-                        ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal())
+                        ops(
+                                put(pendingChangeTriggerKey, revisionBytes)
+                        ).yield(PENDING_KEY_UPDATED.ordinal())
                 ),
                 ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
         );
