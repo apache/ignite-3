@@ -1378,21 +1378,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 );
 
                 return electedPrimaryReplica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback);
-            })).exceptionally(e -> {
+            })).exceptionally(inBusyLock(busyLock, () -> (Function<Throwable, Void>) e -> {
                 LOG.error("Rebalance failover subscription on elected primary replica failed [groupId=" + replicationGroupId + "].", e);
 
-                if (!busyLock.enterBusy()) {
-                    return null;
-                }
-
-                try {
-                    failureManager.process(new FailureContext(CRITICAL_ERROR, e));
-                } finally {
-                    busyLock.leaveBusy();
-                }
+                failureManager.process(new FailureContext(CRITICAL_ERROR, e));
 
                 return null;
-            });
+            }));
         }
 
         // TODO: move to Replica https://issues.apache.org/jira/browse/IGNITE-23750
@@ -1426,31 +1418,38 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
 
             try {
-                getPendingAssignmentsSupplier.apply(replicationGroupId).exceptionally(e -> {
-                    LOG.error("Couldn't fetch pending assignments for rebalance failover [groupId={}, term={}].", e, replicationGroupId,
-                            term);
+                getPendingAssignmentsSupplier.apply(
+                        replicationGroupId
+                ).exceptionally(inBusyLock(busyLock, () -> (Function<Throwable, byte[]>) e -> {
+                    LOG.error(
+                            "Couldn't fetch pending assignments for rebalance failover [groupId={}, term={}].",
+                            e,
+                            replicationGroupId,
+                            term
+                    );
 
                     return null;
-                }).thenCompose(inBusyLock(busyLock, () -> (Function<byte[], CompletableFuture<Void>>) pendingsBytes -> {
+                })).thenCompose(inBusyLock(busyLock, () -> (Function<byte[], CompletableFuture<Void>>) pendingsBytes -> {
                     if (pendingsBytes == null) {
                         return nullCompletedFuture();
                     }
 
-                    Assignments newConfiguration = Assignments.fromBytes(pendingsBytes);
-
-                    PeersAndLearners newConfigurationPeersAndLearners = fromAssignments(newConfiguration.nodes());
+                    PeersAndLearners newConfiguration = fromAssignments(Assignments.fromBytes(pendingsBytes).nodes());
 
                     LOG.info(
                             "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
-                            replicationGroupId, newConfigurationPeersAndLearners.peers(), newConfigurationPeersAndLearners.learners()
+                            replicationGroupId,
+                            newConfiguration.peers(),
+                            newConfiguration.learners()
                     );
 
-                    return primaryReplica.raftClient().changePeersAndLearnersAsync(newConfigurationPeersAndLearners, term);
-                })).exceptionally(e -> {
+                    // TODO: add retries on fail https://issues.apache.org/jira/browse/IGNITE-23633
+                    return primaryReplica.raftClient().changePeersAndLearnersAsync(newConfiguration, term);
+                })).exceptionally(inBusyLock(busyLock, () -> (Function<Throwable, Void>) e -> {
                     LOG.error("Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicationGroupId, term);
 
                     return null;
-                });
+                }));
             } finally {
                 busyLock.leaveBusy();
             }
