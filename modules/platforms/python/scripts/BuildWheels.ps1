@@ -13,18 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-[tox]
-skipsdist = True
-envlist = codestyle,py{39,310,311,312}
+$PyVers="39","310","311","312"
 
-[testenv]
-passenv = TEAMCITY_VERSION IGNITE_HOME
-envdir = {homedir}/.virtualenvs/pyignite3-{envname}
-deps =
-    -r ./requirements/install.txt
-    -r ./requirements/tests.txt
-recreate = True
-usedevelop = True
-commands =
-    pytest {env:PYTESTARGS:} {posargs}
+foreach ($Ver in $PyVers)
+{
+	& "$env:LOCALAPPDATA\Programs\Python\Python$Ver\python.exe" -m venv epy$Ver
+
+	. ".\epy$Ver\Scripts\Activate.ps1"
+	pip install -e .
+	pip install wheel
+	pip wheel . --no-deps -w distr
+}
 

@@ -3,7 +3,7 @@ Apache Ignite 3 DB API Driver.
 
 ## Prerequisites
 
-- Python 3.7 or above (3.7, 3.8, 3.9 and 3.10 are tested),
+- Python 3.9 or above (3.9, 3.10, 3.11 and 3.12 are tested),
 - Access to Ignite 3 node, local or remote.
 
 ## Installation
