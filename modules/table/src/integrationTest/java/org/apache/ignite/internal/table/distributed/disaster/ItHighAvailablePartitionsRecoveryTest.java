@@ -18,56 +18,19 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
-import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.Arrays;
-import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
-import org.apache.ignite.internal.distributionzones.Node;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.partitiondistribution.Assignment;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.junit.jupiter.api.Test;
 
 /** Test for the HA zones recovery. */
-public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegrationTest {
-    private static final String HA_ZONE_NAME = "HA_ZONE";
-
-    private static final String HA_TABLE_NAME = "HA_TABLE";
-
-    private static final String SC_ZONE_NAME = "SC_ZONE";
-
-    private static final String SC_TABLE_NAME = "SC_TABLE";
-
-    private static final int PARTITIONS_NUMBER = 2;
-
-    protected final HybridClock clock = new HybridClockImpl();
-
+public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailablePartitionsRecoveryTest {
     @Override
     protected int initialNodes() {
         return 3;
@@ -188,7 +151,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
     }
 
     @Test
-    void testNoHaRecovertWhenMajorityAvailable() throws InterruptedException {
+    void testNoHaRecoveryWhenMajorityAvailable() throws InterruptedException {
         createHaZoneWithTable();
 
         IgniteImpl node = igniteImpl(0);
@@ -241,196 +204,5 @@ public class ItHighAvailablePartitionsRecoveryTest  extends ClusterPerTestIntegr
         );
 
         assertRecoveryKeyIsEmpty(node);
-    }
-
-    private void assertRecoveryRequestForHaZone(IgniteImpl node) {
-        Entry recoveryTriggerEntry = getRecoveryTriggerKey(node);
-
-        GroupUpdateRequest request = (GroupUpdateRequest) VersionedSerialization.fromBytes(
-                recoveryTriggerEntry.value(), DisasterRecoveryRequestSerializer.INSTANCE);
-
-        int zoneId = node.catalogManager().zone(HA_ZONE_NAME, clock.nowLong()).id();
-        int tableId = node.catalogManager().table(HA_TABLE_NAME, clock.nowLong()).id();
-
-        assertEquals(zoneId, request.zoneId());
-        assertEquals(tableId, request.tableId());
-        assertEquals(Set.of(0, 1), request.partitionIds());
-        assertFalse(request.manualUpdate());
-    }
-
-    private void assertRecoveryRequestWasOnlyOne(IgniteImpl node) {
-        assertEquals(
-                1,
-                node
-                        .metaStorageManager()
-                        .getLocally(RECOVERY_TRIGGER_KEY.bytes(), 0L, Long.MAX_VALUE).size()
-        );
-    }
-
-    private void waitAndAssertStableAssignmentsOfPartitionEqualTo(
-            IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
-        partitionIds.forEach(p -> {
-            try {
-                waitAndAssertStableAssignmentsOfPartitionEqualTo(gatewayNode, tableName, p, nodes);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-    }
-
-    private void waitAndAssertStableAssignmentsOfPartitionEqualTo(IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes)
-            throws InterruptedException {
-
-        assertTrue(waitForCondition(() ->
-                nodes.equals(
-                        getPartitionClusterNodes(gatewayNode, tableName, partNum)
-                                .stream()
-                                .map(Assignment::consistentId)
-                                .collect(Collectors.toUnmodifiableSet())
-                ),
-                500,
-                30_000
-        ), "Expected set of nodes: " + nodes + " actual: " + getPartitionClusterNodes(gatewayNode, tableName, partNum)
-                .stream()
-                .map(Assignment::consistentId)
-                .collect(Collectors.toUnmodifiableSet()));
-    }
-
-    private static Entry getRecoveryTriggerKey(IgniteImpl node) {
-        return node.metaStorageManager().getLocally(RECOVERY_TRIGGER_KEY, Long.MAX_VALUE);
-    }
-
-    private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
-        return Optional.ofNullable(getTableId(node.catalogManager(), tableName, clock.nowLong()))
-                .map(tableId -> partitionAssignments(node.metaStorageManager(), tableId, partNum).join())
-                .orElse(Set.of());
-    }
-
-    private int zoneIdByName(CatalogService catalogService, String zoneName) {
-        return catalogService.zone(zoneName, clock.nowLong()).id();
-    }
-
-    private void createHaZoneWithTable() throws InterruptedException {
-        executeSql(String.format(
-                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='HIGH_AVAILABILITY'",
-                HA_ZONE_NAME, initialNodes(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE
-        ));
-
-        executeSql(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
-                HA_TABLE_NAME, HA_ZONE_NAME
-        ));
-
-        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
-
-        awaitForAllNodesTableGroupInitialization();
-
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(igniteImpl(0), HA_TABLE_NAME, Set.of(0, 1), allNodes);
-    }
-
-    private void createScZoneWithTable() {
-        executeSql(String.format(
-                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='STRONG_CONSISTENCY'",
-                SC_ZONE_NAME, initialNodes(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE
-        ));
-
-        executeSql(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
-                SC_TABLE_NAME, SC_ZONE_NAME
-        ));
-
-        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
-
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), SC_TABLE_NAME, Set.of(0, 1), allNodes);
-    }
-
-    private void assertRecoveryKeyIsEmpty(IgniteImpl gatewayNode) {
-        assertTrue(getRecoveryTriggerKey(gatewayNode).empty());
-    }
-
-    private void waitAndAssertRecoveryKeyIsNotEmpty(IgniteImpl gatewayNode) throws InterruptedException {
-        waitAndAssertRecoveryKeyIsNotEmpty(gatewayNode, 5_000);
-    }
-
-    private void waitAndAssertRecoveryKeyIsNotEmpty(IgniteImpl gatewayNode, long timeoutMillis) throws InterruptedException {
-        assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(gatewayNode).empty(), timeoutMillis));
-    }
-
-    private void stopNodes(Integer... nodes) {
-        Arrays.stream(nodes).forEach(this::stopNode);
-    }
-
-    private void changePartitionDistributionTimeout(IgniteImpl gatewayNode, int timeout) {
-        CompletableFuture<Void> changeFuture = gatewayNode
-                .clusterConfiguration()
-                .getConfiguration(SystemDistributedExtensionConfiguration.KEY)
-                .system().change(c0 -> c0.changeProperties()
-                        .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT,
-                                c1 -> c1.changePropertyValue(String.valueOf(timeout)))
-                );
-
-        assertThat(changeFuture, willCompleteSuccessfully());
-    }
-
-    private long waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(
-            IgniteImpl gatewayNode, String zoneName, Set<String> targetTopologyUpdate
-    ) throws InterruptedException {
-        int zoneId = zoneIdByName(gatewayNode.catalogManager(), zoneName);
-
-        AtomicLong revision = new AtomicLong();
-
-        assertTrue(waitForCondition(() -> {
-            var state = gatewayNode
-                    .distributionZoneManager()
-                    .zonesState()
-                    .get(zoneId);
-
-            if (state != null) {
-                var lastEntry = state.topologyAugmentationMap().lastEntry();
-
-                var isTheSameAsTarget = lastEntry.getValue().nodes()
-                        .stream()
-                        .map(Node::nodeName)
-                        .collect(Collectors.toUnmodifiableSet())
-                        .equals(targetTopologyUpdate);
-
-                if (isTheSameAsTarget) {
-                    revision.set(lastEntry.getKey());
-                }
-
-                return isTheSameAsTarget;
-            }
-            return false;
-        }, 10_000));
-
-        assert revision.get() != 0;
-
-        return revision.get();
-    }
-
-    private void awaitForAllNodesTableGroupInitialization() throws InterruptedException {
-        assertTrue(waitForCondition(() -> {
-            AtomicInteger numberOfInitializedReplicas = new AtomicInteger(0);
-
-            runningNodes().forEach(ignite -> {
-                IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
-                igniteImpl.raftManager().forEach((raftNodeId, raftGroupService) -> {
-
-                    if (raftNodeId.groupId() instanceof TablePartitionId) {
-                        try {
-                            if (igniteImpl.raftManager().raftNodeIndex(raftNodeId).index() > 0) {
-                                numberOfInitializedReplicas.incrementAndGet();
-                            }
-                        } catch (NodeStoppingException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                });
-
-            });
-
-            return PARTITIONS_NUMBER * initialNodes() == numberOfInitializedReplicas.get();
-        }, 10_000));
     }
 }
