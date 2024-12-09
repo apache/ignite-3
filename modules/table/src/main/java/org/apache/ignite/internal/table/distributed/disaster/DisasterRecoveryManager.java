@@ -352,7 +352,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param triggerRevision Revision of the event, which produce this reset.
      * @return Future that completes when partitions are reset.
      */
-    public CompletableFuture<Void> resetPartitions(
+    private CompletableFuture<Void> resetPartitions(
             String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate, long triggerRevision) {
         int tableId = tableDescriptor(catalogLatestVersion(), tableName).id();
 
