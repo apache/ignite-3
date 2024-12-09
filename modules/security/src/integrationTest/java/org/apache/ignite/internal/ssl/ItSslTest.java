@@ -25,8 +25,11 @@ import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -225,6 +228,27 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                     // no-op
                 }
             });
+        }
+
+        @Test
+        @DisplayName("Client cannot connect with SSL configured and invalid trust store password")
+        void clientCanNotConnectWithSslAndInvalidTrustStorePassword() {
+            var sslConfiguration =
+                    SslConfiguration.builder()
+                            .enabled(true)
+                            .trustStorePath(trustStorePath)
+                            .trustStorePassword(password + "_foo")
+                            .build();
+
+            IgniteClientConnectionException ex = assertThrows(IgniteClientConnectionException.class, () -> {
+                try (IgniteClient ignored = IgniteClient.builder().addresses("localhost:10800").ssl(sslConfiguration).build()) {
+                    // no-op
+                }
+            });
+
+            assertEquals("Client SSL configuration error: keystore password was incorrect", ex.getMessage());
+            assertInstanceOf(IOException.class, ex.getCause());
+            assertEquals("keystore password was incorrect", ex.getCause().getMessage());
         }
 
         @Test
