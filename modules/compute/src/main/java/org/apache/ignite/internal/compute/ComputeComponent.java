@@ -72,24 +72,7 @@ public interface ComputeComponent extends IgniteComponent {
             String jobClassName,
             @Nullable T arg
     ) {
-        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, null, arg);
-    }
-
-    /**
-     * Executes a job of the given class on the current node with default execution options {@link ExecutionOptions#DEFAULT}.
-     *
-     * @param units Deployment units which will be loaded for execution.
-     * @param jobClassName Name of the job class.
-     * @param arg Job args.
-     * @param <R> Job result type.
-     * @return Job execution object.
-     */
-    default <T, R> JobExecution<R> executeLocally(
-            List<DeploymentUnit> units,
-            String jobClassName,
-            T arg
-    ) {
-        return executeLocally(ExecutionOptions.DEFAULT, units, jobClassName, null, arg);
+        return executeLocally(options, units, jobClassName, null, arg);
     }
 
     /**
@@ -112,25 +95,6 @@ public interface ComputeComponent extends IgniteComponent {
             @Nullable CancellationToken cancellationToken,
             T arg
     );
-
-    /**
-     * Executes a job of the given class on a remote node with default execution options {@link ExecutionOptions#DEFAULT}.
-     *
-     * @param remoteNode Remote node name.
-     * @param units Deployment units which will be loaded for execution.
-     * @param jobClassName Name of the job class.
-     * @param arg Job args.
-     * @param <R> Job result type.
-     * @return Job execution object.
-     */
-    default <T, R> JobExecution<R> executeRemotely(
-            ClusterNode remoteNode,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            T arg
-    ) {
-        return executeRemotely(ExecutionOptions.DEFAULT, remoteNode, units, jobClassName, null, arg);
-    }
 
     /**
      * Executes a job of the given class on a remote node. If the node leaves the cluster, it will be restarted on the node given by the
