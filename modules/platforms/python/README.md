@@ -8,6 +8,13 @@ Apache Ignite 3 DB API Driver.
 
 ## Installation
 
+### From repository
+This is a recommended way for users. If you only want to use the `pyignite3`
+module in your project, do:
+```
+$ pip install pyignite3
+```
+
 ### From sources
 This way is more suitable for developers or if you install client from zip archive.
 1. Download and/or unzip Ignite 3 DB API Driver sources to `pyignite3_path`
@@ -31,6 +38,53 @@ $ pip install -r requirements/<your task>.txt
 ```
 
 You may also want to consult the `setuptools` manual about using `setup.py`.
+
+### *C extension*
+
+The core of the package is an C++ extension. It shares the code with the Ignite C++ Client. The package is pre-built
+for the most common platforms, but you may need to build it if your platform is not included.
+
+Linux building requirements:
+- GCC (and G++);
+- CMake version >=3.18;
+- unixODBC (dev version of the package);
+- OpenSSL (dev version of the package);
+- Docker to build wheels;
+- Supported versions of Python (3.9, 3.10, 3.11, 3.12 and 3.13). You can disable some of these versions
+  but you'd need to edit script for that.
+
+For building universal `wheels` (binary packages) for Linux, just invoke script `./scripts/create_distr.sh`.
+
+Windows building requirements:
+- MSVC 14.x required, and it should be in path;
+- CMake version >=3.18;
+- OpenSSL (headers are required for the build);
+- Supported versions of Python (3.9, 3.10, 3.11, 3.12 and 3.13). You can disable some of these versions but you'd need
+  to edit script for that.
+
+For building `wheels` for Windows, invoke script `.\scripts\BuildWheels.ps1` using PowerShell. Just make sure that
+your execution policy allows execution of scripts in your environment.
+
+Ready wheels will be located in `distr` directory.
+
+### Updating from older version
+
+To upgrade an existing package, use the following command:
+```
+pip install --upgrade pyignite3
+```
+
+To install the latest version of a package:
+
+```
+pip install pyignite3
+```
+
+To install a specific version:
+
+```
+pip install pyignite3==3.0.0
+```
 
 ## Testing
 *NB!* It is recommended installing `pyignite3` in development mode.
