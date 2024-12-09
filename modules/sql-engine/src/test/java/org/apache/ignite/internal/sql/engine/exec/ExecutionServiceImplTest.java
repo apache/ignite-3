@@ -31,6 +31,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -110,6 +111,7 @@ import org.apache.ignite.internal.sql.engine.message.MessageListener;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchRequestMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
+import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponseImpl;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
@@ -144,6 +146,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.SqlException;
+import org.awaitility.Awaitility;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -252,6 +255,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         executers.forEach(executer -> {
             try {
                 executer.stop();
+
+                assertTrue(executer.awaitTermination(SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS),
+                        "Not all tasks completed within the specified timeout [timeout=" + SHUTDOWN_TIMEOUT + "].");
             } catch (Exception e) {
                 log.error("Unable to stop executor", e);
             }
@@ -427,6 +433,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         var expectedEx = new RuntimeException("Test error");
 
+        CountDownLatch queryStartResponseBlockLatch = new CountDownLatch(nodeNames.size());
+        CountDownLatch resumeMessagingLatch = new CountDownLatch(1);
+
         testCluster.node(nodeNames.get(0)).interceptor((nodeName, msg, original) -> {
             if (msg instanceof QueryStartRequest && ((QueryStartRequest) msg).fragmentDescription().target() == null) {
                 testCluster.node(nodeNames.get(0)).messageService().send(nodeName, new SqlQueryMessagesFactory().queryStartResponse()
@@ -435,9 +444,22 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                         .error(expectedEx)
                         .build()
                 );
-            } else {
-                original.onMessage(nodeName, msg);
+
+                return nullCompletedFuture();
             }
+
+            if (msg instanceof QueryStartResponse && ((QueryStartResponse) msg).error() == null) {
+                queryStartResponseBlockLatch.countDown();
+
+                // Wait for the main thread to collect the execution nodes.
+                try {
+                    resumeMessagingLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            original.onMessage(nodeName, msg);
 
             return nullCompletedFuture();
         });
@@ -446,13 +468,19 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertEquals(expectedEx, actualException);
 
-        // try gather all possible nodes.
+        queryStartResponseBlockLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
+
+        // Gather all possible nodes.
         List<AbstractNode<?>> execNodes = executionServices.stream()
                 .flatMap(s -> s.localFragments(ctx.queryId()).stream()).collect(Collectors.toList());
 
-        assertTrue(waitForCondition(
-                () -> executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
-                        .mapToInt(i -> i).sum() == 0, TIMEOUT_IN_MS));
+        assertThat(execNodes, hasSize(nodeNames.size()));
+
+        resumeMessagingLatch.countDown();
+
+        Awaitility.await().untilAsserted(
+                () -> assertThat(executionServices.stream().map(es -> es.localFragments(ctx.queryId()).size())
+                        .mapToInt(i -> i).sum(), is(0)));
 
         awaitContextCancellation(execNodes);
     }
@@ -471,6 +499,12 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT 1", ctx);
 
         assertWillThrow(execService.executePlan(plan, ctx), ExceptionInInitializerError.class);
+
+        Supplier<Integer> tasksQueueSizeSupplier = () -> executers.stream()
+                .mapToInt(exec -> ((QueryTaskExecutorImpl) exec).queueSize())
+                .sum();
+
+        Awaitility.await().untilAsserted(() -> assertThat(tasksQueueSizeSupplier.get(), is(0)));
     }
 
     /**
@@ -1529,6 +1563,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         @Override
         public void stop() {
             executor.shutdownNow();
+        }
+
+        @Override
+        public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+            return executor.awaitTermination(timeout, unit);
         }
 
         private Runnable wrapTask(Runnable task) {

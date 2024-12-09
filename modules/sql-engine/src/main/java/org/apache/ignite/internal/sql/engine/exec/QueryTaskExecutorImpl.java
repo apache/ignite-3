@@ -24,6 +24,8 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -32,6 +34,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of query task executor for any SQL related execution stage.
@@ -129,5 +132,23 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
         if (stripedThreadPoolExecutor != null) {
             stripedThreadPoolExecutor.shutdownNow();
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
+        return stripedThreadPoolExecutor.awaitTermination(timeout, unit);
+    }
+
+    /** Returns the task queue size used by this executor. */
+    @TestOnly
+    public int queueSize() {
+        int totalQueueSize = 0;
+
+        for (int i = 0; i < concurrencyLevel; i++) {
+            totalQueueSize += ((ThreadPoolExecutor) stripedThreadPoolExecutor.stripeExecutor(i)).getQueue().size();
+        }
+
+        return totalQueueSize;
     }
 }
