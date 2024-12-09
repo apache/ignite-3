@@ -57,6 +57,9 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      */
     private final ConsistencyMode consistencyMode;
 
+    /**
+     * Returns {@code true} if zone upgrade will lead to assignments recalculation.
+     */
     public static boolean updateRequiresAssignmentsRecalculation(CatalogZoneDescriptor oldDescriptor, CatalogZoneDescriptor newDescriptor) {
         if (oldDescriptor.updateToken() == newDescriptor.updateToken()) {
             return false;
