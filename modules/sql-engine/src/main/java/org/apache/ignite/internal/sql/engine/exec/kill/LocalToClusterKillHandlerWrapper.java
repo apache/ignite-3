@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.exec.kill;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.MessagingService;
@@ -29,6 +33,9 @@ import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.message.CancelOperationRequest;
 import org.apache.ignite.internal.sql.engine.message.CancelOperationResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
  * Wrapper for {@link OperationKillHandler} that calls a local handler on each node in the cluster.
@@ -92,53 +99,60 @@ class LocalToClusterKillHandlerWrapper implements OperationKillHandler {
     private CompletableFuture<Boolean> broadcastCancel(CancelOperationRequest request) {
         CompletableFuture<Boolean> result = new CompletableFuture<>();
 
-        CompletableFuture<?>[] futures = logicalTopologyService.localLogicalTopology().nodes()
+        List<CompletableFuture<?>> futures = logicalTopologyService.localLogicalTopology().nodes()
                 .stream()
                 .filter(node -> !node.name().equals(localNodeName))
                 .map(node -> messageService.invoke(node, request, RESPONSE_TIMEOUT_MS)
-                        .thenAccept(msg -> {
-                            CancelOperationResponse response = (CancelOperationResponse) msg;
-                            Throwable remoteErr = response.error();
+                        .whenComplete((msg, invokeErr) -> {
+                            if (msg != null) {
+                                CancelOperationResponse response = (CancelOperationResponse) msg;
+                                Throwable remoteErr = response.error();
 
-                            if (remoteErr != null) {
-                                LOG.warn("Remote node returned an error while canceling the operation "
-                                                + "[operationId={}, typeId={}, node={}].", remoteErr,
-                                        request.operationId(), request.typeId(), node.name());
+                                if (remoteErr != null) {
+                                    String err = format("Remote node returned an error while canceling the operation ["
+                                            + "operationId={}, typeId={}, node={}].", request.operationId(), request.typeId(), node.name());
+
+                                    throw new IgniteInternalException(Common.INTERNAL_ERR, err, remoteErr);
+                                }
+
+                                Boolean res = response.result();
+
+                                if (Boolean.TRUE.equals(res)) {
+                                    result.complete(true);
+                                }
                             }
 
-                            if (response.error() != null) {
-                                throw new CompletionException(response.error());
-                            }
+                            if (invokeErr != null) {
+                                String err = format("Failed to send a request to cancel the operation to the remote node "
+                                        + "[operationId={}, typeId={}, node={}].", request.operationId(), request.typeId(), node.name());
 
-                            Boolean res = response.result();
-
-                            if (Boolean.TRUE.equals(res)) {
-                                result.complete(true);
-                            }
-                        })
-                        .whenComplete((ignore, err) -> {
-                            if (err != null) {
-                                LOG.warn("Failed to send a request to cancel the operation to the remote node "
-                                        + "[operationId={}, typeId={}, node={}].", err,
-                                        request.operationId(), request.typeId(), node.name());
+                                throw new IgniteInternalException(Common.INTERNAL_ERR, err, invokeErr);
                             }
                         })
                 )
-                .toArray(CompletableFuture[]::new);
+                .collect(Collectors.toList());
 
-        CompletableFuture.allOf(futures)
-                .whenComplete((unused, throwable) -> {
+        CompletableFutures.allOf(futures)
+                .whenComplete((unused, firstErr) -> {
+                    if (firstErr == null) {
+                        if (!result.isDone()) {
+                            result.complete(Boolean.FALSE);
+                        }
+
+                        return;
+                    }
+
+                    Throwable resultErr = Commons.deriveExceptionFromListOfFutures(futures);
+
                     if (result.isDone()) {
-                        return;
-                    }
-
-                    if (throwable == null) {
-                        result.complete(Boolean.FALSE);
+                        // If the cancellation was successful, just print a warning.
+                        LOG.warn("Distributed cancel operation succeeded, but the request failed on some nodes "
+                                + "[operationId={}, typeId={}]", resultErr, request.operationId(), request.typeId());
 
                         return;
                     }
 
-                    result.completeExceptionally(throwable);
+                    result.completeExceptionally(resultErr);
                 });
 
         return result;

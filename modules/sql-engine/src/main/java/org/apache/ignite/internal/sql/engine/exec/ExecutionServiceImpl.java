@@ -1102,7 +1102,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                             return root;
                         }
 
-                        Throwable error = deriveExceptionFromListOfFutures(resultsOfFragmentSending);
+                        Throwable error = Commons.deriveExceptionFromListOfFutures(resultsOfFragmentSending);
 
                         assert error != null;
 
@@ -1336,27 +1336,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 }
             };
         }
-    }
-
-    private static @Nullable Throwable deriveExceptionFromListOfFutures(List<CompletableFuture<?>> futures) {
-        Throwable firstFoundError = null;
-
-        for (CompletableFuture<?> fut : futures) {
-            assert fut.isDone();
-
-            if (fut.isCompletedExceptionally()) {
-                // all futures are expected to be completed by this point
-                Throwable fromFuture = fut.handle((ignored, ex) -> ex).join();
-
-                if (firstFoundError == null) {
-                    firstFoundError = fromFuture;
-                } else {
-                    firstFoundError.addSuppressed(fromFuture);
-                }
-            }
-        }
-
-        return firstFoundError;
     }
 
     private ExecutionId nextExecutionId(UUID queryId) {

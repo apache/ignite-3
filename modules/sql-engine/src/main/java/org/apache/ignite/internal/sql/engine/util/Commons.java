@@ -116,6 +116,7 @@ import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
@@ -884,5 +885,35 @@ public final class Commons {
         Set<SqlQueryType> allowedTypes = properties.get(ALLOWED_QUERY_TYPES);
 
         return allowedTypes.contains(SqlQueryType.TX_CONTROL);
+    }
+
+    /**
+     * Derives an exception from the list of futures.
+     *
+     * <p>The exception from the first failed future in the list will be the root exception,
+     * the remaining exceptions will be added to the suppression list of the first exception
+     *
+     * @param futures List of futures.
+     * @return Exception or {@code null} if all futures are completed successfully.
+     */
+    public static @Nullable Throwable deriveExceptionFromListOfFutures(List<CompletableFuture<?>> futures) {
+        Throwable firstFoundError = null;
+
+        for (CompletableFuture<?> fut : futures) {
+            assert fut.isDone();
+
+            if (fut.isCompletedExceptionally()) {
+                // all futures are expected to be completed by this point
+                Throwable fromFuture = ExceptionUtils.unwrapCause(fut.handle((ignored, ex) -> ex).join());
+
+                if (firstFoundError == null) {
+                    firstFoundError = fromFuture;
+                } else {
+                    firstFoundError.addSuppressed(fromFuture);
+                }
+            }
+        }
+
+        return firstFoundError;
     }
 }

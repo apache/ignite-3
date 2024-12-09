@@ -19,9 +19,14 @@ package org.apache.ignite.internal.sql.engine.exec.kill;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.arrayWithSize;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
@@ -33,12 +38,14 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
@@ -163,13 +170,18 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testCancelFinishesWithErrorOnRemoteNode() {
-        IllegalArgumentException expected = new IllegalArgumentException("No enum constant");
+        IllegalArgumentException expected1 = new IllegalArgumentException("No enum constant");
+        UnsupportedOperationException expected2 = new UnsupportedOperationException("Unsupported operation");
 
-        // One remote node reports error, other remote node returns FALSE.
+        // Two remote nodes report an error - all errors must be listed in an exception.
         {
             KillCommandHandler cmdHandler = createCommandHandler(nodeName -> {
                 if (nodeName.equals(node(1).name())) {
-                    throw expected;
+                    throw expected1;
+                }
+
+                if (nodeName.equals(node(2).name())) {
+                    throw expected2;
                 }
 
                 return false;
@@ -178,11 +190,35 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
             cmdHandler.register(new TestKillHandler(false));
             KillCommand killCommand = newCmd(CancellableOperationType.QUERY);
 
-            //noinspection ThrowableNotThrown
-            IgniteTestUtils.assertThrows(expected.getClass(),
-                    () -> await(cmdHandler.handle(killCommand)),
-                    expected.getMessage()
+            String remoteErrPrefix = "Remote node returned an error while canceling the operation";
+
+            Throwable err = assertThrowsExactly(IgniteInternalException.class,
+                    () -> {
+                        try {
+                            cmdHandler.handle(killCommand).get(5, TimeUnit.SECONDS);
+                        } catch (ExecutionException e) {
+                            throw e.getCause();
+                        }
+                    },
+                    remoteErrPrefix
             );
+
+            // Determine which exception was thrown first.
+            RuntimeException[] expected = err.getMessage().contains(TOPOLOGY.get(1).name())
+                    ? new RuntimeException[]{expected1, expected2}
+                    : new RuntimeException[]{expected2, expected1};
+
+            assertThat(err.getCause(), instanceOf(expected[0].getClass()));
+            assertThat(err.getCause().getMessage(), equalTo(expected[0].getMessage()));
+
+            assertThat(err.getSuppressed(), arrayWithSize(1));
+
+            Throwable suppressed = err.getSuppressed()[0];
+
+            assertThat(suppressed, instanceOf(IgniteInternalException.class));
+            assertThat(suppressed.getMessage(), containsString(remoteErrPrefix));
+            assertThat(suppressed.getCause(), instanceOf(expected[1].getClass()));
+            assertThat(suppressed.getCause().getMessage(), equalTo(expected[1].getMessage()));
 
             verify(messagingService, times(TOPOLOGY.size() - 1))
                     .invoke(any(ClusterNode.class), any(CancelOperationRequest.class), anyLong());
@@ -192,7 +228,7 @@ public class KillCommandHandlerTest extends BaseIgniteAbstractTest {
         {
             KillCommandHandler cmdHandler = createCommandHandler(nodeName -> {
                 if (nodeName.equals(node(1).name())) {
-                    throw expected;
+                    throw expected1;
                 }
 
                 return true;
