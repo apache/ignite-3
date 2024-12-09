@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
 import static org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshaller.NO_VERSION_REQUIRED;
 
@@ -59,7 +60,8 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
 
         Node node = (Node) service;
 
-        ByteBuffer allData = request.data().asReadOnlyBuffer();
+        // TODO use from marshaller
+        ByteBuffer allData = request.data().asReadOnlyBuffer().order(LITTLE_ENDIAN);
         int offset = 0;
 
         for (RaftOutter.EntryMeta entry : request.entriesList()) {

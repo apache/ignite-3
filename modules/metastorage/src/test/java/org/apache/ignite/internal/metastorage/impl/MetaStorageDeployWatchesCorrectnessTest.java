@@ -39,17 +39,16 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionsCommand;
-import org.apache.ignite.internal.metastorage.command.marshaller.ThreadLocalMetastoreCommandsMarshaller;
 import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -101,11 +100,7 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                         mock(TopologyAwareRaftGroupServiceFactory.class),
                         new NoOpMetricManager(),
                         metaStorageConfiguration,
-                        options -> {
-                            RaftGroupOptions groupOptions = (RaftGroupOptions) options;
-                            groupOptions.commandsMarshaller(
-                                    new ThreadLocalMetastoreCommandsMarshaller(clusterService.serializationRegistry()));
-                        },
+                        RaftGroupOptionsConfigurer.EMPTY,
                         readOperationForCompactionTracker
                 ),
                 StandaloneMetaStorageManager.create()

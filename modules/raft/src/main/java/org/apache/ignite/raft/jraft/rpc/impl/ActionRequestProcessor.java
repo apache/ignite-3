@@ -62,6 +62,12 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
     private final RaftMessagesFactory factory;
 
+    /**
+    * Mapping from group IDs to monitors used to synchronized on (only used when
+    * RaftGroupListener instance implements {@link BeforeApplyHandler} and the command is a write command.
+    */
+    private final Map<String, Object> groupIdsToMonitors = new ConcurrentHashMap<>();
+
     public ActionRequestProcessor(Executor executor, RaftMessagesFactory factory) {
         this.executor = executor;
         this.factory = factory;
@@ -102,12 +108,62 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                 command = commandsMarshaller.unmarshall(writeRequest.command());
             }
 
-            applyWrite(node, writeRequest, command, rpcCtx);
+            if (listener instanceof BeforeApplyHandler) {
+                synchronized (groupIdSyncMonitor(request.groupId())) {
+                    writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
+
+                    applyWrite(node, writeRequest, command, rpcCtx);
+                }
+            } else {
+                applyWrite(node, writeRequest, command, rpcCtx);
+            }
         } else {
             ReadActionRequest readRequest = (ReadActionRequest) request;
 
+            if (listener instanceof BeforeApplyHandler) {
+                ReadCommand command = readRequest.command();
+
+                readRequest = patchCommandBeforeApply(readRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
+            }
+
             applyRead(node, readRequest, rpcCtx);
         }
+    }
+
+    /**
+     * This method calls {@link BeforeApplyHandler#onBeforeApply(Command)} and returns action request with a serialized version of the
+     * updated command, if it has been updated. Otherwise, the method returns the original {@code request} instance. The reason for such
+     * behavior is the fact that we use {@code byte[]} in action requests, thus modified command should be serialized twice.
+     */
+    private <AR extends ActionRequest> AR patchCommandBeforeApply(
+            AR request,
+            BeforeApplyHandler beforeApplyHandler,
+            Command command,
+            Marshaller commandsMarshaller
+    ) {
+        if (!beforeApplyHandler.onBeforeApply(command)) {
+            return request;
+        }
+
+        if (request instanceof WriteActionRequest) {
+            return (AR) factory.writeActionRequest()
+                .groupId(request.groupId())
+                .command(commandsMarshaller.marshall(command))
+                .deserializedCommand((WriteCommand)command)
+                .build();
+        } else {
+            return (AR) factory.readActionRequest()
+                .groupId(request.groupId())
+                .command((ReadCommand)command)
+                .readOnlySafe(((ReadActionRequest)request).readOnlySafe())
+                .build();
+        }
+    }
+
+    private Object groupIdSyncMonitor(String groupId) {
+        assert groupId != null;
+
+        return groupIdsToMonitors.computeIfAbsent(groupId, k -> groupId);
     }
 
     /**

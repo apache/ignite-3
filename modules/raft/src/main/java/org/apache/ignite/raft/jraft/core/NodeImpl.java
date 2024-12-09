@@ -318,7 +318,9 @@ public class NodeImpl implements Node, RaftServerService {
                 // Object patch.
                 command.patch(safeTs);
 
-                System.out.println("DBG: apply patch " + safeTs + " " + groupId);
+//                if (!command.getClass().getName().contains("Metastore")) {
+//                    LOG.debug("DBG: apply patch " + safeTs + " " + groupId + " " + command.getClass().getName());
+//                }
             }
             // TODO call once per batch.
 
@@ -1936,8 +1938,6 @@ public class NodeImpl implements Node, RaftServerService {
 
     @Override
     public void apply(final Task task) {
-        LOG.info("DBG: apply task: " + groupId);
-
         if (this.shutdownLatch != null) {
             Utils.runClosureInThread(this.getOptions().getCommonExecutor(), task.getDone(), new Status(RaftError.ENODESHUTDOWN, "Node is shutting down."));
             throw new IllegalStateException("Node is shutting down");

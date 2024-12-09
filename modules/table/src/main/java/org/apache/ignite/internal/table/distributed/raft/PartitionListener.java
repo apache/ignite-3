@@ -248,6 +248,7 @@ public class PartitionListener implements RaftGroupListener {
                         updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
                     }
 
+                    // TODO Can we get rid of storageIndexTracker?
                     updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
                 }
             } catch (IgniteInternalException e) {

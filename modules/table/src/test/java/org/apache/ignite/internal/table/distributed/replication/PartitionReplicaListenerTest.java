@@ -320,9 +320,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 return v;
             });
 
-            return completedFuture(new UpdateCommandResult(true, true, 0));
+            return completedFuture(new UpdateCommandResult(true, true, 100));
         } else if (cmd instanceof UpdateAllCommand) {
-            return completedFuture(new UpdateCommandResult(true, true, 0));
+            return completedFuture(new UpdateCommandResult(true, true, 100));
         } else if (cmd instanceof FinishTxCommand) {
             FinishTxCommand command = (FinishTxCommand) cmd;
 

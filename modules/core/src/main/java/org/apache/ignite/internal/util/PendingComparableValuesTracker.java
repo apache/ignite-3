@@ -113,7 +113,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
     }
 
     /**
-     * Strict update. Always called from the same updater thread.
+     * Strict update with reordering check. Always called from the same updater thread.
      *
      * @param newValue New value.
      * @param futureResult A result that will be used to complete a future returned by the
@@ -129,7 +129,8 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
 
             IgniteBiTuple<T, @Nullable R> newEntry = new IgniteBiTuple<>(newValue, futureResult);
 
-            if (comparator.compare(newEntry, current) <= 0) {
+            // Entries from the same batch receive equal safe timestamps.
+            if (comparator.compare(newEntry, current) < 0) {
                 throw new IgniteInternalException(REPLICATION_SAFE_TIME_REORDERING_ERR,
                         "Safe timestamp reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1() + ']');
             }

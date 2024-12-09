@@ -43,7 +43,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionsCommand;
-import org.apache.ignite.internal.metastorage.command.marshaller.ThreadLocalMetastoreCommandsMarshaller;
 import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -54,10 +53,10 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
+import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NodeMetadata;
@@ -101,10 +100,7 @@ public class MetaStorageManagerRecoveryTest extends BaseIgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 new NoOpMetricManager(),
                 metaStorageConfiguration,
-                options -> {
-                    RaftGroupOptions groupOptions = (RaftGroupOptions) options;
-                    groupOptions.commandsMarshaller(new ThreadLocalMetastoreCommandsMarshaller(clusterService.serializationRegistry()));
-                },
+                RaftGroupOptionsConfigurer.EMPTY,
                 readOperationForCompactionTracker
         );
     }

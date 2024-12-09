@@ -56,12 +56,10 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
         int requiredCatalogVersion = readRequiredCatalogVersion(raw);
         long safeTs = readSafeTimestamp(raw);
 
-        System.out.println("rqv:" + requiredCatalogVersion);
-        System.out.println("safeTs:" + HybridTimestamp.nullableHybridTimestamp(safeTs));
-
         T res = super.unmarshall(raw);
 
-        System.out.println("cmd:" + res.getClass().getName());
+//        System.out.println("DBG: unmarshall rqv: " + requiredCatalogVersion +
+//                " safeTs: " + HybridTimestamp.nullableHybridTimestamp(safeTs) + " cmd: " + res.getClass().getName());
 
         if (res instanceof CatalogVersionAware) {
             ((CatalogVersionAware) res).requiredCatalogVersion(requiredCatalogVersion);

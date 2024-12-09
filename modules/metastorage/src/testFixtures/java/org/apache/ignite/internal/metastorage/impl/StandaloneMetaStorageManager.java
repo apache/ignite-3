@@ -59,6 +59,7 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.network.NetworkAddress;
@@ -152,7 +153,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 mockClusterService(),
                 mockClusterGroupManager(),
                 mock(LogicalTopologyService.class),
-                mockRaftManager(clock),
+                mockRaftManager(),
                 keyValueStorage,
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 mockConfiguration(),
@@ -255,7 +256,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
                 });
     }
 
-    private static RaftManager mockRaftManager(HybridClock clock) {
+    private static RaftManager mockRaftManager() {
         ArgumentCaptor<RaftGroupListener> listenerCaptor = ArgumentCaptor.forClass(RaftGroupListener.class);
         RaftManager raftManager = mock(RaftManager.class, LENIENT_SETTINGS);
         TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class);
@@ -285,10 +286,16 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
         Answer<Object> answer = invocation -> {
             RaftGroupListener listener = listenerCaptor.getValue();
+            // Both onBeforeApply and command processing within listener should be thread-safe.
+            // onBeforeApply is guarded by group specific monitor, precisely synchronized (groupIdSyncMonitor(request.groupId())).
+            // See ActionRequestProcessor.handleRequestInternal for more details.
+            // Command processing on its turn is expected to be processed under raft umbrella, meaning in single-thread environment.
             synchronized (listener) {
                 Command command = invocation.getArgument(0);
 
-                command.patch(clock.now());
+                if (listener instanceof BeforeApplyHandler && command instanceof WriteCommand) {
+                    ((BeforeApplyHandler) listener).onBeforeApply(command);
+                }
 
                 return runCommand(command, listener);
             }

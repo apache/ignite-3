@@ -1724,7 +1724,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         throw new TransactionException(commit ? TX_COMMIT_ERR : TX_ROLLBACK_ERR, ex);
                     }
 
-                    TransactionResult result = (TransactionResult) ((ResultWrapper) txOutcome).result;
+                    TransactionResult result = (TransactionResult) txOutcome;
 
                     markFinished(txId, result.transactionState(), result.commitTimestamp());
 
