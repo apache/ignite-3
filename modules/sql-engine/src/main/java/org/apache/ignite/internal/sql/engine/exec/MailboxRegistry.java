@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
@@ -58,18 +57,18 @@ public interface MailboxRegistry extends LifecycleAware {
     /**
      * Returns a registered outbox by provided query ID, exchange ID pair.
      *
-     * @param qryId      Query ID.
+     * @param executionId Execution ID.
      * @param exchangeId Exchange ID.
      * @return Registered outbox. May be {@code null} if execution was cancelled.
      */
-    CompletableFuture<Outbox<?>> outbox(UUID qryId, long exchangeId);
+    CompletableFuture<Outbox<?>> outbox(ExecutionId executionId, long exchangeId);
 
     /**
      * Returns a registered inbox by provided query ID, exchange ID pair.
      *
-     * @param qryId      Query ID.
+     * @param executionId Execution ID.
      * @param exchangeId Exchange ID.
      * @return Registered inbox. May be {@code null} if execution was cancelled.
      */
-    Inbox<?> inbox(UUID qryId, long exchangeId);
+    Inbox<?> inbox(ExecutionId executionId, long exchangeId);
 }

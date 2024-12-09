@@ -19,15 +19,20 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -49,10 +54,13 @@ import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.lang.CancellationToken;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -144,6 +152,65 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
         );
     }
 
+    @Test
+    void queryWithImplicitTxRecoversFromReplicaMiss() {
+        AtomicBoolean firstTimeThrow = new AtomicBoolean(true);
+        AtomicBoolean reassignmentHappened = new AtomicBoolean(false);
+
+        String beforeReassignmentNode = DATA_NODES.get(0);
+        String afterReassignmentNode = DATA_NODES.get(1);
+        cluster.setAssignmentsProvider("T1", (partitionCount, b) ->
+                IntStream.range(0, partitionCount)
+                        .mapToObj(i -> List.of(reassignmentHappened.get() ? afterReassignmentNode : beforeReassignmentNode))
+                        .collect(Collectors.toList())
+        );
+
+        cluster.setDataProvider("T1", TestBuilders.tableScan((nodeName, partId) -> {
+            if (firstTimeThrow.compareAndSet(true, false)) {
+                reassignmentHappened.set(true);
+                return () -> new FailingIterator<>(new PrimaryReplicaMissException(UUID.randomUUID(), 0L, 0L));
+            }
+
+            return Collections.singleton(new Object[]{partId, partId, nodeName});
+        }));
+
+        TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
+
+        QueryTransactionContext txContext = createTxContext(TxType.RW, true);
+
+        assertQuery(gatewayNode, "INSERT INTO blackhole SELECT 1 FROM t1 WHERE part_id = 0", txContext)
+                .returns(1L)
+                .check();
+    }
+
+    @Test
+    void queryWithImplicitTxRecoversFromLockConflict() {
+        AtomicBoolean firstTimeThrow = new AtomicBoolean(true);
+
+        String expectedNode = DATA_NODES.get(0);
+        cluster.setAssignmentsProvider("T1", (partitionCount, b) ->
+                IntStream.range(0, partitionCount)
+                        .mapToObj(i -> List.of(expectedNode))
+                        .collect(Collectors.toList())
+        );
+
+        cluster.setDataProvider("T1", TestBuilders.tableScan((nodeName, partId) -> {
+            if (firstTimeThrow.compareAndSet(true, false)) {
+                return () -> new FailingIterator<>(new LockException(Transactions.ACQUIRE_LOCK_ERR, "Lock conflict on " + nodeName));
+            }
+
+            return Collections.singleton(new Object[]{partId, partId, nodeName});
+        }));
+
+        TestNode gatewayNode = cluster.node(GATEWAY_NODE_NAME);
+
+        QueryTransactionContext txContext = createTxContext(TxType.RW, true);
+
+        assertQuery(gatewayNode, "INSERT INTO blackhole SELECT 1 FROM t1 WHERE part_id = 0", txContext)
+                .returns(1L)
+                .check();
+    }
+
     private static QueryTransactionContext createTxContext(TxType type, boolean implicit) {
         InternalTransaction tx = type.create();
         QueryTransactionWrapper wrapper = new QueryTransactionWrapperImpl(tx, implicit, NoOpTransactionTracker.INSTANCE);
@@ -227,5 +294,30 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
         };
 
         abstract InternalTransaction create();
+    }
+
+    @SuppressWarnings("IteratorNextCanNotThrowNoSuchElementException")
+    private static class FailingIterator<T> implements Iterator<T> {
+        private final Exception ex;
+
+        FailingIterator(Exception ex) {
+            this.ex = ex;
+        }
+
+
+        @Override
+        public boolean hasNext() {
+            sneakyThrow(ex);
+
+            return false;
+        }
+
+        @SuppressWarnings("ReturnOfNull")
+        @Override
+        public T next() {
+            sneakyThrow(ex);
+
+            return null;
+        }
     }
 }
