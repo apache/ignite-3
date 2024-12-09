@@ -76,7 +76,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.command.marshaller.ThreadLocalMetastoreCommandsMarshaller;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
@@ -93,7 +92,6 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -299,10 +297,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 new NoOpMetricManager(),
                 mock(MetastorageRepairStorage.class),
                 mock(MetastorageRepair.class),
-                options -> {
-                    RaftGroupOptions groupOptions = (RaftGroupOptions) options;
-                    groupOptions.commandsMarshaller(new ThreadLocalMetastoreCommandsMarshaller(clusterService.serializationRegistry()));
-                },
+                RaftGroupOptionsConfigurer.EMPTY,
                 readOperationForCompactionTracker,
                 ForkJoinPool.commonPool()
         );
