@@ -54,6 +54,24 @@ public class CatalogStorageProfileDescriptor {
         return storageProfile;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        CatalogStorageProfileDescriptor that = (CatalogStorageProfileDescriptor) o;
+        return storageProfile.equals(that.storageProfile);
+    }
+
+    @Override
+    public int hashCode() {
+        return storageProfile.hashCode();
+    }
+
     /**
      * Serializer for {@link CatalogStorageProfilesDescriptor}.
      */

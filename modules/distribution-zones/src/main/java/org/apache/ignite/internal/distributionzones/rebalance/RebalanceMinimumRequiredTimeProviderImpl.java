@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 import static java.lang.Math.min;
 import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor.updateRequiresAssignmentsRecalculation;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_CHANGE_TRIGGER_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
@@ -96,16 +97,16 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
             NavigableMap<Long, CatalogZoneDescriptor> zoneDescriptors = allZonesByTimestamp.get(zoneId);
             int zonePartitions = zoneDescriptors.lastEntry().getValue().partitions();
 
-            Long pendingChangeTriggerKey = pendingChangeTriggerRevisions.get(tableId);
+            Long pendingChangeTriggerRevision = pendingChangeTriggerRevisions.get(tableId);
 
             // +-1 here ir required for 2 reasons:
             // - we need timestamp right before deletion, if zone is deleted, thus we must subtract 1;
             // - we need a "metaStorageSafeTime" if zone is not deleted, without any subtractions.
             long latestTimestamp = zoneDeletionTimestamps.getOrDefault(zoneId, metaStorageSafeTime + 1) - 1;
 
-            long zoneRevision = pendingChangeTriggerKey == null
+            long zoneRevision = pendingChangeTriggerRevision == null
                     ? zoneDescriptors.firstEntry().getValue().updateToken()
-                    : pendingChangeTriggerKey;
+                    : pendingChangeTriggerRevision;
 
             NavigableMap<Long, CatalogZoneDescriptor> map = allZonesByRevision.get(zoneId);
             Map.Entry<Long, CatalogZoneDescriptor> zone = map.floorEntry(zoneRevision);
@@ -164,7 +165,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
             for (CatalogZoneDescriptor zone : catalog.zones()) {
                 NavigableMap<Long, CatalogZoneDescriptor> map = allZones.computeIfAbsent(zone.id(), id -> new TreeMap<>());
 
-                if (map.isEmpty() || map.lastEntry().getValue().updateToken() != zone.updateToken()) {
+                if (map.isEmpty() || updateRequiresAssignmentsRecalculation(map.lastEntry().getValue(), zone)) {
                     map.put(catalog.time(), zone);
                 }
             }

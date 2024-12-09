@@ -60,6 +60,9 @@ import org.junit.jupiter.api.Test;
 class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneManagerTest {
     private static final String TABLE_NAME = "tableName";
 
+    private static final String UPDATED_FILTER_1 = "$..*.*";
+    private static final String UPDATED_FILTER_2 = "$..*.*.*";
+
     private RebalanceMinimumRequiredTimeProvider minimumRequiredTimeProvider;
 
     @BeforeEach
@@ -111,7 +114,8 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
         createTable(defaultZoneName);
 
         Catalog earliestCatalog = latestCatalogVersion();
-        alterZone(defaultZoneName, 0, 0, null);
+
+        alterZone(defaultZoneName, null, null, "$..*.*");
         Catalog latestCatalog = latestCatalogVersion();
 
         long minimumRequiredTime = getMinimumRequiredTime();
@@ -125,7 +129,7 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
      * time, that corresponds to zone before its update.
      */
     @Test
-    void testOldStableAssignments() throws Exception {
+    void testOldStableAssignments1() throws Exception {
         startDistributionZoneManager();
 
         String defaultZoneName = getDefaultZone().name();
@@ -133,7 +137,8 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
         int tableId = createTable(defaultZoneName);
 
         Catalog earliestCatalog = latestCatalogVersion();
-        alterZone(defaultZoneName, 0, 0, null);
+
+        alterZone(defaultZoneName, null, null, UPDATED_FILTER_1);
         Catalog latestCatalog = latestCatalogVersion();
 
         saveStableAssignments(defaultZoneName, tableId, earliestCatalog, true);
@@ -141,6 +146,34 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
         long minimumRequiredTime = getMinimumRequiredTime();
 
         assertThat(earliestCatalog.time(), is(lessThanOrEqualTo(minimumRequiredTime)));
+        assertThat(minimumRequiredTime, is(lessThan(latestCatalog.time())));
+    }
+
+    /**
+     * Scenario where table exists, its initial assignments are saved, and we updated the zone after that. In this case, we should return
+     * time, that corresponds to zone before its update.
+     */
+    @Test
+    void testOldStableAssignments2() throws Exception {
+        startDistributionZoneManager();
+
+        String defaultZoneName = getDefaultZone().name();
+
+        int tableId = createTable(defaultZoneName);
+
+        Catalog earliestCatalog = latestCatalogVersion();
+
+        alterZone(defaultZoneName, 1, 1, null);
+        Catalog intermediateCatalog = latestCatalogVersion();
+
+        alterZone(defaultZoneName, null, null, UPDATED_FILTER_1);
+        Catalog latestCatalog = latestCatalogVersion();
+
+        saveStableAssignments(defaultZoneName, tableId, earliestCatalog, true);
+
+        long minimumRequiredTime = getMinimumRequiredTime();
+
+        assertThat(intermediateCatalog.time(), is(lessThanOrEqualTo(minimumRequiredTime)));
         assertThat(minimumRequiredTime, is(lessThan(latestCatalog.time())));
     }
 
@@ -183,7 +216,8 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
         int tableId = createTable(defaultZoneName);
 
         Catalog earliestCatalog = latestCatalogVersion();
-        alterZone(defaultZoneName, 0, 0, null);
+
+        alterZone(defaultZoneName, null, null, UPDATED_FILTER_1);
         Catalog latestCatalog = latestCatalogVersion();
 
         saveStableAssignments(defaultZoneName, tableId, earliestCatalog, true);
@@ -208,7 +242,8 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
         int tableId = createTable(defaultZoneName);
 
         Catalog earliestCatalog = latestCatalogVersion();
-        alterZone(defaultZoneName, 0, 0, null);
+
+        alterZone(defaultZoneName, null, null, UPDATED_FILTER_1);
         Catalog latestCatalog = latestCatalogVersion();
 
         saveStableAssignments(defaultZoneName, tableId, earliestCatalog, true);
@@ -232,7 +267,8 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
         int tableId = createTable(defaultZoneName);
 
         Catalog earliestCatalog = latestCatalogVersion();
-        alterZone(defaultZoneName, 0, 0, null);
+
+        alterZone(defaultZoneName, null, null, UPDATED_FILTER_1);
         Catalog latestCatalog = latestCatalogVersion();
 
         saveStableAssignments(defaultZoneName, tableId, earliestCatalog, true);
@@ -257,10 +293,10 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
 
         Catalog earliestCatalog = latestCatalogVersion();
 
-        alterZone(defaultZoneName, 0, 0, null);
+        alterZone(defaultZoneName, null, null, UPDATED_FILTER_1);
         Catalog intermediateCatalog = latestCatalogVersion();
 
-        alterZone(defaultZoneName, 1, 1, null);
+        alterZone(defaultZoneName, null, null, UPDATED_FILTER_2);
         Catalog latestCatalog = latestCatalogVersion();
 
         saveStableAssignments(defaultZoneName, tableId, earliestCatalog, true);
@@ -287,10 +323,10 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
 
         Catalog earliestCatalog = latestCatalogVersion();
 
-        alterZone(defaultZoneName, 0, 0, null);
+        alterZone(defaultZoneName, null, null, UPDATED_FILTER_1);
         Catalog intermediateCatalog = latestCatalogVersion();
 
-        alterZone(defaultZoneName, 1, 1, null);
+        alterZone(defaultZoneName, null, null, UPDATED_FILTER_2);
         Catalog latestCatalog = latestCatalogVersion();
 
         saveStableAssignments(defaultZoneName, tableId, earliestCatalog, true);
@@ -355,7 +391,7 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
             Catalog catalog,
             boolean allPartitions
     ) throws Exception {
-        saveAssignments(defaultZoneName, tableId, catalog, RebalanceUtil::stablePartAssignmentsKey, allPartitions);
+        saveAssignments(true, defaultZoneName, tableId, catalog, RebalanceUtil::stablePartAssignmentsKey, allPartitions);
     }
 
     private void savePendingAssignments(String zoneName,
@@ -363,7 +399,7 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
             Catalog catalog,
             boolean allPartitions
     ) throws Exception {
-        saveAssignments(zoneName, tableId, catalog, RebalanceUtil::pendingPartAssignmentsKey, allPartitions);
+        saveAssignments(false, zoneName, tableId, catalog, RebalanceUtil::pendingPartAssignmentsKey, allPartitions);
     }
 
     private void savePlannedAssignments(String zoneName,
@@ -371,10 +407,11 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
             Catalog catalog,
             boolean allPartitions
     ) throws Exception {
-        saveAssignments(zoneName, tableId, catalog, RebalanceUtil::plannedPartAssignmentsKey, allPartitions);
+        saveAssignments(false, zoneName, tableId, catalog, RebalanceUtil::plannedPartAssignmentsKey, allPartitions);
     }
 
     private void saveAssignments(
+            boolean stable,
             String zoneName,
             int tableId,
             Catalog catalog,
@@ -397,10 +434,12 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
             if (allPartitions || partitionId % 2 == 0) {
                 TablePartitionId tablePartitionId = new TablePartitionId(tableId, partitionId);
 
-                metaStorageData.put(
-                        RebalanceUtil.pendingChangeTriggerKey(tablePartitionId),
-                        revisionBytes
-                );
+                if (!stable) {
+                    metaStorageData.put(
+                            RebalanceUtil.pendingChangeTriggerKey(tablePartitionId),
+                            revisionBytes
+                    );
+                }
 
                 metaStorageData.put(
                         keyFunction.apply(tablePartitionId),

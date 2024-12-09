@@ -57,6 +57,18 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      */
     private final ConsistencyMode consistencyMode;
 
+    public static boolean updateRequiresAssignmentsRecalculation(CatalogZoneDescriptor oldDescriptor, CatalogZoneDescriptor newDescriptor) {
+        if (oldDescriptor.updateToken() == newDescriptor.updateToken()) {
+            return false;
+        }
+
+        return oldDescriptor.partitions != newDescriptor.partitions
+                || oldDescriptor.replicas != newDescriptor.replicas
+                || !oldDescriptor.filter.equals(newDescriptor.filter)
+                || !oldDescriptor.storageProfiles.profiles().equals(newDescriptor.storageProfiles.profiles())
+                || oldDescriptor.consistencyMode != newDescriptor.consistencyMode;
+    }
+
     /**
      * Constructs a distribution zone descriptor.
      *
