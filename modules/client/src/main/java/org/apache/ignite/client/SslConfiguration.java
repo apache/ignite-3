@@ -45,6 +45,7 @@ public interface SslConfiguration {
         return new Builder();
     }
 
+    /** SSL configuration builder. */
     @SuppressWarnings("PublicInnerClass")
     class Builder {
         private boolean enabled = false;
