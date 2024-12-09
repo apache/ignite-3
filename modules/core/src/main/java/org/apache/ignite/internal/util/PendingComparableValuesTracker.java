@@ -19,7 +19,7 @@ package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICATION_SAFE_TIME_REORDERING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.REORDERING_ERR;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -131,8 +131,8 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
 
             // Entries from the same batch receive equal safe timestamps.
             if (comparator.compare(newEntry, current) < 0) {
-                throw new IgniteInternalException(REPLICATION_SAFE_TIME_REORDERING_ERR,
-                        "Safe timestamp reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1() + ']');
+                throw new IgniteInternalException(REORDERING_ERR,
+                        "Reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1() + ']');
             }
 
             CURRENT.set(this, newEntry);

@@ -42,7 +42,6 @@ import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -122,8 +121,6 @@ public class PartitionListener implements RaftGroupListener {
 
     private final SchemaRegistry schemaRegistry;
 
-    private final ClockService clockService; // TODO remove
-
     private final IndexMetaStorage indexMetaStorage;
 
     private final UUID localNodeId;
@@ -142,7 +139,6 @@ public class PartitionListener implements RaftGroupListener {
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CatalogService catalogService,
             SchemaRegistry schemaRegistry,
-            ClockService clockService,
             IndexMetaStorage indexMetaStorage,
             UUID localNodeId,
             MinimumRequiredTimeCollectorService minTimeCollectorService
@@ -155,7 +151,6 @@ public class PartitionListener implements RaftGroupListener {
         this.storageIndexTracker = storageIndexTracker;
         this.catalogService = catalogService;
         this.schemaRegistry = schemaRegistry;
-        this.clockService = clockService;
         this.indexMetaStorage = indexMetaStorage;
         this.localNodeId = localNodeId;
         this.minTimeCollectorService = minTimeCollectorService;

@@ -468,7 +468,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 schemaManager,
-                CLOCK_SERVICE,
                 mock(IndexMetaStorage.class),
                 LOCAL_NODE.id(),
                 mock(MinimumRequiredTimeCollectorService.class)

@@ -735,7 +735,6 @@ public class ItTxTestCluster {
                         storageIndexTracker,
                         catalogService,
                         schemaManager,
-                        clockServices.get(assignment),
                         mock(IndexMetaStorage.class),
                         // TODO use proper index.
                         clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),

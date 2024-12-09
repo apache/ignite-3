@@ -516,7 +516,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     log.info("Handle request [type={}]", request.getClass().getSimpleName());
 
                     return raftClient
-                            .run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().build())
+                            .run(REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().initiatorTime(clock.now()).build())
                             .thenCompose(ignored -> replicaListener == null
                                     ? completedFuture(new ReplicaResult(null, null))
                                     : replicaListener.apply(request, senderId));

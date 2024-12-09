@@ -39,5 +39,5 @@ public interface Command extends NetworkMessage {
      */
     default @Nullable HybridTimestamp initiatorTime() {
         return null;
-    };
+    }
 }

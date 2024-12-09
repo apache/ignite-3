@@ -148,6 +148,9 @@ public class ErrorGroups {
          **/
         public static final int NULLABLE_VALUE_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 9);
 
+        /** Reordering exception. */
+        public static final int REORDERING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 10);
+
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase. In general, this error code
          * should be considered as a non-recoverable error
@@ -389,9 +392,6 @@ public class ErrorGroups {
 
         /** Stopping replica exception code. */
         public static final int REPLICA_STOPPING_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 8);
-
-        /** Replication safe time reordering. */
-        public static final int REPLICATION_SAFE_TIME_REORDERING_ERR = REPLICATOR_ERR_GROUP.registerErrorCode((short) 9);
     }
 
     /** Storage error group. */

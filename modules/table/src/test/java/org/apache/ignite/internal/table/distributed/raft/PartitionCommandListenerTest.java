@@ -62,7 +62,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
-import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -292,7 +291,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 SCHEMA_REGISTRY,
-                clockService,
                 indexMetaStorage,
                 clusterService.topologyService().localMember().id(),
                 mock(MinimumRequiredTimeCollectorService.class)
@@ -505,7 +503,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 SCHEMA_REGISTRY,
-                clockService,
                 indexMetaStorage,
                 clusterService.topologyService().localMember().id(),
                 mock(MinimumRequiredTimeCollectorService.class)
