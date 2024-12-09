@@ -1095,13 +1095,13 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     @MethodSource("txTypes")
     public void transactionRollbackOnError(NoOpTransaction tx) {
         ExecutionService execService = executionServices.get(0);
-        QueryTransactionContext txContext = Mockito.mock(QueryTransactionContext.class);
+        QueryTransactionContext txContext = mock(QueryTransactionContext.class);
 
         SqlOperationContext ctx = operationContext(null)
                 .txContext(txContext)
                 .build();
 
-        QueryTransactionWrapper txWrapper = Mockito.mock(QueryTransactionWrapper.class);
+        QueryTransactionWrapper txWrapper = mock(QueryTransactionWrapper.class);
 
         when(txContext.getOrStartImplicit(anyBoolean())).thenReturn(txWrapper);
 
