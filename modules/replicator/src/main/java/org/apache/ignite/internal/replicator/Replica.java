@@ -84,19 +84,19 @@ public interface Replica {
     void updatePeersAndLearners(PeersAndLearners peersAndLearners);
 
     /**
-     * Creates a snapshot on a given node.
+     * Creates a snapshot on a given group member.
      *
-     * @param targetConsistentId Name of the node that will create a snapshot.
-     * @return Future that gets completed when the target node creates a snapshot.
+     * @param targetMember Group member that will create a snapshot.
+     * @return Future that gets completed when the target member creates a snapshot.
      */
-    CompletableFuture<Void> createSnapshotOn(String targetConsistentId);
+    CompletableFuture<Void> createSnapshotOn(Member targetMember);
 
     /**
-     * Transfers leadership from the current group leader to the target node.
+     * Transfers leadership from the current group leader to the target group member.
      *
-     * @param targetConsistentId Name of the node that will become a new leader.
+     * @param targetConsistentId Name of the group member that will become a new leader. Must be a voting member of the replication group.
      * @return Future that gets completed when the current leader executes the request and steps down. Note that this does not imply any
-     *         happens-before relationship between the completion of the future and the target node becoming the new group leader.
+     *         happens-before relationship between the completion of the future and the target member becoming the new group leader.
      */
     CompletableFuture<Void> transferLeadershipTo(String targetConsistentId);
 }

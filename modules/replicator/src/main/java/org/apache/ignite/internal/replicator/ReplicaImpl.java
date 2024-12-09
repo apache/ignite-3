@@ -329,8 +329,12 @@ public class ReplicaImpl implements Replica {
     }
 
     @Override
-    public CompletableFuture<Void> createSnapshotOn(String targetConsistentId) {
-        return raftClient.snapshot(new Peer(targetConsistentId));
+    public CompletableFuture<Void> createSnapshotOn(Member targetMember) {
+        Peer peer = targetMember.isVotingMember()
+                ? new Peer(targetMember.consistentId(), 0)
+                : new Peer(targetMember.consistentId(), 1);
+
+        return raftClient.snapshot(peer);
     }
 
     @Override
