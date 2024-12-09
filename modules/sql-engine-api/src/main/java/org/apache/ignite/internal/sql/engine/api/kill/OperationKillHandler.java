@@ -36,7 +36,8 @@ public interface OperationKillHandler {
 
     /**
      * Returns whether the handler can abort operations only on local node or across the entire cluster.
-     * If a handler can only abort operations on the local node, then distributed coordination will
+     *
+     * <p>If a handler can only abort operations on the local node, then distributed coordination will
      * be performed by the SQL engine.
      *
      * @return {@code True} if the handler can abort operations only on local node,

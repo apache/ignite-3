@@ -44,14 +44,12 @@ class LocalToClusterKillHandlerWrapper implements OperationKillHandler {
     private static final long RESPONSE_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(5);
 
     private final OperationKillHandler localHandler;
-    private final CancellableOperationType type;
     private final String localNodeName;
     private final LogicalTopologyService logicalTopologyService;
     private final MessagingService messageService;
 
     LocalToClusterKillHandlerWrapper(
             OperationKillHandler localHandler,
-            CancellableOperationType type,
             String localNodeName,
             LogicalTopologyService logicalTopologyService,
             MessagingService messageService
@@ -59,7 +57,6 @@ class LocalToClusterKillHandlerWrapper implements OperationKillHandler {
         assert localHandler.local() : "handler must be local";
 
         this.localHandler = localHandler;
-        this.type = type;
         this.localNodeName = localNodeName;
         this.logicalTopologyService = logicalTopologyService;
         this.messageService = messageService;
@@ -72,7 +69,7 @@ class LocalToClusterKillHandlerWrapper implements OperationKillHandler {
 
     @Override
     public CancellableOperationType type() {
-        return type;
+        return localHandler.type();
     }
 
     @Override
@@ -85,7 +82,7 @@ class LocalToClusterKillHandlerWrapper implements OperationKillHandler {
 
                     CancelOperationRequest request = FACTORY.cancelOperationRequest()
                             .operationId(operationId)
-                            .typeId(type.id())
+                            .typeId(localHandler.type().id())
                             .build();
 
                     return broadcastCancel(request);

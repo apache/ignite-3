@@ -72,7 +72,6 @@ public class KillCommandHandler implements KillHandlerRegistry {
 
             clusterWideHandler = new LocalToClusterKillHandlerWrapper(
                     handler,
-                    handler.type(),
                     localNodeName,
                     logicalTopologyService,
                     messageService

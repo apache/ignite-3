@@ -42,8 +42,8 @@ public final class SqlQueryMessageGroup {
     public static final short QUERY_CLOSE_MESSAGE = 5;
 
     /** See {@link CancelOperationRequest} for the details. */
-    public static final short OPERATION_CANCEL_REQUEST = 100;
+    public static final short OPERATION_CANCEL_REQUEST = 6;
 
     /** See {@link CancelOperationResponse} for the details. */
-    public static final short OPERATION_CANCEL_RESPONSE = 101;
+    public static final short OPERATION_CANCEL_RESPONSE = 7;
 }

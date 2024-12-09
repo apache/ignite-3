@@ -56,7 +56,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void testKillQueryMetadata() {
+    public void killQueryMetadata() {
         assertQuery("KILL QUERY '00000000-0000-0000-0000-000000000000'")
                 .columnMetadata(
                         new MetadataMatcher().name("APPLIED").type(ColumnType.BOOLEAN).nullable(false)
@@ -74,7 +74,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void kilNonExistentQuery() {
+    public void killNonExistentQuery() {
         checkKillQuery(CLUSTER.aliveNode(), UUID.randomUUID(), false);
     }
 
