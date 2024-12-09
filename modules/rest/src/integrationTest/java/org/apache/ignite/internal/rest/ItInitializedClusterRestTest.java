@@ -215,8 +215,8 @@ public class ItInitializedClusterRestTest extends AbstractRestTestBase {
                 () -> assertThat(response.body(), hasJsonPath("$.clusterTag.clusterName", is(equalTo("cluster")))),
                 () -> assertThat(response.body(), hasJsonPath("$.clusterTag.clusterId")),
                 () -> assertThat(response.body(), hasJsonPath("$.igniteVersion")),
-                () -> assertThat(response.body(), hasJsonPath("$.msNodes")),
-                () -> assertThat(response.body(), hasJsonPath("$.cmgNodes"))
+                () -> assertThat(response.body(), hasJsonPath("$.metastoreStatus")),
+                () -> assertThat(response.body(), hasJsonPath("$.cmgStatus"))
         );
     }
 

@@ -20,29 +20,60 @@ package org.apache.ignite.internal.cli.decorators;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.ansi;
 import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 
-import org.apache.ignite.internal.cli.call.cluster.status.ClusterStatus;
+import java.util.List;
+import org.apache.ignite.internal.cli.call.cluster.status.ClusterStateOutput;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
+import org.apache.ignite.rest.client.model.ClusterStateDtoCmgStatus;
+import org.apache.ignite.rest.client.model.ClusterStateDtoMetastoreStatus;
+import org.apache.ignite.rest.client.model.GroupStatus;
 
 /**
- * Decorator for {@link ClusterStatus}.
+ * Decorator for {@link ClusterStateOutput}.
  */
-public class ClusterStatusDecorator implements Decorator<ClusterStatus, TerminalOutput> {
+public class ClusterStatusDecorator implements Decorator<ClusterStateOutput, TerminalOutput> {
     @Override
-    public TerminalOutput decorate(ClusterStatus data) {
+    public TerminalOutput decorate(ClusterStateOutput data) {
         return data.isInitialized()
-                ? () -> ansi(String.format(
-                "[name: %s, nodes: %s, status: %s, cmgNodes: %s, msNodes: %s]",
+                ? () -> toSuccessOutput(data)
+                : () -> toNotInitializedOutput(data);
+    }
+
+    private static String toSuccessOutput(ClusterStateOutput data) {
+        ClusterStateDtoMetastoreStatus metastoreStatus = data.metastoreStatus();
+        ClusterStateDtoCmgStatus cmgStatus = data.getCmgStatus();
+        return ansi(String.format(
+                "[name: %s, nodes: %s, metastoreStatus: %s, cmgStatus: %s]",
                 data.getName(),
                 data.nodeCount(),
-                fg(Color.GREEN).mark("active"),
-                data.getCmgNodes(),
-                data.getMsNodes()
-        ))
-                : () -> ansi(String.format(
-                        "[nodes: %s, status: %s]",
-                        data.nodeCount(), fg(Color.RED).mark("not initialized")
-                ));
+                status(cmgStatus.getAliveNodes(), cmgStatus.getGroupStatus()),
+                status(metastoreStatus.getAliveNodes(), metastoreStatus.getGroupStatus())
+        ));
+    }
+
+    private static String toNotInitializedOutput(ClusterStateOutput data) {
+        return ansi(String.format(
+                "[nodes: %s, status: %s]",
+                data.nodeCount(),
+                fg(Color.RED).mark("not initialized")
+        ));
+    }
+
+    private static String status(List<String> nodes, GroupStatus status) {
+        int nodeCount = nodes.size();
+        String formattedStatus;
+        switch (status) {
+            case HEALTHY:
+                formattedStatus = fg(Color.GREEN).mark("Healthy");
+                break;
+            case MAJORITY_LOST:
+                formattedStatus = fg(Color.RED).mark("Majority lost");
+                break;
+            default:
+                formattedStatus = "";
+        }
+
+        return String.format("[nodes: %s, status: %s]", nodeCount, formattedStatus);
     }
 }

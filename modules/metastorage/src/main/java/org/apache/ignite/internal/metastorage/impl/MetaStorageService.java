@@ -259,4 +259,7 @@ public interface MetaStorageService extends ManuallyCloseable {
      * @param revision Revision of interest.
      */
     CompletableFuture<ChecksumInfo> checksum(long revision);
+
+    @Override
+    void close();
 }
