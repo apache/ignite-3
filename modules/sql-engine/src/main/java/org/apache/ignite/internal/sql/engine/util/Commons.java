@@ -891,7 +891,7 @@ public final class Commons {
      * Derives an exception from the list of futures.
      *
      * <p>The exception from the first failed future in the list will be the root exception,
-     * the remaining exceptions will be added to the suppression list of the first exception
+     * the remaining exceptions will be added to the suppression list of the first exception.
      *
      * @param futures List of futures.
      * @return Exception or {@code null} if all futures are completed successfully.
