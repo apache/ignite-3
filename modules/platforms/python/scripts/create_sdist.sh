@@ -18,6 +18,16 @@ set -e -u -x
 
 PACKAGE_NAME=pyignite3
 
+# Copying cpp directory.
+pushd
+cp -r ../cpp ../cpp-tmp
+cd ../cpp
+git clean -dfx
+popd
+
+mv ../cpp .
+mv ../cpp-tmp ../cpp
+
 # Create source dist.
 for PYBIN in /opt/python/*/bin; do
     if [[ $PYBIN =~ ^(.*)cp39(.*)$ ]] || [[ $PYBIN =~ ^(.*)cp31[0123](.*)$ ]]; then
@@ -32,6 +42,8 @@ for archive in /dist/*; do
         chmod 666 "$archive"
     fi
 done
+
+rm -rf cpp
 
 rm -rf /$PACKAGE_NAME/*.egg-info
 rm -rf /$PACKAGE_NAME/.eggs

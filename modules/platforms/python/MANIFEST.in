@@ -5,3 +5,6 @@ global-exclude *__pycache__*
 include README.md
 include LICENSE
 include NOTICE
+include cpp_module
+include CMakeLists.txt
+include cpp

@@ -76,9 +76,9 @@ done
 
 normalize_path
 
-docker build scripts/ -t ignite_python_wheels_build
-
 docker run --rm -v "$SRC_DIR":/$PACKAGE_NAME -v "$CPP_DIR":/cpp -v "$DISTR_DIR":/dist $DEFAULT_DOCKER_IMAGE /$PACKAGE_NAME/scripts/create_sdist.sh
+
+docker build scripts/ -t ignite_python_wheels_build
 
 if [[ -n "$ARCH" ]]; then
     run_wheel_arch "$ARCH"
