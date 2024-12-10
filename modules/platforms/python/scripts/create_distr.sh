@@ -15,9 +15,10 @@
 # limitations under the License.
 
 PACKAGE_NAME=pyignite3
-DISTR_DIR="$(pwd)/distr/"
 SRC_DIR="$(pwd)"
-DEFAULT_DOCKER_IMAGE="quay.io/pypa/manylinux2010_x86_64"
+DISTR_DIR="$SRC_DIR/distr/"
+CPP_DIR="$SRC_DIR/../cpp/"
+DEFAULT_DOCKER_IMAGE="ignite_python_wheels_build"
 
 usage() {
     cat <<EOF
@@ -43,27 +44,25 @@ normalize_path() {
     mkdir -p "$DISTR_DIR"
     cd "$DISTR_DIR" || exit 1
     DISTR_DIR="$(pwd)"
+    cd "$CPP_DIR" || exit 1
+    CPP_DIR="$(pwd)"
     cd "$SRC_DIR" || exit 1
     SRC_DIR="$(pwd)"
 }
 
 run_wheel_arch() {
-    if [[ $1 =~ ^(i686|x86)$ ]]; then
-        PLAT="manylinux1_i686"
-        PRE_CMD="linux32"
-        DOCKER_IMAGE="quay.io/pypa/manylinux2010_i686"
-    elif [[ $1 =~ ^(x86_64)$ ]]; then
-        PLAT="manylinux1_x86_64"
+    if [[ $1 =~ ^(x86_64)$ ]]; then
+        PLAT="manylinux2014_x86_64"
         PRE_CMD=""
         DOCKER_IMAGE="$DEFAULT_DOCKER_IMAGE"
     else
-        echo "unsupported architecture $1, only x86(i686) and x86_64 supported"
+        echo "unsupported architecture $1, only x86_64 supported"
         exit 1
     fi
 
     WHEEL_DIR="$DISTR_DIR/$1"
     mkdir -p "$WHEEL_DIR"
-    docker run --rm -e PLAT=$PLAT -v "$SRC_DIR":/$PACKAGE_NAME -v "$WHEEL_DIR":/wheels $DOCKER_IMAGE $PRE_CMD /$PACKAGE_NAME/scripts/build_wheels.sh
+    docker run --rm -e PLAT=$PLAT -v "$SRC_DIR":/$PACKAGE_NAME -v "$CPP_DIR":/cpp -v "$WHEEL_DIR":/wheels $DOCKER_IMAGE $PRE_CMD /$PACKAGE_NAME/scripts/build_wheels.sh
 }
 
 while [[ $# -ge 1 ]]; do
@@ -77,11 +76,12 @@ done
 
 normalize_path
 
-docker run --rm -v "$SRC_DIR":/$PACKAGE_NAME -v "$DISTR_DIR":/dist $DEFAULT_DOCKER_IMAGE /$PACKAGE_NAME/scripts/create_sdist.sh
+docker build scripts/ -t ignite_python_wheels_build
+
+docker run --rm -v "$SRC_DIR":/$PACKAGE_NAME -v "$CPP_DIR":/cpp -v "$DISTR_DIR":/dist $DEFAULT_DOCKER_IMAGE /$PACKAGE_NAME/scripts/create_sdist.sh
 
 if [[ -n "$ARCH" ]]; then
     run_wheel_arch "$ARCH"
 else
-    run_wheel_arch "x86"
     run_wheel_arch "x86_64"
 fi

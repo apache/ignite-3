@@ -17,6 +17,7 @@
 set -e -u -x
 
 PACKAGE_NAME=pyignite3
+PY_VERS="cp39 cp310 cp311 cp312 cp313"
 
 function repair_wheel {
     wheel="$1"
@@ -27,16 +28,25 @@ function repair_wheel {
     fi
 }
 
-# Compile wheels
-for PYBIN in /opt/python/*/bin; do
-    if [[ $PYBIN =~ ^(.*)cp39(.*)$ ]] || [[ $PYBIN =~ ^(.*)cp1[0123](.*)$ ]]; then
-        "${PYBIN}/pip" wheel /$PACKAGE_NAME/ --no-deps -w /wheels
-    fi
-done
+for PY_VER in $PY_VERS; do
+    for PYBIN in /opt/python/*/bin; do
+        if [[ $PYBIN =~ ^(.*)$PY_VER/(.*)$ ]]; then
+            echo -e "\e[32m >>> \e[0m"
+            echo -e "\e[32m >>> Preparing a wheel for Python $PYBIN \e[0m"
+            echo -e "\e[32m >>> \e[0m"
 
-# Bundle external shared libraries into the wheels
-for whl in /wheels/*.whl; do
-    repair_wheel "$whl"
+            # Compile wheels
+            "${PYBIN}/pip" wheel /$PACKAGE_NAME/ --no-deps -w /wheels
+
+            # Bundle external shared libraries into the wheels
+            for whl in /wheels/*.whl; do
+                if [[ $whl =~ ^(.*)$PY_VER-(.*)$ ]]; then
+                    "${PYBIN}/pip" wheel /$PACKAGE_NAME/ --no-deps -w /wheels
+                    repair_wheel "$whl"
+                fi
+            done
+        fi
+    done
 done
 
 for whl in /wheels/*.whl; do
