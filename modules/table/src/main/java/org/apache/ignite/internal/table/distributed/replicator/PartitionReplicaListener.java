@@ -30,6 +30,8 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_SCAN;
+import static org.apache.ignite.internal.partitiondistribution.Assignments.fromBytes;
+import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
@@ -52,10 +54,12 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
@@ -113,6 +117,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.WriteInte
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectSingleRowReplicaRequest;
@@ -130,11 +135,15 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadW
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.UpdateMinimumActiveTxBeginTimeReplicaRequest;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
+import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.CommandApplicationResult;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -269,7 +278,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final MvPartitionStorage mvDataStorage;
 
     /** Raft client. */
-    private final RaftCommandRunner raftClient;
+    private final RaftCommandRunner raftCommandRunner;
 
     /** Tx manager. */
     private final TxManager txManager;
@@ -342,7 +351,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * The constructor.
      *
      * @param mvDataStorage Data storage.
-     * @param raftClient Raft client.
+     * @param raftCommandRunner Raft client.
      * @param txManager Transaction manager.
      * @param lockManager Lock manager.
      * @param partId Partition id.
@@ -364,7 +373,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      */
     public PartitionReplicaListener(
             MvPartitionStorage mvDataStorage,
-            RaftCommandRunner raftClient,
+            RaftCommandRunner raftCommandRunner,
             TxManager txManager,
             LockManager lockManager,
             Executor scanRequestExecutor,
@@ -389,7 +398,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             IndexMetaStorage indexMetaStorage
     ) {
         this.mvDataStorage = mvDataStorage;
-        this.raftClient = raftClient;
+        this.raftCommandRunner = raftCommandRunner;
         this.txManager = txManager;
         this.lockManager = lockManager;
         this.scanRequestExecutor = scanRequestExecutor;
@@ -471,10 +480,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Returns Raft-client. */
     @Override
     public RaftCommandRunner raftClient() {
-        if (raftClient instanceof ExecutorInclinedRaftCommandRunner) {
-            return ((ExecutorInclinedRaftCommandRunner) raftClient).decoratedCommandRunner();
+        if (raftCommandRunner instanceof ExecutorInclinedRaftCommandRunner) {
+            return ((ExecutorInclinedRaftCommandRunner) raftCommandRunner).decoratedCommandRunner();
         }
-        return raftClient;
+        return raftCommandRunner;
     }
 
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, UUID senderId,
@@ -509,6 +518,10 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         if (request instanceof GetEstimatedSizeRequest) {
             return processGetEstimatedSizeRequest();
+        }
+
+        if (request instanceof ChangePeersAndLearnersAsyncReplicaRequest) {
+            return processChangePeersAndLearnersReplicaRequest((ChangePeersAndLearnersAsyncReplicaRequest) request);
         }
 
         @Nullable HybridTimestamp opTs = getTxOpTimestamp(request);
@@ -575,6 +588,67 @@ public class PartitionReplicaListener implements ReplicaListener {
         LOG.info("Orphan transaction has to be aborted [tx={}, meta={}].", txId, txMeta);
 
         return triggerTxRecovery(txId, senderId);
+    }
+
+    private CompletableFuture<Void> processChangePeersAndLearnersReplicaRequest(ChangePeersAndLearnersAsyncReplicaRequest request) {
+        TablePartitionId replicaGrpId = (TablePartitionId) request.groupId().asReplicationGroupId();
+
+        RaftGroupService raftClient = raftCommandRunner instanceof RaftGroupService
+                ? (RaftGroupService) raftCommandRunner
+                : ((RaftGroupService) ((ExecutorInclinedRaftCommandRunner) raftCommandRunner).decoratedCommandRunner());
+
+        return raftClient.refreshAndGetLeaderWithTerm()
+                .exceptionally(throwable -> {
+                    throwable = unwrapCause(throwable);
+
+                    if (throwable instanceof TimeoutException) {
+                        LOG.info(
+                                "Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
+                                replicaGrpId
+                        );
+
+                        return LeaderWithTerm.NO_LEADER;
+                    }
+
+                    throw new IgniteInternalException(
+                            INTERNAL_ERR,
+                            "Failed to get a leader for the RAFT replication group [get=" + replicaGrpId + "].",
+                            throwable
+                    );
+                })
+                .thenCompose(leaderWithTerm -> {
+                    if (leaderWithTerm.isEmpty() || !isTokenStillValidPrimary(request.enlistmentConsistencyToken())) {
+                        return nullCompletedFuture();
+                    }
+
+                    // run update of raft configuration if this node is a leader
+                    LOG.debug("Current node={} is the leader of partition raft group={}. "
+                                    + "Initiate rebalance process for partition={}, table={}",
+                            leaderWithTerm.leader(),
+                            replicaGrpId,
+                            replicaGrpId.partitionId(),
+                            catalogService.table(replicaGrpId.tableId(), catalogService.latestCatalogVersion()).name()
+                    );
+
+                    return raftClient.changePeersAndLearnersAsync(peersConfigurationFromMessage(request), leaderWithTerm.term());
+                });
+    }
+
+    private boolean isTokenStillValidPrimary(long suspectedEnlistmentConsistencyToken) {
+        HybridTimestamp currentTime = clockService.current();
+
+        ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, currentTime);
+
+        return meta != null
+                && isLocalPeer(meta.getLeaseholderId())
+                && clockService.before(currentTime, meta.getExpirationTime())
+                && suspectedEnlistmentConsistencyToken == meta.getStartTime().longValue();
+    }
+
+    private static PeersAndLearners peersConfigurationFromMessage(ChangePeersAndLearnersAsyncReplicaRequest request) {
+        Assignments pendingAssignments = fromBytes(request.pendingAssignments());
+
+        return fromAssignments(pendingAssignments.nodes());
     }
 
     /**
@@ -3974,7 +4048,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         return txRwOperationTracker.awaitCompleteTxRwOperations(registeredChangeInfo.catalogVersion())
                 .thenCompose(unused -> safeTime.waitFor(hybridTimestamp(buildingChangeInfo.activationTimestamp())))
-                .thenCompose(unused -> raftClient.run(toBuildIndexCommand(request, buildingChangeInfo)));
+                .thenCompose(unused -> raftCommandRunner.run(toBuildIndexCommand(request, buildingChangeInfo)));
     }
 
     private List<Integer> indexIdsAtRwTxBeginTs(UUID txId) {
@@ -4004,7 +4078,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .txIds(request.transactionIds())
                 .build();
 
-        return raftClient.run(cmd);
+        return raftCommandRunner.run(cmd);
     }
 
     private CompletableFuture<?> processMinimumActiveTxTimeReplicaRequest(UpdateMinimumActiveTxBeginTimeReplicaRequest request) {

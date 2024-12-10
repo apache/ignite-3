@@ -15,20 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.problem;
+package org.apache.ignite.internal.compute;
 
-import io.micronaut.http.MediaType;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
-/**
- * Media type for problem json.
- */
-public final class ProblemJsonMediaType extends MediaType {
-    /**
-     * Media type for problem json.
-     */
-    public static final ProblemJsonMediaType APPLICATION_PROBLEM_JSON_TYPE = new ProblemJsonMediaType("application/problem+json");
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 
-    private ProblemJsonMediaType(String name) {
-        super(name);
+/** Compute job that fails on the first execution with the {@link JobException}. */
+public class FailingJobOnFirstExecution implements ComputeJob<Void, String> {
+    private final AtomicInteger counter = new AtomicInteger();
+
+    @Override
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
+        if (counter.getAndIncrement() == 0) {
+            throw new JobException("Oops", new Exception());
+        }
+        return completedFuture("done");
     }
 }

@@ -233,6 +233,10 @@ class CheckpointWorkflow {
 
         checkpointReadWriteLock.writeLock();
 
+        tracker.onWriteLockWaitEnd();
+
+        tracker.onWriteLockHoldStart();
+
         DataRegionsDirtyPages dirtyPages;
 
         try {
@@ -265,7 +269,7 @@ class CheckpointWorkflow {
         } finally {
             checkpointReadWriteLock.writeUnlock();
 
-            tracker.onWriteLockRelease();
+            tracker.onWriteLockHoldEnd();
 
             onReleaseWriteLock.run();
         }

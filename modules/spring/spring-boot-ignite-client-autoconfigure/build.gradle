@@ -15,17 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
-/** Ignite SSL client authentication enum. */
-public enum ClientAuthenticationMode {
-    /** Indicates that the client authentication will not be requested. */
-    NONE,
+description = "spring-boot-ignite-client-autoconfigure"
 
-    /** Indicates that the client authentication will be requested. */
-    OPTIONAL,
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
 
-    /** Indicates that the client authentication will be requested and the connection will be closed if the client
-     * certificate is not trusted. */
-    REQUIRE
+dependencies {
+    implementation project(':ignite-client')
+    implementation libs.spring.boot
+    implementation libs.spring.boot.autoconfigure
+
+    testImplementation libs.spring.boot.test
+    testImplementation libs.assertj.core
+    testImplementation(testFixtures project(':ignite-runner'))
+    testImplementation(testFixtures(project(':ignite-core')))
 }

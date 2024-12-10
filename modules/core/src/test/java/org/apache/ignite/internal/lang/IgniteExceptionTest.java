@@ -201,6 +201,19 @@ public class IgniteExceptionTest {
         assertThat(traceId, is(any(UUID.class)));
     }
 
+    @Test
+    public void testExceptionProperties() {
+        var ex = new IgniteException(UUID.randomUUID(), INTERNAL_ERR, "msg");
+
+        assertEquals(INTERNAL_ERR, ex.code());
+
+        assertEquals(-1, ex.errorCode());
+        assertEquals("IGN-CMN--1", ex.codeAsString());
+
+        assertEquals(1, ex.groupCode());
+        assertEquals("CMN", ex.groupName());
+    }
+
     /**
      * Custom exception for tests.
      */

@@ -17,18 +17,22 @@
 
 package org.apache.ignite.internal.rest.matcher;
 
-import static org.apache.ignite.internal.rest.problem.ProblemJsonMediaType.APPLICATION_PROBLEM_JSON_TYPE;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
+import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import java.util.Optional;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Matcher for {@link HttpResponse}.
@@ -74,8 +78,32 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
      */
     public static MicronautHttpResponseMatcher<Problem> isProblemResponse(HttpStatus status, ProblemMatcher problemMatcher) {
         return MicronautHttpResponseMatcher.<Problem>hasStatus(status)
-                .withMediaType(APPLICATION_PROBLEM_JSON_TYPE)
+                .withMediaType(org.apache.ignite.internal.rest.constants.MediaType.PROBLEM_JSON)
                 .withBody(problemMatcher.withStatus(status.getCode()), Problem.class);
+    }
+
+    /**
+     * Shortcut method which asserts that the provided executable will throw a {@link HttpClientResponseException} which contains a
+     * {@link Problem} matching provided matcher.
+     *
+     * @param executable Executable to run.
+     * @param status Expected HTTP status.
+     * @param problemMatcher Matcher to apply to the problem JSON.
+     */
+    public static void assertThrowsProblem(Executable executable, HttpStatus status, ProblemMatcher problemMatcher) {
+        HttpClientResponseException thrown = assertThrows(HttpClientResponseException.class, executable);
+        assertThat(thrown.getResponse(), isProblemResponse(status, problemMatcher));
+    }
+
+    /**
+     * Shortcut method which asserts that the provided executable will throw a {@link HttpClientResponseException} which contains a
+     * {@link Problem}.
+     *
+     * @param executable Executable to run.
+     * @param status Expected HTTP status.
+     */
+    public static void assertThrowsProblem(Executable executable, HttpStatus status) {
+        assertThrowsProblem(executable, status, isProblem());
     }
 
     /**
@@ -109,8 +137,8 @@ public class MicronautHttpResponseMatcher<T> extends TypeSafeMatcher<HttpRespons
      * @param mediaType Media type.
      * @return Matcher.
      */
-    public MicronautHttpResponseMatcher<T> withMediaType(MediaType mediaType) {
-        this.mediaTypeMatcher = equalTo(mediaType.getName());
+    public MicronautHttpResponseMatcher<T> withMediaType(String mediaType) {
+        this.mediaTypeMatcher = equalTo(mediaType);
         return this;
     }
 

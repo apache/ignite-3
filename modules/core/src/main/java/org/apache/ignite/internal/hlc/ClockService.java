@@ -79,7 +79,7 @@ public interface ClockService {
     long maxClockSkewMillis();
 
     /**
-     * Defines whether this timestamp is strictly before the given one, taking the clock skew into account.
+     * Defines whether the first timestamp is strictly before the another one, taking the clock skew into account.
      *
      * @param firstTimestamp First timestamp.
      * @param anotherTimestamp Another timestamp.

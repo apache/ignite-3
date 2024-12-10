@@ -152,8 +152,8 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
             thread = Thread.currentThread();
         } else {
             assert thread == Thread.currentThread() : format("expThread={}, actThread={}, "
-                            + "qryId={}, fragmentId={}", thread.getName(), Thread.currentThread().getName(),
-                    context().queryId(), context().fragmentId());
+                            + "executionId={}, fragmentId={}", thread.getName(), Thread.currentThread().getName(),
+                    context().executionId(), context().fragmentId());
         }
     }
 

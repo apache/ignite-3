@@ -50,6 +50,7 @@ import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStateResponse;
 import org.apache.ignite.internal.compute.message.JobStatesResponse;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
@@ -382,7 +384,7 @@ public class ComputeUtils {
         }
 
         if (input instanceof ComputeJobDataHolder) {
-            return unmarshalFromDataHolder(marshaller, (ComputeJobDataHolder) input, pojoType);
+            return unmarshalArgumentFromDataHolder(marshaller, (ComputeJobDataHolder) input, pojoType);
         }
 
         if (marshaller == null) {
@@ -424,13 +426,27 @@ public class ComputeUtils {
      * @param <T> Result type.
      * @return Unmarshalled object.
      */
-    private static <T> @Nullable T unmarshalFromDataHolder(
+    private static <T> @Nullable T unmarshalArgumentFromDataHolder(
             @Nullable Marshaller<T, byte[]> marshaller,
             ComputeJobDataHolder argumentHolder,
             @Nullable Class<?> pojoType
     ) {
         ComputeJobDataType type = argumentHolder.type();
+        if (type != MARSHALLED_CUSTOM && marshaller != null) {
+            throw new ComputeException(
+                    MARSHALLING_TYPE_MISMATCH_ERR,
+                    "Marshaller is defined on the server, but the argument was not marshalled on the client. "
+                            + "If you want to use default marshalling strategy, "
+                            + "then you should not define your marshaller in the job. "
+                            + "If you would like to use your own marshaller, then double-check "
+                            + "that both of them are defined in the client and in the server."
+            );
+        }
         switch (type) {
+            case NATIVE:
+                var reader = new BinaryTupleReader(3, argumentHolder.data());
+                return (T) ClientBinaryTupleUtils.readObject(reader, 0);
+
             case TUPLE: // Fallthrough TODO https://issues.apache.org/jira/browse/IGNITE-23320
             case POJO:
                 Tuple tuple = TupleWithSchemaMarshalling.unmarshal(argumentHolder.data());
@@ -509,7 +525,7 @@ public class ComputeUtils {
             // Value is represented by 3 tuple elements: type, scale, value.
             var builder = new BinaryTupleBuilder(3, 3, false);
             ClientBinaryTupleUtils.appendObject(builder, result);
-            return new ComputeJobDataHolder(NATIVE, builder.build().array());
+            return new ComputeJobDataHolder(NATIVE, IgniteUtils.byteBufferToByteArray(builder.build()));
         }
 
         try {

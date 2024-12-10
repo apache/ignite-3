@@ -24,7 +24,6 @@ import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
@@ -55,6 +54,7 @@ import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
@@ -257,6 +257,21 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 JobDescriptor.builder(failingJobClassName()).units(units()).build(), null));
 
         assertComputeException(ex, "JobException", "Oops");
+    }
+
+    @Test
+    void executesFailingJobOnRemoteNodesWithOptions() {
+        Ignite entryNode = node(0);
+
+        JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
+
+        String result = entryNode.compute().execute(
+                JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
+                JobDescriptor.builder(FailingJobOnFirstExecution.class).units(units()).options(options).build(),
+                null
+        );
+
+        assertThat(result, is("done"));
     }
 
     @Test
@@ -484,7 +499,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     private List<String> allNodeNames() {
         return IntStream.range(0, initialNodes())
-                .mapToObj(ItComputeBaseTest::node)
+                .mapToObj(ClusterPerClassIntegrationTest::node)
                 .map(Ignite::name)
                 .collect(toList());
     }
@@ -665,12 +680,19 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(execution.cancelAsync(), willBe(true));
     }
 
-    static Ignite node(int i) {
-        return CLUSTER.node(i);
-    }
+    @Test
+    void tupleSerialization() {
+        Ignite entryNode = node(0);
+        ClusterNode executeNode = clusterNode(node(1));
 
-    static ClusterNode clusterNode(Ignite node) {
-        return unwrapIgniteImpl(node).node();
+        // Execute the job on remote node to trigger serialization
+        Integer result = entryNode.compute().execute(
+                JobTarget.node(executeNode),
+                JobDescriptor.builder(TupleJob.class).units(units()).build(),
+                Tuple.create().set("COUNT", 1)
+        );
+
+        assertThat(result, is(1));
     }
 
     static String concatJobClassName() {

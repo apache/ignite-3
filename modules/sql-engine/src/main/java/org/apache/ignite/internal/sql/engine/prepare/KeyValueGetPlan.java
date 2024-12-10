@@ -200,9 +200,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
                 });
 
         if (firstPageReadyCallback != null) {
-            Executor executor = task -> ctx.execute(task::run, firstPageReadyCallback::onPrefetchComplete);
-
-            result.whenCompleteAsync((res, err) -> firstPageReadyCallback.onPrefetchComplete(err), executor);
+            result.whenComplete((res, err) -> firstPageReadyCallback.onPrefetchComplete(err));
         }
 
         ctx.scheduleTimeout(result);

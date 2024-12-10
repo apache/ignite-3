@@ -37,6 +37,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Utility class to convert table descriptor from the Catalog as well as all related objects to a {@link SchemaDescriptor} domain.
@@ -137,18 +138,35 @@ public final class CatalogToSchemaDescriptorConverter {
     }
 
     /**
-     * Converts given table descriptor to a {@link SchemaDescriptor}.
+     * Converts given table descriptor to a {@link SchemaDescriptor}. The requested table version must be contained in the table.
      *
      * @param tableDescriptor Descriptor to convert.
      * @return A {@link SchemaDescriptor} object representing the table descriptor.
      */
     public static SchemaDescriptor convert(CatalogTableDescriptor tableDescriptor, int tableVersion) {
+        SchemaDescriptor descriptorOrNull = convertIfExists(tableDescriptor, tableVersion);
+
+        assert descriptorOrNull != null
+                : format("Cannot find table version {} in table descriptor {}", tableVersion, tableDescriptor);
+
+        return descriptorOrNull;
+    }
+
+    /**
+     * Converts given table descriptor to a {@link SchemaDescriptor}.
+     *
+     * @param tableDescriptor Descriptor to convert.
+     * @return A {@link SchemaDescriptor} object representing the table descriptor or {@code null} if the requested version does not exist
+     *     in the table.
+     */
+    public static @Nullable SchemaDescriptor convertIfExists(CatalogTableDescriptor tableDescriptor, int tableVersion) {
         List<Column> columns = new ArrayList<>(tableDescriptor.columns().size());
 
         TableVersion tableVersionInstance = tableDescriptor.schemaVersions().get(tableVersion);
 
-        assert tableVersionInstance != null
-                : format("Cannot find table version {} in table descriptor {}", tableVersion, tableDescriptor);
+        if (tableVersionInstance == null) {
+            return null;
+        }
 
         for (CatalogTableColumnDescriptor column : tableVersionInstance.columns()) {
             columns.add(convert(column));

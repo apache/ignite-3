@@ -30,6 +30,7 @@ import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Relational operator that represents DML operation (such as INSERT, UPDATE, DELETE, etc.)
@@ -95,8 +96,8 @@ public class IgniteTableModify extends TableModify implements SourceAwareIgniteR
             RelOptTable table,
             RelNode input,
             Operation operation,
-            List<String> updateColumnList,
-            List<RexNode> sourceExpressionList,
+            @Nullable List<String> updateColumnList,
+            @Nullable List<RexNode> sourceExpressionList,
             boolean flattened
     ) {
         super(cluster, traitSet, table, Commons.context(cluster).catalogReader(), input, operation, updateColumnList,
