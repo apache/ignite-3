@@ -3755,6 +3755,9 @@ public class NodeImpl implements Node, RaftServerService {
                     .build();
             }
 
+            // Keep ordering with current primary.
+            getOptions().getClock().update(request.timestamp());
+
             final long savedTerm = this.currTerm;
             final TimeoutNowResponse resp = raftOptions.getRaftMessagesFactory()
                 .timeoutNowResponse()

@@ -75,8 +75,6 @@ public interface ClockService {
      */
     CompletableFuture<Void> waitFor(HybridTimestamp targetTimestamp);
 
-    void setIfGreater(HybridTimestamp hybridTimestamp);
-
     /** Returns max tolerable difference between physical clocks in the cluster (in milliseconds). */
     long maxClockSkewMillis();
 

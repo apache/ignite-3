@@ -48,7 +48,6 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;

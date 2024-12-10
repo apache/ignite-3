@@ -447,7 +447,7 @@ public class JraftServerImpl implements RaftServer {
             // Thread pools are shared by all raft groups.
             NodeOptions nodeOptions = opts.copy();
 
-            // This provides monotonic clock on leader change.
+            // This provides monotonic partition clock on leader change.
             nodeOptions.setElectionTimeoutMs(Math.max(nodeOptions.getElectionTimeoutMs(), groupOptions.maxClockSkew()));
 
             nodeOptions.setLogUri(nodeId.nodeIdStringForStorage());

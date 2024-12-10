@@ -87,6 +87,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -243,10 +244,19 @@ public class PartitionListener implements RaftGroupListener {
                         updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
                     }
 
-                    // TODO Can we get rid of storageIndexTracker?
                     updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
                 }
             } catch (IgniteInternalException e) {
+                if (e.code() == Common.REORDERING_ERR) { // This should never happen.
+                    LOG.error(
+                            "Unexpected reordering detected while processing command [commandIndex={}, commandTerm={}, command={}]",
+                            e,
+                            clo.index(), clo.index(), command
+                    );
+
+                    throw e; // Rethrow and corrupt state machine.
+                }
+
                 result = e;
             } catch (CompletionException e) {
                 result = e.getCause();

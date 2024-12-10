@@ -21,12 +21,12 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
@@ -79,7 +79,8 @@ public class CheckCatalogVersionOnActionRequest implements ActionRequestIntercep
 
         var partitionCommandsMarshaller = (PartitionCommandsMarshaller) commandsMarshaller;
 
-        int requiredCatalogVersion = partitionCommandsMarshaller.readRequiredCatalogVersion(ByteBuffer.wrap(command).order(LITTLE_ENDIAN));
+        int requiredCatalogVersion = partitionCommandsMarshaller.readRequiredCatalogVersion(ByteBuffer.wrap(command).order(
+                OptimizedMarshaller.ORDER));
 
         if (requiredCatalogVersion >= 0) {
             if (!isMetadataAvailableFor(requiredCatalogVersion, catalogService)) {

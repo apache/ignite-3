@@ -29,7 +29,7 @@ public interface HybridClock {
     long nowLong();
 
     /**
-     * Creates a timestamp for new event. A timestamp is guarantied to be unique and monotonically grown and be after the causal.
+     * Creates a timestamp for new event. A timestamp is guarantied to be unique and monotonically grown and follow the causal.
      *
      * @return The hybrid timestamp.
      */
@@ -51,7 +51,7 @@ public interface HybridClock {
     HybridTimestamp now();
 
     /**
-     * Creates a timestamp for new event. A timestamp is guarantied to be unique and monotonically grown and be after the causal.
+     * Creates a timestamp for new event. A timestamp is guarantied to be unique and monotonically grown and follow the causal.
      *
      * @param causal The causal timestamp.
      *
@@ -76,8 +76,6 @@ public interface HybridClock {
      * @return New local hybrid timestamp that is on the clock (it is ahead of both the old clock time and the request time).
      */
     HybridTimestamp update(HybridTimestamp requestTime);
-    
-    void setIfGreater(HybridTimestamp timestamp);
 
     /**
      * Adds an update listener to self.

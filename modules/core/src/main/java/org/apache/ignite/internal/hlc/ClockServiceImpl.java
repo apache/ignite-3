@@ -69,11 +69,6 @@ public class ClockServiceImpl implements ClockService {
     }
 
     @Override
-    public void setIfGreater(HybridTimestamp hybridTimestamp) {
-        clock.setIfGreater(hybridTimestamp);
-    }
-
-    @Override
     public long maxClockSkewMillis() {
         return maxClockSkewMsSupplier.getAsLong();
     }

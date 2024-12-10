@@ -819,7 +819,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         raftGroupOptions.snapshotStorageFactory(snapshotFactory);
-
+        raftGroupOptions.maxClockSkew((int) clockService.maxClockSkewMillis());
         raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
 
         // TODO: The options will be used by Loza only. Consider rafactoring. see https://issues.apache.org/jira/browse/IGNITE-18273

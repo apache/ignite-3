@@ -119,6 +119,8 @@ public final class RpcRequests {
         String peerId();
 
         long term();
+
+        HybridTimestamp timestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.TIMEOUT_NOW_RESPONSE)

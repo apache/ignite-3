@@ -71,11 +71,6 @@ public class TestClockService implements ClockService {
     }
 
     @Override
-    public void setIfGreater(HybridTimestamp hybridTimestamp) {
-        clock.setIfGreater(hybridTimestamp);
-    }
-
-    @Override
     public CompletableFuture<Void> waitFor(HybridTimestamp targetTimestamp) {
         if (clockWaiter == null) {
             throw new IllegalStateException("No clockWaiter provided; please use a constructor that accepts it");

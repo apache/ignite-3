@@ -44,15 +44,6 @@ public class HybridClockImpl implements HybridClock {
 
     private final List<ClockUpdateListener> updateListeners = new CopyOnWriteArrayList<>();
 
-    /**
-     * Returns current physical time in milliseconds.
-     *
-     * @return Current time.
-     */
-    protected long physicalTime() {
-        return System.currentTimeMillis();
-    }
-
     @Override
     public final long nowLong() {
         while (true) {
@@ -76,20 +67,6 @@ public class HybridClockImpl implements HybridClock {
         long current = currentTime();
 
         return max(latestTime, current);
-    }
-
-    private void notifyUpdateListeners(long newTs) {
-        for (ClockUpdateListener listener : updateListeners) {
-            try {
-                listener.onUpdate(newTs);
-            } catch (Throwable e) {
-                log.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
-
-                if (e instanceof Error) {
-                    throw e;
-                }
-            }
-        }
     }
 
     @Override
@@ -161,25 +138,31 @@ public class HybridClockImpl implements HybridClock {
         }
     }
 
-    @Override
-    public void setIfGreater(HybridTimestamp timestamp) {
-        while (true) {
-            HybridTimestamp latest = hybridTimestamp(latestTime);
-
-            if (timestamp.compareTo(latest) <= 0) {
-                return;
-            }
-
-            if (LATEST_TIME.compareAndSet(this, latest.longValue(), timestamp.longValue())) {
-                notifyUpdateListeners(timestamp.longValue());
-
-                break;
-            }
-        }
+    /**
+     * Returns current physical time in milliseconds.
+     *
+     * @return Current time.
+     */
+    protected long physicalTime() {
+        return System.currentTimeMillis();
     }
 
     private long currentTime() {
         return physicalTime() << LOGICAL_TIME_BITS_SIZE;
+    }
+
+    private void notifyUpdateListeners(long newTs) {
+        for (ClockUpdateListener listener : updateListeners) {
+            try {
+                listener.onUpdate(newTs);
+            } catch (Throwable e) {
+                log.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
+
+                if (e instanceof Error) {
+                    throw e;
+                }
+            }
+        }
     }
 
     @Override
