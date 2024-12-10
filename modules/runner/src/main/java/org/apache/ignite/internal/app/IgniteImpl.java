@@ -1209,7 +1209,12 @@ public class IgniteImpl implements Ignite {
     private RestComponent createRestComponent(String name) {
         RestManager restManager = new RestManager();
         Supplier<RestFactory> presentationsFactory = () -> new PresentationsFactory(nodeCfgMgr, clusterCfgMgr);
-        Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(clusterSvc, clusterInitializer, cmgMgr);
+        Supplier<RestFactory> clusterManagementRestFactory = () -> new ClusterManagementRestFactory(
+                clusterInitializer,
+                cmgMgr,
+                metaStorageMgr,
+                clusterSvc.topologyService()
+        );
         Supplier<RestFactory> nodeManagementRestFactory = () -> new NodeManagementRestFactory(lifecycleManager, () -> name,
                 new JdbcPortProviderImpl(nodeCfgMgr.configurationRegistry()));
         Supplier<RestFactory> metricRestFactory = () -> new MetricRestFactory(metricManager, metricMessaging);

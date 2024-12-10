@@ -56,7 +56,7 @@ import org.apache.ignite.rest.client.api.NodeMetricApi;
 import org.apache.ignite.rest.client.api.TopologyApi;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 import org.apache.ignite.rest.client.invoker.ApiException;
-import org.apache.ignite.rest.client.model.ClusterState;
+import org.apache.ignite.rest.client.model.ClusterStateDto;
 import org.apache.ignite.rest.client.model.DeployMode;
 import org.apache.ignite.rest.client.model.InitCommand;
 import org.apache.ignite.rest.client.model.NodeState;
@@ -244,11 +244,11 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
     @Test
     void clusterState() {
         assertDoesNotThrow(() -> {
-            ClusterState clusterState = clusterManagementApi.clusterState();
+            ClusterStateDto clusterState = clusterManagementApi.clusterState();
 
             assertThat(clusterState, is(notNullValue()));
             assertThat(clusterState.getClusterTag().getClusterName(), is(equalTo("cluster")));
-            assertThat(clusterState.getCmgNodes(), contains(firstNodeName));
+            assertThat(clusterState.getCmgStatus().getAliveNodes(), contains(firstNodeName));
         });
     }
 
