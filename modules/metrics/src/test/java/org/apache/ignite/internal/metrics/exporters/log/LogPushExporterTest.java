@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -104,6 +103,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         metricManager = new MetricManagerImpl();
         metricManager.configure(metricConfiguration, () -> CLUSTER_ID, "nodeName");
         metricManager.registerSource(new TestMetricSource(metricSet));
+        metricManager.enable(metricSet.name());
 
         exporter = new LogPushExporter();
     }
@@ -115,8 +115,6 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStart() {
-        metricManager.enable(metricSet.name());
-
         withLogInspector(
                 evt -> evt.getMessage().getFormattedMessage().contains("Metric report"),
                 logInspector -> {
@@ -124,26 +122,6 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
 
                     Awaitility.await()
                             .atMost(Duration.ofMillis(500L))
-                            .until(logInspector::isMatched);
-                }
-        );
-    }
-
-    @Test
-    void testEnableMetricSet() {
-        withLogInspector(
-                evt -> evt.getMessage().getFormattedMessage().contains("Metric report"),
-                logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    IgniteTestUtils.runAsync(() -> {
-                        Thread.sleep(TimeUnit.MILLISECONDS.toMillis(500L));
-
-                        metricManager.enable(metricSet.name());
-                    });
-
-                    Awaitility.await()
-                            .between(Duration.ofMillis(500L), Duration.ofMillis(1000L))
                             .until(logInspector::isMatched);
                 }
         );
@@ -158,23 +136,16 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         );
 
         metricManager.registerSource(new TestMetricSource(additionalMetricSet));
-
-        metricManager.enable(SRC_NAME);
         metricManager.enable(additionalMetricSet.name());
+        metricManager.start(Map.of("logPush", exporter));
 
         withLogInspector(
                 evt -> evt.getMessage().getFormattedMessage().contains(MTRC_NAME + ":1"),
                 logInspector -> {
-                    metricManager.start(Map.of("logPush", exporter));
-
-                    IgniteTestUtils.runAsync(() -> {
-                        Thread.sleep(TimeUnit.MILLISECONDS.toMillis(500L));
-
-                        intMetric.add(1);
-                    });
+                    intMetric.add(1);
 
                     Awaitility.await()
-                            .between(Duration.ofMillis(500L), Duration.ofMillis(1000L))
+                            .atMost(Duration.ofMillis(500L))
                             .until(logInspector::isMatched);
                 }
         );
@@ -182,8 +153,6 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
 
     @Test
     void testConfigurationUpdate() {
-        metricManager.enable(metricSet.name());
-
         withLogInspector(
                 evt -> evt.getMessage().getFormattedMessage().contains("Metric report"),
                 logInspector -> {
@@ -220,8 +189,6 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
 
     @Test
     void testSkipReconfigureScheduledTask() {
-        metricManager.enable(metricSet.name());
-
         withLogInspector(
                 evt -> evt.getMessage().getFormattedMessage().contains("Metric report"),
                 logInspector -> {

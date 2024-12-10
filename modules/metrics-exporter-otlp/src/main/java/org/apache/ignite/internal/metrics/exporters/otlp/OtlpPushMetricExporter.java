@@ -45,7 +45,7 @@ public class OtlpPushMetricExporter extends PushMetricExporter<OtlpExporterView>
 
     @Override
     public synchronized void reconfigure(OtlpExporterView newVal) {
-        MetricReporter newReporter = new MetricReporter(newVal, clusterId().toString(), nodeName());
+        MetricReporter newReporter = new MetricReporter(newVal, this::clusterId, nodeName());
 
         for (MetricSet metricSet : metrics().getKey().values()) {
             newReporter.addMetricSet(metricSet);
