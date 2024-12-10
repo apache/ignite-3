@@ -636,4 +636,28 @@ public class RebalanceUtil {
                 })
                 .collect(toList());
     }
+
+    /**
+     * Returns table pending assignments for all table partitions from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param tableId Table id.
+     * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
+     * @return Future with table assignments as a value.
+     */
+    public static List<Assignments> tablePendingAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            int tableId,
+            int numberOfPartitions,
+            long revision
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(p -> {
+                    Entry e = metaStorageManager.getLocally(pendingPartAssignmentsKey(new TablePartitionId(tableId, p)), revision);
+
+                    return e != null ? Assignments.fromBytes(e.value()) : null;
+                })
+                .collect(toList());
+    }
 }
