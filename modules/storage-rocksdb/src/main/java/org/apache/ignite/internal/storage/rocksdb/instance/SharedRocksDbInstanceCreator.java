@@ -92,6 +92,8 @@ public class SharedRocksDbInstanceCreator {
                     .setAtomicFlush(true)
                     .setListeners(List.of(flusher.listener()))
                     .setWriteBufferManager(profile.writeBufferManager())
+                    // Don't flush on shutdown to speed up node shutdown as on recovery we'll apply commands from log.
+                    .setAvoidFlushDuringShutdown(true)
             );
 
             RocksDB db = add(RocksDB.open(dbOptions, path.toAbsolutePath().toString(), cfDescriptors, cfHandles));
