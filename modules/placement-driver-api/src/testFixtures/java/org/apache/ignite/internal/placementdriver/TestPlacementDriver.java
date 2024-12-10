@@ -112,8 +112,31 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         return this.primaryReplicaSupplier;
     }
 
-    public void setPrimaryReplicaSupplier(Supplier<? extends ReplicaMeta> primaryReplicaSupplier) {
+    /**
+     * Setter for a test primary replica supplier with {@code PRIMARY_REPLICA_ELECTED} event firing that is crucial for some tests internal
+     * logic that depends on the event handling.
+     *
+     * @param primaryReplicaSupplier The supplier that provides {@link TestReplicaMetaImpl} instance with a test primary replica meta
+     *      information.
+     */
+    public void setPrimaryReplicaSupplier(Supplier<? extends TestReplicaMetaImpl> primaryReplicaSupplier) {
         this.primaryReplicaSupplier = primaryReplicaSupplier;
+
+        TestReplicaMetaImpl replicaMeta = primaryReplicaSupplier.get();
+
+        fireEvent(
+                PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
+                new PrimaryReplicaEventParameters(
+                        // The only usage of causality token below is IndexBuildController that doesn't use in tests, so the actual value
+                        // doesn't matter there yet.
+                        0,
+                        replicaMeta.getReplicationGroupId(),
+                        replicaMeta.getLeaseholderId(),
+                        replicaMeta.getLeaseholder(),
+                        replicaMeta.getStartTime()
+                )
+        );
+
     }
 
     @Override
