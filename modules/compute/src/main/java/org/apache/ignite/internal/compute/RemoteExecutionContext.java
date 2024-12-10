@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Captures the context of a remote job execution. Also provides methods to access the job execution object
@@ -41,7 +42,7 @@ class RemoteExecutionContext<T, R> {
 
     private final AtomicReference<FailSafeJobExecution<R>> jobExecution;
 
-    RemoteExecutionContext(List<DeploymentUnit> units, String jobClassName, ExecutionOptions executionOptions, T arg) {
+    RemoteExecutionContext(List<DeploymentUnit> units, String jobClassName, ExecutionOptions executionOptions, @Nullable T arg) {
         this.executionOptions = executionOptions;
         this.units = units;
         this.jobClassName = jobClassName;
@@ -96,7 +97,7 @@ class RemoteExecutionContext<T, R> {
         return jobClassName;
     }
 
-    T arg() {
+    @Nullable T arg() {
         return arg;
     }
 }

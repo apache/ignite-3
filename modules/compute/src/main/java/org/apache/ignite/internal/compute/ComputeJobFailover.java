@@ -46,7 +46,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> the type of the result of the job.
  */
-class ComputeJobFailover<R> {
+class ComputeJobFailover<T, R> {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeJobFailover.class);
 
     /**
@@ -102,7 +102,7 @@ class ComputeJobFailover<R> {
      * @param jobClassName the name of the job class.
      * @param executionOptions execution options like priority or max retries.
      * @param cancellationToken Cancellation token or {@code null}.
-     * @param args the arguments of the job.
+     * @param arg the arguments of the job.
      */
     ComputeJobFailover(
             ComputeComponent computeComponent,
@@ -115,14 +115,14 @@ class ComputeJobFailover<R> {
             String jobClassName,
             ExecutionOptions executionOptions,
             @Nullable CancellationToken cancellationToken,
-            Object args
+            @Nullable T arg
     ) {
         this.computeComponent = computeComponent;
         this.runningWorkerNode = new AtomicReference<>(workerNode);
         this.logicalTopologyService = logicalTopologyService;
         this.topologyService = topologyService;
         this.nextWorkerSelector = nextWorkerSelector;
-        this.jobContext = new RemoteExecutionContext<>(units, jobClassName, executionOptions, args);
+        this.jobContext = new RemoteExecutionContext<>(units, jobClassName, executionOptions, arg);
         this.executor = executor;
         this.cancellationToken = cancellationToken;
     }

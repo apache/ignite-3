@@ -144,6 +144,11 @@ enum AsyncApiOperation {
             JobDescriptor.builder(NoOpJob.class).build(),
             null
     )),
+    COMPUTE_EXECUTE_BROADCAST_PARTITIONED(refs -> refs.compute.executeBroadcastPartitionedAsync(
+            TEST_TABLE_NAME,
+            JobDescriptor.builder(NoOpJob.class).build(),
+            null
+    )),
     COMPUTE_EXECUTE_MAP_REDUCE(refs -> refs.compute.executeMapReduceAsync(TaskDescriptor.builder(NoOpMapReduceTask.class).build(), null)),
 
     CATALOG_CREATE_TABLE_BY_RECORD_CLASS(refs -> refs.catalog.createTableAsync(Pojo.class)),
