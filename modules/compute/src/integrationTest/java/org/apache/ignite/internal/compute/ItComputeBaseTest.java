@@ -25,6 +25,7 @@ import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
@@ -40,8 +41,11 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -60,6 +64,7 @@ import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
@@ -68,6 +73,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -693,6 +699,33 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         );
 
         assertThat(result, is(1));
+    }
+
+    @Test
+    void partitionedBroadcast() {
+        createTestTableWithOneRow();
+
+        Ignite entryNode = node(0);
+
+        Map<Partition, ClusterNode> replicas = entryNode.tables().table("test").partitionManager().primaryReplicasAsync().join();
+        Map<ClusterNode, List<Integer>> partitioning = new HashMap<>();
+        for (Entry<Partition, ClusterNode> entry : replicas.entrySet()) {
+            partitioning.computeIfAbsent(entry.getValue(), k -> new ArrayList<>())
+                    .add(((HashPartition) entry.getKey()).partitionId());
+        }
+
+        JobDescriptor<String, List<Integer>> job = JobDescriptor.builder(GetPartitionsJob.class).units(units()).build();
+        CompletableFuture<Map<ClusterNode, JobExecution<List<Integer>>>> future = entryNode.compute()
+                .submitBroadcastPartitioned("test", job, "test");
+
+        assertThat(future, willCompleteSuccessfully());
+        Map<ClusterNode, JobExecution<List<Integer>>> results = future.join();
+        assertThat(results, is(aMapWithSize(3)));
+        for (int i = 0; i < 3; i++) {
+            ClusterNode node = clusterNode(node(i));
+            JobExecution<List<Integer>> execution = results.get(node);
+            assertThat(execution.resultAsync(), willBe(contains(partitioning.get(node).toArray())));
+        }
     }
 
     static String concatJobClassName() {

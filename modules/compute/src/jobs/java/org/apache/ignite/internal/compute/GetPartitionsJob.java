@@ -17,29 +17,17 @@
 
 package org.apache.ignite.internal.compute;
 
-import java.util.List;
-import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.deployment.DeploymentUnit;
-import org.jetbrains.annotations.Nullable;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
-/**
- * Compute job starter interface.
- */
-public interface JobStarter {
-    /**
-     * Start compute job.
-     *
-     * @param options Compute job execution options.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param arg Arguments of the job.
-     * @param <R> Job result type.
-     * @return CompletableFuture Job result.
-     */
-    <R> JobExecution<R> start(
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            @Nullable Object arg
-    );
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+
+/** Compute job that returns a set of partitions for the specified table passed in the context. */
+public class GetPartitionsJob implements ComputeJob<String, List<Integer>> {
+    @Override
+    public CompletableFuture<List<Integer>> executeAsync(JobExecutionContext context, String tableName) {
+        return completedFuture(context.partitions());
+    }
 }

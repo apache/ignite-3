@@ -63,6 +63,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -71,7 +72,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Integration tests for Compute functionality in embedded Ignite mode.
  */
-@SuppressWarnings("resource")
 class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Override
@@ -293,7 +293,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     private static class WaitLatchJob implements ComputeJob<CountDownLatch, String> {
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, CountDownLatch latch) {
+        public @Nullable CompletableFuture<String> executeAsync(JobExecutionContext context, CountDownLatch latch) {
             try {
                 latch.await();
             } catch (InterruptedException e) {
@@ -307,7 +307,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         static final AtomicInteger counter = new AtomicInteger(0);
 
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, CountDownLatch latch) {
+        public @Nullable CompletableFuture<String> executeAsync(JobExecutionContext context, CountDownLatch latch) {
             try {
                 latch.await();
                 if (counter.incrementAndGet() == 1) {
@@ -322,7 +322,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     private static class PerformSyncKvGetPutJob implements ComputeJob<Void, Void> {
         @Override
-        public CompletableFuture<Void> executeAsync(JobExecutionContext context, Void input) {
+        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, Void input) {
             Table table = context.ignite().tables().table("test");
             KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
 
@@ -335,7 +335,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     private static class NullReturningJob implements ComputeJob<Object, Object> {
         @Override
-        public CompletableFuture<Object> executeAsync(JobExecutionContext context, Object input) {
+        public @Nullable CompletableFuture<Object> executeAsync(JobExecutionContext context, Object input) {
             return null;
         }
     }

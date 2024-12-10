@@ -93,7 +93,7 @@ public interface ComputeComponent extends IgniteComponent {
             List<DeploymentUnit> units,
             String jobClassName,
             @Nullable CancellationToken cancellationToken,
-            T arg
+            @Nullable T arg
     );
 
     /**
@@ -134,7 +134,7 @@ public interface ComputeComponent extends IgniteComponent {
             JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
-            I arg
+            @Nullable I arg
     );
 
     /**

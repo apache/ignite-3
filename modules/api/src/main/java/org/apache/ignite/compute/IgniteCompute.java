@@ -245,6 +245,98 @@ public interface IgniteCompute {
     }
 
     /**
+     * Submits a {@link ComputeJob} of the given class for an execution on nodes where the primary replicas of a partitions of the specified
+     * table are located. The partition indices are passed to the job in the {@link JobExecutionContext#partitions()}.
+     *
+     * @param tableName Table name.
+     * @param descriptor Job descriptor.
+     * @param arg Job argument.
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @return Future that will be completed with the map from the node to the job execution objects when jobs are submitted for the
+     *         execution.
+     */
+    <T, R> CompletableFuture<Map<ClusterNode, JobExecution<R>>> submitBroadcastPartitioned(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    );
+
+    /**
+     * Executes a {@link ComputeJob} of the given class on nodes where the primary replicas of a partitions of the specified table are
+     * located. The partition indices are passed to the job in the {@link JobExecutionContext#partitions()}.
+     *
+     * @param tableName Table name.
+     * @param descriptor Job descriptor.
+     * @param arg Job argument.
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @return Future that will be completed with the map from the node to the job execution results.
+     */
+    default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastPartitionedAsync(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return executeBroadcastPartitionedAsync(tableName, descriptor, null, arg);
+    }
+
+    /**
+     * Executes a {@link ComputeJob} of the given class on nodes where the primary replicas of a partitions of the specified table are
+     * located. The partition indices are passed to the job in the {@link JobExecutionContext#partitions()}.
+     *
+     * @param tableName Table name.
+     * @param descriptor Job descriptor.
+     * @param arg Job argument.
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @return Future that will be completed with the map from the node to the job execution results.
+     */
+    <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastPartitionedAsync(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    );
+
+    /**
+     * Executes a {@link ComputeJob} of the given class on nodes where the primary replicas of a partitions of the specified table are
+     * located. The partition indices are passed to the job in the {@link JobExecutionContext#partitions()}.
+     *
+     * @param tableName Table name.
+     * @param descriptor Job descriptor.
+     * @param arg Job argument.
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @return Map from the node to the job execution results.
+     */
+    default <T, R> Map<ClusterNode, R> executeBroadcastPartitioned(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return executeBroadcastPartitioned(tableName, descriptor, null, arg);
+    }
+
+    /**
+     * Executes a {@link ComputeJob} of the given class on nodes where the primary replicas of a partitions of the specified table are
+     * located. The partition indices are passed to the job in the {@link JobExecutionContext#partitions()}.
+     *
+     * @param tableName Table name.
+     * @param descriptor Job descriptor.
+     * @param arg Job argument.
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @return Map from the node to the job execution results.
+     */
+    <T, R> Map<ClusterNode, R> executeBroadcastPartitioned(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    );
+
+    /**
      * Submits a {@link MapReduceTask} of the given class for an execution.
      *
      * @param <T> Job argument (T)ype.

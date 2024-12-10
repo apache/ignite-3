@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
@@ -122,7 +123,7 @@ public class FakeCompute implements IgniteComputeInternal {
             Class<ComputeJob<Object, R>> jobClass = ComputeUtils.jobClass(jobClassLoader, jobClassName);
             ComputeJob<Object, R> job = ComputeUtils.instantiateJob(jobClass);
             CompletableFuture<R> jobFut = job.executeAsync(
-                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()), args);
+                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader(), null), args);
 
             return jobExecution(jobFut != null ? jobFut : nullCompletedFuture());
         }
@@ -199,6 +200,35 @@ public class FakeCompute implements IgniteComputeInternal {
     @Override
     public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
         return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
+    }
+
+    @Override
+    public <T, R> CompletableFuture<Map<ClusterNode, JobExecution<R>>> submitBroadcastPartitioned(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return failedFuture(new UnsupportedOperationException("Not implemented"));
+    }
+
+    @Override
+    public <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastPartitionedAsync(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return failedFuture(new UnsupportedOperationException("Not implemented"));
+    }
+
+    @Override
+    public <T, R> Map<ClusterNode, R> executeBroadcastPartitioned(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return sync(executeBroadcastPartitionedAsync(tableName, descriptor, cancellationToken, arg));
     }
 
     private <R> JobExecution<R> completedExecution(R result) {

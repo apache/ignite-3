@@ -84,12 +84,12 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             ExecutionOptions options,
             Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
-            T input
+            @Nullable T input
     ) {
         assert executorService != null;
 
         AtomicBoolean isInterrupted = new AtomicBoolean();
-        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
+        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader, options.partitions());
         ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass);
         Marshaller<T, byte[]> inputMarshaller = jobInstance.inputMarshaller();
         Marshaller<R, byte[]> resultMarshaller = jobInstance.resultMarshaller();
@@ -108,7 +108,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     private static <T, R> Callable<CompletableFuture<R>> unmarshalExecMarshal(
-            T input,
+            @Nullable T input,
             Class<? extends ComputeJob<T, R>> jobClass,
             ComputeJob<T, R> jobInstance,
             JobExecutionContext context,
@@ -121,7 +121,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     public <I, M, T, R> TaskExecutionInternal<I, M, T, R> executeTask(
             JobSubmitter<M, T> jobSubmitter,
             Class<? extends MapReduceTask<I, M, T, R>> taskClass,
-            I input
+            @Nullable I input
     ) {
         assert executorService != null;
 

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.util.stream.Collectors.toMap;
+import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import java.util.Map;
 import java.util.Map.Entry;
@@ -31,6 +31,7 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.compute.task.AntiHijackTaskExecution;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
@@ -40,14 +41,14 @@ import org.jetbrains.annotations.Nullable;
  * Wrapper around {@link IgniteCompute} that adds protection against thread hijacking by users.
  */
 public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
-    private final IgniteCompute compute;
+    private final IgniteComputeImpl compute;
     private final Executor asyncContinuationExecutor;
 
     /**
      * Constructor.
      */
     public AntiHijackIgniteCompute(IgniteCompute compute, Executor asyncContinuationExecutor) {
-        this.compute = compute;
+        this.compute = (IgniteComputeImpl) compute;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
 
@@ -57,17 +58,10 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
         return preventThreadHijack(compute.submit(target, descriptor, arg));
     }
 
-    private <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        IgniteComputeImpl compute0 = unwrap(IgniteComputeImpl.class);
-
-        return preventThreadHijack(compute0.submit(target, descriptor, cancellationToken, arg));
-    }
-
     @Override
     public <T, R> CompletableFuture<R> executeAsync(JobTarget target, JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submit(target, descriptor, cancellationToken, arg).resultAsync();
+        return preventThreadHijack(compute.executeAsync(target, descriptor, cancellationToken, arg));
     }
 
     @Override
@@ -80,19 +74,39 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
-            T args
+            @Nullable T arg
     ) {
-        Map<ClusterNode, JobExecution<R>> results = compute.submitBroadcast(nodes, descriptor, args);
-
-        return results.entrySet().stream()
-                .collect(toMap(Entry::getKey, entry -> preventThreadHijack(entry.getValue())));
+        return preventThreadHijack(compute.submitBroadcast(nodes, descriptor, arg));
     }
 
-    private <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T arg) {
-        IgniteComputeImpl compute0 = unwrap(IgniteComputeImpl.class);
+    @Override
+    public <T, R> CompletableFuture<Map<ClusterNode, JobExecution<R>>> submitBroadcastPartitioned(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return preventThreadHijack(compute.submitBroadcastPartitioned(tableName, descriptor, arg)
+                .thenApply(this::preventThreadHijack)
+        );
+    }
 
-        return new AntiHijackTaskExecution<>(compute0.submitMapReduce(taskDescriptor, cancellationToken, arg), asyncContinuationExecutor);
+    @Override
+    public <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastPartitionedAsync(String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return preventThreadHijack(compute.executeBroadcastPartitionedAsync(tableName, descriptor, cancellationToken, arg));
+    }
+
+    @Override
+    public <T, R> Map<ClusterNode, R> executeBroadcastPartitioned(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return compute.executeBroadcastPartitioned(tableName, descriptor, cancellationToken, arg);
     }
 
     @Override
@@ -103,7 +117,7 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     @Override
     public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
             @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submitMapReduce(taskDescriptor, cancellationToken, arg).resultAsync();
+        return preventThreadHijack(compute.executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
     }
 
     @Override
@@ -113,6 +127,15 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
 
     private <T, R> JobExecution<R> preventThreadHijack(JobExecution<R> execution) {
         return new AntiHijackJobExecution<>(execution, asyncContinuationExecutor);
+    }
+
+    private <R> Map<ClusterNode, JobExecution<R>> preventThreadHijack(Map<ClusterNode, JobExecution<R>> executions) {
+        return executions.entrySet().stream()
+                .collect(toUnmodifiableMap(Entry::getKey, entry -> preventThreadHijack(entry.getValue())));
+    }
+
+    private <R> CompletableFuture<R> preventThreadHijack(CompletableFuture<R> future) {
+        return PublicApiThreading.preventThreadHijack(future, asyncContinuationExecutor);
     }
 
     @Override
