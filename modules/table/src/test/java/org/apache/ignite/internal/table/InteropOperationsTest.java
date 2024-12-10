@@ -511,7 +511,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     assertEquals(expected.timestampValue(colName), t.timestampValue(colName));
                     break;
                 case DECIMAL:
-                    assertEquals((BigDecimal) expected.value(colName), t.value(colName));
+                    assertEquals(expected.decimalValue(colName), t.decimalValue(colName));
                     break;
                 default:
                     throw new IllegalArgumentException("Expected type: " + type);

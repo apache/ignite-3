@@ -481,12 +481,12 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(4, row.longValue(4));
         assertEquals(5.5f, row.floatValue(5));
         assertEquals(6.6, row.doubleValue(6));
-        assertEquals(new BigDecimal("7.77"), row.value(7));
+        assertEquals(new BigDecimal("7.77"), row.decimalValue(7));
         assertEquals("foo", row.stringValue(8));
-        assertEquals(LocalDate.of(2020, 1, 1), row.value(9));
-        assertEquals(LocalTime.of(12, 0, 0), row.value(10));
-        assertEquals(LocalDateTime.of(2020, 1, 1, 12, 0, 0), row.value(11));
-        assertEquals(UUID.fromString("10000000-2000-3000-4000-500000000000"), row.value(12));
+        assertEquals(LocalDate.of(2020, 1, 1), row.dateValue(9));
+        assertEquals(LocalTime.of(12, 0, 0), row.timeValue(10));
+        assertEquals(LocalDateTime.of(2020, 1, 1, 12, 0, 0), row.datetimeValue(11));
+        assertEquals(UUID.fromString("10000000-2000-3000-4000-500000000000"), row.uuidValue(12));
         assertArrayEquals(new byte[]{0x42}, row.value(13));
         assertNull(row.value(14));
 

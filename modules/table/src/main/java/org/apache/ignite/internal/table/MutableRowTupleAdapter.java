@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -194,6 +195,18 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
     @Override
     public double doubleValue(int columnIndex) {
         return tuple != null ? tuple.doubleValue(columnIndex) : super.doubleValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(String columnName) {
+        return tuple != null ? tuple.decimalValue(columnName) : super.decimalValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        return tuple != null ? tuple.decimalValue(columnIndex) : super.decimalValue(columnIndex);
     }
 
     /** {@inheritDoc} */

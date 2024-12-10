@@ -170,10 +170,23 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
         assertEquals(STRING_VALUE, tuple.stringValue(7));
         assertEquals(STRING_VALUE, tuple.stringValue("str"));
 
+        assertEquals(DATE_VALUE, tuple.dateValue(8));
         assertEquals(DATE_VALUE, tuple.dateValue("date"));
+
+        assertEquals(TIME_VALUE, tuple.timeValue(9));
         assertEquals(TIME_VALUE, tuple.timeValue("time"));
+
+        assertEquals(DATETIME_VALUE, tuple.datetimeValue(10));
         assertEquals(DATETIME_VALUE, tuple.datetimeValue("datetime"));
+
+        assertEquals(TIMESTAMP_VALUE, tuple.timestampValue(11));
         assertEquals(TIMESTAMP_VALUE, tuple.timestampValue("timestamp"));
+
+        assertTrue(tuple.booleanValue(12));
+        assertTrue(tuple.booleanValue("bool"));
+
+        assertEquals(BigDecimal.valueOf(1234, 3), tuple.decimalValue(13));
+        assertEquals(BigDecimal.valueOf(1234, 3), tuple.decimalValue("decimal"));
     }
 
     @SuppressWarnings("ThrowableNotThrown")

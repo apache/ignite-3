@@ -138,7 +138,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.ztimestamp);
         assertEquals("foo", res.zstring);
         assertArrayEquals(new byte[]{1, 2}, res.zbytes);
-        assertEquals(21, res.zdecimal.longValue());
+        assertEquals(BigDecimal.valueOf(21).setScale(3), res.zdecimal);
         assertEquals(uuid, res.zuuid);
     }
 
@@ -193,7 +193,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.timestampValue("ztimestamp"));
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
-        assertEquals(122, ((BigDecimal) res.value("zdecimal")).longValue());
+        assertEquals(BigDecimal.valueOf(122), res.decimalValue("zdecimal"));
         assertEquals(uuid, res.uuidValue("zuuid"));
     }
 

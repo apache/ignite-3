@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -218,6 +219,22 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
         Column col = rowColumnByIndex(columnIndex);
 
         return row.doubleValue(correctIndex(col));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(String columnName) {
+        Column col = rowColumnByName(columnName);
+
+        return row.decimalValue(correctIndex(col));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        Column col = rowColumnByIndex(columnIndex);
+
+        return row.decimalValue(correctIndex(col));
     }
 
     /** {@inheritDoc} */

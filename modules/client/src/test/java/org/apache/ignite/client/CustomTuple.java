@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -213,6 +214,18 @@ public class CustomTuple implements Tuple {
     /** {@inheritDoc} */
     @Override
     public double doubleValue(int columnIndex) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(String columnName) {
+        throw new UnsupportedOperationException();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
         throw new UnsupportedOperationException();
     }
 
