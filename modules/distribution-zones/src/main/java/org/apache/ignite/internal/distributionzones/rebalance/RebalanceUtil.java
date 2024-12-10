@@ -405,7 +405,7 @@ public class RebalanceUtil {
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray pendingChangeTriggerKey(TablePartitionId partId) {
-        return new ByteArray("pending.change.trigger" + partId);
+        return new ByteArray("pending.change.trigger." + partId);
     }
 
     /**

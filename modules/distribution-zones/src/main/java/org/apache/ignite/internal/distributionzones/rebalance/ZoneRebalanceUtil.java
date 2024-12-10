@@ -173,10 +173,12 @@ public class ZoneRebalanceUtil {
         //                partition.change.trigger.revision = event.revision
         //            else if partition.assignments.pending == calcPartAssignments
         //                remove(partition.assignments.planned)
+        //                partition.change.trigger.revision = event.revision
         //                message after the metastorage invoke:
         //                "Remove planned key because current pending key has the same value."
         //            else if empty(partition.assignments.pending)
         //                remove(partition.assignments.planned)
+        //                partition.change.trigger.revision = event.revision
         //                message after the metastorage invoke:
         //                "Remove planned key because pending is empty and calculated assignments are equal to current assignments."
         //    else:
@@ -388,7 +390,7 @@ public class ZoneRebalanceUtil {
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray pendingChangeTriggerKey(ZonePartitionId zonePartitionId) {
-        return new ByteArray("zone.pending.change.trigger" + zonePartitionId);
+        return new ByteArray("zone.pending.change.trigger." + zonePartitionId);
     }
 
     /**
