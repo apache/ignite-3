@@ -471,7 +471,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockMessage((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignmentPending));
 
         // Stop 3. Nodes 0 and 1 survived.
-        stopNode( 3);
+        stopNode(3);
 
         waitForScale(node0, 3);
 
