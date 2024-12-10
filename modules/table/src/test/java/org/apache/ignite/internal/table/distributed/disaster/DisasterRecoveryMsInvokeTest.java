@@ -28,6 +28,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -48,6 +50,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Tests for disaster recovery meta storage invoke that changes {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}.
+ * We expect that the key is changed in provided cases.
  */
 public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
     private static final int partNum = 2;
@@ -77,7 +80,9 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
 
         metaStorageManager.deployWatches();
 
-        metaStorageManager.put(pendingChangeTriggerKey(tablePartitionId), longToBytesKeepingOrder(1)).get();
+        assertThat(
+                metaStorageManager.put(pendingChangeTriggerKey(tablePartitionId), longToBytesKeepingOrder(1)), willCompleteSuccessfully()
+        );
 
         assignmentsTimestamp = clock.now().longValue();
     }
@@ -89,23 +94,32 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
             Set<Assignment> pending
     ) throws Exception {
         if (currentPending != null) {
-            metaStorageManager.put(
-                    pendingPartAssignmentsKey(tablePartitionId), Assignments.toBytes(currentPending, assignmentsTimestamp)
-            ).get();
+            assertThat(
+                    metaStorageManager.put(
+                            pendingPartAssignmentsKey(tablePartitionId),
+                            Assignments.toBytes(currentPending, assignmentsTimestamp)
+                    ),
+                    willCompleteSuccessfully()
+            );
         }
 
-        metaStorageManager.invoke(
-                GroupUpdateRequest.prepareMsInvokeClosure(
-                        tablePartitionId,
-                        longToBytesKeepingOrder(expectedPendingChangeTriggerKey),
-                        Assignments.toBytes(pending, assignmentsTimestamp),
-                        null
-                )
-        ).get();
-
-        long actualPendingChangeTriggerKey = bytesToLongKeepingOrder(
-                metaStorageManager.get(pendingChangeTriggerKey(tablePartitionId)).get().value()
+        assertThat(
+                metaStorageManager.invoke(
+                        GroupUpdateRequest.prepareMsInvokeClosure(
+                                tablePartitionId,
+                                longToBytesKeepingOrder(expectedPendingChangeTriggerKey),
+                                Assignments.toBytes(pending, assignmentsTimestamp),
+                                null
+                        )
+                ),
+                willCompleteSuccessfully()
         );
+
+        CompletableFuture<Entry> actualPendingFut = metaStorageManager.get(pendingChangeTriggerKey(tablePartitionId));
+
+        assertThat(actualPendingFut, willCompleteSuccessfully());
+
+        long actualPendingChangeTriggerKey = bytesToLongKeepingOrder(actualPendingFut.get().value());
 
         assertEquals(expectedPendingChangeTriggerKey, actualPendingChangeTriggerKey);
     }
