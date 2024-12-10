@@ -36,9 +36,13 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -68,6 +72,9 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
     @Mock
     private TopologyService topologyService;
 
+    @Mock
+    private LogicalTopology logicalTopology;
+
     private ClusterInitializer clusterInitializer;
 
     private final CmgMessagesFactory msgFactory = new CmgMessagesFactory();
@@ -79,6 +86,7 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
 
         clusterInitializer = new ClusterInitializer(
                 clusterService,
+                logicalTopology,
                 hocon -> hocon,
                 new TestConfigurationValidator()
         );
@@ -91,10 +99,16 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
     void testNormalInit() {
         ClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
         ClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
+        List<ClusterNode> allNodes = List.of(metastorageNode, cmgNode);
+        LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(
+                2,
+                allNodes.stream().map(LogicalNode::new).collect(Collectors.toList())
+        );
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
-        when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
+        when(topologyService.allMembers()).thenReturn(allNodes);
+        when(logicalTopology.getLogicalTopology()).thenReturn(logicalTopologySnapshot);
 
         when(messagingService.invoke(any(ClusterNode.class), any(CmgInitMessage.class), anyLong()))
                 .thenReturn(initCompleteMessage());
@@ -119,10 +133,17 @@ public class ClusterInitializerTest extends BaseIgniteAbstractTest {
     void testNormalInitSingleNodeList() {
         ClusterNode metastorageNode = new ClusterNodeImpl(randomUUID(), "metastore", new NetworkAddress("foo", 123));
         ClusterNode cmgNode = new ClusterNodeImpl(randomUUID(), "cmg", new NetworkAddress("bar", 456));
+        List<ClusterNode> allNodes = List.of(metastorageNode, cmgNode);
+        LogicalTopologySnapshot logicalTopologySnapshot = new LogicalTopologySnapshot(
+                2,
+                allNodes.stream().map(LogicalNode::new).collect(Collectors.toList())
+        );
 
         when(topologyService.getByConsistentId(metastorageNode.name())).thenReturn(metastorageNode);
         when(topologyService.getByConsistentId(cmgNode.name())).thenReturn(cmgNode);
-        when(topologyService.allMembers()).thenReturn(List.of(metastorageNode, cmgNode));
+        when(topologyService.allMembers()).thenReturn(allNodes);
+        when(logicalTopology.getLogicalTopology()).thenReturn(logicalTopologySnapshot);
+
 
         when(messagingService.invoke(any(ClusterNode.class), any(CmgInitMessage.class), anyLong()))
                 .thenReturn(initCompleteMessage());

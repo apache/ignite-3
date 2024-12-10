@@ -176,6 +176,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
+                    logicalTopology,
                     hocon -> hocon,
                     new TestConfigurationValidator()
             );
