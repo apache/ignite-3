@@ -2674,7 +2674,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<ResultWrapper<Object>> applyCmdWithExceptionHandling(Command cmd) {
         CompletableFuture<ResultWrapper<Object>> resultFuture = new CompletableFuture<>();
 
-        raftClient.run(cmd).whenComplete((res, ex) -> {
+        raftCommandRunner.run(cmd).whenComplete((res, ex) -> {
             if (ex != null) {
                 resultFuture.completeExceptionally(ex);
             } else {

@@ -253,11 +253,7 @@ public class PartitionListener implements RaftGroupListener {
 
                     updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
                 }
-            } catch (IgniteInternalException e) {
-                result = e;
-            } catch (CompletionException e) {
-                result = e.getCause();
-            } catch (Throwable t) {
+             } catch (Throwable t) {
                 LOG.error(
                         "Got error while processing command [commandIndex={}, commandTerm={}, command={}]",
                         t,
