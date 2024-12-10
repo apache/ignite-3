@@ -113,16 +113,14 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
         inLoop = true;
         try {
-            if (inst == null) {
-                inst = func.createInstance(context());
-            }
+            initInstance();
 
             int processed = 0;
-            while (requested > 0 && inst.hasNext()) {
+            while (requested > 0 && hasNext()) {
                 checkState();
 
                 requested--;
-                downstream().push(inst.next());
+                downstream().push(nextValue());
 
                 if (++processed == inBufSize && requested > 0) {
                     // allow others to do their job
@@ -131,8 +129,6 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                     return;
                 }
             }
-        } catch (Exception e) {
-            throw new SqlException(Sql.RUNTIME_ERR, e);
         } finally {
             inLoop = false;
         }
@@ -144,6 +140,38 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
             requested = 0;
 
             downstream().end();
+        }
+    }
+
+    private void initInstance() {
+        if (inst != null) {
+            return;
+        }
+
+        try {
+            inst = func.createInstance(context());
+        } catch (Exception e) {
+            throw new SqlException(Sql.RUNTIME_ERR, e);
+        }
+    }
+
+    private RowT nextValue() {
+        assert inst != null;
+
+        try {
+            return inst.next();
+        } catch (Exception e) {
+            throw new SqlException(Sql.RUNTIME_ERR, e);
+        }
+    }
+
+    private boolean hasNext() {
+        assert inst != null;
+
+        try {
+            return inst.hasNext();
+        } catch (Exception e) {
+            throw new SqlException(Sql.RUNTIME_ERR, e);
         }
     }
 }

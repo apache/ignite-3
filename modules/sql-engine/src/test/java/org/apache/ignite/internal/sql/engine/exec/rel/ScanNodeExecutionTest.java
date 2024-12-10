@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -31,7 +34,10 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunction;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionInstance;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 /**
  * Tests for {@link ScanNode}.
@@ -73,6 +79,69 @@ public class ScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
             collectResults(rootNode, data);
 
             assertEquals(1, instance.closeCounter.get());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testCreateInstanceRuntimeErr() {
+        ExecutionContext<Object[]> ctx = executionContext(true);
+
+        TableFunction<Object[]> testFunction = Mockito.mock(TableFunction.class);
+
+        RuntimeException cause = new RuntimeException("Err");
+        when(testFunction.createInstance(ctx)).thenThrow(cause);
+
+        try (RootNode<Object[]> rootNode = new RootNode<>(ctx)) {
+            ScanNode<Object[]> srcNode = new ScanNode<>(ctx, testFunction);
+
+            rootNode.register(srcNode);
+
+            SqlException err = assertThrowsSqlException(SqlException.class, Sql.RUNTIME_ERR, "", rootNode::next);
+            assertSame(cause, err.getCause());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void hasNextThrowsRuntimeErr() {
+        ExecutionContext<Object[]> ctx = executionContext(true);
+
+        TableFunctionInstance<Object[]> instance = Mockito.mock(TableFunctionInstance.class);
+        TestFunction<Object[]> testFunction = new TestFunction<>(instance);
+
+        RuntimeException cause = new RuntimeException("Err");
+        when(instance.hasNext()).thenThrow(cause);
+
+        try (RootNode<Object[]> rootNode = new RootNode<>(ctx)) {
+            ScanNode<Object[]> srcNode = new ScanNode<>(ctx, testFunction);
+
+            rootNode.register(srcNode);
+
+            SqlException err = assertThrowsSqlException(SqlException.class, Sql.RUNTIME_ERR, "", rootNode::next);
+            assertSame(cause, err.getCause());
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testNextThrowsRuntimeErr() {
+        ExecutionContext<Object[]> ctx = executionContext(true);
+
+        TableFunctionInstance<Object[]> instance = Mockito.mock(TableFunctionInstance.class);
+        TestFunction<Object[]> testFunction = new TestFunction<>(instance);
+
+        RuntimeException cause = new RuntimeException("Err");
+        when(instance.hasNext()).thenReturn(true);
+        when(instance.next()).thenThrow(cause);
+
+        try (RootNode<Object[]> rootNode = new RootNode<>(ctx)) {
+            ScanNode<Object[]> srcNode = new ScanNode<>(ctx, testFunction);
+
+            rootNode.register(srcNode);
+
+            SqlException err = assertThrowsSqlException(SqlException.class, Sql.RUNTIME_ERR, "", rootNode::next);
+            assertSame(cause, err.getCause());
         }
     }
 
