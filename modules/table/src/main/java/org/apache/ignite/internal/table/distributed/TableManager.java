@@ -2173,8 +2173,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         if (isRecovery) {
             // The condition to start the replica is
             // `pending.contains(node) || (stable.contains(node) && !pending.isForce())`.
-            shouldStartLocalGroupNode = localMemberAssignmentInPending != null
-                    || (localMemberAssignmentInStable != null && !pendingAssignmentsAreForced);
+            // This condition covers the left part of the OR expression.
+            // The right part of it is covered in `startLocalPartitionsAndClients`.
+            shouldStartLocalGroupNode = localMemberAssignmentInPending != null;
         } else {
             shouldStartLocalGroupNode = localMemberAssignmentInPending != null && localMemberAssignmentInStable == null;
         }

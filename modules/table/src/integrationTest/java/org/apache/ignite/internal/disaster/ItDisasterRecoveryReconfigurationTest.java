@@ -384,7 +384,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 () -> "Node 0 log index = " + getRaftLogIndex(0, partId) + " node 2 log index= " + getRaftLogIndex(2, partId)
         );
 
-        // Stop 1 and 2, only 0 survived
+        // Stop 1 and 2, only 0 survived.
         stopNodesInParallel(1, 2);
 
         Assignments assignment0 = Assignments.of(timestamp,
@@ -395,7 +395,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // so that we'll have force pending assignments unexecuted.
         blockMessage((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment0));
 
-        // Init reset
+        // Init reset:
         // pending = [0, force]
         // planned = [0, 3, 4]
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
@@ -426,6 +426,66 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertRealAssignments(node0, partId, 0);
     }
 
+    @Test
+    @ZoneParams(nodes = 4, replicas = 3, partitions = 1)
+    void testManualRebalanceRecoveryNoPending() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, partId);
+
+        Assignments allAssignments = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(3).name())
+        );
+
+        // The partition is replicated to 3 nodes.
+        assertRealAssignments(node0, partId, 0, 1, 3);
+
+        List<Throwable> errors = insertValues(table, partId, 0);
+        assertThat(errors, is(empty()));
+
+        // Make sure node 0 has the same data as node 1 and 2.
+        assertTrue(
+                waitForCondition(() -> getRaftLogIndex(0, partId).equals(getRaftLogIndex(1, partId)), SECONDS.toMillis(20)),
+                () -> "Node 0 log index = " + getRaftLogIndex(0, partId) + " node 1 log index= " + getRaftLogIndex(1, partId)
+        );
+        assertTrue(
+                waitForCondition(() -> getRaftLogIndex(0, partId).equals(getRaftLogIndex(3, partId)), SECONDS.toMillis(20)),
+                () -> "Node 0 log index = " + getRaftLogIndex(0, partId) + " node 2 log index= " + getRaftLogIndex(3, partId)
+        );
+
+        Assignments assignmentPending = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(2).name())
+        );
+
+        // Blocking stable switch to the first phase or reset,
+        // so that we'll have force pending assignments unexecuted.
+        blockMessage((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignmentPending));
+
+        // Stop 3. Nodes 0 and 1 survived.
+        stopNode( 3);
+
+        waitForScale(node0, 3);
+
+        assertRealAssignments(node0, partId, 0, 1, 2);
+
+        assertPendingAssignments(node0, partId, assignmentPending);
+        assertStableAssignments(node0, partId, allAssignments);
+
+        // On start we check `pending.contains(node) || (stable.contains(node) && !pending.isForce())` condition.
+        // The node is in stable, not in pending and pending is not forced => start it.
+        startNode(3);
+
+        assertRealAssignments(node0, partId, 0, 1, 2, 3);
+    }
 
     /**
      * Tests a scenario where all stable nodes are lost, yet we have data on one of pending nodes and perform reset partition operation. In
