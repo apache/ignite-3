@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -401,7 +402,7 @@ public class ItTxTestCluster {
             ClusterNode node = clusterService.topologyService().localMember();
 
             HybridClock clock = createClock(node);
-            ClockWaiter clockWaiter = new ClockWaiter("test-node" + i, clock);
+            ClockWaiter clockWaiter = new ClockWaiter("test-node" + i, clock, executor);
             assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
             TestClockService clockService = new TestClockService(clock, clockWaiter);
 
@@ -469,7 +470,8 @@ public class ItTxTestCluster {
                     raftSrv,
                     partitionRaftConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
-                    ForkJoinPool.commonPool()
+                    ForkJoinPool.commonPool(),
+                    replicaGrpId -> nullCompletedFuture()
             );
 
             assertThat(replicaMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -1033,7 +1035,7 @@ public class ItTxTestCluster {
         assertTrue(waitForTopology(client, nodes + 1, 1000));
 
         clientClock = createClock(client.topologyService().localMember());
-        clientClockWaiter = new ClockWaiter("client-node", clientClock);
+        clientClockWaiter = new ClockWaiter("client-node", clientClock, executor);
         assertThat(clientClockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
         clientClockService = new TestClockService(clientClock, clientClockWaiter);
 

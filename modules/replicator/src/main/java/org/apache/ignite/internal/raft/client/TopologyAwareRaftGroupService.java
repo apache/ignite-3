@@ -305,13 +305,16 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @return Future that is completed when all subscription messages to peers are sent.
      */
     public CompletableFuture<Void> subscribeLeader(LeaderElectionListener callback) {
-        assert !serverEventHandler.isSubscribed() : "The node already subscribed";
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-23863 do the refactoring to make the code more consistent.
+        if (serverEventHandler.isSubscribed()) {
+            eventsClientListener.addLeaderElectionListener(groupId(), callback);
+        } else {
+            serverEventHandler.setOnLeaderElectedCallback(callback);
+        }
 
         int peers = peers().size();
 
         var futs = new CompletableFuture[peers];
-
-        serverEventHandler.setOnLeaderElectedCallback(callback);
 
         for (int i = 0; i < peers; i++) {
             Peer peer = peers().get(i);
@@ -340,7 +343,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         ClusterNode leaderHost = clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId());
 
                         if (leaderHost != null) {
-                            serverEventHandler.onLeaderElected(
+                            eventsClientListener.onLeaderElected(
+                                    groupId(),
                                     leaderHost,
                                     leaderWithTerm.term()
                             );
@@ -364,6 +368,19 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         serverEventHandler.setOnLeaderElectedCallback(null);
         serverEventHandler.resetLeader();
 
+        return sendUnsubscribeLeaderMessageAndClearSubscribersMap();
+    }
+
+    /**
+     * Removes the given local callback on RAFT leader elected event from handling list.
+     *
+     * @param callback The callback that should be removed.
+     */
+    public void unsubscribeLeader(LeaderElectionListener callback) {
+        eventsClientListener.removeLeaderElectionListener(groupId(), callback);
+    }
+
+    private CompletableFuture<Void> sendUnsubscribeLeaderMessageAndClearSubscribersMap() {
         var peers = peers();
         List<CompletableFuture<Boolean>> futs = new ArrayList<>();
 

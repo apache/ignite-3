@@ -323,9 +323,22 @@ public class ReplicaImpl implements Replica {
                 .thenAccept(v -> raftClient.shutdown());
     }
 
-    /** {@inheritDoc} */
     @Override
     public void updatePeersAndLearners(PeersAndLearners peersAndLearners) {
         raftClient.updateConfiguration(peersAndLearners);
+    }
+
+    @Override
+    public CompletableFuture<Void> createSnapshotOn(Member targetMember) {
+        Peer peer = targetMember.isVotingMember()
+                ? new Peer(targetMember.consistentId(), 0)
+                : new Peer(targetMember.consistentId(), 1);
+
+        return raftClient.snapshot(peer);
+    }
+
+    @Override
+    public CompletableFuture<Void> transferLeadershipTo(String targetConsistentId) {
+        return raftClient.transferLeadership(new Peer(targetConsistentId));
     }
 }

@@ -1,5 +1,5 @@
 ## Prerequisites
-* .NET 6 SDK
+* .NET 8 SDK
 * Java 11 SDK
 
 ## Build Java

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.zip.Checksum;
 import org.apache.ignite.raft.jraft.util.CRC64;
@@ -133,7 +135,12 @@ public class MetastorageChecksum {
      * @param keys Keys.
      */
     public long wholeRemoveAll(List<byte[]> keys) {
-        return checksumWholeOperation(Op.REMOVE_ALL, () -> updateForRemoveAll(keys));
+        // Sort keys to get stable checksums independent from the order of keys (as the effect to the storage is the same even if
+        // key order is different).
+        List<byte[]> sortedKeys = new ArrayList<>(keys);
+        sortedKeys.sort(Arrays::compare);
+
+        return checksumWholeOperation(Op.REMOVE_ALL, () -> updateForRemoveAll(sortedKeys));
     }
 
     private void updateForRemoveAll(List<byte[]> keys) {

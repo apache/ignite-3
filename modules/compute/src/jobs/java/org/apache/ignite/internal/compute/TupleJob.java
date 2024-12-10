@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client;
+package org.apache.ignite.internal.compute;
 
-/** Ignite SSL client authentication enum. */
-public enum ClientAuthenticationMode {
-    /** Indicates that the client authentication will not be requested. */
-    NONE,
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
-    /** Indicates that the client authentication will be requested. */
-    OPTIONAL,
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.table.Tuple;
 
-    /** Indicates that the client authentication will be requested and the connection will be closed if the client
-     * certificate is not trusted. */
-    REQUIRE
+/**
+ * Returns a value of the "COUNT" column as an integer.
+ */
+public class TupleJob implements ComputeJob<Tuple, Integer> {
+    @Override
+    public CompletableFuture<Integer> executeAsync(JobExecutionContext jobExecutionContext, Tuple arg) {
+        return completedFuture(arg.intValue("COUNT"));
+    }
 }

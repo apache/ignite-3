@@ -36,7 +36,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
 
 class ItIgniteStartTest extends ClusterPerTestIntegrationTest {
-    private static final long RAFT_RETRY_TIMEOUT_MILLIS = 2500;
+    private static final long RAFT_RETRY_TIMEOUT_MILLIS = 5000;
 
     @Override
     protected int initialNodes() {
@@ -53,9 +53,9 @@ class ItIgniteStartTest extends ClusterPerTestIntegrationTest {
     @Test
     void nodeStartDoesntTimeoutWhenCmgIsUnavailable() throws Exception {
         int nodeCount = 2;
-        cluster.startAndInit(nodeCount, new int[]{0, 1});
+        cluster.startAndInit(nodeCount, new int[]{1});
 
-        IntStream.range(0, nodeCount).parallel().forEach(nodeIndex -> cluster.stopNode(nodeIndex));
+        stopNodes(nodeCount);
 
         ServerRegistration registration0 = cluster.startEmbeddedNode(0);
 
@@ -67,47 +67,49 @@ class ItIgniteStartTest extends ClusterPerTestIntegrationTest {
         assertThat(registration0.registrationFuture(), willCompleteSuccessfully());
     }
 
+    private void stopNodes(int nodeCount) {
+        IntStream.range(0, nodeCount).parallel().forEach(nodeIndex -> cluster.stopNode(nodeIndex));
+    }
+
     private static void waitTillRaftTimeoutPasses() throws InterruptedException {
         Thread.sleep(RAFT_RETRY_TIMEOUT_MILLIS + 1000);
     }
 
     @Test
     void nodeStartDoesntTimeoutWhenMgIsUnavailable() throws Exception {
-        int nodeCount = 3;
+        int nodeCount = 2;
         cluster.startAndInit(nodeCount, builder -> {
-            builder.cmgNodeNames(cluster.nodeName(0), cluster.nodeName(1));
-            builder.metaStorageNodeNames(cluster.nodeName(1), cluster.nodeName(2));
+            builder.cmgNodeNames(cluster.nodeName(0));
+            builder.metaStorageNodeNames(cluster.nodeName(1));
         });
 
-        IntStream.range(0, nodeCount).parallel().forEach(nodeIndex -> cluster.stopNode(nodeIndex));
+        stopNodes(nodeCount);
 
-        // These 2 nodes have majority of CMG, but not MG.
+        // This node has majority of CMG, but not MG.
         ServerRegistration registration0 = cluster.startEmbeddedNode(0);
-        ServerRegistration registration1 = cluster.startEmbeddedNode(1);
 
-        waitTill2NodesValidateThemselvesWithCmg(registration0);
+        waitTill1NodeValidateItselfWithCmg(registration0);
 
         // Now allow an attempt to recover Metastorage to timeout (if it doesn't have an infinite timeout).
         waitTillRaftTimeoutPasses();
 
-        assertDoesNotThrow(() -> cluster.startNode(2));
+        assertDoesNotThrow(() -> cluster.startNode(1));
 
         assertThat(registration0.registrationFuture(), willCompleteSuccessfully());
-        assertThat(registration1.registrationFuture(), willCompleteSuccessfully());
     }
 
-    private static void waitTill2NodesValidateThemselvesWithCmg(ServerRegistration registration) throws InterruptedException {
+    private static void waitTill1NodeValidateItselfWithCmg(ServerRegistration registration) throws InterruptedException {
         IgniteImpl ignite = ((IgniteServerImpl) registration.server()).igniteImpl();
 
         assertTrue(
-                waitForCondition(() -> validatedNodes(ignite).size() == 2, SECONDS.toMillis(10)),
-                "Did not see 2 nodes being validated in time after restart"
+                waitForCondition(() -> validatedNodes(ignite).size() == 1, SECONDS.toMillis(10)),
+                "Did not see 1 node being validated in time after restart"
         );
     }
 
     private static Set<ClusterNode> validatedNodes(IgniteImpl ignite) {
-        CompletableFuture<Set<ClusterNode>> validatededNodesFuture = ignite.clusterManagementGroupManager().validatedNodes();
-        assertThat(validatededNodesFuture, willCompleteSuccessfully());
-        return validatededNodesFuture.join();
+        CompletableFuture<Set<ClusterNode>> validatedNodesFuture = ignite.clusterManagementGroupManager().validatedNodes();
+        assertThat(validatedNodesFuture, willCompleteSuccessfully());
+        return validatedNodesFuture.join();
     }
 }

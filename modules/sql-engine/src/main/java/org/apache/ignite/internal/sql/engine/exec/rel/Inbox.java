@@ -346,7 +346,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
     }
 
     private void requestBatches(String nodeName, int cnt, @Nullable SharedState state) {
-        exchange.request(nodeName, queryId(), srcFragmentId, exchangeId, cnt, state)
+        exchange.request(nodeName, executionId(), srcFragmentId, exchangeId, cnt, state)
                 .whenComplete((ignored, ex) -> {
                     if (ex != null) {
                         IgniteInternalException wrapperEx = ExceptionUtils.withCause(

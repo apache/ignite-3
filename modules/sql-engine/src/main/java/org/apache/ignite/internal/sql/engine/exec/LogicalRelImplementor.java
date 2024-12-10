@@ -688,8 +688,13 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteTableModify rel) {
         IgniteTable table = rel.getTable().unwrapOrThrow(IgniteTable.class);
         UpdatableTable updatableTable = resolvedDependencies.updatableTable(table.id());
+        RelDataType rowType = rel.getInput().getRowType();
+        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
-        ModifyNode<RowT> node = new ModifyNode<>(ctx, updatableTable, rel.sourceId(), rel.getOperation(), rel.getUpdateColumnList());
+        ModifyNode<RowT> node = new ModifyNode<>(
+                ctx, updatableTable, rel.sourceId(), rel.getOperation(), rel.getUpdateColumnList(), rowFactory
+        );
 
         Node<RowT> input = visit(rel.getInput());
 

@@ -15,20 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.problem;
+package org.apache.ignite.internal.jdbc.proto.event;
 
-import io.micronaut.http.MediaType;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Media type for problem json.
+ * JDBC query cancel result.
  */
-public final class ProblemJsonMediaType extends MediaType {
+public class JdbcQueryCancelResult extends Response {
     /**
-     * Media type for problem json.
+     * Default constructor is used for deserialization.
      */
-    public static final ProblemJsonMediaType APPLICATION_JSON_PROBLEM_TYPE = new ProblemJsonMediaType("application/json+problem");
+    public JdbcQueryCancelResult() { }
 
-    private ProblemJsonMediaType(String name) {
-        super(name);
+    /**
+     * Constructor.
+     *
+     * @param status Status code.
+     * @param err    Error message.
+     */
+    public JdbcQueryCancelResult(int status, String err) {
+        super(status, err);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String toString() {
+        return S.toString(JdbcQueryCancelResult.class, this);
     }
 }

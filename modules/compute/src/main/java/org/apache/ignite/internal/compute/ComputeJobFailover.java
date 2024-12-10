@@ -30,8 +30,10 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * This is a helper class for {@link ComputeComponent} to handle job failures. You can think about this class as a "retryable compute job
@@ -84,6 +86,9 @@ class ComputeJobFailover<R> {
      */
     private final RemoteExecutionContext<?, R> jobContext;
 
+    /** Cancellation token. */
+    @Nullable private final CancellationToken cancellationToken;
+
     /**
      * Creates a per-job instance.
      *
@@ -96,6 +101,7 @@ class ComputeJobFailover<R> {
      * @param units deployment units.
      * @param jobClassName the name of the job class.
      * @param executionOptions execution options like priority or max retries.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @param args the arguments of the job.
      */
     ComputeJobFailover(
@@ -108,6 +114,7 @@ class ComputeJobFailover<R> {
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions executionOptions,
+            @Nullable CancellationToken cancellationToken,
             Object args
     ) {
         this.computeComponent = computeComponent;
@@ -117,6 +124,7 @@ class ComputeJobFailover<R> {
         this.nextWorkerSelector = nextWorkerSelector;
         this.jobContext = new RemoteExecutionContext<>(units, jobClassName, executionOptions, args);
         this.executor = executor;
+        this.cancellationToken = cancellationToken;
     }
 
     /**
@@ -138,11 +146,13 @@ class ComputeJobFailover<R> {
     private JobExecution<R> launchJobOn(ClusterNode runningWorkerNode) {
         if (runningWorkerNode.name().equals(topologyService.localMember().name())) {
             return computeComponent.executeLocally(
-                    jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), jobContext.arg()
+                    jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), cancellationToken,
+                    jobContext.arg()
             );
         } else {
             return computeComponent.executeRemotely(
-                    jobContext.executionOptions(), runningWorkerNode, jobContext.units(), jobContext.jobClassName(), jobContext.arg()
+                    jobContext.executionOptions(), runningWorkerNode, jobContext.units(), jobContext.jobClassName(), cancellationToken,
+                    jobContext.arg()
             );
         }
     }

@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
+import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -29,12 +30,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
@@ -72,7 +71,6 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -163,18 +161,17 @@ public class MetaStorageWriteHandler {
             } else {
                 assert false : "Command was not found [cmd=" + command + ']';
             }
-        } catch (IgniteInternalException e) {
-            clo.result(e);
-        } catch (CompletionException e) {
-            clo.result(e.getCause());
-        } catch (Throwable t) {
+        } catch (Throwable e) {
             LOG.error(
                     "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
-                    t,
+                    e,
                     commandIndex, commandTerm, command
             );
 
-            throw t;
+            clo.result(e);
+
+            // Rethrowing to let JRaft know that the state machine might be broken.
+            throw e;
         }
     }
 
@@ -378,8 +375,9 @@ public class MetaStorageWriteHandler {
         try (Cursor<Entry> cursor = storage.range(keyFrom, keyTo)) {
             for (Entry entry : cursor) {
                 if (!entry.tombstone()) {
-                    CommandId commandId = CommandId.fromString(
-                            ByteUtils.stringFromBytes(entry.key()).substring(IDEMPOTENT_COMMAND_PREFIX.length()));
+                    String commandIdString = toStringWithoutPrefix(entry.key(), IDEMPOTENT_COMMAND_PREFIX_BYTES.length);
+
+                    CommandId commandId = CommandId.fromString(commandIdString);
 
                     Serializable result;
                     if (entry.value().length == 1) {

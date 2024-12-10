@@ -225,6 +225,29 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
     }
 
     @Test
+    public void removeAllChecksumDoesNotDependOnKeyOrder() {
+        byte[] key1 = key(1);
+        byte[] val1 = keyValue(1, 1);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
+
+        putAllToMs(List.of(key1, key2), List.of(val1, val2));
+        long checksum1 = storage.checksum(1);
+
+        // Here, keys go in backward order.
+        removeAllFromMs(List.of(key2, key1));
+
+        long checksum2 = storage.checksum(2);
+        assertThat(checksum2, is(checksum(
+                longToBytes(checksum1),
+                bytes(4), // REMOVE_ALL
+                intToBytes(2), // key count
+                intToBytes(key1.length), key1,
+                intToBytes(key2.length), key2
+        )));
+    }
+
+    @Test
     public void singleInvokeChecksum() {
         byte[] key = key(1);
         byte[] val = keyValue(1, 1);

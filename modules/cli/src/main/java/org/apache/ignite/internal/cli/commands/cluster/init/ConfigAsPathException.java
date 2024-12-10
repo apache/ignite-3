@@ -15,14 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.rest.problem;
+package org.apache.ignite.internal.cli.commands.cluster.init;
 
 /**
- * Generic interface for builders.
- *
- * @param <T> built type.
- * @param <B> builder type.
+ * Exception throws when config file path passed to config content option.
  */
-public interface Builder<T, B extends Builder<T, B>> {
-    T build();
+public class ConfigAsPathException extends RuntimeException {
+    private static final long serialVersionUID = -7683264630128999379L;
+
+    private final String path;
+
+    public ConfigAsPathException(String path) {
+        this.path = path;
+    }
+
+    public String path() {
+        return path;
+    }
 }

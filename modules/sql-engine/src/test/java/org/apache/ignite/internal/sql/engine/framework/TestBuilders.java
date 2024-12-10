@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTes
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -45,7 +46,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -82,6 +86,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -95,6 +100,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionId;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -103,6 +109,7 @@ import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
@@ -131,6 +138,7 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -140,6 +148,7 @@ import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
@@ -583,7 +592,7 @@ public class TestBuilders {
         public ExecutionContext<Object[]> build() {
             return new ExecutionContext<>(
                     Objects.requireNonNull(executor, "executor"),
-                    queryId,
+                    new ExecutionId(queryId, 0),
                     Objects.requireNonNull(node, "node"),
                     node.name(),
                     description,
@@ -677,7 +686,11 @@ public class TestBuilders {
                 }
             }
 
-            ClockWaiter clockWaiter = new ClockWaiter("test", clock);
+            ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
+                    NamedThreadFactory.create("test", "common-scheduled-executors", LOG)
+            );
+
+            var clockWaiter = new ClockWaiter("test", clock, scheduledExecutor);
             var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
 
             Runnable initClosure = () -> {
@@ -685,6 +698,8 @@ public class TestBuilders {
 
                 initAction(catalogManager);
             };
+
+            RunnableX stopClosure = () -> IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
             List<LogicalNode> logicalNodes = nodeNames.stream()
                     .map(name -> {
@@ -706,6 +721,14 @@ public class TestBuilders {
 
             ConcurrentMap<String, ScannableTable> dataProvidersByTableName = new ConcurrentHashMap<>();
             ConcurrentMap<String, AssignmentsProvider> assignmentsProviderByTableName = new ConcurrentHashMap<>();
+
+            assignmentsProviderByTableName.put(
+                    Blackhole.TABLE_NAME,
+                    (partCount, ignored) -> IntStream.range(0, partCount)
+                            .mapToObj(partNo -> nodeNames)
+                            .collect(Collectors.toList())
+            );
+
             DefaultDataProvider defaultDataProvider = this.defaultDataProvider;
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
@@ -764,7 +787,8 @@ public class TestBuilders {
                     catalogManager,
                     prepareService,
                     clockWaiter,
-                    initClosure
+                    initClosure,
+                    stopClosure
             );
         }
 
@@ -1450,6 +1474,10 @@ public class TestBuilders {
 
                 @Override
                 public UpdatableTable updatableTable() {
+                    if (Blackhole.TABLE_NAME.equals(table.name())) {
+                        return Blackhole.INSTANCE;
+                    }
+
                     throw new UnsupportedOperationException();
                 }
 
@@ -1748,5 +1776,41 @@ public class TestBuilders {
         }
 
         return provider;
+    }
+
+    private static class Blackhole implements UpdatableTable {
+        static final String TABLE_NAME = "BLACKHOLE";
+
+        private static final TableDescriptor DESCRIPTOR = new TableDescriptorImpl(
+                List.of(new ColumnDescriptorImpl("X", true, false, false, false, 0,
+                        NativeTypes.INT32, DefaultValueStrategy.DEFAULT_NULL, null)), IgniteDistributions.single()
+        );
+
+        private static final UpdatableTable INSTANCE = new Blackhole();
+
+        @Override
+        public TableDescriptor descriptor() {
+            return DESCRIPTOR;
+        }
+
+        @Override
+        public <RowT> CompletableFuture<?> insertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<Void> insert(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx, RowT row) {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<?> upsertAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
+            return nullCompletedFuture();
+        }
+
+        @Override
+        public <RowT> CompletableFuture<?> deleteAll(ExecutionContext<RowT> ectx, List<RowT> rows, ColocationGroup colocationGroup) {
+            return nullCompletedFuture();
+        }
     }
 }

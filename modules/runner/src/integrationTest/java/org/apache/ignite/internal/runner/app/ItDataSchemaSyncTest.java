@@ -46,6 +46,7 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -142,6 +143,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      * Test correctness of schemes recovery after node restart.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23927")
     public void checkSchemasCorrectlyRestore() {
         Ignite ignite1 = cluster.node(1);
 
