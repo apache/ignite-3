@@ -65,6 +65,11 @@ namespace Apache.Ignite
         public short ErrorCode => ErrorGroups.GetErrorCode(Code);
 
         /// <summary>
+        /// Gets the group code.
+        /// </summary>
+        public short GroupCode => ErrorGroups.GetGroupCode(Code);
+
+        /// <summary>
         /// Gets the code as string.
         /// </summary>
         public string CodeAsString => ErrorGroups.ErrPrefix + GroupName + '-' + ErrorCode;

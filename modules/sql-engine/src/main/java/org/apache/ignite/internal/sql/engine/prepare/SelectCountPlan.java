@@ -116,9 +116,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         }, resultExecutor);
 
         if (firstPageReadyCallback != null) {
-            Executor executor = task -> ctx.execute(task::run, firstPageReadyCallback::onPrefetchComplete);
-
-            result.whenCompleteAsync((res, err) -> firstPageReadyCallback.onPrefetchComplete(err), executor);
+            result.whenComplete((res, err) -> firstPageReadyCallback.onPrefetchComplete(err));
         }
 
         ctx.scheduleTimeout(result);

@@ -30,8 +30,10 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -79,6 +81,8 @@ import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Tests for key-value storage implementations.
@@ -2195,6 +2199,48 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertThrows(CompactedException.class, () -> storage.revisionByTimestamp(hybridTimestamp(2)));
     }
 
+    @ParameterizedTest
+    @EnumSource(UpdateRevisionOperation.class)
+    void testNotifyUpdateRevisionForOperationAfterStartWatches(UpdateRevisionOperation updateRevisionOperation) {
+        var revisionUpdateListener = new TestRevisionUpdateListener();
+        storage.registerRevisionUpdateListener(revisionUpdateListener);
+
+        var watchEventHandlingCallback = new TestWatchEventHandlingCallback();
+        storage.startWatches(1, watchEventHandlingCallback);
+
+        storage.put(key(0), keyValue(0, 1), kvContext(hybridTimestamp(10)));
+
+        long revision = storage.revision();
+        long newRevision = revision + 1;
+
+        updateRevisionOperation.execute(storage);
+
+        assertThat(storage.revision(), equalTo(newRevision));
+        assertThat(revisionUpdateListener.get(newRevision), willSucceedFast());
+        assertThat(watchEventHandlingCallback.get(newRevision), willSucceedFast());
+    }
+
+    @ParameterizedTest
+    @EnumSource(UpdateRevisionOperation.class)
+    void testNotifyUpdateRevisionForOperationBeforeStartWatches(UpdateRevisionOperation updateRevisionOperation) {
+        var revisionUpdateListener = new TestRevisionUpdateListener();
+        storage.registerRevisionUpdateListener(revisionUpdateListener);
+
+        storage.put(key(0), keyValue(0, 1), kvContext(hybridTimestamp(10)));
+
+        long revision = storage.revision();
+        long newRevision = revision + 1;
+
+        updateRevisionOperation.execute(storage);
+
+        var watchEventHandlingCallback = new TestWatchEventHandlingCallback();
+        storage.startWatches(1, watchEventHandlingCallback);
+
+        assertThat(storage.revision(), equalTo(newRevision));
+        assertThat(revisionUpdateListener.get(newRevision), willSucceedFast());
+        assertThat(watchEventHandlingCallback.get(newRevision), willSucceedFast());
+    }
+
     private CompletableFuture<Void> watchExact(
             byte[] key, long revision, int expectedNumCalls, BiConsumer<WatchEvent, Integer> testCondition
     ) {
@@ -2246,17 +2292,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
             }
         });
 
-        storage.startWatches(1, new WatchEventHandlingCallback() {
-            @Override
-            public void onSafeTimeAdvanced(HybridTimestamp newSafeTime) {
-                // No-op.
-            }
-
-            @Override
-            public void onRevisionApplied(long revision) {
-                // No-op.
-            }
-        });
+        storage.startWatches(1, new WatchEventHandlingCallback() {});
 
         return resultFuture;
     }
@@ -2315,7 +2351,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertEquals(List.of(timestamps), collectTimestamps(storage.getAll(keys, revUpperBound)));
     }
 
-    private static CommandId createCommandId() {
+    static CommandId createCommandId() {
         return new CommandIdGenerator(UUID::randomUUID).newId();
     }
 }

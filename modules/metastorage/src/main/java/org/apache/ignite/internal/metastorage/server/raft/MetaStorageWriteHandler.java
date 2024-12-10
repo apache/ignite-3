@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.ByteUtils.byteToBoolean;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
+import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
 
 import java.io.Serializable;
 import java.nio.ByteBuffer;
@@ -70,7 +71,6 @@ import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -375,8 +375,9 @@ public class MetaStorageWriteHandler {
         try (Cursor<Entry> cursor = storage.range(keyFrom, keyTo)) {
             for (Entry entry : cursor) {
                 if (!entry.tombstone()) {
-                    CommandId commandId = CommandId.fromString(
-                            ByteUtils.stringFromBytes(entry.key()).substring(IDEMPOTENT_COMMAND_PREFIX.length()));
+                    String commandIdString = toStringWithoutPrefix(entry.key(), IDEMPOTENT_COMMAND_PREFIX_BYTES.length);
+
+                    CommandId commandId = CommandId.fromString(commandIdString);
 
                     Serializable result;
                     if (entry.value().length == 1) {

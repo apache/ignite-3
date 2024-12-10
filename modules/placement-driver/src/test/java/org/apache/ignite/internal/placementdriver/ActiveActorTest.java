@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.CursorUtils.emptyCursor;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -43,7 +42,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
-import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -74,7 +72,6 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
     @BeforeEach
     public void setUp() {
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(0, -1)));
-        when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(trueCompletedFuture());
         when(msm.getLocally(any(), anyLong())).then(invocation -> emptyMetastoreEntry());
         when(msm.prefixLocally(any(), anyLong())).then(invocation -> emptyCursor());
     }

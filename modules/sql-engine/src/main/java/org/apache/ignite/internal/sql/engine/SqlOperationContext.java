@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -49,7 +48,6 @@ public final class SqlOperationContext {
 
     private final @Nullable QueryCancel cancel;
     private final @Nullable String defaultSchemaName;
-    private final @Nullable PrefetchCallback prefetchCallback;
     private final @Nullable Consumer<QueryTransactionWrapper> txUsedListener;
 
     /**
@@ -63,7 +61,6 @@ public final class SqlOperationContext {
             @Nullable QueryTransactionContext txContext,
             @Nullable QueryCancel cancel,
             @Nullable String defaultSchemaName,
-            @Nullable PrefetchCallback prefetchCallback,
             @Nullable Consumer<QueryTransactionWrapper> txUsedListener
     ) {
         this.queryId = queryId;
@@ -73,7 +70,6 @@ public final class SqlOperationContext {
         this.txContext = txContext;
         this.cancel = cancel;
         this.defaultSchemaName = defaultSchemaName;
-        this.prefetchCallback = prefetchCallback;
         this.txUsedListener = txUsedListener;
     }
 
@@ -89,15 +85,6 @@ public final class SqlOperationContext {
     /** Returns parameters provided by user required to execute the statement. May be empty but never null. */
     public Object[] parameters() {
         return parameters;
-    }
-
-    /**
-     * Returns callback to notify about readiness of the first page of the results.
-     *
-     * <p>May be null on remote side, but never null on node initiator.
-     */
-    public @Nullable PrefetchCallback prefetchCallback() {
-        return prefetchCallback;
     }
 
     /**
@@ -177,7 +164,6 @@ public final class SqlOperationContext {
         private @Nullable Consumer<QueryTransactionWrapper> txUsedListener;
         private @Nullable QueryCancel cancel;
         private @Nullable String defaultSchemaName;
-        private @Nullable PrefetchCallback prefetchCallback;
 
         public Builder cancel(@Nullable QueryCancel cancel) {
             this.cancel = requireNonNull(cancel);
@@ -186,11 +172,6 @@ public final class SqlOperationContext {
 
         public Builder queryId(UUID queryId) {
             this.queryId = requireNonNull(queryId);
-            return this;
-        }
-
-        public Builder prefetchCallback(@Nullable PrefetchCallback prefetchCallback) {
-            this.prefetchCallback = prefetchCallback;
             return this;
         }
 
@@ -234,7 +215,6 @@ public final class SqlOperationContext {
                     txContext,
                     cancel,
                     defaultSchemaName,
-                    prefetchCallback,
                     txUsedListener
             );
         }

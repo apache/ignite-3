@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rex.RexNode;
@@ -136,9 +135,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
                 });
 
         if (firstPageReadyCallback != null) {
-            Executor executor = task -> ctx.execute(task::run, firstPageReadyCallback::onPrefetchComplete);
-
-            result.whenCompleteAsync((res, err) -> firstPageReadyCallback.onPrefetchComplete(err), executor);
+            result.whenComplete((res, err) -> firstPageReadyCallback.onPrefetchComplete(err));
         }
 
         ctx.scheduleTimeout(result);
