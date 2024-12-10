@@ -31,6 +31,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
@@ -48,6 +49,8 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCancelResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQuerySingleResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
@@ -123,6 +126,8 @@ public class JdbcStatement implements Statement {
         return rs;
     }
 
+    private static final IgniteLogger LOG = Loggers.forClass(JdbcStatement.class);
+
     /**
      * Execute the query with given parameters.
      *
@@ -132,6 +137,8 @@ public class JdbcStatement implements Statement {
      * @throws SQLException Onj error.
      */
     void execute0(JdbcStatementType stmtType, String sql, boolean multiStatement, Object[] args) throws SQLException {
+        LOG.info(">>>>> JdbcStatement#execute: [sql={}, args={}]", sql, Arrays.toString(args));
+
         ensureNotClosed();
 
         closeResults();

@@ -30,11 +30,15 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.jetbrains.annotations.Nullable;
 
 /** Contains common helper methods and fields for use within a module. */
 public class TableUtils {
+    private final static IgniteLogger LOG = Loggers.forClass(TableUtils.class);
+
     /**
      * Returns index IDs for the table of interest from the catalog for the active catalog version at the beginning timestamp of read-write
      * transaction.
@@ -54,6 +58,11 @@ public class TableUtils {
         int catalogVersion = catalogService.activeCatalogVersion(beginTs.longValue());
 
         List<CatalogIndexDescriptor> indexes = catalogService.indexes(catalogVersion, tableId);
+
+        LOG.info(
+                ">>>>> TableUtils#indexIdsAtRwTxBeginTs: [txId={}, txBTs={}, tableId={}, catalogVersion={}, indexSize={}]",
+                txId, beginTs, tableId, catalogVersion, indexes.size()
+        );
 
         assert !indexes.isEmpty() : String.format("txId=%s, tableId=%s, catalogVersion=%s", txId, tableId, catalogVersion);
 
