@@ -63,6 +63,13 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
         super.cancelScript();
     }
 
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23646")
+    @Override
+    public void cancelLongRunningStatement() throws InterruptedException {
+        super.cancelLongRunningStatement();
+    }
+
     @Override
     protected IgniteSql igniteSql() {
         return client.sql();
