@@ -20,16 +20,17 @@ package org.apache.ignite.internal.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
 /** Compute job that fails on the first execution with the {@link JobException}. */
 public class FailingJobOnFirstExecution implements ComputeJob<Void, String> {
-    private int counter;
+    private final AtomicInteger counter = new AtomicInteger();
 
     @Override
     public CompletableFuture<String> executeAsync(JobExecutionContext context, Void input) {
-        if (counter++ == 0) {
+        if (counter.getAndIncrement() == 0) {
             throw new JobException("Oops", new Exception());
         }
         return completedFuture("done");
