@@ -388,7 +388,7 @@ public class ZoneRebalanceUtil {
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray pendingChangeTriggerKey(ZonePartitionId zonePartitionId) {
-        return new ByteArray(zonePartitionId + "zone.pending.change.trigger");
+        return new ByteArray("zone.pending.change.trigger" + zonePartitionId);
     }
 
     /**

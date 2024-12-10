@@ -371,7 +371,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * @param plannedAssignmentsBytes Value for {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or {@code null}.
      * @return {@link Iif} instance.
      */
-    private static Iif prepareMsInvokeClosure(
+    static Iif prepareMsInvokeClosure(
             TablePartitionId partId,
             byte[] revisionBytes,
             byte[] pendingAssignmentsBytes,

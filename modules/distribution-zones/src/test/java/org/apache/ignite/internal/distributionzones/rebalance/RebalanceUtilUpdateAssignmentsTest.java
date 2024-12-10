@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.toBytes;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
+import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -122,6 +124,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final Set<Assignment> assignments2 = calculateAssignmentForPartition(nodes2, partNum, replicas);
     private static final Set<Assignment> assignments3 = calculateAssignmentForPartition(nodes3, partNum, replicas);
     private static final Set<Assignment> assignments4 = calculateAssignmentForPartition(nodes4, partNum, replicas);
+
+    private static final long expectedPendingChangeTriggerKey = 10L;
 
     private long assignmentsTimestamp;
 
@@ -521,12 +525,18 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                     KV_UPDATE_CONTEXT);
         }
 
+        keyValueStorage.put(
+                RebalanceUtil.pendingChangeTriggerKey(tablePartitionId).bytes(),
+                longToBytesKeepingOrder(1),
+                KV_UPDATE_CONTEXT);
+
+
         RebalanceUtil.updatePendingAssignmentsKeys(
                 tableDescriptor,
                 tablePartitionId,
                 nodesForNewAssignments,
                 replicas,
-                1,
+                expectedPendingChangeTriggerKey,
                 metaStorageManager,
                 partNum,
                 tableCfgAssignments,
@@ -554,6 +564,9 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             actualPlannedAssignments = Assignments.fromBytes(actualPlannedBytes).nodes();
         }
 
+        byte[] pendingChangeTriggerKey = keyValueStorage.get(RebalanceUtil.pendingChangeTriggerKey(tablePartitionId).bytes()).value();
+        long actualPendingChangeTrigger = bytesToLongKeepingOrder(pendingChangeTriggerKey);
+
         LOG.info("stableAssignments " + actualStableAssignments);
         LOG.info("pendingAssignments " + actualPendingAssignments);
         LOG.info("plannedAssignments " + actualPlannedAssignments);
@@ -578,5 +591,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         } else {
             assertNull(actualPlannedBytes);
         }
+
+        assertEquals(expectedPendingChangeTriggerKey, actualPendingChangeTrigger);
     }
 }
