@@ -35,7 +35,7 @@ public interface Replica {
      *
      * @return RAFT client.
      */
-    // TODO:https://issues.apache.org/jira/browse/IGNITE-22036 remove this method
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-23750
     @Deprecated(forRemoval = true)
     TopologyAwareRaftGroupService raftClient();
 
@@ -82,4 +82,21 @@ public interface Replica {
      * @param peersAndLearners Peers and learners.
      */
     void updatePeersAndLearners(PeersAndLearners peersAndLearners);
+
+    /**
+     * Creates a snapshot on a given group member.
+     *
+     * @param targetMember Group member that will create a snapshot.
+     * @return Future that gets completed when the target member creates a snapshot.
+     */
+    CompletableFuture<Void> createSnapshotOn(Member targetMember);
+
+    /**
+     * Transfers leadership from the current group leader to the target group member.
+     *
+     * @param targetConsistentId Name of the group member that will become a new leader. Must be a voting member of the replication group.
+     * @return Future that gets completed when the current leader executes the request and steps down. Note that this does not imply any
+     *         happens-before relationship between the completion of the future and the target member becoming the new group leader.
+     */
+    CompletableFuture<Void> transferLeadershipTo(String targetConsistentId);
 }

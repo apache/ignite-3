@@ -176,10 +176,12 @@ public class RebalanceUtil {
         //                partition.change.trigger.revision = event.revision
         //            else if partition.assignments.pending == calcPartAssignments
         //                remove(partition.assignments.planned)
+        //                partition.change.trigger.revision = event.revision
         //                message after the metastorage invoke:
         //                "Remove planned key because current pending key has the same value."
         //            else if empty(partition.assignments.pending)
         //                remove(partition.assignments.planned)
+        //                partition.change.trigger.revision = event.revision
         //                message after the metastorage invoke:
         //                "Remove planned key because pending is empty and calculated assignments are equal to current assignments."
         //    else:
@@ -191,21 +193,29 @@ public class RebalanceUtil {
             newAssignmentsCondition = notExists(partAssignmentsStableKey).or(newAssignmentsCondition);
         }
 
-        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(longToBytesKeepingOrder(revision))),
+        byte[] revisionBytes = longToBytesKeepingOrder(revision);
+
+        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(revisionBytes)),
                 iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
-                                put(partChangeTriggerKey, longToBytesKeepingOrder(revision))
+                                put(partChangeTriggerKey, revisionBytes)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
                         iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsBytes), exists(partAssignmentsPendingKey)),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsBytes),
-                                        put(partChangeTriggerKey, longToBytesKeepingOrder(revision))
+                                        put(partChangeTriggerKey, revisionBytes)
                                 ).yield(PLANNED_KEY_UPDATED.ordinal()),
                                 iif(value(partAssignmentsPendingKey).eq(partAssignmentsBytes),
-                                        ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
+                                        ops(
+                                                remove(partAssignmentsPlannedKey),
+                                                put(partChangeTriggerKey, revisionBytes)
+                                        ).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
                                         iif(notExists(partAssignmentsPendingKey),
-                                                ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING.ordinal()),
+                                                ops(
+                                                        remove(partAssignmentsPlannedKey),
+                                                        put(partChangeTriggerKey, revisionBytes)
+                                                ).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING.ordinal()),
                                                 ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal()))
                                 ))),
                 ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal()));
