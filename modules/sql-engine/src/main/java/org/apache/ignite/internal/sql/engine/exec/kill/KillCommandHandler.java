@@ -100,20 +100,13 @@ public class KillCommandHandler implements KillHandlerRegistry {
     public CompletableFuture<Boolean> handle(KillCommand cmd) {
         OperationKillHandler handler = handlerOrThrow(cmd.type(), false);
 
-        try {
-            CompletableFuture<Boolean> killFut = handler.cancelAsync(cmd.operationId());
+        CompletableFuture<Boolean> killFut = invokeCancel(handler, cmd.operationId());
 
-            if (cmd.noWait()) {
-                return CompletableFuture.completedFuture(true);
-            }
-
+        if (killFut.isDone() || !cmd.noWait()) {
             return killFut;
-        } catch (IllegalArgumentException e) {
-            String errMessage = IgniteStringFormatter.format(
-                    "Invalid operation ID format [operationId={}, type={}].", cmd.operationId(), cmd.type());
-
-            return CompletableFuture.failedFuture(new SqlException(Sql.RUNTIME_ERR, errMessage, e));
         }
+
+        return CompletableFuture.completedFuture(true);
     }
 
     OperationKillHandler handlerOrThrow(CancellableOperationType type, boolean local) {
@@ -131,10 +124,6 @@ public class KillCommandHandler implements KillHandlerRegistry {
         return handler;
     }
 
-    private static CancelOperationResponse errorResponse(Throwable t) {
-        return FACTORY.cancelOperationResponse().error(t).build();
-    }
-
     private void onMessage(NetworkMessage networkMessage, ClusterNode clusterNode, @Nullable Long correlationId) {
         if (networkMessage instanceof CancelOperationRequest) {
             assert correlationId != null;
@@ -145,7 +134,7 @@ public class KillCommandHandler implements KillHandlerRegistry {
                 OperationKillHandler handler = handlerOrThrow(type, true);
                 String operationId = request.operationId();
 
-                handler.cancelAsync(operationId).whenComplete(
+                invokeCancel(handler, operationId).whenComplete(
                         (result, throwable) -> {
                             CancelOperationResponse response;
 
@@ -162,5 +151,20 @@ public class KillCommandHandler implements KillHandlerRegistry {
                 messageService.respond(clusterNode, errorResponse(t), correlationId);
             }
         }
+    }
+
+    private static CompletableFuture<Boolean> invokeCancel(OperationKillHandler handler, String operationId) {
+        try {
+            return handler.cancelAsync(operationId);
+        } catch (IllegalArgumentException e) {
+            String errMessage = IgniteStringFormatter.format(
+                    "Invalid operation ID format [operationId={}, type={}].", operationId, handler.type());
+
+            return CompletableFuture.failedFuture(new SqlException(Sql.RUNTIME_ERR, errMessage, e));
+        }
+    }
+
+    private static CancelOperationResponse errorResponse(Throwable t) {
+        return FACTORY.cancelOperationResponse().error(t).build();
     }
 }
