@@ -54,19 +54,19 @@ import org.apache.ignite.internal.versioned.VersionedSerialization;
 
 /** Parent for tests of HA zones feature. */
 public abstract class AbstractHighAvailablePartitionsRecoveryTest extends ClusterPerTestIntegrationTest {
-    protected static final String HA_ZONE_NAME = "HA_ZONE";
+    static final String HA_ZONE_NAME = "HA_ZONE";
 
-    protected static final String HA_TABLE_NAME = "HA_TABLE";
+    static final String HA_TABLE_NAME = "HA_TABLE";
 
-    protected static final String SC_ZONE_NAME = "SC_ZONE";
+    static final String SC_ZONE_NAME = "SC_ZONE";
 
-    protected static final String SC_TABLE_NAME = "SC_TABLE";
+    private static final String SC_TABLE_NAME = "SC_TABLE";
 
-    protected static final int PARTITIONS_NUMBER = 2;
+    private static final int PARTITIONS_NUMBER = 2;
 
     protected final HybridClock clock = new HybridClockImpl();
 
-    protected final void assertRecoveryRequestForHaZone(IgniteImpl node) {
+    final void assertRecoveryRequestForHaZone(IgniteImpl node) {
         Entry recoveryTriggerEntry = getRecoveryTriggerKey(node);
 
         GroupUpdateRequest request = (GroupUpdateRequest) VersionedSerialization.fromBytes(
@@ -81,7 +81,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         assertFalse(request.manualUpdate());
     }
 
-    protected final void assertRecoveryRequestWasOnlyOne(IgniteImpl node) {
+    static void assertRecoveryRequestWasOnlyOne(IgniteImpl node) {
         assertEquals(
                 1,
                 node
@@ -90,7 +90,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         );
     }
 
-    protected final void waitAndAssertStableAssignmentsOfPartitionEqualTo(
+    final void waitAndAssertStableAssignmentsOfPartitionEqualTo(
             IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
         partitionIds.forEach(p -> {
             try {
@@ -102,7 +102,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     }
 
-    protected final void waitAndAssertStableAssignmentsOfPartitionEqualTo(
+    private void waitAndAssertStableAssignmentsOfPartitionEqualTo(
             IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes) throws InterruptedException {
 
         assertTrue(waitForCondition(() ->
@@ -120,21 +120,21 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 .collect(Collectors.toUnmodifiableSet()));
     }
 
-    protected static final Entry getRecoveryTriggerKey(IgniteImpl node) {
+    static Entry getRecoveryTriggerKey(IgniteImpl node) {
         return node.metaStorageManager().getLocally(RECOVERY_TRIGGER_KEY, Long.MAX_VALUE);
     }
 
-    protected final Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
+    private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
         return Optional.ofNullable(getTableId(node.catalogManager(), tableName, clock.nowLong()))
                 .map(tableId -> partitionAssignments(node.metaStorageManager(), tableId, partNum).join())
                 .orElse(Set.of());
     }
 
-    protected final int zoneIdByName(CatalogService catalogService, String zoneName) {
+    final int zoneIdByName(CatalogService catalogService, String zoneName) {
         return catalogService.zone(zoneName, clock.nowLong()).id();
     }
 
-    protected final void createHaZoneWithTable(String filter, Set<String> targetNodes) throws InterruptedException {
+    final void createHaZoneWithTable(String filter, Set<String> targetNodes) throws InterruptedException {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', "
                         + "CONSISTENCY_MODE='HIGH_AVAILABILITY', DATA_NODES_FILTER='%s'",
@@ -151,13 +151,13 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), HA_TABLE_NAME, Set.of(0, 1), targetNodes);
     }
 
-    protected final void createHaZoneWithTable() throws InterruptedException {
+    final void createHaZoneWithTable() throws InterruptedException {
         Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
         createHaZoneWithTable(DEFAULT_FILTER, allNodes);
     }
 
-    protected final void createScZoneWithTable() {
+    final void createScZoneWithTable() {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='STRONG_CONSISTENCY'",
                 SC_ZONE_NAME, initialNodes(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE
@@ -173,23 +173,23 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), SC_TABLE_NAME, Set.of(0, 1), allNodes);
     }
 
-    protected final void assertRecoveryKeyIsEmpty(IgniteImpl gatewayNode) {
+    static void assertRecoveryKeyIsEmpty(IgniteImpl gatewayNode) {
         assertTrue(getRecoveryTriggerKey(gatewayNode).empty());
     }
 
-    protected final void waitAndAssertRecoveryKeyIsNotEmpty(IgniteImpl gatewayNode) throws InterruptedException {
+    static void waitAndAssertRecoveryKeyIsNotEmpty(IgniteImpl gatewayNode) throws InterruptedException {
         waitAndAssertRecoveryKeyIsNotEmpty(gatewayNode, 5_000);
     }
 
-    protected final void waitAndAssertRecoveryKeyIsNotEmpty(IgniteImpl gatewayNode, long timeoutMillis) throws InterruptedException {
+    static void waitAndAssertRecoveryKeyIsNotEmpty(IgniteImpl gatewayNode, long timeoutMillis) throws InterruptedException {
         assertTrue(waitForCondition(() -> !getRecoveryTriggerKey(gatewayNode).empty(), timeoutMillis));
     }
 
-    protected void stopNodes(Integer... nodes) {
+    void stopNodes(Integer... nodes) {
         Arrays.stream(nodes).forEach(this::stopNode);
     }
 
-    protected final void changePartitionDistributionTimeout(IgniteImpl gatewayNode, int timeout) {
+    static void changePartitionDistributionTimeout(IgniteImpl gatewayNode, int timeout) {
         CompletableFuture<Void> changeFuture = gatewayNode
                 .clusterConfiguration()
                 .getConfiguration(SystemDistributedExtensionConfiguration.KEY)
@@ -201,7 +201,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         assertThat(changeFuture, willCompleteSuccessfully());
     }
 
-    protected final long waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(
+    final long waitForSpecificZoneTopologyUpdateAndReturnUpdateRevision(
             IgniteImpl gatewayNode, String zoneName, Set<String> targetTopologyUpdate
     ) throws InterruptedException {
         int zoneId = zoneIdByName(gatewayNode.catalogManager(), zoneName);
@@ -237,7 +237,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         return revision.get();
     }
 
-    protected final void awaitForAllNodesTableGroupInitialization(int replicas) throws InterruptedException {
+    private void awaitForAllNodesTableGroupInitialization(int replicas) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             AtomicInteger numberOfInitializedReplicas = new AtomicInteger(0);
 
@@ -262,7 +262,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         }, 10_000));
     }
 
-    protected final Set<String> nodeNames(Integer... indexes) {
+    final Set<String> nodeNames(Integer... indexes) {
         return Arrays
                 .stream(indexes)
                 .map(i -> node(i).name())
