@@ -244,6 +244,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -974,20 +975,35 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         return IntStream.range(0, nodes.size()).filter(i -> getNode(i).name.equals(consistentId)).findFirst().orElseThrow();
     }
 
-    private void electPrimaryReplica(Node node) {
-        Set<Assignment> assignments = getPartitionClusterNodes(node, 0);
+    private void electPrimaryReplica(Node primaryReplicaNode) throws InterruptedException {
+        Node leaseholderNode = getLeaseholderNodeForPartition(primaryReplicaNode, 0);
 
-        String leaseholderConsistentId = assignments.stream().findFirst().get().consistentId();
+        int tableId = getTableId(primaryReplicaNode, TABLE_NAME);
 
-        ClusterNode leaseholder = nodes.stream()
-                .filter(n -> n.clusterService.topologyService().localMember().name().equals(leaseholderConsistentId))
-                .findFirst()
-                .get()
-                .clusterService
+        TablePartitionId groupId = new TablePartitionId(tableId, 0);
+
+        assertTrue(waitForCondition(() -> isReplicationGroupStarted(leaseholderNode, groupId), AWAIT_TIMEOUT_MILLIS));
+
+        ClusterNode leaseholder = leaseholderNode.clusterService
                 .topologyService()
                 .localMember();
 
-        node.placementDriver.setPrimaryReplicaSupplier(() -> new TestReplicaMetaImpl(leaseholder.name(), leaseholder.id()));
+        nodes.forEach(node -> node.placementDriver.setPrimaryReplicaSupplier(() -> new TestReplicaMetaImpl(
+                leaseholder.name(),
+                leaseholder.id(),
+                new TablePartitionId(getTableId(node, TABLE_NAME), 0)
+        )));
+    }
+
+    private @NotNull Node getLeaseholderNodeForPartition(Node node, int partId) {
+        Set<Assignment> assignments = getPartitionClusterNodes(node, partId);
+
+        String leaseholderConsistentId = assignments.stream().findFirst().get().consistentId();
+
+        return nodes.stream()
+                .filter(n -> n.clusterService.topologyService().localMember().name().equals(leaseholderConsistentId))
+                .findFirst()
+                .get();
     }
 
     private static Set<Assignment> getPartitionClusterNodes(Node node, int partNum) {
@@ -1371,7 +1387,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     raftManager,
                     partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
-                    ForkJoinPool.commonPool()
+                    ForkJoinPool.commonPool(),
+                    replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsKey((TablePartitionId) replicaGrpId))
+                            .thenApply(Entry::value)
             ));
 
             LongSupplier delayDurationMsSupplier = () -> 10L;

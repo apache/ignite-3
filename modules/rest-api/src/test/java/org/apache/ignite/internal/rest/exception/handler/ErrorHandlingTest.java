@@ -23,13 +23,10 @@ import static io.micronaut.http.HttpStatus.METHOD_NOT_ALLOWED;
 import static io.micronaut.http.HttpStatus.NOT_FOUND;
 import static io.micronaut.http.HttpStatus.UNAUTHORIZED;
 import static io.micronaut.http.HttpStatus.UNSUPPORTED_MEDIA_TYPE;
-import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.isProblemResponse;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import io.micronaut.context.annotation.Bean;
@@ -42,7 +39,6 @@ import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MutableHttpRequest;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.http.uri.UriBuilder;
 import io.micronaut.security.authentication.AuthenticationException;
 import io.micronaut.security.authentication.AuthorizationException;
@@ -56,7 +52,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.MediaType;
-import org.apache.ignite.internal.rest.matcher.ProblemMatcher;
+import org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher;
 import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
@@ -157,7 +153,7 @@ public class ErrorHandlingTest {
     @Test
     public void invalidTypeQueryValue1() {
         // Invoke endpoint with wrong request argument values
-        assertThrowsProblem(
+        MicronautHttpResponseMatcher.assertThrowsProblem(
                 () -> client.toBlocking().exchange("/list?greatThan=-1&lessThan=11"),
                 BAD_REQUEST,
                 isProblem()
@@ -234,17 +230,11 @@ public class ErrorHandlingTest {
     }
 
     private static void assertThrowsProblem(Executable executable, HttpStatus status, String title, Matcher<String> detailMatcher) {
-        assertThrowsProblem(executable, status, isProblem()
+        MicronautHttpResponseMatcher.assertThrowsProblem(executable, status, isProblem()
                 .withStatus(status.getCode())
                 .withTitle(title)
                 .withDetail(detailMatcher)
         );
-    }
-
-    private static void assertThrowsProblem(Executable executable, HttpStatus status, ProblemMatcher problemMatcher) {
-        HttpClientResponseException thrown = assertThrows(HttpClientResponseException.class, executable);
-
-        assertThat(thrown.getResponse(), isProblemResponse(status, problemMatcher));
     }
 
     @Bean

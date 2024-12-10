@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPat
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -592,7 +593,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftMgr,
                 partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
-                threadPoolsManager.tableIoExecutor()
+                threadPoolsManager.tableIoExecutor(),
+                replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsKey((TablePartitionId) replicaGrpId))
+                        .thenApply(Entry::value)
+
         );
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();

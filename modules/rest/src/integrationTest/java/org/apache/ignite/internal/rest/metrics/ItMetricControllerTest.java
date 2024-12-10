@@ -22,32 +22,28 @@ import static io.micronaut.http.HttpRequest.GET;
 import static io.micronaut.http.HttpRequest.POST;
 import static io.micronaut.http.MediaType.TEXT_PLAIN_TYPE;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.hasStatus;
-import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.isProblemResponse;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
-import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.List;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.metric.MetricSource;
 import org.apache.ignite.internal.rest.api.metric.NodeMetricSources;
-import org.apache.ignite.internal.rest.matcher.ProblemMatcher;
 import org.hamcrest.FeatureMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.function.Executable;
 
 @MicronautTest
 class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
@@ -172,11 +168,5 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
         HttpResponse<List<MetricSource>> sources = client.toBlocking().exchange(GET("source"), listOf(MetricSource.class));
         assertThat(sources, hasStatus(HttpStatus.OK));
         assertThat(sources.body(), hasItem(new MetricSource("jvm", enabled)));
-    }
-
-    private static void assertThrowsProblem(Executable executable, HttpStatus status, ProblemMatcher problemMatcher) {
-        HttpClientResponseException thrown = assertThrows(HttpClientResponseException.class, executable);
-
-        assertThat(thrown.getResponse(), isProblemResponse(status, problemMatcher));
     }
 }
