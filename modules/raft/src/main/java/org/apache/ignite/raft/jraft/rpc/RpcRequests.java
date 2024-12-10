@@ -120,7 +120,7 @@ public final class RpcRequests {
 
         long term();
 
-        HybridTimestamp timestamp();
+        @Nullable HybridTimestamp timestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.TIMEOUT_NOW_RESPONSE)

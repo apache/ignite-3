@@ -256,9 +256,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Factory for creating transaction command messages. */
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
-    /** Replication retries limit. */
-    private static final int MAX_RETRIES_ON_SAFE_TIME_REORDERING = 1000;
-
     /** Replication group id. */
     private final TablePartitionId replicationGroupId;
 

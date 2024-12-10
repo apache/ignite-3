@@ -247,22 +247,12 @@ public class PartitionListener implements RaftGroupListener {
                     updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
                 }
             } catch (IgniteInternalException e) {
-                if (e.code() == Common.REORDERING_ERR) { // This should never happen.
-                    LOG.error(
-                            "Unexpected reordering detected while processing command [commandIndex={}, commandTerm={}, command={}]",
-                            e,
-                            clo.index(), clo.index(), command
-                    );
-
-                    throw e; // Rethrow and corrupt state machine.
-                }
-
                 result = e;
             } catch (CompletionException e) {
                 result = e.getCause();
             } catch (Throwable t) {
                 LOG.error(
-                        "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
+                        "Got error while processing command [commandIndex={}, commandTerm={}, command={}]",
                         t,
                         clo.index(), clo.index(), command
                 );

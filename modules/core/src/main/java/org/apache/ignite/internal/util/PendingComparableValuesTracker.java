@@ -19,7 +19,6 @@ package org.apache.ignite.internal.util;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Common.REORDERING_ERR;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -31,7 +30,6 @@ import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -131,8 +129,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
 
             // Entries from the same batch receive equal safe timestamps.
             if (comparator.compare(newEntry, current) < 0) {
-                throw new IgniteInternalException(REORDERING_ERR,
-                        "Reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1() + ']');
+                throw new AssertionError("Reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1() + ']');
             }
 
             CURRENT.set(this, newEntry);
