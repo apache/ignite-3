@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.disaster;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
@@ -41,6 +40,7 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -49,17 +49,15 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for disaster recovery meta storage invoke that changes {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}.
  */
-public class DisasterRecoveryMsInvokeTest {
+public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
     private static final int partNum = 2;
     private static final int replicas = 2;
 
     private static final Set<String> nodes1 = IntStream.of(5).mapToObj(i -> "nodes1_" + i).collect(toSet());
     private static final Set<String> nodes2 = IntStream.of(5).mapToObj(i -> "nodes2_" + i).collect(toSet());
-    private static final Set<String> nodes3 = IntStream.of(5).mapToObj(i -> "nodes3_" + i).collect(toSet());
 
     private static final Set<Assignment> assignments1 = calculateAssignmentForPartition(nodes1, partNum, replicas);
     private static final Set<Assignment> assignments2 = calculateAssignmentForPartition(nodes2, partNum, replicas);
-    private static final Set<Assignment> assignments3 = calculateAssignmentForPartition(nodes3, partNum, replicas);
 
     private static final TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
@@ -88,19 +86,11 @@ public class DisasterRecoveryMsInvokeTest {
     @MethodSource("assignments")
     public void testPendingChangeTriggerKey(
             Set<Assignment> currentPending,
-            Set<Assignment> currentPlanned,
-            Set<Assignment> pending,
-            Set<Assignment> planned
+            Set<Assignment> pending
     ) throws Exception {
         if (currentPending != null) {
             metaStorageManager.put(
                     pendingPartAssignmentsKey(tablePartitionId), Assignments.toBytes(currentPending, assignmentsTimestamp)
-            ).get();
-        }
-
-        if (currentPlanned != null) {
-            metaStorageManager.put(
-                    plannedPartAssignmentsKey(tablePartitionId), Assignments.toBytes(currentPlanned, assignmentsTimestamp)
             ).get();
         }
 
@@ -109,7 +99,7 @@ public class DisasterRecoveryMsInvokeTest {
                         tablePartitionId,
                         longToBytesKeepingOrder(expectedPendingChangeTriggerKey),
                         Assignments.toBytes(pending, assignmentsTimestamp),
-                        Assignments.toBytes(planned, assignmentsTimestamp)
+                        null
                 )
         ).get();
 
@@ -122,9 +112,9 @@ public class DisasterRecoveryMsInvokeTest {
 
     private static Stream<Arguments> assignments() {
         return Stream.of(
-                Arguments.of(null, null, assignments1, assignments2),
-                Arguments.of(assignments1, null, assignments1, assignments2),
-                Arguments.of(assignments1, null, assignments2, assignments3)
+                Arguments.of(null, assignments1),
+                Arguments.of(assignments1, assignments1),
+                Arguments.of(assignments1, assignments2)
         );
     }
 }
