@@ -16,33 +16,26 @@
  */
 
 apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
 
-description = 'ignite-arch-test'
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
 
-if (!JavaVersion.current().isJava11Compatible()) {
-    java {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
+test {
+    useJUnitPlatform()
 }
 
 dependencies {
-    parent.subprojects {
-        if (it != this.project) {
-            testImplementation it
-        }
-    }
+    implementation project(":spring-boot-starter-ignite-client")
 
-    testImplementation libs.archunit.core
-    testImplementation libs.archunit.junit5
-    testImplementation testFixtures(project(':ignite-core'))
-}
+    implementation libs.spring.boot
+    implementation libs.spring.boot.autoconfigure
 
-tasks.withType(Test).configureEach {
-    parent.subprojects.forEach {
-        dependsOn it.getTasksByName("testClasses", true)
-        dependsOn it.getTasksByName("integrationTestClasses", true)
-        dependsOn it.getTasksByName("testFixturesClasses", true)
-    }
+    testImplementation libs.spring.boot.test
+    testImplementation libs.junit5.impl
+    testImplementation libs.junit5.api
+    testImplementation libs.assertj.core
+    testImplementation(testFixtures project(':ignite-runner'))
+    testImplementation(testFixtures project(':ignite-core'))
 }

@@ -84,6 +84,7 @@ tree-sitter-json = "0.23.0"
 tree-sitter-sql = "gh-pages-a"
 tree-sitter-hocon = "master-a"
 otel = "1.45.0"
+spring-boot = "3.3.4"
 
 #Tools
 pmdTool = "6.55.0"
@@ -270,3 +271,7 @@ tree-sitter-sql = { module = "io.github.bonede:tree-sitter-sql", version.ref = "
 tree-sitter-hocon = { module = "io.github.bonede:tree-sitter-hocon", version.ref = "tree-sitter-hocon" }
 
 opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "otel" }
+
+spring-boot = { module = "org.springframework.boot:spring-boot", version.ref = "spring-boot" }
+spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure", version.ref = "spring-boot" }
+spring-boot-test = { module = "org.springframework.boot:spring-boot-test", version.ref = "spring-boot" }
