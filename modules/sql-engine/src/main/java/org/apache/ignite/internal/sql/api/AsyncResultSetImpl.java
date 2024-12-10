@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -300,6 +301,18 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         @Override
         public double doubleValue(int columnIndex) {
             return (double) row.get(columnIndex);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public BigDecimal decimalValue(String columnName) {
+            return (BigDecimal)  row.get(columnIndexChecked(columnName));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public BigDecimal decimalValue(int columnIndex) {
+            return (BigDecimal) row.get(columnIndex);
         }
 
         /** {@inheritDoc} */

@@ -121,7 +121,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
                 .set("ztimestamp", instant)
                 .set("zstring", name)
                 .set("zbytes", new byte[]{1, 2})
-                .set("zdecimal", BigDecimal.valueOf(21))
+                .set("zdecimal", BigDecimal.valueOf(21).setScale(3))
                 .set("zuuid", uuid);
 
         if (!skipKey) {

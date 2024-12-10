@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -167,6 +168,18 @@ class TestRow implements SqlRow {
     @Override
     public double doubleValue(int columnIndex) {
         return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        return null;
     }
 
     /** {@inheritDoc} */

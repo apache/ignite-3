@@ -138,7 +138,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals(1.4d, row.doubleValue(6));
         assertEquals(ColumnType.DOUBLE, meta.columns().get(6).type());
 
-        assertEquals(BigDecimal.valueOf(145).setScale(2, RoundingMode.HALF_UP), row.value(7));
+        assertEquals(BigDecimal.valueOf(145), row.decimalValue(7));
         ColumnMetadata decimalCol = meta.columns().get(7);
         assertEquals(ColumnType.DECIMAL, decimalCol.type());
         assertEquals(1, decimalCol.precision());
