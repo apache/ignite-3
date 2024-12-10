@@ -614,9 +614,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     private static IgniteException getExceptionInJobExecutionSync(Supplier<String> execution) {
-        IgniteException ex = assertThrows(IgniteException.class, execution::get);
-
-        return (IgniteException) ex.getCause();
+        return assertThrows(IgniteException.class, execution::get);
     }
 
     private static void assertComputeExceptionWithClassAndMessage(IgniteException cause) {
