@@ -80,7 +80,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
     private static final Set<SqlQueryType> SELECT_STATEMENT_QUERIES = Set.of(SqlQueryType.QUERY, SqlQueryType.EXPLAIN);
 
     /** {@link SqlQueryType}s allowed in JDBC update statements. **/
-    private static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(DML, SqlQueryType.DDL);
+    private static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(DML, SqlQueryType.DDL, SqlQueryType.KILL);
 
     /** Sql query processor. */
     private final QueryProcessor processor;

@@ -118,8 +118,8 @@ public class ItSqlMultistatementTest extends CliSqlCommandTestBase {
     @Test
     void sequentialCreateTable() {
         String testQuery = "create table mytable1(id int primary key); create table mytable2(id int primary key)";
-        String expectedOutput = "Updated 0 rows.\n"
-                + "Updated 0 rows.";
+        String expectedOutput = "Updated 1 rows.\n"
+                + "Updated 1 rows.";
 
         execute("sql", testQuery, "--jdbc-url", JDBC_URL);
 

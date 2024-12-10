@@ -224,6 +224,11 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
+    protected ResultSet<SqlRow> executeLazy(IgniteSql sql, String query, Object... args) {
+        return new SyncResultSetAdapter<>(await(sql.executeAsync(null, query, args)));
+    }
+
+    @Override
     protected void executeScript(IgniteSql sql, String query, Object... args) {
         await(sql.executeScriptAsync(query, args));
     }
