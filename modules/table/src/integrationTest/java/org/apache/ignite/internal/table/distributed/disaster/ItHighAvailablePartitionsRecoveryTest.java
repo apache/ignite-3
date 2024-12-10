@@ -166,12 +166,13 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
 
         waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000);
 
-        assertTrue(node
-                .distributionZoneManager()
-                .zonesState()
-                .get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME))
-                .partitionDistributionResetTask()
-                .isDone()
+        assertTrue(
+                node
+                        .distributionZoneManager()
+                        .zonesState()
+                        .get(zoneIdByName(node.catalogManager(), HA_ZONE_NAME))
+                        .partitionDistributionResetTask()
+                        .isDone()
         );
 
         assertTrue(node.disasterRecoveryManager().ongoingOperationsById().isEmpty());

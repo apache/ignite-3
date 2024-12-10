@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 
 /** Test suite for the cases with a recovery of the group replication factor after reset by zone filter update. */
 public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends AbstractHighAvailablePartitionsRecoveryTest {
-
     private static final String GLOBAL_EU_NODES_CONFIG = nodeConfig("{region.attribute = EU, zone.attribute = global}");
 
     private static final String EU_ONLY_NODES_CONFIG = nodeConfig("{region.attribute = EU}");
