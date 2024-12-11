@@ -40,8 +40,9 @@ public interface TpcTable {
     /**
      * Returns DML string representing single-row INSERT statement with dynamic parameters placeholders.
      *
-     * <p>The order of columns matches the order specified in TPC-H specification
-     * (see table declarations or output of {@link #ddlScript()}).
+     * <p>The order of columns matches the order provided in table declaration, i.e. it's the same
+     * order like in output of {@code SELECT * FROM table_name} statement, as well as the same order 
+     * in which column names are returned from {@link #columnName(int)} method.
      *
      * <p>The statement returned is tolerant to columns' type mismatch, implying you
      * can use any value while there is cast from provided value to required type.
