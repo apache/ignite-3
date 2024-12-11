@@ -104,7 +104,7 @@ public class HashPartitionManagerImpl implements PartitionManager {
 
         BinaryRowEx keyRow = marshaller.marshal(key);
 
-        return completedFuture(new HashPartition(table.partition(keyRow)));
+        return completedFuture(new HashPartition(table.partitionId(keyRow)));
     }
 
     @Override
@@ -115,6 +115,6 @@ public class HashPartitionManagerImpl implements PartitionManager {
         // columns never change (so they are the same for all schema versions of the table),
         Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
 
-        return completedFuture(new HashPartition(table.partition(keyRow)));
+        return completedFuture(new HashPartition(table.partitionId(keyRow)));
     }
 }
