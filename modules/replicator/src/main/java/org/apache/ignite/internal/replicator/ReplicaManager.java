@@ -38,7 +38,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSucc
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -63,7 +62,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -90,7 +88,6 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessageResponse;
-import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -229,6 +226,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private volatile @Nullable HybridTimestamp lastIdleSafeTimeProposal;
 
+    private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
+
     /**
      * Constructor for a replica service.
      *
@@ -346,12 +345,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
         this.partitionRaftConfigurer = partitionRaftConfigurer;
+        this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
         this.replicaStateManager = new ReplicaStateManager(
                 replicaStartStopExecutor,
                 clockService,
                 placementDriver,
-                getPendingAssignmentsSupplier,
-                failureManager,
                 this
         );
 
@@ -696,7 +694,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             executor,
                             placementDriver,
                             clockService,
-                            replicaStateManager::reserveReplica
+                            replicaStateManager::reserveReplica,
+                            getPendingAssignmentsSupplier
                     )
             );
         } finally {
@@ -1248,27 +1247,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         volatile UUID localNodeId;
 
-        private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
-
-        private LeaderElectionListener onLeaderElectedFailoverCallback;
-
         private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-        private final FailureManager failureManager;
 
         ReplicaStateManager(
                 Executor replicaStartStopPool,
                 ClockService clockService,
                 PlacementDriver placementDriver,
-                Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
-                FailureManager failureManager,
                 ReplicaManager replicaManager
         ) {
             this.replicaStartStopPool = replicaStartStopPool;
             this.clockService = clockService;
             this.placementDriver = placementDriver;
-            this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
-            this.failureManager = failureManager;
             this.replicaManager = replicaManager;
         }
 
@@ -1298,8 +1287,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 : "Unexpected primary replica state STOPPED [groupId=" + replicationGroupId
                                     + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
                                     + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
-
-                        registerFailoverCallback(replicationGroupId);
                     } else if (context.reservedForPrimary) {
                         context.assertReservation(replicationGroupId, parameters.startTime());
 
@@ -1333,8 +1320,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                     if (context != null) {
                         synchronized (context) {
-                            unregisterFailoverCallback(parameters);
-
                             context.assertReservation(parameters.groupId(), parameters.startTime());
 
                             // Unreserve if primary replica expired, only if its lease start time is equal to reservation time,
@@ -1351,105 +1336,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 }
 
                 return falseCompletedFuture();
-            } finally {
-                busyLock.leaveBusy();
-            }
-        }
-
-        // TODO: move to Replica https://issues.apache.org/jira/browse/IGNITE-23750
-        private void registerFailoverCallback(ReplicationGroupId replicationGroupId) {
-            CompletableFuture<Replica> replicaFuture = replicaManager.replica(replicationGroupId);
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-23753
-            // For now we assume that it's a possible situation to get null future on node's stopp process, but it should be fixed with
-            // a correct and consistent replica's state.
-            if (replicaFuture == null) {
-                return;
-            }
-
-            assert replicaFuture.isDone() : "Illegal state: replica future exists and elected as primary, but the future isn't completed"
-                    + " [replicationGroupId=" + replicaFuture + "].";
-
-            replicaFuture.thenCompose(inBusyLock(busyLock, () -> (Function<Replica, CompletableFuture<Void>>) electedPrimaryReplica -> {
-                onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
-                        electedPrimaryReplica,
-                        replicationGroupId,
-                        term
-                );
-
-                return electedPrimaryReplica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback);
-            })).exceptionally(inBusyLock(busyLock, () -> (Function<Throwable, Void>) e -> {
-                LOG.error("Rebalance failover subscription on elected primary replica failed [groupId=" + replicationGroupId + "].", e);
-
-                failureManager.process(new FailureContext(CRITICAL_ERROR, e));
-
-                return null;
-            }));
-        }
-
-        // TODO: move to Replica https://issues.apache.org/jira/browse/IGNITE-23750
-        private void unregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
-            CompletableFuture<Replica> replicaFuture = replicaManager.replica(parameters.groupId());
-
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-23753
-            // For now we assume that it's a possible situation to get null future on node's stopp process, but it should be fixed with
-            // a correct and consistent replica's state.
-            if (replicaFuture == null) {
-                return;
-            }
-
-            assert replicaFuture.isDone() : "Illegal state: replica future exists and was elected as primary, but the future isn't"
-                    + " completed [replicationGroupId=" + replicaFuture + "].";
-
-            replicaFuture.thenAccept(inBusyLock(busyLock, () -> (Consumer<Replica>) expiredPrimaryReplica -> expiredPrimaryReplica
-                    .raftClient()
-                    .unsubscribeLeader(onLeaderElectedFailoverCallback)
-            ));
-        }
-
-        private void changePeersAndLearnersAsyncIfPendingExists(
-                Replica primaryReplica,
-                ReplicationGroupId replicationGroupId,
-                long term
-        ) {
-            // Busy lock guarding because on node stop we shouldn't start this detached callback with the failover logic.
-            if (!busyLock.enterBusy()) {
-                return;
-            }
-
-            try {
-                getPendingAssignmentsSupplier.apply(
-                        replicationGroupId
-                ).exceptionally(inBusyLock(busyLock, () -> (Function<Throwable, byte[]>) e -> {
-                    LOG.error(
-                            "Couldn't fetch pending assignments for rebalance failover [groupId={}, term={}].",
-                            e,
-                            replicationGroupId,
-                            term
-                    );
-
-                    return null;
-                })).thenCompose(inBusyLock(busyLock, () -> (Function<byte[], CompletableFuture<Void>>) pendingsBytes -> {
-                    if (pendingsBytes == null) {
-                        return nullCompletedFuture();
-                    }
-
-                    PeersAndLearners newConfiguration = fromAssignments(Assignments.fromBytes(pendingsBytes).nodes());
-
-                    LOG.info(
-                            "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
-                            replicationGroupId,
-                            newConfiguration.peers(),
-                            newConfiguration.learners()
-                    );
-
-                    // TODO: add retries on fail https://issues.apache.org/jira/browse/IGNITE-23633
-                    return primaryReplica.raftClient().changePeersAndLearnersAsync(newConfiguration, term);
-                })).exceptionally(inBusyLock(busyLock, () -> (Function<Throwable, Void>) e -> {
-                    LOG.error("Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicationGroupId, term);
-
-                    return null;
-                }));
             } finally {
                 busyLock.leaveBusy();
             }
