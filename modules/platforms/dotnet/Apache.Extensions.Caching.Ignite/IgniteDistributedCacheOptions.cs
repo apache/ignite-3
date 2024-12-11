@@ -21,7 +21,7 @@ using Apache.Ignite;
 using Microsoft.Extensions.Options;
 
 /// <summary>
-/// Options for <see cref="IgniteDistributedCache"/>.
+/// Configuration options for <see cref="IgniteDistributedCache"/>.
 /// </summary>
 public sealed class IgniteDistributedCacheOptions : IOptions<IgniteDistributedCacheOptions>
 {
@@ -31,5 +31,5 @@ public sealed class IgniteDistributedCacheOptions : IOptions<IgniteDistributedCa
     public IgniteClientConfiguration ClientConfiguration { get; set; } = new("localhost");
 
     /// <inheritdoc/>
-    public IgniteDistributedCacheOptions Value => this; // TODO: Why does RedisCacheOptions have this?
+    IgniteDistributedCacheOptions IOptions<IgniteDistributedCacheOptions>.Value => this;
 }
