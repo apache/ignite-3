@@ -21,6 +21,7 @@ import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -39,7 +40,6 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -174,7 +174,7 @@ public class ReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, UUID senderId) {
-        assert replicaGrpId.equals(request.groupId().asReplicationGroupId()) : IgniteStringFormatter.format(
+        assert replicaGrpId.equals(request.groupId().asReplicationGroupId()) : format(
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),
                 replicaGrpId);
@@ -372,10 +372,18 @@ public class ReplicaImpl implements Replica {
         return raftClient.transferLeadership(new Peer(targetConsistentId));
     }
 
-    private CompletableFuture<Boolean> registerFailoverCallback(PrimaryReplicaEventParameters parameters) {
+    private synchronized CompletableFuture<Boolean> registerFailoverCallback(PrimaryReplicaEventParameters parameters) {
         if (!parameters.leaseholder().equals(localNode.name())) {
             return falseCompletedFuture();
         }
+
+        assert onLeaderElectedFailoverCallback == null : format(
+                "We already have failover subscription [thisGrpId={}, thisNode={}, givenExpiredPrimaryId={}, givenExpiredPrimaryNode={}",
+                replicaGrpId,
+                localNode.name(),
+                parameters.groupId(),
+                parameters.leaseholder()
+        );
 
         onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(term);
 
@@ -419,12 +427,18 @@ public class ReplicaImpl implements Replica {
         });
     }
 
-    private CompletableFuture<Boolean> unregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
+    private synchronized CompletableFuture<Boolean> unregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
         if (!parameters.leaseholder().equals(localNode.name())) {
             return falseCompletedFuture();
         }
 
-        assert onLeaderElectedFailoverCallback != null;
+        assert onLeaderElectedFailoverCallback != null : format(
+                "We have no failover subscription [thisGrpId={}, thisNode={}, givenExpiredPrimaryId={}, givenExpiredPrimaryNode={}",
+                replicaGrpId,
+                localNode.name(),
+                parameters.groupId(),
+                parameters.leaseholder()
+        );
 
         raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback);
 
