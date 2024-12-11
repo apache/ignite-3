@@ -28,6 +28,7 @@ import io.opentelemetry.sdk.metrics.data.MetricDataType;
 import io.opentelemetry.sdk.resources.Resource;
 import java.util.List;
 import org.apache.ignite.internal.metrics.DoubleMetric;
+import org.apache.ignite.internal.util.Lazy;
 
 /**
  * Metric data that holds double metric.
@@ -35,7 +36,7 @@ import org.apache.ignite.internal.metrics.DoubleMetric;
 class IgniteDoubleMetricData extends IgniteMetricData<DoubleMetric> {
     private final Data<IgniteDoublePointData> data;
 
-    IgniteDoubleMetricData(Resource resource, InstrumentationScopeInfo scope, DoubleMetric metric) {
+    IgniteDoubleMetricData(Lazy<Resource> resource, InstrumentationScopeInfo scope, DoubleMetric metric) {
         super(resource, scope, metric);
 
         data = new IgniteGaugeData<>(new IgniteDoublePointData(metric));

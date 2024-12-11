@@ -22,6 +22,8 @@ import io.opentelemetry.sdk.metrics.data.MetricData;
 import io.opentelemetry.sdk.resources.Resource;
 import java.util.Objects;
 import org.apache.ignite.internal.metrics.Metric;
+import org.apache.ignite.internal.util.Lazy;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Metric data represents the aggregated measurements of an instrument.
@@ -29,11 +31,11 @@ import org.apache.ignite.internal.metrics.Metric;
  * @param <T> A type of the metric.
  */
 abstract class IgniteMetricData<T extends Metric> implements MetricData {
-    private final Resource resource;
+    private final Lazy<Resource> resource;
     private final InstrumentationScopeInfo scope;
     private final T metric;
 
-    IgniteMetricData(Resource resource, InstrumentationScopeInfo scope, T metric) {
+    IgniteMetricData(Lazy<Resource> resource, InstrumentationScopeInfo scope, T metric) {
         this.resource = resource;
         this.scope = scope;
         this.metric = metric;
@@ -41,7 +43,11 @@ abstract class IgniteMetricData<T extends Metric> implements MetricData {
 
     @Override
     public Resource getResource() {
-        return resource;
+        @Nullable Resource resource0 = resource.get();
+
+        assert resource0 != null;
+
+        return resource0;
     }
 
     @Override

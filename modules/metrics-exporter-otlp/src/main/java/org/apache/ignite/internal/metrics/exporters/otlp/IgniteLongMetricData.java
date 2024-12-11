@@ -28,6 +28,7 @@ import io.opentelemetry.sdk.metrics.data.MetricDataType;
 import io.opentelemetry.sdk.resources.Resource;
 import java.util.List;
 import org.apache.ignite.internal.metrics.LongMetric;
+import org.apache.ignite.internal.util.Lazy;
 
 /**
  * Metric data that holds long metric.
@@ -35,7 +36,7 @@ import org.apache.ignite.internal.metrics.LongMetric;
 class IgniteLongMetricData extends IgniteMetricData<LongMetric> {
     private final Data<IgniteLongPointData> data;
 
-    IgniteLongMetricData(Resource resource, InstrumentationScopeInfo scope, LongMetric metric) {
+    IgniteLongMetricData(Lazy<Resource> resource, InstrumentationScopeInfo scope, LongMetric metric) {
         super(resource, scope, metric);
 
         this.data = new IgniteGaugeData<>(new IgniteLongPointData(metric));
