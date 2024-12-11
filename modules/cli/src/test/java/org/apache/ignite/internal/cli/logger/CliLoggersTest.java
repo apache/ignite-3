@@ -49,7 +49,7 @@ class CliLoggersTest {
 
     @Test
     void addClient() {
-        CliLoggers.addApiClient("path", client);
+        CliLoggers.addApiClient(client);
 
         assertThat(CliLoggers.isVerbose(), is(false));
 
@@ -68,7 +68,7 @@ class CliLoggersTest {
     @ParameterizedTest
     @MethodSource("levels")
     void addClientStartLog(boolean[] verbose, Level level) {
-        CliLoggers.addApiClient("path", client);
+        CliLoggers.addApiClient(client);
         CliLoggers.startOutputRedirect(new PrintWriter(System.out), verbose);
 
         assertThat(CliLoggers.isVerbose(), is(true));
@@ -82,7 +82,7 @@ class CliLoggersTest {
     @MethodSource("levels")
     void startLogAddClient(boolean[] verbose, Level level) {
         CliLoggers.startOutputRedirect(new PrintWriter(System.out), verbose);
-        CliLoggers.addApiClient("path", client);
+        CliLoggers.addApiClient(client);
 
         assertThat(CliLoggers.isVerbose(), is(true));
 

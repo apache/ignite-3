@@ -53,15 +53,20 @@ public class CliLoggers {
         return Loggers.forClass(cls, loggerFactory);
     }
 
-    public static void addApiClient(String path, ApiClient client) {
-        HttpLogging logger = httpLoggers.computeIfAbsent(path, s -> new HttpLogging(client));
+    /**
+     * Registers a client. If verbose logging is enabled, turn the logging for this client on.
+     *
+     * @param client Api client.
+     */
+    public static void addApiClient(ApiClient client) {
+        HttpLogging logger = httpLoggers.computeIfAbsent(client.getBasePath(), s -> new HttpLogging(client));
         if (isVerbose) {
             logger.startHttpLogging(output, verbose);
         }
     }
 
     /**
-     * Clears loggers.
+     * Unregisters clients.
      */
     public static void clearLoggers() {
         httpLoggers.clear();

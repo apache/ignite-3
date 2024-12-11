@@ -93,7 +93,7 @@ public class ApiClientFactory {
 
     /**
      * Useful for testing in a single JVM with different Micronaut contexts. Clears the {@link CliLoggers} loggers so that the next
-     * invocation of {@link CliLoggers#addApiClient(String, ApiClient)} actually adds a new logger for the new client.
+     * invocation of {@link CliLoggers#addApiClient(ApiClient)} actually adds a new logger for the new client.
      */
     @PreDestroy
     private void clearLoggers() {
@@ -102,7 +102,7 @@ public class ApiClientFactory {
 
     private ApiClient getClientFromSettings(ApiClientSettings settings) {
         ApiClient apiClient = clientMap.computeIfAbsent(settings, ApiClientFactory::buildClient);
-        CliLoggers.addApiClient(settings.basePath(), apiClient);
+        CliLoggers.addApiClient(apiClient);
         return apiClient;
     }
 
