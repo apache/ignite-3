@@ -74,7 +74,7 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     /// <inheritdoc/>
     public async Task<byte[]?> GetAsync(string key, CancellationToken token)
     {
-        IKeyValueView<string, byte[]?> kvView = await GetKvViewAsync().ConfigureAwait(false);
+        IKeyValueView<string, byte[]?> kvView = await GetViewAsync().ConfigureAwait(false);
 
         (byte[]? val, bool _) = await kvView.GetAsync(null, key).ConfigureAwait(false);
 
@@ -91,7 +91,7 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     public async Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token)
     {
         // TODO: Expiration is not supported in Ignite - throw when specified.
-        IKeyValueView<string, byte[]?> kvView = await GetKvViewAsync().ConfigureAwait(false);
+        IKeyValueView<string, byte[]?> kvView = await GetViewAsync().ConfigureAwait(false);
 
         await kvView.PutAsync(null, key, value).ConfigureAwait(false);
     }
@@ -120,7 +120,7 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     /// <inheritdoc/>
     public async Task RemoveAsync(string key, CancellationToken token)
     {
-        IKeyValueView<string, byte[]?> kvView = await GetKvViewAsync().ConfigureAwait(false);
+        IKeyValueView<string, byte[]?> kvView = await GetViewAsync().ConfigureAwait(false);
 
         await kvView.RemoveAsync(null, key).ConfigureAwait(false);
     }
@@ -157,7 +157,7 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
         throw new NotImplementedException();
     }
 
-    private async Task<IKeyValueView<string, byte[]?>> GetKvViewAsync()
+    private async Task<IKeyValueView<string, byte[]?>> GetViewAsync()
     {
         // TODO: Cache created table and record view, synchronize.
         IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
