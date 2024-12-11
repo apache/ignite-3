@@ -17,10 +17,7 @@
 
 namespace Apache.Extensions.Cache.Ignite;
 
-using System.Buffers;
 using Apache.Ignite;
-using Apache.Ignite.Internal.Proto.BinaryTuple;
-using Apache.Ignite.Internal.Table;
 using Apache.Ignite.Table;
 using Internal;
 using Microsoft.Extensions.Caching.Distributed;
@@ -78,10 +75,8 @@ public sealed class IgniteDistributedCache : IDistributedCache
     }
 
     /// <inheritdoc/>
-    public byte[] Get(string key)
-    {
-        throw new NotImplementedException();
-    }
+    public byte[]? Get(string key) =>
+        GetAsync(key, CancellationToken.None).GetAwaiter().GetResult();
 
     /// <inheritdoc/>
     public async Task<byte[]?> GetAsync(string key, CancellationToken token)
@@ -102,10 +97,8 @@ public sealed class IgniteDistributedCache : IDistributedCache
     }
 
     /// <inheritdoc/>
-    public void Set(string key, byte[] value, DistributedCacheEntryOptions options)
-    {
-        throw new NotImplementedException();
-    }
+    public void Set(string key, byte[] value, DistributedCacheEntryOptions options) =>
+        SetAsync(key, value, options, CancellationToken.None).GetAwaiter().GetResult();
 
     /// <inheritdoc/>
     public async Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token)
@@ -141,10 +134,8 @@ public sealed class IgniteDistributedCache : IDistributedCache
     }
 
     /// <inheritdoc/>
-    public void Remove(string key)
-    {
-        throw new NotImplementedException();
-    }
+    public void Remove(string key) =>
+        RemoveAsync(key, CancellationToken.None).GetAwaiter().GetResult();
 
     /// <inheritdoc/>
     public async Task RemoveAsync(string key, CancellationToken token)
@@ -172,7 +163,7 @@ public sealed class IgniteDistributedCache : IDistributedCache
 
     private async Task<IRecordView<IIgniteTuple>> GetViewAsync()
     {
-        // TODO: Cache created table and record view, synchronize.
+        // TODO: Cache created table.
         IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
 
         var tableName = _options.TableName;
