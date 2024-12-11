@@ -302,7 +302,7 @@ public class NodeImpl implements Node, RaftServerService {
                 return;
             }
 
-            // Patch safe timestamp.
+            // Patch the command.
             if (event.done instanceof CommandClosure) {
                 CommandClosure<?> cmd = (CommandClosure<?>) event.done;
                 Command command = cmd.command();
@@ -317,12 +317,7 @@ public class NodeImpl implements Node, RaftServerService {
 
                 // Object patch.
                 command.patch(safeTs);
-
-//                if (!command.getClass().getName().contains("Metastore")) {
-//                    LOG.debug("DBG: apply patch " + safeTs + " " + groupId + " " + command.getClass().getName());
-//                }
             }
-            // TODO call once per batch.
 
             this.tasks.add(event);
             if (this.tasks.size() >= NodeImpl.this.raftOptions.getApplyBatch() || endOfBatch) {

@@ -58,9 +58,6 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
         T res = super.unmarshall(raw);
 
-//        System.out.println("DBG: unmarshall rqv: " + requiredCatalogVersion +
-//                " safeTs: " + HybridTimestamp.nullableHybridTimestamp(safeTs) + " cmd: " + res.getClass().getName());
-
         if (res instanceof CatalogVersionAware) {
             ((CatalogVersionAware) res).requiredCatalogVersion(requiredCatalogVersion);
         }

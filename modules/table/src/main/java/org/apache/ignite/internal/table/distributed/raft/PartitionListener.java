@@ -87,7 +87,6 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -253,7 +252,7 @@ public class PartitionListener implements RaftGroupListener {
 
                     updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
                 }
-             } catch (Throwable t) {
+            } catch (Throwable t) {
                 LOG.error(
                         "Got error while processing command [commandIndex={}, commandTerm={}, command={}]",
                         t,

@@ -162,23 +162,25 @@ public class IgniteRpcServer implements RpcServer<Void> {
             if (prc == null)
                 return;
 
+            RpcProcessor.ExecutorSelector selector = prc.executorSelector();
+
+            Executor executor;
+
+            if (selector != null)
+                executor = selector.select(prc.getClass().getName(), message, nodeManager);
+            else if (prc.executor() != null) {
+                executor = prc.executor();
+            } else {
+                executor = rpcExecutor;
+            }
+
+            RpcProcessor<NetworkMessage> finalPrc = prc;
+
             try {
-                RpcProcessor.ExecutorSelector selector = prc.executorSelector();
-
-                Executor executor;
-
-                if (selector != null) {
-                    executor = selector.select(prc.getClass().getName(), message, nodeManager);
-                } else if (prc.executor() != null) {
-                    executor = prc.executor();
+                if (shouldSwitchToRequestsExecutor(PROCESS_RAFT_REQ)) {
+                    executor.execute(() -> finalPrc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message));
                 } else {
-                    executor = null; // Intention to execute in IO thread.
-                }
-
-                if (executor != null && shouldSwitchToRequestsExecutor(PROCESS_RAFT_REQ)) {
-                    executor.execute(() -> prc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message));
-                } else {
-                    prc.handleRequest(new NetworkRpcContext(rpcExecutor, sender, correlationId), message);
+                    finalPrc.handleRequest(new NetworkRpcContext(executor, sender, correlationId), message);
                 }
             } catch (RejectedExecutionException e) {
                 // The rejection is ok if an executor has been stopped, otherwise it shouldn't happen.

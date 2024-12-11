@@ -599,7 +599,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc,
                 metricManager,
                 raftConfiguration,
-                clock, // TODO use separate clock for replication timestamps.
+                clock,
                 raftGroupEventsClientListener,
                 failureManager
         );

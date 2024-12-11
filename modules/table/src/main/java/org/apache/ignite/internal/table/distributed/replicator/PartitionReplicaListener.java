@@ -2761,7 +2761,6 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 if (updateCommandResult != null && updateCommandResult.isPrimaryInPeersAndLearners()) {
                     HybridTimestamp safeTs = hybridTimestamp(updateCommandResult.safeTimestamp());
-                    // TODO get rid
                     return safeTime.waitFor(safeTs)
                             .thenApply(ignored -> new CommandApplicationResult(safeTs, null));
                 } else {

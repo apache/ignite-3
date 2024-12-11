@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
 import static org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshaller.NO_VERSION_REQUIRED;
 

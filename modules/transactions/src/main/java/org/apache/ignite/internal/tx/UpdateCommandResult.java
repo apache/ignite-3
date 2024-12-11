@@ -54,6 +54,7 @@ public class UpdateCommandResult implements Serializable {
      * @param currentLeaseStartTime Actual lease start time.
      * @param primaryInPeersAndLearners {@code true} if primary replica belongs to the raft group topology: peers and learners,
      *     (@code false) otherwise.
+     * @param safeTimestamp The safe timestamp.
      */
     public UpdateCommandResult(
             boolean primaryReplicaMatch,

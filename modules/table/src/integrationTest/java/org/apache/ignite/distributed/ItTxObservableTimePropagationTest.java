@@ -53,7 +53,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests if commit timestamp is propagated to observable time correctly.
+ * Tests if commit timestamp and safe timestamp are monotonically grow on leader change.
  */
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "1000000")
@@ -105,7 +105,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
         assertEquals(1, states.size());
         HybridTimestamp commitTs = states.get(0).commitTimestamp();
 
-        LOG.info("DBG: commitTs={}", commitTs);
+        LOG.info("commitTs={}", commitTs);
 
         assertNotNull(commitTs);
         assertEquals(commitTs, timestampTracker.get());
@@ -152,8 +152,6 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
             }
         });
 
-        //LOG.info("DBG: handle={} gpdId={}", handle[0].getNodeId(), handle[0].getGroupId());
-
         assertNotEquals(leader[0].getNodeId(), handle[0].getNodeId());
 
         Status status = leader[0].transferLeadershipTo(handle[0].getNodeId().getPeerId());
@@ -169,7 +167,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
                 .commitTimestamp();
         assertNotNull(commitTs2);
 
-        LOG.info("DBG: commitTs={}", commitTs2);
+        LOG.info("After leader change: commitTs={}", commitTs2);
 
         assertTrue(commitTs2.compareTo(commitTs) > 0, "Invalid safe time");
     }

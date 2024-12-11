@@ -63,23 +63,6 @@ public class HybridClockImpl implements HybridClock {
     }
 
     @Override
-    public final long currentLong() {
-        long current = currentTime();
-
-        return max(latestTime, current);
-    }
-
-    @Override
-    public final HybridTimestamp now() {
-        return hybridTimestamp(nowLong());
-    }
-
-    @Override
-    public HybridTimestamp now(HybridTimestamp causal) {
-        return hybridTimestamp(nowLong(causal));
-    }
-
-    @Override
     public final long nowLong(HybridTimestamp causal) {
         while (true) {
             long now = max(currentTime(), causal.longValue());
@@ -95,6 +78,23 @@ public class HybridClockImpl implements HybridClock {
                 return now;
             }
         }
+    }
+
+    @Override
+    public final long currentLong() {
+        long current = currentTime();
+
+        return max(latestTime, current);
+    }
+
+    @Override
+    public final HybridTimestamp now() {
+        return hybridTimestamp(nowLong());
+    }
+
+    @Override
+    public HybridTimestamp now(HybridTimestamp causal) {
+        return hybridTimestamp(nowLong(causal));
     }
 
     @Override

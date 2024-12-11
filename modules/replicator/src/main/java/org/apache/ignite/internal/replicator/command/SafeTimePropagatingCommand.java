@@ -30,7 +30,7 @@ public interface SafeTimePropagatingCommand extends WriteCommand {
     @Override
     HybridTimestamp initiatorTime();
 
-    /** Safe time. A value for thi field is auto generated and should not be set manually. */
+    /** The Safe timestamp. A value for this field is auto generated and should not be set manually. */
     @Transient
     @WithSetter
     @Nullable HybridTimestamp safeTime();
