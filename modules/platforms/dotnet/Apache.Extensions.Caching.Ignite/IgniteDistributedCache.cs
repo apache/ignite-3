@@ -18,6 +18,7 @@
 namespace Apache.Extensions.Cache.Ignite;
 
 using System.Buffers;
+using Apache.Ignite;
 using Microsoft.Extensions.Caching.Distributed;
 
 /// <summary>
@@ -25,6 +26,19 @@ using Microsoft.Extensions.Caching.Distributed;
 /// </summary>
 public sealed class IgniteDistributedCache : IBufferDistributedCache
 {
+    private readonly IgniteClientGroup _igniteClientGroup;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="IgniteDistributedCache"/> class.
+    /// </summary>
+    /// <param name="igniteClientGroup">Ignite client group.</param>
+    public IgniteDistributedCache(IgniteClientGroup igniteClientGroup)
+    {
+        ArgumentNullException.ThrowIfNull(igniteClientGroup);
+
+        _igniteClientGroup = igniteClientGroup;
+    }
+
     /// <inheritdoc/>
     public byte[]? Get(string key)
     {

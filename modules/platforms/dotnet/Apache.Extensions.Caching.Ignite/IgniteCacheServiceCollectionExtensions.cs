@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,20 +17,27 @@
 
 namespace Apache.Extensions.Cache.Ignite;
 
-using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.DependencyInjection;
 
 /// <summary>
-/// Configuration options for <see cref="IgniteDistributedCache"/>.
+/// Extension methods for setting up Redis distributed cache related services in an <see cref="IServiceCollection" />.
 /// </summary>
-public sealed class IgniteDistributedCacheOptions : IOptions<IgniteDistributedCacheOptions>
+public static class IgniteCacheServiceCollectionExtensions
 {
-    /// <summary>
-    /// Gets or sets the table name to use for the cache.
-    /// <para />
-    /// The table will be created automatically. When using an existing table, make sure it has "KEY VARCHAR" and "VAL BLOB" columns.
-    /// </summary>
-    public string TableName { get; set; } = "IGNITE_DOTNET_DISTRIBUTED_CACHE";
+    public static IServiceCollection AddIgniteDistributedCache(
+        this IServiceCollection services,
+        Action<IgniteDistributedCacheOptions> setupAction)
+    {
+        // TODO: Consistency with IgniteServiceCollectionExtensions?
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(setupAction);
 
-    /// <inheritdoc/>
-    IgniteDistributedCacheOptions IOptions<IgniteDistributedCacheOptions>.Value => this;
+        services.AddOptions();
+
+        services.Configure(setupAction);
+        services.Add(ServiceDescriptor.Singleton<IDistributedCache, IgniteDistributedCache>());
+
+        return services;
+    }
 }
