@@ -132,8 +132,8 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                     return;
                 }
             }
-        } catch (QueryCancelledException e) {
-            throw new QueryCancelledException(e);
+        } catch (QueryCancelledException | SqlException e) {
+            throw e;
         } catch (Exception e) {
             throw new SqlException(Sql.RUNTIME_ERR, e);
         } finally {
@@ -153,10 +153,8 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     private boolean hasNext() {
         try {
             return inst.hasNext();
-        } catch (QueryCancelledException e) {
-            throw new QueryCancelledException(e);
-        } catch (Exception e) {
-            throw new SqlException(Sql.RUNTIME_ERR, e);
+        } catch (QueryCancelledException | SqlException e) {
+            throw e;
         }
     }
 }
