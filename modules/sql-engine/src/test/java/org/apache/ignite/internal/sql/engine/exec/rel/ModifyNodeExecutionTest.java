@@ -43,6 +43,7 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
@@ -344,6 +345,8 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
                 .addField(NativeTypes.INT32, true)
                 .build();
 
+        RowSchema mergeRowSchema = RowSchema.concat(RowSchema.concat(srcRowSchema, dstRowSchema), updateSchema);
+
         Mockito.reset(updatableTable);
 
         TableDescriptor tableDescriptor = createTableDescriptor(dstRowSchema);
@@ -384,8 +387,10 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         RowWrapper update = updateFactory.create(4);
         RowWrapper noUpdate = updateFactory.create(new Object[]{null});
 
-        RowWrapper mergeRow1 = rowHandler.concat(rowHandler.concat(srcRow1, dstRow1), noUpdate);
-        RowWrapper mergeRow2 = rowHandler.concat(rowHandler.concat(srcRow2, dstRow2), update);
+        RowFactory<RowWrapper> mergeRowFactory = rowHandler.factory(mergeRowSchema);
+
+        RowWrapper mergeRow1 = concatRow(mergeRowFactory, srcRow1, dstRow1, noUpdate);
+        RowWrapper mergeRow2 = concatRow(mergeRowFactory, srcRow2, dstRow2, update);
 
         Builder inputRowBuilder = RowSchema.builder();
         srcFactory.rowSchema().fields().forEach(inputRowBuilder::addField);
@@ -432,6 +437,20 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
             RowWrapper updated = updatedRows.getAllValues().get(0).get(0);
             expectRow(updated, rowHandler, colCount, Arrays.asList(1, null));
         }
+    }
+
+    private static RowWrapper concatRow(RowFactory<RowWrapper> rowFactory, RowWrapper...  rows) {
+        RowHandler<RowWrapper> handler = rowFactory.handler();
+        RowBuilder<RowWrapper> builder = rowFactory.rowBuilder();
+
+        for (RowWrapper row : rows) {
+            int cols = handler.columnCount(row);
+            for (int i = 0; i < cols; i++) {
+                builder.addField(handler.get(i, row));
+            }
+        }
+
+        return builder.buildAndReset();
     }
 
     private static TableDescriptor createTableDescriptor(RowSchema rowSchema) {

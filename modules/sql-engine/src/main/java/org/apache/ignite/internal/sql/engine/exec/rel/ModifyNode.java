@@ -34,8 +34,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
-import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -486,18 +484,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     }
 
     private RowSchema getMappedRowSchema(RowFactory<RowT> inputRowFactory, int[] mapping) {
-        RowSchema schema;
-        if (mapping != null) {
-            List<TypeSpec> fields = inputRowFactory.rowSchema().fields();
-            Builder builder = RowSchema.builder();
-            for (int i : mapping) {
-                TypeSpec typeSpec = fields.get(i);
-                builder.addField(typeSpec);
-            }
-            schema = builder.build();
-        } else {
-            schema = inputRowFactory.rowSchema();
-        }
-        return schema;
+        return mapping != null
+                ? RowSchema.map(inputRowFactory.rowSchema(), mapping)
+                : inputRowFactory.rowSchema();
     }
 }

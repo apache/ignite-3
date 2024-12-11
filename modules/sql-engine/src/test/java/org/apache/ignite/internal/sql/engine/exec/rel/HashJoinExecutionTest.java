@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import org.apache.calcite.rel.core.JoinInfo;
 import org.apache.calcite.rel.type.RelDataType;
@@ -34,7 +35,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
-/** Yash join execution tests. */
+/** Hash join execution tests. */
 public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
     @Override
     JoinAlgo joinAlgo() {
@@ -89,9 +90,9 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
 
         Object[][] expected = {
                 {0, "Igor", "Core"},
-                {3, "Alexey", "Core"},
                 {1, "Roman", "SQL"},
-                {2, "Ivan", null}
+                {2, "Ivan", null},
+                {3, "Alexey", "Core"}
         };
 
         assert2DimArrayEquals(expected, rows);
@@ -116,10 +117,10 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
         assertEquals(4, rowsAfterRewind.size());
 
         Object[][] expectedAfterRewind = {
-                {2, "Ivan", "QA"},
-                {1, "Roman", null},
                 {0, "Igor", null},
-                {3, "Alexey", null},
+                {1, "Roman", null},
+                {2, "Ivan", "QA"},
+                {3, "Alexey", null}
         };
 
         assert2DimArrayEquals(expectedAfterRewind, rowsAfterRewind);
@@ -128,8 +129,9 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
     static void assert2DimArrayEquals(Object[][] expected, ArrayList<Object[]> actual) {
         assertEquals(expected.length, actual.size(), "expected length: " + expected.length + ", actual length: " + actual.size());
 
-        int length = expected.length;
+        actual.sort(Comparator.comparing(r -> (int)r[0]));
 
+        int length = expected.length;
         for (int i = 0; i < length; ++i) {
             Object[] exp = expected[i];
             Object[] act = actual.get(i);

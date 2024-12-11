@@ -29,7 +29,6 @@ import java.util.function.BiPredicate;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 
 /**
@@ -43,7 +42,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
     private final JoinRelType joinType;
 
-    private final RowHandler<RowT> handler;
+    private final RowFactory<RowT> outputRowFactory;
 
     private final int leftInBufferSize;
 
@@ -82,9 +81,16 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
      * @param correlationIds Set of collections ids.
      * @param joinType Join rel type.
      * @param rightRowFactory Right row factory.
+     * @param outputRowFactory Output row factory.
      */
-    public CorrelatedNestedLoopJoinNode(ExecutionContext<RowT> ctx, BiPredicate<RowT, RowT> cond,
-            Set<CorrelationId> correlationIds, JoinRelType joinType, RowFactory<RowT> rightRowFactory) {
+    public CorrelatedNestedLoopJoinNode(
+            ExecutionContext<RowT> ctx,
+            BiPredicate<RowT, RowT> cond,
+            Set<CorrelationId> correlationIds,
+            JoinRelType joinType,
+            RowFactory<RowT> rightRowFactory,
+            RowFactory<RowT> outputRowFactory
+    ) {
         super(ctx);
 
         assert !nullOrEmpty(correlationIds);
@@ -92,13 +98,12 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         this.cond = cond;
         this.correlationIds = new ArrayList<>(correlationIds);
         this.joinType = joinType;
+        this.outputRowFactory = outputRowFactory;
 
         leftInBufferSize = correlationIds.size();
         rightInBufferSize = inBufSize;
 
         rightEmptyRow = rightRowFactory.create();
-
-        handler = ctx.rowHandler();
     }
 
     /** {@inheritDoc} */
@@ -375,7 +380,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
                         requested--;
 
-                        RowT row = handler.concat(left, right);
+                        RowT row = outputRowFactory.concat(left, right);
 
                         downstream().push(row);
                     }
@@ -414,7 +419,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                     while (requested > 0 && notMatchedIdx < leftInBuf.size()) {
                         requested--;
 
-                        downstream().push(handler.concat(leftInBuf.get(notMatchedIdx), rightEmptyRow));
+                        downstream().push(outputRowFactory.concat(leftInBuf.get(notMatchedIdx), rightEmptyRow));
 
                         leftMatched.set(notMatchedIdx);
 
