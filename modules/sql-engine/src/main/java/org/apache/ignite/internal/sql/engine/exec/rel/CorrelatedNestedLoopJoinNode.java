@@ -73,8 +73,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
     }
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Creates CorrelatedNestedLoopJoin node.
      *
      * @param ctx  Execution context.
      * @param cond Join expression.

@@ -81,58 +81,57 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
     }
 
     /**
-     * Create.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Create NestedLoopJoinNode for requested join operator type.
+     *
+     * @param ctx Execution context.
+     * @param outputRowType Output row type.
+     * @param leftRowType Row type of the left source.
+     * @param rightRowType Row type of the right source.
+     * @param joinType Join operator type.
+     * @param cond Join condition predicate.
      */
-    public static <RowT> NestedLoopJoinNode<RowT> create(ExecutionContext<RowT> ctx, RelDataType outputRowType,
-            RelDataType leftRowType, RelDataType rightRowType, JoinRelType joinType, BiPredicate<RowT, RowT> cond) {
+    public static <RowT> NestedLoopJoinNode<RowT> create(
+            ExecutionContext<RowT> ctx,
+            RelDataType outputRowType,
+            RelDataType leftRowType,
+            RelDataType rightRowType,
+            JoinRelType joinType,
+            BiPredicate<RowT, RowT> cond
+    ) {
         RowSchema leftRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(leftRowType));
         RowSchema rightRowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rightRowType));
+        RowSchema outputSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(outputRowType));
+
+        RowFactory<RowT> outputRowFactory = ctx.rowHandler().factory(outputSchema);
 
         switch (joinType) {
-            case INNER: {
-                RowSchema outputSchema = RowSchema.concat(leftRowSchema, rightRowSchema);
-                RowFactory<RowT> outputRowFactory = ctx.rowHandler().factory(outputSchema);
-
+            case INNER:
                 return new InnerJoin<>(ctx, cond, outputRowFactory);
-            }
 
             case LEFT: {
-                RowSchema outputSchema = RowSchema.concat(leftRowSchema, rightRowSchema);
-                RowFactory<RowT> outputRowFactory = ctx.rowHandler().factory(outputSchema);
                 RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
                 return new LeftJoin<>(ctx, cond, outputRowFactory, rightRowFactory);
             }
 
             case RIGHT: {
-                RowSchema outputSchema = RowSchema.concat(leftRowSchema, rightRowSchema);
-                RowFactory<RowT> outputRowFactory = ctx.rowHandler().factory(outputSchema);
                 RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
 
                 return new RightJoin<>(ctx, cond, outputRowFactory, leftRowFactory);
             }
 
             case FULL: {
-                RowSchema outputSchema = RowSchema.concat(leftRowSchema, rightRowSchema);
-                RowFactory<RowT> outputRowFactory = ctx.rowHandler().factory(outputSchema);
                 RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
                 RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
 
                 return new FullOuterJoin<>(ctx, cond, outputRowFactory, leftRowFactory, rightRowFactory);
             }
 
-            case SEMI: {
-                RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
+            case SEMI:
+                return new SemiJoin<>(ctx, cond, outputRowFactory);
 
-                return new SemiJoin<>(ctx, cond, leftRowFactory);
-            }
-
-            case ANTI: {
-                RowFactory<RowT> leftRowFactory = ctx.rowHandler().factory(leftRowSchema);
-
-                return new AntiJoin<>(ctx, cond, leftRowFactory);
-            }
+            case ANTI:
+                return new AntiJoin<>(ctx, cond, outputRowFactory);
 
             default:
                 throw new IllegalStateException("Join type \"" + joinType + "\" is not supported yet");
