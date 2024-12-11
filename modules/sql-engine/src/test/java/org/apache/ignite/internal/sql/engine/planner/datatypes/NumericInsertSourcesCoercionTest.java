@@ -276,10 +276,10 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(ofTypeWithoutCast(Types.DECIMAL_1_0)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_1)
-                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_1_0)),
+                        .opMatches(castTo(Types.DECIMAL_1_0)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_4_3)
-                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_1_0)),
+                        .opMatches(castTo(Types.DECIMAL_1_0)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DECIMAL_2_0)
                         .opMatches(castTo(Types.DECIMAL_1_0)),
@@ -309,7 +309,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_4_3)
-                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_1)),
+                        .opMatches(castTo(Types.DECIMAL_2_1)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DECIMAL_2_0)
                         .opMatches(castTo(Types.DECIMAL_2_1)),
@@ -366,10 +366,10 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_3_1)
-                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)),
+                        .opMatches(castTo(Types.DECIMAL_2_0)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_3)
-                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_2_0)),
+                        .opMatches(castTo(Types.DECIMAL_2_0)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DECIMAL_5_0)
                         .opMatches(castTo(Types.DECIMAL_2_0)),
@@ -390,7 +390,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(ofTypeWithoutCast(Types.DECIMAL_3_1)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_3)
-                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_3_1)),
+                        .opMatches(castTo(Types.DECIMAL_3_1)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DECIMAL_5_0)
                         .opMatches(castTo(Types.DECIMAL_3_1)),
@@ -429,10 +429,10 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_6_1)
-                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)),
+                        .opMatches(castTo(Types.DECIMAL_5_0)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_DECIMAL_8_3)
-                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_5_0)),
+                        .opMatches(castTo(Types.DECIMAL_5_0)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_REAL)
                         .opMatches(castTo(Types.DECIMAL_5_0)),
@@ -444,7 +444,7 @@ public class NumericInsertSourcesCoercionTest extends BaseTypeCoercionTest {
                         .opMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)),
 
                 forTypePair(NumericPair.DECIMAL_6_1_DECIMAL_8_3)
-                        .opMatches(ofTypeWithoutCast(Types.DECIMAL_6_1)),
+                        .opMatches(castTo(Types.DECIMAL_6_1)),
 
                 forTypePair(NumericPair.DECIMAL_6_1_REAL)
                         .opMatches(castTo(Types.DECIMAL_6_1)),

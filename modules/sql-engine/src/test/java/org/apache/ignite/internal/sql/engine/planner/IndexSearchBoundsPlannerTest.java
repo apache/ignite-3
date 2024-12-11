@@ -420,7 +420,7 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
         assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(?::VARCHAR, 1, 2) || '3'", List.of("1"), publicSchema,
                 exact(1),
-                range("||(SUBSTRING(?0, 1, 2), _UTF-8'3')", "null", false, false)
+                range("||(SUBSTRING(CAST(?0):VARCHAR CHARACTER SET \"UTF-8\", 1, 2), _UTF-8'3')", "null", false, false)
         );
 
         assertBounds("SELECT * FROM TEST WHERE C1 = 1 AND C2 > SUBSTRING(C3::VARCHAR, 1, 2) || '3'",
@@ -563,8 +563,8 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
             arguments(sqlType(SqlTypeName.BIGINT), "CAST(42 AS INTEGER)", "42:BIGINT", sqlType(SqlTypeName.BIGINT)),
             arguments(sqlType(SqlTypeName.BIGINT), "CAST(42 AS BIGINT)", "42:BIGINT", sqlType(SqlTypeName.BIGINT)),
 
-            arguments(sqlType(SqlTypeName.REAL), "42", "42:REAL", sqlType(SqlTypeName.REAL)),
-            arguments(sqlType(SqlTypeName.DOUBLE), "42", "42:DOUBLE", sqlType(SqlTypeName.DOUBLE))
+            arguments(sqlType(SqlTypeName.REAL), "42", "42.0E0:REAL", sqlType(SqlTypeName.REAL)),
+            arguments(sqlType(SqlTypeName.DOUBLE), "42", "42.0E0:DOUBLE", sqlType(SqlTypeName.DOUBLE))
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-19881 uncomment after this issue is fixed
         //  The optimizer selects TableScan instead of a IndexScan (Real/double columns)

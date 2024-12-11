@@ -46,12 +46,12 @@ endfor
 query T
 SELECT CAST(100.1::REAL AS DOUBLE);
 ----
-100.1
+100.0999984741211
 
 query T
 SELECT CAST(100.1::FLOAT AS DOUBLE);
 ----
-100.1
+100.0999984741211
 
 statement error: For input string: "e1"
 SELECT CAST('e1' AS DOUBLE);
