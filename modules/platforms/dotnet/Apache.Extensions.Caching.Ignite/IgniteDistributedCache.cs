@@ -141,8 +141,16 @@ public sealed class IgniteDistributedCache : IDistributedCache
     public async Task RemoveAsync(string key, CancellationToken token)
     {
         var view = await GetViewAsync().ConfigureAwait(false);
+        var tuple = GetKey(key);
 
-        await view.DeleteAsync(null, GetKey(key)).ConfigureAwait(false);
+        try
+        {
+            await view.DeleteAsync(null, tuple).ConfigureAwait(false);
+        }
+        finally
+        {
+            _tuplePool.Return(tuple);
+        }
     }
 
     private IgniteTuple GetKey(string key)
