@@ -80,28 +80,10 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     /// <inheritdoc/>
     public async Task<byte[]?> GetAsync(string key, CancellationToken token)
     {
-        RecordView<IIgniteTuple> view = await GetViewAsync().ConfigureAwait(false);
+        var view = await GetViewAsync().ConfigureAwait(false);
+        var (val, hasVal) = await view.GetAsync(null, GetKey(key)).ConfigureAwait(false);
 
-        var (buf, schema) = await view.GetInternalAsync(null, GetKey(key)).ConfigureAwait(false);
-
-        using (buf)
-        {
-            return Read();
-        }
-
-        byte[] Read()
-        {
-            var r = buf.GetReader();
-            r.Skip(); // Skip schema version.
-            var binaryTupleBuf = r.ReadBinary();
-            var binaryTuple = new BinaryTupleReader(binaryTupleBuf, schema.Columns.Length);
-
-            // TODO: Check null.
-            // TODO: Cache column index per schema id?
-            var columnIndex = schema.GetColumn(ValColumnName)!.SchemaIndex;
-
-            return binaryTuple.GetBytes(columnIndex);
-        }
+        return hasVal ? (byte[]?)val[ValColumnName] : null;
     }
 
     /// <inheritdoc/>
@@ -163,10 +145,39 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     }
 
     /// <inheritdoc/>
-    public ValueTask<bool> TryGetAsync(string key, IBufferWriter<byte> destination, CancellationToken token)
+    public async ValueTask<bool> TryGetAsync(string key, IBufferWriter<byte> destination, CancellationToken token)
     {
-        // TODO: An internal API to copy bytes from BinaryTuple? Or a public one?
-        throw new NotImplementedException();
+        RecordView<IIgniteTuple> view = await GetViewAsync().ConfigureAwait(false);
+
+        var (buf, schema) = await view.GetInternalAsync(null, GetKey(key)).ConfigureAwait(false);
+
+        using (buf)
+        {
+            return Read();
+        }
+
+        bool Read()
+        {
+            var r = buf.GetReader();
+            r.Skip(); // Skip schema version.
+
+            if (r.TryReadNil())
+            {
+                return false;
+            }
+
+            var binaryTupleBuf = r.ReadBinary();
+            var binaryTuple = new BinaryTupleReader(binaryTupleBuf, schema.Columns.Length);
+
+            // TODO: Check null.
+            // TODO: Cache column index per schema id?
+            var columnIndex = schema.GetColumn(ValColumnName)!.SchemaIndex;
+
+            ReadOnlySpan<byte> bytes = binaryTuple.GetBytesSpan(columnIndex);
+            destination.Write(bytes);
+
+            return true;
+        }
     }
 
     /// <inheritdoc/>
