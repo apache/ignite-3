@@ -25,6 +25,13 @@ using Microsoft.Extensions.DependencyInjection;
 /// </summary>
 public static class IgniteCacheServiceCollectionExtensions
 {
+    /// <summary>
+    /// Adds Ignite distributed caching services to the specified <see cref="IServiceCollection" />.
+    /// </summary>
+    /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
+    /// <param name="setupAction">An <see cref="Action{IgniteDistributedCacheOptions}"/> to configure the provided
+    /// <see cref="IgniteDistributedCacheOptions"/>.</param>
+    /// <returns>The <see cref="IServiceCollection"/> so that additional calls can be chained.</returns>
     public static IServiceCollection AddIgniteDistributedCache(
         this IServiceCollection services,
         Action<IgniteDistributedCacheOptions> setupAction)
