@@ -17,6 +17,8 @@
 
 namespace Apache.Extensions.Cache.Ignite;
 
+using Apache.Ignite;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 /// <summary>
@@ -30,6 +32,12 @@ public sealed class IgniteDistributedCacheOptions : IOptions<IgniteDistributedCa
     /// The table will be created automatically. When using an existing table, make sure it has "KEY VARCHAR" and "VAL BLOB" columns.
     /// </summary>
     public string TableName { get; set; } = "IGNITE_DOTNET_DISTRIBUTED_CACHE";
+
+    /// <summary>
+    /// Gets or sets the service key (<see cref="ServiceDescriptor.ServiceKey"/>) to retrieve <see cref="IgniteClientGroup"/>
+    /// from the service provider.
+    /// </summary>
+    public object? IgniteClientGroupServiceKey { get; set; }
 
     /// <inheritdoc/>
     IgniteDistributedCacheOptions IOptions<IgniteDistributedCacheOptions>.Value => this;

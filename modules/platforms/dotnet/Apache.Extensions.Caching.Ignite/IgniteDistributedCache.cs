@@ -21,6 +21,7 @@ using System.Buffers;
 using Apache.Ignite;
 using Apache.Ignite.Table;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 /// <summary>
@@ -36,14 +37,31 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     /// Initializes a new instance of the <see cref="IgniteDistributedCache"/> class.
     /// </summary>
     /// <param name="optionsAccessor">Options.</param>
-    /// <param name="igniteClientGroup">Ignite client group.</param>
+    /// <param name="serviceProvider">Service provider.</param>
     public IgniteDistributedCache(
         IOptions<IgniteDistributedCacheOptions> optionsAccessor,
-        IgniteClientGroup igniteClientGroup)
+        IServiceProvider serviceProvider)
     {
-        ArgumentNullException.ThrowIfNull(igniteClientGroup);
+        ArgumentNullException.ThrowIfNull(optionsAccessor);
+        ArgumentNullException.ThrowIfNull(serviceProvider);
 
         _options = optionsAccessor.Value;
+        _igniteClientGroup = serviceProvider.GetRequiredKeyedService<IgniteClientGroup>(_options.IgniteClientGroupServiceKey);
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="IgniteDistributedCache"/> class.
+    /// </summary>
+    /// <param name="options">Options.</param>
+    /// <param name="igniteClientGroup">Ignite client group.</param>
+    public IgniteDistributedCache(
+        IgniteDistributedCacheOptions options,
+        IgniteClientGroup igniteClientGroup)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(igniteClientGroup);
+
+        _options = options;
         _igniteClientGroup = igniteClientGroup;
     }
 
