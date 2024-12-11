@@ -566,6 +566,8 @@ public class JdbcStatement implements Statement {
     /** {@inheritDoc} */
     @Override
     public void addBatch(String sql) throws SQLException {
+        LOG.info(">>>>> JdbcStatement#addBatch: [sql={},]", sql);
+
         ensureNotClosed();
 
         Objects.requireNonNull(sql);

@@ -18,18 +18,21 @@
 package org.apache.ignite.internal.tx;
 
 import java.util.UUID;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /** Lock. */
 public class Lock {
-
     /** Lock key. */
+    @IgniteToStringInclude
     private final LockKey lockKey;
 
     /** Lock mode. */
+    @IgniteToStringInclude
     private final LockMode lockMode;
 
     /** Transaction identificator. */
+    @IgniteToStringInclude
     private final UUID txId;
 
     /**

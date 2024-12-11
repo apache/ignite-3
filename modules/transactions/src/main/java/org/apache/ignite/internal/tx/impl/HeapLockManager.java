@@ -46,6 +46,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
@@ -450,6 +452,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         boolean coarse();
     }
 
+    private static final IgniteLogger LOG = Loggers.forClass(HeapLockManager.class);
+
     /**
      * Coarse lock.
      */
@@ -457,7 +461,28 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         private final IgniteStripedReadWriteLock stripedLock = new IgniteStripedReadWriteLock(CONCURRENCY);
         private final ConcurrentHashMap<UUID, Lock> ixlockOwners = new ConcurrentHashMap<>();
         private final Map<UUID, IgniteBiTuple<Lock, CompletableFuture<Lock>>> slockWaiters = new HashMap<>();
-        private final ConcurrentHashMap<UUID, Lock> slockOwners = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<UUID, Lock> slockOwners = new ConcurrentHashMap<>() {
+            @Override
+            public Lock putIfAbsent(UUID key, Lock value) {
+                LOG.info(">>>>> slockOwners#putIfAbsent: [key={}, value={}]", key, value);
+
+                return super.putIfAbsent(key, value);
+            }
+
+            @Override
+            public Lock put(UUID key, Lock value) {
+                LOG.info(">>>>> slockOwners#put: [key={}, value={}]", key, value);
+
+                return super.put(key, value);
+            }
+
+            @Override
+            public Lock remove(Object key) {
+                LOG.info(">>>>> slockOwners#put: [key={}]", key);
+
+                return super.remove(key);
+            }
+        };
         private final LockKey lockKey;
         private final Comparator<UUID> txComparator;
 
