@@ -73,6 +73,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -83,6 +84,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -92,10 +94,13 @@ import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImplTest.TestExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
@@ -120,6 +125,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueModifyPlan;
+import org.apache.ignite.internal.sql.engine.prepare.KillPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -215,6 +221,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private final List<QueryTaskExecutor> executers = new ArrayList<>();
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
+    private final KillCommandHandler killCommandHandler =
+            new KillCommandHandler(nodeNames.get(0), mock(LogicalTopologyService.class), mock(MessagingService.class));
 
     private ClusterNode firstNode;
 
@@ -939,6 +948,35 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void testTimeoutKill() {
+        SqlOperationContext planCtx = createContext();
+        QueryPlan plan = prepare("KILL QUERY '" + randomUUID() + '\'', planCtx);
+
+        assertInstanceOf(KillPlan.class, plan);
+
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
+
+        killCommandHandler.register(new OperationKillHandler() {
+            @Override
+            public CompletableFuture<Boolean> cancelAsync(String operationId) {
+                return new CompletableFuture<>();
+            }
+
+            @Override
+            public boolean local() {
+                return false;
+            }
+
+            @Override
+            public CancellableOperationType type() {
+                return CancellableOperationType.QUERY;
+            }
+        });
+
+        awaitExecutionTimeout(execService, plan, 500, QueryCancelledException.class);
+    }
+
+    @Test
     public void testTimeoutSelectCount() {
         // SELECT COUNT(*) does not run in transactional context.
         QueryTransactionContext txContext = ImplicitTxContext.INSTANCE;
@@ -1195,6 +1233,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps, tableFunctionRegistry),
                 clockService,
+                killCommandHandler,
                 SHUTDOWN_TIMEOUT
         );
 

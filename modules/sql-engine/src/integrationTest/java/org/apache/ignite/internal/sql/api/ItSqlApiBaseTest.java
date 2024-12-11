@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -41,6 +42,7 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -50,6 +52,8 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl;
 import org.apache.ignite.internal.sql.ColumnMetadataImpl.ColumnOriginImpl;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.CancelHandle;
@@ -956,7 +960,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
 
         // Wait until FIRST script statement is started to execute.
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueries(), greaterThan(1)));
+        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), greaterThan(1)));
 
         assertThat(scriptFut.isDone(), is(false));
 
@@ -964,13 +968,13 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         expectQueryCancelled(() -> IgniteTestUtils.await(scriptFut));
 
-        assertThat(queryProcessor().runningQueries(), is(0));
+        assertThat(queryProcessor().runningQueriesCount(), is(0));
         assertThat(txManager().pending(), is(0));
 
         // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
         expectQueryCancelled(() -> executeScript(sql, token, "SELECT 1; SELECT 2;"));
 
-        assertThat(queryProcessor().runningQueries(), is(0));
+        assertThat(queryProcessor().runningQueriesCount(), is(0));
         assertThat(txManager().pending(), is(0));
     }
 
@@ -991,7 +995,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CompletableFuture<?> f = IgniteTestUtils.runAsync(() -> execute(sql, null, token, query));
 
         // Wait until the query starts executing.
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueries(), greaterThan(0)));
+        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), greaterThan(0)));
         // Wait a bit more to improve failure rate.
         Thread.sleep(500);
 
@@ -999,7 +1003,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         cancelHandle.cancel();
 
         // Query was actually cancelled.
-        assertThat(queryProcessor().runningQueries(), is(0));
+        assertThat(queryProcessor().runningQueriesCount(), is(0));
         expectQueryCancelled(() -> await(f));
         assertThat(txManager().pending(), is(0));
     }
@@ -1068,6 +1072,47 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         });
     }
 
+    @Test
+    public void testKillCommand() {
+        IgniteSql sql = igniteSql();
+
+        try (ResultSet<SqlRow> rs = executeLazy(sql, "SELECT x FROM system_range(0, 100000)")) {
+            assertThat(rs.hasNext(), is(true));
+
+            List<QueryInfo> queries = queryProcessor().runningQueries();
+
+            assertThat(queries, hasSize(1));
+
+            UUID existingQuery = queries.get(0).id();
+
+            String killQuery = "KILL QUERY '" + existingQuery + '\'';
+
+            // Kill existing query.
+            try (ResultSet<SqlRow> killResultset = sql.execute(null, killQuery)) {
+                assertThat(killResultset.hasRowSet(), is(false));
+                assertThat(killResultset.wasApplied(), is(true));
+            }
+
+            assertThat(queryProcessor().runningQueriesCount(), is(0));
+
+            assertThrowsSqlException(
+                    Sql.EXECUTION_CANCELLED_ERR,
+                    QueryCancelledException.CANCEL_MSG,
+                    () -> {
+                        while (rs.hasNext()) {
+                            rs.next();
+                        }
+                    }
+            );
+
+            // Kill non-existing query.
+            try (ResultSet<SqlRow> killResultset = sql.execute(null, killQuery)) {
+                assertThat(killResultset.hasRowSet(), is(false));
+                assertThat(killResultset.wasApplied(), is(false));
+            }
+        }
+    }
+
     protected ResultSet<SqlRow> executeForRead(IgniteSql sql, String query, Object... args) {
         return executeForRead(sql, null, query, args);
     }
@@ -1115,6 +1160,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     protected abstract void execute(IgniteSql sql, @Nullable Transaction tx, @Nullable CancellationToken token, String query);
+
+    /** Executes query but only fetches the first page. */
+    protected abstract ResultSet<SqlRow> executeLazy(IgniteSql sql, String query, Object... args);
 
     protected abstract void executeScript(IgniteSql sql, String query, Object... args);
 
