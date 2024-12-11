@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.datatypes.tests;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.stream.Stream;
-import org.apache.calcite.rel.externalize.RelJson;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;

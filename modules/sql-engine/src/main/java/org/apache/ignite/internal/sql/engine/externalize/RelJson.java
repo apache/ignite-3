@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.externalize;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isApproximateNumeric;
-import static org.apache.calcite.rel.externalize.RelJson.sargFromJson;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
@@ -31,15 +30,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableRangeSet;
-import com.google.common.collect.Range;
-import com.google.common.collect.RangeSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.RangeSet;
 import java.lang.reflect.Constructor;
@@ -127,8 +121,6 @@ import org.apache.calcite.util.RangeSets;
 import org.apache.calcite.util.Sarg;
 import org.apache.calcite.util.TimeString;
 import org.apache.calcite.util.TimestampString;
-import org.apache.calcite.util.RangeSets;
-import org.apache.calcite.util.Sarg;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
@@ -152,7 +144,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * Utilities for converting {@link RelNode} into JSON format.
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class RelJson {
+class RelJson {
     private static final ObjectMapper OBJECT_MAPPER =
             new ObjectMapper()
                     .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true);
@@ -161,7 +153,6 @@ public class RelJson {
             ImmutableList.of(NlsString.class, BigDecimal.class, ByteString.class,
                     Boolean.class, TimestampString.class, DateString.class, TimeString.class);
 
-    @SuppressWarnings("PublicInnerClass")
     @FunctionalInterface
     public interface RelFactory extends Function<RelInput, RelNode> {
         /** {@inheritDoc} */
@@ -393,8 +384,7 @@ public class RelJson {
         return map;
     }
 
-    @SuppressWarnings({"BetaApi"}) // RangeSet GA in Guava 32
-    public <C extends Comparable<C>> List<List<String>> toJson(
+    private static <C extends Comparable<C>> List<List<String>> toJson(
             RangeSet<C> rangeSet) {
         List<List<String>> list = new ArrayList<>();
 
@@ -479,13 +469,6 @@ public class RelJson {
     }
 
     private Object toJson(RexNode node) {
-        // removes calls to SEARCH and the included Sarg and converts them to comparisons
-        //RexNode node0 = RexUtil.expandSearch(Commons.emptyCluster().getRexBuilder(), null, node);
-
-        //IgniteUtils.dumpStack(null, "toJson");
-
-        //node = RexUtil.expandSearch(Commons.emptyCluster().getRexBuilder(), null, node);
-
         Map<String, Object> map;
         switch (node.getKind()) {
             case FIELD_ACCESS:
@@ -1018,11 +1001,13 @@ public class RelJson {
         final List<List<String>> rangeSet =
                 requireNonNull((List<List<String>>) map.get("rangeSet"), "rangeSet");
 
-        return Sarg.of((RexUnknownAs) ENUM_BY_NAME.get(RexUnknownAs.class.getSimpleName() + '#' + nullAs), RelJson.<C>rangeSetFromJson(rangeSet));
+        String enumName = RexUnknownAs.class.getSimpleName() + '#' + nullAs;
+
+        return Sarg.of((RexUnknownAs) ENUM_BY_NAME.get(enumName), RelJson.<C>rangeSetFromJson(rangeSet));
     }
 
     /** Converts a JSON list to a {@link RangeSet}. */
-    public static <C extends Comparable<C>> RangeSet<C> rangeSetFromJson(
+    private static <C extends Comparable<C>> RangeSet<C> rangeSetFromJson(
             List<List<String>> rangeSetsJson) {
         final ImmutableRangeSet.Builder<C> builder = ImmutableRangeSet.builder();
         try {
@@ -1035,11 +1020,11 @@ public class RelJson {
 
     /** Creates a {@link Range} from a JSON object.
      *
-     * <p>The JSON object is as serialized using {@link org.apache.calcite.rel.externalize.RelJson#toJson(Range)},
+     * <p>The JSON object is as serialized using {@link #toJson(Range)},
      * e.g. {@code ["[", ")", 10, "-"]}.
      *
-     * @see org.apache.calcite.rel.externalize.RelJson.RangeToJsonConverter */
-    public static <C extends Comparable<C>> Range<C> rangeFromJson(
+     * @see RangeToJsonConverter */
+    private static <C extends Comparable<C>> Range<C> rangeFromJson(
             List<String> list) {
         switch (list.get(0)) {
             case "all":

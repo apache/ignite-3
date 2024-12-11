@@ -146,9 +146,6 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
             pw.item("filters", condition);
         }
 
-//        pw.nest() ? condition :
-//                RexUtil.expandSearch(getCluster().getRexBuilder(), null, condition)
-
         return pw.itemIf("projects", projects, projects != null)
                 .itemIf("requiredColumns", requiredColumns, requiredColumns != null);
     }
