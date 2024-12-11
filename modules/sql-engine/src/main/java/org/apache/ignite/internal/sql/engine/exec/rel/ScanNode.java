@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.List;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.IterableTableFunction;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunction;
@@ -113,14 +114,16 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
         inLoop = true;
         try {
-            initInstance();
+            if (inst == null) {
+                inst = func.createInstance(context());
+            }
 
             int processed = 0;
-            while (requested > 0 && hasNext()) {
+            while (requested > 0 && inst.hasNext()) {
                 checkState();
 
                 requested--;
-                downstream().push(nextValue());
+                downstream().push(inst.next());
 
                 if (++processed == inBufSize && requested > 0) {
                     // allow others to do their job
@@ -129,11 +132,15 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                     return;
                 }
             }
+        } catch (QueryCancelledException e) {
+            throw new QueryCancelledException(e);
+        } catch (Exception e) {
+            throw new SqlException(Sql.RUNTIME_ERR, e);
         } finally {
             inLoop = false;
         }
 
-        if (requested > 0 && !inst.hasNext()) {
+        if (requested > 0 && !hasNext()) {
             Commons.closeQuiet(inst);
             inst = null;
 
@@ -143,33 +150,11 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         }
     }
 
-    private void initInstance() {
-        if (inst != null) {
-            return;
-        }
-
-        try {
-            inst = func.createInstance(context());
-        } catch (Exception e) {
-            throw new SqlException(Sql.RUNTIME_ERR, e);
-        }
-    }
-
-    private RowT nextValue() {
-        assert inst != null;
-
-        try {
-            return inst.next();
-        } catch (Exception e) {
-            throw new SqlException(Sql.RUNTIME_ERR, e);
-        }
-    }
-
     private boolean hasNext() {
-        assert inst != null;
-
         try {
             return inst.hasNext();
+        } catch (QueryCancelledException e) {
+            throw new QueryCancelledException(e);
         } catch (Exception e) {
             throw new SqlException(Sql.RUNTIME_ERR, e);
         }

@@ -56,4 +56,11 @@ public class QueryCancelledException extends IgniteException {
     public QueryCancelledException(@Nullable Throwable cause) {
         super(EXECUTION_CANCELLED_ERR, CANCEL_MSG, cause);
     }
+
+    /**
+     * Constructor that preserves correct error message.
+     */
+    public QueryCancelledException(QueryCancelledException cause) {
+        super(EXECUTION_CANCELLED_ERR, cause.getMessage());
+    }
 }
