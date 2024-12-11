@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
@@ -234,6 +235,37 @@ public class ClientCompute implements IgniteCompute {
     @Override
     public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
         return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
+    }
+
+    @Override
+    public <T, R> CompletableFuture<Map<ClusterNode, JobExecution<R>>> submitBroadcastPartitioned(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        Objects.requireNonNull(tableName);
+        Objects.requireNonNull(descriptor);
+        return failedFuture(new UnsupportedOperationException("Not implemented"));
+    }
+
+    @Override
+    public <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastPartitionedAsync(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return failedFuture(new UnsupportedOperationException("Not implemented"));
+    }
+
+    @Override
+    public <T, R> Map<ClusterNode, R> executeBroadcastPartitioned(
+            String tableName,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return sync(executeBroadcastPartitionedAsync(tableName, descriptor, cancellationToken, arg));
     }
 
     private <T, R> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
