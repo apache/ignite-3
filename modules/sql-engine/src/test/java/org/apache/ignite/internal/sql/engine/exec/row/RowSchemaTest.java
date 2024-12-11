@@ -72,6 +72,20 @@ public class RowSchemaTest {
 
             assertNotEquals(s1, s2);
         }
+
+        {
+            RowSchema s1 = RowSchema.builder()
+                    .addField(new BaseTypeSpec(NativeTypes.INT32))
+                    .addField(new BaseTypeSpec(NativeTypes.STRING))
+                    .build();
+
+            RowSchema s2 = RowSchema.builder()
+                    .addField(new BaseTypeSpec(NativeTypes.STRING))
+                    .addField(new BaseTypeSpec(NativeTypes.INT32))
+                    .build();
+
+            assertNotEquals(s1, s2);
+        }
     }
 
     /** Schema concatenation. */
