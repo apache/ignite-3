@@ -175,7 +175,7 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
             throw new InvalidOperationException("Table not found: " + tableName);
         }
 
-        // TODO: Does this require reflection? Works with AOT?
+        // TODO: This requires reflection and does not work with AOT.
         return table.GetKeyValueView<string, byte[]?>();
     }
 }
