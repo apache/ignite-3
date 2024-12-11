@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.tx.event.LockEvent.LOCK_CONFLICT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
 
@@ -44,9 +45,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
@@ -88,6 +90,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * Striped lock concurrency.
      */
     private static final int CONCURRENCY = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+
+    /** The interval is used to print a warning when the manager is overflowing. */
+    private final int warningPrintInterval = IgniteSystemProperties.getInteger("IGNITE_LOCK_WARNING_PRINT_INTERVAL", 10_000);
 
     /** Lock map size. */
     private final int lockMapSize;
@@ -131,9 +136,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     private final ConcurrentHashMap<Object, CoarseLockState> coarseMap = new ConcurrentHashMap<>();
 
     /**
-     * The value is true if all slots were exhausted and lock states started to share. False at start.
+     * The last timestamp of the printing warning about exhausted lock slots. It is {@code 0} if the warning has never been printed.
+     * The timestamp is updated periodically {@link this#warningPrintInterval}.
      */
-    private final AtomicBoolean isSlotsExhausted = new AtomicBoolean();
+    private final AtomicLong lastTsPintWarn = new AtomicLong();
 
     /**
      * Constructor.
@@ -293,7 +299,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                     res[0] = slots[index];
                     assert !res[0].markedForRemove;
 
-                    if (isSlotsExhausted.compareAndExchange(false, true)) {
+                    long currentTs = coarseCurrentTimeMillis();
+
+                    long previousTs = lastTsPintWarn.get();
+
+                    if ((currentTs - previousTs) > warningPrintInterval && lastTsPintWarn.compareAndSet(previousTs, currentTs)) {
                         LOG.warn("Log manager runs out of slots. So the lock state starts to share, and conflicts may appear frequently.");
                     }
                 } else {

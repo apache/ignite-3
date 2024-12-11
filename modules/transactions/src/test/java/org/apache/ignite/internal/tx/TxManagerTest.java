@@ -44,6 +44,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.framework;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -102,7 +103,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.internal.util.MockUtil;
 import org.mockito.verification.VerificationMode;
 
 /**
@@ -184,7 +184,8 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertThat(txManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        MockUtil.clearAllCaches();
+        // TODO: IGNITE-23956 Move this line in the base class.
+        framework().clearInlineMocks();
     }
 
     @Test

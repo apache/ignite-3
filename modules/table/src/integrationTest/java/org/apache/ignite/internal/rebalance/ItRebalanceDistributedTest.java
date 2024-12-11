@@ -56,6 +56,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.framework;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
@@ -252,7 +253,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.internal.util.MockUtil;
 
 /**
  * Test suite for rebalance process, when replicas' number changed.
@@ -371,7 +371,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     void after() {
         nodes.forEach(Node::stop);
 
-        MockUtil.clearAllCaches();
+        // TODO: IGNITE-23956 Move this line in the base class.
+        framework().clearInlineMocks();
     }
 
     @Test
