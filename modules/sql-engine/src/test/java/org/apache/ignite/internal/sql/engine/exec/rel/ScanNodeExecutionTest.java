@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -105,7 +104,8 @@ public class ScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
 
             rootNode.register(srcNode);
 
-            expectRuntimeErrOrQueryCancel(rootNode, cause);
+            RuntimeException err = assertThrows(RuntimeException.class, rootNode::next);
+            assertSame(cause, err);
         }
     }
 
@@ -125,7 +125,8 @@ public class ScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
 
             rootNode.register(srcNode);
 
-            expectRuntimeErrOrQueryCancel(rootNode, cause);
+            RuntimeException err = assertThrows(RuntimeException.class, rootNode::next);
+            assertSame(cause, err);
         }
     }
 
@@ -146,23 +147,15 @@ public class ScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
 
             rootNode.register(srcNode);
 
-            expectRuntimeErrOrQueryCancel(rootNode, cause);
-        }
-    }
-
-    private static void expectRuntimeErrOrQueryCancel(RootNode<Object[]> rootNode, RuntimeException cause) {
-        if (cause instanceof QueryCancelledException) {
-            assertThrows(QueryCancelledException.class, rootNode::next);
-        } else {
-            SqlException err = assertThrowsSqlException(SqlException.class, Sql.RUNTIME_ERR, "", rootNode::next);
-            assertSame(cause, err.getCause());
+            RuntimeException err = assertThrows(RuntimeException.class, rootNode::next);
+            assertSame(cause, err);
         }
     }
 
     private static Stream<Arguments> exceptionArgs() {
         return Stream.of(
                 Arguments.of(Named.named("query-cancel", new QueryCancelledException())),
-                Arguments.of(Named.named("runtime-error", new RuntimeException("err")))
+                Arguments.of(Named.named("runtime-error", new SqlException(Sql.RUNTIME_ERR, "err")))
         );
     }
 

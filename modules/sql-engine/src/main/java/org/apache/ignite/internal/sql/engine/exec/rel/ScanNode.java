@@ -134,8 +134,6 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
             }
         } catch (QueryCancelledException | SqlException e) {
             throw e;
-        } catch (Exception e) {
-            throw new SqlException(Sql.RUNTIME_ERR, e);
         } finally {
             inLoop = false;
         }
