@@ -129,7 +129,7 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
     static void assert2DimArrayEquals(Object[][] expected, ArrayList<Object[]> actual) {
         assertEquals(expected.length, actual.size(), "expected length: " + expected.length + ", actual length: " + actual.size());
 
-        actual.sort(Comparator.comparing(r -> (int)r[0]));
+        actual.sort(Comparator.comparing(r -> (int) r[0]));
 
         int length = expected.length;
         for (int i = 0; i < length; ++i) {
