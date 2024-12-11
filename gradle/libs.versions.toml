@@ -56,7 +56,7 @@ hamcrestOptional = "2.0.0"
 hamcrestPath = "1.0.1"
 hamcrestJson = "0.3"
 scalecube = "2.6.15"
-calcite = "1.37.0"
+calcite = "1.38.0"
 value = "2.10.1"
 janino = "3.1.12"
 jsonpath = "2.9.0"
@@ -83,7 +83,8 @@ tree-sitter = "0.24.4"
 tree-sitter-json = "0.23.0"
 tree-sitter-sql = "gh-pages-a"
 tree-sitter-hocon = "master-a"
-otel = "1.44.1"
+otel = "1.45.0"
+spring-boot = "3.3.4"
 
 #Tools
 pmdTool = "6.55.0"
@@ -270,3 +271,7 @@ tree-sitter-sql = { module = "io.github.bonede:tree-sitter-sql", version.ref = "
 tree-sitter-hocon = { module = "io.github.bonede:tree-sitter-hocon", version.ref = "tree-sitter-hocon" }
 
 opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporter-otlp", version.ref = "otel" }
+
+spring-boot = { module = "org.springframework.boot:spring-boot", version.ref = "spring-boot" }
+spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure", version.ref = "spring-boot" }
+spring-boot-test = { module = "org.springframework.boot:spring-boot-test", version.ref = "spring-boot" }

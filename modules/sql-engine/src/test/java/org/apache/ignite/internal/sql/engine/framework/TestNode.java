@@ -174,6 +174,7 @@ public class TestNode implements LifecycleAware {
                 dependencyResolver,
                 tableFunctionRegistry,
                 clockService,
+                null,
                 5_000
         ));
 

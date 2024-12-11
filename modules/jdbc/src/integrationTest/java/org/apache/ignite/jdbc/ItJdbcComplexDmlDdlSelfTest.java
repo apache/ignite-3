@@ -50,11 +50,11 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testCreateSelectDrop() throws Exception {
-        sql(new UpdateChecker(0),
+        sql(new UpdateChecker(1),
                 "CREATE TABLE person_t (ID int, NAME varchar, AGE int, COMPANY varchar, CITY varchar, "
                         + "primary key (ID, NAME, CITY))");
 
-        sql(new UpdateChecker(0), "CREATE TABLE city_t (name varchar, population int, primary key (name))");
+        sql(new UpdateChecker(1), "CREATE TABLE city_t (name varchar, population int, primary key (name))");
 
         sql(new UpdateChecker(3),
                 "INSERT INTO city_t (name, population) values(?, ?), (?, ?), (?, ?)",
@@ -132,8 +132,11 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
 
         assertEquals(cnt[0], 34, "Invalid rows count");
 
-        sql(new UpdateChecker(0), "DROP TABLE city_t");
-        sql(new UpdateChecker(0), "DROP TABLE person_t");
+        sql(new UpdateChecker(1), "DROP TABLE IF EXISTS city_t");
+        sql(new UpdateChecker(1), "DROP TABLE IF EXISTS person_t");
+
+        sql(new UpdateChecker(0), "DROP TABLE IF EXISTS city_t");
+        sql(new UpdateChecker(0), "DROP TABLE IF EXISTS person_t");
     }
 
     /**

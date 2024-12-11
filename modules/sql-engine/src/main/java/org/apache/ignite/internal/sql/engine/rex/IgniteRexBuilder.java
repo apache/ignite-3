@@ -56,6 +56,15 @@ public class IgniteRexBuilder extends RexBuilder {
             assert value instanceof Comparable : "Not comparable IgniteCustomType:" + type + ". value: " + value;
             return makeLiteral((Comparable<?>) value, type, type.getSqlTypeName());
         } else if (value != null && type.getSqlTypeName() == SqlTypeName.CHAR) {
+            if (type.isNullable()) {
+                RelDataType typeNotNull =
+                        typeFactory.createTypeWithNullability(type, false);
+                if (allowCast) {
+                    RexNode literalNotNull = makeLiteral(value, typeNotNull, allowCast);
+                    return makeAbstractCast(type, literalNotNull, false);
+                }
+            }
+
             NlsString string;
             if (value instanceof NlsString) {
                 string = (NlsString) value;
@@ -64,13 +73,7 @@ public class IgniteRexBuilder extends RexBuilder {
                 string = new NlsString((String) value, type.getCharset().name(), type.getCollation());
             }
 
-            RexNode literal = makeCharLiteral(string);
-
-            if (allowCast) {
-                return makeCast(type, literal);
-            } else {
-                return literal;
-            }
+            return makeCharLiteral(string);
         } else {
             return super.makeLiteral(value, type, allowCast, trim);
         }
