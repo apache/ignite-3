@@ -15,38 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.message;
 
-import java.util.EnumSet;
-import java.util.Set;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Possible query types.
+ * Request to cancel an operation.
+ *
+ * @see CancelOperationResponse
  */
-public enum SqlQueryType {
-    /** Query. */
-    QUERY,
+@Transferable(SqlQueryMessageGroup.OPERATION_CANCEL_REQUEST)
+public interface CancelOperationRequest extends NetworkMessage {
+    /** Returns operation ID. */
+    String operationId();
 
-    /** DML. */
-    DML,
-
-    /** DDL. */
-    DDL,
-
-    /** Explain. */
-    EXPLAIN,
-
-    /** Transaction control statements such as {@code START TRANSACTION}, {@code COMMIT},  etc. */
-    TX_CONTROL,
-
-    /** Kill statement (such as {@code KILL QUERY <ID>}, {@code KILL TRANSACTION <ID>}, etc.  */
-    KILL,
-
-    ;
-
-    /** A set of statement types that can run only in single statement mode. **/
-    public static final Set<SqlQueryType> SINGLE_STMT_TYPES = EnumSet.complementOf(EnumSet.of(TX_CONTROL));
-
-    /** A set of all query types. **/
-    public static final Set<SqlQueryType> ALL = Set.of(values());
+    /** Returns type ID of the operation. */
+    int typeId();
 }

@@ -15,38 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
-import java.util.EnumSet;
-import java.util.Set;
+dependencies {
+    implementation project(':ignite-core')
 
-/**
- * Possible query types.
- */
-public enum SqlQueryType {
-    /** Query. */
-    QUERY,
-
-    /** DML. */
-    DML,
-
-    /** DDL. */
-    DDL,
-
-    /** Explain. */
-    EXPLAIN,
-
-    /** Transaction control statements such as {@code START TRANSACTION}, {@code COMMIT},  etc. */
-    TX_CONTROL,
-
-    /** Kill statement (such as {@code KILL QUERY <ID>}, {@code KILL TRANSACTION <ID>}, etc.  */
-    KILL,
-
-    ;
-
-    /** A set of statement types that can run only in single statement mode. **/
-    public static final Set<SqlQueryType> SINGLE_STMT_TYPES = EnumSet.complementOf(EnumSet.of(TX_CONTROL));
-
-    /** A set of all query types. **/
-    public static final Set<SqlQueryType> ALL = Set.of(values());
+    implementation libs.jetbrains.annotations
 }
+
+description = 'ignite-sql-engine-api'
