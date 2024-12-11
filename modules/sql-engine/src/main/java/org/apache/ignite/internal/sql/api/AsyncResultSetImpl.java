@@ -306,7 +306,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
         /** {@inheritDoc} */
         @Override
         public BigDecimal decimalValue(String columnName) {
-            return (BigDecimal)  row.get(columnIndexChecked(columnName));
+            return (BigDecimal) row.get(columnIndexChecked(columnName));
         }
 
         /** {@inheritDoc} */
