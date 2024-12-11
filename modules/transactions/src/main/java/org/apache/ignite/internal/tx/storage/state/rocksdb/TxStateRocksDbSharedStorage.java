@@ -156,7 +156,9 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
             this.dbOptions = new DBOptions()
                     .setCreateIfMissing(true)
                     .setAtomicFlush(true)
-                    .setListeners(List.of(flusher.listener()));
+                    .setListeners(List.of(flusher.listener()))
+                    // Don't flush on shutdown to speed up node shutdown as on recovery we'll apply commands from log.
+                    .setAvoidFlushDuringShutdown(true);
 
             List<ColumnFamilyDescriptor> cfDescriptors;
 
