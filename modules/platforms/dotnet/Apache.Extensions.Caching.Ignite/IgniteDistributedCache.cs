@@ -19,7 +19,10 @@ namespace Apache.Extensions.Cache.Ignite;
 
 using System.Buffers;
 using Apache.Ignite;
+using Apache.Ignite.Table;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 /// <summary>
 /// Ignite-based distributed cache.
@@ -28,14 +31,20 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
 {
     private readonly IgniteClientGroup _igniteClientGroup;
 
+    private readonly IgniteDistributedCacheOptions _options;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDistributedCache"/> class.
     /// </summary>
+    /// <param name="optionsAccessor">Options.</param>
     /// <param name="igniteClientGroup">Ignite client group.</param>
-    public IgniteDistributedCache(IgniteClientGroup igniteClientGroup)
+    public IgniteDistributedCache(
+        IOptions<IgniteDistributedCacheOptions> optionsAccessor,
+        IgniteClientGroup igniteClientGroup)
     {
         ArgumentNullException.ThrowIfNull(igniteClientGroup);
 
+        _options = optionsAccessor.Value;
         _igniteClientGroup = igniteClientGroup;
     }
 
@@ -46,9 +55,13 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     }
 
     /// <inheritdoc/>
-    public Task<byte[]?> GetAsync(string key, CancellationToken token)
+    public async Task<byte[]?> GetAsync(string key, CancellationToken token)
     {
-        throw new NotImplementedException();
+        var kvView = await GetKvViewAsync().ConfigureAwait(false);
+
+        (byte[]? val, bool _) = await kvView.GetAsync(null, key).ConfigureAwait(false);
+
+        return val;
     }
 
     /// <inheritdoc/>
@@ -113,5 +126,26 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
         CancellationToken token)
     {
         throw new NotImplementedException();
+    }
+
+    private async Task<IKeyValueView<string, byte[]?>> GetKvViewAsync()
+    {
+        // TODO: Cache created table and record view, synchronize.
+        IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
+
+        var tableName = _options.TableName;
+
+        await ignite.Sql
+            .ExecuteAsync(null, "CREATE TABLE IF NOT EXISTS ? (KEY VARCHAR PRIMARY KEY, VAL BLOB)", tableName)
+            .ConfigureAwait(false);
+
+        ITable? table = await ignite.Tables.GetTableAsync(tableName).ConfigureAwait(false);
+
+        if (table == null)
+        {
+            throw new InvalidOperationException("Table not found: " + tableName);
+        }
+
+        return table.GetKeyValueView<string, byte[]?>();
     }
 }
