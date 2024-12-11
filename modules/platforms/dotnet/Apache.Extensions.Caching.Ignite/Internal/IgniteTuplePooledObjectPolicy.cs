@@ -25,10 +25,8 @@ using Microsoft.Extensions.ObjectPool;
 /// </summary>
 internal sealed class IgniteTuplePooledObjectPolicy : PooledObjectPolicy<IgniteTuple>
 {
-    private const int Capacity = 2;
-
     /// <inheritdoc/>
-    public override IgniteTuple Create() => new(Capacity);
+    public override IgniteTuple Create() => new();
 
     /// <inheritdoc/>
     public override bool Return(IgniteTuple obj)
