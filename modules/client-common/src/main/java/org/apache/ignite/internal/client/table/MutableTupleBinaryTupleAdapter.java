@@ -262,7 +262,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     public BigDecimal decimalValue(String columnName) {
         return tuple != null
                 ? tuple.decimalValue(columnName)
-                : binaryTuple.decimalValue(validateSchemaColumnType(columnName, ColumnType.DECIMAL), -1);
+                : binaryTuple.decimalValue(validateSchemaColumnType(columnName, ColumnType.DECIMAL), Integer.MIN_VALUE);
     }
 
     /** {@inheritDoc} */
@@ -270,7 +270,7 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
     public BigDecimal decimalValue(int columnIndex) {
         return tuple != null
                 ? tuple.decimalValue(columnIndex)
-                : binaryTuple.decimalValue(validateSchemaColumnType(columnIndex, ColumnType.DECIMAL), -1);
+                : binaryTuple.decimalValue(validateSchemaColumnType(columnIndex, ColumnType.DECIMAL), Integer.MIN_VALUE);
     }
 
     /** {@inheritDoc} */

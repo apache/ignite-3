@@ -89,9 +89,15 @@ public class AbstractClientTableTest extends AbstractClientTest {
     }
 
     protected static void assertDecimalEqual(BigDecimal expected, BigDecimal actual) {
-        if ((expected == null ^ actual == null) || (expected != null && expected.compareTo(actual) != 0)) {
-            AssertionFailureBuilder.assertionFailure().expected(expected).actual(actual).buildAndThrow();
+        if (expected == null && actual == null) {
+            return;
         }
+
+        if (expected != null && actual != null && expected.compareTo(actual) == 0) {
+            return;
+        }
+
+        AssertionFailureBuilder.assertionFailure().expected(expected).actual(actual).buildAndThrow();
     }
 
     protected Table defaultTable() {
