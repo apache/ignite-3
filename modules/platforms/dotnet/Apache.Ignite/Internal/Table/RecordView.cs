@@ -113,22 +113,6 @@ namespace Apache.Ignite.Internal.Table
             return _ser.ReadValue(resBuf, resSchema);
         }
 
-        /// <summary>
-        /// Gets a record by key without deserializing it.
-        /// </summary>
-        /// <param name="transaction">Transaction.</param>
-        /// <param name="key">Key.</param>
-        /// <returns>Resulting buffer and schema.</returns>
-        public async Task<(PooledBuffer Buffer, Schema Schema)> GetInternalAsync(ITransaction? transaction, T key)
-        {
-            IgniteArgumentCheck.NotNull(key);
-
-            var resBuf = await DoRecordOutOpAsync(ClientOp.TupleGet, transaction, key, keyOnly: true).ConfigureAwait(false);
-            var resSchema = await _table.ReadSchemaAsync(resBuf).ConfigureAwait(false);
-
-            return (resBuf, resSchema);
-        }
-
         /// <inheritdoc/>
         public async Task<bool> ContainsKeyAsync(ITransaction? transaction, T key)
         {
