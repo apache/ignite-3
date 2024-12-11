@@ -40,7 +40,7 @@ public sealed class IgniteDistributedCache : IDistributedCache
 
     private readonly ObjectPool<IgniteTuple> _tuplePool = new DefaultObjectPool<IgniteTuple>(
         new IgniteTuplePooledObjectPolicy(),
-        Environment.ProcessorCount * 2);
+        maximumRetained: Environment.ProcessorCount * 2);
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDistributedCache"/> class.
