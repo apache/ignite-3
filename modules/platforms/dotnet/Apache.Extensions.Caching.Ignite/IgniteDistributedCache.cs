@@ -19,6 +19,7 @@ namespace Apache.Extensions.Cache.Ignite;
 
 using System.Buffers;
 using Apache.Ignite;
+using Apache.Ignite.Internal.Proto.BinaryTuple;
 using Apache.Ignite.Internal.Table;
 using Apache.Ignite.Table;
 using Microsoft.Extensions.Caching.Distributed;
@@ -30,6 +31,10 @@ using Microsoft.Extensions.Options;
 /// </summary>
 public sealed class IgniteDistributedCache : IBufferDistributedCache
 {
+    private const string KeyColumnName = "KEY";
+
+    private const string ValColumnName = "VAL";
+
     private readonly IgniteClientGroup _igniteClientGroup;
 
     private readonly IgniteDistributedCacheOptions _options;
@@ -77,9 +82,26 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     {
         RecordView<IIgniteTuple> view = await GetViewAsync().ConfigureAwait(false);
 
-        await view.GetInternalAsync(null, GetKey(key)).ConfigureAwait(false);
+        var (buf, schema) = await view.GetInternalAsync(null, GetKey(key)).ConfigureAwait(false);
 
-        return val;
+        using (buf)
+        {
+            return Read();
+        }
+
+        byte[] Read()
+        {
+            var r = buf.GetReader();
+            r.Skip(); // Skip schema version.
+            var binaryTupleBuf = r.ReadBinary();
+            var binaryTuple = new BinaryTupleReader(binaryTupleBuf, schema.Columns.Length);
+
+            // TODO: Check null.
+            // TODO: Cache column index per schema id?
+            var columnIndex = schema.GetColumn(ValColumnName)!.SchemaIndex;
+
+            return binaryTuple.GetBytes(columnIndex);
+        }
     }
 
     /// <inheritdoc/>
@@ -92,9 +114,16 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     public async Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token)
     {
         // TODO: Expiration is not supported in Ignite - throw when specified.
-        RecordView<IIgniteTuple> kvView = await GetViewAsync().ConfigureAwait(false);
+        RecordView<IIgniteTuple> view = await GetViewAsync().ConfigureAwait(false);
 
-        await kvView.PutAsync(null, key, value).ConfigureAwait(false);
+        // TODO: Pooling.
+        var tuple = new IgniteTuple(2)
+        {
+            [KeyColumnName] = key,
+            [ValColumnName] = value
+        };
+
+        await view.UpsertAsync(null, tuple).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -121,9 +150,9 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     /// <inheritdoc/>
     public async Task RemoveAsync(string key, CancellationToken token)
     {
-        RecordView<IIgniteTuple> kvView = await GetViewAsync().ConfigureAwait(false);
+        RecordView<IIgniteTuple> view = await GetViewAsync().ConfigureAwait(false);
 
-        await kvView.RemoveAsync(null, key).ConfigureAwait(false);
+        await view.DeleteAsync(null, GetKey(key)).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -154,14 +183,14 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
         DistributedCacheEntryOptions options,
         CancellationToken token)
     {
-        // TODO: An internal API to copy bytes efficiently? Or a public one?
+        // TODO: Just put the sequence to the Tuple?
         throw new NotImplementedException();
     }
 
     private static IgniteTuple GetKey(string key)
     {
         // TODO: Object pooling to avoid allocations? Or custom implementation? Or thread local?
-        return new IgniteTuple(1) { ["KEY"] = key };
+        return new IgniteTuple(1) { [KeyColumnName] = key };
     }
 
     private async Task<RecordView<IIgniteTuple>> GetViewAsync()
