@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -42,7 +41,6 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CompactionRevisionUpdateListener;
@@ -325,15 +323,10 @@ public class WatchProcessor implements ManuallyCloseable {
 
     private void notifyFailureHandlerOnFirstFailureInNotificationChain(Throwable e) {
         if (firedFailureOnChain.compareAndSet(false, true)) {
-            if (unwrapCause(e) instanceof NodeStoppingException) {
-                LOG.error("Notification chain encountered a NodeStoppingException, so no notifications will be ever fired for "
-                        + "subsequent revisions until a restart. FailureManager will NOT be notified.", e);
-            } else {
-                LOG.info("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
-                        + "until a restart. Notifying the FailureManager");
+            LOG.info("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
+                    + "until a restart. Notifying the FailureManager");
 
-                failureManager.process(new FailureContext(CRITICAL_ERROR, e));
-            }
+            failureManager.process(new FailureContext(CRITICAL_ERROR, e));
         }
     }
 
