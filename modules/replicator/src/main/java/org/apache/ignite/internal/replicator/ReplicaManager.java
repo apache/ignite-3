@@ -836,7 +836,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         raftGroupOptions.snapshotStorageFactory(snapshotFactory);
-
+        raftGroupOptions.maxClockSkew((int) clockService.maxClockSkewMillis());
         raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
 
         // TODO: The options will be used by Loza only. Consider rafactoring. see https://issues.apache.org/jira/browse/IGNITE-18273
@@ -1062,7 +1062,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     private NetworkMessage prepareReplicaResponse(boolean sendTimestamp, ReplicaResult result) {
         if (sendTimestamp) {
-            HybridTimestamp commitTs = result.applyResult().getCommitTimestamp();
+            HybridTimestamp commitTs = result.applyResult().commitTimestamp();
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result.result())
@@ -1131,7 +1131,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
                 .groupId(toReplicationGroupIdMessage(replica.groupId()))
-                .proposedSafeTime(proposedSafeTime)
                 .build();
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {

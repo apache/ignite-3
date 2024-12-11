@@ -155,6 +155,7 @@ import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -707,8 +708,8 @@ public class ItTxTestCluster {
 
                 IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2Tuple);
 
-                PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
-                        new PendingComparableValuesTracker<>(clockServices.get(assignment).now());
+                PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = new PendingComparableValuesTracker<>(
+                        HybridTimestamp.MIN_VALUE);
                 PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
                 PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, partId, mvPartStorage);
@@ -735,7 +736,6 @@ public class ItTxTestCluster {
                         storageIndexTracker,
                         catalogService,
                         schemaManager,
-                        clockServices.get(assignment),
                         mock(IndexMetaStorage.class),
                         // TODO use proper index.
                         clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
@@ -1136,5 +1136,9 @@ public class ItTxTestCluster {
 
     public Map<String, ClusterService> clusterServices() {
         return clusterServices;
+    }
+
+    public List<TxStateMeta> states() {
+        return new ArrayList<>(((TxManagerImpl) clientTxManager).states());
     }
 }

@@ -59,6 +59,11 @@ public class RaftGroupOptions {
     private @Nullable Long externallyEnforcedConfigIndex;
 
     /**
+     * Max clock skew in the replication group in milliseconds.
+     */
+    private int maxClockSkew;
+
+    /**
      * Returns default options as defined by classic Raft (so stores are persistent).
      *
      * @return Default options.
@@ -233,5 +238,25 @@ public class RaftGroupOptions {
     public RaftGroupOptions externallyEnforcedConfigIndex(@Nullable Long index) {
         externallyEnforcedConfigIndex = index;
         return this;
+    }
+
+    /**
+     * Set max clock skew.
+     *
+     * @param maxClockSkew The skew.
+     * @return This object.
+     */
+    public RaftGroupOptions maxClockSkew(int maxClockSkew) {
+        this.maxClockSkew = maxClockSkew;
+        return this;
+    }
+
+    /**
+     * Get max clock skew.
+     *
+     * @return The skew.
+     */
+    public int maxClockSkew() {
+        return maxClockSkew;
     }
 }

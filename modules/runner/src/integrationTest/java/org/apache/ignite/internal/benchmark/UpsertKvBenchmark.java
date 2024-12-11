@@ -66,12 +66,9 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"8"})
     private int partitionCount;
 
-    private static final AtomicInteger counter = new AtomicInteger();
+    private static final AtomicInteger COUNTER = new AtomicInteger();
 
-    private static final ThreadLocal<Integer> gen = ThreadLocal.withInitial(() -> {
-        int id = counter.getAndIncrement();
-        return id * 20_000_000;
-    });
+    private static final ThreadLocal<Integer> GEN = ThreadLocal.withInitial(() -> COUNTER.getAndIncrement() * 20_000_000);
 
     @Override
     public void nodeSetUp() throws Exception {
@@ -111,8 +108,8 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     private int nextId() {
-        int cur = gen.get() + 1;
-        gen.set(cur);
+        int cur = GEN.get() + 1;
+        GEN.set(cur);
         return cur;
     }
 

@@ -44,19 +44,28 @@ public class HybridClockImpl implements HybridClock {
 
     private final List<ClockUpdateListener> updateListeners = new CopyOnWriteArrayList<>();
 
-    /**
-     * Returns current physical time in milliseconds.
-     *
-     * @return Current time.
-     */
-    protected long physicalTime() {
-        return System.currentTimeMillis();
-    }
-
     @Override
     public final long nowLong() {
         while (true) {
             long now = currentTime();
+
+            // Read the latest time after accessing UTC time to reduce contention.
+            long oldLatestTime = latestTime;
+
+            if (oldLatestTime >= now) {
+                return LATEST_TIME.incrementAndGet(this);
+            }
+
+            if (LATEST_TIME.compareAndSet(this, oldLatestTime, now)) {
+                return now;
+            }
+        }
+    }
+
+    @Override
+    public final long nowLong(HybridTimestamp causal) {
+        while (true) {
+            long now = max(currentTime(), causal.longValue());
 
             // Read the latest time after accessing UTC time to reduce contention.
             long oldLatestTime = latestTime;
@@ -78,23 +87,14 @@ public class HybridClockImpl implements HybridClock {
         return max(latestTime, current);
     }
 
-    private void notifyUpdateListeners(long newTs) {
-        for (ClockUpdateListener listener : updateListeners) {
-            try {
-                listener.onUpdate(newTs);
-            } catch (Throwable e) {
-                log.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
-
-                if (e instanceof Error) {
-                    throw e;
-                }
-            }
-        }
-    }
-
     @Override
     public final HybridTimestamp now() {
         return hybridTimestamp(nowLong());
+    }
+
+    @Override
+    public HybridTimestamp now(HybridTimestamp causal) {
+        return hybridTimestamp(nowLong(causal));
     }
 
     @Override
@@ -138,8 +138,31 @@ public class HybridClockImpl implements HybridClock {
         }
     }
 
+    /**
+     * Returns current physical time in milliseconds.
+     *
+     * @return Current time.
+     */
+    protected long physicalTime() {
+        return System.currentTimeMillis();
+    }
+
     private long currentTime() {
         return physicalTime() << LOGICAL_TIME_BITS_SIZE;
+    }
+
+    private void notifyUpdateListeners(long newTs) {
+        for (ClockUpdateListener listener : updateListeners) {
+            try {
+                listener.onUpdate(newTs);
+            } catch (Throwable e) {
+                log.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
+
+                if (e instanceof Error) {
+                    throw e;
+                }
+            }
+        }
     }
 
     @Override

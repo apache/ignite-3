@@ -17,10 +17,27 @@
 
 package org.apache.ignite.internal.raft;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A marker interface for replication group command.
  */
 public interface Command extends NetworkMessage {
+    /**
+     * This is called before a command is submitted to replication pipeline.
+     *
+     * @param safeTs Safe timestamp.
+     */
+    default void patch(HybridTimestamp safeTs) {}
+
+    /**
+     * Holds request's initiator timestamp.
+     *
+     * @return The timestamp.
+     */
+    default @Nullable HybridTimestamp initiatorTime() {
+        return null;
+    }
 }

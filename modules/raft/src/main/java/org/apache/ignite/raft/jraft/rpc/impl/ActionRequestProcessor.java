@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Marshaller;
@@ -109,20 +108,9 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
                 command = commandsMarshaller.unmarshall(writeRequest.command());
             }
 
-            if (fsm.getListener() instanceof BeforeApplyHandler) {
+            if (listener instanceof BeforeApplyHandler) {
                 synchronized (groupIdSyncMonitor(request.groupId())) {
-                    try {
-                        writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
-                    } catch (SafeTimeReorderException e) {
-                        rpcCtx.sendResponse(
-                                factory.errorResponse()
-                                    .maxObservableSafeTimeViolatedValue(e.maxObservableSafeTimeViolatedValue())
-                                    .errorCode(RaftError.EREORDER.getNumber())
-                                    .build()
-                        );
-
-                        return;
-                    }
+                    writeRequest = patchCommandBeforeApply(writeRequest, (BeforeApplyHandler) listener, command, commandsMarshaller);
 
                     applyWrite(node, writeRequest, command, rpcCtx);
                 }
@@ -152,7 +140,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             BeforeApplyHandler beforeApplyHandler,
             Command command,
             Marshaller commandsMarshaller
-    ) throws SafeTimeReorderException {
+    ) {
         if (!beforeApplyHandler.onBeforeApply(command)) {
             return request;
         }

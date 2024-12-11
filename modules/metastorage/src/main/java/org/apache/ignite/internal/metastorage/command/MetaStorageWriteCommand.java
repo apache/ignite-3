@@ -28,6 +28,7 @@ import org.jetbrains.annotations.Nullable;
 /** Base meta storage write command. */
 public interface MetaStorageWriteCommand extends WriteCommand {
     /** Time on the initiator node. */
+    @Override
     HybridTimestamp initiatorTime();
 
     /**

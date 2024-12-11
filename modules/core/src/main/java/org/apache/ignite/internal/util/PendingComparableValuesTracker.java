@@ -111,6 +111,35 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
     }
 
     /**
+     * Strict update with reordering check. Always called from the same updater thread.
+     *
+     * @param newValue New value.
+     * @param futureResult A result that will be used to complete a future returned by the
+     *         {@link PendingComparableValuesTracker#waitFor(Comparable)}.
+     */
+    public void updateStrict(T newValue, @Nullable R futureResult) {
+        if (!busyLock.readLock().tryLock()) {
+            throw new TrackerClosedException();
+        }
+
+        try {
+            Map.Entry<T, @Nullable R> current = this.current;
+
+            IgniteBiTuple<T, @Nullable R> newEntry = new IgniteBiTuple<>(newValue, futureResult);
+
+            // Entries from the same batch receive equal safe timestamps.
+            if (comparator.compare(newEntry, current) < 0) {
+                throw new AssertionError("Reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1() + ']');
+            }
+
+            CURRENT.set(this, newEntry);
+            completeWaitersOnUpdate(newValue, futureResult);
+        } finally {
+            busyLock.readLock().unlock();
+        }
+    }
+
+    /**
      * Provides the future that is completed when this tracker's internal value reaches given one. If the internal value is greater or equal
      * then the given one, returns completed future.
      *

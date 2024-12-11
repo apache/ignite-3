@@ -1192,7 +1192,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             storageIndexTracker,
                             catalogService,
                             table.schemaView(),
-                            clockService,
                             indexMetaStorage,
                             topologyService.localMember().id(),
                             minTimeCollectorService

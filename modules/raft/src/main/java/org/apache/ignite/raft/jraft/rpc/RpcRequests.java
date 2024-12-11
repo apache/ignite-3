@@ -17,8 +17,6 @@
 
 package org.apache.ignite.raft.jraft.rpc;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.List;
@@ -121,6 +119,8 @@ public final class RpcRequests {
         String peerId();
 
         long term();
+
+        @Nullable HybridTimestamp timestamp();
     }
 
     @Transferable(value = RaftMessageGroup.RpcRequestsMessageGroup.TIMEOUT_NOW_RESPONSE)
