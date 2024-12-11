@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.commands;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.util.function.Function;
@@ -81,11 +80,9 @@ public class ProfileMixinTest extends CliCommandTestBase {
             String command,
             Class<T> callClass,
             Class<IT> callInputClass,
-            Function<IT, String> urlSupplier) {
-        T call = registerMockCall(callClass);
-        execute(command);
-        IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(DEFAULT_URL, urlSupplier.apply(callInput));
+            Function<IT, String> urlSupplier
+    ) {
+        checkParameters(command, callClass, callInputClass, urlSupplier, "", DEFAULT_URL);
     }
 
     @ParameterizedTest
@@ -95,11 +92,9 @@ public class ProfileMixinTest extends CliCommandTestBase {
             String command,
             Class<T> callClass,
             Class<IT> callInputClass,
-            Function<IT, String> urlSupplier) {
-        T call = registerMockCall(callClass);
-        execute(command + " --profile test");
-        IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(URL_FROM_PROFILE, urlSupplier.apply(callInput));
+            Function<IT, String> urlSupplier
+    ) {
+        checkParameters(command, callClass, callInputClass, urlSupplier, "--profile test", URL_FROM_PROFILE);
     }
 
     @ParameterizedTest
@@ -109,11 +104,9 @@ public class ProfileMixinTest extends CliCommandTestBase {
             String command,
             Class<T> callClass,
             Class<IT> callInputClass,
-            Function<IT, String> urlSupplier) {
-        T call = registerMockCall(callClass);
-        execute(command + " --url " + URL_FROM_CMD);
-        IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
+            Function<IT, String> urlSupplier
+    ) {
+        checkParameters(command, callClass, callInputClass, urlSupplier, "--url " + URL_FROM_CMD, URL_FROM_CMD);
     }
 
     @ParameterizedTest
@@ -123,11 +116,9 @@ public class ProfileMixinTest extends CliCommandTestBase {
             String command,
             Class<T> callClass,
             Class<IT> callInputClass,
-            Function<IT, String> urlSupplier) {
-        T call = registerMockCall(callClass);
-        execute(command + " --url " + URL_FROM_CMD);
-        IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
+            Function<IT, String> urlSupplier
+    ) {
+        checkParameters(command, callClass, callInputClass, urlSupplier, "--url " + URL_FROM_CMD, URL_FROM_CMD);
     }
 
     @ParameterizedTest
@@ -137,11 +128,9 @@ public class ProfileMixinTest extends CliCommandTestBase {
             String command,
             Class<T> callClass,
             Class<IT> callInputClass,
-            Function<IT, String> urlSupplier) {
-        T call = registerMockCall(callClass);
-        execute(command + " --profile test --url " + URL_FROM_CMD);
-        IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
+            Function<IT, String> urlSupplier
+    ) {
+        checkParameters(command, callClass, callInputClass, urlSupplier, "--profile test --url " + URL_FROM_CMD, URL_FROM_CMD);
     }
 
     @ParameterizedTest
@@ -151,11 +140,9 @@ public class ProfileMixinTest extends CliCommandTestBase {
             String command,
             Class<T> callClass,
             Class<IT> callInputClass,
-            Function<IT, String> urlSupplier) {
-        T call = registerMockCall(callClass);
-        execute(command + " --profile test --url " + URL_FROM_CMD);
-        IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(URL_FROM_CMD, urlSupplier.apply(callInput));
+            Function<IT, String> urlSupplier
+    ) {
+        checkParameters(command, callClass, callInputClass, urlSupplier, "--profile test --url " + URL_FROM_CMD, URL_FROM_CMD);
     }
 
     private static Stream<Arguments> nodeCallsProvider() {
