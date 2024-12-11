@@ -53,8 +53,9 @@ public class ClientSqlExecuteScriptRequest {
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         transactions.updateObservableTimestamp(clientTs);
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Pass cancellation token to the query processor.
         return IgniteSqlImpl.executeScriptCore(
-                sql, transactions.observableTimestampTracker(), () -> true, () -> {}, script, arguments, props.toSqlProps()
+                sql, transactions.observableTimestampTracker(), () -> true, () -> {}, script, null, arguments, props.toSqlProps()
         );
     }
 }

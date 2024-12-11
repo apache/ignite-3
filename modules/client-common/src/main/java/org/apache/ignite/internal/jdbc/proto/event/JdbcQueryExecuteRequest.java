@@ -56,6 +56,12 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
     private long queryTimeoutMillis;
 
     /**
+     * Token is used to uniquely identify execution request within single connection, which is required to properly coordinate cancellation
+     * request.
+     */
+    private long correlationToken;
+
+    /**
      * Default constructor. For deserialization purposes.
      */
     public JdbcQueryExecuteRequest() {
@@ -73,6 +79,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
      * @param autoCommit Flag indicating whether auto-commit mode is enabled.
      * @param multiStatement Multiple statement flag.
      * @param queryTimeoutMillis Query timeout in millseconds.
+     * @param correlationToken Token is used to uniquely identify execution request within single connection.
      */
     public JdbcQueryExecuteRequest(
             JdbcStatementType stmtType,
@@ -83,7 +90,8 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
             Object[] args,
             boolean autoCommit,
             boolean multiStatement,
-            long queryTimeoutMillis
+            long queryTimeoutMillis,
+            long correlationToken
     ) {
         Objects.requireNonNull(stmtType);
 
@@ -96,6 +104,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         this.args = args;
         this.multiStatement = multiStatement;
         this.queryTimeoutMillis = queryTimeoutMillis;
+        this.correlationToken = correlationToken;
     }
 
     /**
@@ -177,6 +186,10 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         return queryTimeoutMillis;
     }
 
+    public long correlationToken() {
+        return correlationToken;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -190,6 +203,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
 
         packer.packObjectArrayAsBinaryTuple(args);
         packer.packLong(queryTimeoutMillis);
+        packer.packLong(correlationToken);
     }
 
     /** {@inheritDoc} */
@@ -205,6 +219,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
 
         args = unpacker.unpackObjectArrayFromBinaryTuple();
         queryTimeoutMillis = unpacker.unpackLong();
+        correlationToken = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

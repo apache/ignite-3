@@ -24,6 +24,8 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.fsm.Result.Status;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -38,6 +40,8 @@ import org.apache.ignite.internal.util.ExceptionUtils;
  * @param <ResultT> Type of the result returned by this program.
  */
 class Program<ResultT> {
+    private static final IgniteLogger LOG = Loggers.forClass(Program.class);
+
     private final String name;
     private final Map<ExecutionPhase, Transition> transitions;
     private final Predicate<ExecutionPhase> terminalPhase;
@@ -70,8 +74,14 @@ class Program<ResultT> {
             } catch (Throwable th) {
                 // handles exception from synchronous part of phase evaluation
 
-                if (errorHandler.test(query, th)) {
-                    continue;
+                try {
+                    if (errorHandler.test(query, th)) {
+                        continue;
+                    }
+                } catch (AssertionError | Exception ex) {
+                    LOG.warn("Exception in error handler [queryId={}]", ex, query.id);
+
+                    query.onError(th);
                 }
 
                 return Commons.cast(query.resultHolder);
@@ -90,8 +100,14 @@ class Program<ResultT> {
                                     ex = ExceptionUtils.unwrapCause(ex);
 
                                     // handles exception from asynchronous part of phase evaluation
-                                    if (errorHandler.test(query, ex)) {
-                                        query.executor.execute(() -> run(query));
+                                    try {
+                                        if (errorHandler.test(query, ex)) {
+                                            query.executor.execute(() -> run(query));
+                                        }
+                                    } catch (AssertionError | Exception ex0) {
+                                        LOG.warn("Exception in error handler [queryId={}]", ex0, query.id);
+
+                                        query.onError(ex);
                                     }
 
                                     return;

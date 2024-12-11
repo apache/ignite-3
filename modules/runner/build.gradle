@@ -62,6 +62,7 @@ dependencies {
     implementation project(':ignite-partition-distribution')
     implementation project(':ignite-table')
     implementation project(':ignite-index')
+    implementation project(':ignite-sql-engine-api')
     implementation project(':ignite-sql-engine')
     implementation project(':ignite-client-handler')
     implementation project(':ignite-compute')
@@ -75,6 +76,7 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')
     implementation project(':ignite-cluster-metrics')
+    implementation project(':ignite-metrics-exporter-otlp')
     implementation project(':ignite-replicator')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-placement-driver')
@@ -147,6 +149,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft')
     integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-rest-api')
+    integrationTestImplementation project(':ignite-sql-engine-api')
     integrationTestImplementation(project(':ignite-sql-engine')) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.

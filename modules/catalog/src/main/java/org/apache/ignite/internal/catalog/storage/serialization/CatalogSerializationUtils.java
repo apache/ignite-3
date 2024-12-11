@@ -58,14 +58,14 @@ public class CatalogSerializationUtils {
     }
 
     /** Writes collection containing strings. */
-    public static void writeStringCollection(@Nullable Collection<String> list, DataOutput out) throws IOException {
+    public static void writeStringCollection(@Nullable Collection<String> list, IgniteDataOutput out) throws IOException {
         if (list == null) {
-            out.writeInt(-1);
+            out.writeVarInt(-1);
 
             return;
         }
 
-        out.writeInt(list.size());
+        out.writeVarInt(list.size());
 
         for (String item : list) {
             out.writeUTF(item);
@@ -73,8 +73,9 @@ public class CatalogSerializationUtils {
     }
 
     /** Reads collection containing strings. */
-    public static <T extends Collection<String>> @Nullable T readStringCollection(DataInput in, IntFunction<T> factory) throws IOException {
-        int size = in.readInt();
+    public static <T extends Collection<String>> @Nullable T readStringCollection(IgniteDataInput in, IntFunction<T> factory)
+            throws IOException {
+        int size = in.readVarIntAsInt();
 
         if (size == -1) {
             return null;
@@ -92,7 +93,7 @@ public class CatalogSerializationUtils {
     /** Reads array of objects. */
     public static <T> T[] readArray(CatalogObjectSerializer<T> serializer, IgniteDataInput input, Class<T> clazz)
             throws IOException {
-        int len = input.readInt();
+        int len = input.readVarIntAsInt();
 
         T[] arr = (T[]) Array.newInstance(clazz, len);
 
@@ -106,7 +107,7 @@ public class CatalogSerializationUtils {
     /** Writes array of objects. */
     public static <T> void writeArray(T[] items, CatalogObjectSerializer<T> serializer, IgniteDataOutput output)
             throws IOException {
-        output.writeInt(items.length);
+        output.writeVarInt(items.length);
 
         for (T item : items) {
             serializer.writeTo(item, output);
@@ -115,7 +116,7 @@ public class CatalogSerializationUtils {
 
     /** Reads list of objects. */
     public static <T> List<T> readList(CatalogObjectSerializer<T> serializer, IgniteDataInput input) throws IOException {
-        int len = input.readInt();
+        int len = input.readVarIntAsInt();
 
         List<T> entries = new ArrayList<>(len);
 
@@ -131,7 +132,7 @@ public class CatalogSerializationUtils {
     /** Writes list of objects. */
     public static <T> void writeList(List<T> items, CatalogObjectSerializer<T> serializer, IgniteDataOutput output)
             throws IOException {
-        output.writeInt(items.size());
+        output.writeVarInt(items.size());
 
         for (T item : items) {
             serializer.writeTo(item, output);

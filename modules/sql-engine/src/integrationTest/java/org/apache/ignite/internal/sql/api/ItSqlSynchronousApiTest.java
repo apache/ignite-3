@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -38,6 +41,7 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -74,8 +78,19 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
                     .build();
 
             Transaction transaction = igniteTx().begin();
+
+            transactions.add(transaction);
+
             return sql.execute(transaction, token, statement);
         });
+
+        // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
+        CancelHandle cancelHandle = CancelHandle.create();
+        CancellationToken token = cancelHandle.token();
+        cancelHandle.cancel();
+
+        //noinspection resource
+        expectQueryCancelled(() -> sql.execute(null, token, "SELECT 1"));
     }
 
     @Test
@@ -91,11 +106,14 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         // with transaction
         executeAndCancel((token) -> {
             Transaction transaction = igniteTx().begin();
+
+            transactions.add(transaction);
+
             return sql.execute(transaction, token, query);
         });
     }
 
-    private static void executeAndCancel(Function<CancellationToken, ResultSet<SqlRow>> execute) throws InterruptedException {
+    private void executeAndCancel(Function<CancellationToken, ResultSet<SqlRow>> execute) throws InterruptedException {
         CancelHandle cancelHandle = CancelHandle.create();
 
         CountDownLatch latch = new CountDownLatch(1);
@@ -119,6 +137,9 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
 
         cancelHandle.cancelAsync().join();
+
+        // Expect all transactions to be rollbacked
+        assertThat(txManager().pending(), is(0));
     }
 
     @Override
@@ -146,6 +167,11 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         return syncProcessor;
     }
 
+    @Override
+    protected void execute(IgniteSql sql, @Nullable Transaction tx, @Nullable CancellationToken token, String query) {
+        sql.executeAsync(tx, token, query).join();
+    }
+
     protected ResultProcessor execute(int expectedPages, Transaction tx, IgniteSql sql, String query, Object... args) {
         SyncPageProcessor syncProcessor = new SyncPageProcessor();
 
@@ -156,8 +182,18 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
+    protected ResultSet<SqlRow> executeLazy(IgniteSql sql, String query, Object... args) {
+        return sql.execute(null, query, args);
+    }
+
+    @Override
     protected void executeScript(IgniteSql sql, String query, Object... args) {
         sql.executeScript(query, args);
+    }
+
+    @Override
+    protected void executeScript(IgniteSql sql, CancellationToken cancellationToken, String query, Object... args) {
+        sql.executeScript(cancellationToken, query, args);
     }
 
     @Override

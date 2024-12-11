@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests
 {
+    using System;
     using System.Collections.Generic;
     using System.Globalization;
     using System.IO;
@@ -185,6 +186,20 @@ namespace Apache.Ignite.Tests
             // Newer servers may return unknown to us error codes.
             Assert.AreEqual("UNKNOWN", ErrorGroups.GetGroupName(-1));
             Assert.AreEqual(ErrorGroups.UnknownGroupName, ErrorGroups.GetGroupName(9999));
+        }
+
+        [Test]
+        public void TestExceptionProperties()
+        {
+            var ex = new IgniteException(Guid.Empty, ErrorGroups.Common.Internal, "msg");
+
+            Assert.AreEqual(ErrorGroups.Common.Internal, ex.Code);
+
+            Assert.AreEqual(-1, ex.ErrorCode);
+            Assert.AreEqual("IGN-CMN--1", ex.CodeAsString);
+
+            Assert.AreEqual(1, ex.GroupCode);
+            Assert.AreEqual("CMN", ex.GroupName);
         }
 
         private static IEnumerable<(short Code, string Name)> GetErrorGroups() => typeof(ErrorGroups).GetNestedTypes()

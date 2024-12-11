@@ -42,6 +42,7 @@ import org.apache.ignite.internal.network.serialization.PerSessionSerializationS
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -113,11 +114,11 @@ public class NettyServer {
     public CompletableFuture<Void> start() {
         synchronized (startStopLock) {
             if (stopped) {
-                throw new IgniteInternalException("Attempted to start an already stopped server");
+                throw new IgniteInternalException(Common.INTERNAL_ERR, "Attempted to start an already stopped server");
             }
 
             if (serverStartFuture != null) {
-                throw new IgniteInternalException("Attempted to start an already started server");
+                throw new IgniteInternalException(Common.INTERNAL_ERR, "Attempted to start an already started server");
             }
 
             ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
@@ -210,14 +211,15 @@ public class NettyServer {
                 return nullCompletedFuture();
             }
 
-            var serverCloseFuture0 = serverCloseFuture;
-
             return serverStartFuture.handle((unused, throwable) -> {
-                if (channel != null) {
-                    channel.close();
-                }
+                synchronized (startStopLock) {
+                    ServerChannel localChannel = channel;
+                    if (localChannel != null) {
+                        localChannel.close();
+                    }
 
-                return serverCloseFuture0 == null ? CompletableFutures.<Void>nullCompletedFuture() : serverCloseFuture0;
+                    return serverCloseFuture == null ? CompletableFutures.<Void>nullCompletedFuture() : serverCloseFuture;
+                }
             }).thenCompose(Function.identity());
         }
     }

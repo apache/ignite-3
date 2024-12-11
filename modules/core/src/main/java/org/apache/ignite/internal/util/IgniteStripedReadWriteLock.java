@@ -30,6 +30,9 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * supports reentrancy semantics like {@link ReentrantReadWriteLock}.
  */
 public class IgniteStripedReadWriteLock implements ReadWriteLock {
+    /** Default concurrency. */
+    private static final int CONCURRENCY = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+
     /** Index generator. */
     private static final AtomicInteger IDX_GEN = new AtomicInteger();
 
@@ -41,6 +44,13 @@ public class IgniteStripedReadWriteLock implements ReadWriteLock {
 
     /** Composite write lock. */
     private final WriteLock writeLock;
+
+    /**
+     * Creates a new instance with default concurrency level.
+     */
+    public IgniteStripedReadWriteLock() {
+        this(CONCURRENCY);
+    }
 
     /**
      * Creates a new instance with given concurrency level.
@@ -96,7 +106,7 @@ public class IgniteStripedReadWriteLock implements ReadWriteLock {
      * @return {@code true} if the current thread holds the write lock and {@code false} otherwise
      */
     public boolean isWriteLockedByCurrentThread() {
-        return locks[locks.length - 1].isWriteLockedByCurrentThread();
+        return locks[curIdx()].isWriteLockedByCurrentThread();
     }
 
     /**

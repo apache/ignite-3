@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
@@ -40,8 +41,8 @@ import static org.apache.ignite.internal.partitiondistribution.PartitionDistribu
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -53,7 +54,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -76,9 +76,7 @@ public class ZoneRebalanceUtil {
     private static final IgniteLogger LOG = Loggers.forClass(ZoneRebalanceUtil.class);
 
     /**
-     * Status values for methods like
-     * {@link #updatePendingAssignmentsKeys(CatalogZoneDescriptor, ZonePartitionId, Collection, int, long, MetaStorageManager, int, Set,
-     * HybridTimestamp)}.
+     * Status values for methods like {@link #updatePendingAssignmentsKeys}.
      */
     public enum UpdateStatus {
         /**
@@ -175,10 +173,12 @@ public class ZoneRebalanceUtil {
         //                partition.change.trigger.revision = event.revision
         //            else if partition.assignments.pending == calcPartAssignments
         //                remove(partition.assignments.planned)
+        //                partition.change.trigger.revision = event.revision
         //                message after the metastorage invoke:
         //                "Remove planned key because current pending key has the same value."
         //            else if empty(partition.assignments.pending)
         //                remove(partition.assignments.planned)
+        //                partition.change.trigger.revision = event.revision
         //                message after the metastorage invoke:
         //                "Remove planned key because pending is empty and calculated assignments are equal to current assignments."
         //    else:
@@ -190,21 +190,29 @@ public class ZoneRebalanceUtil {
             newAssignmentsCondition = notExists(partAssignmentsStableKey).or(newAssignmentsCondition);
         }
 
-        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(longToBytesKeepingOrder(revision))),
+        byte[] revisionBytes = longToBytesKeepingOrder(revision);
+
+        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(revisionBytes)),
                 iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsBytes),
-                                put(partChangeTriggerKey, longToBytesKeepingOrder(revision))
+                                put(partChangeTriggerKey, revisionBytes)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
                         iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsBytes), exists(partAssignmentsPendingKey)),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsBytes),
-                                        put(partChangeTriggerKey, longToBytesKeepingOrder(revision))
+                                        put(partChangeTriggerKey, revisionBytes)
                                 ).yield(PLANNED_KEY_UPDATED.ordinal()),
                                 iif(value(partAssignmentsPendingKey).eq(partAssignmentsBytes),
-                                        ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
+                                        ops(
+                                                remove(partAssignmentsPlannedKey),
+                                                put(partChangeTriggerKey, revisionBytes)
+                                        ).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
                                         iif(notExists(partAssignmentsPendingKey),
-                                                ops(remove(partAssignmentsPlannedKey)).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING.ordinal()),
+                                                ops(
+                                                        remove(partAssignmentsPlannedKey),
+                                                        put(partChangeTriggerKey, revisionBytes)
+                                                ).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING.ordinal()),
                                                 ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal()))
                                 ))),
                 ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal()));
@@ -358,14 +366,20 @@ public class ZoneRebalanceUtil {
     /** Key prefix for pending assignments. */
     public static final String PENDING_ASSIGNMENTS_PREFIX = "zone.assignments.pending.";
 
+    public static final byte[] PENDING_ASSIGNMENTS_PREFIX_BYTES = PENDING_ASSIGNMENTS_PREFIX.getBytes(UTF_8);
+
     /** Key prefix for stable assignments. */
     public static final String STABLE_ASSIGNMENTS_PREFIX = "zone.assignments.stable.";
+
+    public static final byte[] STABLE_ASSIGNMENTS_PREFIX_BYTES = STABLE_ASSIGNMENTS_PREFIX.getBytes(UTF_8);
 
     /** Key prefix for planned assignments. */
     public static final String PLANNED_ASSIGNMENTS_PREFIX = "zone.assignments.planned.";
 
     /** Key prefix for switch reduce assignments. */
     public static final String ASSIGNMENTS_SWITCH_REDUCE_PREFIX = "zone.assignments.switch.reduce.";
+
+    public static final byte[] ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES = ASSIGNMENTS_SWITCH_REDUCE_PREFIX.getBytes(UTF_8);
 
     /** Key prefix for switch append assignments. */
     public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "zone.assignments.switch.append.";
@@ -378,7 +392,7 @@ public class ZoneRebalanceUtil {
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray pendingChangeTriggerKey(ZonePartitionId zonePartitionId) {
-        return new ByteArray(zonePartitionId + "zone.pending.change.trigger");
+        return new ByteArray("zone.pending.change.trigger." + zonePartitionId);
     }
 
     /**
@@ -437,16 +451,16 @@ public class ZoneRebalanceUtil {
     }
 
     /**
-     * Extract zone id from a metastorage key of partition.
+     * Converts the given {@code key}, stripping it off the given {@code prefix}, into a {@link ZonePartitionId}.
      *
-     * @param key Key.
+     * @param key Metastorage key.
      * @param prefix Key prefix.
-     * @return Table id.
+     * @return {@link ZonePartitionId} that was encoded in the key.
      */
-    public static int extractZoneId(byte[] key, String prefix) {
-        String strKey = new String(key, StandardCharsets.UTF_8);
+    public static ZonePartitionId extractZonePartitionId(byte[] key, byte[] prefix) {
+        var zonePartitionIdString = toStringWithoutPrefix(key, prefix.length);
 
-        return Integer.parseInt(strKey.substring(prefix.length(), strKey.indexOf("_part_")));
+        return ZonePartitionId.fromString(zonePartitionIdString);
     }
 
     /**
@@ -456,21 +470,7 @@ public class ZoneRebalanceUtil {
      * @return Table id.
      */
     public static int extractZoneIdDataNodes(byte[] key) {
-        String strKey = new String(key, StandardCharsets.UTF_8);
-
-        return Integer.parseInt(strKey.substring(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX.length()));
-    }
-
-    /**
-     * Extract partition number from the rebalance key of partition.
-     *
-     * @param key Key.
-     * @return Partition number.
-     */
-    public static int extractPartitionNumber(byte[] key) {
-        var strKey = new String(key, StandardCharsets.UTF_8);
-
-        return Integer.parseInt(strKey.substring(strKey.indexOf("_part_") + "_part_".length()));
+        return Integer.parseInt(toStringWithoutPrefix(key, DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES.length));
     }
 
     /**

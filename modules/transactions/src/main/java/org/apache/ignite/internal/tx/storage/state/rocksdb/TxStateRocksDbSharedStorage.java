@@ -81,7 +81,9 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Scheduled executor to be used by internal operations, such as {@link #awaitFlush(boolean)}. */
+    /**
+     * Scheduled executor. Needed only for asynchronous start of scheduled operations without performing blocking, long or IO operations.
+     */
     private final ScheduledExecutorService scheduledExecutor;
 
     /** Thread pool to execute after-flush actions. */
@@ -97,7 +99,8 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
      * Constructor.
      *
      * @param dbPath Database path.
-     * @param scheduledExecutor Scheduled executor for delayed flushes.
+     * @param scheduledExecutor Scheduled executor. Needed only for asynchronous start of scheduled operations without performing blocking,
+     *      long or IO operations.
      * @param threadPool Thread pool for internal operations.
      * @param logSyncer Write-ahead log synchronizer.
      * @param flushDelaySupplier Flush delay supplier.
@@ -153,7 +156,9 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
             this.dbOptions = new DBOptions()
                     .setCreateIfMissing(true)
                     .setAtomicFlush(true)
-                    .setListeners(List.of(flusher.listener()));
+                    .setListeners(List.of(flusher.listener()))
+                    // Don't flush on shutdown to speed up node shutdown as on recovery we'll apply commands from log.
+                    .setAvoidFlushDuringShutdown(true);
 
             List<ColumnFamilyDescriptor> cfDescriptors;
 

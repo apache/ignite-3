@@ -28,9 +28,8 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTableId;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
@@ -245,6 +244,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -975,20 +975,35 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         return IntStream.range(0, nodes.size()).filter(i -> getNode(i).name.equals(consistentId)).findFirst().orElseThrow();
     }
 
-    private void electPrimaryReplica(Node node) {
-        Set<Assignment> assignments = getPartitionClusterNodes(node, 0);
+    private void electPrimaryReplica(Node primaryReplicaNode) throws InterruptedException {
+        Node leaseholderNode = getLeaseholderNodeForPartition(primaryReplicaNode, 0);
 
-        String leaseholderConsistentId = assignments.stream().findFirst().get().consistentId();
+        int tableId = getTableId(primaryReplicaNode, TABLE_NAME);
 
-        ClusterNode leaseholder = nodes.stream()
-                .filter(n -> n.clusterService.topologyService().localMember().name().equals(leaseholderConsistentId))
-                .findFirst()
-                .get()
-                .clusterService
+        TablePartitionId groupId = new TablePartitionId(tableId, 0);
+
+        assertTrue(waitForCondition(() -> isReplicationGroupStarted(leaseholderNode, groupId), AWAIT_TIMEOUT_MILLIS));
+
+        ClusterNode leaseholder = leaseholderNode.clusterService
                 .topologyService()
                 .localMember();
 
-        node.placementDriver.setPrimaryReplicaSupplier(() -> new TestReplicaMetaImpl(leaseholder.name(), leaseholder.id()));
+        nodes.forEach(node -> node.placementDriver.setPrimaryReplicaSupplier(() -> new TestReplicaMetaImpl(
+                leaseholder.name(),
+                leaseholder.id(),
+                new TablePartitionId(getTableId(node, TABLE_NAME), 0)
+        )));
+    }
+
+    private @NotNull Node getLeaseholderNodeForPartition(Node node, int partId) {
+        Set<Assignment> assignments = getPartitionClusterNodes(node, partId);
+
+        String leaseholderConsistentId = assignments.stream().findFirst().get().consistentId();
+
+        return nodes.stream()
+                .filter(n -> n.clusterService.topologyService().localMember().name().equals(leaseholderConsistentId))
+                .findFirst()
+                .get();
     }
 
     private static Set<Assignment> getPartitionClusterNodes(Node node, int partNum) {
@@ -1273,7 +1288,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            clockWaiter = new ClockWaiter(name, hybridClock);
+            clockWaiter = new ClockWaiter(name, hybridClock, threadPoolsManager.commonScheduler());
 
             ClockService clockService = new ClockServiceImpl(
                     hybridClock,
@@ -1324,7 +1339,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             null,
                             failureManager,
                             logStorageFactory,
-                            hybridClock
+                            hybridClock,
+                            commonScheduledExecutorService
                     ),
                     storageConfiguration
             );
@@ -1371,7 +1387,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     raftManager,
                     partitionRaftConfigurer,
                     view -> new LocalLogStorageFactory(),
-                    ForkJoinPool.commonPool()
+                    ForkJoinPool.commonPool(),
+                    replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsKey((TablePartitionId) replicaGrpId))
+                            .thenApply(Entry::value)
             ));
 
             LongSupplier delayDurationMsSupplier = () -> 10L;
@@ -1426,6 +1444,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
                     rebalanceScheduler,
+                    threadPoolsManager.commonScheduler(),
                     clockService,
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     distributionZoneManager,
@@ -1607,10 +1626,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 return null;
             }
 
-            int partitionId = extractPartitionNumber(stableAssignmentsWatchEvent.key());
-            int tableId = extractTableId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX);
-
-            return new TablePartitionId(tableId, partitionId);
+            return extractTablePartitionId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX_BYTES);
         }
 
         TablePartitionId getTablePartitionId(String tableName, int partitionId) {

@@ -103,18 +103,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         return new ObjectsArrayRowWrapper(schemaBuilder.build(), values);
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public RowWrapper map(RowWrapper row, int[] mapping) {
-        Object[] fields = new Object[mapping.length];
-
-        for (int i = 0; i < mapping.length; i++) {
-            fields[i] = row.get(mapping[i]);
-        }
-
-        return new ObjectsArrayRowWrapper(row.rowSchema(), fields);
-    }
-
     @Override
     public int columnCount(RowWrapper row) {
         return row.columnsCount();
@@ -166,7 +154,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
             /** {@inheritDoc} */
             @Override
             public RowWrapper create(Object... fields) {
-                assert fields.length == schemaLen;
+                assert fields.length == rowSchema.fields().size();
 
                 return new ObjectsArrayRowWrapper(rowSchema, fields);
             }
@@ -177,6 +165,24 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                 assert schemaLen == tuple.elementCount() : format("schemaLen={}, tupleSize={}", schemaLen, tuple.elementCount());
 
                 return new BinaryTupleRowWrapper(rowSchema, tuple);
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public RowSchema rowSchema() {
+                return rowSchema;
+            }
+
+            @Override
+            public RowWrapper map(RowWrapper row, int[] mapping) {
+                assert mapping.length == rowSchema.fields().size();
+                Object[] fields = new Object[mapping.length];
+
+                for (int i = 0; i < mapping.length; i++) {
+                    fields[i] = row.get(mapping[i]);
+                }
+
+                return new ObjectsArrayRowWrapper(rowSchema, fields);
             }
         };
     }
@@ -204,6 +210,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         private final Object[] row;
 
         ObjectsArrayRowWrapper(RowSchema rowSchema, Object[] row) {
+            assert row.length == rowSchema.fields().size();
             this.rowSchema = rowSchema;
             this.row = row;
         }
@@ -214,7 +221,8 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         }
 
         @Override
-        @Nullable Object get(int field) {
+        @Nullable
+        Object get(int field) {
             return row[field];
         }
 
@@ -376,7 +384,8 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         }
 
         @Override
-        @Nullable Object get(int field) {
+        @Nullable
+        Object get(int field) {
             NativeType nativeType = RowSchemaTypes.toNativeType(rowSchema.fields().get(field));
 
             if (nativeType == null) {

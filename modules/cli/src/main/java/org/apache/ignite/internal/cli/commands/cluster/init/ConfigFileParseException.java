@@ -19,6 +19,11 @@ package org.apache.ignite.internal.cli.commands.cluster.init;
 
 /** Exception thrown when config file parse failed. */
 public class ConfigFileParseException extends RuntimeException {
+    public ConfigFileParseException(String message) {
+        super(message);
+    }
+
+
     public ConfigFileParseException(String message, Throwable cause) {
         super(message, cause);
     }

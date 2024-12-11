@@ -125,7 +125,7 @@ public class RenameIndexEntry implements UpdateEntry {
     private static class RenameIndexEntrySerializer implements CatalogObjectSerializer<RenameIndexEntry> {
         @Override
         public RenameIndexEntry readFrom(IgniteDataInput input) throws IOException {
-            int indexId = input.readInt();
+            int indexId = input.readVarIntAsInt();
 
             String newIndexName = input.readUTF();
 
@@ -134,7 +134,7 @@ public class RenameIndexEntry implements UpdateEntry {
 
         @Override
         public void writeTo(RenameIndexEntry entry, IgniteDataOutput out) throws IOException {
-            out.writeInt(entry.indexId);
+            out.writeVarInt(entry.indexId);
             out.writeUTF(entry.newIndexName);
         }
     }

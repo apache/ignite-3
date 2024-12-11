@@ -121,6 +121,7 @@ public class Checkpointer extends IgniteWorker {
             + "pages={}, "
             + "pagesWriteTime={}ms, "
             + "fsyncTime={}ms, "
+            + "replicatorLogSyncTime={}ms, "
             + "totalTime={}ms, "
             + "avgWriteSpeed={}MB/s]";
 
@@ -322,7 +323,9 @@ public class Checkpointer extends IgniteWorker {
         Checkpoint chp = null;
 
         try {
-            CheckpointMetricsTracker tracker = new CheckpointMetricsTracker();
+            var tracker = new CheckpointMetricsTracker();
+
+            tracker.onCheckpointStart();
 
             startCheckpointProgress();
 
@@ -368,13 +371,7 @@ public class Checkpointer extends IgniteWorker {
                     }
                 }
 
-                try {
-                    logSyncer.sync();
-                } catch (Exception e) {
-                    log.error("Failed to sync write-ahead log during checkpoint", e);
-
-                    throw new IgniteInternalCheckedException(e);
-                }
+                replicatorLogSync(tracker);
 
                 if (!writePages(tracker, chp.dirtyPages, chp.progress, this, this::isShutdownNow)) {
                     return;
@@ -390,9 +387,6 @@ public class Checkpointer extends IgniteWorker {
                             chp.progress.reason()
                     );
                 }
-
-                tracker.onPagesWriteStart();
-                tracker.onFsyncStart();
             }
 
             // Must mark successful checkpoint only if there are no exceptions or interrupts.
@@ -402,7 +396,7 @@ public class Checkpointer extends IgniteWorker {
 
             if (chp.hasDelta()) {
                 if (log.isInfoEnabled()) {
-                    float totalDurationInSeconds = tracker.totalDuration(MILLISECONDS) / 1000.0f;
+                    float totalDurationInSeconds = tracker.checkpointDuration(MILLISECONDS) / 1000.0f;
                     float avgWriteSpeedInBytes = ((long) pageSize * chp.dirtyPagesSize) / totalDurationInSeconds;
 
                     log.info(
@@ -411,7 +405,8 @@ public class Checkpointer extends IgniteWorker {
                             chp.dirtyPagesSize,
                             tracker.pagesWriteDuration(MILLISECONDS),
                             tracker.fsyncDuration(MILLISECONDS),
-                            tracker.totalDuration(MILLISECONDS),
+                            tracker.replicatorLogSyncDuration(MILLISECONDS),
+                            tracker.checkpointDuration(MILLISECONDS),
                             WriteSpeedFormatter.formatWriteSpeed(avgWriteSpeedInBytes)
                     );
                 }
@@ -484,6 +479,8 @@ public class Checkpointer extends IgniteWorker {
         // Wait and check for errors.
         CompletableFuture.allOf(futures).join();
 
+        tracker.onPagesWriteEnd();
+
         // Must re-check shutdown flag here because threads may have skipped some pages because of it.
         // If so, we should not finish checkpoint.
         if (shutdownNow.getAsBoolean()) {
@@ -508,6 +505,8 @@ public class Checkpointer extends IgniteWorker {
         tracker.onFsyncStart();
 
         syncUpdatedPageStores(updatedPartitions, currentCheckpointProgress);
+
+        tracker.onFsyncEnd();
 
         compactor.triggerCompaction();
 
@@ -897,5 +896,19 @@ public class Checkpointer extends IgniteWorker {
         CompletableFuture<Void> processedPartitionFuture = currentCheckpointProgress.getUnblockPartitionDestructionFuture(groupPartitionId);
 
         return processedPartitionFuture == null ? nullCompletedFuture() : processedPartitionFuture;
+    }
+
+    private void replicatorLogSync(CheckpointMetricsTracker tracker) throws IgniteInternalCheckedException {
+        try {
+            tracker.onReplicatorLogSyncStart();
+
+            logSyncer.sync();
+
+            tracker.onReplicatorLogSyncEnd();
+        } catch (Exception e) {
+            log.error("Failed to sync write-ahead log during checkpoint", e);
+
+            throw new IgniteInternalCheckedException(e);
+        }
     }
 }

@@ -100,9 +100,12 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
 import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration;
+import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
+import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
+import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -133,7 +136,8 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Distribution zones manager.
  */
-public class DistributionZoneManager implements IgniteComponent {
+public class DistributionZoneManager extends
+        AbstractEventProducer<HaZoneTopologyUpdateEvent, HaZoneTopologyUpdateEventParams> implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneManager.class);
 
@@ -177,10 +181,9 @@ public class DistributionZoneManager implements IgniteComponent {
     };
 
     /**
-     * The logical topology on the last watch event.
-     * It's enough to mark this field by volatile because we don't update the collection after it is assigned to the field.
+     * The logical topology mapped to the MS revision.
      */
-    private volatile Set<NodeWithAttributes> logicalTopology = emptySet();
+    private final ConcurrentSkipListMap<Long, Set<NodeWithAttributes>> logicalTopologyByRevision = new ConcurrentSkipListMap<>();
 
     /**
      * Local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
@@ -386,15 +389,9 @@ public class DistributionZoneManager implements IgniteComponent {
             int partitionDistributionResetTimeoutSeconds,
             long causalityToken
     ) {
-        long updateTimestamp;
+        long updateTimestamp = timestampByRevision(causalityToken);
 
-        try {
-            updateTimestamp = metaStorageManager.timestampByRevisionLocally(causalityToken).longValue();
-        } catch (CompactedException e) {
-            if (causalityToken > 1) {
-                LOG.warn("Unable to retrieve timestamp by revision because of meta storage compaction, [revision={}].", causalityToken);
-            }
-
+        if (updateTimestamp == -1) {
             return;
         }
 
@@ -406,11 +403,6 @@ public class DistributionZoneManager implements IgniteComponent {
 
             if (zoneDescriptor == null || zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
                 continue;
-            }
-
-            if (partitionDistributionResetTimeoutSeconds == IMMEDIATE_TIMER_VALUE) {
-                // TODO: IGNITE-23599 Implement valid behaviour here.
-                return;
             }
 
             ZoneState zoneState = zoneStateEntry.getValue();
@@ -426,8 +418,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
                 zoneState.reschedulePartitionDistributionReset(
                         partitionDistributionResetTimeoutSeconds,
-                        // TODO: IGNITE-23599 Implement valid behaviour here.
-                        () -> {},
+                        () -> fireTopologyReduceLocalEvent(causalityToken, zoneId),
                         zoneId
                 );
             } else {
@@ -528,7 +519,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         assert prevZoneState == null : "Zone's state was created twice [zoneId = " + zoneId + ']';
 
-        Set<Node> dataNodes = logicalTopology.stream().map(NodeWithAttributes::node).collect(toSet());
+        Set<Node> dataNodes = logicalTopology(causalityToken).stream().map(NodeWithAttributes::node).collect(toSet());
 
         causalityDataNodesEngine.onCreateZoneState(causalityToken, zone);
 
@@ -751,13 +742,13 @@ public class DistributionZoneManager implements IgniteComponent {
             // that one value is not null, but other is null.
             assert nodeAttributesEntry.value() != null;
 
-            logicalTopology = deserializeLogicalTopologySet(lastHandledTopologyEntry.value());
+            logicalTopologyByRevision.put(recoveryRevision, deserializeLogicalTopologySet(lastHandledTopologyEntry.value()));
 
             nodesAttributes = DistributionZonesUtil.deserializeNodesAttributes(nodeAttributesEntry.value());
         }
 
         assert lastHandledTopologyEntry.value() == null
-                || logicalTopology.equals(deserializeLogicalTopologySet(lastHandledTopologyEntry.value()))
+                || logicalTopology(recoveryRevision).equals(deserializeLogicalTopologySet(lastHandledTopologyEntry.value()))
                 : "Initial value of logical topology was changed after initialization from the Meta Storage manager.";
 
         assert nodeAttributesEntry.value() == null
@@ -837,15 +828,17 @@ public class DistributionZoneManager implements IgniteComponent {
      * @return Future reflecting the completion of the actions needed when logical topology was updated.
      */
     private CompletableFuture<Void> onLogicalTopologyUpdate(Set<NodeWithAttributes> newLogicalTopology, long revision, int catalogVersion) {
+        Set<NodeWithAttributes> currentLogicalTopology = logicalTopology(revision);
+
         Set<Node> removedNodes =
-                logicalTopology.stream()
+                currentLogicalTopology.stream()
                         .filter(node -> !newLogicalTopology.contains(node))
                         .map(NodeWithAttributes::node)
                         .collect(toSet());
 
         Set<Node> addedNodes =
                 newLogicalTopology.stream()
-                        .filter(node -> !logicalTopology.contains(node))
+                        .filter(node -> !currentLogicalTopology.contains(node))
                         .map(NodeWithAttributes::node)
                         .collect(toSet());
 
@@ -865,7 +858,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n));
 
-        logicalTopology = newLogicalTopology;
+        logicalTopologyByRevision.put(revision, newLogicalTopology);
 
         futures.add(saveRecoverableStateToMetastorage(zoneIds, revision, newLogicalTopology));
 
@@ -985,22 +978,13 @@ public class DistributionZoneManager implements IgniteComponent {
 
             if (nodesRemoved) {
                 if (zone.consistencyMode() == HIGH_AVAILABILITY) {
-                    if (partitionReset == IMMEDIATE_TIMER_VALUE) {
-                        futures.add(
-                                // TODO: IGNITE-23599 Implement valid behaviour here.
-                                nullCompletedFuture()
-                        );
-                    }
-
                     if (partitionReset != INFINITE_TIMER_VALUE) {
                         zonesState.get(zoneId).reschedulePartitionDistributionReset(
                                 partitionReset,
-                                // TODO: IGNITE-23599 Implement valid behaviour here.
-                                () -> {},
+                                () -> fireTopologyReduceLocalEvent(revision, zoneId),
                                 zoneId
                         );
                     }
-
                 } else {
                     if (autoAdjustScaleDown == IMMEDIATE_TIMER_VALUE) {
                         futures.add(saveDataNodesToMetaStorageOnScaleDown(zoneId, revision));
@@ -1018,6 +1002,37 @@ public class DistributionZoneManager implements IgniteComponent {
         }
 
         return allOf(futures.toArray(CompletableFuture[]::new));
+    }
+
+    /**
+     * Returns metastore long view of {@link org.apache.ignite.internal.hlc.HybridTimestamp} by revision.
+     *
+     * @param revision Metastore revision.
+     * @return Appropriate metastore timestamp or -1 if revision is already compacted.
+     */
+    private long timestampByRevision(long revision) {
+        try {
+            return metaStorageManager.timestampByRevisionLocally(revision).longValue();
+        } catch (CompactedException e) {
+            if (revision > 1) {
+                LOG.warn("Unable to retrieve timestamp by revision because of meta storage compaction, [revision={}].", revision);
+            }
+
+            return -1;
+        }
+
+    }
+
+    private void fireTopologyReduceLocalEvent(long revision, int zoneId) {
+        fireEvent(
+                HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED,
+                new HaZoneTopologyUpdateEventParams(zoneId, revision)
+        ).exceptionally(th -> {
+            LOG.error("Error during the local " + HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED.name()
+                    + " event processing", th);
+
+            return null;
+        });
     }
 
     /**
@@ -1551,7 +1566,22 @@ public class DistributionZoneManager implements IgniteComponent {
     }
 
     public Set<NodeWithAttributes> logicalTopology() {
-        return logicalTopology;
+        return logicalTopology(Long.MAX_VALUE);
+    }
+
+    /**
+     * Get logical topology for the given revision.
+     * If there is no data for revision i, return topology for the maximum revision smaller than i.
+     *
+     * @param revision metastore revision.
+     * @return logical topology.
+     */
+    public Set<NodeWithAttributes> logicalTopology(long revision) {
+        assert revision >= 0 : revision;
+
+        Map.Entry<Long, Set<NodeWithAttributes>> entry = logicalTopologyByRevision.floorEntry(revision);
+
+        return entry != null ? entry.getValue() : emptySet();
     }
 
     private void registerCatalogEventListenersOnStartManagerBusy() {

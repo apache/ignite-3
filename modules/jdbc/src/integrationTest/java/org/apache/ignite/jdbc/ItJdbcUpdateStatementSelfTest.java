@@ -61,7 +61,7 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
 
         final String q4 = "DROP TABLE usertable;";
 
-        assertEquals(0, stmt.executeUpdate(q1));
+        assertEquals(1, stmt.executeUpdate(q1));
         assertEquals(1, stmt.executeUpdate(q2));
         assertEquals(1, stmt.executeUpdate(q3));
 
@@ -75,7 +75,7 @@ public class ItJdbcUpdateStatementSelfTest extends AbstractJdbcSelfTest {
             assertEquals("b" + i, resultSet.getString(i + 2));
         }
 
-        assertEquals(0, stmt.executeUpdate(q4));
+        assertEquals(1, stmt.executeUpdate(q4));
     }
 
     /**

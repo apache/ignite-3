@@ -26,7 +26,6 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.ssl.ClientAuth;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
 import java.io.File;
@@ -40,7 +39,6 @@ import java.security.cert.CertificateException;
 import java.util.concurrent.CompletableFuture;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
-import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.client.SslConfiguration;
@@ -51,7 +49,7 @@ import org.apache.ignite.internal.client.io.ClientConnectionStateHandler;
 import org.apache.ignite.internal.client.io.ClientMessageHandler;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.lang.ErrorGroups.Client;
-import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Netty-based multiplexer.
@@ -76,6 +74,8 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
     @Override
     public void start(IgniteClientConfiguration clientCfg) {
         try {
+            SslContext sslCtx = setupSsl(clientCfg.ssl());
+
             bootstrap.group(workerGroup);
             bootstrap.channel(NioSocketChannel.class);
             bootstrap.option(ChannelOption.TCP_NODELAY, true);
@@ -84,7 +84,10 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
                 @Override
                 public void initChannel(SocketChannel ch) {
-                    setupSsl(ch, clientCfg);
+                    if (sslCtx != null) {
+                        ch.pipeline().addFirst("ssl", sslCtx.newHandler(ch.alloc()));
+                    }
+
                     ch.pipeline().addLast(
                             new ClientMessageDecoder(),
                             new NettyClientMessageHandler());
@@ -98,26 +101,22 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         }
     }
 
-    private void setupSsl(SocketChannel ch, IgniteClientConfiguration clientCfg) {
-        if (clientCfg.ssl() == null || !clientCfg.ssl().enabled()) {
-            return;
+    private static @Nullable SslContext setupSsl(@Nullable SslConfiguration ssl) {
+        if (ssl == null || !ssl.enabled()) {
+            return null;
         }
 
         try {
-            SslConfiguration ssl = clientCfg.ssl();
-            SslContextBuilder builder = SslContextBuilder.forClient().trustManager(loadTrustManagerFactory(ssl));
 
-            builder.ciphers(ssl.ciphers());
-            ClientAuth clientAuth = toNettyClientAuth(ssl.clientAuthenticationMode());
-            if (ClientAuth.NONE != clientAuth) {
-                builder.clientAuth(clientAuth).keyManager(loadKeyManagerFactory(ssl));
-            }
+            SslContextBuilder builder = SslContextBuilder.forClient()
+                    .trustManager(loadTrustManagerFactory(ssl))
+                    .keyManager(loadKeyManagerFactory(ssl))
+                    .ciphers(ssl.ciphers());
 
-            SslContext context = builder.build();
-
-            ch.pipeline().addFirst("ssl", context.newHandler(ch.alloc()));
+            return builder.build();
         } catch (NoSuchAlgorithmException | KeyStoreException | CertificateException | IOException | UnrecoverableKeyException e) {
-            throw new IgniteException(CLIENT_SSL_CONFIGURATION_ERR, "Client SSL configuration error: " + e.getMessage(), e);
+            throw new IgniteClientConnectionException(
+                    CLIENT_SSL_CONFIGURATION_ERR, "Client SSL configuration error: " + e.getMessage(), null, e);
         }
     }
 
@@ -149,15 +148,6 @@ public class NettyClientConnectionMultiplexer implements ClientConnectionMultipl
         }
 
         return trustManagerFactory;
-    }
-
-    private static ClientAuth toNettyClientAuth(ClientAuthenticationMode igniteClientAuth) {
-        switch (igniteClientAuth) {
-            case NONE: return ClientAuth.NONE;
-            case REQUIRE: return ClientAuth.REQUIRE;
-            case OPTIONAL: return ClientAuth.OPTIONAL;
-            default: throw new IllegalArgumentException("Client authentication type is not supported");
-        }
     }
 
     /** {@inheritDoc} */

@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -80,13 +79,14 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> sendBatch(String nodeName, UUID qryId, long fragmentId, long exchangeId, int batchId,
+    public CompletableFuture<Void> sendBatch(String nodeName, ExecutionId executionId, long fragmentId, long exchangeId, int batchId,
             boolean last, List<BinaryTupleMessage> rows) {
 
         return messageService.send(
                 nodeName,
                 FACTORY.queryBatchMessage()
-                        .queryId(qryId)
+                        .queryId(executionId.queryId())
+                        .executionToken(executionId.executionToken())
                         .fragmentId(fragmentId)
                         .exchangeId(exchangeId)
                         .batchId(batchId)
@@ -99,12 +99,13 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> request(String nodeName, UUID queryId, long fragmentId, long exchangeId, int amountOfBatches,
+    public CompletableFuture<Void> request(String nodeName, ExecutionId executionId, long fragmentId, long exchangeId, int amountOfBatches,
             @Nullable SharedState state) {
         return messageService.send(
                 nodeName,
                 FACTORY.queryBatchRequestMessage()
-                        .queryId(queryId)
+                        .queryId(executionId.queryId())
+                        .executionToken(executionId.executionToken())
                         .fragmentId(fragmentId)
                         .exchangeId(exchangeId)
                         .amountOfBatches(amountOfBatches)
@@ -115,23 +116,24 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> sendError(String nodeName, UUID queryId, long fragmentId, Throwable error) {
+    public CompletableFuture<Void> sendError(String nodeName, ExecutionId executionId, long fragmentId, Throwable error) {
         Throwable traceableErr = ExceptionUtils.unwrapCause(error);
 
         if (!(traceableErr instanceof TraceableException)) {
             traceableErr = error = new IgniteInternalException(INTERNAL_ERR, error);
 
-            LOG.info(format("Failed to execute query fragment: traceId={}, queryId={}, fragmentId={}",
-                    ((TraceableException) traceableErr).traceId(), queryId, fragmentId), error);
+            LOG.info(format("Failed to execute query fragment: traceId={}, executionId={}, fragmentId={}",
+                    ((TraceableException) traceableErr).traceId(), executionId, fragmentId), error);
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug(format("Failed to execute query fragment: traceId={}, queryId={}, fragmentId={}",
-                    ((TraceableException) traceableErr).traceId(), queryId, fragmentId), error);
+            LOG.debug(format("Failed to execute query fragment: traceId={}, executionId={}, fragmentId={}",
+                    ((TraceableException) traceableErr).traceId(), executionId, fragmentId), error);
         }
 
         return messageService.send(
                 nodeName,
                 FACTORY.errorMessage()
-                        .queryId(queryId)
+                        .queryId(executionId.queryId())
+                        .executionToken(executionId.executionToken())
                         .fragmentId(fragmentId)
                         .traceId(((TraceableException) traceableErr).traceId())
                         .code(((TraceableException) traceableErr).code())
@@ -141,7 +143,8 @@ public class ExchangeServiceImpl implements ExchangeService {
     }
 
     private void onMessage(String nodeName, QueryBatchRequestMessage msg) {
-        CompletableFuture<Outbox<?>> outboxFut = mailboxRegistry.outbox(msg.queryId(), msg.exchangeId());
+        ExecutionId executionId = new ExecutionId(msg.queryId(), msg.executionToken());
+        CompletableFuture<Outbox<?>> outboxFut = mailboxRegistry.outbox(executionId, msg.exchangeId());
 
         Consumer<Outbox<?>> onRequestHandler = outbox -> {
             try {
@@ -166,7 +169,8 @@ public class ExchangeServiceImpl implements ExchangeService {
     }
 
     private void onMessage(String nodeName, QueryBatchMessage msg) {
-        Inbox<?> inbox = mailboxRegistry.inbox(msg.queryId(), msg.exchangeId());
+        ExecutionId executionId = new ExecutionId(msg.queryId(), msg.executionToken());
+        Inbox<?> inbox = mailboxRegistry.inbox(executionId, msg.exchangeId());
 
         if (inbox != null) {
             try {
@@ -181,8 +185,8 @@ public class ExchangeServiceImpl implements ExchangeService {
                 LOG.warn("Unexpected exception", e);
             }
         } else if (LOG.isDebugEnabled()) {
-            LOG.debug("Stale batch message received: [nodeName={}, queryId={}, fragmentId={}, exchangeId={}, batchId={}]",
-                    nodeName, msg.queryId(), msg.fragmentId(), msg.exchangeId(), msg.batchId());
+            LOG.debug("Stale batch message received: [nodeName={}, executionId={}, fragmentId={}, exchangeId={}, batchId={}]",
+                    nodeName, executionId, msg.fragmentId(), msg.exchangeId(), msg.batchId());
         }
     }
 

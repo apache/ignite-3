@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators.NATURAL;
 import static org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators.NONE;
-import static org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators.REVERSE;
+import static org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators.REVERSED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Comparator;
@@ -46,8 +46,8 @@ public class DeadlockPreventionPolicyConfigurationTest extends BaseIgniteAbstrac
     @InjectConfiguration("mock: { deadlockPreventionPolicy: { waitTimeout: 1000, txIdComparator: NATURAL } }")
     private TransactionConfiguration transactionConfigurationMockedNatural;
 
-    @InjectConfiguration("mock: { deadlockPreventionPolicy: { waitTimeout: 100, txIdComparator: REVERSE } }")
-    private TransactionConfiguration transactionConfigurationMockedReverse;
+    @InjectConfiguration("mock: { deadlockPreventionPolicy: { waitTimeout: 100, txIdComparator: REVERSED } }")
+    private TransactionConfiguration transactionConfigurationMockedReversed;
 
     @InjectConfiguration("mock: { deadlockPreventionPolicy: { waitTimeout: 0, txIdComparator: NONE } }")
     private TransactionConfiguration transactionConfigurationMockedNone;
@@ -71,12 +71,12 @@ public class DeadlockPreventionPolicyConfigurationTest extends BaseIgniteAbstrac
     }
 
     @Test
-    public void checkMockedReverse() {
-        assertEquals(100, transactionConfigurationMockedReverse.deadlockPreventionPolicy().waitTimeout().value());
-        assertEquals(REVERSE.toString(),
-                transactionConfigurationMockedReverse.deadlockPreventionPolicy().txIdComparator().value());
+    public void checkMockedReversed() {
+        assertEquals(100, transactionConfigurationMockedReversed.deadlockPreventionPolicy().waitTimeout().value());
+        assertEquals(REVERSED.toString(),
+                transactionConfigurationMockedReversed.deadlockPreventionPolicy().txIdComparator().value());
 
-        assertPolicyIsCorrect(createPolicy(transactionConfigurationMockedReverse), transactionConfigurationMockedReverse);
+        assertPolicyIsCorrect(createPolicy(transactionConfigurationMockedReversed), transactionConfigurationMockedReversed);
     }
 
     @Test
@@ -124,7 +124,7 @@ public class DeadlockPreventionPolicyConfigurationTest extends BaseIgniteAbstrac
         if (cmp > 0) {
             assertEquals(NATURAL, configuredEnum);
         } else {
-            assertEquals(REVERSE, configuredEnum);
+            assertEquals(REVERSED, configuredEnum);
         }
     }
 }

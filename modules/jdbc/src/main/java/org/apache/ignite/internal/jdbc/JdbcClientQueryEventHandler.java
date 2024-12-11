@@ -35,6 +35,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaSchemasResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcMetaTablesResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryCancelResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 
@@ -50,7 +51,7 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
      *
      * @param client TcpIgniteClient.
      */
-    public JdbcClientQueryEventHandler(TcpIgniteClient client) {
+    JdbcClientQueryEventHandler(TcpIgniteClient client) {
         this.client = client;
     }
 
@@ -172,6 +173,21 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
             w.out().packBoolean(commit);
         }, r -> {
             JdbcFinishTxResult res = new JdbcFinishTxResult();
+
+            res.readBinary(r.in());
+
+            return res;
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<JdbcQueryCancelResult> cancelAsync(long connectionId, long correlationToken) {
+        return client.sendRequestAsync(ClientOp.JDBC_CANCEL, w -> {
+            w.out().packLong(connectionId);
+            w.out().packLong(correlationToken);
+        }, r -> {
+            JdbcQueryCancelResult res = new JdbcQueryCancelResult();
 
             res.readBinary(r.in());
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.groupingBy;
@@ -26,6 +27,8 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.CATCHING_UP;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
@@ -42,6 +45,7 @@ import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STAT
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,6 +54,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -60,6 +65,8 @@ import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
+import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -82,6 +89,7 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStatesResponse;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -100,6 +108,7 @@ import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Manager, responsible for "disaster recovery" operations.
@@ -213,6 +222,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
 
+        dzManager.listen(HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onHaZoneTopologyReduce);
+
         catalogManager.listen(TABLE_CREATE, fromConsumer(this::onTableCreate));
 
         catalogManager.listen(TABLE_DROP, fromConsumer(this::onTableDrop));
@@ -241,6 +252,66 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         );
     }
 
+    @TestOnly
+    public Map<UUID, CompletableFuture<Void>> ongoingOperationsById() {
+        return ongoingOperationsById;
+    }
+
+    private CompletableFuture<Boolean> onHaZoneTopologyReduce(HaZoneTopologyUpdateEventParams params) {
+        int zoneId = params.zoneId();
+        long revision = params.causalityToken();
+        long timestamp = metaStorageManager.timestampByRevisionLocally(revision).longValue();
+
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, timestamp);
+        int catalogVersion = catalogManager.activeCatalogVersion(timestamp);
+
+        List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogVersion, catalogManager);
+        List<CompletableFuture<Void>> tablesResetFuts = new ArrayList<>();
+        for (CatalogTableDescriptor table : tables) {
+            Set<Integer> partitionsToReset = new HashSet<>();
+            for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
+                TablePartitionId partitionId = new TablePartitionId(table.id(), partId);
+
+                if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision).size() < (zoneDescriptor.replicas() / 2 + 1)) {
+                    partitionsToReset.add(partId);
+                }
+            }
+
+            if (!partitionsToReset.isEmpty()) {
+                tablesResetFuts.add(resetPartitions(
+                        zoneDescriptor.name(), table.id(), partitionsToReset, false));
+            }
+        }
+
+        return allOf(tablesResetFuts.toArray(new CompletableFuture[]{})).thenApply(r -> false);
+    }
+
+    private Set<Assignment> stableAssignmentsWithOnlyAliveNodes(TablePartitionId partitionId, long revision) {
+        Set<Assignment> stableAssignments = Assignments.fromBytes(
+                metaStorageManager.getLocally(stablePartAssignmentsKey(partitionId), revision).value()).nodes();
+
+        Set<String> logicalTopology = dzManager.logicalTopology(revision)
+                .stream().map(NodeWithAttributes::nodeName).collect(Collectors.toUnmodifiableSet());
+
+        return stableAssignments
+                .stream().filter(a -> logicalTopology.contains(a.consistentId())).collect(Collectors.toUnmodifiableSet());
+    }
+
+    /**
+     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
+     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
+     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
+     * so that a new leader could be elected.
+     *
+     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
+     * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
+     * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
+     * @return Future that completes when partitions are reset.
+     */
+    public CompletableFuture<Void> resetAllPartitions(String zoneName, String tableName, boolean manualUpdate) {
+        return resetPartitions(zoneName, tableName, emptySet(), manualUpdate);
+    }
+
     /**
      * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
      * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
@@ -254,10 +325,26 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @return Future that completes when partitions are reset.
      */
     public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate) {
+        int tableId = tableDescriptor(catalogLatestVersion(), tableName).id();
+
+        return resetPartitions(zoneName, tableId, partitionIds, manualUpdate);
+    }
+
+    /**
+     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
+     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
+     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
+     * so that a new leader could be elected.
+     *
+     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
+     * @param tableId Table id.
+     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
+     * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
+     * @return Future that completes when partitions are reset.
+     */
+    private CompletableFuture<Void> resetPartitions(String zoneName, int tableId, Set<Integer> partitionIds, boolean manualUpdate) {
         try {
             Catalog catalog = catalogLatestVersion();
-
-            int tableId = tableDescriptor(catalog, tableName).id();
 
             CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
 

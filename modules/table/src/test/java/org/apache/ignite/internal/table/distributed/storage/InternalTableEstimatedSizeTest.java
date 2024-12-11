@@ -48,6 +48,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
@@ -88,6 +89,8 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -110,6 +113,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Tests for distributed aspects of the {@link InternalTable#estimatedSize} method.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
@@ -142,6 +146,9 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
+
     @BeforeEach
     void setUp(
             TestInfo testInfo,
@@ -172,7 +179,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
 
         components.add(clusterService);
 
-        var clockWaiter = new ClockWaiter(nodeName, clock);
+        var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
 
         components.add(clockWaiter);
 
@@ -279,6 +286,11 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 new RaftCommandRunner() {
                     @Override
                     public <R> CompletableFuture<R> run(Command cmd) {
+                        return nullCompletedFuture();
+                    }
+
+                    @Override
+                    public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
                         return nullCompletedFuture();
                     }
                 },

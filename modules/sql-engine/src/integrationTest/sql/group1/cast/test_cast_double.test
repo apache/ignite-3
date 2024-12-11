@@ -1,0 +1,123 @@
+# name: test/sql/cast/test_cast_double.test
+# description: CAST DOUBLE
+# feature: SQL F201(CAST function)
+# group: [cast]
+
+statement ok
+SELECT CAST('100.0' AS DOUBLE);
+
+query T
+SELECT CAST('100' AS DOUBLE);
+----
+100.0
+
+query T
+SELECT CAST(1e1 AS DOUBLE);
+----
+10
+
+# overflow
+statement error
+SELECT CAST(1e309 AS DOUBLE);
+
+# overflow
+statement error
+SELECT CAST(-1e309 AS DOUBLE);
+
+query I
+SELECT CAST('1e1' AS DOUBLE);
+----
+10.0
+
+query I
+SELECT CAST('   1e1' AS DOUBLE);
+----
+10.0
+
+for val in [100::TINYINT, 100::SMALLINT, 100::INT, 100::BIGINT, 100::DECIMAL, 100::DECIMAL(3)]
+
+query T
+SELECT CAST(${val} AS DOUBLE);
+----
+100
+
+endfor
+
+query T
+SELECT CAST(100.1::REAL AS DOUBLE);
+----
+100.0999984741211
+
+query T
+SELECT CAST(100.1::FLOAT AS DOUBLE);
+----
+100.0999984741211
+
+statement error: For input string: "e1"
+SELECT CAST('e1' AS DOUBLE);
+
+statement error: For input string: "e1"
+SELECT CAST('  e1' AS DOUBLE);
+
+statement error: For input string: "E1"
+SELECT CAST('  E1' AS DOUBLE);
+
+statement error: For input string: "100x"
+SELECT CAST('100x' AS DOUBLE);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type DOUBLE
+SELECT CAST(x'00' AS DOUBLE);
+
+statement error: Cast function cannot convert value of type DATE to type DOUBLE
+SELECT CAST('2000-01-01'::DATE AS DOUBLE);
+
+statement error: Cast function cannot convert value of type TIME(0) to type DOUBLE
+SELECT CAST('00:00:00'::TIME AS DOUBLE);
+
+statement error: Cast function cannot convert value of type TIMESTAMP(6) to type DOUBLE
+SELECT CAST('2000-01-01 00:00:00'::TIMESTAMP AS DOUBLE);
+
+statement error: Cast function cannot convert value of type UUID to type DOUBLE
+SELECT CAST('c4a0327c-44be-416d-ae90-75c05079789f'::UUID AS DOUBLE);
+
+statement error: Cast function cannot convert value of type BINARY(1) to type DOUBLE
+SELECT CAST(x'00'::BINARY AS DOUBLE);
+
+statement error: Cast function cannot convert value of type VARBINARY to type DOUBLE
+SELECT CAST(x'00'::VARBINARY AS DOUBLE);
+
+for interval_type in [YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, YEARS, MONTHS, DAYS, HOURS, MINUTES, SECONDS]
+
+statement error: Cast function cannot convert value
+SELECT CAST(INTERVAL 11 ${interval_type} AS DOUBLE);
+
+endfor
+
+for interval_type in [DAY TO HOUR, DAY TO MINUTE, DAY TO SECOND, HOUR TO MINUTE, HOUR TO SECOND, MINUTE TO SECOND, YEAR TO MONTH]
+
+statement error: Cast function cannot convert value of type INTERVAL ${interval_type} to type DOUBLE
+SELECT CAST(INTERVAL '0 01:02' ${interval_type} AS DOUBLE);
+
+endfor
+
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO HOUR to type DOUBLE
+SELECT CAST(INTERVAL '0 01' DAYS TO HOURS AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO MINUTE to type DOUBLE
+SELECT CAST(INTERVAL '0 01:02' DAYS TO MINUTES AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL DAY TO SECOND to type DOUBLE
+SELECT CAST(INTERVAL '0 01:02:03' DAYS TO SECONDS AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO MINUTE to type DOUBLE
+SELECT CAST(INTERVAL '00:01' HOURS TO MINUTES AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL HOUR TO SECOND to type DOUBLE
+SELECT CAST(INTERVAL '00:01:02' HOURS TO SECONDS AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL MINUTE TO SECOND to type DOUBLE
+SELECT CAST(INTERVAL '00:01' MINUTES TO SECONDS AS DOUBLE);
+
+statement error: Cast function cannot convert value of type INTERVAL YEAR TO MONTH to type DOUBLE
+SELECT CAST(INTERVAL '1-0' YEARS TO MONTHS AS DOUBLE);

@@ -24,6 +24,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -55,6 +57,8 @@ import org.jetbrains.annotations.TestOnly;
  * Table view implementation for binary objects.
  */
 public class TableImpl implements TableViewInternal {
+    private static final IgniteLogger LOG = Loggers.forClass(TableImpl.class);
+
     /** Internal table. */
     private final InternalTable tbl;
 
@@ -279,6 +283,11 @@ public class TableImpl implements TableViewInternal {
     public void unregisterIndex(int indexId) {
         indexWrapperById.remove(indexId);
 
-        tbl.storage().destroyIndex(indexId);
+        tbl.storage().destroyIndex(indexId)
+                .whenComplete((res, e) -> {
+                    if (e != null) {
+                        LOG.error("Unable to destroy index {}", e, indexId);
+                    }
+                });
     }
 }

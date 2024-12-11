@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.QUEUE_OVERFLOW_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
@@ -176,20 +177,28 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                     stateMachine.queueJob(jobId);
                     run();
                 } else {
-                    if (queueEntry.isInterrupted()) {
-                        stateMachine.cancelJob(jobId);
-                    } else {
-                        stateMachine.failJob(jobId);
+                    try {
+                        if (queueEntry.isInterrupted()) {
+                            stateMachine.cancelJob(jobId);
+                        } else {
+                            stateMachine.failJob(jobId);
+                        }
+                    // TODO: Need to be refactored after https://issues.apache.org/jira/browse/IGNITE-23769
+                    } catch (IllegalJobStatusTransition err) {
+                        throwable.addSuppressed(err);
+                        result.completeExceptionally(throwable);
                     }
+
                     result.completeExceptionally(throwable);
                 }
             } else {
                 if (queueEntry.isInterrupted()) {
                     stateMachine.cancelJob(jobId);
+                    result.completeExceptionally(new CancellationException());
                 } else {
                     stateMachine.completeJob(jobId);
+                    result.complete(r);
                 }
-                result.complete(r);
             }
         });
     }

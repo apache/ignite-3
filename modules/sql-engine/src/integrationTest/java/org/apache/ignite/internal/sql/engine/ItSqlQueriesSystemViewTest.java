@@ -30,7 +30,6 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -44,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
+import org.awaitility.Awaitility;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
@@ -63,7 +63,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
     }
 
     @AfterEach
-    void cleanup() throws InterruptedException {
+    void cleanup() {
         sql("DELETE FROM test");
 
         checkNoPendingQueries();
@@ -100,11 +100,12 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
 
         ClockService clockService = unwrapIgniteImpl(initiator).clockService();
 
-
         String schema = "SYSTEM";
 
         // Test with explicit tx.
         InternalTransaction tx = (InternalTransaction) initiator.transactions().begin();
+
+        checkNoPendingQueries();
 
         try {
             long tsBefore = clockService.now().getPhysical();
@@ -120,6 +121,8 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         } finally {
             tx.rollback();
         }
+
+        checkNoPendingQueries();
 
         // Implicit tx.
         {
@@ -150,7 +153,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         long timeAfter = clockService.now().getPhysical();
 
         assertThat(cursors, hasSize(3));
-        assertThat(queryProcessor().runningQueries(), is(4));
+        assertThat(queryProcessor().runningQueriesCount(), is(4));
 
         // Verify script query info.
         {
@@ -195,12 +198,13 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
 
         // Closing cursors.
         await(cursors.get(0).closeAsync());
-        assertThat(queryProcessor().runningQueries(), is(3));
+        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), is(3)));
 
         await(cursors.get(1).closeAsync());
-        assertThat(queryProcessor().runningQueries(), is(2));
+        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), is(2)));
 
         await(cursors.get(2).closeAsync());
+        checkNoPendingQueries();
     }
 
     @Test
@@ -220,8 +224,8 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         long timeAfter = clockService.now().getPhysical();
 
         // "DDL" and "EXPLAIN" queries close cursor automatically.
-        waitForCondition(() -> queryProcessor().runningQueries() == 4, 5_000);
-        assertThat(queryProcessor().runningQueries(), is(4));
+        waitForCondition(() -> queryProcessor().runningQueriesCount() == 4, 5_000);
+        assertThat(queryProcessor().runningQueriesCount(), is(4));
 
         String sql = "SELECT * FROM SYSTEM.SQL_QUERIES "
                 + "WHERE PARENT_ID=(SELECT ID FROM SYSTEM.SQL_QUERIES WHERE TYPE='SCRIPT') "
@@ -249,6 +253,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
 
         // Commit transaction.
         await(await(cursors.get(cursors.size() - 1).nextResult()).closeAsync());
+        checkNoPendingQueries();
     }
 
     @Test
@@ -297,14 +302,13 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         }
     }
 
-    private void checkNoPendingQueries() throws InterruptedException {
+    private void checkNoPendingQueries() {
         List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
 
         for (Ignite node : nodes) {
             SqlQueryProcessor queryProcessor = (SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine();
 
-            boolean success = waitForCondition(() -> queryProcessor.runningQueries() == 0, 5_000);
-            assertTrue(success, "node=" + node.name() + ", count=" + queryProcessor().runningQueries());
+            Awaitility.await().untilAsserted(() -> assertThat(queryProcessor.runningQueriesCount(), is(0)));
         }
     }
 

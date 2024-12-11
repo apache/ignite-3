@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
@@ -37,6 +38,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSucc
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -61,6 +63,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -68,7 +71,6 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -88,6 +90,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessageResponse;
+import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -123,6 +126,7 @@ import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
@@ -150,7 +154,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /** Busy lock to stop synchronously. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+    private final IgniteStripedReadWriteLock busyLock = new IgniteStripedReadWriteLock();
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
@@ -243,6 +247,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *      volatile tables.
      * @param groupIdConverter Temporary converter to support the zone based partitions in tests.
+     * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this method
     @TestOnly
@@ -262,7 +267,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
-            Function<ReplicaRequest, ReplicationGroupId> groupIdConverter
+            Function<ReplicaRequest, ReplicationGroupId> groupIdConverter,
+            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
     ) {
         this(
                 nodeName,
@@ -279,7 +285,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftManager,
                 partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
-                replicaStartStopExecutor
+                replicaStartStopExecutor,
+                getPendingAssignmentsSupplier
         );
 
         this.groupIdConverter = groupIdConverter;
@@ -300,8 +307,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param raftCommandsMarshaller Command marshaller for raft groups creation.
      * @param raftGroupServiceFactory A factory for raft-clients creation.
      * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
+     * @param partitionRaftConfigurer Configurer of raft options on raft group creation.
      * @param volatileLogStorageFactoryCreator Creator for {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} for
      *      volatile tables.
+     * @param replicaStartStopExecutor Executor for asynchronous replicas lifecycle management.
+     * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
      */
     public ReplicaManager(
             String nodeName,
@@ -318,7 +328,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftManager raftManager,
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
-            Executor replicaStartStopExecutor
+            Executor replicaStartStopExecutor,
+            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -335,7 +346,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
         this.partitionRaftConfigurer = partitionRaftConfigurer;
-        this.replicaStateManager = new ReplicaStateManager(replicaStartStopExecutor, clockService, placementDriver, this);
+        this.replicaStateManager = new ReplicaStateManager(
+                replicaStartStopExecutor,
+                clockService,
+                placementDriver,
+                getPendingAssignmentsSupplier,
+                failureManager,
+                this
+        );
 
         // This pool MUST be single-threaded to make sure idle safe time propagation attempts are not reordered on it.
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
@@ -384,7 +402,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private void handleReplicaRequest(ReplicaRequest request, ClusterNode sender, @Nullable Long correlationId) {
-        if (!busyLock.enterBusy()) {
+        if (!enterBusy()) {
             if (LOG.isInfoEnabled()) {
                 LOG.info("Failed to process replica request (the node is stopping) [request={}].", request);
             }
@@ -452,7 +470,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 NetworkMessage msg;
 
                 if (ex == null) {
-                    msg = prepareReplicaResponse(sendTimestamp, res.result());
+                    msg = prepareReplicaResponse(sendTimestamp, res);
                 } else {
                     if (indicatesUnexpectedProblem(ex)) {
                         LOG.warn("Failed to process replica request [request={}].", ex, request);
@@ -471,14 +489,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     stopLeaseProlongation(groupId, null);
                 }
 
-                if (ex == null && res.replicationFuture() != null) {
-                    res.replicationFuture().whenComplete((res0, ex0) -> {
+                if (ex == null && res.applyResult().replicationFuture() != null) {
+                    res.applyResult().replicationFuture().whenComplete((res0, ex0) -> {
                         NetworkMessage msg0;
 
                         LOG.debug("Sending delayed response for replica request [request={}]", request);
 
                         if (ex0 == null) {
-                            msg0 = prepareReplicaResponse(sendTimestamp, res0);
+                            msg0 = prepareReplicaResponse(sendTimestamp, new ReplicaResult(res0, null));
                         } else {
                             LOG.warn("Failed to process delayed response [request={}]", ex0, request);
 
@@ -491,7 +509,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 }
             });
         } finally {
-            busyLock.leaveBusy();
+            leaveBusy();
         }
     }
 
@@ -524,7 +542,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         var msg = (PlacementDriverReplicaMessage) msg0;
 
-        if (!busyLock.enterBusy()) {
+        if (!enterBusy()) {
             if (LOG.isInfoEnabled()) {
                 LOG.info("Failed to process placement driver message (the node is stopping) [msg={}].", msg);
             }
@@ -545,7 +563,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         }
                     });
         } finally {
-            busyLock.leaveBusy();
+            leaveBusy();
         }
     }
 
@@ -658,7 +676,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ReplicationGroupId replicaGrpId,
             PeersAndLearners newConfiguration
     ) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
+        if (!enterBusy()) {
             throw new NodeStoppingException();
         }
 
@@ -682,7 +700,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     )
             );
         } finally {
-            busyLock.leaveBusy();
+            leaveBusy();
         }
     }
 
@@ -835,14 +853,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @throws NodeStoppingException If the node is stopping.
      */
     public CompletableFuture<Boolean> stopReplica(ReplicationGroupId replicaGrpId) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
+        if (!enterBusy()) {
             throw new NodeStoppingException();
         }
 
         try {
             return stopReplicaInternal(replicaGrpId);
         } finally {
-            busyLock.leaveBusy();
+            leaveBusy();
         }
     }
 
@@ -862,7 +880,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 LOG.error("Error when notifying about BEFORE_REPLICA_STOPPED event.", e);
             }
 
-            if (!busyLock.enterBusy()) {
+            if (!enterBusy()) {
                 isRemovedFuture.completeExceptionally(new NodeStoppingException());
 
                 return;
@@ -895,7 +913,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return null;
                 });
             } finally {
-                busyLock.leaveBusy();
+                leaveBusy();
             }
         });
 
@@ -953,7 +971,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return nullCompletedFuture();
         }
 
-        busyLock.block();
+        replicaStateManager.stop();
+
+        blockBusy();
 
         int shutdownTimeoutSeconds = 10;
 
@@ -1040,17 +1060,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /**
      * Prepares replica response.
      */
-    private NetworkMessage prepareReplicaResponse(boolean sendTimestamp, Object result) {
+    private NetworkMessage prepareReplicaResponse(boolean sendTimestamp, ReplicaResult result) {
         if (sendTimestamp) {
+            HybridTimestamp commitTs = result.applyResult().getCommitTimestamp();
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
-                    .result(result)
-                    .timestamp(clockService.now())
+                    .result(result.result())
+                    .timestamp(commitTs == null ? clockService.current() : commitTs)
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
                     .replicaResponse()
-                    .result(result)
+                    .result(result.result())
                     .build();
         }
     }
@@ -1096,7 +1117,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             } catch (Error e) {
                 LOG.error("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
 
-                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+                failureManager.process(new FailureContext(CRITICAL_ERROR, e));
             }
         }
     }
@@ -1227,15 +1248,27 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         volatile UUID localNodeId;
 
+        private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
+
+        private LeaderElectionListener onLeaderElectedFailoverCallback;
+
+        private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+        private final FailureManager failureManager;
+
         ReplicaStateManager(
                 Executor replicaStartStopPool,
                 ClockService clockService,
                 PlacementDriver placementDriver,
+                Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
+                FailureManager failureManager,
                 ReplicaManager replicaManager
         ) {
             this.replicaStartStopPool = replicaStartStopPool;
             this.clockService = clockService;
             this.placementDriver = placementDriver;
+            this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
+            this.failureManager = failureManager;
             this.replicaManager = replicaManager;
         }
 
@@ -1245,55 +1278,181 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::onPrimaryExpired);
         }
 
-        private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
-            ReplicationGroupId groupId = parameters.groupId();
-            ReplicaStateContext context = getContext(groupId);
-
-            synchronized (context) {
-                if (localNodeId.equals(parameters.leaseholderId())) {
-                    assert context.replicaState != ReplicaState.STOPPED
-                            : "Unexpected primary replica state STOPPED [groupId=" + groupId
-                                + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
-                                + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
-                } else if (context.reservedForPrimary) {
-                    context.assertReservation(groupId, parameters.startTime());
-
-                    // Unreserve if another replica was elected as primary, only if its lease start time is greater,
-                    // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
-                    if (parameters.startTime().compareTo(context.leaseStartTime) > 0) {
-                        context.unreserve();
-
-                        if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
-                            executeDeferredReplicaStop(groupId, context);
-                        }
-                    }
-                }
-            }
-
-            return falseCompletedFuture();
+        void stop() {
+            busyLock.block();
         }
 
-        private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters) {
-            if (localNodeId.equals(parameters.leaseholderId())) {
-                ReplicaStateContext context = replicaContexts.get(parameters.groupId());
+        private CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters parameters) {
+            // Busy lock guarding because on node stop we shouldn't handle primary replica events anymore.
+            if (!busyLock.enterBusy()) {
+                return failedFuture(new NodeStoppingException());
+            }
 
-                if (context != null) {
-                    synchronized (context) {
-                        context.assertReservation(parameters.groupId(), parameters.startTime());
-                        // Unreserve if primary replica expired, only if its lease start time is greater,
+            try {
+                ReplicationGroupId replicationGroupId = parameters.groupId();
+                ReplicaStateContext context = getContext(replicationGroupId);
+
+                synchronized (context) {
+                    if (localNodeId.equals(parameters.leaseholderId())) {
+                        assert context.replicaState != ReplicaState.STOPPED
+                                : "Unexpected primary replica state STOPPED [groupId=" + replicationGroupId
+                                    + ", leaseStartTime=" + parameters.startTime() + ", reservedForPrimary=" + context.reservedForPrimary
+                                    + ", contextLeaseStartTime=" + context.leaseStartTime + "].";
+
+                        registerFailoverCallback(replicationGroupId);
+                    } else if (context.reservedForPrimary) {
+                        context.assertReservation(replicationGroupId, parameters.startTime());
+
+                        // Unreserve if another replica was elected as primary, only if its lease start time is greater,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
-                        if (parameters.startTime().equals(context.leaseStartTime)) {
+                        if (parameters.startTime().compareTo(context.leaseStartTime) > 0) {
                             context.unreserve();
 
-                            if (context.replicaState == ReplicaState.RESTART_PLANNED) {
-                                executeDeferredReplicaStop(parameters.groupId(), context);
+                            if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
+                                executeDeferredReplicaStop(replicationGroupId, context);
                             }
                         }
                     }
                 }
+
+                return falseCompletedFuture();
+            } finally {
+                busyLock.leaveBusy();
+            }
+        }
+
+        private CompletableFuture<Boolean> onPrimaryExpired(PrimaryReplicaEventParameters parameters) {
+            // Busy lock guarding because on node stop we shouldn't handle primary replica events anymore.
+            if (!busyLock.enterBusy()) {
+                return failedFuture(new NodeStoppingException());
             }
 
-            return falseCompletedFuture();
+            try {
+                if (localNodeId.equals(parameters.leaseholderId())) {
+                    ReplicaStateContext context = replicaContexts.get(parameters.groupId());
+
+                    if (context != null) {
+                        synchronized (context) {
+                            unregisterFailoverCallback(parameters);
+
+                            context.assertReservation(parameters.groupId(), parameters.startTime());
+
+                            // Unreserve if primary replica expired, only if its lease start time is equal to reservation time,
+                            // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
+                            if (parameters.startTime().equals(context.leaseStartTime)) {
+                                context.unreserve();
+
+                                if (context.replicaState == ReplicaState.RESTART_PLANNED) {
+                                    executeDeferredReplicaStop(parameters.groupId(), context);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                return falseCompletedFuture();
+            } finally {
+                busyLock.leaveBusy();
+            }
+        }
+
+        // TODO: move to Replica https://issues.apache.org/jira/browse/IGNITE-23750
+        private void registerFailoverCallback(ReplicationGroupId replicationGroupId) {
+            CompletableFuture<Replica> replicaFuture = replicaManager.replica(replicationGroupId);
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-23753
+            // For now we assume that it's a possible situation to get null future on node's stopp process, but it should be fixed with
+            // a correct and consistent replica's state.
+            if (replicaFuture == null) {
+                return;
+            }
+
+            assert replicaFuture.isDone() : "Illegal state: replica future exists and elected as primary, but the future isn't completed"
+                    + " [replicationGroupId=" + replicaFuture + "].";
+
+            replicaFuture.thenCompose(inBusyLock(busyLock, () -> (Function<Replica, CompletableFuture<Void>>) electedPrimaryReplica -> {
+                onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
+                        electedPrimaryReplica,
+                        replicationGroupId,
+                        term
+                );
+
+                return electedPrimaryReplica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback);
+            })).exceptionally(inBusyLock(busyLock, () -> (Function<Throwable, Void>) e -> {
+                LOG.error("Rebalance failover subscription on elected primary replica failed [groupId=" + replicationGroupId + "].", e);
+
+                failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+
+                return null;
+            }));
+        }
+
+        // TODO: move to Replica https://issues.apache.org/jira/browse/IGNITE-23750
+        private void unregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
+            CompletableFuture<Replica> replicaFuture = replicaManager.replica(parameters.groupId());
+
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-23753
+            // For now we assume that it's a possible situation to get null future on node's stopp process, but it should be fixed with
+            // a correct and consistent replica's state.
+            if (replicaFuture == null) {
+                return;
+            }
+
+            assert replicaFuture.isDone() : "Illegal state: replica future exists and was elected as primary, but the future isn't"
+                    + " completed [replicationGroupId=" + replicaFuture + "].";
+
+            replicaFuture.thenAccept(inBusyLock(busyLock, () -> (Consumer<Replica>) expiredPrimaryReplica -> expiredPrimaryReplica
+                    .raftClient()
+                    .unsubscribeLeader(onLeaderElectedFailoverCallback)
+            ));
+        }
+
+        private void changePeersAndLearnersAsyncIfPendingExists(
+                Replica primaryReplica,
+                ReplicationGroupId replicationGroupId,
+                long term
+        ) {
+            // Busy lock guarding because on node stop we shouldn't start this detached callback with the failover logic.
+            if (!busyLock.enterBusy()) {
+                return;
+            }
+
+            try {
+                getPendingAssignmentsSupplier.apply(
+                        replicationGroupId
+                ).exceptionally(inBusyLock(busyLock, () -> (Function<Throwable, byte[]>) e -> {
+                    LOG.error(
+                            "Couldn't fetch pending assignments for rebalance failover [groupId={}, term={}].",
+                            e,
+                            replicationGroupId,
+                            term
+                    );
+
+                    return null;
+                })).thenCompose(inBusyLock(busyLock, () -> (Function<byte[], CompletableFuture<Void>>) pendingsBytes -> {
+                    if (pendingsBytes == null) {
+                        return nullCompletedFuture();
+                    }
+
+                    PeersAndLearners newConfiguration = fromAssignments(Assignments.fromBytes(pendingsBytes).nodes());
+
+                    LOG.info(
+                            "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
+                            replicationGroupId,
+                            newConfiguration.peers(),
+                            newConfiguration.learners()
+                    );
+
+                    // TODO: add retries on fail https://issues.apache.org/jira/browse/IGNITE-23633
+                    return primaryReplica.raftClient().changePeersAndLearnersAsync(newConfiguration, term);
+                })).exceptionally(inBusyLock(busyLock, () -> (Function<Throwable, Void>) e -> {
+                    LOG.error("Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicationGroupId, term);
+
+                    return null;
+                }));
+            } finally {
+                busyLock.leaveBusy();
+            }
         }
 
         ReplicaStateContext getContext(ReplicationGroupId groupId) {
@@ -1479,6 +1638,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 Supplier<CompletableFuture<Void>> deferredStopOperation
         ) {
             synchronized (context) {
+                // TODO IGNITE-23702: proper sync with waiting of expiration event, and proper deferred stop after cancellation of
+                //     reservation made by a lease that was not negotiated.
                 context.deferredStopReadyFuture = leaseExpirationTime == null
                         ? new CompletableFuture<>()
                         : replicaManager.clockService.waitFor(leaseExpirationTime);
@@ -1516,7 +1677,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         throw new AssertionError("Unexpected replica reservation with " + state + " state [groupId=" + groupId + "].");
                     }
                 } else if (state != ReplicaState.RESTART_PLANNED) {
-                    context.reserve(leaseStartTime);
+                    context.reserve(groupId, leaseStartTime);
                 }
 
                 return context.reservedForPrimary;
@@ -1531,6 +1692,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return context.replicaState == ReplicaState.PRIMARY_ONLY;
             }
         }
+    }
+
+    /**
+     * Destroys replication protocol storages for the given group ID.
+     *
+     * @param replicaGrpId Replication group ID.
+     * @param isVolatileStorage is table storage volatile?
+     * @throws NodeStoppingException If the node is being stopped.
+     */
+    public void destroyReplicationProtocolStorages(ReplicationGroupId replicaGrpId, boolean isVolatileStorage)
+            throws NodeStoppingException {
+        RaftNodeId raftNodeId = new RaftNodeId(replicaGrpId, new Peer(localNodeConsistentId));
+        RaftGroupOptions groupOptions = groupOptionsForPartition(isVolatileStorage, null);
+
+        ((Loza) raftManager).destroyRaftNodeStorages(raftNodeId, groupOptions);
     }
 
     private static class ReplicaStateContext {
@@ -1571,12 +1747,21 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             this.previousOperationFuture = previousOperationFuture;
         }
 
-        void reserve(HybridTimestamp leaseStartTime) {
-            reservedForPrimary = true;
+        void reserve(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
+            if (reservedForPrimary && this.leaseStartTime != null && leaseStartTime.compareTo(this.leaseStartTime) < 0) {
+                // Newer lease may reserve this replica when it's already reserved by older one: this means than older one is no longer
+                // valid and most likely has not been negotiated and is discarded. By the same reason we shouldn't process the attempt
+                // of reservation by older lease, which is not likely and means reordering of message handling.
+                throw new IllegalArgumentException(format("Replica reservation failed: newer lease has already reserved this replica ["
+                        + "groupId={}, requestedLeaseStartTime={}, newerLeaseStartTime={}].", groupId, leaseStartTime,
+                        this.leaseStartTime));
+            }
             this.leaseStartTime = leaseStartTime;
+            reservedForPrimary = true;
         }
 
         void unreserve() {
+            // TODO IGNITE-23702: should also lead to replica stop if it is PRIMARY_ONLY.
             reservedForPrimary = false;
             leaseStartTime = null;
         }
@@ -1680,7 +1865,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         throw new AssertionError("Not supported: " + replicationGroupId);
     }
 
-    private static class ReplicaContext {
-        private volatile @Nullable HybridTimestamp lastIdleSafeTimeProposal;
+    private boolean enterBusy() {
+        return !busyLock.isWriteLockedByCurrentThread() && busyLock.readLock().tryLock();
+    }
+
+    private void leaveBusy() {
+        busyLock.readLock().unlock();
+    }
+
+    private void blockBusy() {
+        busyLock.writeLock().lock();
     }
 }
