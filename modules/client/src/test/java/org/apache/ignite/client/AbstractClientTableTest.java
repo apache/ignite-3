@@ -31,6 +31,7 @@ import java.util.UUID;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AssertionFailureBuilder;
 
 /**
  * Base class for client table tests.
@@ -87,6 +88,12 @@ public class AbstractClientTableTest extends AbstractClientTest {
         return Tuple.create().set("name", name);
     }
 
+    protected static void assertDecimalEqual(BigDecimal expected, BigDecimal actual) {
+        if ((expected == null ^ actual == null) || (expected != null && expected.compareTo(actual) != 0)) {
+            AssertionFailureBuilder.assertionFailure().expected(expected).actual(actual).buildAndThrow();
+        }
+    }
+
     protected Table defaultTable() {
         if (server.tables().table(DEFAULT_TABLE) == null) {
             ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
@@ -121,7 +128,7 @@ public class AbstractClientTableTest extends AbstractClientTest {
                 .set("ztimestamp", instant)
                 .set("zstring", name)
                 .set("zbytes", new byte[]{1, 2})
-                .set("zdecimal", BigDecimal.valueOf(21).setScale(3))
+                .set("zdecimal", BigDecimal.valueOf(21))
                 .set("zuuid", uuid);
 
         if (!skipKey) {
