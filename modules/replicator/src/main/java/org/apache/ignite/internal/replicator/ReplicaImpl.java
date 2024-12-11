@@ -372,7 +372,7 @@ public class ReplicaImpl implements Replica {
         return raftClient.transferLeadership(new Peer(targetConsistentId));
     }
 
-    private synchronized CompletableFuture<Boolean> registerFailoverCallback(PrimaryReplicaEventParameters parameters) {
+    private CompletableFuture<Boolean> registerFailoverCallback(PrimaryReplicaEventParameters parameters) {
         if (!parameters.leaseholder().equals(localNode.name()) || !(replicaGrpId.equals(parameters.groupId()))) {
             return falseCompletedFuture();
         }
@@ -427,7 +427,7 @@ public class ReplicaImpl implements Replica {
         });
     }
 
-    private synchronized CompletableFuture<Boolean> unregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
+    private CompletableFuture<Boolean> unregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
         if (!parameters.leaseholder().equals(localNode.name()) || !(replicaGrpId.equals(parameters.groupId()))) {
             return falseCompletedFuture();
         }
