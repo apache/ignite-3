@@ -17,10 +17,21 @@
 
 namespace Apache.Ignite.Benchmarks;
 
-using BenchmarkDotNet.Running;
+using System;
+using Extensions.Cache.Ignite;
 
 internal static class Program
 {
     // IMPORTANT: Disable Netty leak detector when using a real Ignite server for benchmarks.
-    private static void Main() => BenchmarkRunner.Run<HeartbeatBenchmark>();
+    private static void Main()
+    {
+        var pk = typeof(IgniteDistributedCache).Assembly.GetName().GetPublicKey();
+
+        for (int i = 0; i < pk!.GetLength(0); i++)
+        {
+            Console.Write("{0:x2}", pk[i]);
+        }
+
+        Console.WriteLine();
+    }
 }

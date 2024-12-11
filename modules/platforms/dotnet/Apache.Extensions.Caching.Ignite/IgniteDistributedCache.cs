@@ -19,6 +19,7 @@ namespace Apache.Extensions.Cache.Ignite;
 
 using System.Buffers;
 using Apache.Ignite;
+using Apache.Ignite.Internal.Table;
 using Apache.Ignite.Table;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
@@ -74,9 +75,9 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     /// <inheritdoc/>
     public async Task<byte[]?> GetAsync(string key, CancellationToken token)
     {
-        IKeyValueView<string, byte[]?> kvView = await GetViewAsync().ConfigureAwait(false);
+        RecordView<IIgniteTuple> view = await GetViewAsync().ConfigureAwait(false);
 
-        (byte[]? val, bool _) = await kvView.GetAsync(null, key).ConfigureAwait(false);
+        await view.GetInternalAsync(null, GetKey(key)).ConfigureAwait(false);
 
         return val;
     }
@@ -91,7 +92,7 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     public async Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token)
     {
         // TODO: Expiration is not supported in Ignite - throw when specified.
-        IKeyValueView<string, byte[]?> kvView = await GetViewAsync().ConfigureAwait(false);
+        RecordView<IIgniteTuple> kvView = await GetViewAsync().ConfigureAwait(false);
 
         await kvView.PutAsync(null, key, value).ConfigureAwait(false);
     }
@@ -120,7 +121,7 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     /// <inheritdoc/>
     public async Task RemoveAsync(string key, CancellationToken token)
     {
-        IKeyValueView<string, byte[]?> kvView = await GetViewAsync().ConfigureAwait(false);
+        RecordView<IIgniteTuple> kvView = await GetViewAsync().ConfigureAwait(false);
 
         await kvView.RemoveAsync(null, key).ConfigureAwait(false);
     }
@@ -157,7 +158,13 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
         throw new NotImplementedException();
     }
 
-    private async Task<IKeyValueView<string, byte[]?>> GetViewAsync()
+    private static IgniteTuple GetKey(string key)
+    {
+        // TODO: Object pooling to avoid allocations? Or custom implementation? Or thread local?
+        return new IgniteTuple(1) { ["KEY"] = key };
+    }
+
+    private async Task<RecordView<IIgniteTuple>> GetViewAsync()
     {
         // TODO: Cache created table and record view, synchronize.
         IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
@@ -175,7 +182,6 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
             throw new InvalidOperationException("Table not found: " + tableName);
         }
 
-        // TODO: This requires reflection and does not work with AOT.
-        return table.GetKeyValueView<string, byte[]?>();
+        return (RecordView<IIgniteTuple>)table.RecordBinaryView;
     }
 }
