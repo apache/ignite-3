@@ -432,6 +432,20 @@ public class ReplicaImpl implements Replica {
             return falseCompletedFuture();
         }
 
+        /* This check defends us from the situation:
+         * 1. 3 nodes {A, B, C} are started with a created table with replica factor 3
+         * 2. Partition 16_part_0 starts and A.16_0 became a primary replica.
+         * 3. Node A restarts.
+         * 4. A.16_0 starts again, but there no more onLeaderElectedFailoverCallback neither the failover callback subscription.
+         * 5. Primary replica expires and trigger the event.
+         * 6. A.16_0 receives the event, found itself, but the callback is null due to the node A restart.
+         *
+         * In the case we should so nothing. // TODO: how could we detect such scenario?
+         */
+        if (onLeaderElectedFailoverCallback == null) {
+            return falseCompletedFuture();
+        }
+
         assert onLeaderElectedFailoverCallback != null : format(
                 "We have no failover subscription [thisGrpId={}, thisNode={}, givenExpiredPrimaryId={}, givenExpiredPrimaryNode={}",
                 replicaGrpId,
