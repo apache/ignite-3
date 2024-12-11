@@ -20,6 +20,7 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -34,6 +35,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -111,6 +114,8 @@ public class ReplicaImpl implements Replica {
 
     private LeaderElectionListener onLeaderElectedFailoverCallback;
 
+    private final FailureManager failureManager;
+
     /**
      * The constructor of a replica server.
      *
@@ -124,6 +129,8 @@ public class ReplicaImpl implements Replica {
      * @param replicaReservationClosure Closure that will be called to reserve the replica for becoming primary. It returns whether
      *     the reservation was successful.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
+     * @param failureManager Failure manager in case if we couldn't subscribe failover callback on raft client.
+     *
      */
     public ReplicaImpl(
             ReplicationGroupId replicaGrpId,
@@ -134,7 +141,8 @@ public class ReplicaImpl implements Replica {
             PlacementDriver placementDriver,
             ClockService clockService,
             BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure,
-            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
+            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
+            FailureManager failureManager
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
@@ -146,6 +154,7 @@ public class ReplicaImpl implements Replica {
         this.clockService = clockService;
         this.replicaReservationClosure = replicaReservationClosure;
         this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
+        this.failureManager = failureManager;
 
         raftClient.subscribeLeader(this::onLeaderElected);
 
@@ -374,6 +383,8 @@ public class ReplicaImpl implements Replica {
                 .subscribeLeader(onLeaderElectedFailoverCallback)
                 .exceptionally(e -> {
                     LOG.error("Rebalance failover subscription on elected primary replica failed [groupId=" + replicaGrpId + "].", e);
+
+                    failureManager.process(new FailureContext(CRITICAL_ERROR, e));
 
                     return null;
                 })

@@ -130,7 +130,8 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 new TestPlacementDriver(LOCAL_NODE),
                 new TestClockService(new HybridClockImpl()),
                 (unused0, unused1) -> reservationSuccess,
-                groupId -> null
+                groupId -> null,
+                null
         );
     }
 

@@ -695,7 +695,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             placementDriver,
                             clockService,
                             replicaStateManager::reserveReplica,
-                            getPendingAssignmentsSupplier
+                            getPendingAssignmentsSupplier,
+                            failureManager
                     )
             );
         } finally {
