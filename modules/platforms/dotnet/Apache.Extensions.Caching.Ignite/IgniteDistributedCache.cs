@@ -21,7 +21,6 @@ using System.Buffers;
 using Apache.Ignite;
 using Apache.Ignite.Table;
 using Microsoft.Extensions.Caching.Distributed;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 /// <summary>
@@ -57,7 +56,7 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     /// <inheritdoc/>
     public async Task<byte[]?> GetAsync(string key, CancellationToken token)
     {
-        var kvView = await GetKvViewAsync().ConfigureAwait(false);
+        IKeyValueView<string, byte[]?> kvView = await GetKvViewAsync().ConfigureAwait(false);
 
         (byte[]? val, bool _) = await kvView.GetAsync(null, key).ConfigureAwait(false);
 
@@ -71,21 +70,27 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     }
 
     /// <inheritdoc/>
-    public Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token)
+    public async Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token)
     {
-        throw new NotImplementedException();
+        // TODO: Expiration is not supported in Ignite - throw when specified.
+        IKeyValueView<string, byte[]?> kvView = await GetKvViewAsync().ConfigureAwait(false);
+
+        await kvView.PutAsync(null, key, value).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public void Refresh(string key)
     {
-        throw new NotImplementedException();
+        // No-op.
+        // Expiration is not supported in Ignite.
     }
 
     /// <inheritdoc/>
     public Task RefreshAsync(string key, CancellationToken token)
     {
-        throw new NotImplementedException();
+        // No-op.
+        // Expiration is not supported in Ignite.
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
@@ -95,26 +100,31 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
     }
 
     /// <inheritdoc/>
-    public Task RemoveAsync(string key, CancellationToken token)
+    public async Task RemoveAsync(string key, CancellationToken token)
     {
-        throw new NotImplementedException();
+        IKeyValueView<string, byte[]?> kvView = await GetKvViewAsync().ConfigureAwait(false);
+
+        await kvView.RemoveAsync(null, key).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
     public bool TryGet(string key, IBufferWriter<byte> destination)
     {
+        // TODO: An internal API to copy bytes from BinaryTuple? Or a public one?
         throw new NotImplementedException();
     }
 
     /// <inheritdoc/>
     public ValueTask<bool> TryGetAsync(string key, IBufferWriter<byte> destination, CancellationToken token)
     {
+        // TODO: An internal API to copy bytes from BinaryTuple? Or a public one?
         throw new NotImplementedException();
     }
 
     /// <inheritdoc/>
     public void Set(string key, ReadOnlySequence<byte> value, DistributedCacheEntryOptions options)
     {
+        // TODO: An internal API to copy bytes efficiently? Or a public one?
         throw new NotImplementedException();
     }
 
@@ -125,6 +135,7 @@ public sealed class IgniteDistributedCache : IBufferDistributedCache
         DistributedCacheEntryOptions options,
         CancellationToken token)
     {
+        // TODO: An internal API to copy bytes efficiently? Or a public one?
         throw new NotImplementedException();
     }
 
