@@ -111,8 +111,12 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(options);
 
-        // TODO: Expiration is not supported in Ignite - throw when specified.
-        // Should we support it by using periodic cleanup?
+        if (options.AbsoluteExpiration != null || options.SlidingExpiration != null || options.AbsoluteExpirationRelativeToNow != null)
+        {
+            // TODO: IGNITE-23973 Add expiration support
+            throw new ArgumentException("Expiration is not supported.", nameof(options));
+        }
+
         var view = await GetViewAsync().ConfigureAwait(false);
 
         var tuple = GetKeyVal(key, value);
