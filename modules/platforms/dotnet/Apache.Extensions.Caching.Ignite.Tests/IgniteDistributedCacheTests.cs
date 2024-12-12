@@ -143,7 +143,23 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     [Test]
     public async Task TestExistingTable()
     {
-        await Task.Delay(1);
+        const string tableName = nameof(TestExistingTable);
+
+        await Client.Sql.ExecuteAsync(null, $"DROP TABLE {tableName}");
+        await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {tableName} (K VARCHAR PRIMARY KEY, V VARBINARY)");
+
+        await Client.Sql.ExecuteAsync(null, $"INSERT INTO {tableName} (K, V) VALUES ('x', x'010203')");
+
+        var options = new IgniteDistributedCacheOptions
+        {
+            TableName = tableName,
+            KeyColumnName = "K",
+            ValueColumnName = "V"
+        };
+
+        IDistributedCache cache = GetCache(options);
+
+        Assert.AreEqual(new[] { 1, 2, 3 }, await cache.GetAsync("x"));
     }
 
     [Test]
