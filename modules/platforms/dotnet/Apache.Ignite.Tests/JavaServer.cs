@@ -123,9 +123,12 @@ namespace Apache.Ignite.Tests
         public void Dispose()
         {
             Log(">>> Stopping Java server 1...");
-            _process?.Kill(entireProcessTree: true);
+            _process?.StandardInput.Close();
 
             Log(">>> Stopping Java server 2...");
+            _process?.Kill();
+
+            Log(">>> Stopping Java server 3...");
             _process?.Dispose();
 
             Log(">>> Java server stopped.");
