@@ -76,9 +76,19 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestSetOverwritesExistingValue()
+    public void TestSetOverwritesExistingValue()
     {
-        await Task.Delay(1);
+        const string key = nameof(TestSetOverwritesExistingValue);
+        byte[] val1 = [1, 2, 3];
+        byte[] val2 = [4, 5, 6];
+
+        IDistributedCache cache = GetCache();
+
+        cache.Set(key, val1);
+        Assert.AreEqual(val1, cache.Get(key));
+
+        cache.Set(key, val2);
+        Assert.AreEqual(val2, cache.Get(key));
     }
 
     [Test]
