@@ -28,14 +28,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Iterator;
+import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.table.KeyValueView;
 
 /**
  * Enumeration of tables from TPC-H specification.
  */
-public enum TpchTables {
+@SuppressWarnings("NonSerializableFieldInSerializableClass")
+public enum TpchTables implements TpcTable {
     LINEITEM(
             new Column("L_ORDERKEY", INT32),
             new Column("L_PARTKEY", INT32),
@@ -186,46 +186,28 @@ public enum TpchTables {
         this.columns = columns;
     }
 
-    /** Returns name of the table. */
+    @Override
     public String tableName() {
         return name().toLowerCase();
     }
 
-    /** Returns number of column in the table. */
+    @Override
     public int columnsCount() {
         return columns.length;
     }
 
+    @Override
     public String columnName(int idx) {
         return columns[idx].name;
     }
 
-    /** Returns definition of a table including necessary indexes. */
+    @Override
     public String ddlScript() {
         return TpchHelper.loadFromResource("tpch/ddl/" + tableName() + "_ddl.sql");
     }
 
-    /**
-     * Returns DML string representing single-row INSERT statement with dynamic
-     * parameters placeholders.
-     *
-     * <p>The order of columns matches the order specified in TPC-H specification
-     * (see table declarations or output of {@link #ddlScript()}).
-     *
-     * <p>The statement returned is tolerant to columns' type mismatch, implying you
-     * can use any value while there is cast from provided value to required type.
-     */
-    public abstract String insertPrepareStatement();
-
-    /**
-     * Returns iterator returning rows of the corresponding table.
-     *
-     * <p>May be used to fill the table via {@link KeyValueView KV API} or {@link IgniteSql SQL API}.
-     *
-     * @param pathToDataset A path to a directory with CSV file containing data for the table.
-     * @return Iterator over data of the table.
-     * @throws IOException In case of error.
-     */
+    @SuppressWarnings("resource")
+    @Override
     public Iterator<Object[]> dataProvider(Path pathToDataset) throws IOException {
         return Files.lines(pathToDataset.resolve(tableName() + ".tbl"))
                 .map(this::csvLineToTableValues)

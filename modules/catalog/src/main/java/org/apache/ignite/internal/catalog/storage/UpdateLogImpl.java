@@ -327,10 +327,5 @@ public class UpdateLogImpl implements UpdateLog {
 
             return allOf(handleFutures.toArray(CompletableFuture[]::new));
         }
-
-        @Override
-        public void onError(Throwable e) {
-            LOG.warn("Unable to process catalog event", e);
-        }
     }
 }
