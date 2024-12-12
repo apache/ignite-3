@@ -68,13 +68,6 @@ public class Watch {
     }
 
     /**
-     * Callback that gets called if an error has occurred during the event processing.
-     */
-    void onError(Throwable e) {
-        listener.onError(e);
-    }
-
-    /**
      * Returns the event listener.
      */
     WatchListener listener() {

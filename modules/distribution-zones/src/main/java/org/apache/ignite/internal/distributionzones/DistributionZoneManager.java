@@ -118,7 +118,6 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
-import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
@@ -762,52 +761,44 @@ public class DistributionZoneManager extends
      * @return Watch listener.
      */
     private WatchListener createMetastorageTopologyListener() {
-        return new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    return failedFuture(new NodeStoppingException());
-                }
-
-                try {
-                    assert evt.entryEvents().size() == 2 || evt.entryEvents().size() == 3 :
-                            "Expected an event with logical topology, its version and maybe clusterId entries but was events with keys: "
-                            + evt.entryEvents().stream().map(DistributionZoneManager::entryKeyAsString)
-                            .collect(toList());
-
-                    byte[] newLogicalTopologyBytes;
-
-                    Set<NodeWithAttributes> newLogicalTopology = null;
-
-                    long revision = 0;
-
-                    for (EntryEvent event : evt.entryEvents()) {
-                        Entry e = event.newEntry();
-
-                        if (Arrays.equals(e.key(), zonesLogicalTopologyVersionKey().bytes())) {
-                            revision = e.revision();
-                        } else if (Arrays.equals(e.key(), zonesLogicalTopologyKey().bytes())) {
-                            newLogicalTopologyBytes = e.value();
-
-                            newLogicalTopology = deserializeLogicalTopologySet(newLogicalTopologyBytes);
-                        }
-                    }
-
-                    assert newLogicalTopology != null : "The event doesn't contain logical topology";
-                    assert revision > 0 : "The event doesn't contain logical topology version";
-
-                    // It is safe to get the latest version of the catalog as we are in the metastore thread.
-                    int catalogVersion = catalogManager.latestCatalogVersion();
-
-                    return onLogicalTopologyUpdate(newLogicalTopology, revision, catalogVersion);
-                } finally {
-                    busyLock.leaveBusy();
-                }
+        return evt -> {
+            if (!busyLock.enterBusy()) {
+                return failedFuture(new NodeStoppingException());
             }
 
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process logical topology event", e);
+            try {
+                assert evt.entryEvents().size() == 2 || evt.entryEvents().size() == 3 :
+                        "Expected an event with logical topology, its version and maybe clusterId entries but was events with keys: "
+                        + evt.entryEvents().stream().map(DistributionZoneManager::entryKeyAsString)
+                        .collect(toList());
+
+                byte[] newLogicalTopologyBytes;
+
+                Set<NodeWithAttributes> newLogicalTopology = null;
+
+                long revision = 0;
+
+                for (EntryEvent event : evt.entryEvents()) {
+                    Entry e = event.newEntry();
+
+                    if (Arrays.equals(e.key(), zonesLogicalTopologyVersionKey().bytes())) {
+                        revision = e.revision();
+                    } else if (Arrays.equals(e.key(), zonesLogicalTopologyKey().bytes())) {
+                        newLogicalTopologyBytes = e.value();
+
+                        newLogicalTopology = deserializeLogicalTopologySet(newLogicalTopologyBytes);
+                    }
+                }
+
+                assert newLogicalTopology != null : "The event doesn't contain logical topology";
+                assert revision > 0 : "The event doesn't contain logical topology version";
+
+                // It is safe to get the latest version of the catalog as we are in the metastore thread.
+                int catalogVersion = catalogManager.latestCatalogVersion();
+
+                return onLogicalTopologyUpdate(newLogicalTopology, revision, catalogVersion);
+            } finally {
+                busyLock.leaveBusy();
             }
         };
     }

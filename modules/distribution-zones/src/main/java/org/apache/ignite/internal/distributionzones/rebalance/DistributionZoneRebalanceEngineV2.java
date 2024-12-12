@@ -40,11 +40,8 @@ import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
-import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -56,9 +53,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * // TODO: after switching to zone-based replication
  */
 public class DistributionZoneRebalanceEngineV2 {
-    /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngineV2.class);
-
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
@@ -137,61 +131,51 @@ public class DistributionZoneRebalanceEngineV2 {
     }
 
     private WatchListener createDistributionZonesDataNodesListener() {
-        return new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-                return IgniteUtils.inBusyLockAsync(busyLock, () -> {
-                    Set<Node> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value());
+        return evt -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
+            Set<Node> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value());
 
-                    if (dataNodes == null) {
-                        // The zone was removed so data nodes were removed too.
-                        return nullCompletedFuture();
-                    }
-
-                    int zoneId = extractZoneIdDataNodes(evt.entryEvent().newEntry().key());
-
-                    // It is safe to get the latest version of the catalog as we are in the metastore thread.
-                    // TODO: IGNITE-22723 Potentially unsafe to use the latest catalog version, as the tables might not already present
-                    //  in the catalog. Better to store this version when writing datanodes.
-                    int catalogVersion = catalogService.latestCatalogVersion();
-
-                    Catalog catalog = catalogService.catalog(catalogVersion);
-
-                    long assignmentsTimestamp = catalog.time();
-
-                    CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
-
-                    if (zoneDescriptor == null) {
-                        // Zone has been removed.
-                        return nullCompletedFuture();
-                    }
-
-                    Set<String> filteredDataNodes = filterDataNodes(
-                            dataNodes,
-                            zoneDescriptor,
-                            distributionZoneManager.nodesAttributes()
-                    );
-
-                    if (filteredDataNodes.isEmpty()) {
-                        return nullCompletedFuture();
-                    }
-
-                    return triggerZonePartitionsRebalance(
-                            zoneDescriptor,
-                            filteredDataNodes,
-                            evt.entryEvent().newEntry().revision(),
-                            metaStorageManager,
-                            busyLock,
-                            assignmentsTimestamp
-                    );
-                });
+            if (dataNodes == null) {
+                // The zone was removed so data nodes were removed too.
+                return nullCompletedFuture();
             }
 
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process data nodes event", e);
+            int zoneId = extractZoneIdDataNodes(evt.entryEvent().newEntry().key());
+
+            // It is safe to get the latest version of the catalog as we are in the metastore thread.
+            // TODO: IGNITE-22723 Potentially unsafe to use the latest catalog version, as the tables might not already present
+            //  in the catalog. Better to store this version when writing datanodes.
+            int catalogVersion = catalogService.latestCatalogVersion();
+
+            Catalog catalog = catalogService.catalog(catalogVersion);
+
+            long assignmentsTimestamp = catalog.time();
+
+            CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
+
+            if (zoneDescriptor == null) {
+                // Zone has been removed.
+                return nullCompletedFuture();
             }
-        };
+
+            Set<String> filteredDataNodes = filterDataNodes(
+                    dataNodes,
+                    zoneDescriptor,
+                    distributionZoneManager.nodesAttributes()
+            );
+
+            if (filteredDataNodes.isEmpty()) {
+                return nullCompletedFuture();
+            }
+
+            return triggerZonePartitionsRebalance(
+                    zoneDescriptor,
+                    filteredDataNodes,
+                    evt.entryEvent().newEntry().revision(),
+                    metaStorageManager,
+                    busyLock,
+                    assignmentsTimestamp
+            );
+        });
     }
 
     private CompletableFuture<Void> onUpdateReplicas(AlterZoneEventParameters parameters) {

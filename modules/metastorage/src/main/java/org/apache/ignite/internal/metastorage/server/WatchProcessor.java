@@ -225,15 +225,8 @@ public class WatchProcessor implements ManuallyCloseable {
             try {
                 var event = new WatchEvent(watchAndEvents.events, revision, time);
 
-                notifyWatchFuture = watchAndEvents.watch.onUpdate(event)
-                        .whenComplete((v, e) -> {
-                            if (e != null) {
-                                watchAndEvents.watch.onError(e);
-                            }
-                        });
+                notifyWatchFuture = watchAndEvents.watch.onUpdate(event);
             } catch (Throwable throwable) {
-                watchAndEvents.watch.onError(throwable);
-
                 notifyWatchFuture = failedFuture(throwable);
             }
 
@@ -323,7 +316,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
     private void notifyFailureHandlerOnFirstFailureInNotificationChain(Throwable e) {
         if (firedFailureOnChain.compareAndSet(false, true)) {
-            LOG.info("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
+            LOG.error("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
                     + "until a restart. Notifying the FailureManager");
 
             failureManager.process(new FailureContext(CRITICAL_ERROR, e));
