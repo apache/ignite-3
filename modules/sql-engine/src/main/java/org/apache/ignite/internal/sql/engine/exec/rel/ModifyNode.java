@@ -130,7 +130,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.modifyOp = op;
         this.updateColumns = updateColumns;
 
-        int fullRowSize = inputRowFactory.rowSchema().fields().size();
+        RowSchema rowSchema = inputRowFactory.rowSchema();
+        int fullRowSize = rowSchema.fields().size();
         this.mapping = mapping(table.descriptor(), updateColumns, fullRowSize);
 
         // insert mapping actually can be required only for INSERT and MERGE operations
@@ -143,8 +144,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             this.insertRowMapping = null;
         }
 
-        RowSchema mappedRowSchema =  mapping != null ? RowSchema.map(inputRowFactory.rowSchema(), mapping) : inputRowFactory.rowSchema();
-        RowSchema mappedInsertRowSchema =  insertRowMapping != null ? RowSchema.map(inputRowFactory.rowSchema(), insertRowMapping) : inputRowFactory.rowSchema();
+        RowSchema mappedRowSchema =  mapping != null ? RowSchema.map(rowSchema, mapping) : rowSchema;
+        RowSchema mappedInsertRowSchema =  insertRowMapping != null ? RowSchema.map(rowSchema, insertRowMapping) : rowSchema;
 
         this.mappedRowFactory = ctx.rowHandler().factory(mappedRowSchema);
         this.mappedInsertRowFactory = ctx.rowHandler().factory(mappedInsertRowSchema);
