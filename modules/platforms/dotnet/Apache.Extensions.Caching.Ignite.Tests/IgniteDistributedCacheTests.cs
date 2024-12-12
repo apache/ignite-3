@@ -39,33 +39,23 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         _clientGroup.Dispose();
 
     [Test]
-    public async Task TestBasicCaching()
-    {
-        const string key = "TestBasicCaching";
-        byte[] value = [1, 2, 3];
-
-        var cacheOptions = new IgniteDistributedCacheOptions();
-        IDistributedCache cache = GetCache(cacheOptions);
-
-        await cache.SetAsync(key, value, new());
-        byte[]? resValue = await cache.GetAsync(key);
-
-        CollectionAssert.AreEqual(value, resValue);
-
-        // Check that table was created.
-        var table = await Client.Tables.GetTableAsync(cacheOptions.TableName);
-        Assert.IsNotNull(table);
-
-        var (row, hasRow) = await table.RecordBinaryView.GetAsync(null, new IgniteTuple { ["KEY"] = key });
-
-        Assert.IsTrue(hasRow);
-        CollectionAssert.AreEqual(value, (byte[])row["VAL"]!);
-    }
-
-    [Test]
     public async Task TestSetGetRemove()
     {
-        await Task.Delay(1);
+        const string key = nameof(TestSetGetRemove);
+        byte[] value = [1, 2, 3];
+
+        IDistributedCache cache = GetCache();
+
+        // No value.
+        Assert.IsNull(await cache.GetAsync(key));
+
+        // Set and get.
+        await cache.SetAsync(key, value, new());
+        CollectionAssert.AreEqual(value, await cache.GetAsync(key));
+
+        // Remove and get.
+        await cache.RemoveAsync(key);
+        Assert.IsNull(await cache.GetAsync(key));
     }
 
     [Test]
@@ -127,6 +117,12 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestNonExistingTable()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
     public async Task TestCustomTableAndColumnNames()
     {
         var cacheOptions = new IgniteDistributedCacheOptions
@@ -150,7 +146,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         Assert.AreEqual("_V", row.GetName(1));
 
         Assert.AreEqual("x", row[0]);
-        CollectionAssert.AreEqual(new[] { 1 }, (byte[]?)row[1]);
+        Assert.AreEqual(new[] { 1 }, (byte[]?)row[1]);
     }
 
     [Test]
