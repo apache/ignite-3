@@ -18,7 +18,6 @@
 namespace Apache.Extensions.Cache.Ignite.Tests;
 
 using Apache.Ignite;
-using Apache.Ignite.Table;
 using Apache.Ignite.Tests;
 using Caching.Ignite;
 using Microsoft.Extensions.Caching.Distributed;
@@ -92,19 +91,27 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestNullValueNotAllowed()
+    public void TestNullKeyOrValueNotAllowed()
+    {
+        IDistributedCache cache = GetCache();
+
+        Assert.Throws<ArgumentNullException>(() => cache.Get(null!));
+        Assert.Throws<ArgumentNullException>(() => cache.Set(null!, [1]));
+        Assert.Throws<ArgumentNullException>(() => cache.Set("k", null!));
+
+        Assert.ThrowsAsync<ArgumentNullException>(async () => await cache.GetAsync(null!));
+        Assert.ThrowsAsync<ArgumentNullException>(async () => await cache.SetAsync(null!, [1]));
+        Assert.ThrowsAsync<ArgumentNullException>(async () => await cache.SetAsync("k", null!));
+    }
+
+    [Test]
+    public async Task TestEmptyKey()
     {
         await Task.Delay(1);
     }
 
     [Test]
     public async Task TestEmptyValue()
-    {
-        await Task.Delay(1);
-    }
-
-    [Test]
-    public async Task TestEmptyKey()
     {
         await Task.Delay(1);
     }
