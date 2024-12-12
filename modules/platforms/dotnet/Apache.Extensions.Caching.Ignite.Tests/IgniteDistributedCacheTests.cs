@@ -17,12 +17,13 @@
 
 namespace Apache.Extensions.Cache.Ignite.Tests;
 
+using Apache.Ignite.Tests;
 using Caching.Ignite;
 
 /// <summary>
 /// Tests for <see cref="IgniteDistributedCache"/>.
 /// </summary>
-public class IgniteDistributedCacheTests
+public class IgniteDistributedCacheTests : IgniteTestsBase
 {
     [SetUp]
     public void Setup()
