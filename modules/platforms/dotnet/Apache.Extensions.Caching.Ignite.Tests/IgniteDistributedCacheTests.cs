@@ -60,4 +60,20 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         Assert.IsTrue(hasRow);
         CollectionAssert.AreEqual(value, (byte[])row["VAL"]!);
     }
+
+    [Test]
+    public async Task TestRemoveTableBreaksCaching()
+    {
+        var cacheOptions = new IgniteDistributedCacheOptions();
+        var cache = new IgniteDistributedCache(cacheOptions, _clientGroup);
+
+        await cache.SetAsync("x", [1], new(), CancellationToken.None);
+
+        await Client.Sql.ExecuteAsync(null, $"DROP TABLE {cacheOptions.TableName}");
+
+        TableNotFoundException? ex = Assert.ThrowsAsync<TableNotFoundException>(
+            async () => await cache.GetAsync("x", CancellationToken.None));
+
+        StringAssert.StartsWith("Table does not exist or was dropped concurrently", ex.Message);
+    }
 }
