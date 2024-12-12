@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-namespace Apache.Extensions.Cache.Ignite.Internal;
+namespace Apache.Extensions.Caching.Ignite.Internal;
 
 using Apache.Ignite.Table;
 using Microsoft.Extensions.ObjectPool;

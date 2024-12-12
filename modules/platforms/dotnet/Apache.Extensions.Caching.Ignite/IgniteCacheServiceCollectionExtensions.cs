@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-namespace Apache.Extensions.Cache.Ignite;
+namespace Apache.Extensions.Caching.Ignite;
 
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;

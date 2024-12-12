@@ -10,7 +10,7 @@
 
         <IsPackable>true</IsPackable>
         <PackageReadmeFile>README.md</PackageReadmeFile>
-        <RootNamespace>Apache.Extensions.Cache.Ignite</RootNamespace>
+        <RootNamespace>Apache.Extensions.Caching.Ignite</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
