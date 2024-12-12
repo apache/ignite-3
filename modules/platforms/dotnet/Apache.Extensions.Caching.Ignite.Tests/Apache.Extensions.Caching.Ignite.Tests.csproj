@@ -22,4 +22,8 @@
         <Using Include="NUnit.Framework"/>
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\Apache.Extensions.Caching.Ignite\Apache.Extensions.Caching.Ignite.csproj" />
+    </ItemGroup>
+
 </Project>
