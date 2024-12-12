@@ -17,6 +17,7 @@
 
 namespace Apache.Extensions.Cache.Ignite.Tests;
 
+using Apache.Ignite;
 using Caching.Ignite;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
@@ -24,11 +25,17 @@ using Microsoft.Extensions.DependencyInjection;
 public class IgniteCacheServiceCollectionExtensionsTests
 {
     [Test]
-    public void AddIgniteDistributedCacheAddsServices()
+    public void TestAddIgniteDistributedCacheAddsServices()
     {
         var services = new ServiceCollection();
 
-        services.AddIgniteDistributedCache(options => options.CacheKeyPrefix = "prefix");
+        services
+            .AddIgniteClientGroup(new IgniteClientGroupConfiguration
+            {
+                ClientConfiguration = new IgniteClientConfiguration("localhost")
+            })
+            .AddIgniteDistributedCache(options => options.CacheKeyPrefix = "prefix")
+            .AddOptions();
 
         ServiceProvider serviceProvider = services.BuildServiceProvider();
         Assert.NotNull(serviceProvider.GetRequiredService<IDistributedCache>());
