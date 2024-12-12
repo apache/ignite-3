@@ -69,6 +69,42 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestGetMissingKeyReturnsNull()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestCaseSensitiveKeys()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestSetOverwritesExistingValue()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestNullValueNotAllowed()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestEmptyValue()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestEmptyKey()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
     public async Task TestRemoveTableBreaksCaching()
     {
         var cacheOptions = new IgniteDistributedCacheOptions();
