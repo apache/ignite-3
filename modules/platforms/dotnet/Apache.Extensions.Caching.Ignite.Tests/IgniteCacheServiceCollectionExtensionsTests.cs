@@ -46,4 +46,32 @@ public class IgniteCacheServiceCollectionExtensionsTests
         IgniteDistributedCacheOptions opts = distributedCache.GetFieldValue<IgniteDistributedCacheOptions>("_options");
         Assert.AreEqual("prefix", opts.CacheKeyPrefix);
     }
+
+    [Test]
+    public void TestKeyedIgniteClientGroup()
+    {
+        var services = new ServiceCollection();
+
+        var serviceKey = "ignite-key";
+        services.AddIgniteClientGroupKeyed(serviceKey, new IgniteClientGroupConfiguration
+        {
+            ClientConfiguration = new IgniteClientConfiguration("localhost")
+        });
+
+        var serviceKey2 = "ignite-key-2";
+        services.AddIgniteClientGroupKeyed(serviceKey2, new IgniteClientGroupConfiguration
+        {
+            ClientConfiguration = new IgniteClientConfiguration("localhost-2")
+        });
+
+        services.AddIgniteDistributedCache(opts => opts.IgniteClientGroupServiceKey = serviceKey);
+
+        ServiceProvider serviceProvider = services.BuildServiceProvider();
+
+        IDistributedCache distributedCache = serviceProvider.GetRequiredService<IDistributedCache>();
+        Assert.IsInstanceOf<IgniteDistributedCache>(distributedCache);
+
+        IgniteClientGroup igniteClientGroup = distributedCache.GetFieldValue<IgniteClientGroup>("_igniteClientGroup");
+        Assert.AreEqual("localhost", igniteClientGroup.Configuration.ClientConfiguration.Endpoints.Single());
+    }
 }
