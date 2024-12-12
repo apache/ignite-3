@@ -1117,12 +1117,12 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 topologyService,
                 ForkJoinPool.commonPool(),
                 clockService::nowLong,
-                minTimeCollector
+                minTimeCollector,
+                clockService::nowLong
         );
 
         await(runner.startAsync(mock(ComponentContext.class)));
 
-        runner.enable(true);
         runner.updateCoordinator(coordinator);
 
         return runner;

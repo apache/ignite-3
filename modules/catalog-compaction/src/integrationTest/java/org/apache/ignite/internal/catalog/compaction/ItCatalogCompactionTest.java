@@ -46,11 +46,11 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -114,14 +114,11 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     }
 
     @BeforeAll
-    void enableCompaction() {
+    void setup() {
         List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
         assertEquals(initialNodes(), nodes.size());
 
-        for (var node : nodes) {
-            IgniteImpl ignite = unwrapIgniteImpl(node);
-            ignite.catalogCompactionRunner().enable(true);
-        }
+        await(((SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager()).completeRegistration());
     }
 
     @BeforeEach
@@ -141,9 +138,6 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 node2.catalogCompactionRunner()
         );
 
-        // The test requires that no one else change the schema while it is running.
-        await(((SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager()).completeRegistration());
-
         Catalog catalog1 = getLatestCatalog(node2);
 
         Transaction tx1 = node0.transactions().begin();
@@ -159,8 +153,10 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
         // Changing the catalog again and starting transaction.
         sql("alter table a add column (b int)");
+
+        Awaitility.await().untilAsserted(() -> assertThat(getLatestCatalogVersion(node1), is(catalog2.version() + 1)));
         Catalog catalog3 = getLatestCatalog(node1);
-        assertThat(catalog3.version(), is(catalog2.version() + 1));
+
         List<Transaction> txs3 = Stream.of(node0, node2).map(node -> node.transactions().begin()).collect(Collectors.toList());
 
         Collection<ClusterNode> topologyNodes = node0.clusterNodes();
@@ -260,22 +256,15 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         return catalog;
     }
 
-    private static void expectEarliestCatalogVersion(int expectedVersion) throws InterruptedException {
-        long waitTime = COMPACTION_INTERVAL_MS;
-
-        boolean compacted = IgniteTestUtils.waitForCondition(() -> {
+    private static void expectEarliestCatalogVersion(int expectedVersion) {
+        Awaitility.await().timeout(COMPACTION_INTERVAL_MS, TimeUnit.MILLISECONDS).untilAsserted(() -> {
             for (var node : CLUSTER.runningNodes().collect(Collectors.toList())) {
                 IgniteImpl ignite = unwrapIgniteImpl(node);
                 CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
 
-                if (catalogManager.earliestCatalogVersion() != expectedVersion) {
-                    return false;
-                }
+                assertThat("The earliest catalog version does not match. ",
+                        catalogManager.earliestCatalogVersion(), is(expectedVersion));
             }
-
-            return true;
-        }, 1000, waitTime);
-
-        assertTrue(compacted, "The earliest catalog version does not match. Wait time ms=" + waitTime);
+        });
     }
 }
