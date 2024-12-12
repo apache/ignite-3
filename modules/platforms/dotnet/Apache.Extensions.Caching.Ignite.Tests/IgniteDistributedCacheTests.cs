@@ -21,6 +21,7 @@ using Apache.Ignite;
 using Apache.Ignite.Table;
 using Apache.Ignite.Tests;
 using Caching.Ignite;
+using Microsoft.Extensions.Caching.Distributed;
 
 /// <summary>
 /// Tests for <see cref="IgniteDistributedCache"/>.
@@ -44,10 +45,10 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         byte[] value = [1, 2, 3];
 
         var cacheOptions = new IgniteDistributedCacheOptions();
-        var cache = new IgniteDistributedCache(cacheOptions, _clientGroup);
+        IDistributedCache cache = new IgniteDistributedCache(cacheOptions, _clientGroup);
 
-        cache.Set(key, value, new());
-        byte[]? resValue = cache.Get(key);
+        await cache.SetAsync(key, value, new());
+        byte[]? resValue = await cache.GetAsync(key);
 
         CollectionAssert.AreEqual(value, resValue);
 
