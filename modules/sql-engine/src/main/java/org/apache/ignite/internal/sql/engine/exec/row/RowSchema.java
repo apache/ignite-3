@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.sql.engine.exec.row;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Row schema used by execution engine.
@@ -105,6 +108,8 @@ public final class RowSchema {
      * Creates a new schema based on original schema and provided mapping.
      */
     public static RowSchema map(RowSchema schema, int[] mapping) {
+        assert mapping != null && mapping.length > 0;
+
         List<TypeSpec> fields = schema.fields();
         Builder builder = builder();
 

@@ -143,8 +143,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             this.insertRowMapping = null;
         }
 
-        RowSchema mappedRowSchema = getMappedRowSchema(inputRowFactory, mapping);
-        RowSchema mappedInsertRowSchema = getMappedRowSchema(inputRowFactory, insertRowMapping);
+        RowSchema mappedRowSchema =  mapping != null ? RowSchema.map(inputRowFactory.rowSchema(), mapping) : inputRowFactory.rowSchema();
+        RowSchema mappedInsertRowSchema =  insertRowMapping != null ? RowSchema.map(inputRowFactory.rowSchema(), insertRowMapping) : inputRowFactory.rowSchema();
 
         this.mappedRowFactory = ctx.rowHandler().factory(mappedRowSchema);
         this.mappedInsertRowFactory = ctx.rowHandler().factory(mappedInsertRowSchema);
@@ -481,11 +481,5 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
 
         return mapping;
-    }
-
-    private RowSchema getMappedRowSchema(RowFactory<RowT> inputRowFactory, int[] mapping) {
-        return mapping != null
-                ? RowSchema.map(inputRowFactory.rowSchema(), mapping)
-                : inputRowFactory.rowSchema();
     }
 }
