@@ -217,6 +217,22 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         Assert.AreEqual(new byte[] { 255 }, tuple.Value);
     }
 
+    [Test]
+    public void TestExpirationNotSupported()
+    {
+        var cache = GetCache();
+
+        Test(new() { AbsoluteExpiration = DateTimeOffset.Now });
+        Test(new() { SlidingExpiration = TimeSpan.FromMinutes(1) });
+        Test(new() { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1) });
+
+        void Test(DistributedCacheEntryOptions options)
+        {
+            var ex = Assert.Throws<ArgumentException>(() => cache.Set("x", [1], options));
+            Assert.AreEqual("Expiration is not supported. (Parameter 'options')", ex.Message);
+        }
+    }
+
     private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null) =>
         new IgniteDistributedCache(options ?? new IgniteDistributedCacheOptions(), _clientGroup);
 }
