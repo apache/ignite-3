@@ -36,7 +36,6 @@ public static class IgniteCacheServiceCollectionExtensions
         this IServiceCollection services,
         Action<IgniteDistributedCacheOptions> setupAction)
     {
-        // TODO: Consistency with IgniteServiceCollectionExtensions?
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(setupAction);
 

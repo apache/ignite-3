@@ -18,6 +18,7 @@
 namespace Apache.Extensions.Cache.Ignite.Tests;
 
 using Apache.Ignite;
+using Apache.Ignite.Tests;
 using Caching.Ignite;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,6 +39,11 @@ public class IgniteCacheServiceCollectionExtensionsTests
             .AddOptions();
 
         ServiceProvider serviceProvider = services.BuildServiceProvider();
-        Assert.NotNull(serviceProvider.GetRequiredService<IDistributedCache>());
+
+        IDistributedCache distributedCache = serviceProvider.GetRequiredService<IDistributedCache>();
+        Assert.IsInstanceOf<IgniteDistributedCache>(distributedCache);
+
+        IgniteDistributedCacheOptions opts = distributedCache.GetFieldValue<IgniteDistributedCacheOptions>("_options");
+        Assert.AreEqual("prefix", opts.CacheKeyPrefix);
     }
 }
