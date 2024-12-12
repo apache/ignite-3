@@ -17,6 +17,7 @@
 
 namespace Apache.Extensions.Caching.Ignite;
 
+using Apache.Ignite;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,6 +28,9 @@ public static class IgniteCacheServiceCollectionExtensions
 {
     /// <summary>
     /// Adds Ignite distributed caching services to the specified <see cref="IServiceCollection" />.
+    /// <para />
+    /// Depends on <see cref="IgniteClientGroup"/>, make sure to add it as well with
+    /// <see cref="IgniteServiceCollectionExtensions.AddIgniteClientGroup(IServiceCollection,IgniteClientGroupConfiguration,ServiceLifetime)"/>.
     /// </summary>
     /// <param name="services">The <see cref="IServiceCollection" /> to add services to.</param>
     /// <param name="setupAction">An <see cref="Action{IgniteDistributedCacheOptions}"/> to configure the provided
