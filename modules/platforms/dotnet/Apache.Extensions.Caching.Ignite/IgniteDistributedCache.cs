@@ -154,15 +154,15 @@ public sealed class IgniteDistributedCache : IDistributedCache
 
     private IgniteTuple GetKey(string key)
     {
-        var tuple = _tuplePool.Get();
-        tuple[_options.KeyColumnName] = key;
+        IgniteTuple tuple = _tuplePool.Get();
+        tuple[_options.KeyColumnName] = _options.CacheKeyPrefix + key;
 
         return tuple;
     }
 
     private IgniteTuple GetKeyVal(string key, byte[] val)
     {
-        var tuple = GetKey(key);
+        IgniteTuple tuple = GetKey(key);
         tuple[_options.ValueColumnName] = val;
 
         return tuple;

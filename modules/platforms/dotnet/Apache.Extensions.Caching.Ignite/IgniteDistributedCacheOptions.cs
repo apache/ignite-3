@@ -45,6 +45,11 @@ public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedC
     public string ValueColumnName { get; set; } = "VAL";
 
     /// <summary>
+    /// Gets or sets optional cache key prefix. Allows to use the same table for multiple caches.
+    /// </summary>
+    public string? CacheKeyPrefix { get; set; }
+
+    /// <summary>
     /// Gets or sets the service key (<see cref="ServiceDescriptor.ServiceKey"/>) to retrieve <see cref="IgniteClientGroup"/>
     /// from the service provider.
     /// </summary>

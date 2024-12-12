@@ -18,9 +18,9 @@
 namespace Apache.Extensions.Cache.Ignite.Tests;
 
 using Apache.Ignite;
+using Apache.Ignite.Table;
 using Apache.Ignite.Tests;
 using Caching.Ignite;
-using Microsoft.Extensions.Caching.Distributed;
 
 /// <summary>
 /// Tests for <see cref="IgniteDistributedCache"/>.
@@ -44,15 +44,28 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         const string key = "TestBasicCaching";
         byte[] value = [1, 2, 3];
 
-        var cache = new IgniteDistributedCache(new() { TableName = tableName }, _clientGroup);
+        var cacheOptions = new IgniteDistributedCacheOptions
+        {
+            TableName = tableName,
+            CacheKeyPrefix = "test_"
+        };
+
+        var cache = new IgniteDistributedCache(cacheOptions, _clientGroup);
 
         cache.Set(key, value, new());
-        var resValue = cache.Get(key);
+        byte[]? resValue = cache.Get(key);
 
         CollectionAssert.AreEqual(value, resValue);
 
         // Check that table was created.
         var table = await Client.Tables.GetTableAsync(tableName);
         Assert.IsNotNull(table);
+
+        var (row, hasRow) = await table.RecordBinaryView.GetAsync(
+            null,
+            new IgniteTuple { ["KEY"] = cacheOptions.CacheKeyPrefix + key });
+
+        Assert.IsTrue(hasRow);
+        CollectionAssert.AreEqual(value, (byte[])row["VAL"]!);
     }
 }
