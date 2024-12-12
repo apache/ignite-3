@@ -62,6 +62,12 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestSetGetRemove()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
     public async Task TestRemoveTableBreaksCaching()
     {
         var cacheOptions = new IgniteDistributedCacheOptions();
@@ -75,5 +81,23 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
             async () => await cache.GetAsync("x", CancellationToken.None));
 
         StringAssert.StartsWith("Table does not exist or was dropped concurrently", ex.Message);
+    }
+
+    [Test]
+    public async Task TestExistingTable()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestCustomTableAndColumnNames()
+    {
+        await Task.Delay(1);
+    }
+
+    [Test]
+    public async Task TestKeyPrefix()
+    {
+        await Task.Delay(1);
     }
 }
