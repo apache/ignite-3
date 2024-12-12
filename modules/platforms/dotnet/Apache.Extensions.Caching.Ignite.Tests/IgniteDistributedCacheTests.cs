@@ -17,6 +17,7 @@
 
 namespace Apache.Extensions.Cache.Ignite.Tests;
 
+using Apache.Ignite;
 using Apache.Ignite.Tests;
 using Caching.Ignite;
 
@@ -33,6 +34,14 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     [Test]
     public void Test1()
     {
-        Assert.Pass();
+        var clientGroupConfig = new IgniteClientGroupConfiguration
+        {
+            Size = 2,
+            ClientConfiguration = GetConfig()
+        };
+
+        var clientGroup = new IgniteClientGroup(clientGroupConfig);
+
+        var cache = new IgniteDistributedCache(new IgniteDistributedCacheOptions(), clientGroup);
     }
 }

@@ -29,9 +29,20 @@ public sealed class IgniteDistributedCacheOptions : IOptions<IgniteDistributedCa
     /// <summary>
     /// Gets or sets the table name to use for the cache.
     /// <para />
-    /// The table will be created automatically. When using an existing table, make sure it has "KEY VARCHAR" and "VAL BLOB" columns.
+    /// The table will be created automatically. When using an existing table, make sure it has VARCHAR key and BLOB value columns,
+    /// named as specified in <see cref="KeyColumnName"/> and <see cref="ValueColumnName"/> properties.
     /// </summary>
     public string TableName { get; set; } = "IGNITE_DOTNET_DISTRIBUTED_CACHE";
+
+    /// <summary>
+    /// Gets or sets the name of the key column. Column type should be VARCHAR.
+    /// </summary>
+    public string KeyColumnName { get; set; } = "KEY";
+
+    /// <summary>
+    /// Gets or sets the name of the value column. Column type should be BLOB.
+    /// </summary>
+    public string ValueColumnName { get; set; } = "VAL";
 
     /// <summary>
     /// Gets or sets the service key (<see cref="ServiceDescriptor.ServiceKey"/>) to retrieve <see cref="IgniteClientGroup"/>
