@@ -192,25 +192,25 @@ public class TableImpl implements TableViewInternal {
     }
 
     @Override
-    public int partition(Tuple key) {
+    public int partitionId(Tuple key) {
         Objects.requireNonNull(key);
 
         // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
         // columns never change (so they are the same for all schema versions of the table),
         Row keyRow = new TupleMarshallerImpl(schemaReg.lastKnownSchema()).marshalKey(key);
 
-        return tbl.partition(keyRow);
+        return tbl.partitionId(keyRow);
     }
 
     @Override
-    public <K> int partition(K key, Mapper<K> keyMapper) {
+    public <K> int partitionId(K key, Mapper<K> keyMapper) {
         Objects.requireNonNull(key);
         Objects.requireNonNull(keyMapper);
 
         var marshaller = new KvMarshallerImpl<>(schemaReg.lastKnownSchema(), marshallers, keyMapper, keyMapper);
         BinaryRowEx keyRow = marshaller.marshal(key);
 
-        return tbl.partition(keyRow);
+        return tbl.partitionId(keyRow);
     }
 
     /** Returns a supplier of index storage wrapper factories for given partition. */

@@ -579,12 +579,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     /** {@inheritDoc} */
     @Override
-    public int partition(BinaryRowEx keyRow) {
-        return 0;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId, @Nullable HybridTimestamp readTimestamp) {
         return completedFuture(LOCAL_NODE);
     }

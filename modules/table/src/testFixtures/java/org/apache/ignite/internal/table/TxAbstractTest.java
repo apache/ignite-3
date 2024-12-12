@@ -2109,13 +2109,13 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         SchemaRegistry schemaRegistry = accounts.schemaView();
         var marshaller = new TupleMarshallerImpl(schemaRegistry.lastKnownSchema());
 
-        int partId = accounts.internalTable().partition(marshaller.marshalKey(makeKey(0)));
+        int partId = accounts.internalTable().partitionId(marshaller.marshalKey(makeKey(0)));
 
         ArrayList<Integer> keys = new ArrayList<>(10);
         keys.add(0);
 
         for (int i = 1; i < 10_000 && keys.size() < 10; i++) {
-            var p = accounts.internalTable().partition(marshaller.marshalKey(makeKey(i)));
+            var p = accounts.internalTable().partitionId(marshaller.marshalKey(makeKey(i)));
 
             if (p == partId) {
                 keys.add(i);
