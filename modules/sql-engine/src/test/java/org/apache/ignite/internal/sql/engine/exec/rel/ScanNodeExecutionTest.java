@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,12 +29,21 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunction;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionInstance;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
+import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 /**
  * Tests for {@link ScanNode}.
@@ -74,6 +86,77 @@ public class ScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
 
             assertEquals(1, instance.closeCounter.get());
         }
+    }
+
+
+    @ParameterizedTest
+    @MethodSource("exceptionArgs")
+    @SuppressWarnings("unchecked")
+    public void testCreateInstanceRuntimeErr(RuntimeException cause) {
+        ExecutionContext<Object[]> ctx = executionContext(true);
+
+        TableFunction<Object[]> testFunction = Mockito.mock(TableFunction.class);
+
+        when(testFunction.createInstance(ctx)).thenThrow(cause);
+
+        try (RootNode<Object[]> rootNode = new RootNode<>(ctx)) {
+            ScanNode<Object[]> srcNode = new ScanNode<>(ctx, testFunction);
+
+            rootNode.register(srcNode);
+
+            RuntimeException err = assertThrows(RuntimeException.class, rootNode::next);
+            assertSame(cause, err);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("exceptionArgs")
+    @SuppressWarnings("unchecked")
+    public void hasNextThrowsRuntimeErr(RuntimeException cause) {
+        ExecutionContext<Object[]> ctx = executionContext(true);
+
+        TableFunctionInstance<Object[]> instance = Mockito.mock(TableFunctionInstance.class);
+        TestFunction<Object[]> testFunction = new TestFunction<>(instance);
+
+        when(instance.hasNext()).thenThrow(cause);
+
+        try (RootNode<Object[]> rootNode = new RootNode<>(ctx)) {
+            ScanNode<Object[]> srcNode = new ScanNode<>(ctx, testFunction);
+
+            rootNode.register(srcNode);
+
+            RuntimeException err = assertThrows(RuntimeException.class, rootNode::next);
+            assertSame(cause, err);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("exceptionArgs")
+    @SuppressWarnings("unchecked")
+    public void testNextThrowsRuntimeErr(RuntimeException cause) {
+        ExecutionContext<Object[]> ctx = executionContext(true);
+
+        TableFunctionInstance<Object[]> instance = Mockito.mock(TableFunctionInstance.class);
+        TestFunction<Object[]> testFunction = new TestFunction<>(instance);
+
+        when(instance.hasNext()).thenReturn(true);
+        when(instance.next()).thenThrow(cause);
+
+        try (RootNode<Object[]> rootNode = new RootNode<>(ctx)) {
+            ScanNode<Object[]> srcNode = new ScanNode<>(ctx, testFunction);
+
+            rootNode.register(srcNode);
+
+            RuntimeException err = assertThrows(RuntimeException.class, rootNode::next);
+            assertSame(cause, err);
+        }
+    }
+
+    private static Stream<Arguments> exceptionArgs() {
+        return Stream.of(
+                Arguments.of(Named.named("query-cancel", new QueryCancelledException())),
+                Arguments.of(Named.named("runtime-error", new SqlException(Sql.RUNTIME_ERR, "err")))
+        );
     }
 
     @Override
