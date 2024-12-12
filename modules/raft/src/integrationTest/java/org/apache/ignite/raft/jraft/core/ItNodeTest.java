@@ -2825,6 +2825,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testNodeWillNeverGetOutOfSnapshot() throws Exception {
         CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
+        CompletableFuture<Void> snapshotStartedFuture = new CompletableFuture<>();
 
         // Create a group of 3 nodes, A,B and C.
         // Start nodes A and B, node C remains not started.
@@ -2832,41 +2833,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // Here we need custom SnapshotCopier that is capable of pausing snapshot installation.
         BiConsumer<PeerId, NodeOptions> nodeOptionsConsumer = (peerId, nodeOptions) -> {
-
-            nodeOptions.setServiceFactory(new TestJRaftServiceFactory() {
-                @Override
-                public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
-                    return new LocalSnapshotStorage(uri, raftOptions) {
-
-                        @Override
-                        public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
-                            LocalSnapshotCopier copier = new LocalSnapshotCopier() {
-                                @Override
-                                public void join() throws InterruptedException {
-                                    // Pause snapshot installation.
-                                    snapshotFuture.join();
-                                    super.join();
-                                }
-
-                                @Override
-                                public void cancel() {
-                                    // Unblock snapshot installation if snapshot request is cancelled.
-                                    snapshotFuture.complete(null);
-                                    super.cancel();
-                                }
-                            };
-                            copier.setStorage(this);
-                            if (!copier.init(uri, opts)) {
-                                logger().error("Fail to init copier to {}.", uri);
-                                return null;
-                            }
-                            copier.start();
-                            return copier;
-                        }
-                    };
-                }
-            });
+            tapIntoSnapshotCopier(nodeOptions, snapshotFuture, snapshotStartedFuture);
         };
+
         cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS, nodeOptionsConsumer,
                 testInfo);
 
@@ -2879,7 +2848,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // Add data to the group.
         sendTestTaskAndWait(leader);
 
-        log.info("Trigger leader snapshot");
+        log.info("Trigger leader snapshot.");
         CountDownLatch latch = new CountDownLatch(1);
         leader.snapshot(new ExpectClosure(latch));
         waitLatch(latch);
@@ -2888,16 +2857,22 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         leader.snapshot(new ExpectClosure(latch));
         waitLatch(latch);
 
-        log.info("Stop follower.");
+        log.info("Stop follower [id={}].",cluster.getFollowers().get(0).getNodeId().getPeerId().getConsistentId());
         cluster.stop(cluster.getFollowers().get(0).getNodeId().getPeerId());
 
         // Start node C, it should install snapshot from leader.
-        log.info("Start node.");
+        log.info("Start node [id={}].", peers.get(2).getPeerId().getConsistentId());
         assertTrue(cluster.start(peers.get(2)));
         assertTrue(waitForCondition(() -> cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot(), 10_000));
-        // While snapshot is being installed, stop the leader.
-        cluster.stop(leader.getLeaderId());
 
+        log.info("Waiting for snapshot to start executing.");
+        assertThat(snapshotStartedFuture, willCompleteSuccessfully());
+
+        // While snapshot is being installed, stop the leader.
+        log.info("Stopping leader [id={}].", leader.getLeaderId());
+        cluster.stop(leader.getLeaderId());
+        log.info("Leader stopped.");
+        
         assertTrue(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
 
         // Wait 30 seconds to check if snapshot is still installing.
@@ -2913,6 +2888,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testNodeBlockedTimeoutNow() throws Exception {
         CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
+        CompletableFuture<Void> snapshotStartedFuture = new CompletableFuture<>();
 
         // Create a group of 3 nodes, A,B and C.
         // A is the leader, B and C are followers.
@@ -2933,40 +2909,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 ));
             }
 
-            nodeOptions.setServiceFactory(new TestJRaftServiceFactory() {
-                @Override
-                public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
-                    return new LocalSnapshotStorage(uri, raftOptions) {
-
-                        @Override
-                        public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
-                            LocalSnapshotCopier copier = new LocalSnapshotCopier() {
-                                @Override
-                                public void join() throws InterruptedException {
-                                    // Pause snapshot installation.
-                                    snapshotFuture.join();
-                                    super.join();
-                                }
-
-                                @Override
-                                public void cancel() {
-                                    // Unblock snapshot installation if snapshot request is cancelled.
-                                    snapshotFuture.complete(null);
-                                    super.cancel();
-                                }
-                            };
-                            copier.setStorage(this);
-                            if (!copier.init(uri, opts)) {
-                                logger().error("Fail to init copier to {}.", uri);
-                                return null;
-                            }
-                            copier.start();
-                            return copier;
-                        }
-                    };
-                }
-            });
+            tapIntoSnapshotCopier(nodeOptions, snapshotFuture, snapshotStartedFuture);
         };
+
         cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS, nodeOptionsConsumer,
                 testInfo);
 
@@ -2979,7 +2924,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // Add data to the group.
         sendTestTaskAndWait(leader);
 
-        log.info("Trigger leader snapshot");
+        log.info("Trigger leader snapshot.");
         CountDownLatch latch = new CountDownLatch(1);
         leader.snapshot(new ExpectClosure(latch));
         waitLatch(latch);
@@ -2989,11 +2934,11 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         waitLatch(latch);
 
         // Start node C, it should install snapshot from leader.
-        log.info("Start node.");
+        log.info("Start node [id={}].", peers.get(2).getPeerId().getConsistentId());
         assertTrue(cluster.start(peers.get(2)));
         blockMessagesOnFollowers(cluster.getNodes().stream().map(Node.class::cast).collect(toList()), (msg, nodeId) -> {
             if (msg instanceof RpcRequests.TimeoutNowRequest) {
-                log.info("Blocking TimeoutNowRequest on [node={}, msg={}]", nodeId, msg);
+                log.info("Blocking TimeoutNowRequest on [node={}, msg={}].", nodeId, msg);
                 return true;
             }
 
@@ -3001,9 +2946,13 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         });
         assertTrue(waitForCondition(() -> cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot(), 10_000));
         // While snapshot is being installed, stop the leader.
-        log.info("Stopping leader");
+
+        log.info("Waiting for snapshot to start executing.");
+        assertThat(snapshotStartedFuture, willCompleteSuccessfully());
+
+        log.info("Stopping leader [id={}].", leader.getLeaderId());
         cluster.stop(leader.getLeaderId());
-        log.info("Leader stopped");
+        log.info("Leader stopped.");
 
         Thread.sleep(30_000);
 
@@ -3013,7 +2962,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testReelectionWithTimeoutNow() throws Exception {
         CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
-
+        CompletableFuture<Void> snapshotStartedFuture = new CompletableFuture<>();
         // Create a group of 3 nodes, A,B and C.
         // A is the leader, B and C are followers.
         // C is not started, moreover C is on different configuration.
@@ -3034,40 +2983,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 ));
             }
 
-            nodeOptions.setServiceFactory(new TestJRaftServiceFactory() {
-                @Override
-                public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
-                    return new LocalSnapshotStorage(uri, raftOptions) {
-
-                        @Override
-                        public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
-                            LocalSnapshotCopier copier = new LocalSnapshotCopier() {
-                                @Override
-                                public void join() throws InterruptedException {
-                                    // Pause snapshot installation.
-                                    snapshotFuture.join();
-                                    super.join();
-                                }
-
-                                @Override
-                                public void cancel() {
-                                    // Unblock snapshot installation if snapshot request is cancelled.
-                                    snapshotFuture.complete(null);
-                                    super.cancel();
-                                }
-                            };
-                            copier.setStorage(this);
-                            if (!copier.init(uri, opts)) {
-                                logger().error("Fail to init copier to {}.", uri);
-                                return null;
-                            }
-                            copier.start();
-                            return copier;
-                        }
-                    };
-                }
-            });
+            tapIntoSnapshotCopier(nodeOptions, snapshotFuture, snapshotStartedFuture);
         };
+
         cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS, nodeOptionsConsumer,
                 testInfo);
 
@@ -3080,7 +2998,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // Add data to the group.
         sendTestTaskAndWait(leader);
 
-        log.info("Trigger leader snapshot");
+        log.info("Trigger leader snapshot.");
         CountDownLatch latch = new CountDownLatch(1);
         leader.snapshot(new ExpectClosure(latch));
         waitLatch(latch);
@@ -3090,16 +3008,58 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         waitLatch(latch);
 
         // Start node C, it should install snapshot from leader.
-        log.info("Start node.");
+        log.info("Start node [id={}].", peers.get(2).getPeerId().getConsistentId());
         assertTrue(cluster.start(peers.get(2)));
 
         assertTrue(waitForCondition(() -> cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot(), 10_000));
         // While snapshot is being installed, stop the leader.
-        log.info("Stopping leader");
+        log.info("Stopping leader [id={}].", leader.getLeaderId());
         cluster.stop(leader.getLeaderId());
-        log.info("Leader stopped");
+        log.info("Leader stopped.");
 
         assertFalse(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
+    }
+
+    private void tapIntoSnapshotCopier(
+            NodeOptions nodeOptions,
+            CompletableFuture<Void> snapshotFuture,
+            CompletableFuture<Void> snapshotStartedFuture
+    ) {
+        nodeOptions.setServiceFactory(new TestJRaftServiceFactory() {
+            @Override
+            public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+                return new LocalSnapshotStorage(uri, raftOptions) {
+
+                    @Override
+                    public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
+                        LocalSnapshotCopier copier = new LocalSnapshotCopier() {
+                            @Override
+                            public void join() throws InterruptedException {
+                                // Pause snapshot installation.
+                                snapshotStartedFuture.complete(null);
+
+                                snapshotFuture.join();
+                                super.join();
+                            }
+
+                            @Override
+                            public void cancel() {
+                                // Unblock snapshot installation if snapshot request is cancelled.
+                                snapshotFuture.complete(null);
+                                super.cancel();
+                            }
+                        };
+                        copier.setStorage(this);
+                        if (!copier.init(uri, opts)) {
+                            logger().error("Fail to init copier to {}.", uri);
+                            return null;
+                        }
+                        copier.start();
+                        return copier;
+                    }
+                };
+            }
+        });
     }
 
     @Test
