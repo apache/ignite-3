@@ -38,16 +38,21 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         _clientGroup.Dispose();
 
     [Test]
-    public void TestBasicCaching()
+    public async Task TestBasicCaching()
     {
+        const string tableName = "Table_TestBasicCaching";
         const string key = "TestBasicCaching";
         byte[] value = [1, 2, 3];
 
-        var cache = new IgniteDistributedCache(new(), _clientGroup);
+        var cache = new IgniteDistributedCache(new() { TableName = tableName }, _clientGroup);
 
         cache.Set(key, value, new());
         var resValue = cache.Get(key);
 
         CollectionAssert.AreEqual(value, resValue);
+
+        // Check that table was created.
+        var table = await Client.Tables.GetTableAsync(tableName);
+        Assert.IsNotNull(table);
     }
 }

@@ -29,7 +29,7 @@ public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedC
     /// <summary>
     /// Gets or sets the table name to use for the cache.
     /// <para />
-    /// The table will be created automatically. When using an existing table, make sure it has VARCHAR key and BLOB value columns,
+    /// The table will be created automatically. When using an existing table, make sure it has VARCHAR key and VARBINARY value columns,
     /// named as specified in <see cref="KeyColumnName"/> and <see cref="ValueColumnName"/> properties.
     /// </summary>
     public string TableName { get; set; } = "IGNITE_DOTNET_DISTRIBUTED_CACHE";
@@ -40,7 +40,7 @@ public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedC
     public string KeyColumnName { get; set; } = "KEY";
 
     /// <summary>
-    /// Gets or sets the name of the value column. Column type should be BLOB.
+    /// Gets or sets the name of the value column. Column type should be VARBINARY.
     /// </summary>
     public string ValueColumnName { get; set; } = "VAL";
 

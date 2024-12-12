@@ -17,7 +17,9 @@
 
 namespace Apache.Extensions.Caching.Ignite;
 
+using System.Diagnostics.CodeAnalysis;
 using Apache.Ignite;
+using Apache.Ignite.Sql;
 using Apache.Ignite.Table;
 using Internal;
 using Microsoft.Extensions.Caching.Distributed;
@@ -166,6 +168,10 @@ public sealed class IgniteDistributedCache : IDistributedCache
         return tuple;
     }
 
+    [SuppressMessage(
+        "Reliability",
+        "CA2007:Consider calling ConfigureAwait on the awaited task",
+        Justification = "False positive.")]
     private async Task<IRecordView<IIgniteTuple>> GetViewAsync()
     {
         // TODO: Cache created table.
@@ -173,14 +179,12 @@ public sealed class IgniteDistributedCache : IDistributedCache
 
         var tableName = _options.TableName;
 
-        await ignite.Sql
-            .ExecuteAsync(
-                transaction: null,
-                "CREATE TABLE IF NOT EXISTS ? (? VARCHAR PRIMARY KEY, ? BLOB)",
-                tableName,
-                _options.KeyColumnName,
-                _options.ValueColumnName)
-            .ConfigureAwait(false);
+        // NOTE: We assume that table name and column names are safe to concatenate into SQL.
+        var sql = $"CREATE TABLE IF NOT EXISTS {tableName} (" +
+                  $"{_options.KeyColumnName} VARCHAR PRIMARY KEY, " +
+                  $"{_options.ValueColumnName} VARBINARY)";
+
+        await using var resultSet = await ignite.Sql.ExecuteAsync(transaction: null, sql).ConfigureAwait(false);
 
         ITable? table = await ignite.Tables.GetTableAsync(tableName).ConfigureAwait(false);
 
