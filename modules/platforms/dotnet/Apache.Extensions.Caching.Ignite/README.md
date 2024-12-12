@@ -13,7 +13,8 @@ services
     .AddIgniteDistributedCache(options => options.TableName = "IGNITE_DISTRIBUTED_CACHE");
 ```
 
-`AddIgniteClientGroup` is required for the cache to work. It is used to create a connection to the Ignite cluster.
+* `AddIgniteClientGroup` is required for the cache to work. It is used to create a connection to the Ignite cluster.
+* Ignite table will be created automatically if it does not exist. Key column is `VARCHAR` and value column is `VARBINARY`.
 
 ## Configuration
 
