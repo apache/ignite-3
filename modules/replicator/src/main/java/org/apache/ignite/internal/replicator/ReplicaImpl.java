@@ -440,7 +440,7 @@ public class ReplicaImpl implements Replica {
          * 5. Primary replica expires and trigger the event.
          * 6. A.16_0 receives the event, found itself, but the callback is null due to the node A restart.
          *
-         * In the case we should so nothing. // TODO: how could we detect such scenario?
+         * In the case we should so nothing.
          */
         if (onLeaderElectedFailoverCallback == null) {
             return falseCompletedFuture();
