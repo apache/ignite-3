@@ -205,7 +205,16 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     [Test]
     public async Task TestKeyPrefix()
     {
-        await Task.Delay(1);
+        var options = new IgniteDistributedCacheOptions { CacheKeyPrefix = "prefix_" };
+        IDistributedCache cache = GetCache(options);
+
+        await cache.SetAsync("x", [255]);
+        Assert.AreEqual(new byte[] { 255 }, await cache.GetAsync("x"));
+
+        var table = await Client.Tables.GetTableAsync(options.TableName);
+        var tuple = await table!.GetKeyValueView<string, byte[]>().GetAsync(null, "prefix_x");
+
+        Assert.AreEqual(new byte[] { 255 }, tuple.Value);
     }
 
     private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null) =>
