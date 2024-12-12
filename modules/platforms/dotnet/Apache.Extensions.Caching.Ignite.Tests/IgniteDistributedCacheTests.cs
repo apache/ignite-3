@@ -40,16 +40,10 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     [Test]
     public async Task TestBasicCaching()
     {
-        const string tableName = "Table_TestBasicCaching";
         const string key = "TestBasicCaching";
         byte[] value = [1, 2, 3];
 
-        var cacheOptions = new IgniteDistributedCacheOptions
-        {
-            TableName = tableName,
-            CacheKeyPrefix = "test_"
-        };
-
+        var cacheOptions = new IgniteDistributedCacheOptions();
         var cache = new IgniteDistributedCache(cacheOptions, _clientGroup);
 
         cache.Set(key, value, new());
@@ -58,12 +52,10 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         CollectionAssert.AreEqual(value, resValue);
 
         // Check that table was created.
-        var table = await Client.Tables.GetTableAsync(tableName);
+        var table = await Client.Tables.GetTableAsync(cacheOptions.TableName);
         Assert.IsNotNull(table);
 
-        var (row, hasRow) = await table.RecordBinaryView.GetAsync(
-            null,
-            new IgniteTuple { ["KEY"] = cacheOptions.CacheKeyPrefix + key });
+        var (row, hasRow) = await table.RecordBinaryView.GetAsync(null, new IgniteTuple { ["KEY"] = key });
 
         Assert.IsTrue(hasRow);
         CollectionAssert.AreEqual(value, (byte[])row["VAL"]!);
