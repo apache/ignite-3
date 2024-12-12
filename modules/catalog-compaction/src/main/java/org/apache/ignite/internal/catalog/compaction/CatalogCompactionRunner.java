@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
 import it.unimi.dsi.fastutil.ints.Int2IntMap.Entry;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -36,6 +35,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -123,6 +123,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
     private final MinimumRequiredTimeCollectorService localMinTimeCollectorService;
 
     private final String localNodeName;
@@ -196,6 +198,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return CompletableFutures.nullCompletedFuture();
+        }
+
         busyLock.block();
 
         return CompletableFutures.nullCompletedFuture();
