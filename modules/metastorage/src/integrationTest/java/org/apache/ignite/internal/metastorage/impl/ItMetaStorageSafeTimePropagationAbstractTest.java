@@ -29,8 +29,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.AbstractKeyValueStorageTest;
 import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
@@ -68,17 +66,9 @@ public abstract class ItMetaStorageSafeTimePropagationAbstractTest extends Abstr
 
         // Register watch listener, so that we can control safe time propagation.
         // Safe time can only be propagated when all of the listeners completed their futures successfully.
-        storage.watchExact(key(0), 1, new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                watchCalledLatch.countDown();
-                return watchCompletedFuture;
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                // No-op.
-            }
+        storage.watchExact(key(0), 1, event -> {
+            watchCalledLatch.countDown();
+            return watchCompletedFuture;
         });
 
         HybridTimestamp opTs = clock.now();

@@ -159,7 +159,6 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         verify(listener1).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry1), entry1)));
         verify(listener2).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
-        verify(listener2).onError(any(IllegalStateException.class));
 
         verify(watchEventHandlingCallback, never()).onRevisionApplied(anyLong());
     }

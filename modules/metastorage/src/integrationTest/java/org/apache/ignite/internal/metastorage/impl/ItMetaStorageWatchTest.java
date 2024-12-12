@@ -31,7 +31,6 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -74,8 +73,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
@@ -323,41 +320,25 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
     @Test
     void testExactWatch() throws Exception {
-        testWatches((node, latch) -> node.metaStorageManager.registerExactWatch(new ByteArray("foo"), new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
-                assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
+        testWatches((node, latch) -> node.metaStorageManager.registerExactWatch(new ByteArray("foo"), event -> {
+            assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
+            assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
 
-                latch.countDown();
+            latch.countDown();
 
-                return nullCompletedFuture();
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                fail();
-            }
+            return nullCompletedFuture();
         }));
     }
 
     @Test
     void testPrefixWatch() throws Exception {
-        testWatches((node, latch) -> node.metaStorageManager.registerPrefixWatch(new ByteArray("fo"), new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
-                assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
+        testWatches((node, latch) -> node.metaStorageManager.registerPrefixWatch(new ByteArray("fo"), event -> {
+            assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
+            assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
 
-                latch.countDown();
+            latch.countDown();
 
-                return nullCompletedFuture();
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                fail();
-            }
+            return nullCompletedFuture();
         }));
     }
 
@@ -367,21 +348,13 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
             var startRange = new ByteArray("fo" + ('o' - 1));
             var endRange = new ByteArray("foz");
 
-            node.metaStorageManager.registerRangeWatch(startRange, endRange, new WatchListener() {
-                @Override
-                public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                    assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
-                    assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
+            node.metaStorageManager.registerRangeWatch(startRange, endRange, event -> {
+                assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
+                assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
 
-                    latch.countDown();
+                latch.countDown();
 
-                    return nullCompletedFuture();
-                }
-
-                @Override
-                public void onError(Throwable e) {
-                    fail();
-                }
+                return nullCompletedFuture();
             });
         });
     }
@@ -425,46 +398,30 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         var prefixLatch = new CountDownLatch(numNodes);
 
         for (Node node : nodes) {
-            node.metaStorageManager.registerExactWatch(new ByteArray("foo"), new WatchListener() {
-                @Override
-                public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                    assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
-                    assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
+            node.metaStorageManager.registerExactWatch(new ByteArray("foo"), event -> {
+                assertThat(event.entryEvent().newEntry().key(), is("foo".getBytes(StandardCharsets.UTF_8)));
+                assertThat(event.entryEvent().newEntry().value(), is("bar".getBytes(StandardCharsets.UTF_8)));
 
-                    exactLatch.countDown();
+                exactLatch.countDown();
 
-                    return nullCompletedFuture();
-                }
-
-                @Override
-                public void onError(Throwable e) {
-                    fail();
-                }
+                return nullCompletedFuture();
             });
 
-            node.metaStorageManager.registerPrefixWatch(new ByteArray("ba"), new WatchListener() {
-                @Override
-                public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                    List<String> keys = event.entryEvents().stream()
-                            .map(e -> new String(e.newEntry().key(), StandardCharsets.UTF_8))
-                            .collect(toList());
+            node.metaStorageManager.registerPrefixWatch(new ByteArray("ba"), event -> {
+                List<String> keys = event.entryEvents().stream()
+                        .map(e -> new String(e.newEntry().key(), StandardCharsets.UTF_8))
+                        .collect(toList());
 
-                    List<String> values = event.entryEvents().stream()
-                            .map(e -> new String(e.newEntry().value(), StandardCharsets.UTF_8))
-                            .collect(toList());
+                List<String> values = event.entryEvents().stream()
+                        .map(e -> new String(e.newEntry().value(), StandardCharsets.UTF_8))
+                        .collect(toList());
 
-                    assertThat(keys, containsInAnyOrder("bar", "baz"));
-                    assertThat(values, containsInAnyOrder("one", "two"));
+                assertThat(keys, containsInAnyOrder("bar", "baz"));
+                assertThat(values, containsInAnyOrder("one", "two"));
 
-                    prefixLatch.countDown();
+                prefixLatch.countDown();
 
-                    return nullCompletedFuture();
-                }
-
-                @Override
-                public void onError(Throwable e) {
-                    fail();
-                }
+                return nullCompletedFuture();
             });
         }
 
@@ -505,18 +462,10 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         List<RevisionAndTimestamp> seenRevisionsAndTimestamps = new CopyOnWriteArrayList<>();
 
         for (Node node : nodes) {
-            node.metaStorageManager.registerPrefixWatch(new ByteArray("prefix"), new WatchListener() {
-                @Override
-                public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                    seenRevisionsAndTimestamps.add(new RevisionAndTimestamp(event.revision(), event.timestamp()));
+            node.metaStorageManager.registerPrefixWatch(new ByteArray("prefix"), event -> {
+                seenRevisionsAndTimestamps.add(new RevisionAndTimestamp(event.revision(), event.timestamp()));
 
-                    return nullCompletedFuture();
-                }
-
-                @Override
-                public void onError(Throwable e) {
-                    fail();
-                }
+                return nullCompletedFuture();
             });
         }
 

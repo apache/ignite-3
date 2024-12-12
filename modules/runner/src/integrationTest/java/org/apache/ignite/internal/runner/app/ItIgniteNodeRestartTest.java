@@ -141,7 +141,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -1698,18 +1697,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private void createWatchListener(MetaStorageManager metaStorageManager, String prefix, Consumer<WatchEvent> listener) {
         metaStorageManager.registerPrefixWatch(
                 new ByteArray(prefix.getBytes(StandardCharsets.UTF_8)),
-                new WatchListener() {
-                    @Override
-                    public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                        listener.accept(event);
+                event -> {
+                    listener.accept(event);
 
-                        return nullCompletedFuture();
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-                        log.error("Error in test watch listener", e);
-                    }
+                    return nullCompletedFuture();
                 }
         );
     }
