@@ -20,28 +20,34 @@ namespace Apache.Extensions.Cache.Ignite.Tests;
 using Apache.Ignite;
 using Apache.Ignite.Tests;
 using Caching.Ignite;
+using Microsoft.Extensions.Caching.Distributed;
 
 /// <summary>
 /// Tests for <see cref="IgniteDistributedCache"/>.
 /// </summary>
 public class IgniteDistributedCacheTests : IgniteTestsBase
 {
-    [SetUp]
-    public void Setup()
-    {
-    }
+    private IgniteClientGroup _clientGroup = null!;
+
+    [OneTimeSetUp]
+    public void InitClientGroup() =>
+        _clientGroup = new IgniteClientGroup(new IgniteClientGroupConfiguration { ClientConfiguration = GetConfig() });
+
+    [OneTimeTearDown]
+    public void StopClientGroup() =>
+        _clientGroup.Dispose();
 
     [Test]
-    public void Test1()
+    public void TestBasicCaching()
     {
-        var clientGroupConfig = new IgniteClientGroupConfiguration
-        {
-            Size = 2,
-            ClientConfiguration = GetConfig()
-        };
+        const string key = "TestBasicCaching";
+        byte[] value = [1, 2, 3];
 
-        var clientGroup = new IgniteClientGroup(clientGroupConfig);
+        var cache = new IgniteDistributedCache(new(), _clientGroup);
 
-        var cache = new IgniteDistributedCache(new IgniteDistributedCacheOptions(), clientGroup);
+        cache.Set(key, value, new());
+        var resValue = cache.Get(key);
+
+        CollectionAssert.AreEqual(value, resValue);
     }
 }

@@ -100,6 +100,7 @@ public sealed class IgniteDistributedCache : IDistributedCache
     public async Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token)
     {
         // TODO: Expiration is not supported in Ignite - throw when specified.
+        // Should we support it by using periodic cleanup?
         var view = await GetViewAsync().ConfigureAwait(false);
 
         var tuple = GetKeyVal(key, value);
