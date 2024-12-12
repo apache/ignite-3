@@ -19,7 +19,6 @@ namespace Apache.Extensions.Caching.Ignite;
 
 using System.Diagnostics.CodeAnalysis;
 using Apache.Ignite;
-using Apache.Ignite.Sql;
 using Apache.Ignite.Table;
 using Internal;
 using Microsoft.Extensions.Caching.Distributed;
@@ -30,8 +29,9 @@ using Microsoft.Extensions.Options;
 /// <summary>
 /// Ignite-based distributed cache.
 /// </summary>
-public sealed class IgniteDistributedCache : IDistributedCache
+public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 {
+    [SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "Not owned, injected.")]
     private readonly IgniteClientGroup _igniteClientGroup;
 
     private readonly IgniteDistributedCacheOptions _options;
@@ -39,6 +39,10 @@ public sealed class IgniteDistributedCache : IDistributedCache
     private readonly ObjectPool<IgniteTuple> _tuplePool = new DefaultObjectPool<IgniteTuple>(
         new IgniteTuplePooledObjectPolicy(),
         maximumRetained: Environment.ProcessorCount * 10);
+
+    private readonly SemaphoreSlim _initLock = new(1);
+
+    private volatile ITable? _table;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="IgniteDistributedCache"/> class.
@@ -152,6 +156,12 @@ public sealed class IgniteDistributedCache : IDistributedCache
         }
     }
 
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        _initLock.Dispose();
+    }
+
     private IgniteTuple GetKey(string key)
     {
         IgniteTuple tuple = _tuplePool.Get();
@@ -168,31 +178,44 @@ public sealed class IgniteDistributedCache : IDistributedCache
         return tuple;
     }
 
-    [SuppressMessage(
-        "Reliability",
-        "CA2007:Consider calling ConfigureAwait on the awaited task",
-        Justification = "False positive.")]
     private async Task<IRecordView<IIgniteTuple>> GetViewAsync()
     {
-        // TODO: Cache created table.
-        IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
-
-        var tableName = _options.TableName;
-
-        // NOTE: We assume that table name and column names are safe to concatenate into SQL.
-        var sql = $"CREATE TABLE IF NOT EXISTS {tableName} (" +
-                  $"{_options.KeyColumnName} VARCHAR PRIMARY KEY, " +
-                  $"{_options.ValueColumnName} VARBINARY)";
-
-        await using var resultSet = await ignite.Sql.ExecuteAsync(transaction: null, sql).ConfigureAwait(false);
-
-        ITable? table = await ignite.Tables.GetTableAsync(tableName).ConfigureAwait(false);
-
-        if (table == null)
+        var table = _table;
+        if (table != null)
         {
-            throw new InvalidOperationException("Table not found: " + tableName);
+            return table.RecordBinaryView;
         }
 
-        return table.RecordBinaryView;
+        await _initLock.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            table = _table;
+            if (table != null)
+            {
+                return table.RecordBinaryView;
+            }
+
+            IIgnite ignite = await _igniteClientGroup.GetIgniteAsync().ConfigureAwait(false);
+
+            var tableName = _options.TableName;
+
+            // NOTE: We assume that table name and column names are safe to concatenate into SQL.
+            var sql = $"CREATE TABLE IF NOT EXISTS {tableName} (" +
+                      $"{_options.KeyColumnName} VARCHAR PRIMARY KEY, " +
+                      $"{_options.ValueColumnName} VARBINARY)";
+
+            await ignite.Sql.ExecuteAsync(transaction: null, sql).ConfigureAwait(false);
+
+            table = await ignite.Tables.GetTableAsync(tableName).ConfigureAwait(false);
+
+            _table = table ?? throw new InvalidOperationException("Table not found: " + tableName);
+
+            return table.RecordBinaryView;
+        }
+        finally
+        {
+            _initLock.Release();
+        }
     }
 }
