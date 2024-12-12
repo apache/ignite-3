@@ -142,8 +142,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        // No-op.
-        // Expiration is not supported in Ignite.
+        // TODO: IGNITE-23973 Add expiration support
     }
 
     /// <inheritdoc/>
@@ -151,8 +150,7 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        // No-op.
-        // Expiration is not supported in Ignite.
+        // TODO: IGNITE-23973 Add expiration support
         return Task.CompletedTask;
     }
 
