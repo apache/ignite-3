@@ -105,15 +105,23 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestEmptyKey()
+    public void TestEmptyKey()
     {
-        await Task.Delay(1);
+        IDistributedCache cache = GetCache();
+
+        cache.Set(string.Empty, [1]);
+
+        Assert.AreEqual(new[] { 1 }, cache.Get(string.Empty));
     }
 
     [Test]
-    public async Task TestEmptyValue()
+    public void TestEmptyValue()
     {
-        await Task.Delay(1);
+        IDistributedCache cache = GetCache();
+
+        cache.Set("k", []);
+
+        Assert.AreEqual(Array.Empty<byte>(), cache.Get("k"));
     }
 
     [Test]
