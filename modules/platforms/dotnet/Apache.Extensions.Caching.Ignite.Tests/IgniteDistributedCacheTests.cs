@@ -45,7 +45,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         byte[] value = [1, 2, 3];
 
         var cacheOptions = new IgniteDistributedCacheOptions();
-        IDistributedCache cache = new IgniteDistributedCache(cacheOptions, _clientGroup);
+        IDistributedCache cache = GetCache(cacheOptions);
 
         await cache.SetAsync(key, value, new());
         byte[]? resValue = await cache.GetAsync(key);
@@ -72,7 +72,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     public async Task TestRemoveTableBreaksCaching()
     {
         var cacheOptions = new IgniteDistributedCacheOptions();
-        var cache = new IgniteDistributedCache(cacheOptions, _clientGroup);
+        IDistributedCache cache = GetCache(cacheOptions);
 
         await cache.SetAsync("x", [1], new(), CancellationToken.None);
 
@@ -93,7 +93,28 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     [Test]
     public async Task TestCustomTableAndColumnNames()
     {
-        await Task.Delay(1);
+        var cacheOptions = new IgniteDistributedCacheOptions
+        {
+            TableName = nameof(TestCustomTableAndColumnNames),
+            KeyColumnName = "_K",
+            ValueColumnName = "_V"
+        };
+
+        IDistributedCache cache = GetCache(cacheOptions);
+
+        await cache.SetAsync("x", [1]);
+        CollectionAssert.AreEqual(new[] { 1 }, await cache.GetAsync("x"));
+
+        await using var resultSet = await Client.Sql.ExecuteAsync(null, $"SELECT * FROM {cacheOptions.TableName}");
+        var rows = await resultSet.ToListAsync();
+        var row = rows.Single();
+
+        Assert.AreEqual(2, row.FieldCount);
+        Assert.AreEqual("_K", row.GetName(0));
+        Assert.AreEqual("_V", row.GetName(1));
+
+        Assert.AreEqual("x", row[0]);
+        CollectionAssert.AreEqual(new[] { 1 }, (byte[]?)row[1]);
     }
 
     [Test]
@@ -101,4 +122,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     {
         await Task.Delay(1);
     }
+
+    private IDistributedCache GetCache(IgniteDistributedCacheOptions? options = null) =>
+        new IgniteDistributedCache(options ?? new IgniteDistributedCacheOptions(), _clientGroup);
 }
