@@ -18,6 +18,7 @@
 namespace Apache.Extensions.Cache.Ignite.Tests;
 
 using Apache.Ignite;
+using Apache.Ignite.Table;
 using Apache.Ignite.Tests;
 using Caching.Ignite;
 using Microsoft.Extensions.Caching.Distributed;
@@ -194,7 +195,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         var rows = await resultSet.ToListAsync();
         var row = rows.Single();
 
-        Assert.AreEqual(2, row.FieldCount);
+        Assert.AreEqual(4, row.FieldCount);
         Assert.AreEqual("_K", row.GetName(0));
         Assert.AreEqual("_V", row.GetName(1));
 
@@ -212,9 +213,9 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
         Assert.AreEqual(new byte[] { 255 }, await cache.GetAsync("x"));
 
         var table = await Client.Tables.GetTableAsync(options.TableName);
-        var tuple = await table!.GetKeyValueView<string, byte[]>().GetAsync(null, "prefix_x");
+        var tuple = await table!.RecordBinaryView.GetAsync(null, new IgniteTuple { ["KEY"] = "prefix_x" });
 
-        Assert.AreEqual(new byte[] { 255 }, tuple.Value);
+        Assert.AreEqual(new byte[] { 255 }, tuple.Value["VAL"]);
     }
 
     [Test]

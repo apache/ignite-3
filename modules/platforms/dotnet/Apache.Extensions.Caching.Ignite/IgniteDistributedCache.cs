@@ -31,6 +31,12 @@ using Microsoft.Extensions.Options;
 /// </summary>
 public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
 {
+    /** Absolute expiration timestamp, milliseconds since Unix epoch. */
+    private const string ExpirationColumnName = "EXPIRATION";
+
+    /** Sliding expiration, milliseconds. */
+    private const string SlidingExpirationColumnName = "SLIDING_EXPIRATION";
+
     [SuppressMessage("Usage", "CA2213:Disposable fields should be disposed", Justification = "Not owned, injected.")]
     private readonly IgniteClientGroup _igniteClientGroup;
 
@@ -217,7 +223,10 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
             // NOTE: We assume that table name and column names are safe to concatenate into SQL.
             var sql = $"CREATE TABLE IF NOT EXISTS {tableName} (" +
                       $"{_options.KeyColumnName} VARCHAR PRIMARY KEY, " +
-                      $"{_options.ValueColumnName} VARBINARY)";
+                      $"{_options.ValueColumnName} VARBINARY, " +
+                      $"{ExpirationColumnName} BIGINT, " +
+                      $"{SlidingExpirationColumnName} BIGINT" +
+                      ")";
 
             await ignite.Sql.ExecuteAsync(transaction: null, sql).ConfigureAwait(false);
 
