@@ -49,6 +49,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
 import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
+import org.apache.ignite.internal.tostring.IgniteStringifier;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -137,12 +139,20 @@ public class MessageImplGenerator {
 
             if (getter.getAnnotation(IgniteToStringExclude.class) == null) {
                 IgniteToStringInclude includeAnnotation = getter.getAnnotation(IgniteToStringInclude.class);
+                IgniteStringifier stringifierAnnotation = getter.getAnnotation(IgniteStringifier.class);
 
-                AnnotationSpec includeAnnotationSpec = includeAnnotation == null
-                        ? AnnotationSpec.builder(IgniteToStringInclude.class).build()
-                        : AnnotationSpec.get(includeAnnotation);
+                if (stringifierAnnotation != null) {
+                    AnnotationSpec annotationSpec = AnnotationSpec.builder(IgniteStringifier.class)
+                            .addMember("name", "$S", stringifierAnnotation.name())
+                            .addMember("value", "$T.class", igniteStringifierValueTypeMirror(stringifierAnnotation))
+                            .build();
 
-                fieldBuilder.addAnnotation(includeAnnotationSpec);
+                    fieldBuilder.addAnnotation(annotationSpec);
+                } else if (includeAnnotation != null) {
+                    fieldBuilder.addAnnotation(AnnotationSpec.get(includeAnnotation));
+                } else {
+                    fieldBuilder.addAnnotation(AnnotationSpec.builder(IgniteToStringInclude.class).build());
+                }
             } else {
                 fieldBuilder.addAnnotation(IgniteToStringExclude.class);
             }
@@ -817,5 +827,16 @@ public class MessageImplGenerator {
         COLLECTION,
         MESSAGE,
         MAP;
+    }
+
+    private static TypeMirror igniteStringifierValueTypeMirror(IgniteStringifier annotation) {
+        try {
+            annotation.value();
+
+            // Should not happen.
+            return null;
+        } catch (MirroredTypeException mte) {
+            return mte.getTypeMirror();
+        }
     }
 }
