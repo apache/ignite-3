@@ -476,11 +476,6 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public int partition(BinaryRowEx keyRow) {
-        return 0;
-    }
-
-    @Override
     public void close() {
         // No-op.
     }
