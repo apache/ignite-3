@@ -450,7 +450,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
             }
         }
 
-        return builder.buildAndReset();
+        return builder.build();
     }
 
     private static TableDescriptor createTableDescriptor(RowSchema rowSchema) {
