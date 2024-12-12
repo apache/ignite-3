@@ -24,7 +24,6 @@ import org.apache.ignite.internal.sql.engine.exec.exp.func.IterableTableFunction
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunction;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionInstance;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 
 /**
