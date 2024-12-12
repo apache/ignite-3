@@ -50,7 +50,7 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
         execute("CREATE TABLE T(K INT PRIMARY KEY)", "--jdbc-url", JDBC_URL);
 
         assertAll(
-                () -> assertOutputContains("Updated 1 rows."),
+                () -> assertOutputContains("Updated 0 rows."),
                 this::assertErrOutputIsEmpty
         );
 
@@ -68,7 +68,7 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
 
         assertAll(
                 // The output from CREATE TABLE is: Updated 0 rows.
-                () -> assertOutputContains("Updated 1 rows."),
+                () -> assertOutputContains("Updated 0 rows."),
                 this::assertErrOutputIsEmpty
         );
 
