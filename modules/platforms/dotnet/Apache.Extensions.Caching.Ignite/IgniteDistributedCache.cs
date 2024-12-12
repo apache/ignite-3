@@ -83,6 +83,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     /// <inheritdoc/>
     public async Task<byte[]?> GetAsync(string key, CancellationToken token)
     {
+        ArgumentNullException.ThrowIfNull(key);
+
         var view = await GetViewAsync().ConfigureAwait(false);
         var tuple = GetKey(key);
 
@@ -105,6 +107,10 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     /// <inheritdoc/>
     public async Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions options, CancellationToken token)
     {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentNullException.ThrowIfNull(options);
+
         // TODO: Expiration is not supported in Ignite - throw when specified.
         // Should we support it by using periodic cleanup?
         var view = await GetViewAsync().ConfigureAwait(false);
@@ -124,6 +130,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     /// <inheritdoc/>
     public void Refresh(string key)
     {
+        ArgumentNullException.ThrowIfNull(key);
+
         // No-op.
         // Expiration is not supported in Ignite.
     }
@@ -131,6 +139,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     /// <inheritdoc/>
     public Task RefreshAsync(string key, CancellationToken token)
     {
+        ArgumentNullException.ThrowIfNull(key);
+
         // No-op.
         // Expiration is not supported in Ignite.
         return Task.CompletedTask;
@@ -143,6 +153,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     /// <inheritdoc/>
     public async Task RemoveAsync(string key, CancellationToken token)
     {
+        ArgumentNullException.ThrowIfNull(key);
+
         var view = await GetViewAsync().ConfigureAwait(false);
         var tuple = GetKey(key);
 
@@ -157,10 +169,8 @@ public sealed class IgniteDistributedCache : IDistributedCache, IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose()
-    {
+    public void Dispose() =>
         _initLock.Dispose();
-    }
 
     private IgniteTuple GetKey(string key)
     {
