@@ -24,7 +24,7 @@ using Microsoft.Extensions.Options;
 /// <summary>
 /// Configuration options for <see cref="IgniteDistributedCache"/>.
 /// </summary>
-public sealed class IgniteDistributedCacheOptions : IOptions<IgniteDistributedCacheOptions>
+public sealed record IgniteDistributedCacheOptions : IOptions<IgniteDistributedCacheOptions>
 {
     /// <summary>
     /// Gets or sets the table name to use for the cache.

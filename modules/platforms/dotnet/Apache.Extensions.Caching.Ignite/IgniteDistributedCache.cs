@@ -30,10 +30,6 @@ using Microsoft.Extensions.Options;
 /// </summary>
 public sealed class IgniteDistributedCache : IDistributedCache
 {
-    private const string KeyColumnName = "KEY";
-
-    private const string ValColumnName = "VAL";
-
     private readonly IgniteClientGroup _igniteClientGroup;
 
     private readonly IgniteDistributedCacheOptions _options;
@@ -88,7 +84,7 @@ public sealed class IgniteDistributedCache : IDistributedCache
         {
             var (val, hasVal) = await view.GetAsync(null, tuple).ConfigureAwait(false);
 
-            return hasVal ? (byte[]?)val[ValColumnName] : null;
+            return hasVal ? (byte[]?)val[_options.ValueColumnName] : null;
         }
         finally
         {
@@ -156,7 +152,7 @@ public sealed class IgniteDistributedCache : IDistributedCache
     private IgniteTuple GetKey(string key)
     {
         var tuple = _tuplePool.Get();
-        tuple[KeyColumnName] = key;
+        tuple[_options.KeyColumnName] = key;
 
         return tuple;
     }
@@ -164,7 +160,7 @@ public sealed class IgniteDistributedCache : IDistributedCache
     private IgniteTuple GetKeyVal(string key, byte[] val)
     {
         var tuple = GetKey(key);
-        tuple[ValColumnName] = val;
+        tuple[_options.ValueColumnName] = val;
 
         return tuple;
     }
@@ -177,7 +173,12 @@ public sealed class IgniteDistributedCache : IDistributedCache
         var tableName = _options.TableName;
 
         await ignite.Sql
-            .ExecuteAsync(null, "CREATE TABLE IF NOT EXISTS ? (KEY VARCHAR PRIMARY KEY, VAL BLOB)", tableName)
+            .ExecuteAsync(
+                transaction: null,
+                "CREATE TABLE IF NOT EXISTS ? (? VARCHAR PRIMARY KEY, ? BLOB)",
+                tableName,
+                _options.KeyColumnName,
+                _options.ValueColumnName)
             .ConfigureAwait(false);
 
         ITable? table = await ignite.Tables.GetTableAsync(tableName).ConfigureAwait(false);
