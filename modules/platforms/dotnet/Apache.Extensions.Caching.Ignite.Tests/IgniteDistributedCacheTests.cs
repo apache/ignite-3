@@ -59,15 +59,20 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestGetMissingKeyReturnsNull()
+    public void TestCaseSensitiveKeys()
     {
-        await Task.Delay(1);
-    }
+        var key1 = nameof(TestCaseSensitiveKeys);
+        var key2 = key1.ToUpperInvariant();
 
-    [Test]
-    public async Task TestCaseSensitiveKeys()
-    {
-        await Task.Delay(1);
+        byte[] val1 = [1];
+        byte[] val2 = [2];
+
+        IDistributedCache cache = GetCache();
+
+        cache.Set(key1, val1);
+        cache.Set(key2, val2);
+
+        Assert.AreEqual(val1, cache.Get(key1));
     }
 
     [Test]
