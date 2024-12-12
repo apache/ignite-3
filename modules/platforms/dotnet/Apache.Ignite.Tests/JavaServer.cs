@@ -127,6 +127,7 @@ namespace Apache.Ignite.Tests
 
             Log(">>> Stopping Java server 2...");
             _process?.Kill();
+            _process?.Kill(entireProcessTree: true);
 
             Log(">>> Stopping Java server 3...");
             _process?.Dispose();
@@ -156,7 +157,8 @@ namespace Apache.Ignite.Tests
                     UseShellExecute = false,
                     WorkingDirectory = TestUtils.RepoRootDir,
                     RedirectStandardOutput = true,
-                    RedirectStandardError = true
+                    RedirectStandardError = true,
+                    RedirectStandardInput = true
                 }
             };
 
