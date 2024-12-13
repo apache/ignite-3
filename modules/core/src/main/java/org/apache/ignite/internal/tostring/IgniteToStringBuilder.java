@@ -893,7 +893,7 @@ public class IgniteToStringBuilder {
      * @param cls value class.
      * @param val value to print.
      */
-    private static void toString(StringBuilderLimitedLength buf, Class<?> cls, @Nullable Object val) {
+    private static void toString(StringBuilderLimitedLength buf, @Nullable Class<?> cls, @Nullable Object val) {
         if (val == null) {
             buf.app("null");
 

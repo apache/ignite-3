@@ -25,7 +25,7 @@ import org.apache.ignite.internal.tostring.IgniteStringifier;
 import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
 import org.jetbrains.annotations.Nullable;
 
-/** Other massages. */
+/** Other messages. */
 public class OtherMessages {
     /** Message with {@link UUID} field that is not {@link Nullable} field. */
     @Transferable(11)

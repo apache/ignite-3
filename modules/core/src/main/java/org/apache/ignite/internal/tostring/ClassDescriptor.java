@@ -31,7 +31,7 @@ class ClassDescriptor {
     /** Class name. */
     private final String name;
 
-    /** Class stringifier, {@code null} id absent. */
+    /** Class stringifier, {@code null} if absent. */
     private final @Nullable Stringifier<?> stringifier;
 
     /** Class field descriptors. */
