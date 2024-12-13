@@ -102,7 +102,7 @@ public class KillCommandHandler implements KillHandlerRegistry {
 
         CompletableFuture<Boolean> killFut = invokeCancel(handler, cmd.operationId());
 
-        if (killFut.isDone() || !cmd.noWait()) {
+        if (killFut.isCompletedExceptionally() || !cmd.noWait()) {
             return killFut;
         }
 
