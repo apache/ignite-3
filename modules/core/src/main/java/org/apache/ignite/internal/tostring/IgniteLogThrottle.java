@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
@@ -82,7 +83,7 @@ public class IgniteLogThrottle {
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
     public static void error(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
-        log(log, e, msg, msg, LogLevel.ERROR, params);
+        log(log, e, null, msg, LogLevel.ERROR, params);
     }
 
     /**
@@ -174,7 +175,7 @@ public class IgniteLogThrottle {
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
     public static void warn(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
-        log(log, e, msg, msg, LogLevel.WARN, params);
+        log(log, e, null, msg, LogLevel.WARN, params);
     }
 
     /**
@@ -266,7 +267,7 @@ public class IgniteLogThrottle {
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
     public static void info(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
-        log(log, e, msg, msg, LogLevel.INFO, params);
+        log(log, e, null, msg, LogLevel.INFO, params);
     }
 
     /**
@@ -358,7 +359,7 @@ public class IgniteLogThrottle {
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
     public static void debug(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
-        log(log, e, msg, msg, LogLevel.DEBUG, params);
+        log(log, e, null, msg, LogLevel.DEBUG, params);
     }
 
     /**
@@ -414,20 +415,22 @@ public class IgniteLogThrottle {
      *
      * @param log Logger.
      * @param e Error (optional).
-     * @param longMsg Long message/message pattern (or just message).
-     * @param throttleKey Throttle key.
+     * @param longMsg Long message/message pattern.
+     * @param throttleKey Throttle key (optional).
      * @param level Level where messages should appear.
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
     private static void log(
             IgniteLogger log,
             @Nullable Throwable e,
-            String throttleKey,
+            @Nullable String throttleKey,
             String longMsg,
             LogLevel level,
             Object... params
     ) {
-        LogThrottleKey msgKey = e != null ? new LogThrottleKey(e.getClass(), throttleKey) : new LogThrottleKey(null, throttleKey);
+        String errorMessage = nullOrEmpty(params) ? longMsg : IgniteStringFormatter.format(longMsg, params);
+
+        var msgKey = new LogThrottleKey(e, throttleKey == null ? errorMessage : throttleKey);
 
         while (true) {
             Long loggedTs = MESSAGES_MAP.get(msgKey);
@@ -436,7 +439,7 @@ public class IgniteLogThrottle {
 
             if (loggedTs == null || loggedTs < curTs - THROTTLE_TIMEOUT_MILLIS) {
                 if (replace(msgKey, loggedTs, curTs)) {
-                    level.doLog(log, longMsg, e, params);
+                    level.doLog(log, errorMessage, e);
 
                     break;
                 }
@@ -460,49 +463,33 @@ public class IgniteLogThrottle {
     private enum LogLevel {
         ERROR {
             @Override
-            public void doLog(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
-                if (nullOrEmpty(params)) {
-                    log.error(msg, e, msg, params);
-                } else {
-                    log.error(msg, e);
-                }
+            public void doLog(IgniteLogger log, String msg, @Nullable Throwable e) {
+                log.error(msg, e);
             }
         },
 
         WARN {
             @Override
-            public void doLog(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
-                if (nullOrEmpty(params)) {
-                    log.warn(msg, e, msg, params);
-                } else {
-                    log.warn(msg, e);
-                }
+            public void doLog(IgniteLogger log, String msg, @Nullable Throwable e) {
+                log.warn(msg, e);
             }
         },
 
         INFO {
             @Override
-            public void doLog(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
-                if (nullOrEmpty(params)) {
-                    log.info(msg, e, msg, params);
-                } else {
-                    log.info(msg, e);
-                }
+            public void doLog(IgniteLogger log, String msg, @Nullable Throwable e) {
+                log.info(msg, e, msg);
             }
         },
 
         DEBUG {
             @Override
-            public void doLog(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
-                if (nullOrEmpty(params)) {
-                    log.debug(msg, e);
-                } else {
-                    log.debug(msg, e, params);
-                }
+            public void doLog(IgniteLogger log, String msg, @Nullable Throwable e) {
+                log.debug(msg, e);
             }
         };
 
-        public abstract void doLog(IgniteLogger log, String msg, @Nullable Throwable e, Object... params);
+        public abstract void doLog(IgniteLogger log, String msg, @Nullable Throwable e);
     }
 
     private static class LogThrottleKey {
@@ -511,8 +498,8 @@ public class IgniteLogThrottle {
 
         final String errorMessage;
 
-        LogThrottleKey(@Nullable Class<? extends Throwable> errorClass, String errorMessage) {
-            this.errorClass = errorClass;
+        LogThrottleKey(@Nullable Throwable error, String errorMessage) {
+            this.errorClass = error == null ? null : error.getClass();
             this.errorMessage = errorMessage;
         }
 
