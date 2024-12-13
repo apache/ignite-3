@@ -32,11 +32,7 @@ for PYBIN in /opt/python/*/bin; do
     fi
 done
 
-for archive in /dist/*; do
-    if [[ $archive =~ ^(.*)(tar\.gz|zip)$ ]]; then
-        chmod 666 "$archive"
-    fi
-done
+chown -R `stat -c "%u:%g" /dist/` /dist/*
 
 rm -rf /$PACKAGE_NAME/cpp
 rm -rf /$PACKAGE_NAME/*.egg-info

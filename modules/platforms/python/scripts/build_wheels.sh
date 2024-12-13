@@ -40,7 +40,7 @@ for PY_VER in $PY_VERS; do
 
             # Bundle external shared libraries into the wheels
             for whl in /wheels/*.whl; do
-                if [[ $whl =~ ^(.*)$PY_VER-(.*)$ ]]; then
+                if [[ $whl =~ ^(.*)$PY_VER-(.*)$ ]] && [[ ! $whl =~ ^(.*)manylinux(.*)$ ]]; then
                     "${PYBIN}/pip" wheel /$PACKAGE_NAME/ --no-deps -w /wheels
                     repair_wheel "$whl"
                 fi
@@ -52,10 +52,10 @@ done
 for whl in /wheels/*.whl; do
     if [[ ! $whl =~ ^(.*)manylinux(.*)$ ]]; then
         rm "$whl"
-    else
-        chmod 666 "$whl"
     fi
 done
+
+chown -R `stat -c "%u:%g" /wheels` /wheels/*
 
 rm -rf /$PACKAGE_NAME/*.egg-info
 rm -rf /$PACKAGE_NAME/.eggs
