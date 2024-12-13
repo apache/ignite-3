@@ -246,7 +246,8 @@ public interface IgniteCompute {
 
     /**
      * Submits a {@link ComputeJob} of the given class for an execution on nodes where the primary replicas of a partitions of the specified
-     * table are located. The partition indices are passed to the job in the {@link JobExecutionContext#partitions()}.
+     * table are located. The partition objects are passed to the job in the {@link JobExecutionContext#partitions()}. At most one job is
+     * executed on a node.
      *
      * @param tableName Table name.
      * @param descriptor Job descriptor.
@@ -264,7 +265,8 @@ public interface IgniteCompute {
 
     /**
      * Executes a {@link ComputeJob} of the given class on nodes where the primary replicas of a partitions of the specified table are
-     * located. The partition indices are passed to the job in the {@link JobExecutionContext#partitions()}.
+     * located. The partition objects are passed to the job in the {@link JobExecutionContext#partitions()}. At most one job is executed on
+     * a node.
      *
      * @param tableName Table name.
      * @param descriptor Job descriptor.
@@ -283,7 +285,8 @@ public interface IgniteCompute {
 
     /**
      * Executes a {@link ComputeJob} of the given class on nodes where the primary replicas of a partitions of the specified table are
-     * located. The partition indices are passed to the job in the {@link JobExecutionContext#partitions()}.
+     * located. The partition objects are passed to the job in the {@link JobExecutionContext#partitions()}. At most one job is executed on
+     * a node.
      *
      * @param tableName Table name.
      * @param descriptor Job descriptor.
@@ -301,7 +304,8 @@ public interface IgniteCompute {
 
     /**
      * Executes a {@link ComputeJob} of the given class on nodes where the primary replicas of a partitions of the specified table are
-     * located. The partition indices are passed to the job in the {@link JobExecutionContext#partitions()}.
+     * located. The partition objects are passed to the job in the {@link JobExecutionContext#partitions()}. At most one job is executed on
+     * a node.
      *
      * @param tableName Table name.
      * @param descriptor Job descriptor.

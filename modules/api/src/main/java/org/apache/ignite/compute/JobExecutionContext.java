@@ -19,6 +19,7 @@ package org.apache.ignite.compute;
 
 import java.util.List;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,11 +41,11 @@ public interface JobExecutionContext {
     boolean isCancelled();
 
     /**
-     * List of partitions numbers associated with this job. Not a {@code null} only when
+     * List of partitions associated with this job. Not a {@code null} only when
      * {@link IgniteCompute#submitBroadcastPartitioned(String, JobDescriptor, Object)} method is used to submit jobs. In this case, the list
-     * contains partitions numbers that are local on the node executing the job.
+     * contains partitions that are local on the node executing the job.
      *
-     * @return list of partitions numbers associated with this job.
+     * @return list of partitions associated with this job.
      */
-    @Nullable List<Integer> partitions();
+    @Nullable List<Partition> partitions();
 }

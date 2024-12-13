@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -32,16 +33,16 @@ public class ExecutionOptions {
 
     private final int maxRetries;
 
-    private final List<Integer> partitions;
+    private final List<Partition> partitions;
 
     /**
      * Constructor.
      *
      * @param priority Job execution priority.
      * @param maxRetries Number of times to retry job execution in case of failure, 0 to not retry.
-     * @param partitions List of partitions numbers associated with this job.
+     * @param partitions List of partitions associated with this job.
      */
-    private ExecutionOptions(int priority, int maxRetries, @Nullable List<Integer> partitions) {
+    private ExecutionOptions(int priority, int maxRetries, @Nullable List<Partition> partitions) {
         this.priority = priority;
         this.maxRetries = maxRetries;
         this.partitions = partitions;
@@ -59,7 +60,7 @@ public class ExecutionOptions {
         return maxRetries;
     }
 
-    public @Nullable List<Integer> partitions() {
+    public @Nullable List<Partition> partitions() {
         return partitions;
     }
 
@@ -91,7 +92,7 @@ public class ExecutionOptions {
 
         private int maxRetries;
 
-        private @Nullable List<Integer> partitions;
+        private @Nullable List<Partition> partitions;
 
         public Builder priority(int priority) {
             this.priority = priority;
@@ -103,7 +104,7 @@ public class ExecutionOptions {
             return this;
         }
 
-        public Builder partitions(List<Integer> partitions) {
+        public Builder partitions(List<Partition> partitions) {
             this.partitions = partitions;
             return this;
         }

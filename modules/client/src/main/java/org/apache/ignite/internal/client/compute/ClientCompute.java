@@ -245,6 +245,7 @@ public class ClientCompute implements IgniteCompute {
     ) {
         Objects.requireNonNull(tableName);
         Objects.requireNonNull(descriptor);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23936
         return failedFuture(new UnsupportedOperationException("Not implemented"));
     }
 
@@ -255,6 +256,7 @@ public class ClientCompute implements IgniteCompute {
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23936
         return failedFuture(new UnsupportedOperationException("Not implemented"));
     }
 

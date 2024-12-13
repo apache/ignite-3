@@ -70,7 +70,6 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
@@ -381,10 +380,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return requiredTable(tableName)
                 .thenCompose(table -> table.partitionManager().primaryReplicasAsync())
                 .thenApply(replicas -> {
-                    Map<ClusterNode, List<Integer>> partitioning = new HashMap<>();
+                    Map<ClusterNode, List<Partition>> partitioning = new HashMap<>();
                     for (Entry<Partition, ClusterNode> entry : replicas.entrySet()) {
                         partitioning.computeIfAbsent(entry.getValue(), k -> new ArrayList<>())
-                                .add(((HashPartition) entry.getKey()).partitionId());
+                                .add(entry.getKey());
                     }
 
                     return partitioning.entrySet().stream().collect(toUnmodifiableMap(
@@ -396,7 +395,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
     private <T, R> JobExecution<R> executePartitioned(
             ClusterNode node,
-            List<Integer> partitions,
+            List<Partition> partitions,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
