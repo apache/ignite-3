@@ -99,7 +99,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
 
         Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:10901", "127.0.0.1:10902", "127.0.0.1:10903")
-                .reconnectInterval(reconnectEnabled ? 50 : 0)
+                .backgroundReconnectInterval(reconnectEnabled ? 50 : 0)
                 .heartbeatInterval(50);
 
         try (var client = builder.build()) {
@@ -129,7 +129,7 @@ public class ReconnectTest extends BaseIgniteAbstractTest {
 
         Builder builder = IgniteClient.builder()
                 .addresses("127.0.0.1:10901", "127.0.0.1:10902")
-                .reconnectInterval(50)
+                .backgroundReconnectInterval(50)
                 .heartbeatInterval(50);
 
         try (var client = builder.build()) {
