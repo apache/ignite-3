@@ -144,19 +144,19 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     /** {@inheritDoc} */
     @Override
-    public long reconnectThrottlingPeriod() {
+    public long reconnectRetryBackoff() {
         return reconnectThrottlingPeriod;
     }
 
     /** {@inheritDoc} */
     @Override
-    public int reconnectThrottlingRetries() {
+    public int reconnectRetryLimit() {
         return reconnectThrottlingRetries;
     }
 
     /** {@inheritDoc} */
     @Override
-    public long reconnectInterval() {
+    public long backgroundReconnectInterval() {
         return reconnectInterval;
     }
 

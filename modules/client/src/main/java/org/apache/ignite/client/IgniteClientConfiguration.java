@@ -85,18 +85,18 @@ public interface IgniteClientConfiguration {
     long connectTimeout();
 
     /**
-     * Gets the reconnect throttling period, in milliseconds.
+     * Gets the reconnect backoff delay, in milliseconds.
      *
-     * @return Reconnect period for throttling, in milliseconds.
+     * @return Reconnect backoff delay, in milliseconds.
      */
-    long reconnectThrottlingPeriod();
+    long reconnectRetryBackoff();
 
     /**
-     * Gets the reconnect throttling retries.
+     * Gets the reconnect retry limit.
      *
-     * @return Reconnect throttling retries.
+     * @return Reconnect retry limit.
      */
-    int reconnectThrottlingRetries();
+    int reconnectRetryLimit();
 
     /**
      * Gets the background reconnect interval, in milliseconds. Set to {@code 0} to disable background reconnect.
@@ -109,7 +109,7 @@ public interface IgniteClientConfiguration {
      *
      * @return Background reconnect interval, in milliseconds.
      */
-    long reconnectInterval();
+    long backgroundReconnectInterval();
 
     /**
      * Gets the async continuation executor.

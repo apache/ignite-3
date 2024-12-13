@@ -103,8 +103,8 @@ public class ConfigurationTest extends AbstractClientTest {
             // Check config values.
             assertEquals("thin-client", client.name());
             assertEquals(1234, client.configuration().connectTimeout());
-            assertEquals(123, client.configuration().reconnectThrottlingPeriod());
-            assertEquals(8, client.configuration().reconnectThrottlingRetries());
+            assertEquals(123, client.configuration().reconnectRetryBackoff());
+            assertEquals(8, client.configuration().reconnectRetryLimit());
             assertArrayEquals(new String[]{addr}, client.configuration().addresses());
             assertArrayEquals(new String[]{addr}, client.configuration().addressesFinder().getAddresses());
         }
@@ -115,8 +115,8 @@ public class ConfigurationTest extends AbstractClientTest {
 
             // Check config values.
             assertEquals(2345, client2.configuration().connectTimeout());
-            assertEquals(1234, client2.configuration().reconnectThrottlingPeriod());
-            assertEquals(88, client2.configuration().reconnectThrottlingRetries());
+            assertEquals(1234, client2.configuration().reconnectRetryBackoff());
+            assertEquals(88, client2.configuration().reconnectRetryLimit());
             assertArrayEquals(new String[]{addr}, client.configuration().addresses());
             assertArrayEquals(new String[]{addr}, client.configuration().addressesFinder().getAddresses());
         }

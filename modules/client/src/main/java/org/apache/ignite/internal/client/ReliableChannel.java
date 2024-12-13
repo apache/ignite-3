@@ -684,7 +684,7 @@ public final class ReliableChannel implements AutoCloseable {
             }
         }
 
-        long interval = clientCfg.reconnectInterval();
+        long interval = clientCfg.backgroundReconnectInterval();
 
         if (interval > 0 && !closed) {
             // After current round of connection attempts is finished, schedule the next one with a configured delay.
@@ -767,9 +767,9 @@ public final class ReliableChannel implements AutoCloseable {
         private ClientChannelHolder(ClientChannelConfiguration chCfg) {
             this.chCfg = chCfg;
 
-            reconnectRetries = chCfg.clientConfiguration().reconnectThrottlingRetries() > 0
-                    && chCfg.clientConfiguration().reconnectThrottlingPeriod() > 0L
-                    ? new long[chCfg.clientConfiguration().reconnectThrottlingRetries()]
+            reconnectRetries = chCfg.clientConfiguration().reconnectRetryLimit() > 0
+                    && chCfg.clientConfiguration().reconnectRetryBackoff() > 0L
+                    ? new long[chCfg.clientConfiguration().reconnectRetryLimit()]
                     : null;
         }
 
@@ -786,7 +786,7 @@ public final class ReliableChannel implements AutoCloseable {
             long ts = System.currentTimeMillis();
 
             for (int i = 0; i < reconnectRetries.length; i++) {
-                if (ts - reconnectRetries[i] >= chCfg.clientConfiguration().reconnectThrottlingPeriod()) {
+                if (ts - reconnectRetries[i] >= chCfg.clientConfiguration().reconnectRetryBackoff()) {
                     reconnectRetries[i] = ts;
 
                     return false;
@@ -831,7 +831,7 @@ public final class ReliableChannel implements AutoCloseable {
                 if (!ignoreThrottling && applyReconnectionThrottling()) {
                     return supplyAsync(
                             () -> null,
-                            delayedExecutor(chCfg.clientConfiguration().reconnectThrottlingPeriod(), TimeUnit.MILLISECONDS))
+                            delayedExecutor(chCfg.clientConfiguration().reconnectRetryBackoff(), TimeUnit.MILLISECONDS))
                             .thenCompose(unused -> getOrCreateChannelAsync());
                 }
 
