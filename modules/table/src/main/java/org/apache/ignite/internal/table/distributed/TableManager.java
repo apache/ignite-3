@@ -1109,7 +1109,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     // `pending.contains(node) || (stable.contains(node) && !pending.isForce())`.
                     // However we check only the right part of this condition here
                     // since after `startTables` we have a call to `processAssignmentsOnRecovery`,
-                    // which executes pending assignments update an will start required partitions there.
+                    // which executes pending assignments update and will start required partitions there.
                     shouldStartPartition = localMemberAssignmentInStable != null
                             && (pendingAssignments == null || !pendingAssignments.force());
                 } else {
