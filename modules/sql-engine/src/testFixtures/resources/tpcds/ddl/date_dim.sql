@@ -1,0 +1,33 @@
+create table DATE_DIM
+(
+    d_date_sk           INTEGER  not null,
+    d_date_id           VARCHAR(16) not null,
+    d_date              DATE,
+    d_month_seq         INTEGER,
+    d_week_seq          INTEGER,
+    d_quarter_seq       INTEGER,
+    d_year              INTEGER,
+    d_dow               INTEGER,
+    d_moy               INTEGER,
+    d_dom               INTEGER,
+    d_qoy               INTEGER,
+    d_fy_year           INTEGER,
+    d_fy_quarter_seq    INTEGER,
+    d_fy_week_seq       INTEGER,
+    d_day_name          VARCHAR(9),
+    d_quarter_name      VARCHAR(6),
+    d_holiday           VARCHAR(1),
+    d_weekend           VARCHAR(1),
+    d_following_holiday VARCHAR(1),
+    d_first_dom         INTEGER,
+    d_last_dom          INTEGER,
+    d_same_day_ly       INTEGER,
+    d_same_day_lq       INTEGER,
+    d_current_day       VARCHAR(1),
+    d_current_week      VARCHAR(1),
+    d_current_month     VARCHAR(1),
+    d_current_quarter   VARCHAR(1),
+    d_current_year      VARCHAR(1),
+    constraint DATE_DIM_pk
+        primary key (d_date_sk)
+);

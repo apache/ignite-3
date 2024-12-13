@@ -131,7 +131,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Storage of table rows.
@@ -1847,13 +1846,6 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public TxStateTableStorage txStateStorage() {
         return txStateStorage;
-    }
-
-    /** {@inheritDoc} */
-    @TestOnly
-    @Override
-    public int partition(BinaryRowEx keyRow) {
-        return partitionId(keyRow);
     }
 
     /** {@inheritDoc} */

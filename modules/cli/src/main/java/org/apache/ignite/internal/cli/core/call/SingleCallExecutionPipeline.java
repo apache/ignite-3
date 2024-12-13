@@ -40,7 +40,7 @@ public class SingleCallExecutionPipeline<I extends CallInput, T> extends Abstrac
             ExceptionHandlers exceptionHandlers,
             Decorator<T, TerminalOutput> decorator,
             Supplier<I> inputProvider,
-            boolean verbose
+            boolean[] verbose
     ) {
         super(output, errOutput, exceptionHandlers, decorator, inputProvider, verbose);
         this.call = call;

@@ -21,8 +21,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -31,8 +29,6 @@ import org.apache.ignite.internal.metastorage.WatchListener;
  * Cluster statuses store watch listener.
  */
 public class ClusterStatusWatchListener implements WatchListener {
-    private static final IgniteLogger LOG = Loggers.forClass(ClusterStatusWatchListener.class);
-
     private final ClusterEventCallback clusterEventCallback;
 
     public ClusterStatusWatchListener(ClusterEventCallback clusterEventCallback) {
@@ -49,10 +45,5 @@ public class ClusterStatusWatchListener implements WatchListener {
             }
         }
         return nullCompletedFuture();
-    }
-
-    @Override
-    public void onError(Throwable e) {
-        LOG.warn("Failed to process metastore deployment unit event. ", e);
     }
 }

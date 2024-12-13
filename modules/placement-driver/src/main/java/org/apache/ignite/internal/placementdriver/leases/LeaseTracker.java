@@ -228,11 +228,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                 return allOf(fireEventFutures.toArray(CompletableFuture[]::new));
             });
         }
-
-        @Override
-        public void onError(Throwable e) {
-            LOG.warn("Unable to process update leases event", e);
-        }
     }
 
     private void awaitPrimaryReplica(

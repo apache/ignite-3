@@ -286,6 +286,12 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 .contains(expectedErrOutput);
     }
 
+    protected void assertErrOutputDoesNotContain(String expectedOutput) {
+        assertThat(serr.toString())
+                .as("Expected command error output to not contain: " + expectedOutput + " but was " + serr.toString())
+                .doesNotContain(expectedOutput);
+    }
+
     protected void setConfigProperty(CliConfigKeys key, String value) {
         configManagerProvider.configManager.setProperty(key.value(), value);
     }

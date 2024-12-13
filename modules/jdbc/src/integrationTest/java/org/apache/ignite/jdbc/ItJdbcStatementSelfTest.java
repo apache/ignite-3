@@ -429,13 +429,13 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
         // DROP TABLE statement
         assertNull(stmt0.getResultSet());
-        assertEquals(1, stmt0.getUpdateCount());
+        assertEquals(0, stmt0.getUpdateCount());
 
         stmt0.getMoreResults();
 
         // CREATE TABLE statement
         assertNull(stmt0.getResultSet());
-        assertEquals(1, stmt0.getUpdateCount());
+        assertEquals(0, stmt0.getUpdateCount());
 
         for (int i = 0; i < stmtCnt; ++i) {
             assertFalse(stmt0.getMoreResults());
@@ -465,14 +465,14 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
         // DROP TABLE statement
         assertNull(stmt.getResultSet());
-        assertEquals(1, stmt.getUpdateCount());
+        assertEquals(0, stmt.getUpdateCount());
 
         // DROP TABLE
         assertFalse(stmt.getMoreResults(), "Result set doesn't have more results.");
 
         // CREATE TABLE statement
         assertNull(stmt.getResultSet());
-        assertEquals(1, stmt.getUpdateCount());
+        assertEquals(0, stmt.getUpdateCount());
 
         for (int i = 0; i < stmtCnt; ++i) {
             if (i % 2 == 0) {

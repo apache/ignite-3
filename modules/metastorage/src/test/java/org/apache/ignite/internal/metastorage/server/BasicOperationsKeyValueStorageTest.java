@@ -1619,18 +1619,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         CompletableFuture<byte[]> fut = new CompletableFuture<>();
 
-        storage.watchExact(key(0), appliedRevision + 1, new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                fut.complete(event.entryEvent().newEntry().value());
+        storage.watchExact(key(0), appliedRevision + 1, event -> {
+            fut.complete(event.entryEvent().newEntry().value());
 
-                return nullCompletedFuture();
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                fut.completeExceptionally(e);
-            }
+            return nullCompletedFuture();
         });
 
         byte[] newValue = keyValue(0, 1);
@@ -1939,8 +1931,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         putToMs(key, value);
 
         verify(mockListener1, timeout(10_000)).onUpdate(any());
-
-        verify(mockListener2, timeout(10_000)).onError(exception);
 
         verify(mockListener3, timeout(10_000)).onUpdate(any());
 
@@ -2266,30 +2256,22 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         var resultFuture = new CompletableFuture<Void>();
 
-        watchMethod.accept(new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                try {
-                    var curState = state.incrementAndGet();
+        watchMethod.accept(event -> {
+            try {
+                var curState = state.incrementAndGet();
 
-                    testCondition.accept(event, curState);
+                testCondition.accept(event, curState);
 
-                    if (curState == expectedNumCalls) {
-                        resultFuture.complete(null);
-                    }
-
-                    return nullCompletedFuture();
-                } catch (Exception e) {
-                    resultFuture.completeExceptionally(e);
+                if (curState == expectedNumCalls) {
+                    resultFuture.complete(null);
                 }
 
                 return nullCompletedFuture();
-            }
-
-            @Override
-            public void onError(Throwable e) {
+            } catch (Exception e) {
                 resultFuture.completeExceptionally(e);
             }
+
+            return nullCompletedFuture();
         });
 
         storage.startWatches(1, new WatchEventHandlingCallback() {});

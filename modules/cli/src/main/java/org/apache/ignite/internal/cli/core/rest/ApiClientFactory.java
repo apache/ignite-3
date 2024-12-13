@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STO
 import static org.apache.ignite.internal.cli.config.CliConfigKeys.REST_TRUST_STORE_PATH;
 import static org.apache.ignite.internal.util.StringUtils.nullOrBlank;
 
+import jakarta.annotation.PreDestroy;
 import jakarta.inject.Singleton;
 import java.io.File;
 import java.io.IOException;
@@ -90,9 +91,18 @@ public class ApiClientFactory {
         return getClientFromSettings(settingsWithAuth(path));
     }
 
+    /**
+     * Useful for testing in a single JVM with different Micronaut contexts. Clears the {@link CliLoggers} loggers so that the next
+     * invocation of {@link CliLoggers#addApiClient(ApiClient)} actually adds a new logger for the new client.
+     */
+    @PreDestroy
+    private void clearLoggers() {
+        CliLoggers.clearLoggers();
+    }
+
     private ApiClient getClientFromSettings(ApiClientSettings settings) {
         ApiClient apiClient = clientMap.computeIfAbsent(settings, ApiClientFactory::buildClient);
-        CliLoggers.addApiClient(settings.basePath(), apiClient);
+        CliLoggers.addApiClient(apiClient);
         return apiClient;
     }
 

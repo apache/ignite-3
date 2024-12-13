@@ -2057,25 +2057,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return The watch listener.
      */
     private WatchListener createPendingAssignmentsRebalanceListener() {
-        return new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    return failedFuture(new NodeStoppingException());
-                }
-
-                try {
-                    Entry newEntry = evt.entryEvent().newEntry();
-
-                    return handleChangePendingAssignmentEvent(newEntry, evt.revision(), false);
-                } finally {
-                    busyLock.leaveBusy();
-                }
+        return evt -> {
+            if (!busyLock.enterBusy()) {
+                return failedFuture(new NodeStoppingException());
             }
 
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process pending assignments event", e);
+            try {
+                Entry newEntry = evt.entryEvent().newEntry();
+
+                return handleChangePendingAssignmentEvent(newEntry, evt.revision(), false);
+            } finally {
+                busyLock.leaveBusy();
             }
         };
     }
@@ -2390,74 +2382,56 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @return The watch listener.
      */
     private WatchListener createStableAssignmentsRebalanceListener() {
-        return new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-                if (!busyLock.enterBusy()) {
-                    return failedFuture(new NodeStoppingException());
-                }
-
-                try {
-                    return handleChangeStableAssignmentEvent(evt);
-                } finally {
-                    busyLock.leaveBusy();
-                }
+        return evt -> {
+            if (!busyLock.enterBusy()) {
+                return failedFuture(new NodeStoppingException());
             }
 
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process stable assignments event", e);
+            try {
+                return handleChangeStableAssignmentEvent(evt);
+            } finally {
+                busyLock.leaveBusy();
             }
         };
     }
 
     /** Creates Meta storage listener for switch reduce assignments updates. */
     private WatchListener createAssignmentsSwitchRebalanceListener() {
-        return new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent evt) {
-                return inBusyLockAsync(busyLock, () -> {
-                    byte[] key = evt.entryEvent().newEntry().key();
+        return evt -> inBusyLockAsync(busyLock, () -> {
+            byte[] key = evt.entryEvent().newEntry().key();
 
-                    TablePartitionId replicaGrpId = extractTablePartitionId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES);
+            TablePartitionId replicaGrpId = extractTablePartitionId(key, ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES);
 
-                    return tablesById(evt.revision())
-                            .thenCompose(tables -> inBusyLockAsync(busyLock, () -> {
-                                Assignments assignments = Assignments.fromBytes(evt.entryEvent().newEntry().value());
+            return tablesById(evt.revision())
+                    .thenCompose(tables -> inBusyLockAsync(busyLock, () -> {
+                        Assignments assignments = Assignments.fromBytes(evt.entryEvent().newEntry().value());
 
-                                long assignmentsTimestamp = assignments.timestamp();
+                        long assignmentsTimestamp = assignments.timestamp();
 
-                                return waitForMetadataCompleteness(assignmentsTimestamp)
-                                        .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                                            int catalogVersion = catalogService.activeCatalogVersion(assignmentsTimestamp);
+                        return waitForMetadataCompleteness(assignmentsTimestamp)
+                                .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
+                                    int catalogVersion = catalogService.activeCatalogVersion(assignmentsTimestamp);
 
-                                            CatalogTableDescriptor tableDescriptor =
-                                                    getTableDescriptor(replicaGrpId.tableId(), catalogVersion);
+                                    CatalogTableDescriptor tableDescriptor =
+                                            getTableDescriptor(replicaGrpId.tableId(), catalogVersion);
 
-                                            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+                                    CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
-                                            long causalityToken = zoneDescriptor.updateToken();
+                                    long causalityToken = zoneDescriptor.updateToken();
 
-                                            return distributionZoneManager.dataNodes(causalityToken, catalogVersion,
-                                                            tableDescriptor.zoneId())
-                                                    .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
-                                                            metaStorageMgr,
-                                                            dataNodes,
-                                                            zoneDescriptor.replicas(),
-                                                            replicaGrpId,
-                                                            evt,
-                                                            assignmentsTimestamp
-                                                    ));
-                                        }));
-                            }));
-                });
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LOG.warn("Unable to process switch reduce event", e);
-            }
-        };
+                                    return distributionZoneManager.dataNodes(causalityToken, catalogVersion,
+                                                    tableDescriptor.zoneId())
+                                            .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
+                                                    metaStorageMgr,
+                                                    dataNodes,
+                                                    zoneDescriptor.replicas(),
+                                                    replicaGrpId,
+                                                    evt,
+                                                    assignmentsTimestamp
+                                            ));
+                                }));
+                    }));
+        });
     }
 
     /**

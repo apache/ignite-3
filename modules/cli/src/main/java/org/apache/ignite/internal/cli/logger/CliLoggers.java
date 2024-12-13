@@ -28,13 +28,15 @@ import org.apache.ignite.lang.LoggerFactory;
 import org.apache.ignite.rest.client.invoker.ApiClient;
 
 /**
- * This class is used when verbose output for command is needed. Instances of loggers created by the {@link CliLoggers#forClass(Class)} and
- * {@link CliLoggers#forName(String)} methods will redirect their output to the console when commands are started with the {@code -v} flag.
+ * This class is used when verbose output for command is needed. Instances of loggers created by the {@link CliLoggers#forClass(Class)}
+ * method will redirect their output to the console when commands are started with the {@code -v} flag.
  */
 public class CliLoggers {
     private static PrintWriter output;
 
     private static boolean isVerbose;
+
+    private static boolean[] verbose;
 
     /** Http loggers for the REST API clients. */
     private static final Map<String, HttpLogging> httpLoggers = new ConcurrentHashMap<>();
@@ -52,36 +54,44 @@ public class CliLoggers {
     }
 
     /**
-     * Creates logger for given name.
+     * Registers a client. If verbose logging is enabled, turn the logging for this client on.
      *
-     * @param name The name for a logger.
-     * @return Ignite logger.
+     * @param client Api client.
      */
-    public static IgniteLogger forName(String name) {
-        return Loggers.forName(name, loggerFactory);
+    public static void addApiClient(ApiClient client) {
+        HttpLogging logger = httpLoggers.computeIfAbsent(client.getBasePath(), s -> new HttpLogging(client));
+        if (isVerbose) {
+            logger.startHttpLogging(output, verbose);
+        }
     }
 
-    public static void addApiClient(String path, ApiClient client) {
-        httpLoggers.computeIfAbsent(path, s -> new HttpLogging(client));
+    /**
+     * Unregisters clients.
+     */
+    public static void clearLoggers() {
+        httpLoggers.clear();
     }
 
     /**
      * Starts redirecting output from loggers and from REST API client to the specified print writer.
      *
      * @param out Print writer to write logs to.
+     * @param verbose Boolean array. Should be non-empty. Number of elements represent verbosity level.
      */
-    public static void startOutputRedirect(PrintWriter out) {
+    public static void startOutputRedirect(PrintWriter out, boolean[] verbose) {
         output = out;
         isVerbose = true;
-        httpLoggers.values().forEach(logger -> logger.startHttpLogging(out));
+        CliLoggers.verbose = verbose;
+        httpLoggers.values().forEach(logger -> logger.startHttpLogging(out, verbose));
     }
 
     /**
-     * Stops redirecting output previously started by {@link CliLoggers#startOutputRedirect(PrintWriter)}.
+     * Stops redirecting output previously started by {@link CliLoggers#startOutputRedirect(PrintWriter, boolean[])}.
      */
     public static void stopOutputRedirect() {
         output = null;
         isVerbose = false;
+        verbose = new boolean[0];
         httpLoggers.values().forEach(HttpLogging::stopHttpLogging);
     }
 

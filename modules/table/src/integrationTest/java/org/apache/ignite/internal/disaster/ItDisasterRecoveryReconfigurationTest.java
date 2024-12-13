@@ -1238,7 +1238,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         for (int i = 0, created = 0; created < ENTRIES; i++) {
             Tuple key = Tuple.create(of("id", i));
-            if ((unwrapTableImpl(table)).partition(key) != partitionId) {
+            if ((unwrapTableImpl(table)).partitionId(key) != partitionId) {
                 continue;
             }
 

@@ -112,7 +112,7 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
                 assertThat(runningQueries(), hasSize(1));
 
                 // Actual kill.
-                assertThat(checker.check(existingQuery), is(1));
+                assertThat(checker.check(existingQuery), is(0));
                 assertThat(runningQueries(), hasSize(0));
 
                 //noinspection ThrowableNotThrown

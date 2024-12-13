@@ -157,40 +157,26 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     }
 
     private WatchListener createStableAssignmentsListener() {
-        return new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Stable assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
-                }
-
-                handleReceivedAssignments(event, STABLE_ASSIGNMENTS_PREFIX_BYTES, groupStableAssignments);
-
-                return nullCompletedFuture();
+        return event -> {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Stable assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
             }
 
-            @Override
-            public void onError(Throwable e) {
-            }
+            handleReceivedAssignments(event, STABLE_ASSIGNMENTS_PREFIX_BYTES, groupStableAssignments);
+
+            return nullCompletedFuture();
         };
     }
 
     private WatchListener createPendingAssignmentsListener() {
-        return new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Pending assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
-                }
-
-                handleReceivedAssignments(event, PENDING_ASSIGNMENTS_PREFIX_BYTES, groupPendingAssignments);
-
-                return nullCompletedFuture();
+        return event -> {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Pending assignments update [revision={}, keys={}]", event.revision(), collectKeysFromEventAsString(event));
             }
 
-            @Override
-            public void onError(Throwable e) {
-            }
+            handleReceivedAssignments(event, PENDING_ASSIGNMENTS_PREFIX_BYTES, groupPendingAssignments);
+
+            return nullCompletedFuture();
         };
     }
 
