@@ -34,8 +34,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
-import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -132,7 +130,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         this.modifyOp = op;
         this.updateColumns = updateColumns;
 
-        int fullRowSize = inputRowFactory.rowSchema().fields().size();
+        RowSchema rowSchema = inputRowFactory.rowSchema();
+        int fullRowSize = rowSchema.fields().size();
         this.mapping = mapping(table.descriptor(), updateColumns, fullRowSize);
 
         // insert mapping actually can be required only for INSERT and MERGE operations
@@ -145,8 +144,8 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             this.insertRowMapping = null;
         }
 
-        RowSchema mappedRowSchema = getMappedRowSchema(inputRowFactory, mapping);
-        RowSchema mappedInsertRowSchema = getMappedRowSchema(inputRowFactory, insertRowMapping);
+        RowSchema mappedRowSchema =  mapping != null ? RowSchema.map(rowSchema, mapping) : rowSchema;
+        RowSchema mappedInsertRowSchema =  insertRowMapping != null ? RowSchema.map(rowSchema, insertRowMapping) : rowSchema;
 
         this.mappedRowFactory = ctx.rowHandler().factory(mappedRowSchema);
         this.mappedInsertRowFactory = ctx.rowHandler().factory(mappedInsertRowSchema);
@@ -483,21 +482,5 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         }
 
         return mapping;
-    }
-
-    private RowSchema getMappedRowSchema(RowFactory<RowT> inputRowFactory, int[] mapping) {
-        RowSchema schema;
-        if (mapping != null) {
-            List<TypeSpec> fields = inputRowFactory.rowSchema().fields();
-            Builder builder = RowSchema.builder();
-            for (int i : mapping) {
-                TypeSpec typeSpec = fields.get(i);
-                builder.addField(typeSpec);
-            }
-            schema = builder.build();
-        } else {
-            schema = inputRowFactory.rowSchema();
-        }
-        return schema;
     }
 }
