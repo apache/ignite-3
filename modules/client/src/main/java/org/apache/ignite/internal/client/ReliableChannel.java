@@ -755,9 +755,6 @@ public final class ReliableChannel implements AutoCloseable {
         /** Address that holder is bind to (chCfg.addr) is not in use now. So close the holder. */
         private volatile boolean close;
 
-        /** Reconnect retry counter. */
-        private final AtomicLong reconnectRetries = new AtomicLong();
-
         /**
          * Constructor.
          *
@@ -800,8 +797,6 @@ public final class ReliableChannel implements AutoCloseable {
                         ReliableChannel.this::onObservableTimestampReceived);
 
                 chFut0 = createFut.thenApply(ch -> {
-                    reconnectRetries.set(0); // Reset reconnect retries counter.
-
                     UUID currentClusterId = ch.protocolContext().clusterId();
                     UUID oldClusterId = clusterId.compareAndExchange(null, currentClusterId);
                     List<UUID> validClusterIds = ch.protocolContext().clusterIds();
