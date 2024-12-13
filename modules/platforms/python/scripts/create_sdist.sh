@@ -1,3 +1,4 @@
+#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements. See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -13,18 +14,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-[tox]
-skipsdist = True
-envlist = codestyle,py{39,310,311,312,313}
+set -e -u -x
 
-[testenv]
-passenv = TEAMCITY_VERSION IGNITE_HOME
-envdir = {homedir}/.virtualenvs/pyignite3-{envname}
-deps =
-    -r ./requirements/install.txt
-    -r ./requirements/tests.txt
-recreate = True
-usedevelop = True
-commands =
-    pytest {env:PYTESTARGS:} {posargs}
+PACKAGE_NAME=pyignite3
 
+# Copying cpp directory.
+cp -r ../cpp /$PACKAGE_NAME/cpp
+rm -rf /$PACKAGE_NAME/cpp/cmake-build-*
+rm -rf /$PACKAGE_NAME/cpp/.idea
+
+# Create source dist.
+for PYBIN in /opt/python/*/bin; do
+    if [[ $PYBIN =~ ^(.*)cp39(.*)$ ]] || [[ $PYBIN =~ ^(.*)cp31[0123](.*)$ ]]; then
+        cd $PACKAGE_NAME
+        "${PYBIN}/python" setup.py sdist --formats=gztar,zip --dist-dir /dist
+        break;
+    fi
+done
+
+chown -R `stat -c "%u:%g" /dist/` /dist/*
+
+rm -rf /$PACKAGE_NAME/cpp
+rm -rf /$PACKAGE_NAME/*.egg-info
+rm -rf /$PACKAGE_NAME/.eggs
