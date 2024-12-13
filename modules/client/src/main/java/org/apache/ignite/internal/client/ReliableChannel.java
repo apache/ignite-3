@@ -774,7 +774,7 @@ public final class ReliableChannel implements AutoCloseable {
             if (currentRetry > chCfg.clientConfiguration().reconnectRetryLimit()) {
                 throw new IgniteClientConnectionException(
                         CONNECTION_ERR,
-                        "Failed to establish connection to " + chCfg.getAddress() + ": retry limit exceeded",
+                        "Failed to establish connection to " + chCfg.getAddress() + ": reconnectRetryLimit exceeded",
                         chCfg.getAddress().toString());
             }
 
