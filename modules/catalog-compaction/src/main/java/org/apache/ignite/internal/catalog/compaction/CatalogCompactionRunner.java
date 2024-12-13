@@ -152,8 +152,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private volatile UUID localNodeId;
 
-    private volatile boolean enabled = true;
-
     /**
      * Constructs catalog compaction runner.
      */
@@ -220,12 +218,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return compactionCoordinatorNodeName;
     }
 
-    /** Enables or disables the compaction process. */
-    @TestOnly
-    public void enable(boolean value) {
-        this.enabled = value;
-    }
-
     /** Called when the low watermark has been changed. */
     public CompletableFuture<Boolean> onLowWatermarkChanged(HybridTimestamp newLowWatermark) {
         lowWatermark = newLowWatermark;
@@ -242,7 +234,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     /** Starts the catalog compaction routine. */
     void triggerCompaction(@Nullable HybridTimestamp lwm) {
-        if (lwm == null || !localNodeName.equals(compactionCoordinatorNodeName) || !enabled) {
+        if (lwm == null || !localNodeName.equals(compactionCoordinatorNodeName)) {
             return;
         }
 
