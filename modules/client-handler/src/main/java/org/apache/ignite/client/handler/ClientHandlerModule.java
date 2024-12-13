@@ -27,7 +27,6 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.ssl.SslContext;
@@ -130,7 +129,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     @TestOnly
     @SuppressWarnings("unused")
-    private volatile ChannelHandler handler;
+    private volatile ClientInboundMessageHandler handler;
 
     /**
      * Constructor.
@@ -395,5 +394,10 @@ public class ClientHandlerModule implements IgniteComponent {
                 primaryReplicaTracker,
                 partitionOperationsExecutor
         );
+    }
+
+    @TestOnly
+    public ClientInboundMessageHandler handler() {
+        return handler;
     }
 }

@@ -123,6 +123,7 @@ import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -197,6 +198,8 @@ public class ItTxTestCluster {
     private final RaftConfiguration raftConfig;
 
     private final TransactionConfiguration txConfiguration;
+
+    private final LowWatermarkConfiguration lowWatermarkConfiguration;
 
     private final StorageUpdateConfiguration storageUpdateConfiguration;
 
@@ -320,6 +323,7 @@ public class ItTxTestCluster {
             TestInfo testInfo,
             RaftConfiguration raftConfig,
             TransactionConfiguration txConfiguration,
+            LowWatermarkConfiguration lowWatermarkConfiguration,
             StorageUpdateConfiguration storageUpdateConfiguration,
             Path workDir,
             int nodes,
@@ -330,6 +334,7 @@ public class ItTxTestCluster {
     ) {
         this.raftConfig = raftConfig;
         this.txConfiguration = txConfiguration;
+        this.lowWatermarkConfiguration = lowWatermarkConfiguration;
         this.storageUpdateConfiguration = storageUpdateConfiguration;
         this.workDir = workDir;
         this.nodes = nodes;
@@ -573,6 +578,7 @@ public class ItTxTestCluster {
         return new TxManagerImpl(
                 node.name(),
                 txConfiguration,
+                lowWatermarkConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 replicaSvc,
@@ -585,7 +591,8 @@ public class ItTxTestCluster {
                 partitionOperationsExecutor,
                 resourcesRegistry,
                 transactionInflights,
-                lowWatermark
+                lowWatermark,
+                executor
         );
     }
 
@@ -1062,6 +1069,7 @@ public class ItTxTestCluster {
         clientTxManager = new TxManagerImpl(
                 "client",
                 txConfiguration,
+                lowWatermarkConfiguration,
                 client.messagingService(),
                 client.topologyService(),
                 clientReplicaSvc,
@@ -1074,7 +1082,8 @@ public class ItTxTestCluster {
                 partitionOperationsExecutor,
                 resourceRegistry,
                 clientTransactionInflights,
-                lowWatermark
+                lowWatermark,
+                executor
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(

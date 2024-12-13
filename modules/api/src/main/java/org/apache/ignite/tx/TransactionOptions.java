@@ -21,14 +21,14 @@ package org.apache.ignite.tx;
  * Ignite transaction options.
  */
 public class TransactionOptions {
-    /** Transaction timeout. */
+    /** Transaction timeout. 0 means 'use default timeout'. */
     private long timeoutMillis = 0;
 
     /** Read-only transaction. */
     private boolean readOnly = false;
 
     /**
-     * Returns transaction timeout, in milliseconds.
+     * Returns transaction timeout, in milliseconds. 0 means 'use default timeout'.
      *
      * @return Transaction timeout, in milliseconds.
      */
@@ -39,10 +39,17 @@ public class TransactionOptions {
     /**
      * Sets transaction timeout, in milliseconds.
      *
-     * @param timeoutMillis Transaction timeout, in milliseconds.
+     * @param timeoutMillis Transaction timeout, in milliseconds. Cannot be negative; 0 means 'use default timeout'.
+     *     For RO transactions, the default timeout is data availability time configured via ignite.gc.lowWatermark.dataAvailabilityTime
+     *     configuration setting.
+     *     For RW transactions, timeouts are not supported yet. TODO: IGNITE-15936
      * @return {@code this} for chaining.
      */
     public TransactionOptions timeoutMillis(long timeoutMillis) {
+        if (timeoutMillis < 0) {
+            throw new IllegalArgumentException("Negative timeoutMillis: " + timeoutMillis);
+        }
+
         this.timeoutMillis = timeoutMillis;
 
         return this;

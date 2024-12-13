@@ -501,11 +501,11 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.begin(observableTimestampTracker, true) : tx;
+        return tx == null ? txManager.beginImplicitRw(observableTimestampTracker) : tx;
     }
 
     private InternalTransaction startImplicitRoTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.begin(observableTimestampTracker, true, true) : tx;
+        return tx == null ? txManager.beginImplicit(observableTimestampTracker, true) : tx;
     }
 
     /**
@@ -1169,7 +1169,7 @@ public class InternalTableImpl implements InternalTable {
             int partition,
             @Nullable Long txStartTs
     ) {
-        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
+        InternalTransaction tx = txManager.beginImplicitRw(observableTimestampTracker);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
         assert rows.stream().allMatch(row -> partitionId(row) == partition) : "Invalid batch for partition " + partition;

@@ -60,6 +60,7 @@ import org.apache.ignite.IgniteServer;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.client.handler.ClusterInfo;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
@@ -358,7 +359,7 @@ public class IgniteImpl implements Ignite {
     private final ReplicaManager replicaMgr;
 
     /** Transactions manager. */
-    private final TxManager txManager;
+    private final TxManagerImpl txManager;
 
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
@@ -977,6 +978,7 @@ public class IgniteImpl implements Ignite {
         txManager = new TxManagerImpl(
                 name,
                 txConfig,
+                gcConfig.lowWatermark(),
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 replicaSvc,
@@ -989,10 +991,11 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
                 transactionInflights,
-                lowWatermark
+                lowWatermark,
+                threadPoolsManager.commonScheduler()
         );
 
-        systemViewManager.register((TxManagerImpl) txManager);
+        systemViewManager.register(txManager);
 
         resourceVacuumManager = new ResourceVacuumManager(
                 name,
@@ -1878,15 +1881,15 @@ public class IgniteImpl implements Ignite {
         return partitionsLogStorageFactory;
     }
 
-    @TestOnly
-    public LogStorageFactory volatileLogStorageFactory() {
-        return volatileLogStorageFactoryCreator.factory(raftMgr.volatileRaft().logStorageBudget().value());
-    }
-
     /** Returns the node's transaction manager. */
     @TestOnly
     public TxManager txManager() {
         return txManager;
+    }
+
+    @TestOnly
+    public ClientInboundMessageHandler clientInboundMessageHandler() {
+        return clientHandlerModule.handler();
     }
 
     /** Returns the node's placement driver service. */

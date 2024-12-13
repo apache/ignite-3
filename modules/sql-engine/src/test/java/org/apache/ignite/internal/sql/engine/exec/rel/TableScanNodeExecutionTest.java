@@ -36,6 +36,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
+import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
@@ -75,6 +77,8 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -97,11 +101,18 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests execution flow of TableScanNode.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
     private final LinkedList<AutoCloseable> closeables = new LinkedList<>();
 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
+
+    @InjectConfiguration
+    private LowWatermarkConfiguration lowWatermarkConfiguration;
+
+    @InjectExecutorService
+    private ScheduledExecutorService commonExecutor;
 
     // Ensures that all data from TableScanNode is being propagated correctly.
     @Test
@@ -161,6 +172,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             TxManagerImpl txManager = new TxManagerImpl(
                     txConfiguration,
+                    lowWatermarkConfiguration,
                     clusterService,
                     replicaSvc,
                     HeapLockManager.smallInstance(),
@@ -171,7 +183,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
                     transactionInflights,
-                    new TestLowWatermark()
+                    new TestLowWatermark(),
+                    commonExecutor
             );
 
             assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
