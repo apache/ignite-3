@@ -137,8 +137,8 @@ public class JdbcConnection implements Connection {
         netTimeout = connProps.getConnectionTimeout();
         qryTimeout = connProps.getQueryTimeout();
 
-        long reconnectThrottlingPeriod = connProps.getReconnectThrottlingPeriod();
-        int reconnectThrottlingRetries = connProps.getReconnectThrottlingRetries();
+        long reconnectThrottlingPeriod = connProps.getReconnectRetryDelay();
+        int reconnectThrottlingRetries = connProps.getReconnectRetryLimit();
 
         try {
             client = ((TcpIgniteClient) IgniteClient.builder()

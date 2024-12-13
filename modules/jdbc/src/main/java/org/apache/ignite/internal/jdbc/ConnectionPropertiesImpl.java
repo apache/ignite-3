@@ -71,13 +71,13 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             0L, false, 0, Integer.MAX_VALUE);
 
     /** JDBC reconnect throttling period. */
-    private final LongProperty reconnectThrottlingPeriod = new LongProperty("reconnectThrottlingPeriod",
-            "Sets the reconnect throttling period, in milliseconds. Zero means there is no limits.",
+    private final LongProperty reconnectRetryDelay = new LongProperty("reconnectRetryDelay",
+            "Sets the reconnect retry delay, in milliseconds.",
             IgniteClientConfiguration.DFLT_RECONNECT_RETRY_DELAY, false, 0, Long.MAX_VALUE);
 
     /** JDBC reconnect throttling retries. */
-    private final IntegerProperty reconnectThrottlingRetries = new IntegerProperty("reconnectThrottlingRetries",
-            "Sets the reconnect throttling retries. Zero means there is no limits.",
+    private final IntegerProperty reconnectRetryLimit = new IntegerProperty("reconnectRetryLimit",
+            "Sets the reconnect retry limit.",
             IgniteClientConfiguration.DFLT_RECONNECT_RETRY_LIMIT, false, 0, Integer.MAX_VALUE);
 
     /** Path to the truststore. */
@@ -199,26 +199,26 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** {@inheritDoc} */
     @Override
-    public Long getReconnectThrottlingPeriod() {
-        return reconnectThrottlingPeriod.value();
+    public Long getReconnectRetryDelay() {
+        return reconnectRetryDelay.value();
     }
 
     /** {@inheritDoc} */
     @Override
-    public void setReconnectThrottlingPeriod(Long period) throws SQLException {
-        reconnectThrottlingPeriod.setValue(period);
+    public void setReconnectRetryDelay(Long period) throws SQLException {
+        reconnectRetryDelay.setValue(period);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Integer getReconnectThrottlingRetries() {
-        return reconnectThrottlingRetries.value();
+    public Integer getReconnectRetryLimit() {
+        return reconnectRetryLimit.value();
     }
 
     /** {@inheritDoc} */
     @Override
-    public void setReconnectThrottlingRetries(Integer reconnectThrottlingRetries) throws SQLException {
-        this.reconnectThrottlingRetries.setValue(reconnectThrottlingRetries);
+    public void setReconnectRetryLimit(Integer reconnectRetryLimit) throws SQLException {
+        this.reconnectRetryLimit.setValue(reconnectRetryLimit);
     }
 
     /** {@inheritDoc} */
