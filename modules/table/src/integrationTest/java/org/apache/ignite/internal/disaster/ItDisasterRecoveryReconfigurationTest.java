@@ -421,6 +421,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         startNode(1);
         startNode(2);
 
+        // Make sure recovery has finished.
+        assertThat(igniteImpl(1).distributedTableManager().recoveryFuture(), willCompleteSuccessfully());
+        assertThat(igniteImpl(2).distributedTableManager().recoveryFuture(), willCompleteSuccessfully());
+
         // Make sure 1 and 2 did not start.
         assertRealAssignments(node0, partId, 0);
     }

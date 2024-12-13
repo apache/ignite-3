@@ -427,6 +427,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final Map<Integer, Set<TableImpl>> tablesPerZone = new ConcurrentHashMap<>();
 
+    private final CompletableFuture<Void> recoveryFuture = new CompletableFuture<>();
+
     /**
      * Creates a new table manager.
      *
@@ -658,6 +660,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return nullCompletedFuture();
         });
+    }
+
+    @TestOnly
+    public CompletableFuture<Void> recoveryFuture() {
+        return recoveryFuture;
     }
 
     private CompletableFuture<Void> waitForMetadataCompleteness(long ts) {
@@ -898,7 +905,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 recoveryRevision,
                 (entry, rev) -> handleChangePendingAssignmentEvent(entry, rev, true),
                 "pending"
-        ));
+        )).whenComplete((v, th) -> {
+            if (th != null) {
+                recoveryFuture.completeExceptionally(th);
+            } else {
+                recoveryFuture.complete(null);
+            }
+        });
     }
 
     private CompletableFuture<Void> handleAssignmentsOnRecovery(
@@ -1631,7 +1644,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             boolean onNodeRecovery,
             long assignmentsTimestamp
     ) {
-        TableImpl table =  createTableImpl(causalityToken, tableDescriptor, zoneDescriptor);
+        TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor);
 
         int tableId = tableDescriptor.id();
 
@@ -2255,6 +2268,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return;
                     }
 
+                    assert isLocalNodeInStableOrPending || isLeaseholder
+                            : "The local node is outside of the replication group [inStableOrPending=" + isLocalNodeInStableOrPending
+                            + ", isLeaseholder=" + isLeaseholder + "].";
+
                     // A node might exist in stable yet we don't want to start the replica
                     // The case is: nodes A, B and C hold a replication group,
                     // nodes A and B die.
@@ -2264,10 +2281,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     if (isRecovery && !replicaMgr.isReplicaStarted(replicaGrpId)) {
                         return;
                     }
-
-                    assert isLocalNodeInStableOrPending || isLeaseholder
-                            : "The local node is outside of the replication group [inStableOrPending=" + isLocalNodeInStableOrPending
-                            + ", isLeaseholder=" + isLeaseholder + "].";
 
                     assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group ["
                             + ", stable=" + stableAssignments
