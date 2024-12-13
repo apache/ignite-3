@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.delayedExecutor;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -689,7 +691,7 @@ public final class ReliableChannel implements AutoCloseable {
             CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new))
                     .whenCompleteAsync(
                             (res, err) -> initAllChannelsAsync(),
-                            CompletableFuture.delayedExecutor(interval, TimeUnit.MILLISECONDS));
+                            delayedExecutor(interval, TimeUnit.MILLISECONDS));
         }
     }
 
@@ -827,8 +829,10 @@ public final class ReliableChannel implements AutoCloseable {
                 }
 
                 if (!ignoreThrottling && applyReconnectionThrottling()) {
-                    return CompletableFuture.failedFuture(new IgniteClientConnectionException(
-                            CONNECTION_ERR, "Reconnect is not allowed due to applied throttling", null));
+                    return supplyAsync(
+                            () -> null,
+                            delayedExecutor(chCfg.clientConfiguration().reconnectThrottlingPeriod(), TimeUnit.MILLISECONDS))
+                            .thenCompose(unused -> getOrCreateChannelAsync());
                 }
 
                 CompletableFuture<ClientChannel> createFut = chFactory.create(
