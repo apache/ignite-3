@@ -70,16 +70,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
                     + " Zero means there is no limits.",
             0L, false, 0, Integer.MAX_VALUE);
 
-    /** JDBC reconnect throttling period. */
-    private final LongProperty reconnectRetryDelay = new LongProperty("reconnectRetryDelay",
-            "Sets the reconnect retry delay, in milliseconds.",
-            IgniteClientConfiguration.DFLT_RECONNECT_RETRY_DELAY, false, 0, Long.MAX_VALUE);
-
-    /** JDBC reconnect throttling retries. */
-    private final IntegerProperty reconnectRetryLimit = new IntegerProperty("reconnectRetryLimit",
-            "Sets the reconnect retry limit.",
-            IgniteClientConfiguration.DFLT_RECONNECT_RETRY_LIMIT, false, 0, Integer.MAX_VALUE);
-
     /** Path to the truststore. */
     private final StringProperty trustStorePath = new StringProperty("trustStorePath",
             "Path to trust store", null, null, false, null);
@@ -195,30 +185,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public void setQueryTimeout(@Nullable Integer timeout) throws SQLException {
         qryTimeout.setValue(timeout);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Long getReconnectRetryDelay() {
-        return reconnectRetryDelay.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setReconnectRetryDelay(Long period) throws SQLException {
-        reconnectRetryDelay.setValue(period);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Integer getReconnectRetryLimit() {
-        return reconnectRetryLimit.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setReconnectRetryLimit(Integer reconnectRetryLimit) throws SQLException {
-        this.reconnectRetryLimit.setValue(reconnectRetryLimit);
     }
 
     /** {@inheritDoc} */

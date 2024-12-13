@@ -86,36 +86,6 @@ public interface ConnectionProperties {
     /**
      * Note: zero value means there is no limits.
      *
-     * @return Reconnect throttling period.
-     */
-    Long getReconnectRetryDelay();
-
-    /**
-     * Note: zero value means there is no limits.
-     *
-     * @param reconnectThrottlingPeriod Reconnect throttling period.
-     * @throws SQLException On error.
-     */
-    void setReconnectRetryDelay(Long reconnectThrottlingPeriod) throws SQLException;
-
-    /**
-     * Note: zero value means there is no limits.
-     *
-     * @return Reconnect throttling retries.
-     */
-    Integer getReconnectRetryLimit();
-
-    /**
-     * Note: zero value means there is no limits.
-     *
-     * @param reconnectRetryLimit Reconnect throttling retries.
-     * @throws SQLException On error.
-     */
-    void setReconnectRetryLimit(Integer reconnectRetryLimit) throws SQLException;
-
-    /**
-     * Note: zero value means there is no limits.
-     *
      * @return Connection timeout in milliseconds.
      */
     int getConnectionTimeout();
