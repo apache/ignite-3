@@ -813,6 +813,8 @@ public final class ReliableChannel implements AutoCloseable {
                     return chFut0;
                 }
 
+                // TODO: This is already in doWithRetry?
+                // TODO: We should NOT retry handshake errors, authn errors.
                 if (!ignoreThrottling && needReconnectDelay()) {
                     return supplyAsync(
                             () -> null,
