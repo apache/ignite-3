@@ -91,6 +91,8 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
         CompletableFuture<?> prefetchFuture = holder.get();
         assertNotNull(prefetchFuture);
         assertFalse(prefetchFuture.isDone());
+
+        await(rootNode.closeAsync());
     }
 
     /**
@@ -147,6 +149,8 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
 
         BatchedResult<?> batch = await(result);
         assertFalse(batch.hasMore());
+
+        await(rootNode.closeAsync());
     }
 
     @Override
