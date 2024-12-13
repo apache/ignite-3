@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.metrics.exporters.otlp;
 
 import com.google.auto.service.AutoService;
-import java.util.UUID;
-import java.util.function.Supplier;
-import org.apache.ignite.internal.metrics.MetricProvider;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.PushMetricExporter;
@@ -36,45 +34,31 @@ import org.jetbrains.annotations.TestOnly;
 public class OtlpPushMetricExporter extends PushMetricExporter<OtlpExporterView> {
     public static final String EXPORTER_NAME = "otlp";
 
-    private volatile @Nullable MetricReporter reporter;
-
-    @Override
-    public synchronized void start(MetricProvider metricsProvider, OtlpExporterView view, Supplier<UUID> clusterIdSupplier,
-            String nodeName) {
-        MetricReporter reporter0 = new MetricReporter(view, clusterIdSupplier.get().toString(), nodeName);
-
-        for (MetricSet metricSet : metricsProvider.metrics().getKey().values()) {
-            reporter0.addMetricSet(metricSet);
-        }
-
-        reporter = reporter0;
-
-        super.start(metricsProvider, view, clusterIdSupplier, nodeName);
-    }
+    private final AtomicReference<MetricReporter> reporter = new AtomicReference<>();
 
     @Override
     public synchronized void stop() {
         super.stop();
 
-        try {
-            IgniteUtils.closeAll(reporter);
-        } catch (Exception e) {
-            log.error("Failed to stop metric exporter: " + name(), e);
-        }
-
-        reporter = null;
+        changeReporter(null);
     }
 
     @Override
     public synchronized void reconfigure(OtlpExporterView newVal) {
-        super.reconfigure(newVal);
+        MetricReporter newReporter = new MetricReporter(newVal, this::clusterId, nodeName());
 
-        reporter = new MetricReporter(newVal, clusterId().toString(), nodeName());
+        for (MetricSet metricSet : metrics().getKey().values()) {
+            newReporter.addMetricSet(metricSet);
+        }
+
+        changeReporter(newReporter);
+
+        super.reconfigure(newVal);
     }
 
     @Override
     public void addMetricSet(MetricSet metricSet) {
-        MetricReporter reporter0 = reporter;
+        MetricReporter reporter0 = reporter.get();
 
         assert reporter0 != null;
 
@@ -83,7 +67,7 @@ public class OtlpPushMetricExporter extends PushMetricExporter<OtlpExporterView>
 
     @Override
     public void removeMetricSet(String metricSetName) {
-        MetricReporter reporter0 = reporter;
+        MetricReporter reporter0 = reporter.get();
 
         assert reporter0 != null;
 
@@ -97,7 +81,7 @@ public class OtlpPushMetricExporter extends PushMetricExporter<OtlpExporterView>
 
     @Override
     public void report() {
-        MetricReporter reporter0 = reporter;
+        MetricReporter reporter0 = reporter.get();
 
         assert reporter0 != null;
 
@@ -111,6 +95,16 @@ public class OtlpPushMetricExporter extends PushMetricExporter<OtlpExporterView>
 
     @TestOnly
     @Nullable MetricReporter reporter() {
-        return reporter;
+        return reporter.get();
+    }
+
+    private void changeReporter(@Nullable MetricReporter newReporter) {
+        MetricReporter oldReporter = reporter.getAndSet(newReporter);
+
+        try {
+            IgniteUtils.closeAll(oldReporter);
+        } catch (Exception e) {
+            log.error("Failed to stop metric exporter: " + name(), e);
+        }
     }
 }
