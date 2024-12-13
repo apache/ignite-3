@@ -773,18 +773,16 @@ public final class ReliableChannel implements AutoCloseable {
                     : null;
         }
 
-        /**
-         * Returns whether reconnect throttling should be applied.
-         *
-         * @return Whether reconnect throttling should be applied.
-         */
-        private boolean applyReconnectionThrottling() {
+        private boolean needReconnectBackoff() {
             if (reconnectRetries == null) {
                 return false;
             }
 
             long ts = System.currentTimeMillis();
 
+            // 1. If retry limit is reached - throw an exception.
+            // 2. If a retry was performed recently - backoff
+            // 3. Otherwise - proceed with a new retry.
             for (int i = 0; i < reconnectRetries.length; i++) {
                 if (ts - reconnectRetries[i] >= chCfg.clientConfiguration().reconnectRetryBackoff()) {
                     reconnectRetries[i] = ts;
@@ -828,7 +826,7 @@ public final class ReliableChannel implements AutoCloseable {
                     return chFut0;
                 }
 
-                if (!ignoreThrottling && applyReconnectionThrottling()) {
+                if (!ignoreThrottling && needReconnectBackoff()) {
                     return supplyAsync(
                             () -> null,
                             delayedExecutor(chCfg.clientConfiguration().reconnectRetryBackoff(), TimeUnit.MILLISECONDS))
