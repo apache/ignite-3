@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.impl;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -161,6 +162,18 @@ public class TestTupleBuilder implements Tuple {
     @Override
     public double doubleValue(int columnIndex) {
         return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        return null;
     }
 
     /** {@inheritDoc} */
