@@ -410,6 +410,11 @@ public class IgniteLogThrottle {
         log(log, e, throttleKey, msg, LogLevel.DEBUG, params);
     }
 
+    /** Clears cached messages. */
+    public static void clean() {
+        MESSAGES_MAP.clear();
+    }
+
     /**
      * Logs message if needed using desired level.
      *
@@ -478,7 +483,7 @@ public class IgniteLogThrottle {
         INFO {
             @Override
             public void doLog(IgniteLogger log, String msg, @Nullable Throwable e) {
-                log.info(msg, e, msg);
+                log.info(msg, e);
             }
         },
 
