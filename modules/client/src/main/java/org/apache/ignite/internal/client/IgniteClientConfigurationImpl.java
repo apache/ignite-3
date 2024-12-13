@@ -39,12 +39,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Connect timeout, in milliseconds. */
     private final long connectTimeout;
 
-    /** Reconnect retry backoff, in milliseconds. */
-    private final long reconnectRetryDelay;
-
-    /** Reconnect retry limit. */
-    private final int reconnectRetryLimit;
-
     /** Background reconnect interval, in milliseconds. */
     private final long backgroundReconnectInterval;
 
@@ -76,8 +70,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param addressFinder Address finder.
      * @param addresses Addresses.
      * @param connectTimeout Socket connect timeout.
-     * @param reconnectRetryDelay Reconnect retry delay, in milliseconds.
-     * @param reconnectRetryLimit Reconnect retry limit.
      * @param backgroundReconnectInterval Background reconnect interval.
      * @param asyncContinuationExecutor Async continuation executor.
      * @param heartbeatInterval Heartbeat message interval.
@@ -92,8 +84,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             IgniteClientAddressFinder addressFinder,
             String[] addresses,
             long connectTimeout,
-            long reconnectRetryDelay,
-            int reconnectRetryLimit,
             long backgroundReconnectInterval,
             Executor asyncContinuationExecutor,
             long heartbeatInterval,
@@ -110,8 +100,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.addresses = addresses;
 
         this.connectTimeout = connectTimeout;
-        this.reconnectRetryDelay = reconnectRetryDelay;
-        this.reconnectRetryLimit = reconnectRetryLimit;
         this.backgroundReconnectInterval = backgroundReconnectInterval;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
         this.heartbeatInterval = heartbeatInterval;
@@ -140,18 +128,6 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     @Override
     public long connectTimeout() {
         return connectTimeout;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long reconnectRetryDelay() {
-        return reconnectRetryDelay;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int reconnectRetryLimit() {
-        return reconnectRetryLimit;
     }
 
     /** {@inheritDoc} */

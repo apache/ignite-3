@@ -19,7 +19,6 @@ package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.delayedExecutor;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -678,7 +677,7 @@ public final class ReliableChannel implements AutoCloseable {
             }
 
             try {
-                futs.add(hld.getOrCreateChannelAsync(true));
+                futs.add(hld.getOrCreateChannelAsync());
             } catch (Exception e) {
                 log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
             }
@@ -768,30 +767,10 @@ public final class ReliableChannel implements AutoCloseable {
             this.chCfg = chCfg;
         }
 
-        private boolean needReconnectDelay() {
-            long currentRetry = reconnectRetries.incrementAndGet();
-
-            if (currentRetry > chCfg.clientConfiguration().reconnectRetryLimit()) {
-                throw new IgniteClientConnectionException(
-                        CONNECTION_ERR,
-                        "Failed to establish connection to " + chCfg.getAddress() + ": reconnectRetryLimit exceeded",
-                        chCfg.getAddress().toString());
-            }
-
-            return currentRetry > 1;
-        }
-
         /**
          * Get or create channel.
          */
         private CompletableFuture<ClientChannel> getOrCreateChannelAsync() {
-            return getOrCreateChannelAsync(false);
-        }
-
-        /**
-         * Get or create channel.
-         */
-        private CompletableFuture<ClientChannel> getOrCreateChannelAsync(boolean ignoreThrottling) {
             if (close) {
                 return nullCompletedFuture();
             }
@@ -811,15 +790,6 @@ public final class ReliableChannel implements AutoCloseable {
 
                 if (isFutureInProgressOrDoneAndChannelOpen(chFut0)) {
                     return chFut0;
-                }
-
-                // TODO: This is already in doWithRetry?
-                // TODO: We should NOT retry handshake errors, authn errors.
-                if (!ignoreThrottling && needReconnectDelay()) {
-                    return supplyAsync(
-                            () -> null,
-                            delayedExecutor(chCfg.clientConfiguration().reconnectRetryDelay(), TimeUnit.MILLISECONDS))
-                            .thenCompose(unused -> getOrCreateChannelAsync());
                 }
 
                 CompletableFuture<ClientChannel> createFut = chFactory.create(

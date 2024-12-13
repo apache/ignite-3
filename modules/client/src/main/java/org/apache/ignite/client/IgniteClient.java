@@ -17,13 +17,11 @@
 
 package org.apache.ignite.client;
 
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT;
-import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL;
-import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_RETRY_DELAY;
-import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_RETRY_LIMIT;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.List;
@@ -80,12 +78,6 @@ public interface IgniteClient extends Ignite, AutoCloseable {
 
         /** Connect timeout. */
         private long connectTimeout = DFLT_CONNECT_TIMEOUT;
-
-        /** Reconnect retry delay, in milliseconds. */
-        private long reconnectRetryDelay = DFLT_RECONNECT_RETRY_DELAY;
-
-        /** Reconnect retry limit. */
-        private int reconnectRetryLimit = DFLT_RECONNECT_RETRY_LIMIT;
 
         /** Reconnect interval, in milliseconds. */
         private long backgroundReconnectInterval = DFLT_BACKGROUND_RECONNECT_INTERVAL;
@@ -189,45 +181,6 @@ public interface IgniteClient extends Ignite, AutoCloseable {
          */
         public Builder addressFinder(IgniteClientAddressFinder addressFinder) {
             this.addressFinder = addressFinder;
-
-            return this;
-        }
-
-        /**
-         * Sets the reconnect retry delay, in milliseconds.
-         *
-         * <p>Default is {@link IgniteClientConfiguration#DFLT_RECONNECT_RETRY_DELAY}.
-         *
-         * @param reconnectRetryDelay Reconnect retry delay, in milliseconds.
-         * @return This instance.
-         */
-        public Builder reconnectRetryDelay(long reconnectRetryDelay) {
-            if (reconnectRetryDelay < 0) {
-                throw new IllegalArgumentException("Reconnect retry delay ["
-                        + reconnectRetryDelay + "] must be a non-negative integer value.");
-            }
-
-            this.reconnectRetryDelay = reconnectRetryDelay;
-
-            return this;
-        }
-
-        /**
-         * Sets the reconnect retry limit
-         *
-         * <p>Default is {@link IgniteClientConfiguration#DFLT_RECONNECT_RETRY_LIMIT}.
-         *
-         * @param reconnectRetryLimit Reconnect retry limit
-         * @return This instance.
-         * @throws IllegalArgumentException When value is less than zero.
-         */
-        public Builder reconnectRetryLimit(int reconnectRetryLimit) {
-            if (reconnectRetryLimit < 0) {
-                throw new IllegalArgumentException("Reconnect retry limit ["
-                        + reconnectRetryLimit + "] must be a non-negative integer value.");
-            }
-
-            this.reconnectRetryLimit = reconnectRetryLimit;
 
             return this;
         }
@@ -382,8 +335,6 @@ public interface IgniteClient extends Ignite, AutoCloseable {
                     addressFinder,
                     addresses,
                     connectTimeout,
-                    reconnectRetryDelay,
-                    reconnectRetryLimit,
                     backgroundReconnectInterval,
                     asyncContinuationExecutor,
                     heartbeatInterval,

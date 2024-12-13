@@ -39,12 +39,6 @@ public interface IgniteClientConfiguration {
     /** Default heartbeat interval, in milliseconds. */
     int DFLT_HEARTBEAT_INTERVAL = 30_000;
 
-    /** Default reconnect retry delay, in milliseconds. */
-    long DFLT_RECONNECT_RETRY_DELAY = 5_000L;
-
-    /** Default reconnect retry limit. */
-    int DFLT_RECONNECT_RETRY_LIMIT = 16;
-
     /** Default background reconnect interval, in milliseconds. */
     long DFLT_BACKGROUND_RECONNECT_INTERVAL = 30_000L;
 
@@ -83,20 +77,6 @@ public interface IgniteClientConfiguration {
      * @return Socket connect timeout, in milliseconds.
      */
     long connectTimeout();
-
-    /**
-     * Gets the reconnect retry delay, in milliseconds.
-     *
-     * @return Reconnect retry delay, in milliseconds.
-     */
-    long reconnectRetryDelay();
-
-    /**
-     * Gets the reconnect retry limit.
-     *
-     * @return Reconnect retry limit.
-     */
-    int reconnectRetryLimit();
 
     /**
      * Gets the background reconnect interval, in milliseconds. Set to {@code 0} to disable background reconnect.
