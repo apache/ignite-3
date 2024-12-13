@@ -89,6 +89,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
@@ -387,7 +388,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         MinTimeSupplier minTimeSupplier = new MinTimeSupplier((n) -> earliestCatalog.time() - 1, otherNodeMinTime);
 
         CatalogCompactionRunner compactor =
-                createRunner(NODE1, NODE1, minTimeSupplier, logicalNodes, logicalNodes);
+                createRunner(NODE1, NODE1, minTimeSupplier, logicalNodes, logicalNodes, clockService::nowLong);
 
         // Do not set low watermark
 
@@ -520,7 +521,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         MinTimeSupplier minTimeSupplier = new MinTimeSupplier((n) -> 1L, otherNodeMinTime);
 
         CatalogCompactionRunner compactor =
-                createRunner(NODE1, NODE1, minTimeSupplier, logicalNodes, logicalNodes);
+                createRunner(NODE1, NODE1, minTimeSupplier, logicalNodes, logicalNodes, clockService::nowLong);
 
         // Do not set low watermark
         compactor.triggerCompaction(clockService.now());
@@ -994,6 +995,51 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(ts1, lessThan(time));
     }
 
+    @Test
+    public void rebalancePreventsCompaction() {
+        CatalogCommand createTbl = CreateTableCommand.builder()
+                .tableName("T1")
+                .schemaName("PUBLIC")
+                .columns(List.of(columnParams("key1", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1")).build())
+                .colocationColumns(List.of("key1"))
+                .build();
+
+        assertThat(catalogManager.execute(createTbl), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+
+        assertThat(catalogManager.earliestCatalogVersion(), is(0));
+        assertThat(catalogManager.latestCatalogVersion(), is(3));
+
+        // Rebalance prevents compaction.
+        {
+            RebalanceMinimumRequiredTimeProvider rebalanceMinTimeProvider = () -> 1L;
+            CatalogCompactionRunner compactionRunner = createRunner(
+                    NODE1, NODE1, new MinTimeSupplier((n) -> clockService.nowLong(), null), logicalNodes, logicalNodes,
+                    rebalanceMinTimeProvider
+            );
+
+            assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
+            assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
+
+            assertThat(catalogManager.earliestCatalogVersion(), is(0));
+        }
+
+        // Rebalance doesn't prevent compaction.
+        {
+            RebalanceMinimumRequiredTimeProvider requiredTimeProvider = () -> clockService.nowLong();
+            CatalogCompactionRunner compactionRunner = createRunner(
+                    NODE1, NODE1, new MinTimeSupplier((n) -> clockService.nowLong(), null), logicalNodes, logicalNodes,
+                    requiredTimeProvider
+            );
+
+            assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
+            assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
+
+            assertThat(catalogManager.earliestCatalogVersion(), is(catalogManager.latestCatalogVersion() - 1));
+        }
+    }
+
     private Catalog prepareCatalogWithTables() {
         CreateTableCommandBuilder tableCmdBuilder = CreateTableCommand.builder()
                 .schemaName("PUBLIC")
@@ -1017,7 +1063,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             ClusterNode coordinator,
             Function<String, Long> timeSupplier
     ) {
-        return createRunner(localNode, coordinator, new MinTimeSupplier(timeSupplier, null), logicalNodes, logicalNodes);
+        return createRunner(localNode, coordinator, new MinTimeSupplier(timeSupplier, null), logicalNodes, logicalNodes,
+                clockService::nowLong);
     }
 
     private CatalogCompactionRunner createRunner(
@@ -1027,7 +1074,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             List<LogicalNode> topology,
             List<LogicalNode> assignmentNodes
     ) {
-        return createRunner(localNode, coordinator, new MinTimeSupplier(timeSupplier, null), topology, assignmentNodes);
+        return createRunner(localNode, coordinator, new MinTimeSupplier(timeSupplier, null), topology, assignmentNodes,
+                clockService::nowLong);
     }
 
     private CatalogCompactionRunner createRunner(
@@ -1035,7 +1083,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             ClusterNode coordinator,
             MinTimeSupplier timeSupplier,
             List<LogicalNode> topology,
-            List<LogicalNode> assignmentNodes
+            List<LogicalNode> assignmentNodes,
+            RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider
     ) {
         coordinatorNodeHolder.set(coordinator);
         messagingService = mock(MessagingService.class);
@@ -1118,7 +1167,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 ForkJoinPool.commonPool(),
                 clockService::nowLong,
                 minTimeCollector,
-                clockService::nowLong
+                rebalanceMinimumRequiredTimeProvider
         );
 
         await(runner.startAsync(mock(ComponentContext.class)));
