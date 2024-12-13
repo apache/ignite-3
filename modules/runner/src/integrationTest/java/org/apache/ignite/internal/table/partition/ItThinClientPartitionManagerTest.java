@@ -32,7 +32,7 @@ public class ItThinClientPartitionManagerTest extends ItAbstractPartitionManager
     public void startClient() {
         client = IgniteClient.builder()
                 .addresses("localhost")
-                .reconnectThrottlingPeriod(0)
+                .reconnectRetryDelay(0)
                 .build();
     }
 

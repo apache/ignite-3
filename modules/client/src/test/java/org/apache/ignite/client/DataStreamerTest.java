@@ -231,7 +231,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         Builder builder = IgniteClient.builder()
                 .addresses("localhost:" + testServer2.port())
                 .retryPolicy(new RetryLimitPolicy().retryLimit(8))
-                .reconnectThrottlingPeriod(0)
+                .reconnectRetryDelay(0)
                 .loggerFactory(new ConsoleLoggerFactory("client-2"));
 
         client2 = builder.build();

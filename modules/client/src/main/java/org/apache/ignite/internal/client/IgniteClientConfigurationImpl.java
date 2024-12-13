@@ -39,14 +39,14 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
     /** Connect timeout, in milliseconds. */
     private final long connectTimeout;
 
-    /** Reconnect throttling period, in milliseconds. */
-    private final long reconnectThrottlingPeriod;
+    /** Reconnect retry backoff, in milliseconds. */
+    private final long reconnectRetryDelay;
 
-    /** Reconnect throttling retries. */
-    private final int reconnectThrottlingRetries;
+    /** Reconnect retry limit. */
+    private final int reconnectRetryLimit;
 
-    /** Reconnect interval, in milliseconds. */
-    private final long reconnectInterval;
+    /** Background reconnect interval, in milliseconds. */
+    private final long backgroundReconnectInterval;
 
     /** Async continuation executor. */
     private final Executor asyncContinuationExecutor;
@@ -76,9 +76,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
      * @param addressFinder Address finder.
      * @param addresses Addresses.
      * @param connectTimeout Socket connect timeout.
-     * @param reconnectThrottlingPeriod Reconnect throttling period, in milliseconds.
-     * @param reconnectThrottlingRetries Reconnect throttling retries.
-     * @param reconnectInterval Reconnect throttling retries.
+     * @param reconnectRetryDelay Reconnect retry delay, in milliseconds.
+     * @param reconnectRetryLimit Reconnect retry limit.
+     * @param backgroundReconnectInterval Background reconnect interval.
      * @param asyncContinuationExecutor Async continuation executor.
      * @param heartbeatInterval Heartbeat message interval.
      * @param heartbeatTimeout Heartbeat message timeout.
@@ -92,9 +92,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             IgniteClientAddressFinder addressFinder,
             String[] addresses,
             long connectTimeout,
-            long reconnectThrottlingPeriod,
-            int reconnectThrottlingRetries,
-            long reconnectInterval,
+            long reconnectRetryDelay,
+            int reconnectRetryLimit,
+            long backgroundReconnectInterval,
             Executor asyncContinuationExecutor,
             long heartbeatInterval,
             long heartbeatTimeout,
@@ -110,9 +110,9 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
         this.addresses = addresses;
 
         this.connectTimeout = connectTimeout;
-        this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
-        this.reconnectThrottlingRetries = reconnectThrottlingRetries;
-        this.reconnectInterval = reconnectInterval;
+        this.reconnectRetryDelay = reconnectRetryDelay;
+        this.reconnectRetryLimit = reconnectRetryLimit;
+        this.backgroundReconnectInterval = backgroundReconnectInterval;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
         this.heartbeatInterval = heartbeatInterval;
         this.heartbeatTimeout = heartbeatTimeout;
@@ -144,20 +144,20 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
 
     /** {@inheritDoc} */
     @Override
-    public long reconnectRetryBackoff() {
-        return reconnectThrottlingPeriod;
+    public long reconnectRetryDelay() {
+        return reconnectRetryDelay;
     }
 
     /** {@inheritDoc} */
     @Override
     public int reconnectRetryLimit() {
-        return reconnectThrottlingRetries;
+        return reconnectRetryLimit;
     }
 
     /** {@inheritDoc} */
     @Override
     public long backgroundReconnectInterval() {
-        return reconnectInterval;
+        return backgroundReconnectInterval;
     }
 
     /** {@inheritDoc} */

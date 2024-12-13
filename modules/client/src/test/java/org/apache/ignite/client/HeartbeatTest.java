@@ -95,8 +95,8 @@ public class HeartbeatTest extends BaseIgniteAbstractTest {
                     .addresses("127.0.0.1:" + srvPort)
                     .retryPolicy(new RetryLimitPolicy().retryLimit(0))
                     .heartbeatTimeout(30)
-                    .reconnectThrottlingPeriod(5000)
-                    .reconnectThrottlingRetries(0)
+                    .reconnectRetryDelay(5000)
+                    .reconnectRetryLimit(0)
                     .heartbeatInterval(50)
                     .connectTimeout(0)
                     .loggerFactory(loggerFactory);

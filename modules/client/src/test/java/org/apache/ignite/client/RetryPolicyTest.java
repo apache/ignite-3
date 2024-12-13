@@ -280,7 +280,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         return IgniteClient.builder()
                 .addresses("127.0.0.1:" + server.port())
                 .retryPolicy(retryPolicy)
-                .reconnectThrottlingPeriod(0)
+                .reconnectRetryDelay(0)
                 .loggerFactory(loggerFactory)
                 .build();
     }

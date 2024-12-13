@@ -144,8 +144,8 @@ public class JdbcConnection implements Connection {
             client = ((TcpIgniteClient) IgniteClient.builder()
                     .addresses(addrs)
                     .connectTimeout(netTimeout)
-                    .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
-                    .reconnectThrottlingRetries(reconnectThrottlingRetries)
+                    .reconnectRetryDelay(reconnectThrottlingPeriod)
+                    .reconnectRetryLimit(reconnectThrottlingRetries)
                     .ssl(extractSslConfiguration(connProps))
                     .authenticator(extractAuthenticationConfiguration(connProps))
                     .build());

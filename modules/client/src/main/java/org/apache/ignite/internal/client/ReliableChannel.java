@@ -756,8 +756,8 @@ public final class ReliableChannel implements AutoCloseable {
         /** Address that holder is bind to (chCfg.addr) is not in use now. So close the holder. */
         private volatile boolean close;
 
-        /** Timestamps of reconnect retries. */
-        private final long[] reconnectRetries;
+        /** Reconnect retry counter. */
+        private final AtomicLong reconnectRetries = new AtomicLong();
 
         /**
          * Constructor.
@@ -766,32 +766,13 @@ public final class ReliableChannel implements AutoCloseable {
          */
         private ClientChannelHolder(ClientChannelConfiguration chCfg) {
             this.chCfg = chCfg;
-
-            reconnectRetries = chCfg.clientConfiguration().reconnectRetryLimit() > 0
-                    && chCfg.clientConfiguration().reconnectRetryBackoff() > 0L
-                    ? new long[chCfg.clientConfiguration().reconnectRetryLimit()]
-                    : null;
         }
 
         private boolean needReconnectBackoff() {
-            if (reconnectRetries == null) {
-                return false;
-            }
-
-            long ts = System.currentTimeMillis();
-
             // 1. If retry limit is reached - throw an exception.
             // 2. If a retry was performed recently - backoff
             // 3. Otherwise - proceed with a new retry.
-            for (int i = 0; i < reconnectRetries.length; i++) {
-                if (ts - reconnectRetries[i] >= chCfg.clientConfiguration().reconnectRetryBackoff()) {
-                    reconnectRetries[i] = ts;
-
-                    return false;
-                }
-            }
-
-            return true;
+            return reconnectRetries.getAndIncrement() > 0;
         }
 
         /**
@@ -829,7 +810,7 @@ public final class ReliableChannel implements AutoCloseable {
                 if (!ignoreThrottling && needReconnectBackoff()) {
                     return supplyAsync(
                             () -> null,
-                            delayedExecutor(chCfg.clientConfiguration().reconnectRetryBackoff(), TimeUnit.MILLISECONDS))
+                            delayedExecutor(chCfg.clientConfiguration().reconnectRetryDelay(), TimeUnit.MILLISECONDS))
                             .thenCompose(unused -> getOrCreateChannelAsync());
                 }
 
