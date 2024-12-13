@@ -18,13 +18,10 @@
 package org.apache.ignite.internal.sql.engine.exec.row;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
  * Row schema used by execution engine.
