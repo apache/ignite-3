@@ -185,6 +185,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertThat(txManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
         // TODO: IGNITE-23956 Move this line in the base class.
+        // It is necessary to do after each test to prevent OOM in the middle of the test class execution.
         framework().clearInlineMocks();
     }
 

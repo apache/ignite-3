@@ -372,6 +372,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         nodes.forEach(Node::stop);
 
         // TODO: IGNITE-23956 Move this line in the base class.
+        // It is necessary to do after each test to prevent OOM in the middle of the test class execution.
         framework().clearInlineMocks();
     }
 
