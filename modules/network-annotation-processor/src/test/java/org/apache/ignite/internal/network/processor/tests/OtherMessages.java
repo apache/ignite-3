@@ -15,28 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.network.processor.tests;
 
-import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.UUID;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.tostring.IgniteStringifier;
 import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Put all command for MetaStorageCommandListener that inserts or updates entries with given keys and given values.
- */
-@Transferable(MetastorageCommandsMessageGroup.PUT_ALL)
-public interface PutAllCommand extends MetaStorageWriteCommand {
-    /**
-     * Returns entries keys.
-     */
-    @IgniteStringifier(name = "keys.size", value = SizeOnlyStringifier.class)
-    List<ByteBuffer> keys();
-
-    /**
-     * Returns entries values.
-     */
-    @IgniteStringifier(name = "values.size", value = SizeOnlyStringifier.class)
-    List<ByteBuffer> values();
+/** Other messages. */
+public class OtherMessages {
+    /** Message with {@link UUID} field that is not {@link Nullable} field. */
+    @Transferable(11)
+    public interface StringifierFieldMessage extends NetworkMessage {
+        @IgniteStringifier(name = "value.size", value = SizeOnlyStringifier.class)
+        List<Integer> value();
+    }
 }

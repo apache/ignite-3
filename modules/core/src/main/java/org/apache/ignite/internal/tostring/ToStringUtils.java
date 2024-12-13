@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.tostring;
 
-import java.nio.ByteBuffer;
-import java.util.List;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.tostring.IgniteStringifier;
-import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
+import java.lang.reflect.Constructor;
 
-/**
- * Remove all command for MetaStorageCommandListener that removes entries for given keys.
- */
-@Transferable(MetastorageCommandsMessageGroup.REMOVE_ALL)
-public interface RemoveAllCommand extends MetaStorageWriteCommand {
-    /**
-     * Returns the keys list. Couldn't be {@code null}.
-     */
-    @IgniteStringifier(name = "keys.size", value = SizeOnlyStringifier.class)
-    List<ByteBuffer> keys();
+/** Utility class with useful methods and constants for converting an object to a string. */
+class ToStringUtils {
+    /** Creates new {@link Stringifier}. */
+    static Stringifier<?> createStringifier(Class<? extends Stringifier<?>> cls) {
+        try {
+            Constructor<? extends Stringifier<?>> constructor = cls.getDeclaredConstructor();
+
+            constructor.setAccessible(true);
+
+            return constructor.newInstance();
+        } catch (Exception e) {
+            throw new RuntimeException("Fail to create stringifier: " + cls, e);
+        }
+    }
 }

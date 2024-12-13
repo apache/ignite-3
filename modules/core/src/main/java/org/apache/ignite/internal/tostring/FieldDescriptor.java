@@ -17,47 +17,50 @@
 
 package org.apache.ignite.internal.tostring;
 
+import static java.lang.reflect.Modifier.isStatic;
+import static org.apache.ignite.internal.tostring.ToStringUtils.createStringifier;
+
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import org.intellij.lang.annotations.MagicConstant;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Simple field descriptor containing field name and its order in the class descriptor.
  */
 class FieldDescriptor {
     /** Field type: {@link Object}. */
-    public static final int FIELD_TYPE_OBJECT = 0;
+    static final int FIELD_TYPE_OBJECT = 0;
 
     /** Field type: {@code byte}. */
-    public static final int FIELD_TYPE_BYTE = 1;
+    static final int FIELD_TYPE_BYTE = 1;
 
     /** Field type: {@code boolean}. */
-    public static final int FIELD_TYPE_BOOLEAN = 2;
+    static final int FIELD_TYPE_BOOLEAN = 2;
 
     /** Field type: {@code char}. */
-    public static final int FIELD_TYPE_CHAR = 3;
+    static final int FIELD_TYPE_CHAR = 3;
 
     /** Field type: {@code short}. */
-    public static final int FIELD_TYPE_SHORT = 4;
+    static final int FIELD_TYPE_SHORT = 4;
 
     /** Field type: {@code int}. */
-    public static final int FIELD_TYPE_INT = 5;
+    static final int FIELD_TYPE_INT = 5;
 
     /** Field type: {@code float}. */
-    public static final int FIELD_TYPE_FLOAT = 6;
+    static final int FIELD_TYPE_FLOAT = 6;
 
     /** Field type: {@code long}. */
-    public static final int FIELD_TYPE_LONG = 7;
+    static final int FIELD_TYPE_LONG = 7;
 
     /** Field type: {@code double}. */
-    public static final int FIELD_TYPE_DOUBLE = 8;
+    static final int FIELD_TYPE_DOUBLE = 8;
 
     /** Field name. */
     private final String name;
 
     /** Field order. */
-    private int order = Integer.MAX_VALUE;
+    private final int order;
 
     /** Field VarHandle. */
     private final VarHandle varHandle;
@@ -68,98 +71,97 @@ class FieldDescriptor {
     /** Class of the field. Upper bound in case of generic field types. */
     private final Class<?> cls;
 
+    /** Field Stringifier, {@code null} if absent. */
+    private final @Nullable Stringifier<?> stringifier;
+
     /**
      * Constructor.
      *
-     * @param field     Field descriptor.
+     * @param field Field descriptor.
      * @param varHandle Field VarHandle.
      */
     FieldDescriptor(Field field, VarHandle varHandle) {
-        assert (field.getModifiers() & Modifier.STATIC) == 0 : "Static fields are not allowed here: " + field;
+        assert !isStatic(field.getModifiers()) : "Static fields are not allowed here: " + field;
 
         this.varHandle = varHandle;
 
         cls = field.getType();
 
-        name = field.getName();
+        order = getFieldOrder(field);
 
-        if (!cls.isPrimitive()) {
-            type = FIELD_TYPE_OBJECT;
+        IgniteStringifier igniteStringifier = field.getAnnotation(IgniteStringifier.class);
+
+        if (igniteStringifier == null) {
+            name = field.getName();
+            type = getIntFieldType(field);
+            stringifier = null;
         } else {
-            if (cls == byte.class) {
-                type = FIELD_TYPE_BYTE;
-            } else if (cls == boolean.class) {
-                type = FIELD_TYPE_BOOLEAN;
-            } else if (cls == char.class) {
-                type = FIELD_TYPE_CHAR;
-            } else if (cls == short.class) {
-                type = FIELD_TYPE_SHORT;
-            } else if (cls == int.class) {
-                type = FIELD_TYPE_INT;
-            } else if (cls == float.class) {
-                type = FIELD_TYPE_FLOAT;
-            } else if (cls == long.class) {
-                type = FIELD_TYPE_LONG;
-            } else if (cls == double.class) {
-                type = FIELD_TYPE_DOUBLE;
-            } else {
-                throw new IllegalArgumentException("Unexpected primitive type: " + cls);
-            }
+            name = "".equals(igniteStringifier.name()) ? field.getName() : igniteStringifier.name();
+            type = FIELD_TYPE_OBJECT;
+            stringifier = createStringifier(igniteStringifier.value());
         }
     }
 
-    /**
-     * Returns field order.
-     *
-     * @return Field order.
-     */
+    /** Returns field order. */
     int getOrder() {
         return order;
     }
 
-    /**
-     * Sets field order.
-     *
-     * @param order Field order.
-     */
-    void setOrder(int order) {
-        this.order = order;
-    }
-
-    /**
-     * Returns field VarHandle.
-     *
-     * @return Field VarHandle.
-     */
-    public VarHandle varHandle() {
+    /** Returns field VarHandle. */
+    VarHandle varHandle() {
         return varHandle;
     }
 
-    /**
-     * Returns numeric constant for the field's type. One of {@code FIELD_TYPE_*} constants of current class.
-     *
-     * @return Numeric constant for the field's type. One of {@code FIELD_TYPE_*} constants of current class.
-     */
+    /** Returns numeric constant for the field's type. One of {@code FIELD_TYPE_*} constants of current class. */
     @MagicConstant(valuesFromClass = FieldDescriptor.class)
-    public int type() {
+    int type() {
         return type;
     }
 
-    /**
-     * Returns field class.
-     *
-     * @return Field class.
-     */
-    public Class<?> fieldClass() {
+    /** Returns field class. */
+    Class<?> fieldClass() {
         return cls;
     }
 
-    /**
-     * Returns field name.
-     *
-     * @return Field name.
-     */
+    /** Returns field name. */
     String getName() {
         return name;
+    }
+
+    /** Returns field Stringifier, {@code null} if absent. */
+    @Nullable Stringifier<?> stringifier() {
+        return stringifier;
+    }
+
+    private static int getIntFieldType(Field field) {
+        Class<?> cls = field.getType();
+
+        if (!cls.isPrimitive()) {
+            return FIELD_TYPE_OBJECT;
+        } else if (cls == byte.class) {
+            return FIELD_TYPE_BYTE;
+        } else if (cls == boolean.class) {
+            return FIELD_TYPE_BOOLEAN;
+        } else if (cls == char.class) {
+            return FIELD_TYPE_CHAR;
+        } else if (cls == short.class) {
+            return FIELD_TYPE_SHORT;
+        } else if (cls == int.class) {
+            return FIELD_TYPE_INT;
+        } else if (cls == float.class) {
+            return FIELD_TYPE_FLOAT;
+        } else if (cls == long.class) {
+            return FIELD_TYPE_LONG;
+        } else if (cls == double.class) {
+            return FIELD_TYPE_DOUBLE;
+        }
+
+        throw new IllegalArgumentException("Unexpected type: " + field);
+    }
+
+    private static int getFieldOrder(Field field) {
+        IgniteToStringOrder annotation = field.getAnnotation(IgniteToStringOrder.class);
+
+        return annotation == null ? Integer.MAX_VALUE : annotation.value();
     }
 }

@@ -15,22 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.command;
+package org.apache.ignite.internal.tostring;
 
-import java.nio.ByteBuffer;
-import java.util.List;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.tostring.IgniteStringifier;
-import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
+import java.lang.reflect.Array;
+import java.util.Collection;
+import java.util.Map;
 
-/**
- * Remove all command for MetaStorageCommandListener that removes entries for given keys.
- */
-@Transferable(MetastorageCommandsMessageGroup.REMOVE_ALL)
-public interface RemoveAllCommand extends MetaStorageWriteCommand {
-    /**
-     * Returns the keys list. Couldn't be {@code null}.
-     */
-    @IgniteStringifier(name = "keys.size", value = SizeOnlyStringifier.class)
-    List<ByteBuffer> keys();
+/** Returns only the size of a {@link Collection}, {@link Map}, or array. */
+public class SizeOnlyStringifier implements Stringifier<Object> {
+    @Override
+    public String toString(Object instance) {
+        if (instance instanceof Collection) {
+            return Integer.toString(((Collection<?>) instance).size());
+        } else if (instance instanceof Map) {
+            return Integer.toString(((Map<?, ?>) instance).size());
+        } else if (instance.getClass().isArray()) {
+            return Integer.toString(Array.getLength(instance));
+        }
+
+        throw new IllegalArgumentException("Unsupported type: " + instance);
+    }
 }

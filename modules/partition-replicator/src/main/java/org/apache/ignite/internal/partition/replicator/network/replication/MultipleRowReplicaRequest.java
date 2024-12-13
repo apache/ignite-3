@@ -23,11 +23,14 @@ import java.util.List;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
+import org.apache.ignite.internal.tostring.IgniteStringifier;
+import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
 
 /**
  * Multiple row replica request.
  */
 public interface MultipleRowReplicaRequest extends SchemaVersionAwareReplicaRequest {
+    @IgniteStringifier(name = "binaryTuples.size", value = SizeOnlyStringifier.class)
     List<ByteBuffer> binaryTuples();
 
     /**
