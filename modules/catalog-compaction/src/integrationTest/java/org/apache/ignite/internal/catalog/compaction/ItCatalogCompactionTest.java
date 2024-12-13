@@ -32,6 +32,7 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -72,6 +73,9 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
     /** Show be greater than 2 x {@link #LW_UPDATE_TIME_MS}. */
     private static final long COMPACTION_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
+
+    /** Transactions that are started in the test. */
+    private final List<InternalTransaction> transactions = new ArrayList<>();
 
     @Override
     protected int initialNodes() {
@@ -123,6 +127,9 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
     @BeforeEach
     public void beforeEach() {
+        transactions.forEach(Transaction::rollback);
+        transactions.clear();
+
         dropAllTables();
     }
 
@@ -140,15 +147,15 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
         Catalog catalog1 = getLatestCatalog(node2);
 
-        Transaction tx1 = node0.transactions().begin();
+        Transaction tx1 = beginTx(node0, false);
 
         // Changing the catalog and starting transaction.
         sql("create table a(a int primary key)");
         Catalog catalog2 = getLatestCatalog(node0);
         assertThat(catalog2.version(), is(catalog1.version() + 1));
-        List<Transaction> txs2 = Stream.of(node1, node2).map(node -> node.transactions().begin()).collect(Collectors.toList());
+        List<Transaction> txs2 = Stream.of(node1, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
         List<InternalTransaction> ignoredReadonlyTxs = Stream.of(node0, node1, node2)
-                .map(node -> (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true)))
+                .map(node -> beginTx(node, true))
                 .collect(Collectors.toList());
 
         // Changing the catalog again and starting transaction.
@@ -157,7 +164,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         Awaitility.await().untilAsserted(() -> assertThat(getLatestCatalogVersion(node1), is(catalog2.version() + 1)));
         Catalog catalog3 = getLatestCatalog(node1);
 
-        List<Transaction> txs3 = Stream.of(node0, node2).map(node -> node.transactions().begin()).collect(Collectors.toList());
+        List<Transaction> txs3 = Stream.of(node0, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
 
         Collection<ClusterNode> topologyNodes = node0.clusterNodes();
 
@@ -237,6 +244,15 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         assertTrue(catalogVersion2 < catalogVersion3, "Catalog version should have changed");
 
         expectEarliestCatalogVersion(catalogVersion3 - 1);
+    }
+
+    private InternalTransaction beginTx(Ignite node, boolean readOnly) {
+        TransactionOptions txOptions = new TransactionOptions().readOnly(readOnly);
+        InternalTransaction tx = (InternalTransaction) node.transactions().begin(txOptions);
+
+        transactions.add(tx);
+
+        return tx;
     }
 
     private static int getLatestCatalogVersion(Ignite ignite) {
