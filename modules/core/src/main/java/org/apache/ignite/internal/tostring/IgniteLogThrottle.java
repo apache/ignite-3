@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tostring;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
 
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
@@ -47,17 +48,17 @@ public class IgniteLogThrottle {
      * @param msg Message.
      */
     public static void error(IgniteLogger log, String msg) {
-        error(log, (Throwable) null, msg, OBJECT_EMPTY_ARRAY);
+        error(log, msg, (Throwable) null, OBJECT_EMPTY_ARRAY);
     }
 
     /**
      * Logs error if needed.
      *
      * @param log Logger.
-     * @param e Error (optional).
      * @param msg Message.
+     * @param e Error (optional).
      */
-    public static void error(IgniteLogger log, @Nullable Throwable e, String msg) {
+    public static void error(IgniteLogger log, String msg, @Nullable Throwable e) {
         error(log, msg, e, OBJECT_EMPTY_ARRAY);
     }
 
@@ -69,19 +70,19 @@ public class IgniteLogThrottle {
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
     public static void error(IgniteLogger log, String msg, Object... params) {
-        error(log, (Throwable) null, msg, params);
+        error(log, msg, (Throwable) null, params);
     }
 
     /**
      * Logs error if needed.
      *
      * @param log Logger.
+     * @param msg Message pattern.
      * @param e Error (optional).
-     * @param msg Message pattern
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
-    public static void error(IgniteLogger log, @Nullable Throwable e, String msg, Object... params) {
-        log(log, e, msg, msg, LogLevel.ERROR, false, params);
+    public static void error(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
+        log(log, e, msg, msg, LogLevel.ERROR, params);
     }
 
     /**
@@ -92,7 +93,7 @@ public class IgniteLogThrottle {
      * @param msg Message.
      */
     public static void error(IgniteLogger log, String throttleKey, String msg) {
-        error(log, throttleKey, null, msg, OBJECT_EMPTY_ARRAY);
+        error(log, throttleKey, msg, null, OBJECT_EMPTY_ARRAY);
     }
 
     /**
@@ -100,10 +101,10 @@ public class IgniteLogThrottle {
      *
      * @param log Logger.
      * @param throttleKey Messages with the same key will be throttled.
-     * @param e Error (optional).
      * @param msg Message.
+     * @param e Error (optional).
      */
-    public static void error(IgniteLogger log, String throttleKey, @Nullable Throwable e, String msg) {
+    public static void error(IgniteLogger log, String throttleKey, String msg, @Nullable Throwable e) {
         error(log, throttleKey, msg, e, OBJECT_EMPTY_ARRAY);
     }
 
@@ -116,7 +117,7 @@ public class IgniteLogThrottle {
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
     public static void error(IgniteLogger log, String throttleKey, String msg, Object... params) {
-        error(log, throttleKey, null, msg, params);
+        error(log, throttleKey, msg, null, params);
     }
 
     /**
@@ -124,12 +125,12 @@ public class IgniteLogThrottle {
      *
      * @param log Logger.
      * @param throttleKey Messages with the same key will be throttled.
-     * @param e Error (optional).
      * @param msg Message pattern.
+     * @param e Error (optional).
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
-    public static void error(IgniteLogger log, String throttleKey, @Nullable Throwable e, String msg, Object... params) {
-        log(log, e, throttleKey, msg, LogLevel.ERROR, false, params);
+    public static void error(IgniteLogger log, String throttleKey, String msg, @Nullable Throwable e, Object... params) {
+        log(log, e, throttleKey, msg, LogLevel.ERROR, params);
     }
 
     /**
@@ -139,17 +140,17 @@ public class IgniteLogThrottle {
      * @param msg Message.
      */
     public static void warn(IgniteLogger log, String msg) {
-        warn(log, (Throwable) null, msg, OBJECT_EMPTY_ARRAY);
+        warn(log, msg, (Throwable) null, OBJECT_EMPTY_ARRAY);
     }
 
     /**
      * Logs warn if needed.
      *
      * @param log Logger.
-     * @param e Error (optional).
      * @param msg Message.
+     * @param e Error (optional).
      */
-    public static void warn(IgniteLogger log, @Nullable Throwable e, String msg) {
+    public static void warn(IgniteLogger log, String msg, @Nullable Throwable e) {
         warn(log, msg, e, OBJECT_EMPTY_ARRAY);
     }
 
@@ -161,19 +162,19 @@ public class IgniteLogThrottle {
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
     public static void warn(IgniteLogger log, String msg, Object... params) {
-        warn(log, (Throwable) null, msg, params);
+        warn(log, msg, (Throwable) null, params);
     }
 
     /**
      * Logs warn if needed.
      *
      * @param log Logger.
+     * @param msg Message pattern.
      * @param e Error (optional).
-     * @param msg Message pattern
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
-    public static void warn(IgniteLogger log, @Nullable Throwable e, String msg, Object... params) {
-        log(log, e, msg, msg, LogLevel.WARN, false, params);
+    public static void warn(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
+        log(log, e, msg, msg, LogLevel.WARN, params);
     }
 
     /**
@@ -184,7 +185,7 @@ public class IgniteLogThrottle {
      * @param msg Message.
      */
     public static void warn(IgniteLogger log, String throttleKey, String msg) {
-        warn(log, throttleKey, null, msg, OBJECT_EMPTY_ARRAY);
+        warn(log, throttleKey, msg, null, OBJECT_EMPTY_ARRAY);
     }
 
     /**
@@ -192,10 +193,10 @@ public class IgniteLogThrottle {
      *
      * @param log Logger.
      * @param throttleKey Messages with the same key will be throttled.
-     * @param e Error (optional).
      * @param msg Message.
+     * @param e Error (optional).
      */
-    public static void warn(IgniteLogger log, String throttleKey, @Nullable Throwable e, String msg) {
+    public static void warn(IgniteLogger log, String throttleKey, String msg, @Nullable Throwable e) {
         warn(log, throttleKey, msg, e, OBJECT_EMPTY_ARRAY);
     }
 
@@ -208,7 +209,7 @@ public class IgniteLogThrottle {
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
     public static void warn(IgniteLogger log, String throttleKey, String msg, Object... params) {
-        warn(log, throttleKey, null, msg, params);
+        warn(log, throttleKey, msg, null, params);
     }
 
     /**
@@ -216,12 +217,12 @@ public class IgniteLogThrottle {
      *
      * @param log Logger.
      * @param throttleKey Messages with the same key will be throttled.
-     * @param e Error (optional).
      * @param msg Message pattern.
+     * @param e Error (optional).
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
-    public static void warn(IgniteLogger log, String throttleKey, @Nullable Throwable e, String msg, Object... params) {
-        log(log, e, throttleKey, msg, LogLevel.WARN, false, params);
+    public static void warn(IgniteLogger log, String throttleKey, String msg, @Nullable Throwable e, Object... params) {
+        log(log, e, throttleKey, msg, LogLevel.WARN, params);
     }
 
     /**
@@ -231,17 +232,17 @@ public class IgniteLogThrottle {
      * @param msg Message.
      */
     public static void info(IgniteLogger log, String msg) {
-        info(log, (Throwable) null, msg, OBJECT_EMPTY_ARRAY);
+        info(log, msg, (Throwable) null, OBJECT_EMPTY_ARRAY);
     }
 
     /**
      * Logs info if needed.
      *
      * @param log Logger.
-     * @param e Error (optional).
      * @param msg Message.
+     * @param e Error (optional).
      */
-    public static void info(IgniteLogger log, @Nullable Throwable e, String msg) {
+    public static void info(IgniteLogger log, String msg, @Nullable Throwable e) {
         info(log, msg, e, OBJECT_EMPTY_ARRAY);
     }
 
@@ -253,7 +254,7 @@ public class IgniteLogThrottle {
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
     public static void info(IgniteLogger log, String msg, Object... params) {
-        info(log, (Throwable) null, msg, params);
+        info(log, msg, (Throwable) null, params);
     }
 
     /**
@@ -261,11 +262,11 @@ public class IgniteLogThrottle {
      *
      * @param log Logger.
      * @param e Error (optional).
-     * @param msg Message pattern
+     * @param msg Message pattern.
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
-    public static void info(IgniteLogger log, @Nullable Throwable e, String msg, Object... params) {
-        log(log, e, msg, msg, LogLevel.INFO, false, params);
+    public static void info(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
+        log(log, e, msg, msg, LogLevel.INFO, params);
     }
 
     /**
@@ -276,7 +277,7 @@ public class IgniteLogThrottle {
      * @param msg Message.
      */
     public static void info(IgniteLogger log, String throttleKey, String msg) {
-        info(log, throttleKey, null, msg, OBJECT_EMPTY_ARRAY);
+        info(log, throttleKey, msg, null, OBJECT_EMPTY_ARRAY);
     }
 
     /**
@@ -287,7 +288,7 @@ public class IgniteLogThrottle {
      * @param e Error (optional).
      * @param msg Message.
      */
-    public static void info(IgniteLogger log, String throttleKey, @Nullable Throwable e, String msg) {
+    public static void info(IgniteLogger log, String throttleKey, String msg, @Nullable Throwable e) {
         info(log, throttleKey, msg, e, OBJECT_EMPTY_ARRAY);
     }
 
@@ -300,7 +301,7 @@ public class IgniteLogThrottle {
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
     public static void info(IgniteLogger log, String throttleKey, String msg, Object... params) {
-        info(log, throttleKey, null, msg, params);
+        info(log, throttleKey, msg, null, params);
     }
 
     /**
@@ -308,12 +309,104 @@ public class IgniteLogThrottle {
      *
      * @param log Logger.
      * @param throttleKey Messages with the same key will be throttled.
+     * @param msg Message pattern.
+     * @param e Error (optional).
+     * @param params List of arguments to be substituted in place of formatting anchors.
+     */
+    public static void info(IgniteLogger log, String throttleKey, String msg, @Nullable Throwable e, Object... params) {
+        log(log, e, throttleKey, msg, LogLevel.INFO, params);
+    }
+
+    /**
+     * Logs debug if needed.
+     *
+     * @param log Logger.
+     * @param msg Message.
+     */
+    public static void debug(IgniteLogger log, String msg) {
+        debug(log, msg, (Throwable) null, OBJECT_EMPTY_ARRAY);
+    }
+
+    /**
+     * Logs debug if needed.
+     *
+     * @param log Logger.
+     * @param msg Message.
+     * @param e Error (optional).
+     */
+    public static void debug(IgniteLogger log, String msg, @Nullable Throwable e) {
+        debug(log, msg, e, OBJECT_EMPTY_ARRAY);
+    }
+
+    /**
+     * Logs debug if needed.
+     *
+     * @param log Logger.
+     * @param msg Message pattern.
+     * @param params List of arguments to be substituted in place of formatting anchors.
+     */
+    public static void debug(IgniteLogger log, String msg, Object... params) {
+        debug(log, msg, (Throwable) null, params);
+    }
+
+    /**
+     * Logs debug if needed.
+     *
+     * @param log Logger.
      * @param e Error (optional).
      * @param msg Message pattern.
      * @param params List of arguments to be substituted in place of formatting anchors.
      */
-    public static void info(IgniteLogger log, String throttleKey, @Nullable Throwable e, String msg, Object... params) {
-        log(log, e, throttleKey, msg, LogLevel.INFO, params);
+    public static void debug(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
+        log(log, e, msg, msg, LogLevel.DEBUG, params);
+    }
+
+    /**
+     * Logs debug if needed.
+     *
+     * @param log Logger.
+     * @param throttleKey Messages with the same key will be throttled.
+     * @param msg Message.
+     */
+    public static void debug(IgniteLogger log, String throttleKey, String msg) {
+        debug(log, throttleKey, msg, null, OBJECT_EMPTY_ARRAY);
+    }
+
+    /**
+     * Logs debug if needed.
+     *
+     * @param log Logger.
+     * @param throttleKey Messages with the same key will be throttled.
+     * @param e Error (optional).
+     * @param msg Message.
+     */
+    public static void debug(IgniteLogger log, String throttleKey, String msg, @Nullable Throwable e) {
+        debug(log, throttleKey, msg, e, OBJECT_EMPTY_ARRAY);
+    }
+
+    /**
+     * Logs debug if needed.
+     *
+     * @param log Logger.
+     * @param throttleKey Messages with the same key will be throttled.
+     * @param msg Message pattern.
+     * @param params List of arguments to be substituted in place of formatting anchors.
+     */
+    public static void debug(IgniteLogger log, String throttleKey, String msg, Object... params) {
+        debug(log, throttleKey, msg, null, params);
+    }
+
+    /**
+     * Logs debug if needed.
+     *
+     * @param log Logger.
+     * @param throttleKey Messages with the same key will be throttled.
+     * @param msg Message pattern.
+     * @param e Error (optional).
+     * @param params List of arguments to be substituted in place of formatting anchors.
+     */
+    public static void debug(IgniteLogger log, String throttleKey, String msg, @Nullable Throwable e, Object... params) {
+        log(log, e, throttleKey, msg, LogLevel.DEBUG, params);
     }
 
     /**
@@ -396,6 +489,17 @@ public class IgniteLogThrottle {
                     log.info(msg, e);
                 }
             }
+        },
+
+        DEBUG {
+            @Override
+            public void doLog(IgniteLogger log, String msg, @Nullable Throwable e, Object... params) {
+                if (nullOrEmpty(params)) {
+                    log.debug(msg, e);
+                } else {
+                    log.debug(msg, e, params);
+                }
+            }
         };
 
         public abstract void doLog(IgniteLogger log, String msg, @Nullable Throwable e, Object... params);
@@ -410,6 +514,27 @@ public class IgniteLogThrottle {
         LogThrottleKey(@Nullable Class<? extends Throwable> errorClass, String errorMessage) {
             this.errorClass = errorClass;
             this.errorMessage = errorMessage;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            LogThrottleKey that = (LogThrottleKey) o;
+            return Objects.equals(errorClass, that.errorClass) && errorMessage.equals(that.errorMessage);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = errorClass != null ? errorClass.hashCode() : 0;
+            result = 31 * result + errorMessage.hashCode();
+            return result;
         }
     }
 }

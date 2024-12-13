@@ -32,6 +32,9 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
+import static org.apache.ignite.internal.tostring.IgniteLogThrottle.debug;
+import static org.apache.ignite.internal.tostring.IgniteLogThrottle.error;
+import static org.apache.ignite.internal.tostring.IgniteLogThrottle.warn;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
@@ -473,9 +476,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     msg = prepareReplicaResponse(sendTimestamp, res);
                 } else {
                     if (indicatesUnexpectedProblem(ex)) {
-                        LOG.warn("Failed to process replica request [request={}].", ex, request);
+                        warn(LOG, "Failed to process replica request [request={}].", ex, request);
                     } else {
-                        LOG.debug("Failed to process replica request [request={}].", ex, request);
+                        debug(LOG, "Failed to process replica request [request={}].", ex, request);
                     }
 
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);
@@ -498,7 +501,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         if (ex0 == null) {
                             msg0 = prepareReplicaResponse(sendTimestamp, new ReplicaResult(res0, null));
                         } else {
-                            LOG.warn("Failed to process delayed response [request={}]", ex0, request);
+                            warn(LOG, "Failed to process delayed response [request={}]", ex0, request);
 
                             msg0 = prepareReplicaErrorResponse(sendTimestamp, ex0);
                         }
@@ -559,7 +562,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         if (ex == null) {
                             clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
                         } else if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
-                            LOG.error("Failed to process placement driver message [msg={}].", ex, msg);
+                            error(LOG, "Failed to process placement driver message [msg={}].", ex, msg);
                         }
                     });
         } finally {
@@ -795,7 +798,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         return fireEvent(AFTER_REPLICA_STARTED, eventParams)
                 .exceptionally(e -> {
-                    LOG.error("Error when notifying about AFTER_REPLICA_STARTED event.", e);
+                    error(LOG, "Error when notifying about AFTER_REPLICA_STARTED event.", e);
 
                     return null;
                 })
@@ -877,7 +880,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         fireEvent(BEFORE_REPLICA_STOPPED, eventParams).whenComplete((v, e) -> {
             if (e != null) {
-                LOG.error("Error when notifying about BEFORE_REPLICA_STOPPED event.", e);
+                error(LOG, "Error when notifying about BEFORE_REPLICA_STOPPED event.", e);
             }
 
             if (!enterBusy()) {
@@ -903,7 +906,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 .thenCompose(Replica::shutdown)
                                 .whenComplete((notUsed, throwable) -> {
                                     if (throwable != null) {
-                                        LOG.error("Failed to stop replica [replicaGrpId={}].", throwable, grpId);
+                                        error(LOG, "Failed to stop replica [replicaGrpId={}].", throwable, grpId);
                                     }
 
                                     isRemovedFuture.complete(throwable == null);
@@ -1113,9 +1116,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             try {
                 sendSafeTimeSyncIfReplicaReady(entry.getValue(), proposedSafeTime);
             } catch (Exception | AssertionError e) {
-                LOG.warn("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
+                warn(LOG, "Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
             } catch (Error e) {
-                LOG.error("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
+                error(LOG, "Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
 
                 failureManager.process(new FailureContext(CRITICAL_ERROR, e));
             }
@@ -1136,7 +1139,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
             if (ex != null) {
-                LOG.error("Could not advance safe time for {} to {}", ex, replica.groupId(), proposedSafeTime);
+                error(LOG, "Could not advance safe time for {} to {}", ex, replica.groupId(), proposedSafeTime);
             }
         });
     }
@@ -1379,7 +1382,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 return electedPrimaryReplica.raftClient().subscribeLeader(onLeaderElectedFailoverCallback);
             })).exceptionally(inBusyLock(busyLock, () -> (Function<Throwable, Void>) e -> {
-                LOG.error("Rebalance failover subscription on elected primary replica failed [groupId=" + replicationGroupId + "].", e);
+                error(LOG, "Rebalance failover subscription on elected primary replica failed [groupId=" + replicationGroupId + "].", e);
 
                 failureManager.process(new FailureContext(CRITICAL_ERROR, e));
 
@@ -1421,7 +1424,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 getPendingAssignmentsSupplier.apply(
                         replicationGroupId
                 ).exceptionally(inBusyLock(busyLock, () -> (Function<Throwable, byte[]>) e -> {
-                    LOG.error(
+                    error(LOG,
                             "Couldn't fetch pending assignments for rebalance failover [groupId={}, term={}].",
                             e,
                             replicationGroupId,
@@ -1446,7 +1449,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     // TODO: add retries on fail https://issues.apache.org/jira/browse/IGNITE-23633
                     return primaryReplica.raftClient().changePeersAndLearnersAsync(newConfiguration, term);
                 })).exceptionally(inBusyLock(busyLock, () -> (Function<Throwable, Void>) e -> {
-                    LOG.error("Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicationGroupId, term);
+                    error(LOG, "Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicationGroupId, term);
 
                     return null;
                 }));
@@ -1531,7 +1534,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         return partitionStarted;
                     }))
                     .exceptionally(e -> {
-                        LOG.error("Replica start failed [groupId={}]", e, groupId);
+                        error(LOG, "Replica start failed [groupId={}]", e, groupId);
 
                         throw new CompletionException(e);
                     });
@@ -1623,7 +1626,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         return true;
                     }))
                     .exceptionally(e -> {
-                        LOG.error("Replica stop failed [groupId={}]", e, groupId);
+                        error(LOG, "Replica stop failed [groupId={}]", e, groupId);
 
                         throw new CompletionException(e);
                     });
