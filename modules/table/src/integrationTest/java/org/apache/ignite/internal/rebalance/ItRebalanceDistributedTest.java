@@ -56,6 +56,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.framework;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
@@ -283,22 +284,22 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final int NODE_COUNT = 3;
 
     @InjectConfiguration
-    private static TransactionConfiguration txConfiguration;
+    private TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    private static RaftConfiguration raftConfiguration;
+    private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static SystemLocalConfiguration systemConfiguration;
+    private SystemLocalConfiguration systemConfiguration;
 
     @InjectConfiguration
-    private static NodeAttributesConfiguration nodeAttributes;
+    private NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = \"aipersist\", test.engine=\"test\"}")
-    private static StorageConfiguration storageConfiguration;
+    private StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private static MetaStorageConfiguration metaStorageConfiguration;
+    private MetaStorageConfiguration metaStorageConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -370,6 +371,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     @AfterEach
     void after() {
         nodes.forEach(Node::stop);
+
+        // TODO: IGNITE-23956 Move this line in the base class.
+        // It is necessary to do after each test to prevent OOM in the middle of the test class execution.
+        framework().clearInlineMocks();
     }
 
     @Test
