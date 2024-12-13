@@ -2030,13 +2030,13 @@ public class IgniteToStringBuilder {
             IgniteStringifier stringifierField = f.getAnnotation(IgniteStringifier.class);
             IgniteStringifier stringifierType = type.getAnnotation(IgniteStringifier.class);
 
-            if (incFld != null || incType != null) {
+            if (stringifierField != null || stringifierType != null) {
+                add = true;
+            } else if (incFld != null || incType != null) {
                 // Information is not sensitive when both the field and the field type are not sensitive.
                 // When @IgniteToStringInclude is not present then the flag is false by default for that attribute.
                 boolean notSens = (incFld == null || !incFld.sensitive()) && (incType == null || !incType.sensitive());
                 add = notSens || includeSensitive();
-            } else if (stringifierField != null || stringifierType != null) {
-                add = true;
             } else if (!f.isAnnotationPresent(IgniteToStringExclude.class)
                     && !type.isAnnotationPresent(IgniteToStringExclude.class)
             ) {
