@@ -768,11 +768,17 @@ public final class ReliableChannel implements AutoCloseable {
             this.chCfg = chCfg;
         }
 
-        private boolean needReconnectBackoff() {
-            // 1. If retry limit is reached - throw an exception.
-            // 2. If a retry was performed recently - backoff
-            // 3. Otherwise - proceed with a new retry.
-            return reconnectRetries.getAndIncrement() > 0;
+        private boolean needReconnectDelay() {
+            long currentRetry = reconnectRetries.incrementAndGet();
+
+            if (currentRetry > chCfg.clientConfiguration().reconnectRetryLimit()) {
+                throw new IgniteClientConnectionException(
+                        CONNECTION_ERR,
+                        "Failed to establish connection to " + chCfg.getAddress() + ": retry limit exceeded",
+                        chCfg.getAddress().toString());
+            }
+
+            return currentRetry > 1;
         }
 
         /**
@@ -807,7 +813,7 @@ public final class ReliableChannel implements AutoCloseable {
                     return chFut0;
                 }
 
-                if (!ignoreThrottling && needReconnectBackoff()) {
+                if (!ignoreThrottling && needReconnectDelay()) {
                     return supplyAsync(
                             () -> null,
                             delayedExecutor(chCfg.clientConfiguration().reconnectRetryDelay(), TimeUnit.MILLISECONDS))
@@ -822,6 +828,8 @@ public final class ReliableChannel implements AutoCloseable {
                         ReliableChannel.this::onObservableTimestampReceived);
 
                 chFut0 = createFut.thenApply(ch -> {
+                    reconnectRetries.set(0); // Reset reconnect retries counter.
+
                     UUID currentClusterId = ch.protocolContext().clusterId();
                     UUID oldClusterId = clusterId.compareAndExchange(null, currentClusterId);
                     List<UUID> validClusterIds = ch.protocolContext().clusterIds();
