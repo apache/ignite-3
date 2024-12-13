@@ -9,14 +9,13 @@ Apache Ignite 3 DB API Driver.
 ## Installation
 
 ### From repository
-This is a recommended way for users. If you only want to use the `pyignite3`
-module in your project, do:
+This is a recommended way for users. If you only want to use the `pyignite3` module in your project, do:
 ```
 $ pip install pyignite3
 ```
 
 ### From sources
-This way is more suitable for developers or if you install client from zip archive.
+This way is more suitable for developers, or if you install the client from zip archive.
 1. Download and/or unzip Ignite 3 DB API Driver sources to `pyignite3_path`
 2. Go to `pyignite3_path` folder
 3. Execute `pip install -e .`
@@ -26,13 +25,12 @@ $ cd <pyignite3_path>
 $ pip install -e .
 ```
 
-This will install the repository version of `pyignite3` into your environment
-in so-called “develop” or “editable” mode. You may read more about
-[editable installs](https://pip.pypa.io/en/stable/reference/pip_install/#editable-installs)
-in the `pip` manual.
+This will install the repository version of `pyignite3` into your environment in so-called “develop” or “editable” mode.
+You may read more about [editable installs](https://pip.pypa.io/en/stable/reference/pip_install/#editable-installs) in
+the `pip` manual.
 
-Then run through the contents of `requirements` folder to install
-the additional requirements into your working Python environment using
+Then run through the contents of `requirements` folder to install the additional requirements into your working Python
+environment using
 ```
 $ pip install -r requirements/<your task>.txt
 ```
@@ -41,7 +39,7 @@ You may also want to consult the `setuptools` manual about using `setup.py`.
 
 ### *C extension*
 
-The core of the package is an C++ extension. It shares the code with the Ignite C++ Client. The package is pre-built
+The core of the package is a C++ extension. It shares the code with the Ignite C++ Client. The package is pre-built
 for the most common platforms, but you may need to build it if your platform is not included.
 
 Linux building requirements:
@@ -50,20 +48,21 @@ Linux building requirements:
 - unixODBC (dev version of the package);
 - OpenSSL (dev version of the package);
 - Docker to build wheels;
-- Supported versions of Python (3.9, 3.10, 3.11, 3.12 and 3.13). You can disable some of these versions
-  but you'd need to edit script for that.
+- Supported versions of Python (3.9, 3.10, 3.11, 3.12 and 3.13).
+  You can disable some of these versions, but you'd need to edit the script for that.
 
 For building universal `wheels` (binary packages) for Linux, just invoke script `./scripts/create_distr.sh`.
 
 Windows building requirements:
-- MSVC 14.x required, and it should be in path;
+- MSVC 14.x, and it should be in path;
 - CMake version >=3.18;
 - OpenSSL (headers are required for the build);
-- Supported versions of Python (3.9, 3.10, 3.11, 3.12 and 3.13). You can disable some of these versions but you'd need
-  to edit script for that.
+- Supported versions of Python (3.9, 3.10, 3.11, 3.12 and 3.13).
+  You can disable some of these versions, but you'd need to edit the script for that.
 
-For building `wheels` for Windows, invoke script `.\scripts\BuildWheels.ps1` using PowerShell. Just make sure that
-your execution policy allows execution of scripts in your environment.
+For building `wheels` for Windows, invoke script `.\scripts\BuildWheels.ps1` using PowerShell.
+Make sure that your execution policy allows execution of scripts in your environment.
+The script only works with Python distributions installed in a standard path, which is LOCALAPPDATA\Programs\Python.
 
 Ready wheels will be located in `distr` directory.
 
@@ -90,7 +89,7 @@ pip install pyignite3==3.0.0
 *NB!* It is recommended installing `pyignite3` in development mode.
 Refer to [this section](#from-sources) for instructions.
 
-Do not forget to install test requirements: 
+Remember to install test requirements:
 ```bash
 $ pip install -r requirements/install.txt -r requirements/tests.txt
 ```
@@ -103,7 +102,7 @@ $ pytest
 
 ## Documentation
 
-Install documentation requirements: 
+Install documentation requirements:
 ```bash
 $ pip install -r requirements/docs.txt
 ```
