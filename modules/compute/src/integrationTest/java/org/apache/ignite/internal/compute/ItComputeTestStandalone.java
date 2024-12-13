@@ -118,6 +118,18 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
     @Override
     @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
+    void cancelComputeExecuteBroadcastPartitioningAsyncWithCancelHandle(boolean local) {
+        super.cancelComputeExecuteBroadcastPartitioningAsyncWithCancelHandle(local);
+    }
+
+    @Override
+    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
+    void cancelComputeExecuteBroadcastPartitionedWithCancelHandle(boolean local) {
+        super.cancelComputeExecuteBroadcastPartitionedWithCancelHandle(local);
+    }
+
+    @Override
+    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-23731")
     @Test
     void cancelComputeExecuteMapReduceAsyncWithCancelHandle() {
         super.cancelComputeExecuteMapReduceAsyncWithCancelHandle();
