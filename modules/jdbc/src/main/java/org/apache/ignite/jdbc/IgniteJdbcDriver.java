@@ -86,16 +86,6 @@ import org.apache.ignite.internal.jdbc.JdbcConnection;
  *          <br>By default no any timeout.</td>
  *   </tr>
  *   <tr>
- *      <td>reconnectThrottlingPeriod</td>
- *      <td>Sets the reconnect throttling period, in milliseconds. Zero means there is no limits.
- *          <br>By default uses {@value org.apache.ignite.client.IgniteClientConfiguration#DFLT_RECONNECT_RETRY_DELAY}.</td>
- *   </tr>
- *   <tr>
- *      <td>reconnectThrottlingRetries</td>
- *      <td>Sets the reconnect throttling retries. Zero means there is no limits.
- *          <br>By default uses {@value org.apache.ignite.client.IgniteClientConfiguration#DFLT_RECONNECT_RETRY_LIMIT}.</td>
- *   </tr>
- *   <tr>
  *       <th colspan="2">Basic authentication</th>
  *   </tr>
  *   <tr>
