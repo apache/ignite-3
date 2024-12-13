@@ -140,6 +140,7 @@ import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.SqlBatchException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Handles messages from thin clients.
@@ -1090,5 +1091,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 AuthenticationEvent.USER_UPDATED,
                 AuthenticationEvent.USER_REMOVED
         );
+    }
+
+    @TestOnly
+    public ClientResourceRegistry resources() {
+        return resources;
     }
 }

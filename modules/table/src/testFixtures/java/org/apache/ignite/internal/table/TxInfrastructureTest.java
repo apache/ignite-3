@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.distributed.ItTxTestCluster;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -46,11 +47,14 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -72,7 +76,7 @@ import org.mockito.quality.Strictness;
 /**
  * Setup infrastructure for tx related test scenarios.
  */
-@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     protected static final double BALANCE_1 = 500;
@@ -115,10 +119,16 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     protected TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
+    protected LowWatermarkConfiguration lowWatermarkConfiguration;
+
+    @InjectConfiguration
     protected StorageUpdateConfiguration storageUpdateConfiguration;
 
     @InjectConfiguration
     protected ReplicationConfiguration replicationConfiguration;
+
+    @InjectExecutorService
+    protected ScheduledExecutorService commonExecutor;
 
     protected final TestInfo testInfo;
 
@@ -167,6 +177,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                lowWatermarkConfiguration,
                 storageUpdateConfiguration,
                 workDir,
                 nodes(),

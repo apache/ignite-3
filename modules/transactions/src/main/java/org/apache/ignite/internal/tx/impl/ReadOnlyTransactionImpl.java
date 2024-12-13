@@ -29,11 +29,12 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * The read-only implementation of an internal transaction.
  */
-class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
+public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     /** The read timestamp. */
     private final HybridTimestamp readTimestamp;
 
@@ -141,5 +142,10 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
         ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()));
 
         return txFuture;
+    }
+
+    @TestOnly
+    public boolean finishInitiated() {
+        return finishGuard.get();
     }
 }

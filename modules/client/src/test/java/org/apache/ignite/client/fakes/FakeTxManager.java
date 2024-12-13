@@ -31,9 +31,9 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.network.ClusterNode;
@@ -63,17 +63,16 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit) {
-        return begin(tracker, implicit, false);
+    public InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly) {
+        return begin(timestampTracker, true, readOnly, InternalTxOptions.defaults());
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly) {
-        return begin(timestampTracker, implicit, readOnly, TxPriority.NORMAL);
+    public InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions) {
+        return begin(timestampTracker, false, readOnly, txOptions);
     }
 
-    @Override
-    public InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit, boolean readOnly, TxPriority priority) {
+    private InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit, boolean readOnly, InternalTxOptions options) {
         return new InternalTransaction() {
             private final UUID id = UUID.randomUUID();
 

@@ -55,6 +55,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 import java.util.stream.Stream;
@@ -77,7 +78,10 @@ import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
@@ -109,6 +113,7 @@ import org.mockito.verification.VerificationMode;
  * Basic tests for a transaction manager.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class TxManagerTest extends IgniteAbstractTest {
     private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2004), null);
 
@@ -134,6 +139,12 @@ public class TxManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    private LowWatermarkConfiguration lowWatermarkConfiguration;
+
+    @InjectExecutorService
+    private ScheduledExecutorService commonScheduler;
+
     private final LocalRwTxCounter localRwTxCounter = spy(new TestLocalRwTxCounter());
 
     private final TestLowWatermark lowWatermark = spy(new TestLowWatermark());
@@ -156,6 +167,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         txManager = new TxManagerImpl(
                 txConfiguration,
+                lowWatermarkConfiguration,
                 clusterService,
                 replicaService,
                 lockManager(),
@@ -166,7 +178,8 @@ public class TxManagerTest extends IgniteAbstractTest {
                 localRwTxCounter,
                 resourceRegistry,
                 transactionInflights,
-                lowWatermark
+                lowWatermark,
+                commonScheduler
         );
 
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -191,10 +204,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     public void testBegin() {
-        InternalTransaction tx0 = txManager.begin(hybridTimestampTracker, false);
-        InternalTransaction tx1 = txManager.begin(hybridTimestampTracker, false);
-        InternalTransaction tx2 = txManager.begin(hybridTimestampTracker, false, true);
-        InternalTransaction tx3 = txManager.begin(hybridTimestampTracker, false, true, TxPriority.NORMAL);
+        InternalTransaction tx0 = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
+        InternalTransaction tx1 = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
+        InternalTransaction tx2 = txManager.beginImplicitRw(hybridTimestampTracker);
+        InternalTransaction tx3 = txManager.beginImplicit(hybridTimestampTracker, true);
 
         assertNotNull(tx0.id());
         assertNotNull(tx1.id());
@@ -202,8 +215,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertNotNull(tx3.id());
 
         assertFalse(tx0.isReadOnly());
-        assertFalse(tx1.isReadOnly());
-        assertTrue(tx2.isReadOnly());
+        assertTrue(tx1.isReadOnly());
+        assertFalse(tx2.isReadOnly());
         assertTrue(tx3.isReadOnly());
     }
 
@@ -213,7 +226,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertEquals(LOCAL_NODE.address(), addr);
 
-        InternalTransaction tx = txManager.begin(hybridTimestampTracker, false);
+        InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 0);
 
@@ -243,8 +256,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertThat(lowWatermark.updateAndNotify(new HybridTimestamp(10_000, 11)), willSucceedFast());
 
-        IgniteInternalException exception =
-                assertThrows(IgniteInternalException.class, () -> txManager.begin(hybridTimestampTracker, false, true));
+        IgniteInternalException exception = assertThrows(
+                IgniteInternalException.class,
+                () -> txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults())
+        );
 
         assertEquals(Transactions.TX_READ_ONLY_TOO_OLD_ERR, exception.code());
     }
@@ -254,12 +269,12 @@ public class TxManagerTest extends IgniteAbstractTest {
         // Let's check the absence of transactions.
         assertThat(lowWatermark.updateAndNotify(clockService.now()), willSucceedFast());
 
-        InternalTransaction rwTx0 = txManager.begin(hybridTimestampTracker, false);
+        InternalTransaction rwTx0 = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
         hybridTimestampTracker.update(clockService.now());
 
-        InternalTransaction roTx0 = txManager.begin(hybridTimestampTracker, false, true);
-        InternalTransaction roTx1 = txManager.begin(hybridTimestampTracker, false, true);
+        InternalTransaction roTx0 = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
+        InternalTransaction roTx1 = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
 
         CompletableFuture<Void> readOnlyTxsFuture = lowWatermark.updateAndNotify(roTx1.readTimestamp());
         assertFalse(readOnlyTxsFuture.isDone());
@@ -274,8 +289,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertTrue(readOnlyTxsFuture.isDone());
 
         // Let's check only RW transactions.
-        txManager.begin(hybridTimestampTracker, false);
-        txManager.begin(hybridTimestampTracker, false);
+        txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
+        txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
         assertThat(lowWatermark.updateAndNotify(clockService.now()), willSucceedFast());
     }
@@ -291,7 +306,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp)));
 
-        InternalTransaction tx = txManager.begin(hybridTimestampTracker, false);
+        InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
@@ -312,7 +327,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(completedFuture(new TransactionResult(TxState.ABORTED, null)));
 
-        InternalTransaction tx = txManager.begin(hybridTimestampTracker, false);
+        InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
@@ -340,7 +355,7 @@ public class TxManagerTest extends IgniteAbstractTest {
                                 )
                         )));
 
-        InternalTransaction tx = txManager.begin(hybridTimestampTracker, false);
+        InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
@@ -368,7 +383,7 @@ public class TxManagerTest extends IgniteAbstractTest {
                                 )
                         )));
 
-        InternalTransaction tx = txManager.begin(hybridTimestampTracker, false);
+        InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 
@@ -385,12 +400,12 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testTestOnlyPendingCommit(boolean startReadOnlyTransaction) {
+    public void testOnlyPendingCommit(boolean startReadOnlyTransaction) {
         assertEquals(0, txManager.pending());
         assertEquals(0, txManager.finished());
 
         // Start transaction.
-        InternalTransaction tx = txManager.begin(hybridTimestampTracker, false, true);
+        InternalTransaction tx = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
         assertEquals(1, txManager.pending());
         assertEquals(0, txManager.finished());
 
@@ -412,14 +427,14 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void testTestOnlyPendingRollback(boolean startReadOnlyTransaction) {
+    public void testOnlyPendingRollback(boolean startReadOnlyTransaction) {
         assertEquals(0, txManager.pending());
         assertEquals(0, txManager.finished());
 
         // Start transaction.
         InternalTransaction tx =
-                startReadOnlyTransaction ? txManager.begin(hybridTimestampTracker, false, true)
-                        : txManager.begin(hybridTimestampTracker, false);
+                startReadOnlyTransaction ? txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults())
+                        : txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
         assertEquals(1, txManager.pending());
         assertEquals(0, txManager.finished());
 
@@ -447,14 +462,14 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         HybridTimestamp now = clockService.now();
 
-        InternalTransaction tx = txManager.begin(hybridTimestampTracker, false, true);
+        InternalTransaction tx = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
 
         assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) > compareThreshold);
         tx.commit();
 
         hybridTimestampTracker.update(now);
 
-        tx = txManager.begin(hybridTimestampTracker, false, true);
+        tx = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
 
         assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold);
         tx.commit();
@@ -468,7 +483,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         hybridTimestampTracker.update(timestampInPast);
 
-        tx = txManager.begin(hybridTimestampTracker, false, true);
+        tx = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
 
         long readTime = now.getPhysical() - idleSafeTimePropagationPeriodMsSupplier.getAsLong() - clockService.maxClockSkewMillis();
 
@@ -485,7 +500,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         HybridTimestamp now = clockService.now();
 
-        InternalTransaction tx = txManager.begin(hybridTimestampTracker, false, true);
+        InternalTransaction tx = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
 
         HybridTimestamp firstReadTs = tx.readTimestamp();
 
@@ -495,7 +510,7 @@ public class TxManagerTest extends IgniteAbstractTest {
                 + idleSafeTimePropagationPeriodMsSupplier.getAsLong() + clockService.maxClockSkewMillis());
         tx.commit();
 
-        tx = txManager.begin(hybridTimestampTracker, false, true);
+        tx = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
 
         assertTrue(firstReadTs.compareTo(tx.readTimestamp()) <= 0);
 
@@ -607,7 +622,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Test
     public void testOnlyPrimaryExpirationAffectsTransaction() {
         // Prepare transaction.
-        InternalTransaction tx = txManager.begin(hybridTimestampTracker, false);
+        InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
         ClusterNode node = mock(ClusterNode.class);
 
@@ -687,7 +702,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     @ParameterizedTest(name = "readOnly = {0}")
     @ValueSource(booleans = {true, false})
     void testIncrementLocalRwTxCounterOnBeginTransaction(boolean readOnly) {
-        InternalTransaction tx = txManager.begin(hybridTimestampTracker, false, readOnly);
+        InternalTransaction tx = txManager.beginExplicit(hybridTimestampTracker, readOnly, InternalTxOptions.defaults());
 
         VerificationMode verificationMode = readOnly ? never() : times(1);
 
@@ -698,7 +713,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     @ParameterizedTest(name = "readOnly = {0}, commit = {1}")
     @MethodSource("txTypeAndWayCompleteTx")
     void testDecrementLocalRwTxCounterOnCompleteTransaction(boolean readOnly, boolean commit) {
-        InternalTransaction tx = txManager.begin(hybridTimestampTracker, false, readOnly);
+        InternalTransaction tx = txManager.beginExplicit(hybridTimestampTracker, readOnly, InternalTxOptions.defaults());
 
         clearInvocations(localRwTxCounter);
 
@@ -745,11 +760,11 @@ public class TxManagerTest extends IgniteAbstractTest {
             return result;
         }).when(localRwTxCounter).inUpdateRwTxCountLock(any());
 
-        txManager.begin(hybridTimestampTracker, false, false);
+        txManager.beginExplicit(hybridTimestampTracker, false, InternalTxOptions.defaults());
     }
 
     private InternalTransaction prepareTransaction() {
-        InternalTransaction tx = txManager.begin(hybridTimestampTracker, false);
+        InternalTransaction tx = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
 
         TablePartitionId tablePartitionId1 = new TablePartitionId(1, 0);
 

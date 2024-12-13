@@ -165,7 +165,10 @@ public class ClientLazyTransaction implements Transaction {
         return tx0;
     }
 
-    ClientTransaction startedTx() {
+    /**
+     * Returns actual {@link ClientTransaction} started by this transaction or throws an exception if no transaction was started yet.
+     */
+    public ClientTransaction startedTx() {
         var tx0 = tx;
 
         assert tx0 != null : "Transaction is not started";
