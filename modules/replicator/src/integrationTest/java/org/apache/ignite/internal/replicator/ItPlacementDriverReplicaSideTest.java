@@ -51,9 +51,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -99,10 +98,10 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessageTestGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TestReplicaMessagesFactory;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.topology.TestLogicalTopologyService;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -117,6 +116,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * These test are using an honest connection to test interconnection between replicas with placement driver.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     private static final int BASE_PORT = 1234;
 
@@ -149,7 +149,11 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     private final Map<String, Loza> raftManagers = new HashMap<>();
     private final Map<String, TopologyAwareRaftGroupServiceFactory> raftClientFactory = new HashMap<>();
 
+    @InjectExecutorService
     private ExecutorService partitionOperationsExecutor;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
 
     /** List of services to have to close before the test will be completed. */
     private final List<Closeable> servicesToClose = new ArrayList<>();
@@ -160,11 +164,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
-        partitionOperationsExecutor = Executors.newFixedThreadPool(
-                5,
-                NamedThreadFactory.create("test", "partition-operations", log)
-        );
-
         placementDriverNodeNames = IntStream.range(BASE_PORT, BASE_PORT + 3).mapToObj(port -> testNodeName(testInfo, port))
                 .collect(toSet());
         nodeNames = IntStream.range(BASE_PORT, BASE_PORT + 5).mapToObj(port -> testNodeName(testInfo, port))
@@ -230,7 +229,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     partitionsConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
                     ForkJoinPool.commonPool(),
-                    replicaGrpId -> nullCompletedFuture()
+                    replicaGrpId -> nullCompletedFuture(),
+                    scheduledExecutor
             );
 
             replicaManagers.put(nodeName, replicaManager);
@@ -256,10 +256,6 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     log.info("Fail to stop services [node={}]", e, nodeName);
                 }
             });
-
-            servicesToClose.addAll(List.of(
-                    () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
-            ));
         }
 
         grpNodes = chooseRandomNodes(3);

@@ -48,8 +48,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -99,12 +99,12 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -118,6 +118,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests handling requests from {@link ReplicaService} to {@link ReplicaManager} when the {@link Replica} is not started.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ReplicaUnavailableTest extends IgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
@@ -146,11 +147,15 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     private ClusterService clusterService;
 
+    @InjectExecutorService
     private ExecutorService requestsExecutor;
 
     private Loza raftManager;
 
     private TopologyAwareRaftGroupService raftClient;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
 
     private final Function<BiFunction<ReplicaRequest, UUID, CompletableFuture<ReplicaResult>>, ReplicaListener> replicaListenerCreator =
             (invokeImpl) -> new ReplicaListener() {
@@ -190,11 +195,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
         )
                 .thenReturn(raftClient);
 
-        requestsExecutor = Executors.newFixedThreadPool(
-                5,
-                NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
-        );
-
         replicaService = new ReplicaService(
                 clusterService.messagingService(),
                 clock,
@@ -217,7 +217,8 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 RaftGroupOptionsConfigurer.EMPTY,
                 view -> new LocalLogStorageFactory(),
                 ForkJoinPool.commonPool(),
-                replicaGrpId -> nullCompletedFuture()
+                replicaGrpId -> nullCompletedFuture(),
+                scheduledExecutor
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -225,8 +226,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
     @AfterEach
     public void teardown() {
-        IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
-
         assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 

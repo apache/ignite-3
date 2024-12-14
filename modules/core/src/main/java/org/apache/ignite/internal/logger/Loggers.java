@@ -19,6 +19,8 @@ package org.apache.ignite.internal.logger;
 
 import java.lang.System.Logger;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.lang.LoggerFactory;
 
 /**
@@ -84,5 +86,22 @@ public final class Loggers {
      */
     public static IgniteLogger voidLogger() {
         return VoidLogger.INSTANCE;
+    }
+
+    /**
+     * Converts to {@link IgniteThrottledLogger}.
+     *
+     * @param logger Logger.
+     * @param scheduledExecutor Scheduled executor to initiate cleaning of cached stale messages.
+     * @param executor Executor in which cached stale messages will be cleared.
+     */
+    public static IgniteThrottledLogger toThrottledLogger(
+            IgniteLogger logger,
+            ScheduledExecutorService scheduledExecutor,
+            ExecutorService executor
+    ) {
+        assert logger instanceof IgniteLoggerImpl : logger;
+
+        return new IgniteThrottledLoggerImpl(((IgniteLoggerImpl) logger).delegate, scheduledExecutor, executor);
     }
 }

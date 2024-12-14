@@ -24,6 +24,9 @@ import java.lang.System.Logger.Level;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.util.FastTimestamps;
@@ -36,8 +39,15 @@ class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
     /** Log messages. */
     private final Map<LogThrottleKey, Long> messagesMap = new ConcurrentHashMap<>(capacity(128), 0.75f);
 
-    IgniteThrottledLoggerImpl(Logger delegate) {
+    IgniteThrottledLoggerImpl(Logger delegate, ScheduledExecutorService scheduledExecutor, ExecutorService executor) {
         this.delegate = delegate;
+
+        scheduledExecutor.scheduleAtFixedRate(
+                () -> executor.execute(this::removeStaleLogMessages),
+                1,
+                1,
+                TimeUnit.SECONDS
+        );
     }
 
     @Override
@@ -337,5 +347,13 @@ class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
             result = 31 * result + errorMessage.hashCode();
             return result;
         }
+    }
+
+    private void removeStaleLogMessages() {
+        messagesMap.entrySet().removeIf(e -> {
+            long curTs = FastTimestamps.coarseCurrentTimeMillis();
+
+            return curTs - e.getValue() >= THROTTLE_TIMEOUT_MILLIS;
+        });
     }
 }

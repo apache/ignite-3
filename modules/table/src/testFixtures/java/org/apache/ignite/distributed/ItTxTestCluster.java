@@ -471,7 +471,8 @@ public class ItTxTestCluster {
                     partitionRaftConfigurer,
                     new VolatileLogStorageFactoryCreator(nodeName, workDir.resolve("volatile-log-spillout")),
                     ForkJoinPool.commonPool(),
-                    replicaGrpId -> nullCompletedFuture()
+                    replicaGrpId -> nullCompletedFuture(),
+                    executor
             );
 
             assertThat(replicaMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());

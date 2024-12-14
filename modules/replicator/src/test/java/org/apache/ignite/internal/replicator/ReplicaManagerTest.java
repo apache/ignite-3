@@ -39,9 +39,8 @@ import static org.mockito.Mockito.when;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -67,8 +66,8 @@ import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
@@ -83,8 +82,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for {@link ReplicaManager}.
  */
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ReplicaManagerTest extends BaseIgniteAbstractTest {
+    @InjectExecutorService
     private ExecutorService requestsExecutor;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
 
     private ReplicaManager replicaManager;
 
@@ -114,11 +118,6 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         var clock = new HybridClockImpl();
 
-        requestsExecutor = Executors.newFixedThreadPool(
-                5,
-                NamedThreadFactory.create(nodeName, "partition-operations", log)
-        );
-
         RaftGroupOptionsConfigurer partitionsConfigurer = mock(RaftGroupOptionsConfigurer.class);
 
         replicaManager = new ReplicaManager(
@@ -137,7 +136,8 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 partitionsConfigurer,
                 volatileLogStorageFactoryCreator,
                 ForkJoinPool.commonPool(),
-                replicaGrpId -> nullCompletedFuture()
+                replicaGrpId -> nullCompletedFuture(),
+                scheduledExecutor
         );
 
         assertThat(replicaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -158,8 +158,6 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
 
         assertThat(replicaManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
-
-        IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
     }
 
     /**

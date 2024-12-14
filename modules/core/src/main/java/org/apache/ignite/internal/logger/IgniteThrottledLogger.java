@@ -32,13 +32,6 @@ public interface IgniteThrottledLogger extends IgniteLogger {
     /** Throttle timeout in milliseconds (value is 5 min). */
     long THROTTLE_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(5);
 
-    /** Converts to {@link IgniteThrottledLogger}. */
-    static IgniteThrottledLogger of(IgniteLogger logger) {
-        assert logger instanceof IgniteLoggerImpl : logger;
-
-        return new IgniteThrottledLoggerImpl(((IgniteLoggerImpl) logger).delegate);
-    }
-
     /**
      * Logs a message on {@link Level#INFO} level composed from args with given format.
      *
