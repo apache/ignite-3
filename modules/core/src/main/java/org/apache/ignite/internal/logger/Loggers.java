@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.logger;
 
+import java.lang.System.Logger;
 import java.util.Objects;
 import org.apache.ignite.lang.LoggerFactory;
 
@@ -58,9 +59,9 @@ public final class Loggers {
      * @return Ignite logger.
      */
     public static IgniteLogger forName(String name) {
-        var delegate = System.getLogger(name);
+        Logger delegate = System.getLogger(name);
 
-        return new IgniteLogger(delegate);
+        return new IgniteLoggerImpl(delegate);
     }
 
     /**
@@ -71,9 +72,9 @@ public final class Loggers {
      * @return Ignite logger.
      */
     public static IgniteLogger forName(String name, LoggerFactory loggerFactory) {
-        var delegate = Objects.requireNonNull(loggerFactory, "loggerFactory").forName(name);
+        Logger delegate = Objects.requireNonNull(loggerFactory, "loggerFactory").forName(name);
 
-        return new IgniteLogger(delegate);
+        return new IgniteLoggerImpl(delegate);
     }
 
     /**

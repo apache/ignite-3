@@ -18,203 +18,209 @@
 package org.apache.ignite.internal.logger;
 
 import java.lang.System.Logger.Level;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Ignite logger wraps system logger for more convenient access.
+ * {@link IgniteLogger} throttle.
+ *
+ * <p>Messages are logged only if they were not logged for the last {@link #THROTTLE_TIMEOUT_MILLIS} milliseconds. Note that not only error
+ * messages are checked for duplicates, but also exception classes if present.</p>
  */
-public interface IgniteLogger {
+public interface IgniteThrottledLogger extends IgniteLogger {
+    /** Throttle timeout in milliseconds (value is 5 min). */
+    long THROTTLE_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(5);
+
+    /** Converts to {@link IgniteThrottledLogger}. */
+    static IgniteThrottledLogger of(IgniteLogger logger) {
+        assert logger instanceof IgniteLoggerImpl : logger;
+
+        return new IgniteThrottledLoggerImpl(((IgniteLoggerImpl) logger).delegate);
+    }
+
     /**
      * Logs a message on {@link Level#INFO} level composed from args with given format.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param params The list of arguments to be substituted in place of formatting anchors.
      */
-    void info(String msg, Object... params);
+    void info(String throttleKey, String msg, Object... params);
 
     /**
      * Logs a message on {@link Level#INFO} level composed from args with given format and with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
      * @param params The list of arguments to be substituted in place of formatting anchors.
      */
-    void info(String msg, @Nullable Throwable th, Object... params);
+    void info(String throttleKey, String msg, @Nullable Throwable th, Object... params);
 
     /**
      * Logs a message which produces in {@code msgSupplier}, on {@link Level#INFO} level with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msgSupplier A supplier function that produces a message.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
      */
-    void info(Supplier<String> msgSupplier, @Nullable Throwable th);
+    void info(String throttleKey, Supplier<String> msgSupplier, @Nullable Throwable th);
 
     /**
      * Logs a message on {@link Level#INFO} level with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with the log message.
      */
-    void info(String msg, @Nullable Throwable th);
+    void info(String throttleKey, String msg, @Nullable Throwable th);
 
     /**
      * Logs a message on {@link Level#DEBUG} level composed from args with given format.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param params The list of arguments to be substituted in place of formatting anchors.
      */
-    void debug(String msg, Object... params);
+    void debug(String throttleKey, String msg, Object... params);
 
     /**
      * Logs a message on {@link Level#DEBUG} level composed from args with given format and with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
      * @param params The list of arguments to be substituted in place of formatting anchors.
      */
-    void debug(String msg, @Nullable Throwable th, Object... params);
+    void debug(String throttleKey, String msg, @Nullable Throwable th, Object... params);
 
     /**
      * Logs a message which produces in {@code msgSupplier}, on {@link Level#DEBUG} level with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msgSupplier A supplier function that produces a message.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
      */
-    void debug(Supplier<String> msgSupplier, @Nullable Throwable th);
+    void debug(String throttleKey, Supplier<String> msgSupplier, @Nullable Throwable th);
 
     /**
      * Logs a message on {@link Level#DEBUG} level with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with the log message;
      */
-    void debug(String msg, @Nullable Throwable th);
+    void debug(String throttleKey, String msg, @Nullable Throwable th);
 
     /**
      * Logs a message on {@link Level#WARNING} level composed from args with given format.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param params The list of arguments to be substituted in place of formatting anchors.
      */
-    void warn(String msg, Object... params);
+    void warn(String throttleKey, String msg, Object... params);
 
     /**
      * Logs a message on {@link Level#WARNING} level composed from args with given format and with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
      * @param params The list of arguments to be substituted in place of formatting anchors.
      */
-    void warn(String msg, @Nullable Throwable th, Object... params);
+    void warn(String throttleKey, String msg, @Nullable Throwable th, Object... params);
 
     /**
      * Logs a message which produces in {@code msgSupplier}, on {@link Level#WARNING} level with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msgSupplier A supplier function that produces a message.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
      */
-    void warn(Supplier<String> msgSupplier, @Nullable Throwable th);
+    void warn(String throttleKey, Supplier<String> msgSupplier, @Nullable Throwable th);
 
     /**
      * Logs a message on {@link Level#WARNING} level with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with the log message.
      */
-    void warn(String msg, @Nullable Throwable th);
+    void warn(String throttleKey, String msg, @Nullable Throwable th);
 
     /**
      * Logs a message on {@link Level#ERROR} level composed from args with given format.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param params The list of arguments to be substituted in place of formatting anchors.
      */
-    void error(String msg, Object... params);
+    void error(String throttleKey, String msg, Object... params);
 
     /**
      * Logs a message on {@link Level#ERROR} level composed from args with given format and with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
      * @param params The list of arguments to be substituted in place of formatting anchors.
      */
-    void error(String msg, @Nullable Throwable th, Object... params);
+    void error(String throttleKey, String msg, @Nullable Throwable th, Object... params);
 
     /**
      * Logs a message which produces in {@code msgSupplier}, on {@link Level#ERROR} level with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msgSupplier A supplier function that produces a message.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
      */
-    void error(Supplier<String> msgSupplier, @Nullable Throwable th);
+    void error(String throttleKey, Supplier<String> msgSupplier, @Nullable Throwable th);
 
     /**
      * Logs a message on {@link Level#ERROR} level with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with the log message.
      */
-    void error(String msg, @Nullable Throwable th);
+    void error(String throttleKey, String msg, @Nullable Throwable th);
 
     /**
      * Logs a message on {@link Level#TRACE} level composed from args with given format.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param params The list of arguments to be substituted in place of formatting anchors.
      */
-    void trace(String msg, Object... params);
+    void trace(String throttleKey, String msg, Object... params);
 
     /**
      * Logs a message on {@link Level#TRACE} level composed from args with given format and with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be formatted and passed to the {@link System.Logger}.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
      * @param params The list of arguments to be substituted in place of formatting anchors.
      */
-    void trace(String msg, @Nullable Throwable th, Object... params);
+    void trace(String throttleKey, String msg, @Nullable Throwable th, Object... params);
 
     /**
      * Logs a message which produces in {@code msgSupplier}, on {@link Level#TRACE} level with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msgSupplier A supplier function that produces a message.
      * @param th The {@code Throwable} associated with log message; can be {@code null}.
      */
-    void trace(Supplier<String> msgSupplier, @Nullable Throwable th);
+    void trace(String throttleKey, Supplier<String> msgSupplier, @Nullable Throwable th);
 
     /**
      * Logs a message on {@link Level#TRACE} level with associated throwable {@code th}.
      *
+     * @param throttleKey Messages with the same key will be throttled.
      * @param msg The message pattern which will be passed to the {@link System.Logger}.
      * @param th A {@code Throwable} associated with the log message.
      */
-    void trace(String msg, @Nullable Throwable th);
-
-    /**
-     * Checks if a message of the {@link Level#TRACE} level would be logged by this logger.
-     *
-     * @return {@code true} if the message level is currently being logged, {@code false} otherwise.
-     */
-    boolean isTraceEnabled();
-
-    /**
-     * Checks if a message of the {@link Level#DEBUG} level would be logged by this logger.
-     *
-     * @return {@code true} if the message level is currently being logged, {@code false} otherwise.
-     */
-    boolean isDebugEnabled();
-
-    /**
-     * Checks if a message of the {@link Level#INFO} level would be logged by this logger.
-     *
-     * @return {@code true} if the message level is currently being logged, {@code false} otherwise.
-     */
-    boolean isInfoEnabled();
-
-    /**
-     * Checks if a message of the {@link Level#WARNING} level would be logged by this logger.
-     *
-     * @return {@code true} if the message level is currently being logged, {@code false} otherwise.
-     */
-    boolean isWarnEnabled();
+    void trace(String throttleKey, String msg, @Nullable Throwable th);
 }
