@@ -53,9 +53,32 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
 
         waitAndAssertRecoveryKeyIsNotEmpty(node);
 
-        assertRecoveryRequestForHaZone(node);
+        assertRecoveryRequestForHaZoneTable(node);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
+    }
+
+    @Test
+    void testHaRecoveryOfTwoZones() throws InterruptedException {
+        String zone1 = "ZONE1";
+        String zone2 = "ZONE2";
+
+        String table1 = "TABLE1";
+        String table2 = "TABLE2";
+
+        createHaZoneWithTable(zone1, table1);
+        createHaZoneWithTable(zone2, table2);
+
+        IgniteImpl node = igniteImpl(0);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        stopNodes(1, 2);
+
+        waitAndAssertRecoveryKeyIsNotEmpty(node);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, table1, Set.of(0, 1), Set.of(node.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, table2, Set.of(0, 1), Set.of(node.name()));
     }
 
     @Test
@@ -76,7 +99,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
 
         waitAndAssertRecoveryKeyIsNotEmpty(node);
 
-        assertRecoveryRequestForHaZone(node);
+        assertRecoveryRequestForHaZoneTable(node);
         assertRecoveryRequestWasOnlyOne(node);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
@@ -100,7 +123,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
 
         waitAndAssertRecoveryKeyIsNotEmpty(node, 30_000);
 
-        assertRecoveryRequestForHaZone(node);
+        assertRecoveryRequestForHaZoneTable(node);
         assertRecoveryRequestWasOnlyOne(node);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
@@ -122,7 +145,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
 
         waitAndAssertRecoveryKeyIsNotEmpty(node1, 30_000);
 
-        assertRecoveryRequestForHaZone(node1);
+        assertRecoveryRequestForHaZoneTable(node1);
         assertRecoveryRequestWasOnlyOne(node1);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node1, HA_TABLE_NAME, Set.of(0, 1), Set.of(node1.name()));

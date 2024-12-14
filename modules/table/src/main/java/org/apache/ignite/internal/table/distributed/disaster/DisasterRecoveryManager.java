@@ -129,10 +129,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     static final ByteArray RECOVERY_TRIGGER_KEY = new ByteArray("disaster.recovery.trigger");
 
     /**
-     * Metastorage key to store the revision of logical event, which start the recovery process.
+     * Metastorage key prefix to store the revision of logical event, which start the recovery process.
      * It's needed to skip the stale recovery triggers.
      */
-    static final ByteArray RECOVERY_TRIGGER_REVISION_KEY = new ByteArray("disaster.recovery.trigger.revision");
+    static final String RECOVERY_TRIGGER_REVISION_KEY_PREFIX = "disaster.recovery.trigger.revision";
 
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
@@ -624,6 +624,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         if (revision != -1) {
             putRecoveryTriggerIfRevisionIsNotProcessed(
+                    request.zoneId(),
                     longToBytesKeepingOrder(revision),
                     serializedRequest,
                     operationId
@@ -636,15 +637,18 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     private void putRecoveryTriggerIfRevisionIsNotProcessed(
+            int zoneId,
             byte[] revisionBytes,
             byte[] recoveryTriggerValue,
             UUID operationId
     ) {
+        ByteArray zoneTriggerRevisionKey = zoneTriggerRevisionKey(zoneId);
+
         metaStorageManager.invoke(
-                        notExists(RECOVERY_TRIGGER_REVISION_KEY).or(value(RECOVERY_TRIGGER_REVISION_KEY).lt(revisionBytes)),
+                        notExists(zoneTriggerRevisionKey).or(value(zoneTriggerRevisionKey).lt(revisionBytes)),
                         List.of(
                                 put(RECOVERY_TRIGGER_KEY, recoveryTriggerValue),
-                                put(RECOVERY_TRIGGER_REVISION_KEY, revisionBytes)
+                                put(zoneTriggerRevisionKey, revisionBytes)
                         ),
                         List.of()
                 ).thenAccept(wasWrite -> {
@@ -970,6 +974,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
 
         return zoneDescriptor;
+    }
+
+    private static ByteArray zoneTriggerRevisionKey(int zoneId) {
+        return new ByteArray(RECOVERY_TRIGGER_REVISION_KEY_PREFIX + "." + zoneId);
     }
 
     ClusterNode localNode() {

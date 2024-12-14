@@ -66,14 +66,19 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     protected final HybridClock clock = new HybridClockImpl();
 
-    final void assertRecoveryRequestForHaZone(IgniteImpl node) {
+    final void assertRecoveryRequestForHaZoneTable(IgniteImpl node) {
+        assertRecoveryRequestForZoneTable(node, HA_ZONE_NAME, HA_TABLE_NAME);
+    }
+
+    final void assertRecoveryRequestForZoneTable
+            (IgniteImpl node, String zoneName, String tableName) {
         Entry recoveryTriggerEntry = getRecoveryTriggerKey(node);
 
         GroupUpdateRequest request = (GroupUpdateRequest) VersionedSerialization.fromBytes(
                 recoveryTriggerEntry.value(), DisasterRecoveryRequestSerializer.INSTANCE);
 
-        int zoneId = node.catalogManager().zone(HA_ZONE_NAME, clock.nowLong()).id();
-        int tableId = node.catalogManager().table(HA_TABLE_NAME, clock.nowLong()).id();
+        int zoneId = node.catalogManager().zone(zoneName, clock.nowLong()).id();
+        int tableId = node.catalogManager().table(tableName, clock.nowLong()).id();
 
         assertEquals(zoneId, request.zoneId());
         assertEquals(tableId, request.tableId());
@@ -134,27 +139,36 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         return catalogService.zone(zoneName, clock.nowLong()).id();
     }
 
-    final void createHaZoneWithTable(String filter, Set<String> targetNodes) throws InterruptedException {
+    final void createHaZoneWithTable(
+            String zoneName, String tableName, String filter, Set<String> targetNodes) throws InterruptedException {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', "
                         + "CONSISTENCY_MODE='HIGH_AVAILABILITY', DATA_NODES_FILTER='%s'",
-                HA_ZONE_NAME, targetNodes.size(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE, filter
+                zoneName, targetNodes.size(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE, filter
         ));
 
         executeSql(String.format(
                 "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
-                HA_TABLE_NAME, HA_ZONE_NAME
+                tableName, zoneName
         ));
 
         awaitForAllNodesTableGroupInitialization(targetNodes.size());
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), HA_TABLE_NAME, Set.of(0, 1), targetNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), tableName, Set.of(0, 1), targetNodes);
+    }
+
+    final void createHaZoneWithTable(String filter, Set<String> targetNodes) throws InterruptedException {
+        createHaZoneWithTable(HA_ZONE_NAME, HA_TABLE_NAME, filter, targetNodes);
+    }
+
+    final void createHaZoneWithTable(String zoneName, String tableName) throws InterruptedException {
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        createHaZoneWithTable(zoneName, tableName, DEFAULT_FILTER, allNodes);
     }
 
     final void createHaZoneWithTable() throws InterruptedException {
-        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
-
-        createHaZoneWithTable(DEFAULT_FILTER, allNodes);
+        createHaZoneWithTable(HA_ZONE_NAME, HA_TABLE_NAME);
     }
 
     final void createScZoneWithTable() {
