@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -81,17 +82,30 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         int tableId = node.catalogManager().table(tableName, clock.nowLong()).id();
 
         assertEquals(zoneId, request.zoneId());
-        assertEquals(tableId, request.tableId());
-        assertEquals(Set.of(0, 1), request.partitionIds());
+        assertEquals(Map.of(tableId, Set.of(0, 1)), request.partitionIds());
         assertFalse(request.manualUpdate());
     }
 
     static void assertRecoveryRequestWasOnlyOne(IgniteImpl node) {
-        assertEquals(
-                1,
+        var result =
                 node
                         .metaStorageManager()
-                        .getLocally(RECOVERY_TRIGGER_KEY.bytes(), 0L, Long.MAX_VALUE).size()
+                        .getLocally(RECOVERY_TRIGGER_KEY.bytes(), 0L, Long.MAX_VALUE);
+
+        if (result.size() > 1) {
+            for (Entry e: result) {
+
+                var requeust = (GroupUpdateRequest) VersionedSerialization.fromBytes(
+                        e.value(), DisasterRecoveryRequestSerializer.INSTANCE);
+                System.out.println("KKK request: " + requeust);
+            }
+
+        }
+
+
+        assertEquals(
+                1,
+                result.size()
         );
     }
 

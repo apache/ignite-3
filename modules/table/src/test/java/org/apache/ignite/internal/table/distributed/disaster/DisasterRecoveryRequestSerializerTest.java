@@ -21,6 +21,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.util.Base64;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -39,8 +40,7 @@ class DisasterRecoveryRequestSerializerTest {
                 new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
                 1000,
                 2000,
-                3000,
-                Set.of(11, 21, 31),
+                Map.of(3000, Set.of(11, 21, 31)),
                 true
         );
 
@@ -50,8 +50,7 @@ class DisasterRecoveryRequestSerializerTest {
         assertThat(restoredRequest.operationId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
         assertThat(restoredRequest.catalogVersion(), is(1000));
         assertThat(restoredRequest.zoneId(), is(2000));
-        assertThat(restoredRequest.tableId(), is(3000));
-        assertThat(restoredRequest.partitionIds(), is(Set.of(11, 21, 31)));
+        assertThat(restoredRequest.partitionIds(), is(Map.of(3000, Set.of(11, 21, 31))));
         assertThat(restoredRequest.manualUpdate(), is(true));
     }
 
@@ -63,8 +62,7 @@ class DisasterRecoveryRequestSerializerTest {
         assertThat(restoredRequest.operationId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
         assertThat(restoredRequest.catalogVersion(), is(1000));
         assertThat(restoredRequest.zoneId(), is(2000));
-        assertThat(restoredRequest.tableId(), is(3000));
-        assertThat(restoredRequest.partitionIds(), is(Set.of(11, 21, 31)));
+        assertThat(restoredRequest.partitionIds(), is(Map.of(3000, Set.of(11, 21, 31))));
         assertThat(restoredRequest.manualUpdate(), is(true));
     }
 

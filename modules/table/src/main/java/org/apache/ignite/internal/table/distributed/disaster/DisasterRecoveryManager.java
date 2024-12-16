@@ -276,7 +276,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         int catalogVersion = catalogManager.activeCatalogVersion(timestamp);
 
         List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogVersion, catalogManager);
-        List<CompletableFuture<Void>> tablesResetFuts = new ArrayList<>();
+
+        Map<Integer, Set<Integer>> tablePartitionsToReset = new HashMap<>();
         for (CatalogTableDescriptor table : tables) {
             Set<Integer> partitionsToReset = new HashSet<>();
             for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
@@ -288,12 +289,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             }
 
             if (!partitionsToReset.isEmpty()) {
-                tablesResetFuts.add(resetPartitions(
-                        zoneDescriptor.name(), table.id(), partitionsToReset, false, revision));
+                tablePartitionsToReset.put(table.id(), partitionsToReset);
             }
         }
-
-        return allOf(tablesResetFuts.toArray(new CompletableFuture[]{})).thenApply(r -> false);
+        return resetPartitions(zoneDescriptor.name(), tablePartitionsToReset, false, revision).thenApply(r -> false);
     }
 
     private Set<Assignment> stableAssignmentsWithOnlyAliveNodes(TablePartitionId partitionId, long revision) {
@@ -336,7 +335,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
         int tableId = tableDescriptor(catalogLatestVersion(), tableName).id();
 
-        return resetPartitions(zoneName, tableId, partitionIds, true, -1);
+        return resetPartitions(zoneName, Map.of(tableId, partitionIds), true, -1);
     }
 
     /**
@@ -356,7 +355,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate, long triggerRevision) {
         int tableId = tableDescriptor(catalogLatestVersion(), tableName).id();
 
-        return resetPartitions(zoneName, tableId, partitionIds, manualUpdate, triggerRevision);
+        return resetPartitions(zoneName, Map.of(tableId, partitionIds), manualUpdate, triggerRevision);
     }
 
     /**
@@ -373,16 +372,17 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @return Future that completes when partitions are reset.
      */
     private CompletableFuture<Void> resetPartitions(
-            String zoneName, int tableId, Set<Integer> partitionIds, boolean manualUpdate, long triggerRevision) {
+            String zoneName, Map<Integer, Set<Integer>> partitionIds, boolean manualUpdate, long triggerRevision) {
         try {
             Catalog catalog = catalogLatestVersion();
 
             CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
 
-            checkPartitionsRange(partitionIds, Set.of(zone));
+            partitionIds.values().forEach(ids ->
+                    checkPartitionsRange(ids, Set.of(zone)));
 
             return processNewRequest(
-                    new GroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), tableId, partitionIds, manualUpdate),
+                    new GroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), partitionIds, manualUpdate),
                     triggerRevision
             );
         } catch (Throwable t) {

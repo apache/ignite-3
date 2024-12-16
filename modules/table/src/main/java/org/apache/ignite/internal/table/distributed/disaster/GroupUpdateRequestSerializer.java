@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestsSerialization.readVarIntSet;
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestsSerialization.writeVarIntSet;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestsSerialization.readVarIntMap;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestsSerialization.writeVarIntMap;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -39,8 +40,7 @@ class GroupUpdateRequestSerializer extends VersionedSerializer<GroupUpdateReques
         out.writeUuid(request.operationId());
         out.writeVarInt(request.catalogVersion());
         out.writeVarInt(request.zoneId());
-        out.writeVarInt(request.tableId());
-        writeVarIntSet(request.partitionIds(), out);
+        writeVarIntMap(request.partitionIds(), out);
         out.writeBoolean(request.manualUpdate());
     }
 
@@ -49,10 +49,9 @@ class GroupUpdateRequestSerializer extends VersionedSerializer<GroupUpdateReques
         UUID operationId = in.readUuid();
         int catalogVersion = in.readVarIntAsInt();
         int zoneId = in.readVarIntAsInt();
-        int tableId = in.readVarIntAsInt();
-        Set<Integer> partitionIds = readVarIntSet(in);
+        Map<Integer, Set<Integer>> partitionIds = readVarIntMap(in);
         boolean manualUpdate = in.readBoolean();
 
-        return new GroupUpdateRequest(operationId, catalogVersion, zoneId, tableId, partitionIds, manualUpdate);
+        return new GroupUpdateRequest(operationId, catalogVersion, zoneId, partitionIds, manualUpdate);
     }
 }
