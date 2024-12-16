@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.sql.sqllogic.SqlScriptRunner.RunnerRuntime;
 import org.apache.ignite.sql.IgniteSql;
@@ -78,7 +79,9 @@ final class ScriptContext {
     List<List<?>> executeQuery(String sql) {
         sql = replaceVars(sql);
 
-        log.info("Execute: " + sql);
+        log.info("Execute: {}", sql);
+
+        long startNanos = System.nanoTime();
 
         try (ResultSet<SqlRow> rs = ignSql.execute(null, sql)) {
             if (rs.hasRowSet()) {
@@ -100,6 +103,9 @@ final class ScriptContext {
             } else {
                 return Collections.singletonList(Collections.singletonList(rs.wasApplied()));
             }
+        } finally {
+            long tookNanos = System.nanoTime() - startNanos;
+            log.info("Execution took {} ms", TimeUnit.NANOSECONDS.toMillis(tookNanos));
         }
     }
 
