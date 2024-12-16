@@ -309,7 +309,7 @@ namespace Apache.Ignite.Tests
 
                     case ClientOp.TxBegin:
                         reader.Skip(); // Read only.
-                        reader.Skip(8); // TimeoutMillis.
+                        reader.Skip(); // TimeoutMillis.
                         LastClientObservableTimestamp = reader.ReadInt64();
 
                         Send(handler, requestId, new byte[] { 0 }.AsMemory());
