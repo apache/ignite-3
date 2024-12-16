@@ -1589,6 +1589,11 @@ public class IgniteImpl implements Ignite {
         return metricManager;
     }
 
+    @TestOnly
+    public TableManager distributedTableManager() {
+        return distributedTblMgr;
+    }
+
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
