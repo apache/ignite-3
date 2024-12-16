@@ -426,8 +426,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             txStateVolatileStorage.initialize(txId, localNodeId);
 
             return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit);
+        } else {
+            return beginReadOnlyTransaction(timestampTracker, beginTimestamp, txId, implicit, options);
         }
+    }
 
+    private ReadOnlyTransactionImpl beginReadOnlyTransaction(
+            HybridTimestampTracker timestampTracker,
+            HybridTimestamp beginTimestamp,
+            UUID txId,
+            boolean implicit,
+            InternalTxOptions options
+    ) {
         HybridTimestamp observableTimestamp = timestampTracker.get();
 
         HybridTimestamp readTimestamp = observableTimestamp != null
@@ -448,13 +458,20 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             var transaction = new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, readTimestamp, txFuture);
 
+            // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
+            // no need to register them.
+            if (!implicit) {
+                transactionExpirationRegistry.register(transaction, roExpirationTimeFor(beginTimestamp, options));
+            }
+
             txFuture.whenComplete((unused, throwable) -> {
                 lowWatermark.unlock(txId);
 
-                transactionExpirationRegistry.unregister(transaction);
+                // We only register explicit transactions, so we only unregister them as well.
+                if (!implicit) {
+                    transactionExpirationRegistry.unregister(transaction);
+                }
             });
-
-            transactionExpirationRegistry.register(transaction, roExpirationTimeFor(beginTimestamp, options));
 
             return transaction;
         } catch (Throwable t) {
