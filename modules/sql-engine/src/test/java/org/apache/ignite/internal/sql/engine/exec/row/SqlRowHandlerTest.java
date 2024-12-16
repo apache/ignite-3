@@ -103,13 +103,10 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
     public void testConcat(boolean leftTupleRequired, boolean rightTupleRequired) {
         ConcatTestParameters params = new ConcatTestParameters(leftTupleRequired, rightTupleRequired);
 
-        RowWrapper concatenated = handler.concat(params.left, params.right);
 
         int leftLen = params.leftData.length;
         int rightLen = params.rightData.length;
         int totalElementsCount = leftLen + rightLen;
-
-        assertThat(handler.columnCount(concatenated), equalTo(totalElementsCount));
 
         // Build combined schema.
         Builder builder = RowSchema.builder();
@@ -118,11 +115,17 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
 
         RowSchema concatenatedSchema = builder.build();
 
+        RowFactory<RowWrapper> rowFactory = handler.factory(concatenatedSchema);
+        RowHandler<RowWrapper> handler = rowFactory.handler();
+
+        RowWrapper concatenated = rowFactory.concat(params.left, params.right);
+        assertThat(handler.columnCount(concatenated), equalTo(totalElementsCount));
+
         // Serialize.
         BinaryTuple tuple = handler.toBinaryTuple(concatenated);
 
         // Wrap into row.
-        RowWrapper result = handler.factory(concatenatedSchema).create(tuple);
+        RowWrapper result = rowFactory.create(tuple);
 
         for (int i = 0; i < leftLen; i++) {
             TypeSpec typeSpec = params.leftSchema.fields().get(i);

@@ -270,14 +270,6 @@ public interface InternalTable extends ManuallyCloseable {
     CompletableFuture<List<BinaryRow>> deleteAllExact(Collection<BinaryRowEx> rows, @Nullable InternalTransaction tx);
 
     /**
-     * Returns a partition for a key.
-     *
-     * @param keyRow The key.
-     * @return The partition.
-     */
-    int partition(BinaryRowEx keyRow);
-
-    /**
      * Scans given partition, providing {@link Publisher} that reactively notifies about partition rows.
      *
      * @param partId The partition.

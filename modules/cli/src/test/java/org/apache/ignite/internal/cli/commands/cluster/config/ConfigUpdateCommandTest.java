@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.cli.commands.cluster.config;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.util.function.Function;
@@ -113,19 +112,5 @@ class ConfigUpdateCommandTest extends CliCommandTestBase {
             Function<IT, String> configFunction
     ) {
         checkParameters(command, callClass, callInputClass, configFunction, "\"test1\" \"test2\"", "test1 test2");
-    }
-
-    private <IT extends CallInput, OT, T extends Call<IT, OT>> void checkParameters(
-            String command,
-            Class<T> callClass,
-            Class<IT> callInputClass,
-            Function<IT, String> configFunction,
-            String parameters,
-            String expected
-    ) {
-        T call = registerMockCall(callClass);
-        execute(command + " " + parameters);
-        IT callInput = verifyCallInput(call, callInputClass);
-        assertEquals(expected, configFunction.apply(callInput));
     }
 }

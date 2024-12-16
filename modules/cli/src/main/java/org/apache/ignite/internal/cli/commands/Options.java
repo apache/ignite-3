@@ -140,7 +140,8 @@ public enum Options {
 
         /** Verbose option description. */
         public static final String VERBOSE_OPTION_DESC = "Show additional information: logs, REST calls. "
-                + "This flag is useful for debugging";
+                + "This flag is useful for debugging. Specify multiple options to increase verbosity for REST calls. "
+                + "Single option shows request and response, second option (-vv) shows headers, third one (-vvv) shows body";
 
         /** Help option long name. */
         public static final String HELP_OPTION = "--help";

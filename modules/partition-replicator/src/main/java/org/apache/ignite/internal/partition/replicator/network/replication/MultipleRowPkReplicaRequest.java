@@ -20,11 +20,14 @@ package org.apache.ignite.internal.partition.replicator.network.replication;
 import java.nio.ByteBuffer;
 import java.util.List;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
+import org.apache.ignite.internal.tostring.IgniteStringifier;
+import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
 
 /**
  * Multiple row replica request involving table's Primary Keys.
  */
 public interface MultipleRowPkReplicaRequest extends SchemaVersionAwareReplicaRequest {
+    @IgniteStringifier(name = "primaryKeys.size", value = SizeOnlyStringifier.class)
     List<ByteBuffer> primaryKeys();
 
     /** Transaction operation type. */

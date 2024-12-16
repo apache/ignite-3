@@ -42,7 +42,7 @@ public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implemen
 
     private Decorator<T, TerminalOutput> decorator;
 
-    private boolean verbose;
+    private boolean[] verbose = new boolean[0];
 
     SingleCallExecutionPipelineBuilder(Call<I, T> call) {
         this.call = call;
@@ -98,7 +98,7 @@ public class SingleCallExecutionPipelineBuilder<I extends CallInput, T> implemen
     }
 
     @Override
-    public SingleCallExecutionPipelineBuilder<I, T> verbose(boolean verbose) {
+    public SingleCallExecutionPipelineBuilder<I, T> verbose(boolean[] verbose) {
         this.verbose = verbose;
         return this;
     }

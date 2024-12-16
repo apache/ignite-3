@@ -180,7 +180,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.timestampValue("ztimestamp"));
         assertEquals("119", res.stringValue("zstring"));
         assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
-        assertEquals(122, ((BigDecimal) res.value("zdecimal")).longValue());
+        assertDecimalEqual(BigDecimal.valueOf(122), res.decimalValue("zdecimal"));
         assertEquals(uuid, res.uuidValue("zuuid"));
     }
 

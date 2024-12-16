@@ -67,7 +67,7 @@ public abstract class BaseCommand {
 
     /** Verbose option specification. */
     @Option(names = {VERBOSE_OPTION, VERBOSE_OPTION_SHORT}, description = VERBOSE_OPTION_DESC, order = VERBOSE_OPTION_ORDER)
-    protected boolean verbose;
+    protected boolean[] verbose = new boolean[0];
 
     /** Instance of picocli command specification. */
     @Spec

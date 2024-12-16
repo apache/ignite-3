@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.List;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.IterableTableFunction;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunction;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionInstance;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
 
 /**
@@ -131,19 +131,27 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                     return;
                 }
             }
-        } catch (Exception e) {
-            throw new SqlException(Sql.RUNTIME_ERR, e);
+        } catch (QueryCancelledException | SqlException e) {
+            throw e;
         } finally {
             inLoop = false;
         }
 
-        if (requested > 0 && !inst.hasNext()) {
+        if (requested > 0 && !hasNext()) {
             Commons.closeQuiet(inst);
             inst = null;
 
             requested = 0;
 
             downstream().end();
+        }
+    }
+
+    private boolean hasNext() {
+        try {
+            return inst.hasNext();
+        } catch (QueryCancelledException | SqlException e) {
+            throw e;
         }
     }
 }

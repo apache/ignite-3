@@ -91,14 +91,19 @@ public class ClusterInitOptions {
     private ClusterConfigOptions clusterConfigOptions;
 
     private static class ClusterConfigOptions {
-        @Option(names = CLUSTER_CONFIG_OPTION, order = 3, description = CLUSTER_CONFIG_OPTION_DESC)
+        @Option(names = CLUSTER_CONFIG_OPTION,
+                description = CLUSTER_CONFIG_OPTION_DESC,
+                order = 3,
+                defaultValue = Option.NULL_VALUE
+        )
         private String config;
 
         @Option(names = CLUSTER_CONFIG_FILE_OPTION,
                 description = CLUSTER_CONFIG_FILE_OPTION_DESC,
                 split = ",",
                 order = 4,
-                paramLabel = CLUSTER_CONFIG_FILE_PARAM_LABEL
+                paramLabel = CLUSTER_CONFIG_FILE_PARAM_LABEL,
+                defaultValue = Option.NULL_VALUE
         )
         private List<File> files;
     }

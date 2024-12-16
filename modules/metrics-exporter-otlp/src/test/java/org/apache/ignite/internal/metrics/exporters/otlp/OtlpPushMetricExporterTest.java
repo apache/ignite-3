@@ -18,10 +18,16 @@
 package org.apache.ignite.internal.metrics.exporters.otlp;
 
 import static io.opentelemetry.api.common.AttributeType.STRING;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 
 import io.opentelemetry.api.internal.InternalAttributeKeyImpl;
 import io.opentelemetry.sdk.common.CompletableResultCode;
@@ -32,9 +38,11 @@ import io.opentelemetry.sdk.resources.Resource;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.AtomicDoubleMetric;
 import org.apache.ignite.internal.metrics.AtomicIntMetric;
 import org.apache.ignite.internal.metrics.AtomicLongMetric;
@@ -49,24 +57,30 @@ import org.apache.ignite.internal.metrics.LongAdderMetric;
 import org.apache.ignite.internal.metrics.LongGauge;
 import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.MetricProvider;
+import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.configuration.MetricChange;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
-import org.apache.ignite.internal.metrics.exporters.configuration.OtlpExporterView;
+import org.apache.ignite.internal.metrics.exporters.configuration.OtlpExporterChange;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 @ExtendWith(ConfigurationExtension.class)
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration("mock.exporters = {otlp = {exporterName = otlp, period = 10000000, endpoint = \"http://localhost:4317\"}}")
+    @InjectConfiguration("mock.exporters = {otlp = {exporterName = otlp, period = 300, endpoint = \"http://localhost:4317\"}}")
     private MetricConfiguration metricConfiguration;
 
     private static final UUID CLUSTER_ID = UUID.randomUUID();
@@ -91,7 +105,7 @@ class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
                     )
             );
 
-    private MetricProvider metricsProvider;
+    private MetricManager metricManager;
 
     private MetricExporter metricsExporter;
 
@@ -102,24 +116,52 @@ class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        OtlpExporterView exporterConf = (OtlpExporterView) metricConfiguration.exporters().get("otlp").value();
-        metricsProvider = mock(MetricProvider.class);
-        Map<String, MetricSet> metrics = Map.of(metricSet.name(), metricSet);
-        when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
+        metricManager = new MetricManagerImpl();
+
+        metricManager.configure(metricConfiguration, () -> CLUSTER_ID, "nodeName");
+        metricManager.registerSource(new TestMetricSource(SRC_NAME, metricSet));
 
         exporter = new OtlpPushMetricExporter();
-        exporter.start(metricsProvider, exporterConf, () -> CLUSTER_ID, "nodeName");
 
         metricsExporter = mock(MetricExporter.class);
-        exporter.reporter().exporter(metricsExporter);
+        doReturn(CompletableResultCode.ofSuccess()).when(metricsExporter).export(anyCollection());
+    }
+
+    @AfterEach
+    void tearDown() {
+        exporter.stop();
     }
 
     @Test
-    public void testExport() {
-        when(metricsExporter.export(metricsCaptor.capture())).thenReturn(CompletableResultCode.ofSuccess());
-        exporter.report();
+    public void testStart() {
+        metricManager.enable(metricSet.name());
+
+        metricManager.start(Map.of("otlp", exporter));
+        exporter.reporter().exporter(metricsExporter);
+
+        verify(metricsExporter, timeout(500L).times(1)).export(metricsCaptor.capture());
 
         assertThatExportedMetricsAndMetricValuesAreTheSame(metricsCaptor.getValue());
+    }
+
+    @Test
+    void testConfigurationUpdate() {
+        metricManager.enable(metricSet.name());
+
+        metricManager.start(Map.of("otlp", exporter));
+
+        @Nullable MetricReporter reporter = exporter.reporter();
+
+        assertEquals(reporter, exporter.reporter());
+
+        mutateConfiguration(metricConfiguration, change ->
+                change.changeExporters().update("otlp", exporterChange ->
+                        exporterChange.convert(OtlpExporterChange.class)
+                                .changePeriod(1000L)
+                )
+        );
+
+        assertNotEquals(reporter, exporter.reporter());
     }
 
     /**
@@ -154,6 +196,28 @@ class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
                         point.getCounts().stream().mapToLong(Long::longValue).toArray()
                 );
             }
+        }
+    }
+
+    private static void mutateConfiguration(MetricConfiguration configuration, Consumer<MetricChange> consumer) {
+        CompletableFuture<MetricConfiguration> future = configuration.change(consumer)
+                .thenApply(unused -> configuration);
+
+        assertThat(future, willCompleteSuccessfully());
+    }
+
+    private static class TestMetricSource extends AbstractMetricSource {
+        private final MetricSet metricSet;
+
+        TestMetricSource(String name, MetricSet metricSet) {
+            super(name);
+
+            this.metricSet = metricSet;
+        }
+
+        @Override
+        protected Holder createHolder() {
+            return () -> metricSet;
         }
     }
 }

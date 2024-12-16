@@ -25,7 +25,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.List;
 import java.util.UUID;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -34,7 +33,6 @@ import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
-import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
 import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -77,30 +75,6 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
     @Override
     public boolean isNull(int field, RowWrapper row) {
         return row.isNull(field);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RowWrapper concat(RowWrapper left, RowWrapper right) {
-        int leftLen = left.columnsCount();
-        int rightLen = right.columnsCount();
-        List<TypeSpec> leftTypes = left.rowSchema().fields();
-        List<TypeSpec> rightTypes = right.rowSchema().fields();
-
-        Object[] values = new Object[leftLen + rightLen];
-        Builder schemaBuilder = RowSchema.builder();
-
-        for (int i = 0; i < leftLen; i++) {
-            values[i] = left.get(i);
-            schemaBuilder.addField(leftTypes.get(i));
-        }
-
-        for (int i = 0; i < rightLen; i++) {
-            values[leftLen + i] = right.get(i);
-            schemaBuilder.addField(rightTypes.get(i));
-        }
-
-        return new ObjectsArrayRowWrapper(schemaBuilder.build(), values);
     }
 
     @Override
@@ -183,6 +157,27 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                 }
 
                 return new ObjectsArrayRowWrapper(rowSchema, fields);
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public RowWrapper concat(RowWrapper left, RowWrapper right) {
+                int leftLen = left.columnsCount();
+                int rightLen = right.columnsCount();
+
+                assert leftLen + rightLen == schemaLen;
+
+                Object[] values = new Object[schemaLen];
+
+                for (int i = 0; i < leftLen; i++) {
+                    values[i] = left.get(i);
+                }
+
+                for (int i = 0; i < rightLen; i++) {
+                    values[leftLen + i] = right.get(i);
+                }
+
+                return new ObjectsArrayRowWrapper(rowSchema, values);
             }
         };
     }

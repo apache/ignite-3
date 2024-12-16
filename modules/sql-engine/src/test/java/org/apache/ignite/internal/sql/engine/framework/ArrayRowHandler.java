@@ -63,12 +63,6 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
 
     /** {@inheritDoc} */
     @Override
-    public Object[] concat(Object[] left, Object[] right) {
-        return ArrayUtils.concat(left, right);
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public int columnCount(Object[] row) {
         return row.length;
     }
@@ -157,6 +151,14 @@ public class ArrayRowHandler implements RowHandler<Object[]> {
                 }
 
                 return newRow;
+            }
+
+            /** {@inheritDoc} */
+            @Override
+            public Object[] concat(Object[] left, Object[] right) {
+                assert left.length + right.length == schemaLen;
+
+                return ArrayUtils.concat(left, right);
             }
         };
     }

@@ -60,21 +60,21 @@ public interface TableViewInternal extends Table {
     void schemaView(SchemaRegistry schemaReg);
 
     /**
-     * Returns a partition for a key tuple.
+     * Returns a partition ID for a key tuple.
      *
      * @param key The tuple.
-     * @return The partition.
+     * @return The partition ID.
      */
-    int partition(Tuple key);
+    int partitionId(Tuple key);
 
     /**
-     * Returns a partition for a key.
+     * Returns a partition ID for a key.
      *
      * @param key The key.
      * @param keyMapper Key mapper
-     * @return The partition.
+     * @return The partition ID.
      */
-    <K> int partition(K key, Mapper<K> keyMapper);
+    <K> int partitionId(K key, Mapper<K> keyMapper);
 
     /**
      * Registers the index with given id in a table.

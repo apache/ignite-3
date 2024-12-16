@@ -303,12 +303,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private CompletableFuture<ClusterNode> primaryReplicaForPartitionByTupleKey(TableViewInternal table, Tuple key) {
-        return primaryReplicaForPartition(table, table.partition(key));
+        return primaryReplicaForPartition(table, table.partitionId(key));
     }
 
     private <K> CompletableFuture<ClusterNode> primaryReplicaForPartitionByMappedKey(TableViewInternal table, K key,
             Mapper<K> keyMapper) {
-        return primaryReplicaForPartition(table, table.partition(key, keyMapper));
+        return primaryReplicaForPartition(table, table.partitionId(key, keyMapper));
     }
 
     private CompletableFuture<ClusterNode> primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {

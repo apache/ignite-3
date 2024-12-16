@@ -111,9 +111,9 @@ public class NextColocatedWorkerSelector<K> implements NextWorkerSelector {
 
     private TablePartitionId tablePartitionId() {
         if (key != null && keyMapper != null) {
-            return new TablePartitionId(table.tableId(), table.partition(key, keyMapper));
+            return new TablePartitionId(table.tableId(), table.partitionId(key, keyMapper));
         } else {
-            return new TablePartitionId(table.tableId(), table.partition(tuple));
+            return new TablePartitionId(table.tableId(), table.partitionId(tuple));
         }
     }
 }
