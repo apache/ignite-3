@@ -44,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.SelectCountPlan;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.AfterAll;
@@ -78,6 +79,8 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
 
     @AfterEach
     void clearCatalog() {
+        Commons.resetFastQueryOptimizationFlag();
+
         int version = CLUSTER.catalogManager().latestCatalogVersion();
 
         List<CatalogCommand> commands = new ArrayList<>();

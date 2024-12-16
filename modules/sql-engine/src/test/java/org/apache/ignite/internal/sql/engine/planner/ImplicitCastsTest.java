@@ -50,11 +50,14 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.NativeTypeValues;
 import org.apache.ignite.internal.sql.engine.util.StatementChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -151,6 +154,12 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
         });
 
         return result.stream();
+    }
+
+    @BeforeAll
+    @AfterAll
+    public static void resetFlag() {
+        Commons.resetFastQueryOptimizationFlag();
     }
 
     /** MergeSort join - casts are pushed down to children. **/
