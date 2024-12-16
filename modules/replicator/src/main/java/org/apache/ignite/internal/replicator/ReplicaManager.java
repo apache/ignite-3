@@ -148,12 +148,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
-    private static final IgniteThrottledLogger THROTTLED_LOG = Loggers.toThrottledLogger(LOG);
-
     /** Replicator network message factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+
+    private final IgniteThrottledLogger throttledLog;
 
     /** Busy lock to stop synchronously. */
     private final IgniteStripedReadWriteLock busyLock = new IgniteStripedReadWriteLock();
@@ -382,6 +382,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "replica-manager", LOG, STORAGE_READ, STORAGE_WRITE)
         );
+
+        throttledLog = Loggers.toThrottledLogger(LOG, executor);
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
@@ -475,9 +477,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     msg = prepareReplicaResponse(sendTimestamp, res);
                 } else {
                     if (indicatesUnexpectedProblem(ex)) {
-                        THROTTLED_LOG.warn("Failed to process replica request [request={}].", ex, request);
+                        throttledLog.warn("Failed to process replica request [request={}].", ex, request);
                     } else {
-                        THROTTLED_LOG.debug("Failed to process replica request [request={}].", ex, request);
+                        throttledLog.debug("Failed to process replica request [request={}].", ex, request);
                     }
 
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);

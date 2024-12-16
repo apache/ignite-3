@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.logger;
 
-import static org.apache.ignite.internal.util.IgniteUtils.capacity;
-
 import com.github.benmanes.caffeine.cache.Caffeine;
 import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.util.FastTimestamps;
@@ -34,14 +34,16 @@ class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
     private final System.Logger delegate;
 
     /** Log messages. */
-    private final Map<LogThrottleKey, Long> messagesMap = Caffeine.newBuilder()
-            .initialCapacity(capacity(128))
-            .maximumSize(128)
-            .<LogThrottleKey, Long>build()
-            .asMap();
+    private final Map<LogThrottleKey, Long> messagesMap;
 
-    IgniteThrottledLoggerImpl(Logger delegate) {
+    IgniteThrottledLoggerImpl(Logger delegate, ExecutorService executor) {
         this.delegate = delegate;
+
+        messagesMap = Caffeine.newBuilder()
+                .executor(executor)
+                .expireAfterWrite(THROTTLE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .<LogThrottleKey, Long>build()
+                .asMap();
     }
 
     @Override
