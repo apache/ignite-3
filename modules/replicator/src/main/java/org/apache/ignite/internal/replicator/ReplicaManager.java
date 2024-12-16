@@ -148,12 +148,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
+    private static final IgniteThrottledLogger THROTTLED_LOG = Loggers.toThrottledLogger(LOG);
+
     /** Replicator network message factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
-
-    private final IgniteThrottledLogger throttledLog;
 
     /** Busy lock to stop synchronously. */
     private final IgniteStripedReadWriteLock busyLock = new IgniteStripedReadWriteLock();
@@ -250,8 +250,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *      volatile tables.
      * @param groupIdConverter Temporary converter to support the zone based partitions in tests.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
-     * @param commonScheduledExecutor Common scheduled thread pool. Needed only for asynchronous start of scheduled operations without
-     *      performing blocking, long or IO operations.
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this method
     @TestOnly
@@ -272,8 +270,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
             Function<ReplicaRequest, ReplicationGroupId> groupIdConverter,
-            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
-            ScheduledExecutorService commonScheduledExecutor
+            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
     ) {
         this(
                 nodeName,
@@ -291,8 +288,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 partitionRaftConfigurer,
                 volatileLogStorageFactoryCreator,
                 replicaStartStopExecutor,
-                getPendingAssignmentsSupplier,
-                commonScheduledExecutor
+                getPendingAssignmentsSupplier
         );
 
         this.groupIdConverter = groupIdConverter;
@@ -318,8 +314,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      *      volatile tables.
      * @param replicaStartStopExecutor Executor for asynchronous replicas lifecycle management.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
-     * @param commonScheduledExecutor Common scheduled thread pool. Needed only for asynchronous start of scheduled operations without
-     *      performing blocking, long or IO operations.
      */
     public ReplicaManager(
             String nodeName,
@@ -337,8 +331,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             RaftGroupOptionsConfigurer partitionRaftConfigurer,
             LogStorageFactoryCreator volatileLogStorageFactoryCreator,
             Executor replicaStartStopExecutor,
-            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
-            ScheduledExecutorService commonScheduledExecutor
+            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -389,8 +382,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "replica-manager", LOG, STORAGE_READ, STORAGE_WRITE)
         );
-
-        throttledLog = Loggers.toThrottledLogger(LOG, commonScheduledExecutor, executor);
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
@@ -484,9 +475,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     msg = prepareReplicaResponse(sendTimestamp, res);
                 } else {
                     if (indicatesUnexpectedProblem(ex)) {
-                        throttledLog.warn("Failed to process replica request [request={}].", ex, request);
+                        THROTTLED_LOG.warn("Failed to process replica request [request={}].", ex, request);
                     } else {
-                        throttledLog.debug("Failed to process replica request [request={}].", ex, request);
+                        THROTTLED_LOG.debug("Failed to process replica request [request={}].", ex, request);
                     }
 
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);

@@ -1257,8 +1257,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     ForkJoinPool.commonPool(),
                     t -> converter.get().apply(t),
                     replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsKey((ZonePartitionId) replicaGrpId))
-                            .thenApply(Entry::value),
-                    scheduledExecutorService
+                            .thenApply(Entry::value)
                 );
 
             LongSupplier delayDurationMsSupplier = () -> 10L;

@@ -139,9 +139,9 @@ class IgniteLoggerImpl implements IgniteLogger {
     /**
      * Logs a message with an optional list of parameters.
      *
-     * @param level  One of the log message level identifiers.
-     * @param msg    The string message format in {@link IgniteStringFormatter} format.
-     * @param th     The {@code Throwable} associated with the log message.
+     * @param level One of the log message level identifiers.
+     * @param msg The string message format in {@link IgniteStringFormatter} format.
+     * @param th The {@code Throwable} associated with the log message.
      * @param params An optional list of parameters to the message (may be none).
      * @throws NullPointerException If {@code level} is {@code null}.
      */
@@ -162,9 +162,9 @@ class IgniteLoggerImpl implements IgniteLogger {
     /**
      * Logs a lazily supplied message associated with a given throwable.
      *
-     * @param level       One of the log message level identifiers.
+     * @param level One of the log message level identifiers.
      * @param msgSupplier The supplier function that produces a message.
-     * @param th          The {@code Throwable} associated with log message; can be {@code null}.
+     * @param th The {@code Throwable} associated with log message; can be {@code null}.
      * @throws NullPointerException If {@code level} is {@code null}, or {@code msgSupplier} is {@code null}.
      */
     private void logInternalExceptional(Level level, Supplier<String> msgSupplier, @Nullable Throwable th) {

@@ -594,8 +594,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 view -> new LocalLogStorageFactory(),
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsKey((TablePartitionId) replicaGrpId))
-                        .thenApply(Entry::value),
-                scheduledExecutorService
+                        .thenApply(Entry::value)
+
         );
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();

@@ -826,8 +826,7 @@ public class IgniteImpl implements Ignite {
                 volatileLogStorageFactoryCreator,
                 threadPoolsManager.tableIoExecutor(),
                 replicaGrpId -> metaStorageMgr.get(pendingPartAssignmentsKey((TablePartitionId) replicaGrpId))
-                        .thenApply(org.apache.ignite.internal.metastorage.Entry::value),
-                threadPoolsManager.commonScheduler()
+                        .thenApply(org.apache.ignite.internal.metastorage.Entry::value)
         );
 
         metricManager.configure(
