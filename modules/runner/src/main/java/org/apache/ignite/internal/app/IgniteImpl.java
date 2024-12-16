@@ -128,6 +128,7 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManager;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerImpl;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
@@ -940,7 +941,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 threadPoolsManager.commonScheduler(),
                 indexNodeFinishedRwTransactionsChecker,
-                minTimeCollectorService
+                minTimeCollectorService,
+                new RebalanceMinimumRequiredTimeProviderImpl(metaStorageMgr, catalogManager)
         );
 
         metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
