@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.failure;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMPONENT_NOT_STARTED_ERR;
 
 import java.util.EnumSet;
@@ -157,7 +158,7 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             LOG.error(FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx.type());
         }
 
-        if (reserveBuf != null && causedByOutOfMemory(failureCtx.error())) {
+        if (reserveBuf != null && hasCause(failureCtx.error(), null, OutOfMemoryError.class)) {
             reserveBuf = null;
         }
 
@@ -237,39 +238,5 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      */
     FailureHandler handler() {
         return handler;
-    }
-
-    /**
-     * Checks if passed in {@code 'Throwable'} has {@link OutOfMemoryError} class in {@code 'cause'} hierarchy
-     * <b>including</b> that throwable itself.
-     * Note that this method follows includes {@link Throwable#getSuppressed()}
-     * into check.
-     *
-     * @param t Throwable to check (if {@code null}, {@code false} is returned).
-     * @return {@code true} if one of the causing exception is an instance of {@link OutOfMemoryError},
-     *      {@code false} otherwise.
-     */
-    private static boolean causedByOutOfMemory(@Nullable Throwable t) {
-        if (t == null) {
-            return false;
-        }
-
-        for (Throwable th = t; th != null; th = th.getCause()) {
-            if (OutOfMemoryError.class.isAssignableFrom(th.getClass())) {
-                return true;
-            }
-
-            for (Throwable n : th.getSuppressed()) {
-                if (causedByOutOfMemory(n)) {
-                    return true;
-                }
-            }
-
-            if (th.getCause() == th) {
-                break;
-            }
-        }
-
-        return false;
     }
 }
