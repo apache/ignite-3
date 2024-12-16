@@ -17,19 +17,22 @@
 
 package org.apache.ignite.internal.tostring;
 
+import static org.apache.ignite.internal.tostring.ToStringUtils.createStringifier;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Simple class descriptor containing simple and fully qualified class names as well as the list of class fields.
  */
 class ClassDescriptor {
-    /** Class simple name. */
-    private final String sqn;
+    /** Class name. */
+    private final String name;
 
-    /** Class FQN. */
-    private final String fqn;
+    /** Class stringifier, {@code null} if absent. */
+    private final @Nullable Stringifier<?> stringifier;
 
     /** Class field descriptors. */
     private final ArrayList<FieldDescriptor> fields = new ArrayList<>();
@@ -40,10 +43,15 @@ class ClassDescriptor {
      * @param cls Class.
      */
     ClassDescriptor(Class<?> cls) {
-        assert cls != null;
+        IgniteStringifier igniteStringifier = cls.getAnnotation(IgniteStringifier.class);
 
-        fqn = cls.getName();
-        sqn = cls.getSimpleName();
+        if (igniteStringifier == null) {
+            name = cls.getSimpleName();
+            stringifier = null;
+        } else {
+            name = "".equals(igniteStringifier.name()) ? cls.getSimpleName() : igniteStringifier.name();
+            stringifier = createStringifier(igniteStringifier.value());
+        }
     }
 
     /**
@@ -66,30 +74,18 @@ class ClassDescriptor {
         fields.sort(Comparator.comparingInt(FieldDescriptor::getOrder));
     }
 
-    /**
-     * Returns simple class name.
-     *
-     * @return Simple class name.
-     */
-    String getSimpleClassName() {
-        return sqn;
+    /** Returns simple class name. */
+    String getName() {
+        return name;
     }
 
-    /**
-     * Returns fully qualified class name.
-     *
-     * @return Fully qualified class name.
-     */
-    String getFullyQualifiedClassName() {
-        return fqn;
-    }
-
-    /**
-     * Returns list of fields.
-     *
-     * @return List of fields.
-     */
+    /** Returns list of fields. */
     List<FieldDescriptor> getFields() {
         return fields;
+    }
+
+    /** Returns class stringifier, {@code null} id absent. */
+    @Nullable Stringifier<?> getStringifier() {
+        return stringifier;
     }
 }

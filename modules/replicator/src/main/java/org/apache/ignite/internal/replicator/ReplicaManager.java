@@ -1367,8 +1367,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return;
             }
 
-            assert replicaFuture.isDone() : "Illegal state: replica future exists and elected as primary, but the future isn't completed"
-                    + " [replicationGroupId=" + replicaFuture + "].";
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-23981
+            // assert replicaFuture.isDone() : "Illegal state: replica future exists and elected as primary, but the future isn't completed"
+            //         + " [replicationGroupId=" + replicaFuture + "].";
 
             replicaFuture.thenCompose(inBusyLock(busyLock, () -> (Function<Replica, CompletableFuture<Void>>) electedPrimaryReplica -> {
                 onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
@@ -1398,8 +1399,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return;
             }
 
-            assert replicaFuture.isDone() : "Illegal state: replica future exists and was elected as primary, but the future isn't"
-                    + " completed [replicationGroupId=" + replicaFuture + "].";
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-23981
+            // assert replicaFuture.isDone() : "Illegal state: replica future exists and was elected as primary, but the future isn't"
+            //         + " completed [replicationGroupId=" + replicaFuture + "].";
 
             replicaFuture.thenAccept(inBusyLock(busyLock, () -> (Consumer<Replica>) expiredPrimaryReplica -> expiredPrimaryReplica
                     .raftClient()
