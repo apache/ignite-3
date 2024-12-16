@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -148,14 +149,18 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 zoneName, targetNodes.size(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE, filter
         ));
 
+        Set<Integer> tableIds = new HashSet<>();
+
         for (String tableName: tableNames) {
             executeSql(String.format(
                     "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
                     tableName, zoneName
             ));
+
+            tableIds.add(getTableId(igniteImpl(0).catalogManager(), tableName, clock.nowLong()));
         }
 
-        awaitForAllNodesTableGroupInitialization(tableNames.size(), targetNodes.size());
+        awaitForAllNodesTableGroupInitialization(tableIds, targetNodes.size());
 
         tableNames.forEach(t ->
             waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), t, Set.of(0, 1), targetNodes)
@@ -260,15 +265,16 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         return revision.get();
     }
 
-    private void awaitForAllNodesTableGroupInitialization(int numberOfTables, int replicas) throws InterruptedException {
+    private void awaitForAllNodesTableGroupInitialization(Set<Integer> tableIds, int replicas) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             AtomicInteger numberOfInitializedReplicas = new AtomicInteger(0);
 
             runningNodes().forEach(ignite -> {
                 IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
-                igniteImpl.raftManager().forEach((raftNodeId, raftGroupService) -> {
+                igniteImpl.raftManager().localNodes().forEach((raftNodeId) -> {
 
-                    if (raftNodeId.groupId() instanceof TablePartitionId) {
+                    if (raftNodeId.groupId() instanceof TablePartitionId &&
+                            tableIds.contains(((TablePartitionId) raftNodeId.groupId()).tableId())) {
                         try {
                             if (igniteImpl.raftManager().raftNodeIndex(raftNodeId).index() > 0) {
                                 numberOfInitializedReplicas.incrementAndGet();
@@ -281,8 +287,8 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
             });
 
-            return PARTITIONS_NUMBER * replicas * numberOfTables == numberOfInitializedReplicas.get();
-        }, 90_000));
+            return PARTITIONS_NUMBER * replicas * tableIds.size() == numberOfInitializedReplicas.get();
+        }, 30_000));
     }
 
     final Set<String> nodeNames(Integer... indexes) {
