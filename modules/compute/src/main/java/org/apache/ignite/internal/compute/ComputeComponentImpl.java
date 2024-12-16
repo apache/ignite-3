@@ -140,18 +140,17 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
             CompletableFuture<JobExecutionInternal<R>> future =
                     mapClassLoaderExceptions(classLoaderFut, jobClassName)
-                            .thenApply(context -> execJob(context, options, jobClassName, arg));
+                            .thenApply(context -> {
+                                JobExecutionInternal<R> execution = execJob(context, options, jobClassName, arg);
+                                execution.resultAsync().whenComplete((result, e) -> context.close());
+                                inFlightFutures.registerFuture(execution.resultAsync());
+                                return execution;
+                            });
 
             JobExecution<R> result = new DelegatingJobExecution<>(future);
 
-            // We need to close context no matter what, this will ensure that if the context future is complete, the close will be called
-            // because the resultAsync will be cancelled if it's not yet complete by either the cancelling the internal execution or
-            // cancelling the running job.
-            result.resultAsync().whenComplete((unused, e) -> classLoaderFut.thenAccept(JobContext::close));
-
             inFlightFutures.registerFuture(classLoaderFut);
             inFlightFutures.registerFuture(future);
-            inFlightFutures.registerFuture(result.resultAsync());
 
             if (cancellationToken != null) {
                 CancelHandleHelper.addCancelAction(cancellationToken, classLoaderFut);
