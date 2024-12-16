@@ -147,10 +147,10 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
                                 return execution;
                             });
 
-            JobExecution<R> result = new DelegatingJobExecution<>(future);
-
-            inFlightFutures.registerFuture(classLoaderFut);
             inFlightFutures.registerFuture(future);
+            inFlightFutures.registerFuture(classLoaderFut);
+
+            JobExecution<R> result = new DelegatingJobExecution<>(future);
 
             if (cancellationToken != null) {
                 CancelHandleHelper.addCancelAction(cancellationToken, classLoaderFut);
