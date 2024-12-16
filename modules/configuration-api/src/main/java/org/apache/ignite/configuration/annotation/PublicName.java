@@ -26,7 +26,7 @@ import java.lang.annotation.Target;
 
 /**
  * This annotation allows defining configuration property name that is otherwise impossible to define in configuration schema. For example,
- * if it matches a key word of Java language, or if it results in name conflicts in generated {@code Configuration}/{@code View} classes.
+ * if it matches a keyword of the Java language, or if it results in name conflicts in generated {@code Configuration}/{@code View} classes.
  */
 @Target(FIELD)
 @Retention(RUNTIME)
