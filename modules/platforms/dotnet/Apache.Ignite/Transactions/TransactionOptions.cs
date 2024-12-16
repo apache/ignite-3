@@ -29,6 +29,6 @@ namespace Apache.Ignite.Transactions;
 /// Transaction timeout. 0 means 'use default timeout'.
 /// For RO transactions, the default timeout is data availability time configured via ignite.gc.lowWatermark.dataAvailabilityTime
 /// configuration setting.
-/// For RW transactions, timeouts are not supported yet. TODO: IGNITE-15936
+/// For RW transactions, timeouts are not supported yet. TODO: IGNITE-15936.
 /// </param>
 public readonly record struct TransactionOptions(bool ReadOnly, long TimeoutMillis = 0);
