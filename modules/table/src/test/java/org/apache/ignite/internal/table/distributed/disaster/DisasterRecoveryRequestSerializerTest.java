@@ -29,7 +29,7 @@ import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.junit.jupiter.api.Test;
 
 class DisasterRecoveryRequestSerializerTest {
-    private static final String GROUP_UPDATE_REQUEST_V1_BASE64 = "Ae++QwEB775D782rkHhWNBIhQ2WHCbrc/ukH0Q+5FwQMIBYB";
+    private static final String GROUP_UPDATE_REQUEST_V1_BASE64 = "Ae++QwEB775D782rkHhWNBIhQ2WHCbrc/ukH0Q8DoR8EICoXuRcEFiAMAQ==";
     private static final String MANUAL_GROUP_RESTART_REQUEST_V1_BASE64 = "Ae++QwIB775D782rkHhWNBIhQ2WHCbrc/tEPuRcEIBYMAwJiAmH///9///+AgAQ=";
 
     private final DisasterRecoveryRequestSerializer serializer = new DisasterRecoveryRequestSerializer();
@@ -40,7 +40,7 @@ class DisasterRecoveryRequestSerializerTest {
                 new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
                 1000,
                 2000,
-                Map.of(3000, Set.of(11, 21, 31)),
+                Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41)),
                 true
         );
 
@@ -50,7 +50,7 @@ class DisasterRecoveryRequestSerializerTest {
         assertThat(restoredRequest.operationId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
         assertThat(restoredRequest.catalogVersion(), is(1000));
         assertThat(restoredRequest.zoneId(), is(2000));
-        assertThat(restoredRequest.partitionIds(), is(Map.of(3000, Set.of(11, 21, 31))));
+        assertThat(restoredRequest.partitionIds(), is(Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41))));
         assertThat(restoredRequest.manualUpdate(), is(true));
     }
 
@@ -62,7 +62,7 @@ class DisasterRecoveryRequestSerializerTest {
         assertThat(restoredRequest.operationId(), is(new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L)));
         assertThat(restoredRequest.catalogVersion(), is(1000));
         assertThat(restoredRequest.zoneId(), is(2000));
-        assertThat(restoredRequest.partitionIds(), is(Map.of(3000, Set.of(11, 21, 31))));
+        assertThat(restoredRequest.partitionIds(), is(Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41))));
         assertThat(restoredRequest.manualUpdate(), is(true));
     }
 

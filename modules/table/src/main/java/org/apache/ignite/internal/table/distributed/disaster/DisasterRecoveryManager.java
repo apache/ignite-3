@@ -129,10 +129,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     static final ByteArray RECOVERY_TRIGGER_KEY = new ByteArray("disaster.recovery.trigger");
 
     /**
-     * Metastorage key prefix to store the revision of logical event, which start the recovery process.
+     * Metastorage key prefix to store the per zone revision of logical event, which start the recovery process.
      * It's needed to skip the stale recovery triggers.
      */
-    static final String RECOVERY_TRIGGER_REVISION_KEY_PREFIX = "disaster.recovery.trigger.revision";
+    private static final String RECOVERY_TRIGGER_REVISION_KEY_PREFIX = "disaster.recovery.trigger.revision";
 
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
@@ -276,7 +276,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         int catalogVersion = catalogManager.activeCatalogVersion(timestamp);
 
         List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogVersion, catalogManager);
-
         Map<Integer, Set<Integer>> tablePartitionsToReset = new HashMap<>();
         for (CatalogTableDescriptor table : tables) {
             Set<Integer> partitionsToReset = new HashSet<>();
@@ -292,7 +291,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                 tablePartitionsToReset.put(table.id(), partitionsToReset);
             }
         }
-        return resetPartitions(zoneDescriptor.name(), tablePartitionsToReset, false, revision).thenApply(r -> false);
+
+        if (!tablePartitionsToReset.isEmpty()) {
+            return resetPartitions(zoneDescriptor.name(), tablePartitionsToReset, false, revision).thenApply(r -> false);
+
+        } else {
+            return nullCompletedFuture();
+        }
     }
 
     private Set<Assignment> stableAssignmentsWithOnlyAliveNodes(TablePartitionId partitionId, long revision) {
@@ -365,8 +370,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * so that a new leader could be elected.
      *
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param tableId Table id.
-     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
+     * @param partitionIds Map of per table partitions' sets to reset. If empty, reset all zone's partitions.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @param triggerRevision Revision of the event, which produce this reset.
      * @return Future that completes when partitions are reset.

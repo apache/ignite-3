@@ -75,7 +75,6 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
@@ -92,7 +91,9 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
     private final int zoneId;
 
-    @IgniteToStringInclude
+    /**
+     * Map of (tableId -> setOfPartitions) to reset.
+     */
     private final Map<Integer, Set<Integer>> partitionIds;
 
     private final boolean manualUpdate;
@@ -146,18 +147,14 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
-        Set<Integer> zonePartitionsWhichHavePoisonTablePartitions = partitionIds.values().stream().reduce(emptySet(), (s1, s2) -> {
-            Set<Integer> result = new HashSet<>();
-            result.addAll(s1);
-            result.addAll(s2);
-            return result;
-        });
+        Set<Integer> allZonePartitionsToReset = new HashSet<>();
+        partitionIds.values().forEach(allZonePartitionsToReset::addAll);
 
         CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localStates
                 = disasterRecoveryManager.localPartitionStatesInternal(
                 Set.of(zoneDescriptor.name()),
                 emptySet(),
-                zonePartitionsWhichHavePoisonTablePartitions,
+                allZonePartitionsToReset,
                 catalog
         );
 
@@ -205,7 +202,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * assignments' majority within the set of currently alive nodes. In this case we calculate new assignments that include all alive
      * stable nodes, and try to save ot with a {@link Assignments#force()} flag enabled.
      *
-     * @param tableDescriptor Table descriptor.
+     * @param tableId Table id.
      * @param zoneDescriptor Zone descriptor.
      * @param dataNodes Current DZ data nodes.
      * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.

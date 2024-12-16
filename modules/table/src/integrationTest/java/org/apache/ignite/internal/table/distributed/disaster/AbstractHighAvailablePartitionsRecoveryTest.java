@@ -71,7 +71,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         assertRecoveryRequestForZoneTable(node, HA_ZONE_NAME, HA_TABLE_NAME);
     }
 
-    final void assertRecoveryRequestForZoneTable
+    private void assertRecoveryRequestForZoneTable
             (IgniteImpl node, String zoneName, String tableName) {
         Entry recoveryTriggerEntry = getRecoveryTriggerKey(node);
 
@@ -87,25 +87,11 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     static void assertRecoveryRequestWasOnlyOne(IgniteImpl node) {
-        var result =
-                node
-                        .metaStorageManager()
-                        .getLocally(RECOVERY_TRIGGER_KEY.bytes(), 0L, Long.MAX_VALUE);
-
-        if (result.size() > 1) {
-            for (Entry e: result) {
-
-                var requeust = (GroupUpdateRequest) VersionedSerialization.fromBytes(
-                        e.value(), DisasterRecoveryRequestSerializer.INSTANCE);
-                System.out.println("KKK request: " + requeust);
-            }
-
-        }
-
-
         assertEquals(
                 1,
-                result.size()
+                node
+                        .metaStorageManager()
+                        .getLocally(RECOVERY_TRIGGER_KEY.bytes(), 0L, Long.MAX_VALUE).size()
         );
     }
 
