@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import java.util.Set;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.junit.jupiter.api.Test;
 
@@ -43,10 +42,10 @@ public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHi
 
         stopNodes(2, 3, 4);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), nodeNames(0, 1));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0, 1));
 
         stopNode(1);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), nodeNames(0));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
     }
 }

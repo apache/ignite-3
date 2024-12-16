@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -67,6 +68,11 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     private static final int PARTITIONS_NUMBER = 2;
 
+    static Set<Integer> PARTITION_IDS = IntStream
+            .range(0, PARTITIONS_NUMBER)
+            .boxed()
+            .collect(Collectors.toUnmodifiableSet());
+
     protected final HybridClock clock = new HybridClockImpl();
 
     final void assertRecoveryRequestForHaZoneTable(IgniteImpl node) {
@@ -84,7 +90,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         int tableId = node.catalogManager().table(tableName, clock.nowLong()).id();
 
         assertEquals(zoneId, request.zoneId());
-        assertEquals(Map.of(tableId, Set.of(0, 1)), request.partitionIds());
+        assertEquals(Map.of(tableId, PARTITION_IDS), request.partitionIds());
         assertFalse(request.manualUpdate());
     }
 
@@ -163,7 +169,8 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         awaitForAllNodesTableGroupInitialization(tableIds, targetNodes.size());
 
         tableNames.forEach(t ->
-            waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), t, Set.of(0, 1), targetNodes)
+            waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), t,
+                    PARTITION_IDS, targetNodes)
         );
     }
 
@@ -198,7 +205,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
         Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), SC_TABLE_NAME, Set.of(0, 1), allNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), SC_TABLE_NAME, PARTITION_IDS, allNodes);
     }
 
     static void assertRecoveryKeyIsEmpty(IgniteImpl gatewayNode) {

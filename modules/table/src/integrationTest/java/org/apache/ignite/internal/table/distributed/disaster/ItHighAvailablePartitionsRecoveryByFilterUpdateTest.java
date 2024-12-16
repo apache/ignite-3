@@ -55,13 +55,13 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         IgniteImpl node = igniteImpl(0);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), euNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, euNodes);
 
         assertRecoveryKeyIsEmpty(node);
 
         stopNodes(1, 2);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), nodeNames(0));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
 
         String globalFilter = "$[?(@.zone == \"global\")]";
 
@@ -69,7 +69,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         Set<String> globalNodes = nodeNames(0, 3, 4);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), globalNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, globalNodes);
     }
 
     private void alterZoneSql(String filter, String zoneName) {

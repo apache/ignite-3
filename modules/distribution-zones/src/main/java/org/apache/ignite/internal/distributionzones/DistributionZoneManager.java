@@ -846,6 +846,8 @@ public class DistributionZoneManager extends
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
+        logicalTopologyByRevision.put(revision, newLogicalTopology);
+
         for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
             int zoneId = zone.id();
 
@@ -857,8 +859,6 @@ public class DistributionZoneManager extends
         }
 
         newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n));
-
-        logicalTopologyByRevision.put(revision, newLogicalTopology);
 
         futures.add(saveRecoverableStateToMetastorage(zoneIds, revision, newLogicalTopology));
 

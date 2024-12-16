@@ -294,7 +294,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         if (!tablePartitionsToReset.isEmpty()) {
             return resetPartitions(zoneDescriptor.name(), tablePartitionsToReset, false, revision).thenApply(r -> false);
-
         } else {
             return nullCompletedFuture();
         }
