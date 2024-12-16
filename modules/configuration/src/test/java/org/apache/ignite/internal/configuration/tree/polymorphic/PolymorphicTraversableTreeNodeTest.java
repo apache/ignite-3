@@ -220,7 +220,6 @@ public class PolymorphicTraversableTreeNodeTest {
         var parentNode = newParentInstance();
         parentNode.convert(ParentWithChildChange.class);
 
-        // Assert that proper method has been invoked.
         assertThrows(VisitException.class, () ->
                 parentNode.traverseChild("type", new ConfigurationVisitor<Void>() {
                     @Override
@@ -231,8 +230,6 @@ public class PolymorphicTraversableTreeNodeTest {
                     }
                 }, true)
         );
-
-        // Assert that proper method has been invoked.
 
         assertThrows(VisitException.class, () ->
                 parentNode.traverseChild("my-child", new ConfigurationVisitor<Void>() {
@@ -251,7 +248,6 @@ public class PolymorphicTraversableTreeNodeTest {
 
         parentNode.convert(ParentWithElementsChange.class);
 
-        // Assert that proper method has been invoked.
         assertThrows(VisitException.class, () ->
                 parentNode.traverseChild("my-elements", new ConfigurationVisitor<Void>() {
                     @Override
