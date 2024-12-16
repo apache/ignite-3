@@ -57,12 +57,6 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     private static final String IGNORED_FAILURE_LOG_MSG = "Possible failure suppressed according to a configured handler "
             + "[hnd={}, failureCtx={}]";
 
-    /**
-     * Amount of memory reserved in the heap at node start in kilobytes, which can be dropped
-     * to increase the chances of success when handling OutOfMemoryError.
-     */
-    public static final int DFLT_FAILURE_HANDLER_RESERVE_BUFFER_SIZE = 64 * 1024;
-
     /** Failure processor configuration. */
     private final FailureProcessorConfiguration configuration;
 
@@ -106,8 +100,6 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         initFailureHandler();
-
-        reserveBuf = new byte[DFLT_FAILURE_HANDLER_RESERVE_BUFFER_SIZE];
 
         LOG.info("Configured failure handler: [hnd={}]", handler);
 
@@ -186,6 +178,8 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
 
             return;
         }
+
+        reserveBuf = new byte[configuration.oomBufferSize().value()];
 
         AbstractFailureHandler hnd;
 

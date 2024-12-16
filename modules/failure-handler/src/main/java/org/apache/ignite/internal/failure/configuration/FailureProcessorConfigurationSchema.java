@@ -19,6 +19,8 @@ package org.apache.ignite.internal.failure.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerConfigurationSchema;
 
 /**
@@ -26,6 +28,14 @@ import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerC
  */
 @Config
 public class FailureProcessorConfigurationSchema {
+    /**
+     * Amount of memory reserved in the heap at node start in kilobytes, which can be dropped
+     * to increase the chances of success when handling OutOfMemoryError.
+     */
+    @Value(hasDefault = true)
+    @Range(min = 0)
+    public int oomBufferSize = 16 * 1024;
+
     @ConfigValue
     public FailureHandlerConfigurationSchema handler;
 }

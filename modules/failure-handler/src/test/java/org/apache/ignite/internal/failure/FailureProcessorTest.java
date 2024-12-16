@@ -45,7 +45,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 class FailureProcessorTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration(value = "mock: { handler {type=noop} }")
+    @InjectConfiguration(value = "mock: { oomBufferSize=1024, handler {type=noop} }")
     protected static FailureProcessorConfiguration failureProcessorConfiguration;
 
     @Test
