@@ -119,7 +119,7 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      * Processes failure accordingly to configured {@link FailureHandler}.
      *
      * @param failureCtx Failure context.
-     * @return {@code True} If this very call led to Ignite node invalidation.
+     * @return {@code true} If this call leads to Ignite node invalidation and {@code false} otherwise.
      */
     @Override
     public boolean process(FailureContext failureCtx) {
@@ -156,6 +156,8 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
 
         if (invalidated) {
             this.failureCtx = failureCtx;
+
+            LOG.error("Ignite node is in invalid state due to a critical failure.");
         }
 
         return invalidated;
