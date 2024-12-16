@@ -24,11 +24,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.Collection;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
-import java.util.TreeSet;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
@@ -138,7 +137,7 @@ public class PolymorphicTraversableTreeNodeTest {
     public void traverseChildrenNoTypeDefined() {
         var parentNode = newParentInstance();
 
-        Collection<String> keys = new TreeSet<>();
+        Collection<String> keys = new HashSet<>();
 
         parentNode.traverseChildren(new ConfigurationVisitor<Object>() {
             @Override
@@ -160,8 +159,7 @@ public class PolymorphicTraversableTreeNodeTest {
             }
         }, true);
 
-        // Assert that updates happened in the same order as fields declaration in schema.
-        assertEquals(new TreeSet<>(List.of("type")), keys);
+        assertEquals(Set.of("type"), keys);
     }
 
     @Test
@@ -169,7 +167,7 @@ public class PolymorphicTraversableTreeNodeTest {
         var parentNode = newParentInstance();
         parentNode.convert(ParentWithChildChange.class);
 
-        Collection<String> keys = new TreeSet<>();
+        Collection<String> keys = new HashSet<>();
 
         parentNode.traverseChildren(new ConfigurationVisitor<Object>() {
             @Override
@@ -190,8 +188,7 @@ public class PolymorphicTraversableTreeNodeTest {
             }
         }, true);
 
-        // Assert that updates happened in the same order as fields declaration in schema.
-        assertEquals(new TreeSet<>(List.of("my-child", "type")), keys);
+        assertEquals(Set.of("my-child", "type"), keys);
 
         keys.clear();
         parentNode.convert(ParentWithElementsChange.class);
@@ -215,8 +212,7 @@ public class PolymorphicTraversableTreeNodeTest {
             }
         }, true);
 
-        // Assert that updates happened in the same order as fields declaration in schema.
-        assertEquals(new TreeSet<>(List.of("my-elements", "type")), keys);
+        assertEquals(Set.of("my-elements", "type"), keys);
     }
 
     @Test
