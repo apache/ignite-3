@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.internal.metrics.DistributionMetric;
+import org.apache.ignite.internal.util.Lazy;
 
 /**
  * Metric data that holds distribution metric.
@@ -41,7 +42,7 @@ import org.apache.ignite.internal.metrics.DistributionMetric;
 class IgniteDistributionMetricData extends IgniteMetricData<DistributionMetric> {
     private final HistogramData data;
 
-    IgniteDistributionMetricData(Resource resource, InstrumentationScopeInfo scope, DistributionMetric metric) {
+    IgniteDistributionMetricData(Lazy<Resource> resource, InstrumentationScopeInfo scope, DistributionMetric metric) {
         super(resource, scope, metric);
 
         data = new IgniteHistogramData(new IgniteDistributionPointData(metric));

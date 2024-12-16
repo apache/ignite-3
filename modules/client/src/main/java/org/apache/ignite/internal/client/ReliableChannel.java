@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -676,20 +677,20 @@ public final class ReliableChannel implements AutoCloseable {
             }
 
             try {
-                futs.add(hld.getOrCreateChannelAsync(true));
+                futs.add(hld.getOrCreateChannelAsync());
             } catch (Exception e) {
                 log.warn("Failed to establish connection to " + hld.chCfg.getAddress() + ": " + e.getMessage(), e);
             }
         }
 
-        long interval = clientCfg.reconnectInterval();
+        long interval = clientCfg.backgroundReconnectInterval();
 
         if (interval > 0 && !closed) {
             // After current round of connection attempts is finished, schedule the next one with a configured delay.
             CompletableFuture.allOf(futs.toArray(CompletableFuture[]::new))
                     .whenCompleteAsync(
                             (res, err) -> initAllChannelsAsync(),
-                            CompletableFuture.delayedExecutor(interval, TimeUnit.MILLISECONDS));
+                            delayedExecutor(interval, TimeUnit.MILLISECONDS));
         }
     }
 
@@ -754,9 +755,6 @@ public final class ReliableChannel implements AutoCloseable {
         /** Address that holder is bind to (chCfg.addr) is not in use now. So close the holder. */
         private volatile boolean close;
 
-        /** Timestamps of reconnect retries. */
-        private final long[] reconnectRetries;
-
         /**
          * Constructor.
          *
@@ -764,47 +762,12 @@ public final class ReliableChannel implements AutoCloseable {
          */
         private ClientChannelHolder(ClientChannelConfiguration chCfg) {
             this.chCfg = chCfg;
-
-            reconnectRetries = chCfg.clientConfiguration().reconnectThrottlingRetries() > 0
-                    && chCfg.clientConfiguration().reconnectThrottlingPeriod() > 0L
-                    ? new long[chCfg.clientConfiguration().reconnectThrottlingRetries()]
-                    : null;
-        }
-
-        /**
-         * Returns whether reconnect throttling should be applied.
-         *
-         * @return Whether reconnect throttling should be applied.
-         */
-        private boolean applyReconnectionThrottling() {
-            if (reconnectRetries == null) {
-                return false;
-            }
-
-            long ts = System.currentTimeMillis();
-
-            for (int i = 0; i < reconnectRetries.length; i++) {
-                if (ts - reconnectRetries[i] >= chCfg.clientConfiguration().reconnectThrottlingPeriod()) {
-                    reconnectRetries[i] = ts;
-
-                    return false;
-                }
-            }
-
-            return true;
         }
 
         /**
          * Get or create channel.
          */
         private CompletableFuture<ClientChannel> getOrCreateChannelAsync() {
-            return getOrCreateChannelAsync(false);
-        }
-
-        /**
-         * Get or create channel.
-         */
-        private CompletableFuture<ClientChannel> getOrCreateChannelAsync(boolean ignoreThrottling) {
             if (close) {
                 return nullCompletedFuture();
             }
@@ -824,11 +787,6 @@ public final class ReliableChannel implements AutoCloseable {
 
                 if (isFutureInProgressOrDoneAndChannelOpen(chFut0)) {
                     return chFut0;
-                }
-
-                if (!ignoreThrottling && applyReconnectionThrottling()) {
-                    return CompletableFuture.failedFuture(new IgniteClientConnectionException(
-                            CONNECTION_ERR, "Reconnect is not allowed due to applied throttling", null));
                 }
 
                 CompletableFuture<ClientChannel> createFut = chFactory.create(

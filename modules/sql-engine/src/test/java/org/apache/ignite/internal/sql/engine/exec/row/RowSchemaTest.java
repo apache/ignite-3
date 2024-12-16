@@ -72,5 +72,59 @@ public class RowSchemaTest {
 
             assertNotEquals(s1, s2);
         }
+
+        {
+            RowSchema s1 = RowSchema.builder()
+                    .addField(new BaseTypeSpec(NativeTypes.INT32))
+                    .addField(new BaseTypeSpec(NativeTypes.STRING))
+                    .build();
+
+            RowSchema s2 = RowSchema.builder()
+                    .addField(new BaseTypeSpec(NativeTypes.STRING))
+                    .addField(new BaseTypeSpec(NativeTypes.INT32))
+                    .build();
+
+            assertNotEquals(s1, s2);
+        }
+    }
+
+    /** Schema concatenation. */
+    @Test
+    public void testSchemaConcat() {
+        RowSchema s1 = RowSchema.builder()
+                .addField(new BaseTypeSpec(NativeTypes.STRING))
+                .build();
+
+        RowSchema s2 = RowSchema.builder()
+                .addField(new BaseTypeSpec(NativeTypes.INT32))
+                .build();
+
+        RowSchema expected = RowSchema.builder()
+                .addField(new BaseTypeSpec(NativeTypes.STRING))
+                .addField(new BaseTypeSpec(NativeTypes.INT32))
+                .build();
+
+        RowSchema concatenated = RowSchema.concat(s1, s2);
+
+        assertEquals(expected, concatenated);
+    }
+
+    /** Schema projection. */
+    @Test
+    public void testSchemaProjection() {
+        RowSchema s1 = RowSchema.builder()
+                .addField(new BaseTypeSpec(NativeTypes.INT32))
+                .addField(new BaseTypeSpec(NativeTypes.INT64))
+                .addField(new BaseTypeSpec(NativeTypes.STRING))
+                .build();
+
+        RowSchema expected = RowSchema.builder()
+                .addField(new BaseTypeSpec(NativeTypes.STRING))
+                .addField(new BaseTypeSpec(NativeTypes.INT32))
+                .build();
+
+        RowSchema projected = RowSchema.map(s1, new int[]{2, 0});
+
+        assertEquals(expected, projected);
     }
 }
