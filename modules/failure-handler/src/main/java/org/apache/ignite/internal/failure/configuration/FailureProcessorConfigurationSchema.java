@@ -34,7 +34,7 @@ public class FailureProcessorConfigurationSchema {
      */
     @Value(hasDefault = true)
     @Range(min = 0)
-    public int oomBufferSize = 16 * 1024;
+    public int oomBufferSizeBites = 16 * 1024;
 
     @ConfigValue
     public FailureHandlerConfigurationSchema handler;
