@@ -23,6 +23,7 @@ import static org.apache.calcite.rel.core.JoinRelType.FULL;
 import static org.apache.calcite.rel.core.JoinRelType.INNER;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
 import static org.apache.ignite.internal.sql.engine.util.Commons.getFieldFromBiRows;
+import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -34,6 +35,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
@@ -301,14 +303,8 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
         ScanNode<Object[]> left = new ScanNode<>(ctx, new TestTable(leftSize, rowType));
         ScanNode<Object[]> right = new ScanNode<>(ctx, new TestTable(rightSize, rowType));
 
-        RowSchema joinRowType = RowSchema.builder()
-                .addField(NativeTypes.INT32)
-                .addField(NativeTypes.STRING)
-                .addField(NativeTypes.INT32)
-                .addField(NativeTypes.INT32)
-                .addField(NativeTypes.STRING)
-                .addField(NativeTypes.INT32)
-                .build();
+        RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        RowSchema outputRowSchema = RowSchema.concat(rowSchema, rowSchema);
 
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
@@ -317,7 +313,8 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
                 (r1, r2) -> getFieldFromBiRows(hnd, 0, r1, r2).equals(getFieldFromBiRows(hnd, 3, r1, r2)),
                 Set.of(new CorrelationId(0)),
                 joinType,
-                hnd.factory(joinRowType)
+                hnd.factory(rowSchema),
+                hnd.factory(outputRowSchema)
         );
 
         IgniteTestUtils.setFieldValue(join, "rightInBufferSize", rightBufSize);
@@ -365,8 +362,8 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
 
                 MergeJoinNode<Object[]> join = MergeJoinNode.create(
                         ctx,
-                        null,
-                        null,
+                        rowType,
+                        rowType,
                         INNER,
                         (r1, r2) -> {
                             Object o1 = r1[0];

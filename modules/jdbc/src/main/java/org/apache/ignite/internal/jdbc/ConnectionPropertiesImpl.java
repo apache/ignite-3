@@ -70,16 +70,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
                     + " Zero means there is no limits.",
             0L, false, 0, Integer.MAX_VALUE);
 
-    /** JDBC reconnect throttling period. */
-    private final LongProperty reconnectThrottlingPeriod = new LongProperty("reconnectThrottlingPeriod",
-            "Sets the reconnect throttling period, in milliseconds. Zero means there is no limits.",
-            IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD, false, 0, Long.MAX_VALUE);
-
-    /** JDBC reconnect throttling retries. */
-    private final IntegerProperty reconnectThrottlingRetries = new IntegerProperty("reconnectThrottlingRetries",
-            "Sets the reconnect throttling retries. Zero means there is no limits.",
-            IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES, false, 0, Integer.MAX_VALUE);
-
     /** Path to the truststore. */
     private final StringProperty trustStorePath = new StringProperty("trustStorePath",
             "Path to trust store", null, null, false, null);
@@ -195,30 +185,6 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public void setQueryTimeout(@Nullable Integer timeout) throws SQLException {
         qryTimeout.setValue(timeout);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Long getReconnectThrottlingPeriod() {
-        return reconnectThrottlingPeriod.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setReconnectThrottlingPeriod(Long period) throws SQLException {
-        reconnectThrottlingPeriod.setValue(period);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public Integer getReconnectThrottlingRetries() {
-        return reconnectThrottlingRetries.value();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setReconnectThrottlingRetries(Integer reconnectThrottlingRetries) throws SQLException {
-        this.reconnectThrottlingRetries.setValue(reconnectThrottlingRetries);
     }
 
     /** {@inheritDoc} */
