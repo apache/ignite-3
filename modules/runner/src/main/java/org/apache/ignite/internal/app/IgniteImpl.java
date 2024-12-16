@@ -230,7 +230,6 @@ import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtens
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
@@ -947,7 +946,7 @@ public class IgniteImpl implements Ignite {
         metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
         this.catalogCompactionRunner = catalogCompactionRunner;
 
-        KillHandlerRegistry killHandlerRegistry = new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService());
+        KillCommandHandler killCommandHandler = new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService());
 
         lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
                 params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
@@ -1086,7 +1085,7 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                (KillCommandHandler) killHandlerRegistry
+                killCommandHandler
         );
 
         systemViewManager.register(qryEngine);
@@ -1126,7 +1125,7 @@ public class IgniteImpl implements Ignite {
                 clock
         );
 
-        killHandlerRegistry.register(((IgniteComputeImpl) compute).killHandler());
+        killCommandHandler.register(((IgniteComputeImpl) compute).killHandler());
 
         authenticationManager = createAuthenticationManager();
 
