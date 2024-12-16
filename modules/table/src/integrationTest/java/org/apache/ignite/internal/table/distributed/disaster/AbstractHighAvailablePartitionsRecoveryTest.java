@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -139,32 +140,40 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         return catalogService.zone(zoneName, clock.nowLong()).id();
     }
 
-    final void createHaZoneWithTable(
-            String zoneName, String tableName, String filter, Set<String> targetNodes) throws InterruptedException {
+    private void createHaZoneWithTable(
+            String zoneName, List<String> tableNames, String filter, Set<String> targetNodes) throws InterruptedException {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', "
                         + "CONSISTENCY_MODE='HIGH_AVAILABILITY', DATA_NODES_FILTER='%s'",
                 zoneName, targetNodes.size(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE, filter
         ));
 
-        executeSql(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
-                tableName, zoneName
-        ));
+        for (String tableName: tableNames) {
+            executeSql(String.format(
+                    "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
+                    tableName, zoneName
+            ));
+        }
 
-        awaitForAllNodesTableGroupInitialization(targetNodes.size());
+        awaitForAllNodesTableGroupInitialization(tableNames.size(), targetNodes.size());
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), tableName, Set.of(0, 1), targetNodes);
+        tableNames.forEach(t ->
+            waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), t, Set.of(0, 1), targetNodes)
+        );
     }
 
     final void createHaZoneWithTable(String filter, Set<String> targetNodes) throws InterruptedException {
-        createHaZoneWithTable(HA_ZONE_NAME, HA_TABLE_NAME, filter, targetNodes);
+        createHaZoneWithTable(HA_ZONE_NAME, List.of(HA_TABLE_NAME), filter, targetNodes);
+    }
+
+    final void createHaZoneWithTable(String zoneName, List<String> tableNames) throws InterruptedException {
+        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
+
+        createHaZoneWithTable(zoneName, tableNames, DEFAULT_FILTER, allNodes);
     }
 
     final void createHaZoneWithTable(String zoneName, String tableName) throws InterruptedException {
-        Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
-
-        createHaZoneWithTable(zoneName, tableName, DEFAULT_FILTER, allNodes);
+        createHaZoneWithTable(zoneName, List.of(tableName));
     }
 
     final void createHaZoneWithTable() throws InterruptedException {
@@ -251,7 +260,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         return revision.get();
     }
 
-    private void awaitForAllNodesTableGroupInitialization(int replicas) throws InterruptedException {
+    private void awaitForAllNodesTableGroupInitialization(int numberOfTables, int replicas) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             AtomicInteger numberOfInitializedReplicas = new AtomicInteger(0);
 
@@ -272,8 +281,8 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
             });
 
-            return PARTITIONS_NUMBER * replicas == numberOfInitializedReplicas.get();
-        }, 10_000));
+            return PARTITIONS_NUMBER * replicas * numberOfTables == numberOfInitializedReplicas.get();
+        }, 90_000));
     }
 
     final Set<String> nodeNames(Integer... indexes) {

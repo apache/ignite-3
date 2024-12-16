@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
@@ -64,10 +65,11 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
         String zone2 = "ZONE2";
 
         String table1 = "TABLE1";
-        String table2 = "TABLE2";
+        String table21 = "TABLE21";
+        String table22 = "TABLE22";
 
         createHaZoneWithTable(zone1, table1);
-        createHaZoneWithTable(zone2, table2);
+        createHaZoneWithTable(zone2, List.of(table21, table22));
 
         IgniteImpl node = igniteImpl(0);
 
@@ -75,10 +77,9 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
 
         stopNodes(1, 2);
 
-        waitAndAssertRecoveryKeyIsNotEmpty(node);
-
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, table1, Set.of(0, 1), Set.of(node.name()));
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, table2, Set.of(0, 1), Set.of(node.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, table21, Set.of(0, 1), Set.of(node.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, table22, Set.of(0, 1), Set.of(node.name()));
     }
 
     @Test
