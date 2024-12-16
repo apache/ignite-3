@@ -57,6 +57,12 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     private static final String IGNORED_FAILURE_LOG_MSG = "Possible failure suppressed according to a configured handler "
             + "[hnd={}, failureCtx={}]";
 
+    /**
+     * Amount of memory reserved in the heap at node start in kilobytes, which can be dropped
+     * to increase the chances of success when handling OutOfMemoryError.
+     */
+    public static final int DFLT_FAILURE_HANDLER_RESERVE_BUFFER_SIZE = 64 * 1024;
+
     /** Failure processor configuration. */
     private final FailureProcessorConfiguration configuration;
 
@@ -71,6 +77,9 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
 
     /** Failure context. */
     private volatile FailureContext failureCtx;
+
+    /** Reserve buffer, which can be dropped to handle OOME. */
+    private volatile byte @Nullable [] reserveBuf;
 
     /**
      * Creates a new instance of a failure processor.
@@ -97,6 +106,10 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         initFailureHandler();
+
+        reserveBuf = new byte[DFLT_FAILURE_HANDLER_RESERVE_BUFFER_SIZE];
+
+        LOG.info("Configured failure handler: [hnd={}]", handler);
 
         return nullCompletedFuture();
     }
@@ -150,6 +163,10 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             LOG.warn(IGNORED_FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx.type());
         } else {
             LOG.error(FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx.type());
+        }
+
+        if (reserveBuf != null && causedByOutOfMemory(failureCtx.error())) {
+            reserveBuf = null;
         }
 
         boolean invalidated = handler.onFailure(failureCtx);
@@ -226,5 +243,39 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      */
     FailureHandler handler() {
         return handler;
+    }
+
+    /**
+     * Checks if passed in {@code 'Throwable'} has {@link OutOfMemoryError} class in {@code 'cause'} hierarchy
+     * <b>including</b> that throwable itself.
+     * Note that this method follows includes {@link Throwable#getSuppressed()}
+     * into check.
+     *
+     * @param t Throwable to check (if {@code null}, {@code false} is returned).
+     * @return {@code true} if one of the causing exception is an instance of {@link OutOfMemoryError},
+     *      {@code false} otherwise.
+     */
+    private static boolean causedByOutOfMemory(@Nullable Throwable t) {
+        if (t == null) {
+            return false;
+        }
+
+        for (Throwable th = t; th != null; th = th.getCause()) {
+            if (OutOfMemoryError.class.isAssignableFrom(th.getClass())) {
+                return true;
+            }
+
+            for (Throwable n : th.getSuppressed()) {
+                if (causedByOutOfMemory(n)) {
+                    return true;
+                }
+            }
+
+            if (th.getCause() == th) {
+                break;
+            }
+        }
+
+        return false;
     }
 }
