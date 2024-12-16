@@ -263,7 +263,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                 closeAsync();
             }
         } else if (!pendingRequests.isEmpty()) {
-            source.context().execute(this::flush, source::onError);
+            scheduleTask();
         }
     }
 
