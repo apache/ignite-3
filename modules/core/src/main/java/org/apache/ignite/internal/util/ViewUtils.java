@@ -88,7 +88,7 @@ public final class ViewUtils {
      */
     // TODO: consider removing after IGNITE-22721 gets resolved.
     private static <T extends Throwable & TraceableException> Throwable copyExceptionWithCauseIfPossible(T e) {
-        Throwable copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), e.traceId(), e.code(), e.getMessage(), e);
+        Throwable copy = ExceptionUtils.copyExceptionWithCause(e.getClass(), e.traceId(), e.code(), e.getMessage(), e.getCause());
         if (copy != null) {
             return copy;
         }
