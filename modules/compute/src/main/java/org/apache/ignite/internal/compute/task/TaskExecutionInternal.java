@@ -103,7 +103,7 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
             Class<? extends MapReduceTask<I, M, T, R>> taskClass,
             TaskExecutionContext context,
             AtomicBoolean isCancelled,
-            I arg
+            @Nullable I arg
     ) {
         this.isCancelled = isCancelled;
         LOG.debug("Executing task {}", taskClass.getName());

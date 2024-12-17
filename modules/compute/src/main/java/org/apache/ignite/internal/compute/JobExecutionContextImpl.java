@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.table.partition.Partition;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link JobExecutionContext}.
@@ -31,20 +34,28 @@ public class JobExecutionContextImpl implements JobExecutionContext {
 
     private final ClassLoader classLoader;
 
+    private final List<Partition> partitions;
+
     /**
      * Constructor.
      *
      * @param ignite Ignite instance.
      * @param isInterrupted Interrupted flag.
      * @param classLoader Job class loader.
+     * @param partitions List of partitions associated with this job.
      */
-    public JobExecutionContextImpl(Ignite ignite, AtomicBoolean isInterrupted, ClassLoader classLoader) {
+    public JobExecutionContextImpl(
+            Ignite ignite,
+            AtomicBoolean isInterrupted,
+            ClassLoader classLoader,
+            @Nullable List<Partition> partitions
+    ) {
         this.ignite = ignite;
         this.isInterrupted = isInterrupted;
         this.classLoader = classLoader;
+        this.partitions = partitions;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Ignite ignite() {
         return ignite;
@@ -53,6 +64,11 @@ public class JobExecutionContextImpl implements JobExecutionContext {
     @Override
     public boolean isCancelled() {
         return isInterrupted.get();
+    }
+
+    @Override
+    public @Nullable List<Partition> partitions() {
+        return partitions;
     }
 
     /**

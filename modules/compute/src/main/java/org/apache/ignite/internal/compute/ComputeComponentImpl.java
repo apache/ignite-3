@@ -127,7 +127,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             List<DeploymentUnit> units,
             String jobClassName,
             @Nullable CancellationToken cancellationToken,
-            I arg
+            @Nullable I arg
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
@@ -170,7 +170,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,
-            I input
+            @Nullable I input
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingTaskExecution<>(
@@ -198,7 +198,6 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public <T, R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
@@ -206,7 +205,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             List<DeploymentUnit> units,
             String jobClassName,
             @Nullable CancellationToken cancellationToken,
-            T arg
+            @Nullable T arg
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
@@ -320,7 +319,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     }
 
 
-    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, T arg) {
+    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, @Nullable T arg) {
         try {
             return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), arg);
         } catch (Throwable e) {
@@ -333,7 +332,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             JobContext context,
             JobSubmitter<M, T> jobSubmitter,
             String taskClassName,
-            I input
+            @Nullable I input
     ) {
         try {
             return executor.executeTask(jobSubmitter, taskClass(context.classLoader(), taskClassName), input);
