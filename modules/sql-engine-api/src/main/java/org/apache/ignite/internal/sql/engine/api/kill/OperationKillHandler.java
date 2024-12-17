@@ -43,7 +43,7 @@ public interface OperationKillHandler {
      * be performed by the SQL engine.
      *
      * @return {@code True} if the handler can abort operations only on local node,
-     *         {@code false} if the handler can abort operations across the entire cluster (in such a case .
+     *         {@code false} if the handler can abort operations across the entire cluster.
      */
     boolean local();
 
