@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -37,9 +38,12 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -65,6 +69,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test lock table.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItLockTableTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItLockTableTest.class);
 
@@ -96,10 +101,16 @@ public class ItLockTableTest extends IgniteAbstractTest {
     protected static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
+    protected LowWatermarkConfiguration lowWatermarkConfiguration;
+
+    @InjectConfiguration
     protected static ReplicationConfiguration replicationConfiguration;
 
     @InjectConfiguration
     protected static StorageUpdateConfiguration storageUpdateConfiguration;
+
+    @InjectExecutorService
+    protected ScheduledExecutorService commonExecutor;
 
     private ItTxTestCluster txTestCluster;
 
@@ -120,6 +131,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                lowWatermarkConfiguration,
                 storageUpdateConfiguration,
                 workDir,
                 1,
@@ -142,6 +154,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
+                        lowWatermarkConfiguration,
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(
@@ -154,7 +167,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         new TestLocalRwTxCounter(),
                         resourcesRegistry,
                         transactionInflights,
-                        lowWatermark
+                        lowWatermark,
+                        commonExecutor
                 );
             }
         };

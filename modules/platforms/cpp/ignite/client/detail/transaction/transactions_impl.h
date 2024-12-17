@@ -57,6 +57,7 @@ public:
     IGNITE_API void begin_async(ignite_callback<transaction> callback) {
         auto writer_func = [this](protocol::writer &writer) {
             writer.write_bool(false); // readOnly.
+            writer.write(std::int64_t(0)); // timeoutMillis.
             writer.write(m_connection->get_observable_timestamp());
         };
 

@@ -433,6 +433,7 @@ void sql_connection::transaction_start() {
     network::data_buffer_owning response =
         sync_request(protocol::client_operation::TX_BEGIN, [&](protocol::writer &writer) {
             writer.write_bool(false); // read_only.
+            writer.write(std::int64_t(0)); // timeoutMillis.
         });
 
     protocol::reader reader(response.get_bytes_view());

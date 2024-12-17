@@ -56,10 +56,13 @@ dependencies {
     testImplementation libs.hamcrest.core
 
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-client-handler')
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
     integrationTestImplementation(testFixtures(project(':ignite-sql-engine')))
     integrationTestImplementation(testFixtures(project(':ignite-runner')))
+    integrationTestImplementation libs.netty.transport
 
     testFixturesImplementation project(':ignite-configuration')
     testFixturesImplementation project(':ignite-core')

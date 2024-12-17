@@ -49,13 +49,16 @@ public class ClientTransactionBeginRequest {
             IgniteTransactionsImpl transactions,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics) throws IgniteInternalCheckedException {
-        TransactionOptions options = null;
+        TransactionOptions options = new TransactionOptions();
         HybridTimestamp observableTs = null;
 
         boolean readOnly = in.unpackBoolean();
-        if (readOnly) {
-            options = new TransactionOptions().readOnly(true);
+        options.readOnly(readOnly);
 
+        long timeoutMillis = in.unpackLong();
+        options.timeoutMillis(timeoutMillis);
+
+        if (readOnly) {
             // Timestamp makes sense only for read-only transactions.
             observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         }
