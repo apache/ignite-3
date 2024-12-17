@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.message.CancelOperationRequest;
 import org.apache.ignite.internal.sql.engine.message.CancelOperationResponse;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.SqlException;
@@ -102,11 +103,15 @@ public class KillCommandHandler implements KillHandlerRegistry {
 
         CompletableFuture<Boolean> killFut = invokeCancel(handler, cmd.operationId());
 
-        if (killFut.isDone() || !cmd.noWait()) {
-            return killFut;
+        if (cmd.noWait()) {
+            // Despite the `NO WAIT` flag, we will return an error to the user if it
+            // was received immediately. For example, if an incorrect identifier was specified.
+            return killFut.isCompletedExceptionally()
+                    ? killFut
+                    : CompletableFutures.trueCompletedFuture();
         }
 
-        return CompletableFuture.completedFuture(true);
+        return killFut;
     }
 
     OperationKillHandler handlerOrThrow(CancellableOperationType type, boolean local) {

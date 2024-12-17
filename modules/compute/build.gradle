@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-binary-tuple')
     implementation project(':ignite-client-common')
+    implementation project(':ignite-sql-engine-api')
     implementation project(':ignite-system-view-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core

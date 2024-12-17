@@ -948,6 +948,8 @@ public class IgniteImpl implements Ignite {
         metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
         this.catalogCompactionRunner = catalogCompactionRunner;
 
+        KillCommandHandler killCommandHandler = new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService());
+
         lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
                 params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
 
@@ -1085,7 +1087,7 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService())
+                killCommandHandler
         );
 
         systemViewManager.register(qryEngine);
@@ -1124,6 +1126,8 @@ public class IgniteImpl implements Ignite {
                 computeComponent,
                 clock
         );
+
+        killCommandHandler.register(((IgniteComputeImpl) compute).killHandler());
 
         authenticationManager = createAuthenticationManager();
 

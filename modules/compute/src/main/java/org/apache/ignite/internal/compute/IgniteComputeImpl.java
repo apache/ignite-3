@@ -62,6 +62,8 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -450,6 +452,29 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
                     return res;
                 });
+    }
+
+    /** Returns a {@link OperationKillHandler kill handler} for the compute job. */
+    public OperationKillHandler killHandler() {
+        return new OperationKillHandler() {
+            @Override
+            public CompletableFuture<Boolean> cancelAsync(String operationId) {
+                UUID jobId = UUID.fromString(operationId);
+
+                return IgniteComputeImpl.this.cancelAsync(jobId)
+                        .thenApply(res -> res != null ? res : Boolean.FALSE);
+            }
+
+            @Override
+            public boolean local() {
+                return false;
+            }
+
+            @Override
+            public CancellableOperationType type() {
+                return CancellableOperationType.COMPUTE;
+            }
+        };
     }
 
     @TestOnly
