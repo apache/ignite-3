@@ -36,6 +36,17 @@ public class FailureProcessorConfigurationSchema {
     @Range(min = 0)
     public int oomBufferSizeBites = 16 * 1024;
 
+    /** Enables threads dumping on critical node failure. */
+    @Value(hasDefault = true)
+    public boolean dumpThreadsOnFailure = true;
+
+    /**
+     * Throttling time out for thread dump generation during failure handling in milliseconds.
+     * The default is 10 seconds. The {@code 0} value mens that throttling is disabled.
+     */
+    @Value(hasDefault = true)
+    public long dumpThreadsThrottlingTimeoutMillis = 10_000;
+
     @ConfigValue
     public FailureHandlerConfigurationSchema handler;
 }
