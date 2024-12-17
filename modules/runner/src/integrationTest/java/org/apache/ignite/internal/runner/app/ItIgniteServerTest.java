@@ -21,7 +21,10 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 
 import java.io.IOException;
@@ -34,12 +37,27 @@ import java.util.Map;
 import java.util.function.Function;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
+import org.apache.ignite.configuration.ClusterConfiguration;
+import org.apache.ignite.configuration.NodeConfiguration;
+import org.apache.ignite.failure.configuration.FailureProcessorBuilder;
+import org.apache.ignite.failure.handlers.configuration.StopNodeOrHaltFailureHandlerBuilder;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
+import org.apache.ignite.internal.failure.handlers.configuration.FailureHandlerView;
+import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
+import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderView;
+import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.security.configuration.SecurityView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ClusterNotInitializedException;
 import org.apache.ignite.lang.NodeStartException;
+import org.apache.ignite.security.authentication.basic.BasicAuthenticationProviderBuilder;
+import org.apache.ignite.security.authentication.basic.BasicUserBuilder;
+import org.apache.ignite.security.authentication.configuration.AuthenticationBuilder;
+import org.apache.ignite.security.configuration.SecurityBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -182,6 +200,51 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
                 NodeStartException.class,
                 "Config file doesn't exist"
         );
+    }
+
+    @Test
+    void configurationPojo() {
+        NodeConfiguration nodeConfiguration = NodeConfiguration.create().failureHandler(
+                FailureProcessorBuilder.create().handler(
+                        StopNodeOrHaltFailureHandlerBuilder.create().timeoutMillis(1)
+                ));
+
+        String nodeName = nodesBootstrapCfg.keySet().stream().findFirst().orElseThrow();
+        startNode(nodeName, name -> IgniteServer.start(name, nodeConfiguration, workDir.resolve(name), null));
+
+        IgniteServer igniteServer = startedIgniteServers.get(0);
+
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.create().security(
+                SecurityBuilder.create()
+                        .enabled(true)
+                        .authentication(AuthenticationBuilder.create()
+                                .addProvider("basic",
+                                        BasicAuthenticationProviderBuilder.create()
+                                                .addUser("username", BasicUserBuilder.create().password("password"))
+                                ))
+        );
+        InitParameters initParameters = InitParameters.builder()
+                .metaStorageNodes(igniteServer)
+                .clusterName("cluster")
+                .clusterConfiguration(clusterConfiguration)
+                .build();
+        assertThat(igniteServer.initClusterAsync(initParameters), willCompleteSuccessfully());
+
+        FailureHandlerView handlerConfiguration = ((IgniteImpl) igniteServer.api()).nodeConfiguration()
+                .getConfiguration(FailureProcessorConfiguration.KEY)
+                .handler().value();
+        assertThat(handlerConfiguration, instanceOf(StopNodeOrHaltFailureHandlerView.class));
+        assertThat(((StopNodeOrHaltFailureHandlerView) handlerConfiguration).timeoutMillis(), is(1L));
+
+        SecurityView securityConfiguration = ((IgniteImpl) igniteServer.api()).clusterConfiguration()
+                .getConfiguration(SecurityConfiguration.KEY).value();
+        assertThat(securityConfiguration.enabled(), is(true));
+        assertThat(securityConfiguration.authentication().providers(), contains(instanceOf(BasicAuthenticationProviderView.class)));
+        BasicAuthenticationProviderView basicProvider =
+                (BasicAuthenticationProviderView) securityConfiguration.authentication().providers().get(0);
+        assertThat(basicProvider.users().size(), is(1));
+        assertThat(basicProvider.users().get(0).username(), is("username"));
+        assertThat(basicProvider.users().get(0).password(), is("password"));
     }
 
     private void startNode(String nodeName, Function<String, IgniteServer> starter) {

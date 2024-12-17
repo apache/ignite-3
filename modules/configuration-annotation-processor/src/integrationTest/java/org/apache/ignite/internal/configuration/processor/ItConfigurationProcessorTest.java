@@ -62,7 +62,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertEquals(Compilation.Status.SUCCESS, status.status());
 
-        assertEquals(3, batch.generated().size());
+        assertEquals(5, batch.generated().size());
 
         ConfigSet classSet = batch.getBySchema(testConfigurationSchema);
 
@@ -82,7 +82,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertEquals(Compilation.Status.SUCCESS, batchCompile.getCompilationStatus().status());
 
-        assertEquals(4 * 3, batchCompile.generated().size());
+        assertEquals(4 * 5, batchCompile.generated().size());
 
         assertTrue(batchCompile.getBySchema(cls0).allGenerated());
         assertTrue(batchCompile.getBySchema(cls1).allGenerated());
@@ -234,7 +234,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertEquals(Compilation.Status.SUCCESS, batchCompile.getCompilationStatus().status());
 
-        assertEquals(4 * 3, batchCompile.generated().size());
+        assertEquals(4 * 5, batchCompile.generated().size());
 
         assertTrue(batchCompile.getBySchema(cls0).allGenerated());
         assertTrue(batchCompile.getBySchema(cls1).allGenerated());
@@ -373,7 +373,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
 
-        assertEquals(2 * 3, batchCompile.generated().size());
+        assertEquals(2 * 5, batchCompile.generated().size());
 
         assertTrue(batchCompile.getBySchema(cls0).allGenerated());
         assertTrue(batchCompile.getBySchema(cls1).allGenerated());
@@ -393,7 +393,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
 
-        assertEquals(2 * 3, batchCompile.generated().size());
+        assertEquals(2 * 5, batchCompile.generated().size());
 
         assertTrue(batchCompile.getBySchema(cls0).allGenerated());
         assertTrue(batchCompile.getBySchema(cls1).allGenerated());
@@ -427,7 +427,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
 
-        assertEquals(3, batchCompile.generated().size());
+        assertEquals(5, batchCompile.generated().size());
 
         assertTrue(batchCompile.getBySchema(cls).allGenerated());
     }
@@ -571,7 +571,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
 
-        assertEquals(4 * 3, batchCompile.generated().size());
+        assertEquals(4 * 5, batchCompile.generated().size());
 
         assertTrue(batchCompile.getBySchema(abstractConfigSchema).allGenerated());
         assertTrue(batchCompile.getBySchema(abstractRootConfigSchema).allGenerated());

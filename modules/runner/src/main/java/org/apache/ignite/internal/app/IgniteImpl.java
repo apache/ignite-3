@@ -1725,7 +1725,7 @@ public class IgniteImpl implements Ignite {
             Collection<String> metaStorageNodeNames,
             Collection<String> cmgNodeNames,
             String clusterName,
-            String clusterConfiguration
+            @Nullable String clusterConfiguration
     ) throws NodeStoppingException {
         return cmgMgr.initClusterAsync(metaStorageNodeNames, cmgNodeNames, clusterName, clusterConfiguration);
     }
