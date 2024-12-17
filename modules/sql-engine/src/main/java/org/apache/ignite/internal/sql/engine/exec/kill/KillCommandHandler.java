@@ -104,6 +104,8 @@ public class KillCommandHandler implements KillHandlerRegistry {
         CompletableFuture<Boolean> killFut = invokeCancel(handler, cmd.operationId());
 
         if (cmd.noWait()) {
+            // Despite the `NO WAIT` flag, we will return an error to the user if it
+            // was received immediately. For example, if an incorrect identifier was specified.
             return killFut.isCompletedExceptionally()
                     ? killFut
                     : CompletableFutures.trueCompletedFuture();
