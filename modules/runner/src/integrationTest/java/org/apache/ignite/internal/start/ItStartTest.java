@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -59,7 +60,12 @@ class ItStartTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void createCluster(TestInfo testInfo) {
-        cluster = new Cluster(testInfo, workDir);
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder()
+                .testInfo(testInfo)
+                .workDir(workDir)
+                .build();
+
+        cluster = new Cluster(clusterConfiguration);
     }
 
     @BeforeEach

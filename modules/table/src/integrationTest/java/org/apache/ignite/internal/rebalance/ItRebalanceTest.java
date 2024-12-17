@@ -32,12 +32,12 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -50,38 +50,25 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test suite for the rebalance.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItRebalanceTest extends BaseIgniteAbstractTest {
-    @WorkDirectory
-    private Path workDir;
-
-    private Cluster cluster;
-
+public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
     private final HybridClock clock = new HybridClockImpl();
 
-    @BeforeEach
-    void createCluster(TestInfo testInfo) {
-        cluster = new Cluster(testInfo, workDir);
+    @Override
+    protected int initialNodes() {
+        return 4;
     }
 
-    @AfterEach
-    void shutdownCluster() {
-        cluster.shutdown();
+    @Override
+    protected void customizeInitParameters(InitParametersBuilder builder) {
+        builder.clusterConfiguration("ignite.replication.rpcTimeout: 8000");
     }
 
     /**
@@ -91,12 +78,6 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
      */
     @Test
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
-        cluster.startAndInit(4, builder -> builder.clusterConfiguration("ignite {\n"
-                + "    \"replication\": {\n"
-                + "        \"rpcTimeout\": 8000 \n"
-                + "    }"
-                + "}"));
-
         createZone("TEST_ZONE", 1, 3);
         // Creates table with 1 partition and 3 replicas.
         createTestTable("TEST_TABLE", "TEST_ZONE");
@@ -104,26 +85,26 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
         TableViewInternal table = unwrapTableViewInternal(cluster.node(0).tables().table("TEST_TABLE"));
 
         waitForStableAssignmentsInMetastore(Set.of(
-                nodeName(0),
                 nodeName(1),
-                nodeName(2)
+                nodeName(2),
+                nodeName(3)
         ), table.tableId());
 
         BinaryRowEx row = marshalTuple(table, Tuple.create().set("id", 1).set("val", "value1"));
         BinaryRowEx key = marshalKey(table, 1, Integer.class);
 
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(nullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(nullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(2))), willBe(nullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))), willBe(nullValue()));
 
         assertThat(table.internalTable().insert(row, null), willCompleteSuccessfully());
 
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(2))), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))), willBe(notNullValue()));
 
         assertThat(
-                table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))),
+                table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))),
                 willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
 
@@ -142,17 +123,17 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
         cluster.startNode(2);
 
         waitForStableAssignmentsInMetastore(Set.of(
-                nodeName(0),
                 nodeName(1),
-                nodeName(2)
+                nodeName(2),
+                nodeName(3)
         ), table.tableId());
 
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(2))), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))), willBe(notNullValue()));
 
         assertThat(
-                table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))),
+                table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))),
                 willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
     }

@@ -39,7 +39,12 @@ public class ItClusterTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        cluster = new Cluster(testInfo, workDir);
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder()
+                .testInfo(testInfo)
+                .workDir(workDir)
+                .build();
+
+        cluster = new Cluster(clusterConfiguration);
     }
 
     @AfterEach
@@ -49,7 +54,7 @@ public class ItClusterTest extends IgniteAbstractTest {
 
     @Test
     void noRunningNodesAfterClusterIsStopped() {
-        int nodeCount = 3;
+        int nodeCount = 2;
 
         cluster.startAndInit(nodeCount);
 
@@ -62,5 +67,31 @@ public class ItClusterTest extends IgniteAbstractTest {
         runningNodes = cluster.runningNodes().collect(toList());
 
         assertThat(runningNodes, is(empty()));
+    }
+
+    @Test
+    void isAbleToStartMultipleClusters(TestInfo testInfo) {
+        cluster.startAndInit(1);
+
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder()
+                .testInfo(testInfo)
+                .workDir(workDir)
+                .clusterName("secondCluster")
+                .basePort(20000)
+                .baseHttpPort(20001)
+                .baseHttpsPort(20002)
+                .baseClientPort(20003)
+                .build();
+
+        var secondCluster = new Cluster(clusterConfiguration);
+
+        try {
+            secondCluster.startAndInit(1);
+
+            assertThat(cluster.runningNodes().collect(toList()), hasSize(1));
+            assertThat(secondCluster.runningNodes().collect(toList()), hasSize(1));
+        } finally {
+            secondCluster.shutdown();
+        }
     }
 }
