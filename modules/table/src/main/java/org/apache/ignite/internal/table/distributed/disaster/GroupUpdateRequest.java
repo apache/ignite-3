@@ -323,7 +323,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                 // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
                 isProposedPendingEqualsProposedPlanned
                         ? null
-                        : Assignments.toBytes(partAssignments, assignmentsTimestamp)
+                        : Assignments.toBytes(partAssignments, assignmentsTimestamp, true)
         );
 
         return metaStorageMgr.invoke(invokeClosure).thenApply(StatementResult::getAsInt);

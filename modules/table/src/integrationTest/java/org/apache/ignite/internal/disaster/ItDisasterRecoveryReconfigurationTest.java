@@ -732,7 +732,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         Assignments assignments13 = Assignments.of(Set.of(
                 Assignment.forPeer(node(1).name()),
                 Assignment.forPeer(node(3).name())
-        ), timestamp);
+        ), timestamp, true);
 
         assertPlannedAssignments(node0, partId, assignments13);
     }
@@ -858,7 +858,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 .map(Assignment::forPeer)
                 .collect(Collectors.toSet());
 
-        Assignments assignmentsPlanned = Assignments.of(peers, timestamp);
+        Assignments assignmentsPlanned = Assignments.of(peers, timestamp, true);
 
         assertPlannedAssignments(node0, partId, assignmentsPlanned);
 
@@ -1053,7 +1053,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 Assignment.forPeer(node(0).name()),
                 Assignment.forPeer(node(1).name()),
                 Assignment.forPeer(node(4).name())
-        ), timestamp);
+        ), timestamp, true);
 
         assertPlannedAssignments(node0, partId, assignments13);
     }
