@@ -37,13 +37,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.framework;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -102,15 +103,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.Mock;
-import org.mockito.Mock.Strictness;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.verification.VerificationMode;
 
 /**
  * Basic tests for a transaction manager.
  */
-@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
+@ExtendWith(ConfigurationExtension.class)
 public class TxManagerTest extends IgniteAbstractTest {
     private static final ClusterNode LOCAL_NODE = new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2004), null);
 
@@ -123,17 +121,14 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     private TxManager txManager;
 
-    @Mock(answer = RETURNS_DEEP_STUBS)
     private ClusterService clusterService;
 
-    @Mock(answer = RETURNS_DEEP_STUBS)
     private ReplicaService replicaService;
 
     private final HybridClock clock = new HybridClockImpl();
 
     private final ClockService clockService = spy(new TestClockService(clock));
 
-    @Mock(strictness = Strictness.LENIENT)
     private PlacementDriver placementDriver;
 
     @InjectConfiguration
@@ -145,6 +140,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @BeforeEach
     public void setup() {
+        clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
+        replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
+        placementDriver = mock(PlacementDriver.class);
+
         when(clusterService.topologyService().localMember()).thenReturn(LOCAL_NODE);
 
         when(replicaService.invoke(any(ClusterNode.class), any())).thenReturn(nullCompletedFuture());
@@ -184,6 +183,10 @@ public class TxManagerTest extends IgniteAbstractTest {
         txManager.beforeNodeStop();
 
         assertThat(txManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+
+        // TODO: IGNITE-23956 Move this line in the base class.
+        // It is necessary to do after each test to prevent OOM in the middle of the test class execution.
+        framework().clearInlineMocks();
     }
 
     @Test
@@ -214,11 +217,9 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TablePartitionId tablePartitionId = new TablePartitionId(1, 0);
 
-        ClusterNode node = mock(ClusterNode.class);
+        tx.enlist(tablePartitionId, new IgniteBiTuple<>(REMOTE_NODE, 1L));
 
-        tx.enlist(tablePartitionId, new IgniteBiTuple<>(node, 1L));
-
-        assertEquals(new IgniteBiTuple<>(node, 1L), tx.enlistedNodeAndConsistencyToken(tablePartitionId));
+        assertEquals(new IgniteBiTuple<>(REMOTE_NODE, 1L), tx.enlistedNodeAndConsistencyToken(tablePartitionId));
     }
 
     @Test

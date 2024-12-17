@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.disaster;
 
 import static java.lang.String.format;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static java.util.Map.of;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -99,6 +99,8 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.core.NodeImpl;
+import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
@@ -150,7 +152,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void setUp(TestInfo testInfo) throws Exception {
         Method testMethod = testInfo.getTestMethod().orElseThrow();
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl node0 = igniteImpl(0);
 
         zoneName = "ZONE_" + testMethod.getName().toUpperCase();
 
@@ -185,7 +187,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void testInsertFailsIfMajorityIsLost() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -232,7 +234,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void testManualRebalanceIfMajorityIsLost() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -270,7 +272,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int fixingPartId = 1;
         int anotherPartId = 0;
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, anotherPartId);
@@ -318,7 +320,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void testManualRebalanceIfPartitionIsLost() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -345,6 +347,149 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertThat(errors, is(empty()));
     }
 
+    @Test
+    @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
+    void testManualRebalanceRecovery() throws Exception {
+        int partId = 0;
+        // Disable scale down to avoid unwanted rebalance.
+        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+
+        IgniteImpl node0 = igniteImpl(0);
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, partId);
+
+        Assignments allAssignments = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(2).name())
+        );
+
+        // The partition is replicated to 3 nodes.
+        assertRealAssignments(node0, partId, 0, 1, 2);
+
+        List<Throwable> errors = insertValues(table, partId, 0);
+        assertThat(errors, is(empty()));
+
+        // Make sure node 0 has the same data as node 1 and 2.
+        assertTrue(
+                waitForCondition(() -> getRaftLogIndex(0, partId).equals(getRaftLogIndex(1, partId)), SECONDS.toMillis(20)),
+                () -> "Node 0 log index = " + getRaftLogIndex(0, partId) + " node 1 log index= " + getRaftLogIndex(1, partId)
+        );
+        assertTrue(
+                waitForCondition(() -> getRaftLogIndex(0, partId).equals(getRaftLogIndex(2, partId)), SECONDS.toMillis(20)),
+                () -> "Node 0 log index = " + getRaftLogIndex(0, partId) + " node 2 log index= " + getRaftLogIndex(2, partId)
+        );
+
+        // Stop 1 and 2, only 0 survived.
+        stopNodesInParallel(1, 2);
+
+        Assignments assignment0 = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name())
+        );
+
+        // Blocking stable switch to the first phase or reset,
+        // so that we'll have force pending assignments unexecuted.
+        blockMessage((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignment0));
+
+        // Init reset:
+        // pending = [0, force]
+        // planned = [0, 3, 4]
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                true
+        );
+
+        assertThat(updateFuture, willCompleteSuccessfully());
+
+        awaitPrimaryReplica(node0, partId);
+
+        // Since stable switch to 0 is blocked, data is stored on 0 node only.
+        assertRealAssignments(node0, partId, 0);
+
+        // And stable is in its initial state.
+        assertStableAssignments(node0, partId, allAssignments);
+
+        // Insert new data on the node 0.
+        errors = insertValues(table, partId, 10);
+        assertThat(errors, is(empty()));
+
+        // Start nodes 1 and 2 back, but they should not start their replicas.
+        startNode(1);
+        startNode(2);
+
+        // Make sure recovery has finished.
+        assertThat(igniteImpl(1).distributedTableManager().recoveryFuture(), willCompleteSuccessfully());
+        assertThat(igniteImpl(2).distributedTableManager().recoveryFuture(), willCompleteSuccessfully());
+
+        // Make sure 1 and 2 did not start.
+        assertRealAssignments(node0, partId, 0);
+    }
+
+    @Test
+    @ZoneParams(nodes = 4, replicas = 3, partitions = 1)
+    void testManualRebalanceRecoveryNoPending() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = igniteImpl(0);
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, partId);
+
+        Assignments allAssignments = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(3).name())
+        );
+
+        // The partition is replicated to 3 nodes.
+        assertRealAssignments(node0, partId, 0, 1, 3);
+
+        List<Throwable> errors = insertValues(table, partId, 0);
+        assertThat(errors, is(empty()));
+
+        // Make sure node 0 has the same data as node 1 and 2.
+        assertTrue(
+                waitForCondition(() -> getRaftLogIndex(0, partId).equals(getRaftLogIndex(1, partId)), SECONDS.toMillis(20)),
+                () -> "Node 0 log index = " + getRaftLogIndex(0, partId) + " node 1 log index= " + getRaftLogIndex(1, partId)
+        );
+        assertTrue(
+                waitForCondition(() -> getRaftLogIndex(0, partId).equals(getRaftLogIndex(3, partId)), SECONDS.toMillis(20)),
+                () -> "Node 0 log index = " + getRaftLogIndex(0, partId) + " node 2 log index= " + getRaftLogIndex(3, partId)
+        );
+
+        Assignments assignmentPending = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(2).name())
+        );
+
+        // Blocking stable switch to the first phase or reset,
+        // so that we'll have force pending assignments unexecuted.
+        blockMessage((nodeName, msg) -> stableKeySwitchMessage(msg, partId, assignmentPending));
+
+        // Stop 3. Nodes 0 and 1 survived.
+        stopNode(3);
+
+        waitForScale(node0, 3);
+
+        assertRealAssignments(node0, partId, 0, 1, 2);
+
+        assertPendingAssignments(node0, partId, assignmentPending);
+        assertStableAssignments(node0, partId, allAssignments);
+
+        // On start we check `pending.contains(node) || (stable.contains(node) && !pending.isForce())` condition.
+        // The node is in stable, not in pending and pending is not forced => start it.
+        startNode(3);
+
+        assertRealAssignments(node0, partId, 0, 1, 2, 3);
+    }
+
     /**
      * Tests a scenario where all stable nodes are lost, yet we have data on one of pending nodes and perform reset partition operation. In
      * this case we should use that pending node as a source of data for recovery.
@@ -363,7 +508,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     public void testIncompleteRebalanceAfterResetPartitions() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl node0 = igniteImpl(0);
 
         int catalogVersion = node0.catalogManager().latestCatalogVersion();
         long timestamp = node0.catalogManager().catalog(catalogVersion).time();
@@ -379,7 +524,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Second snapshot causes log truncation.
         triggerRaftSnapshot(1, partId);
 
-        unwrapIgniteImpl(node(1)).dropMessages((nodeName, msg) -> {
+        igniteImpl(1).dropMessages((nodeName, msg) -> {
             Ignite node = nullableNode(3);
 
             return node != null && node.name().equals(nodeName) && msg instanceof SnapshotMvDataResponse;
@@ -454,7 +599,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void testAutomaticRebalanceIfMajorityIsLost() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
@@ -495,9 +640,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void testAutomaticRebalanceIfPartitionIsLost() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl node0 = igniteImpl(0);
 
-        IgniteImpl node1 = unwrapIgniteImpl(cluster.node(1));
+        IgniteImpl node1 = igniteImpl(1);
 
         executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
 
@@ -540,7 +685,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     public void testIncompleteRebalanceBeforeAutomaticResetPartitions() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl node0 = igniteImpl(0);
 
         int catalogVersion = node0.catalogManager().latestCatalogVersion();
         long timestamp = node0.catalogManager().catalog(catalogVersion).time();
@@ -610,7 +755,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void testThoPhaseResetMaxLogIndex() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl node0 = igniteImpl(0);
         int catalogVersion = node0.catalogManager().latestCatalogVersion();
         long timestamp = node0.catalogManager().catalog(catalogVersion).time();
         Table table = node0.tables().table(TABLE_NAME);
@@ -748,7 +893,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void testThoPhaseResetEqualLogIndex() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl node0 = igniteImpl(0);
         int catalogVersion = node0.catalogManager().latestCatalogVersion();
         long timestamp = node0.catalogManager().catalog(catalogVersion).time();
         Table table = node0.tables().table(TABLE_NAME);
@@ -870,7 +1015,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void testTwoPhaseResetOnEmptyNodes() throws Exception {
         int partId = 0;
 
-        IgniteImpl node0 = unwrapIgniteImpl(cluster.node(0));
+        IgniteImpl node0 = igniteImpl(0);
         int catalogVersion = node0.catalogManager().latestCatalogVersion();
         long timestamp = node0.catalogManager().catalog(catalogVersion).time();
 
@@ -1007,7 +1152,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private String findLeader(int nodeIdx, int partId) {
-        IgniteImpl node = unwrapIgniteImpl(node(nodeIdx));
+        IgniteImpl node = igniteImpl(nodeIdx);
 
         var raftNodeId = new RaftNodeId(new TablePartitionId(tableId, partId), new Peer(node.name()));
         var jraftServer = (JraftServerImpl) node.raftManager().server();
@@ -1017,9 +1162,24 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         return raftGroupService.getRaftNode().getLeaderId().getConsistentId();
     }
 
+    private NodeImpl getRaftNode(int nodeIdx, int partId) {
+        IgniteImpl node = igniteImpl(nodeIdx);
+
+        var raftNodeId = new RaftNodeId(new TablePartitionId(tableId, partId), new Peer(node.name()));
+        var jraftServer = (JraftServerImpl) node.raftManager().server();
+
+        RaftGroupService raftGroupService = jraftServer.raftGroupService(raftNodeId);
+        assertNotNull(raftGroupService);
+
+        return (NodeImpl) raftGroupService.getRaftNode();
+    }
+
+    private LogId getRaftLogIndex(int nodeIdx, int partId) {
+        return getRaftNode(nodeIdx, partId).lastLogIndexAndTerm();
+    }
+
     private void triggerRaftSnapshot(int nodeIdx, int partId) throws InterruptedException, ExecutionException {
-        //noinspection resource
-        IgniteImpl node = unwrapIgniteImpl(node(nodeIdx));
+        IgniteImpl node = igniteImpl(nodeIdx);
 
         var raftNodeId = new RaftNodeId(new TablePartitionId(tableId, partId), new Peer(node.name()));
         var jraftServer = (JraftServerImpl) node.raftManager().server();
@@ -1157,6 +1317,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertThat(partitionStatesFut, willCompleteSuccessfully());
 
         LocalPartitionStateByNode partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
+
+        if (partitionStates == null) {
+            return emptyList();
+        }
 
         return partitionStates.keySet()
                 .stream()

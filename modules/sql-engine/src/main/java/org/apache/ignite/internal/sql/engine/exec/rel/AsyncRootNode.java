@@ -229,8 +229,6 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
             return;
         }
 
-        taskScheduled.set(false);
-
         while (!buff.isEmpty() && currentReq.buff.size() < currentReq.requested) {
             currentReq.buff.add(buff.remove());
         }
@@ -255,11 +253,17 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
             currentReq.fut.complete(new BatchedResult<>(currentReq.buff, hasMore == HasMore.YES));
         }
 
-        if (waiting == 0 && buff.isEmpty()) {
-            //noinspection NestedAssignment
-            source.request(waiting = IN_BUFFER_SIZE);
-        } else if (hasMore == HasMore.NO) {
-            closeAsync();
+        if (buff.isEmpty()) {
+            if (waiting == 0) {
+                //noinspection NestedAssignment
+                source.request(waiting = IN_BUFFER_SIZE);
+            } else if (waiting == -1) {
+                assert hasMore == HasMore.NO : hasMore;
+
+                closeAsync();
+            }
+        } else if (!pendingRequests.isEmpty()) {
+            scheduleTask();
         }
     }
 
@@ -268,7 +272,11 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      */
     private void scheduleTask() {
         if (!pendingRequests.isEmpty() && taskScheduled.compareAndSet(false, true)) {
-            source.context().execute(this::flush, source::onError);
+            source.context().execute(() -> {
+                taskScheduled.set(false);
+
+                flush();
+            }, source::onError);
         }
     }
 

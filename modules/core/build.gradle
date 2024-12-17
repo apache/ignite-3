@@ -25,6 +25,7 @@ description = 'ignite-core'
 dependencies {
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
+    implementation libs.caffeine
     implementation project(':ignite-api')
 
     testAnnotationProcessor libs.auto.service

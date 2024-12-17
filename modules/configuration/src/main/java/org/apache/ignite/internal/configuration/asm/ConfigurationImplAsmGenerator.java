@@ -41,6 +41,7 @@ import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.fieldName;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.getThisFieldCode;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.internalName;
+import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.publicName;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.setThisFieldCode;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.throwException;
 import static org.apache.ignite.internal.configuration.asm.DirectProxyAsmGenerator.newDirectProxyLambda;
@@ -364,8 +365,9 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
 
         int newIdx = 0;
         for (Field schemaField :
-                concat(schemaFields, publicExtensionFields, internalExtensionFields, polymorphicFields, internalIdFieldAsList)) {
-            String fieldName = schemaField.getName();
+                concat(schemaFields, publicExtensionFields, internalExtensionFields, polymorphicFields, internalIdFieldAsList)
+        ) {
+            String publicName = publicName(schemaField);
 
             BytecodeExpression newValue;
 
@@ -379,7 +381,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
                         DynamicProperty.class,
                         thisKeysVar,
                         constantString(isInjectedName(schemaField) ? InnerNode.INJECTED_NAME
-                                : isInternalId(schemaField) ? InnerNode.INTERNAL_ID : schemaField.getName()),
+                                : isInternalId(schemaField) ? InnerNode.INTERNAL_ID : publicName),
                         rootKeyVar,
                         changerVar,
                         listenOnlyVar,
@@ -395,7 +397,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
                     newValue = newInstance(
                             cfgImplParameterizedType,
                             thisKeysVar,
-                            constantString(fieldName),
+                            constantString(publicName),
                             rootKeyVar,
                             changerVar,
                             listenOnlyVar
@@ -422,7 +424,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
                     newValue = newInstance(
                             NamedListConfiguration.class,
                             thisKeysVar,
-                            constantString(fieldName),
+                            constantString(publicName),
                             rootKeyVar,
                             changerVar,
                             listenOnlyVar,

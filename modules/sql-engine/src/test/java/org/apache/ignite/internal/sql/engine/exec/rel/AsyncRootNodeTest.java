@@ -42,6 +42,7 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableDataSource;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
@@ -91,6 +92,8 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
         CompletableFuture<?> prefetchFuture = holder.get();
         assertNotNull(prefetchFuture);
         assertFalse(prefetchFuture.isDone());
+
+        await(rootNode.closeAsync());
     }
 
     /**
@@ -147,6 +150,39 @@ class AsyncRootNodeTest extends AbstractExecutionTest<RowWrapper> {
 
         BatchedResult<?> batch = await(result);
         assertFalse(batch.hasMore());
+
+        await(rootNode.closeAsync());
+    }
+
+    @Test
+    void ensureRootNodeProperlyHandlesConcurrentRequest() {
+        var scanNodeLatch = new CountDownLatch(1);
+        ExecutionContext<RowWrapper> context = executionContext();
+
+        RowFactory<RowWrapper> factory = rowHandler().factory(SINGLE_INT_ROW_SCHEMA);
+        ScanNode<RowWrapper> scanNode = new ScanNode<>(context, () -> {
+            try {
+                scanNodeLatch.await();
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+
+            return IntStream.range(0, 76).mapToObj(factory::create).iterator();
+        });
+
+        AsyncRootNode<RowWrapper, RowWrapper> rootNode = new AsyncRootNode<>(scanNode, Function.identity());
+        scanNode.onRegister(rootNode);
+
+        // trigger prefetch
+        context.submit(rootNode::startPrefetch, err -> {});
+
+        CompletableFuture<?> resultFuture1 = rootNode.requestNextAsync(50);
+        CompletableFuture<?> resultFuture2 = rootNode.requestNextAsync(50);
+
+        scanNodeLatch.countDown();
+
+        await(resultFuture1);
+        await(resultFuture2);
     }
 
     @Override

@@ -305,9 +305,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 : CNLJ_NOT_SUPPORTED_JOIN_ASSERTION_MSG;
 
         RowFactory<RowT> rightRowFactory = ctx.rowHandler().factory(rightRowSchema);
+        RowFactory<RowT> outputRowFactory = ctx.rowHandler().factory(rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType)));
 
         Node<RowT> node = new CorrelatedNestedLoopJoinNode<>(ctx, cond, rel.getVariablesSet(),
-                rel.getJoinType(), rightRowFactory);
+                rel.getJoinType(), rightRowFactory, outputRowFactory);
 
         Node<RowT> leftInput = visit(rel.getLeft());
         Node<RowT> rightInput = visit(rel.getRight());

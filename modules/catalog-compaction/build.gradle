@@ -28,6 +28,7 @@ dependencies {
     implementation project(':ignite-partition-distribution')
     implementation project(':ignite-catalog')
     implementation project(':ignite-cluster-management')
+    implementation project(':ignite-distribution-zones')
     implementation project(':ignite-core')
     implementation project(':ignite-network-api')
     implementation project(':ignite-placement-driver-api')
@@ -50,6 +51,7 @@ dependencies {
     testImplementation libs.hamcrest.core
 
     integrationTestImplementation libs.fastutil.core
+    integrationTestImplementation libs.awaitility
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-cluster-management')

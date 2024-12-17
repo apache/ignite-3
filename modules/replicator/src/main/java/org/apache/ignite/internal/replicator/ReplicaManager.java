@@ -75,6 +75,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -145,13 +146,14 @@ import org.jetbrains.annotations.VisibleForTesting;
 public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, LocalReplicaEventParameters> implements IgniteComponent {
     private static final long STOP_LEASE_PROLONGATION_RETRIES_TIMEOUT_MS = 60_000;
 
-    /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
     /** Replicator network message factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+
+    private final IgniteThrottledLogger throttledLog;
 
     /** Busy lock to stop synchronously. */
     private final IgniteStripedReadWriteLock busyLock = new IgniteStripedReadWriteLock();
@@ -380,6 +382,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "replica-manager", LOG, STORAGE_READ, STORAGE_WRITE)
         );
+
+        throttledLog = Loggers.toThrottledLogger(LOG, executor);
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
@@ -473,9 +477,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     msg = prepareReplicaResponse(sendTimestamp, res);
                 } else {
                     if (indicatesUnexpectedProblem(ex)) {
-                        LOG.warn("Failed to process replica request [request={}].", ex, request);
+                        throttledLog.warn("Failed to process replica request [request={}].", ex, request);
                     } else {
-                        LOG.debug("Failed to process replica request [request={}].", ex, request);
+                        throttledLog.debug("Failed to process replica request [request={}].", ex, request);
                     }
 
                     msg = prepareReplicaErrorResponse(sendTimestamp, ex);
@@ -1367,8 +1371,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return;
             }
 
-            assert replicaFuture.isDone() : "Illegal state: replica future exists and elected as primary, but the future isn't completed"
-                    + " [replicationGroupId=" + replicaFuture + "].";
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-23981
+            // assert replicaFuture.isDone() : "Illegal state: replica future exists and elected as primary, but the future isn't completed"
+            //         + " [replicationGroupId=" + replicaFuture + "].";
 
             replicaFuture.thenCompose(inBusyLock(busyLock, () -> (Function<Replica, CompletableFuture<Void>>) electedPrimaryReplica -> {
                 onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(
@@ -1398,8 +1403,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return;
             }
 
-            assert replicaFuture.isDone() : "Illegal state: replica future exists and was elected as primary, but the future isn't"
-                    + " completed [replicationGroupId=" + replicaFuture + "].";
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-23981
+            // assert replicaFuture.isDone() : "Illegal state: replica future exists and was elected as primary, but the future isn't"
+            //         + " completed [replicationGroupId=" + replicaFuture + "].";
 
             replicaFuture.thenAccept(inBusyLock(busyLock, () -> (Consumer<Replica>) expiredPrimaryReplica -> expiredPrimaryReplica
                     .raftClient()

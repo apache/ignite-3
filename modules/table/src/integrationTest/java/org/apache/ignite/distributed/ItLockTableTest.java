@@ -145,7 +145,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(
-                                HeapLockManager.SLOTS,
+                                131072,
                                 CACHE_SIZE),
                         clockService,
                         generator,
