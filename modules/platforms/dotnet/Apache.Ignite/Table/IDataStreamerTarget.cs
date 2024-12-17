@@ -68,6 +68,32 @@ public interface IDataStreamerTarget<T>
     }
 
     /// <summary>
+    /// Streams data into the underlying table.
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <param name="options">Streamer options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    Task StreamDataAsync(
+        IEnumerable<DataStreamerItem<T>> data,
+        DataStreamerOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        StreamDataAsync(data.ToAsyncEnumerable(), options, cancellationToken);
+
+    /// <summary>
+    /// Streams data into the underlying table.
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <param name="options">Streamer options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    Task StreamDataAsync(
+        IEnumerable<T> data,
+        DataStreamerOptions? options = null,
+        CancellationToken cancellationToken = default) =>
+        StreamDataAsync(data.ToAsyncEnumerable(), options, cancellationToken);
+
+    /// <summary>
     /// Streams data into the underlying table with receiver that returns results.
     /// </summary>
     /// <param name="data">Data.</param>
