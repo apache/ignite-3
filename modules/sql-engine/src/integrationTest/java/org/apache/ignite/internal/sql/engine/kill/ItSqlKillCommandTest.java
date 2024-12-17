@@ -42,6 +42,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobDescriptor;
@@ -102,15 +103,20 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         // TODO https://issues.apache.org/jira/browse/IGNITE-23488 Remove assumption.
         assumeTrue(type != CancellableOperationType.TRANSACTION, type + " not implemented yet");
 
-        SqlException err = assertThrowsSqlException(
-                SqlException.class,
-                Sql.RUNTIME_ERR,
-                format("Invalid operation ID format [operationId=123, type={}]", type),
-                () -> await(igniteSql().executeAsync(null, format("KILL {} '123'", type)))
-        );
+        Consumer<String> exceptionChecker = query -> {
+            SqlException err = assertThrowsSqlException(
+                    SqlException.class,
+                    Sql.RUNTIME_ERR,
+                    format("Invalid operation ID format [operationId=123, type={}]", type),
+                    () -> await(igniteSql().executeAsync(null, format("KILL  {} '123' NO WAIT", type)))
+            );
 
-        assertThat(err.getCause(), instanceOf(IllegalArgumentException.class));
-        assertThat(err.getCause().getMessage(), equalTo("Invalid UUID string: 123"));
+            assertThat(err.getCause(), instanceOf(IllegalArgumentException.class));
+            assertThat(err.getCause().getMessage(), equalTo("Invalid UUID string: 123"));
+        };
+
+        exceptionChecker.accept(format("KILL {} '123'", type));
+        exceptionChecker.accept(format("KILL {} '123' NO WAIT", type));
     }
 
     @ParameterizedTest
@@ -120,6 +126,9 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         assumeTrue(type != CancellableOperationType.TRANSACTION, type + " not implemented yet");
 
         assertThat(executeKill(CLUSTER.aliveNode(), type, UUID.randomUUID(), false), is(false));
+
+        // NO WAIT should never return false.
+        assertThat(executeKill(CLUSTER.aliveNode(), type, UUID.randomUUID(), true), is(true));
     }
 
     @Test
