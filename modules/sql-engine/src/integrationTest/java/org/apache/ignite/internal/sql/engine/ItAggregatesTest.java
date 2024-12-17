@@ -32,6 +32,7 @@ import java.util.Random;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -627,7 +628,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         BigDecimal avg = numbers.stream()
                 .reduce(new BigDecimal("0.00"), BigDecimal::add)
-                .divide(BigDecimal.valueOf(numbers.size()), 16, RoundingMode.HALF_UP);
+                .divide(BigDecimal.valueOf(numbers.size()), 16, IgniteTypeSystem.INSTANCE.roundingMode());
 
         for (String[] rules : makePermutations(DISABLED_RULES)) {
             assertQuery("SELECT AVG(int_col), AVG(dec10_2_col) FROM numbers")
