@@ -236,6 +236,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(TABLE_NAME);
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
 
         awaitPrimaryReplica(node0, partId);
 
@@ -259,6 +261,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
+
+        Assignments assignmentsStable = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(2).name())
+        ), timestamp);
+
+        assertStableAssignments(node0, partId, assignmentsStable);
     }
 
     /**
@@ -543,6 +553,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         blockRebalanceStableSwitch(partId, assignment013);
 
+        // Reset produces
+        // pending = [1, force]
+        // planned = [0, 1, 3]
         CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true);
         assertThat(resetFuture, willCompleteSuccessfully());
 
@@ -556,6 +569,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         LocalPartitionStateByNode localPartitionStateByNode = localStates.get(new TablePartitionId(tableId, partId));
 
         assertEquals(LocalPartitionStateEnum.INSTALLING_SNAPSHOT, localPartitionStateByNode.values().iterator().next().state);
+
+        Assignments assignmentsPending = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(3).name())
+        ), timestamp, true);
+
+        assertPendingAssignments(node0, partId, assignmentsPending);
 
         stopNode(1);
         waitForScale(node0, 3);
@@ -992,7 +1013,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 .map(Assignment::forPeer)
                 .collect(Collectors.toSet());
 
-        Assignments assignmentsPlanned = Assignments.of(peers, timestamp);
+        Assignments assignmentsPlanned = Assignments.of(peers, timestamp, true);
 
         assertPlannedAssignments(node0, partId, assignmentsPlanned);
 
