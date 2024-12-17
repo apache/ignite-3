@@ -247,7 +247,7 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
         }
     }
 
-    private static class InfiniteJob implements ComputeJob<Void, Void> {
+    public static class InfiniteJob implements ComputeJob<Void, Void> {
         @Override
         public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, @Nullable Void arg) {
             while (true) {

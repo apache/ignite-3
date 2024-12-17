@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.kill;
 
 import static org.apache.ignite.compute.JobStatus.CANCELED;
-import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType.COMPUTE;
@@ -44,15 +43,14 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.ItComputeSystemViewTest.InfiniteJob;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
@@ -64,7 +62,6 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.awaitility.Awaitility;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -141,8 +138,6 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
         JobExecution<Void> execution = node.compute().submit(JobTarget.node(clusterNode(node)), job, null);
 
-        Awaitility.await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
-
         UUID jobId = await(execution.idAsync());
         assertThat(jobId, not(nullValue()));
         assertThat(executeKillJob(node, jobId), is(true));
@@ -199,8 +194,6 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
             JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
             JobExecution<Void> execution = local.compute().submit(JobTarget.node(clusterNode(local)), job, null);
 
-            Awaitility.await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
-
             UUID jobId = await(execution.idAsync());
             assertThat(jobId, not(nullValue()));
             assertThat(executeKillJob(remote, jobId), is(true));
@@ -215,8 +208,6 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         {
             JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
             JobExecution<Void> execution = local.compute().submit(JobTarget.node(clusterNode(local)), job, null);
-
-            Awaitility.await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
             UUID jobId = await(execution.idAsync());
             assertThat(jobId, not(nullValue()));
@@ -250,8 +241,8 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         return executeKill(node, QUERY, queryId, false);
     }
 
-    private static boolean executeKillJob(Ignite node, UUID jonId) {
-        return executeKill(node, COMPUTE, jonId, false);
+    private static boolean executeKillJob(Ignite node, UUID jobId) {
+        return executeKill(node, COMPUTE, jobId, false);
     }
 
     private static boolean executeKill(Ignite node, CancellableOperationType type, UUID queryId, boolean noWait) {
@@ -282,22 +273,5 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         );
 
         return await(fut);
-    }
-
-    private static class InfiniteJob implements ComputeJob<Void, Void> {
-        @Override
-        public @Nullable CompletableFuture<Void> executeAsync(JobExecutionContext context, @Nullable Void arg) {
-            while (!Thread.currentThread().isInterrupted()) {
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    // No op, just return from loop
-                    break;
-                }
-            }
-
-            return null;
-        }
     }
 }
