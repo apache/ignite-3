@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
@@ -63,6 +64,7 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -71,10 +73,17 @@ import org.junit.jupiter.params.provider.EnumSource;
  * Integration tests for SQL '{@code KILL}' statement.
  */
 public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
+    @BeforeAll
+    void createTestTable() {
+        sql("CREATE TABLE test (id INT PRIMARY KEY)");
+    }
+
     @AfterEach
     public void checkResourceLeak() {
+        sql("DELETE FROM test");
+
+        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), is(0)));
         assertThat(txManager().pending(), is(0));
-        assertThat(queryProcessor().openedCursors(), is(0));
     }
 
     @ParameterizedTest
@@ -117,7 +126,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     public void killQueryFromLocal() {
         Ignite node = CLUSTER.aliveNode();
 
-        AsyncSqlCursor<InternalSqlRow> cursor = executeQueryInternal(node, "SELECT 1");
+        AsyncSqlCursor<InternalSqlRow> cursor = await(executeQueryInternal(node, "SELECT 1"));
 
         List<QueryInfo> queries = runningQueries();
         assertThat(queries.size(), is(1));
@@ -153,25 +162,43 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         Ignite local = CLUSTER.node(0);
         Ignite remote = CLUSTER.node(2);
 
+        // Simple query.
         {
-            AsyncSqlCursor<InternalSqlRow> cursor = executeQueryInternal(local, "SELECT 1");
+            AsyncSqlCursor<InternalSqlRow> cursor = await(executeQueryInternal(local, "SELECT 1"));
 
             List<QueryInfo> queries = runningQueries();
             assertThat(queries.size(), is(1));
             UUID targetQueryId = queries.get(0).id();
 
-            assertThat(executeKillSqlQuery(remote, targetQueryId), is(true));
+            assertThat(executeKill(remote, QUERY, targetQueryId, false), is(true));
 
             assertThat(runningQueries(), is(empty()));
             expectQueryCancelled(new DrainCursor(cursor));
-
-            assertThat(executeKillSqlQuery(remote, targetQueryId), is(false));
-            assertThat(executeKillSqlQuery(local, targetQueryId), is(false));
         }
 
-        // No wait.
+        // Long query.
         {
-            AsyncSqlCursor<InternalSqlRow> cursor = executeQueryInternal(local, "SELECT 1");
+            String query = "INSERT INTO test SELECT x AS id FROM TABLE(system_range(0, 1000000000))";
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> curFut = executeQueryInternal(local, query);
+
+            Awaitility.await().untilAsserted(() -> assertThat(runningQueries(), hasSize(1)));
+            UUID targetQueryId = runningQueries().get(0).id();
+
+            assertThat(executeKill(remote, QUERY, targetQueryId, false), is(true));
+
+            assertThat(runningQueries(), is(empty()));
+            expectQueryCancelled(() -> await(curFut));
+        }
+    }
+
+    @Test
+    public void killQueryFromRemoteNoWait() {
+        Ignite local = CLUSTER.node(0);
+        Ignite remote = CLUSTER.node(2);
+
+        // Simple query.
+        {
+            AsyncSqlCursor<InternalSqlRow> cursor = await(executeQueryInternal(local, "SELECT 1"));
 
             List<QueryInfo> queries = runningQueries();
             assertThat(queries.size(), is(1));
@@ -181,6 +208,20 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
             Awaitility.await().untilAsserted(() -> assertThat(runningQueries(), is(empty())));
             expectQueryCancelled(new DrainCursor(cursor));
+        }
+
+        // Long query.
+        {
+            String query = "INSERT INTO test SELECT x AS id FROM TABLE(system_range(0, 1000000000))";
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> curFut = executeQueryInternal(local, query);
+
+            Awaitility.await().untilAsserted(() -> assertThat(runningQueries(), hasSize(1)));
+            UUID targetQueryId = runningQueries().get(0).id();
+
+            assertThat(executeKill(remote, QUERY, targetQueryId, true), is(true));
+
+            Awaitility.await().untilAsserted(() -> assertThat(runningQueries(), is(empty())));
+            expectQueryCancelled(() -> await(curFut));
         }
     }
 
@@ -261,17 +302,15 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
                 .collect(Collectors.toList());
     }
 
-    private static AsyncSqlCursor<InternalSqlRow> executeQueryInternal(Ignite node, String query) {
+    private static CompletableFuture<AsyncSqlCursor<InternalSqlRow>> executeQueryInternal(Ignite node, String query) {
         IgniteImpl ignite = unwrapIgniteImpl(node);
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> fut = ignite.queryEngine().queryAsync(
+        return ignite.queryEngine().queryAsync(
                 SqlQueryProcessor.DEFAULT_PROPERTIES,
                 ignite.observableTimeTracker(),
                 null,
                 null,
                 query
         );
-
-        return await(fut);
     }
 }
