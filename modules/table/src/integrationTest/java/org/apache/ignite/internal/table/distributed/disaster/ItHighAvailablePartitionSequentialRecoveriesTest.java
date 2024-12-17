@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 
 /** Test multiple HA zone partitions recovery in a row. */
 public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHighAvailablePartitionsRecoveryTest {
@@ -32,7 +32,7 @@ public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHi
         return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
-    @Test
+    @RepeatedTest(20)
     void testTwoSequentialResets() throws InterruptedException {
         createHaZoneWithTable();
 

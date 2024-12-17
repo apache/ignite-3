@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.RepeatedTest;
 
 /** Test that only one actor write the {@link DisasterRecoveryRequest} to the metastore. */
 public class ItHighAvailablePartitionsRecoveryNoStaleRecoveriesTest extends AbstractHighAvailablePartitionsRecoveryTest {
@@ -36,7 +36,7 @@ public class ItHighAvailablePartitionsRecoveryNoStaleRecoveriesTest extends Abst
         return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
-    @Test
+    @RepeatedTest(20)
     void testHaRecoveryWhenMajorityLossNoRedundantResetRequests() throws InterruptedException {
         createHaZoneWithTable();
 
