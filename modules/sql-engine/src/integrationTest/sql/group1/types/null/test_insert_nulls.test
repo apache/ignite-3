@@ -1,0 +1,124 @@
+# name: test/sql/types/null/test_insert_nulls.test
+# description: Test ability to insert NULL and non null values in multituple INSERT statement for the same type
+# group: [null]
+
+# test for numeric types
+for type in [TINYINT, SMALLINT, INT, BIGINT, DECIMAL, FLOAT, DOUBLE]
+
+statement ok
+CREATE TABLE tbl_${type}(col ${type})
+
+statement ok
+INSERT INTO tbl_${type} VALUES (NULL), (1), (NULL), (2), (NULL)
+
+query I rowsort
+SELECT * FROM tbl_${type}
+----
+1
+2
+NULL
+NULL
+NULL
+
+endfor
+
+# test for date and timestamp types
+for type in [DATE, TIMESTAMP]
+
+statement ok
+CREATE TABLE tbl_${type}(col ${type})
+
+statement ok
+INSERT INTO tbl_${type} VALUES (NULL), ('2002-01-01'::${type}), (NULL), ('2002-02-02'::${type}), (NULL)
+
+query I rowsort
+SELECT col::DATE FROM tbl_${type}
+----
+2002-01-01
+2002-02-02
+NULL
+NULL
+NULL
+
+endfor
+
+# test for time
+statement ok
+CREATE TABLE tbl_time(col TIME)
+
+statement ok
+INSERT INTO tbl_time VALUES (NULL), ('11:22:33'::TIME), (NULL), ('00:11:22'::TIME), (NULL)
+
+query I rowsort
+SELECT * FROM tbl_time
+----
+11:22:33
+00:11:22
+NULL
+NULL
+NULL
+
+# test for boolean
+statement ok
+CREATE TABLE tbl_bool(col BOOLEAN)
+
+statement ok
+INSERT INTO tbl_bool VALUES (NULL), (true), (NULL), (false), (NULL)
+
+query I rowsort
+SELECT * FROM tbl_bool
+----
+true
+false
+NULL
+NULL
+NULL
+
+
+# test for UUID
+statement ok
+CREATE TABLE tbl_uuid(col UUID)
+
+statement ok
+INSERT INTO tbl_uuid VALUES (NULL), ('a5fd78a5-1cf8-449a-96dc-760fecf757f1'::UUID), (NULL), ('c4fa6bf9-29bb-4c54-9814-8e430a3efa75'::UUID), (NULL)
+
+query I rowsort
+SELECT * FROM tbl_uuid
+----
+a5fd78a5-1cf8-449a-96dc-760fecf757f1
+c4fa6bf9-29bb-4c54-9814-8e430a3efa75
+NULL
+NULL
+NULL
+
+# test for VARBINARY
+statement ok
+CREATE TABLE tbl_varbinary(col VARBINARY)
+
+statement ok
+INSERT INTO tbl_varbinary VALUES (NULL), (x'aa'), (NULL), (x'bb'), (NULL)
+
+query I rowsort
+SELECT * FROM tbl_varbinary
+----
+aa
+bb
+NULL
+NULL
+NULL
+
+# test for VARCHAR
+statement ok
+CREATE TABLE tbl_varchar(col VARCHAR)
+
+statement ok
+INSERT INTO tbl_varchar VALUES (NULL), ('a'), (NULL), ('b'), (NULL)
+
+query I rowsort
+SELECT * FROM tbl_varchar
+----
+a
+b
+NULL
+NULL
+NULL
