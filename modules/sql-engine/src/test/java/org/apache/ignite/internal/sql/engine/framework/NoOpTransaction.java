@@ -177,6 +177,11 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
+    public boolean isFinishingOrFinished() {
+        return commitFut.isDone() || rollbackFut.isDone();
+    }
+
+    @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
         return nodeAndConsistencyToken;
