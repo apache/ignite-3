@@ -146,7 +146,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
-        return expirationFutureByGroup.getOrDefault(grpId, nullCompletedFuture());
+        return nullCompletedFuture();
     }
 
     /**
