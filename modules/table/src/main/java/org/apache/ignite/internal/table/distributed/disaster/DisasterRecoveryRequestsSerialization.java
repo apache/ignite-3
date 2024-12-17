@@ -30,8 +30,9 @@ class DisasterRecoveryRequestsSerialization {
     static void writeVarIntMap(Map<Integer, Set<Integer>> partitionIds, IgniteDataOutput out) throws IOException {
         out.writeVarInt(partitionIds.size());
 
-        for (Map.Entry<Integer, Set<Integer>> tablePartitions: partitionIds.entrySet()) {
+        for (Map.Entry<Integer, Set<Integer>> tablePartitions : partitionIds.entrySet()) {
             out.writeVarInt(tablePartitions.getKey());
+
             writeVarIntSet(tablePartitions.getValue(), out);
         }
     }
@@ -48,9 +49,12 @@ class DisasterRecoveryRequestsSerialization {
         int length = in.readVarIntAsInt();
 
         Map<Integer, Set<Integer>> map = new HashMap<>(IgniteUtils.capacity(length));
+
         for (int i = 0; i < length; i++) {
             int tableId = in.readVarIntAsInt();
+
             Set<Integer> partIds = readVarIntSet(in);
+
             map.put(tableId, partIds);
         }
 

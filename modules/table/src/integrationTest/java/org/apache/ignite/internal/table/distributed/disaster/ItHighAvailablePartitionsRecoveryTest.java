@@ -69,7 +69,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
         String table22 = "TABLE22";
 
         createHaZoneWithTable(zone1, table1);
-        createHaZoneWithTable(zone2, List.of(table21, table22));
+        createHaZoneWithTables(zone2, List.of(table21, table22));
 
         IgniteImpl node = igniteImpl(0);
 

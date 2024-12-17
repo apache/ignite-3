@@ -319,6 +319,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
      * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
+     * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
      * @return Future that completes when partitions are reset.
      */
     public CompletableFuture<Void> resetAllPartitions(String zoneName, String tableName, boolean manualUpdate, long triggerRevision) {
@@ -352,7 +353,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
-     * @param triggerRevision Revision of the event, which produce this reset.
+     * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
      * @return Future that completes when partitions are reset.
      */
     private CompletableFuture<Void> resetPartitions(
@@ -371,7 +372,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
      * @param partitionIds Map of per table partitions' sets to reset. If empty, reset all zone's partitions.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
-     * @param triggerRevision Revision of the event, which produce this reset.
+     * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
      * @return Future that completes when partitions are reset.
      */
     private CompletableFuture<Void> resetPartitions(
@@ -612,6 +613,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * Creates new operation future, associated with the request, and writes it into meta-storage.
      *
      * @param request Request.
+     * @param revision Revision of event, which produce this recovery request.
      * @return Operation future.
      */
     private CompletableFuture<Void> processNewRequest(DisasterRecoveryRequest request, long revision) {
@@ -645,7 +647,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             byte[] recoveryTriggerValue,
             UUID operationId
     ) {
-        ByteArray zoneTriggerRevisionKey = zoneTriggerRevisionKey(zoneId);
+        ByteArray zoneTriggerRevisionKey = zoneRecoveryTriggerRevisionKey(zoneId);
 
         metaStorageManager.invoke(
                         notExists(zoneTriggerRevisionKey).or(value(zoneTriggerRevisionKey).lt(revisionBytes)),
@@ -979,7 +981,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return zoneDescriptor;
     }
 
-    private static ByteArray zoneTriggerRevisionKey(int zoneId) {
+    private static ByteArray zoneRecoveryTriggerRevisionKey(int zoneId) {
         return new ByteArray(RECOVERY_TRIGGER_REVISION_KEY_PREFIX + "." + zoneId);
     }
 

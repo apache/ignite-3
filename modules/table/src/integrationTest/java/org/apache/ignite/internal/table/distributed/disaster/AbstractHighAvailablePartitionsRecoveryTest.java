@@ -79,8 +79,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         assertRecoveryRequestForZoneTable(node, HA_ZONE_NAME, HA_TABLE_NAME);
     }
 
-    private void assertRecoveryRequestForZoneTable
-            (IgniteImpl node, String zoneName, String tableName) {
+    private void assertRecoveryRequestForZoneTable(IgniteImpl node, String zoneName, String tableName) {
         Entry recoveryTriggerEntry = getRecoveryTriggerKey(node);
 
         GroupUpdateRequest request = (GroupUpdateRequest) VersionedSerialization.fromBytes(
@@ -147,7 +146,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         return catalogService.zone(zoneName, clock.nowLong()).id();
     }
 
-    private void createHaZoneWithTable(
+    private void createHaZoneWithTables(
             String zoneName, List<String> tableNames, String filter, Set<String> targetNodes) throws InterruptedException {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', "
@@ -157,7 +156,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
         Set<Integer> tableIds = new HashSet<>();
 
-        for (String tableName: tableNames) {
+        for (String tableName : tableNames) {
             executeSql(String.format(
                     "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
                     tableName, zoneName
@@ -169,23 +168,22 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         awaitForAllNodesTableGroupInitialization(tableIds, targetNodes.size());
 
         tableNames.forEach(t ->
-            waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), t,
-                    PARTITION_IDS, targetNodes)
+                waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), t, PARTITION_IDS, targetNodes)
         );
     }
 
-    final void createHaZoneWithTable(String filter, Set<String> targetNodes) throws InterruptedException {
-        createHaZoneWithTable(HA_ZONE_NAME, List.of(HA_TABLE_NAME), filter, targetNodes);
-    }
-
-    final void createHaZoneWithTable(String zoneName, List<String> tableNames) throws InterruptedException {
+    final void createHaZoneWithTables(String zoneName, List<String> tableNames) throws InterruptedException {
         Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
-        createHaZoneWithTable(zoneName, tableNames, DEFAULT_FILTER, allNodes);
+        createHaZoneWithTables(zoneName, tableNames, DEFAULT_FILTER, allNodes);
+    }
+
+    final void createHaZoneWithTable(String filter, Set<String> targetNodes) throws InterruptedException {
+        createHaZoneWithTables(HA_ZONE_NAME, List.of(HA_TABLE_NAME), filter, targetNodes);
     }
 
     final void createHaZoneWithTable(String zoneName, String tableName) throws InterruptedException {
-        createHaZoneWithTable(zoneName, List.of(tableName));
+        createHaZoneWithTables(zoneName, List.of(tableName));
     }
 
     final void createHaZoneWithTable() throws InterruptedException {
@@ -280,8 +278,8 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
                 igniteImpl.raftManager().localNodes().forEach((raftNodeId) -> {
 
-                    if (raftNodeId.groupId() instanceof TablePartitionId &&
-                            tableIds.contains(((TablePartitionId) raftNodeId.groupId()).tableId())) {
+                    if (raftNodeId.groupId() instanceof TablePartitionId
+                            && tableIds.contains(((TablePartitionId) raftNodeId.groupId()).tableId())) {
                         try {
                             if (igniteImpl.raftManager().raftNodeIndex(raftNodeId).index() > 0) {
                                 numberOfInitializedReplicas.incrementAndGet();
@@ -295,7 +293,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
             });
 
             return PARTITIONS_NUMBER * replicas * tableIds.size() == numberOfInitializedReplicas.get();
-        }, 30_000));
+        }, 10_000));
     }
 
     final Set<String> nodeNames(Integer... indexes) {
