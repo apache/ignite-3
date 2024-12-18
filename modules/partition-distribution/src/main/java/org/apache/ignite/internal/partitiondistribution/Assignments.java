@@ -69,6 +69,8 @@ public class Assignments {
         this.force = force;
         this.timestamp = timestamp;
         this.fromReset = fromReset;
+
+        assert !(force && fromReset) : "Only one flag can be set from 'force' and 'fromReset'.";
     }
 
     /**
