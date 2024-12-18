@@ -150,13 +150,13 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         Set<Integer> allZonePartitionsToReset = new HashSet<>();
         partitionIds.values().forEach(allZonePartitionsToReset::addAll);
 
-        CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localStates
-                = disasterRecoveryManager.localPartitionStatesInternal(
-                Set.of(zoneDescriptor.name()),
-                emptySet(),
-                allZonePartitionsToReset,
-                catalog
-        );
+        CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localStates = disasterRecoveryManager
+                .localPartitionStatesInternal(
+                        Set.of(zoneDescriptor.name()),
+                        emptySet(),
+                        allZonePartitionsToReset,
+                        catalog
+                );
 
         CompletableFuture<Set<String>> dataNodesFuture = disasterRecoveryManager.dzManager.dataNodes(msRevision, catalogVersion, zoneId);
 
