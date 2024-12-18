@@ -76,7 +76,7 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     /** Failure context. */
     private volatile FailureContext failureCtx;
 
-    /** Reserve buffer, which can be dropped to handle OOME. */
+    /** Reserve buffer, which can be dropped to handle {@link OutOfMemoryError}. */
     private volatile byte @Nullable [] reserveBuf;
 
     /** If this flag is true, then the failure processor prints threads dump. */
@@ -202,13 +202,13 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
 
         if (dumpThreadsOnFailure) {
             if (dumpThreadsThrottlingTimeout > 0) {
-                Map<FailureType, Long> threadDumpPerFailureTypeTs = new EnumMap<>(FailureType.class);
+                Map<FailureType, Long> dumpPerFailureTypeTs = new EnumMap<>(FailureType.class);
 
                 for (FailureType type : FailureType.values()) {
-                    threadDumpPerFailureTypeTs.put(type, 0L);
+                    dumpPerFailureTypeTs.put(type, 0L);
                 }
 
-                this.threadDumpPerFailureTypeTs = threadDumpPerFailureTypeTs;
+                threadDumpPerFailureTypeTs = dumpPerFailureTypeTs;
             }
         }
 

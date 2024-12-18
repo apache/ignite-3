@@ -208,7 +208,7 @@ public class FailureProcessorThreadDumpThrottlingTest {
         assertThat(throttlingMessageCounter.get(), is(4));
     }
 
-    private static void testFailureProcessing(FailureProcessorConfiguration configuration, Consumer<FailureProcessor> test) {
+    public static void testFailureProcessing(FailureProcessorConfiguration configuration, Consumer<FailureProcessor> test) {
         FailureManager failureManager = new FailureManager(() -> {}, configuration);
 
         try {
