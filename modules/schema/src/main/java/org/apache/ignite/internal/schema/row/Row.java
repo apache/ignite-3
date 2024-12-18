@@ -65,11 +65,11 @@ public interface Row extends SchemaAware, BinaryRowEx, InternalTuple, BinaryTupl
      * Creates a row from a given {@code BinaryRow} that only contains the key component.
      *
      * @param schema Schema.
-     * @param rowSchema Row schema.
+     * @param keySchema Key schema.
      * @param binaryRow Binary row.
      */
-    static Row wrapKeyOnlyBinaryRow(SchemaDescriptor schema, BinaryTupleSchema rowSchema, BinaryRow binaryRow) {
-        return new RowImpl(true, schema, rowSchema, binaryRow);
+    static Row wrapKeyOnlyBinaryRow(SchemaDescriptor schema, BinaryTupleSchema keySchema, BinaryRow binaryRow) {
+        return new RowImpl(true, schema, keySchema, binaryRow);
     }
 
     /** Short-cut method that reads decimal value with a scale from the schema. */

@@ -56,6 +56,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
     private final SchemaDescriptor schema;
     private final BinaryTupleSchema rowSchema;
+    private final BinaryTupleSchema keySchema;
 
     private final int keyOnlyFixedLengthColumnSize;
     private final int valueOnlyFixedLengthColumnSize;
@@ -68,6 +69,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     public TupleMarshallerImpl(SchemaDescriptor schema) {
         this.schema = schema;
         rowSchema = BinaryTupleSchema.createRowSchema(schema);
+        keySchema = BinaryTupleSchema.createKeySchema(schema);
 
         keyOnlyFixedLengthColumnSize = schema.keyColumns().stream()
                 .map(Column::type)
@@ -189,7 +191,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         }
 
         return part == TuplePart.KEY
-                ? Row.wrapKeyOnlyBinaryRow(schema, rowSchema, rowBuilder.build())
+                ? Row.wrapKeyOnlyBinaryRow(schema, keySchema, rowBuilder.build())
                 : Row.wrapBinaryRow(schema, rowSchema, rowBuilder.build());
     }
 
