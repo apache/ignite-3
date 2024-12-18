@@ -160,6 +160,11 @@ public class FakeTxManager implements TxManager {
             public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full) {
                 return nullCompletedFuture();
             }
+
+            @Override
+            public boolean isFinishingOrFinished() {
+                return false;
+            }
         };
     }
 

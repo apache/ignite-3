@@ -135,7 +135,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * Checks that this transaction was not finished and will be able to enlist another partition.
      */
     private void checkEnlistPossibility() {
-        if (finishFuture != null) {
+        if (isFinishingOrFinished()) {
             // This means that the transaction is either in final or FINISHING state.
             failEnlist();
         }
@@ -162,6 +162,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         if (finishFuture != null) {
             return finishFuture;
         }
+
         enlistPartitionLock.writeLock().lock();
 
         try {
@@ -184,6 +185,11 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         } finally {
             enlistPartitionLock.writeLock().unlock();
         }
+    }
+
+    @Override
+    public boolean isFinishingOrFinished() {
+        return finishFuture != null;
     }
 
     /**
