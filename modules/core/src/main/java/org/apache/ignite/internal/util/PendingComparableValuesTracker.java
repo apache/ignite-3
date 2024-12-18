@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  * ability to wait for certain value, see {@link #waitFor(Comparable)}.
  */
 public class PendingComparableValuesTracker<T extends Comparable<T>, R> implements ManuallyCloseable {
-    private static final VarHandle CURRENT;
+    protected static final VarHandle CURRENT;
 
     private static final VarHandle CLOSE_GUARD;
 
@@ -55,7 +55,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
 
     /** Current value along with associated result. */
     @SuppressWarnings("FieldMayBeFinal") // Changed through CURRENT VarHandle.
-    private volatile Map.Entry<T, @Nullable R> current;
+    protected volatile Map.Entry<T, @Nullable R> current;
 
     /** Prevents double closing. */
     @SuppressWarnings("unused")
@@ -64,7 +64,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
     /** Busy lock to close synchronously. */
     private final IgniteStripedReadWriteLock busyLock = new IgniteStripedReadWriteLock();
 
-    private final Comparator<Map.Entry<T, @Nullable R>> comparator;
+    protected final Comparator<Map.Entry<T, @Nullable R>> comparator;
 
     /**
      * Constructor with initial value.
@@ -107,35 +107,6 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
             } finally {
                 leaveBusy();
             }
-        }
-    }
-
-    /**
-     * Strict update with reordering check. Always called from the same updater thread.
-     *
-     * @param newValue New value.
-     * @param futureResult A result that will be used to complete a future returned by the
-     *         {@link PendingComparableValuesTracker#waitFor(Comparable)}.
-     */
-    public void updateStrict(T newValue, @Nullable R futureResult) {
-        if (!busyLock.readLock().tryLock()) {
-            throw new TrackerClosedException();
-        }
-
-        try {
-            Map.Entry<T, @Nullable R> current = this.current;
-
-            IgniteBiTuple<T, @Nullable R> newEntry = new IgniteBiTuple<>(newValue, futureResult);
-
-            // Entries from the same batch receive equal safe timestamps.
-            if (comparator.compare(newEntry, current) < 0) {
-                throw new AssertionError("Reordering detected: [old=" + current.getKey() + ", new=" + newEntry.get1() + ']');
-            }
-
-            CURRENT.set(this, newEntry);
-            completeWaitersOnUpdate(newValue, futureResult);
-        } finally {
-            busyLock.readLock().unlock();
         }
     }
 
@@ -232,11 +203,11 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
         return valueFutures.isEmpty();
     }
 
-    private boolean enterBusy() {
+    protected boolean enterBusy() {
         return !busyLock.isWriteLockedByCurrentThread() && busyLock.readLock().tryLock();
     }
 
-    private void leaveBusy() {
+    protected void leaveBusy() {
         busyLock.readLock().unlock();
     }
 

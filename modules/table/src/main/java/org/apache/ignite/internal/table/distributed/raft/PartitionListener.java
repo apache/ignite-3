@@ -86,6 +86,7 @@ import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -112,7 +113,7 @@ public class PartitionListener implements RaftGroupListener {
     private final TxStateStorage txStateStorage;
 
     /** Safe time tracker. */
-    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
+    private final SafeTimeValuesTracker safeTime;
 
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
@@ -135,7 +136,7 @@ public class PartitionListener implements RaftGroupListener {
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
-            PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
+            SafeTimeValuesTracker safeTime,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CatalogService catalogService,
             SchemaRegistry schemaRegistry,
@@ -743,7 +744,7 @@ public class PartitionListener implements RaftGroupListener {
             T newValue
     ) {
         try {
-            tracker.updateStrict(newValue, null);
+            tracker.update(newValue, null);
         } catch (TrackerClosedException ignored) {
             // No-op.
         }

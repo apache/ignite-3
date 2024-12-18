@@ -62,5 +62,5 @@ public interface CommandClosure<R extends Command> {
      *
      * @param safeTs Safe timestamp.
      */
-    default void patch(HybridTimestamp safeTs) {};
+    default void patch(HybridTimestamp safeTs) {}
 }

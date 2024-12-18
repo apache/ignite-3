@@ -17,7 +17,6 @@
 
 package org.apache.ignite.distributed;
 
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.distributed.ItTxTestCluster.NODE_PORT_BASE;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,7 +42,6 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.table.RecordView;

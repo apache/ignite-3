@@ -221,6 +221,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -1160,7 +1161,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
 
                     // (2) Otherwise let's start replica manually
-                    var safeTimeTracker = new PendingComparableValuesTracker<HybridTimestamp, Void>(HybridTimestamp.MIN_VALUE);
+                    var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
                     var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
 

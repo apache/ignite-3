@@ -119,7 +119,7 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
@@ -159,7 +159,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private final ReplicationGroupId groupId;
 
     /** The thread updates safe time on the dummy replica. */
-    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
+    private final SafeTimeValuesTracker safeTime;
 
     private final Object raftServiceMutex = new Object();
 
@@ -409,7 +409,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
 
-        safeTime = new PendingIndependentComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
+        safeTime = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));

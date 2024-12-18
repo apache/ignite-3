@@ -69,11 +69,9 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
@@ -135,6 +133,7 @@ import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
@@ -199,7 +198,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private final HybridClock hybridClock = new HybridClockImpl();
 
-    private PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker;
+    private SafeTimeValuesTracker safeTimeTracker;
 
     @Captor
     private ArgumentCaptor<Throwable> commandClosureResultCaptor;
@@ -218,8 +217,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private CatalogService catalogService;
 
-    private final ClockService clockService = new TestClockService(new HybridClockImpl());
-
     private IndexMetaStorage indexMetaStorage;
 
     private ClusterService clusterService;
@@ -237,7 +234,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         when(clusterService.topologyService().localMember().id()).thenReturn(deriveUuidFrom(addr.toString()));
         when(clusterService.nodeName()).thenReturn(addr.toString());
 
-        safeTimeTracker = new PendingComparableValuesTracker<>(new HybridTimestamp(1, 0));
+        safeTimeTracker = new SafeTimeValuesTracker(new HybridTimestamp(1, 0));
 
         int indexId = pkStorage.id();
 
