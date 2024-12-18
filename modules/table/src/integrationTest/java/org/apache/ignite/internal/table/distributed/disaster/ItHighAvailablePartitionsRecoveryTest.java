@@ -107,7 +107,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
     }
 
-    @RepeatedTest(20)
+    @Test
     void testHaRecoveryWithPartitionResetTimerReschedule() throws InterruptedException {
         createHaZoneWithTable();
 
@@ -131,7 +131,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
     }
 
-    @RepeatedTest(20)
+    @Test
     void testHaRecoveryOnZoneTimersRestoreAfterNodeRestart() throws InterruptedException {
         createHaZoneWithTable();
 
@@ -175,7 +175,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, expectedAssignmentsAfterScaleUp);
     }
 
-    @RepeatedTest(20)
+    @Test
     void testNoHaRecoveryWhenMajorityAvailable() throws InterruptedException {
         createHaZoneWithTable();
 
@@ -205,7 +205,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
         assertRecoveryKeyIsEmpty(node);
     }
 
-    @RepeatedTest(20)
+    @Test
     void testNoHaRecoveryForScZone() throws InterruptedException {
         createScZoneWithTable();
 

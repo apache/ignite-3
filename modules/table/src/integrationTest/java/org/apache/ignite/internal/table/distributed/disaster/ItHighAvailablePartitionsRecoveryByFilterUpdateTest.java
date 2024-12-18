@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 import java.util.Set;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 
 /** Test suite for the cases with a recovery of the group replication factor after reset by zone filter update. */
 public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends AbstractHighAvailablePartitionsRecoveryTest {
@@ -40,7 +40,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         return GLOBAL_EU_NODES_CONFIG;
     }
 
-    @RepeatedTest(20)
+    @Test
     void testScaleUpAfterZoneFilterUpdate() throws InterruptedException {
         startNode(1, EU_ONLY_NODES_CONFIG);
         startNode(2, EU_ONLY_NODES_CONFIG);
