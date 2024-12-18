@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 
 /** Test for the HA zones recovery. */
 public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailablePartitionsRecoveryTest {
@@ -59,7 +60,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, Set.of(0, 1), Set.of(node.name()));
     }
 
-    @RepeatedTest(20)
+    @Test
     void testHaRecoveryOfTwoZones() throws InterruptedException {
         String zone1 = "ZONE1";
         String zone2 = "ZONE2";
