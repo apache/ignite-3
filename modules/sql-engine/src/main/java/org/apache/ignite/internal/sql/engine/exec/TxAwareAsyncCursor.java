@@ -35,22 +35,25 @@ import org.apache.ignite.internal.util.ExceptionUtils;
  *
  * @param <T> Type of the returned items.
  */
-class TxAwareAsyncCursor<T> implements AsyncDataCursor<T> {
+class TxAwareAsyncCursor<T> implements AsyncDataCursorExt<T> {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private final CompletableFuture<Void> closeResult = new CompletableFuture<>();
 
     private final QueryTransactionWrapper txWrapper;
     private final AsyncCursor<T> dataCursor;
     private final CompletableFuture<Void> firstPageReady;
+    private final Function<CancellationReason, CompletableFuture<Void>> closeHandler;
 
     TxAwareAsyncCursor(
             QueryTransactionWrapper txWrapper,
             AsyncCursor<T> dataCursor,
-            CompletableFuture<Void> firstPageReady
+            CompletableFuture<Void> firstPageReady,
+            Function<CancellationReason, CompletableFuture<Void>> closeHandler
     ) {
         this.txWrapper = txWrapper;
         this.dataCursor = dataCursor;
         this.firstPageReady = firstPageReady;
+        this.closeHandler = closeHandler;
     }
 
     @Override
@@ -71,50 +74,37 @@ class TxAwareAsyncCursor<T> implements AsyncDataCursor<T> {
     }
 
     @Override
-    public CompletableFuture<Void> closeAsync(boolean cancelled) {
+    public CompletableFuture<Void> cancelAsync(CancellationReason reason) {
         if (!closed.compareAndSet(false, true)) {
             return closeResult;
         }
 
-        CompletableFuture<Void> closeFuture;
+        closeHandler.apply(reason)
+                .thenCompose(ignored -> {
+                    if (reason != CancellationReason.CLOSE) {
+                        String message = reason == CancellationReason.TIMEOUT 
+                                ? QueryCancelledException.TIMEOUT_MSG 
+                                : QueryCancelledException.CANCEL_MSG;
 
-        if (cancelled) {
-            closeFuture = txWrapper.rollback(new QueryCancelledException())
-                    .handle((none, rollbackErr) -> {
-                        return dataCursor.closeAsync(true)
-                                .handle((res, closeErr) -> {
-                                    Throwable err = rollbackErr;
+                        return txWrapper.rollback(new QueryCancelledException(message));
+                    }
 
-                                    if (closeErr != null) {
-                                        if (rollbackErr != null) {
-                                            closeErr.addSuppressed(rollbackErr);
-                                        }
-
-                                        err = closeErr;
-                                    }
-
-                                    if (err != null) {
-                                        throw new CompletionException(err);
-                                    }
-
-                                    return res;
-                                });
-                    })
-                    .thenCompose(Function.identity());
-        } else {
-            closeFuture = dataCursor.closeAsync()
-                    .thenCompose(ignored -> txWrapper.commitImplicit());
-        }
-
-        closeFuture.whenComplete((r, e) -> {
-            if (e != null) {
-                closeResult.completeExceptionally(e);
-            } else {
-                closeResult.complete(null);
-            }
-        });
+                    return txWrapper.commitImplicit();
+                })
+                .whenComplete((r, e) -> {
+                    if (e != null) {
+                        closeResult.completeExceptionally(e);
+                    } else {
+                        closeResult.complete(null);
+                    }
+                });
 
         return closeResult;
+    }
+
+    @Override
+    public CompletableFuture<Void> closeAsync() {
+        return cancelAsync(CancellationReason.CLOSE);
     }
 
     @Override

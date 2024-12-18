@@ -39,10 +39,14 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.jdbc.JdbcPreparedStatement;
 import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
+import org.apache.ignite.internal.restart.RestartProofIgnite;
+import org.apache.ignite.internal.tx.TxManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -104,6 +108,14 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         }
 
         assertTrue(pstmt.isClosed());
+
+        long countOfPendingTransactions = CLUSTER.runningNodes()
+                .map(RestartProofIgnite.class::cast)
+                .map(rpi -> rpi.unwrap(IgniteImpl.class).txManager())
+                .collect(Collectors.summarizingInt(TxManager::pending))
+                .getSum();
+
+        assertEquals(0, countOfPendingTransactions);
     }
 
     @Test

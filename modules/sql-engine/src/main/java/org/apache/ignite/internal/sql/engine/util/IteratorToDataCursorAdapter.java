@@ -23,6 +23,7 @@ import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursorExt;
 import org.apache.ignite.internal.util.AsyncWrapper;
 
 /**
@@ -30,7 +31,7 @@ import org.apache.ignite.internal.util.AsyncWrapper;
  *
  * @param <T> Type of the items.
  */
-public class IteratorToDataCursorAdapter<T> extends AsyncWrapper<T> implements AsyncDataCursor<T> {
+public class IteratorToDataCursorAdapter<T> extends AsyncWrapper<T> implements AsyncDataCursorExt<T> {
     private final CompletableFuture<Void> initialized = new CompletableFuture<>();
 
     /**
@@ -70,5 +71,10 @@ public class IteratorToDataCursorAdapter<T> extends AsyncWrapper<T> implements A
     @Override
     public CompletableFuture<Void> onFirstPageReady() {
         return initialized;
+    }
+
+    @Override
+    public CompletableFuture<Void> cancelAsync(CancellationReason reason) {
+        return nullCompletedFuture();
     }
 }

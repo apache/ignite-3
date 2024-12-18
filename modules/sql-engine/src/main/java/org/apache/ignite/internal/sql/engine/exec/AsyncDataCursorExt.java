@@ -18,23 +18,18 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.SqlOperationContext;
-import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 
-/**
- * SQL query plan execution interface.
- */
-public interface ExecutionService extends LifecycleAware {
-    /**
-     * Executes the given plan.
-     *
-     * @param plan Plan to execute.
-     * @param operationContext Context of operation.
-     * @return Future that will be completed when cursor is successfully initialized, implying for distributed plans all fragments have been
-     *         sent successfully.
-     */
-    CompletableFuture<AsyncDataCursorExt<InternalSqlRow>> executePlan(
-            QueryPlan plan, SqlOperationContext operationContext
-    );
+/** Extension over {@link AsyncDataCursor} which gives an ability to specify a reason of cancellation. */
+public interface AsyncDataCursorExt<T> extends AsyncDataCursor<T> {
+    CompletableFuture<Void> cancelAsync(CancellationReason reason);
+
+    /** Reason of cancellation. */
+    enum CancellationReason {
+        /** User's request. This reason denotes normal completion of an execution. */ 
+        CLOSE,
+        /** Execution must be terminated abruptly due to an external request or an error. */
+        CANCEL,
+        /** Execution must be terminated abruptly due to specified timeout. */
+        TIMEOUT
+    }
 }
