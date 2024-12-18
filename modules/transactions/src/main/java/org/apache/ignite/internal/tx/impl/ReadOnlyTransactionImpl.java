@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -39,9 +39,6 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** Prevents double finish of the transaction. */
     private final AtomicBoolean finishGuard = new AtomicBoolean();
-
-    /** The tracker is used to track an observable timestamp. */
-    private final HybridTimestampTracker observableTsTracker;
 
     /** Transaction future. */
     private final CompletableFuture<Void> txFuture;
@@ -58,17 +55,16 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      */
     ReadOnlyTransactionImpl(
             TxManagerImpl txManager,
-            HybridTimestampTracker observableTsTracker,
+            ObservableTimestampProvider observableTsTracker,
             UUID id,
             UUID txCoordinatorId,
             boolean implicit,
             HybridTimestamp readTimestamp,
             CompletableFuture<Void> txFuture
     ) {
-        super(txManager, id, txCoordinatorId, implicit);
+        super(txManager, observableTsTracker, id, txCoordinatorId, implicit);
 
         this.readTimestamp = readTimestamp;
-        this.observableTsTracker = observableTsTracker;
         this.txFuture = txFuture;
     }
 

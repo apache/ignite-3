@@ -30,8 +30,8 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
@@ -57,7 +57,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
     @Override
     public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
             SqlProperties properties,
-            HybridTimestampTracker observableTimeTracker,
+            ObservableTimestampProvider observableTimeTracker,
             @Nullable InternalTransaction transaction,
             @Nullable CancellationToken cancellationToken,
             String qry,

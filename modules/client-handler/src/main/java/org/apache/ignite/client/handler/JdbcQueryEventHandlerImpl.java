@@ -66,11 +66,11 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.ObservableTimestampProvider;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -89,8 +89,8 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
     /** Jdbc metadata info. */
     private final JdbcMetadataCatalog meta;
 
-    /** Ignite transactions API. */
-    private final IgniteTransactionsImpl igniteTransactions;
+    /** Transaction manager. */
+    private final TxManager txManager;
 
     /**
      * Constructor.
@@ -98,19 +98,19 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
      * @param processor Processor.
      * @param meta JdbcMetadataInfo.
      * @param resources Client resources.
-     * @param igniteTransactions Ignite transactions API.
+     * @param txManager Transaction manager.
      */
     public JdbcQueryEventHandlerImpl(
             QueryProcessor processor,
             JdbcMetadataCatalog meta,
             ClientResourceRegistry resources,
-            IgniteTransactionsImpl igniteTransactions
+            TxManager txManager
     ) {
         super(resources);
 
         this.processor = processor;
         this.meta = meta;
-        this.igniteTransactions = igniteTransactions;
+        this.txManager = txManager;
     }
 
     /** {@inheritDoc} */
@@ -118,7 +118,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
     public CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId) {
         try {
             JdbcConnectionContext connectionContext = new JdbcConnectionContext(
-                    igniteTransactions,
+                    txManager,
                     timeZoneId
             );
 
@@ -165,7 +165,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
-                igniteTransactions.observableTimestampTracker(),
+                ObservableTimestampProvider.EMPTY_TS_PROVIDER,
                 tx,
                 token,
                 req.sqlQuery(),
@@ -300,7 +300,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
-                igniteTransactions.observableTimestampTracker(),
+                ObservableTimestampProvider.EMPTY_TS_PROVIDER,
                 tx,
                 token,
                 sql,
@@ -416,7 +416,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
         private final Object mux = new Object();
 
-        private final IgniteTransactions igniteTransactions;
+        private final TxManager txManager;
 
         private final ZoneId timeZoneId;
 
@@ -425,10 +425,10 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         private @Nullable InternalTransaction tx;
 
         JdbcConnectionContext(
-                IgniteTransactions igniteTransactions,
+                TxManager txManager,
                 ZoneId timeZoneId
         ) {
-            this.igniteTransactions = igniteTransactions;
+            this.txManager = txManager;
             this.timeZoneId = timeZoneId;
         }
 
@@ -444,7 +444,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
          * @return Transaction associated with the current connection.
          */
         InternalTransaction getOrStartTransaction() {
-            return tx == null ? tx = (InternalTransaction) igniteTransactions.begin() : tx;
+            return tx == null ? tx = txManager.begin(ObservableTimestampProvider.EMPTY_TS_PROVIDER, false) : tx;
         }
 
         /**

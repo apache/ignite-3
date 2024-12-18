@@ -21,13 +21,13 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.requests.table.ClientObservableTimestampTracker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.BatchedArguments;
 
@@ -42,15 +42,13 @@ public class ClientSqlExecuteBatchRequest {
      * @param out Packer.
      * @param sql SQL API.
      * @param resources Resources.
-     * @param transactions Transactional facade. Used to acquire last observed time to propagate to client in response.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             QueryProcessor sql,
-            ClientResourceRegistry resources,
-            IgniteTransactionsImpl transactions
+            ClientResourceRegistry resources
     ) {
         InternalTransaction tx = readTx(in, out, resources);
         ClientSqlProperties props = new ClientSqlProperties(in);
@@ -63,11 +61,11 @@ public class ClientSqlExecuteBatchRequest {
         }
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        transactions.updateObservableTimestamp(clientTs);
+        var tsUpdater = new ClientObservableTimestampTracker(clientTs, out::meta);
 
         return IgniteSqlImpl.executeBatchCore(
                 sql,
-                        transactions.observableTimestampTracker(),
+                        tsUpdater,
                         tx,
                         statement,
                         arguments,
@@ -77,8 +75,6 @@ public class ClientSqlExecuteBatchRequest {
                         cursor -> 0,
                         cursorId -> {})
                 .thenApply((affectedRows) -> {
-                    out.meta(transactions.observableTimestamp());
-
                     out.packNil(); // resourceId
 
                     out.packBoolean(false); // has row set

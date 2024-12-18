@@ -101,6 +101,7 @@ import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -202,7 +203,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         ) {
             @Override
             public CompletableFuture<Void> finish(
-                    HybridTimestampTracker observableTimestampTracker,
+                    ObservableTimestampProvider observableTimestampTracker,
                     TablePartitionId commitPartition,
                     boolean commitIntent,
                     Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,

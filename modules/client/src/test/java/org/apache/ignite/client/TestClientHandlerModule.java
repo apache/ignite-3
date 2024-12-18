@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteQueryProcessor;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -57,7 +58,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -217,7 +217,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                 new ResponseDelayHandler(responseDelay),
                                 new ClientInboundMessageHandler(
                                         (IgniteTablesInternal) ignite.tables(),
-                                        (IgniteTransactionsImpl) ignite.transactions(),
+                                        ((FakeIgnite) ignite).txManager(),
                                         new FakeIgniteQueryProcessor(),
                                         configuration,
                                         compute,
