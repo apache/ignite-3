@@ -41,6 +41,14 @@ public final class IgniteNameUtils {
             return name;
         }
 
+        if (name.indexOf('"') < 0) { // Fast-path without StringBuilder for unquoted names.
+            if (name.indexOf('.') >= 0 || name.indexOf(' ') >= 0) {
+                throw new IllegalArgumentException("Fully qualified name is not expected [name=" + name + "]");
+            }
+
+            return name.toUpperCase();
+        }
+
         var tokenizer = new Tokenizer(name);
 
         String parsedName = tokenizer.nextToken();
@@ -85,11 +93,11 @@ public final class IgniteNameUtils {
             return name;
         }
 
-        if (name.chars().noneMatch(cp -> cp == '\"')) {
+        if (name.indexOf('\"') < 0) {
             return '\"' + name + '\"';
         }
 
-        StringBuilder sb = new StringBuilder(name.length() + 2).append('\"');
+        StringBuilder sb = new StringBuilder(name.length() + 4).append('\"');
         for (int currentPosition = 0; currentPosition < name.length(); currentPosition++) {
             char ch = name.charAt(currentPosition);
             if (ch == '\"') {
@@ -120,7 +128,7 @@ public final class IgniteNameUtils {
             return name.equals(quote(simpleName)) ? name : quote(name);
         }
 
-        if (!NAME_PATTER.matcher(name).matches()) {
+        if (!canonicalOrSimpleName(name)) {
             return quote(name);
         }
 
