@@ -44,7 +44,7 @@ import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.TxManager;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
@@ -125,7 +125,7 @@ public class TestServer {
         var module = new ClientHandlerModule(
                 mock(QueryProcessor.class),
                 mock(IgniteTablesInternal.class),
-                mock(IgniteTransactionsImpl.class),
+                mock(TxManager.class),
                 mock(IgniteComputeInternal.class),
                 clusterService,
                 bootstrapFactory,
