@@ -373,9 +373,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
                             @Override
                             public void patch(HybridTimestamp safeTs) {
-                                command().patch(CLOCK.now());
+                                command().patch(safeTs);
                             }
                         };
+
+                        clo.patch(CLOCK.now());
 
                         try {
                             partitionListener.onWrite(List.of(clo).iterator());

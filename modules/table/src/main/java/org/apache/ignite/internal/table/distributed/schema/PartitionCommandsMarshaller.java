@@ -38,5 +38,11 @@ public interface PartitionCommandsMarshaller extends Marshaller {
      */
     int readRequiredCatalogVersion(ByteBuffer raw);
 
+    /**
+     * Reads safe timestamp from the provided buffer.
+     *
+     * @param raw Buffer to read from.
+     * @return The timestamp.
+     */
     long readSafeTimestamp(ByteBuffer raw);
 }

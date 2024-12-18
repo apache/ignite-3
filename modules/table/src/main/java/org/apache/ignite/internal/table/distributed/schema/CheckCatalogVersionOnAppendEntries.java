@@ -60,7 +60,6 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
 
         Node node = (Node) service;
 
-        // TODO use from marshaller
         ByteBuffer allData = request.data().asReadOnlyBuffer().order(OptimizedMarshaller.ORDER);
         int offset = 0;
 

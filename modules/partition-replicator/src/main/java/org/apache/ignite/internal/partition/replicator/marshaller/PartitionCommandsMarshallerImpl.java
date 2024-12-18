@@ -51,7 +51,7 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
 
     @Override
     public <T> T unmarshall(ByteBuffer raw) {
-        raw = raw.order() == ORDER ? raw : raw.duplicate().order(ORDER);
+        raw = raw.duplicate().order(ORDER);
 
         int requiredCatalogVersion = readRequiredCatalogVersion(raw);
         long safeTs = readSafeTimestamp(raw);
