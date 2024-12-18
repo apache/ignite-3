@@ -37,20 +37,21 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 public class FailureProcessorThreadDumpThrottlingTest {
     @InjectConfiguration("mock: { "
-            + "oomBufferSizeBites=1024, "
+            + "oomBufferSizeBites=0, "
             + "dumpThreadsOnFailure=true,"
             + "dumpThreadsThrottlingTimeoutMillis=0,"
             + "handler {type=noop} }")
     private static FailureProcessorConfiguration enabledThreadDumpNoThrottlingConfiguration;
 
     @InjectConfiguration("mock: { "
-            + "oomBufferSizeBites=1024, "
+            + "oomBufferSizeBites=0, "
             + "dumpThreadsOnFailure=true,"
             + "dumpThreadsThrottlingTimeoutMillis=3000,"
             + "handler {type=noop} }")
     private static FailureProcessorConfiguration enabledThreadDumpWithThrottlingConfiguration;
 
     @InjectConfiguration("mock: { "
+            + "oomBufferSizeBites=0, "
             + "dumpThreadsOnFailure=false,"
             + "dumpThreadsThrottlingTimeoutMillis=0,"
             + "handler {type=noop} }")
