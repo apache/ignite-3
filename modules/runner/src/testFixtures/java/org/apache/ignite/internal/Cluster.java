@@ -21,7 +21,6 @@ import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -268,7 +267,7 @@ public class Cluster {
      * @param nodeIndex Index of the node of interest.
      */
     public String nodeName(int nodeIndex) {
-        return testNodeName(clusterConfiguration.testInfo(), port(nodeIndex));
+        return clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
     }
 
     public int port(int nodeIndex) {

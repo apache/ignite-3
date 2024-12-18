@@ -105,17 +105,24 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      */
     @BeforeAll
     protected void startCluster(TestInfo testInfo) {
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder()
+        ClusterConfiguration.Builder clusterConfiguration = ClusterConfiguration.builder()
                 .testInfo(testInfo)
                 .workDir(WORK_DIR)
-                .defaultNodeBootstrapConfigTemplate(getNodeBootstrapConfigTemplate())
-                .build();
+                .defaultNodeBootstrapConfigTemplate(getNodeBootstrapConfigTemplate());
 
-        CLUSTER = new Cluster(clusterConfiguration);
+        customizeConfiguration(clusterConfiguration);
+
+        CLUSTER = new Cluster(clusterConfiguration.build());
 
         if (initialNodes() > 0 && needInitializeCluster()) {
             CLUSTER.startAndInit(initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
         }
+    }
+
+    /**
+     * Inheritors should override this method to change configuration of the test cluster before its creation.
+     */
+    protected void customizeConfiguration(ClusterConfiguration.Builder clusterConfigurationBuilder) {
     }
 
     /**

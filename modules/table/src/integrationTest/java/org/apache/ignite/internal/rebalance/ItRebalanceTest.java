@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -37,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.ClusterConfiguration.Builder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -71,6 +73,12 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
         builder.clusterConfiguration("ignite.replication.rpcTimeout: 8000");
     }
 
+    @Override
+    protected void customizeConfiguration(Builder clusterConfigurationBuilder) {
+        clusterConfigurationBuilder
+                .nodeNamingStrategy((conf, index) -> testNodeName(conf.testInfo(), index));
+    }
+
     /**
      * The test checks that data is rebalanced after node with replica is left and joined to the cluster.
      *
@@ -85,26 +93,26 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
         TableViewInternal table = unwrapTableViewInternal(cluster.node(0).tables().table("TEST_TABLE"));
 
         waitForStableAssignmentsInMetastore(Set.of(
+                nodeName(0),
                 nodeName(1),
-                nodeName(2),
-                nodeName(3)
+                nodeName(2)
         ), table.tableId());
 
         BinaryRowEx row = marshalTuple(table, Tuple.create().set("id", 1).set("val", "value1"));
         BinaryRowEx key = marshalKey(table, 1, Integer.class);
 
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(nullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(nullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(2))), willBe(nullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))), willBe(nullValue()));
 
         assertThat(table.internalTable().insert(row, null), willCompleteSuccessfully());
 
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(2))), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))), willBe(notNullValue()));
 
         assertThat(
-                table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))),
+                table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))),
                 willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
 
@@ -123,17 +131,17 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
         cluster.startNode(2);
 
         waitForStableAssignmentsInMetastore(Set.of(
+                nodeName(0),
                 nodeName(1),
-                nodeName(2),
-                nodeName(3)
+                nodeName(2)
         ), table.tableId());
 
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(2))), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))), willBe(notNullValue()));
 
         assertThat(
-                table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))),
+                table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))),
                 willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
     }

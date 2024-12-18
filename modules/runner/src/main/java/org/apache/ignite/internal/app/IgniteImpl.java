@@ -295,6 +295,8 @@ public class IgniteImpl implements Ignite {
     /** Ignite node name. */
     private final String name;
 
+    private final Path workDir;
+
     /** Lifecycle manager. */
     private final LifecycleManager lifecycleManager;
 
@@ -487,6 +489,7 @@ public class IgniteImpl implements Ignite {
             Executor asyncContinuationExecutor
     ) {
         this.name = node.name();
+        this.workDir = workDir;
 
         longJvmPauseDetector = new LongJvmPauseDetector(name);
 
@@ -1641,6 +1644,10 @@ public class IgniteImpl implements Ignite {
     @Override
     public IgniteCatalog catalog() {
         return publicCatalog;
+    }
+
+    public Path workDir() {
+        return workDir;
     }
 
     /**

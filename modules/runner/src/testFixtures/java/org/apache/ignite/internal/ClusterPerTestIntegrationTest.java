@@ -116,13 +116,14 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
      */
     @BeforeEach
     public void startCluster(TestInfo testInfo) throws Exception {
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder()
+        ClusterConfiguration.Builder clusterConfiguration = ClusterConfiguration.builder()
                 .testInfo(testInfo)
                 .workDir(workDir)
-                .defaultNodeBootstrapConfigTemplate(getNodeBootstrapConfigTemplate())
-                .build();
+                .defaultNodeBootstrapConfigTemplate(getNodeBootstrapConfigTemplate());
 
-        cluster = new Cluster(clusterConfiguration);
+        customizeConfiguration(clusterConfiguration);
+
+        cluster = new Cluster(clusterConfiguration.build());
 
         if (initialNodes() > 0) {
             cluster.startAndInit(initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
@@ -133,6 +134,12 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     @Timeout(60)
     public void stopCluster() {
         cluster.shutdown();
+    }
+
+    /**
+     * Inheritors should override this method to change configuration of the test cluster before its creation.
+     */
+    protected void customizeConfiguration(ClusterConfiguration.Builder clusterConfigurationBuilder) {
     }
 
     /**

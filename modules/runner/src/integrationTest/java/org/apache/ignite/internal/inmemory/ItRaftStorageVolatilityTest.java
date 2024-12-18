@@ -35,6 +35,7 @@ import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -92,26 +93,21 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
      * @param ignite Ignite instance.
      * @return Paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
      */
-    private List<Path> partitionRaftMetaPaths(IgniteImpl ignite) {
-        try (Stream<Path> paths = Files.list(workDir.resolve(ignite.name()))) {
-            return paths
-                    .filter(path -> isPartitionDir(path, ignite))
-                    .map(path -> path.resolve("meta"))
-                    .collect(toList());
+    private static List<Path> partitionRaftMetaPaths(IgniteImpl ignite) {
+        try (Stream<Path> paths = Files.list(ignite.partitionsWorkDir().metaPath())) {
+            return paths.collect(toList());
+        } catch (NoSuchFileException e) {
+            return List.of();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private boolean isPartitionDir(Path path, IgniteImpl ignite) {
-        return path.getFileName().toString().startsWith(testTablePartitionPrefix(ignite));
-    }
-
-    private String testTablePartitionPrefix(IgniteImpl ignite) {
+    private static String testTablePartitionPrefix(IgniteImpl ignite) {
         return testTableId(ignite) + "_part_";
     }
 
-    private int testTableId(IgniteImpl ignite) {
+    private static int testTableId(IgniteImpl ignite) {
         TableManager tables = unwrapTableManager(ignite.tables());
         return tables.tableView(TABLE_NAME).tableId();
     }
@@ -121,12 +117,11 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         createInMemoryTable();
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
-        String nodeName = ignite.name();
         String tablePartitionPrefix = testTablePartitionPrefix(ignite);
 
         stopNode(0);
 
-        Path logRocksDbDir = workDir.resolve(nodeName).resolve("partitions/log");
+        Path logRocksDbDir = ignite.partitionsWorkDir().raftLogPath();
 
         List<ColumnFamilyDescriptor> cfDescriptors = List.of(
                 // Column family to store configuration log entry.
@@ -143,7 +138,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private void assertThatFamilyHasNoDataForPartition(RocksDB db, String tablePartitionPrefix, ColumnFamilyHandle cfHandle) {
+    private static void assertThatFamilyHasNoDataForPartition(RocksDB db, String tablePartitionPrefix, ColumnFamilyHandle cfHandle) {
         try (
                 ReadOptions readOptions = new ReadOptions().setIterateLowerBound(new Slice(tablePartitionPrefix.getBytes(UTF_8)));
                 RocksIterator iterator = db.newIterator(cfHandle, readOptions)
@@ -181,12 +176,11 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         createPersistentTable();
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
-        String nodeName = ignite.name();
         String tablePartitionPrefix = testTablePartitionPrefix(ignite);
 
         stopNode(0);
 
-        Path logRocksDbDir = workDir.resolve(nodeName).resolve("partitions/log");
+        Path logRocksDbDir = ignite.partitionsWorkDir().raftLogPath();
 
         List<ColumnFamilyDescriptor> cfDescriptors = List.of(
                 // Column family to store configuration log entry.
@@ -203,7 +197,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private void assertThatFamilyHasDataForPartition(RocksDB db, String tablePartitionPrefix, ColumnFamilyHandle cfHandle) {
+    private static void assertThatFamilyHasDataForPartition(RocksDB db, String tablePartitionPrefix, ColumnFamilyHandle cfHandle) {
         try (
                 ReadOptions readOptions = new ReadOptions().setIterateLowerBound(new Slice(tablePartitionPrefix.getBytes(UTF_8)));
                 RocksIterator iterator = db.newIterator(cfHandle, readOptions)

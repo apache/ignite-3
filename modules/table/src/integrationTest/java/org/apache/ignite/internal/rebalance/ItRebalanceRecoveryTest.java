@@ -20,11 +20,13 @@ package org.apache.ignite.internal.rebalance;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.ClusterConfiguration.Builder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -41,6 +43,12 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {
         return 2;
+    }
+
+    @Override
+    protected void customizeConfiguration(Builder clusterConfigurationBuilder) {
+        clusterConfigurationBuilder
+                .nodeNamingStrategy((conf, index) -> testNodeName(conf.testInfo(), index));
     }
 
     @Test

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+
 import java.nio.file.Path;
 import java.util.Objects;
 import org.junit.jupiter.api.TestInfo;
@@ -64,6 +66,8 @@ public class ClusterConfiguration {
 
     private final int baseHttpsPort;
 
+    private final NodeNamingStrategy nodeNamingStrategy;
+
     private ClusterConfiguration(
             TestInfo testInfo,
             Path workDir,
@@ -72,7 +76,8 @@ public class ClusterConfiguration {
             int basePort,
             int baseClientPort,
             int baseHttpPort,
-            int baseHttpsPort
+            int baseHttpsPort,
+            NodeNamingStrategy nodeNamingStrategy
     ) {
         this.testInfo = testInfo;
         this.workDir = workDir;
@@ -82,6 +87,7 @@ public class ClusterConfiguration {
         this.baseClientPort = baseClientPort;
         this.baseHttpPort = baseHttpPort;
         this.baseHttpsPort = baseHttpsPort;
+        this.nodeNamingStrategy = nodeNamingStrategy;
     }
 
     public TestInfo testInfo() {
@@ -116,6 +122,10 @@ public class ClusterConfiguration {
         return baseHttpsPort;
     }
 
+    public NodeNamingStrategy nodeNamingStrategy() {
+        return nodeNamingStrategy;
+    }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -139,6 +149,8 @@ public class ClusterConfiguration {
         private int baseHttpPort = DEFAULT_BASE_HTTP_PORT;
 
         private int baseHttpsPort = DEFAULT_BASE_HTTPS_PORT;
+
+        private NodeNamingStrategy nodeNamingStrategy = new DefaultNodeNamingStrategy();
 
         public Builder testInfo(TestInfo testInfo) {
             this.testInfo = testInfo;
@@ -180,6 +192,11 @@ public class ClusterConfiguration {
             return this;
         }
 
+        public Builder nodeNamingStrategy(NodeNamingStrategy nodeNamingStrategy) {
+            this.nodeNamingStrategy = nodeNamingStrategy;
+            return this;
+        }
+
         /**
          * Creates a new {@link ClusterConfiguration}.
          */
@@ -195,8 +212,16 @@ public class ClusterConfiguration {
                     basePort,
                     baseClientPort,
                     baseHttpPort,
-                    baseHttpsPort
+                    baseHttpsPort,
+                    nodeNamingStrategy
             );
+        }
+    }
+
+    private static class DefaultNodeNamingStrategy implements NodeNamingStrategy {
+        @Override
+        public String nodeName(ClusterConfiguration clusterConfiguration, int nodeIndex) {
+            return testNodeName(clusterConfiguration.testInfo(), clusterConfiguration.basePort + nodeIndex);
         }
     }
 }
