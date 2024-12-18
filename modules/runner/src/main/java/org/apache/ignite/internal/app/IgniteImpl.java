@@ -642,6 +642,7 @@ public class IgniteImpl implements Ignite {
 
         clusterInitializer = new ClusterInitializer(
                 clusterSvc,
+                logicalTopology,
                 clusterCfgDynamicDefaultsPatcher,
                 distributedCfgValidator
         );
