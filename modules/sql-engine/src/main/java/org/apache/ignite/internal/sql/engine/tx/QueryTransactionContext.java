@@ -27,6 +27,11 @@ public interface QueryTransactionContext {
     /** Returns explicit transaction or start implicit one. */
     QueryTransactionWrapper getOrStartImplicit(boolean readOnly);
 
+    default QueryTransactionWrapper getOrStartImplicitOnePhase(boolean readOnly) {
+        // TODO remove
+        throw new UnsupportedOperationException();
+    }
+
     /** Updates tracker of latest time observed by client. */
     void updateObservableTime(HybridTimestamp time);
 

@@ -102,11 +102,13 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.KillPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.SelectCountPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
@@ -442,9 +444,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         QueryTransactionWrapper txWrapper = txContext.explicitTx();
 
         if (txWrapper == null) {
+            // TODO change doc and checks
             // underlying table will initiate transaction by itself, but we need stub to reuse
             // TxAwareAsyncCursor
-            txWrapper = NoopTransactionWrapper.INSTANCE;
+            if (plan instanceof SelectCountPlan) {
+                txWrapper = NoopTransactionWrapper.INSTANCE;
+            } else {
+                txWrapper = txContext.getOrStartImplicitOnePhase(((ExplainablePlan) plan).type() != SqlQueryType.DML);
+            }
         }
 
         PrefetchCallback prefetchCallback = new PrefetchCallback();

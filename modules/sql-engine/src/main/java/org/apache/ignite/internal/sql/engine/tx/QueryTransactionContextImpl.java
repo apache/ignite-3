@@ -58,12 +58,20 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
      */
     @Override
     public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
+        return getOrStartImplicit0(readOnly, false);
+    }
+
+    @Override
+    public QueryTransactionWrapper getOrStartImplicitOnePhase(boolean readOnly) {
+        return getOrStartImplicit0(readOnly, true);
+    }
+
+    private QueryTransactionWrapper getOrStartImplicit0(boolean readOnly, boolean implicitOnePhase) {
         InternalTransaction transaction;
         QueryTransactionWrapper result;
 
         if (tx == null) {
-            // TODO: IGNITE-23604 SQL implicit transaction support. Coordinate the transaction implicit flag with the SQL one.
-            transaction = txManager.begin(observableTimeTracker, false, readOnly);
+            transaction = txManager.begin(observableTimeTracker, implicitOnePhase, readOnly);
             result = new QueryTransactionWrapperImpl(transaction, true, txTracker);
         } else {
             transaction = tx.unwrap();
