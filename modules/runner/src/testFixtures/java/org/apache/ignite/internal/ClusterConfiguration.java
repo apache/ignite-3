@@ -20,7 +20,6 @@ package org.apache.ignite.internal;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
 import java.nio.file.Path;
-import java.util.Objects;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -126,17 +125,17 @@ public class ClusterConfiguration {
         return nodeNamingStrategy;
     }
 
-    public static Builder builder() {
-        return new Builder();
+    public static Builder builder(TestInfo testInfo, Path workDir) {
+        return new Builder(testInfo, workDir);
     }
 
     /**
      * Builder for {@link ClusterConfiguration}.
      */
     public static class Builder {
-        private TestInfo testInfo;
+        private final TestInfo testInfo;
 
-        private Path workDir;
+        private final Path workDir;
 
         private String defaultNodeBootstrapConfigTemplate = DEFAULT_NODE_BOOTSTRAP_CFG;
 
@@ -152,14 +151,9 @@ public class ClusterConfiguration {
 
         private NodeNamingStrategy nodeNamingStrategy = new DefaultNodeNamingStrategy();
 
-        public Builder testInfo(TestInfo testInfo) {
+        public Builder(TestInfo testInfo, Path workDir) {
             this.testInfo = testInfo;
-            return this;
-        }
-
-        public Builder workDir(Path workDir) {
             this.workDir = workDir;
-            return this;
         }
 
         public Builder defaultNodeBootstrapConfigTemplate(String defaultNodeBootstrapConfigTemplate) {
@@ -201,9 +195,6 @@ public class ClusterConfiguration {
          * Creates a new {@link ClusterConfiguration}.
          */
         public ClusterConfiguration build() {
-            Objects.requireNonNull(testInfo, "testInfo has not been set");
-            Objects.requireNonNull(workDir, "workDir has not been set");
-
             return new ClusterConfiguration(
                     testInfo,
                     workDir,

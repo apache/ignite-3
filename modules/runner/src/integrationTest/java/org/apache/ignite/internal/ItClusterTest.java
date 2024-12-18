@@ -39,10 +39,7 @@ public class ItClusterTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder()
-                .testInfo(testInfo)
-                .workDir(workDir)
-                .build();
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir).build();
 
         cluster = new Cluster(clusterConfiguration);
     }
@@ -73,9 +70,7 @@ public class ItClusterTest extends IgniteAbstractTest {
     void isAbleToStartMultipleClusters(TestInfo testInfo) {
         cluster.startAndInit(1);
 
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder()
-                .testInfo(testInfo)
-                .workDir(workDir)
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
                 .clusterName("secondCluster")
                 .basePort(20000)
                 .baseHttpPort(20001)

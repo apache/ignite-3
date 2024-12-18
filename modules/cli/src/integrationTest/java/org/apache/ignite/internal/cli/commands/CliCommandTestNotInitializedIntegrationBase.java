@@ -38,9 +38,7 @@ public class CliCommandTestNotInitializedIntegrationBase extends CliIntegrationT
     @BeforeAll
     @Override
     protected void startCluster(TestInfo testInfo) {
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder()
-                .testInfo(testInfo)
-                .workDir(WORK_DIR)
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, WORK_DIR)
                 .defaultNodeBootstrapConfigTemplate(getNodeBootstrapConfigTemplate())
                 .build();
 

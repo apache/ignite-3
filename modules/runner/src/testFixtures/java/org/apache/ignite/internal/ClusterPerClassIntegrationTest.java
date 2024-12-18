@@ -105,9 +105,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      */
     @BeforeAll
     protected void startCluster(TestInfo testInfo) {
-        ClusterConfiguration.Builder clusterConfiguration = ClusterConfiguration.builder()
-                .testInfo(testInfo)
-                .workDir(WORK_DIR)
+        ClusterConfiguration.Builder clusterConfiguration = ClusterConfiguration.builder(testInfo, WORK_DIR)
                 .defaultNodeBootstrapConfigTemplate(getNodeBootstrapConfigTemplate());
 
         customizeConfiguration(clusterConfiguration);

@@ -49,10 +49,7 @@ class ItStartTest extends IgniteAbstractTest {
 
     @BeforeEach
     void createCluster(TestInfo testInfo) {
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder()
-                .testInfo(testInfo)
-                .workDir(workDir)
-                .build();
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir).build();
 
         cluster = new Cluster(clusterConfiguration);
     }

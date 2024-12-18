@@ -520,10 +520,7 @@ public class ItSslTest {
     @Test
     @DisplayName("Cluster is not initialized when nodes are configured with incompatible ciphers")
     void incompatibleCiphersNodes(TestInfo testInfo, @WorkDirectory Path workDir) {
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder()
-                .testInfo(testInfo)
-                .workDir(workDir)
-                .build();
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir).build();
 
         Cluster incompatibleTestCluster = new Cluster(clusterConfiguration);
 
