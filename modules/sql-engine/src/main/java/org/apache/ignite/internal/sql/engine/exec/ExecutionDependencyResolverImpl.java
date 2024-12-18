@@ -17,13 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -59,8 +54,8 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
      * {@inheritDoc}
      */
     @Override
-    public CompletableFuture<ResolvedDependencies> resolveDependencies(Iterable<IgniteRel> rels, int catalogVersion) {
-        Map<Integer, CompletableFuture<ExecutableTable>> tableMap = new HashMap<>();
+    public ResolvedDependencies resolveDependencies(Iterable<IgniteRel> rels, int catalogVersion) {
+        Map<Integer, ExecutableTable> tableMap = new HashMap<>();
         Map<Integer, ScannableDataSource> dataSources = new HashMap<>();
 
         IgniteRelShuttle shuttle = new IgniteRelShuttle() {
@@ -139,15 +134,6 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             shuttle.visit(rel);
         }
 
-        List<CompletableFuture<ExecutableTable>> fs = new ArrayList<>(tableMap.values());
-
-        return CompletableFuture.allOf(fs.toArray(new CompletableFuture<?>[0]))
-                .thenApply(r -> {
-                    Map<Integer, ExecutableTable> map = tableMap.entrySet()
-                            .stream()
-                            .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().join()));
-
-                    return new ResolvedDependencies(map, dataSources);
-                });
+        return new ResolvedDependencies(tableMap, dataSources);
     }
 }
