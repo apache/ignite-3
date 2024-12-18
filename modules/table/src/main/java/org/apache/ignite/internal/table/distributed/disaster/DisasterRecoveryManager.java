@@ -132,7 +132,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * Metastorage key prefix to store the per zone revision of logical event, which start the recovery process.
      * It's needed to skip the stale recovery triggers.
      */
-    private static final String RECOVERY_TRIGGER_REVISION_KEY_PREFIX = "disaster.recovery.trigger.revision";
+    private static final String RECOVERY_TRIGGER_REVISION_KEY_PREFIX = "disaster.recovery.trigger.revision.";
 
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
@@ -376,14 +376,17 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @return Future that completes when partitions are reset.
      */
     private CompletableFuture<Void> resetPartitions(
-            String zoneName, Map<Integer, Set<Integer>> partitionIds, boolean manualUpdate, long triggerRevision) {
+            String zoneName,
+            Map<Integer, Set<Integer>> partitionIds,
+            boolean manualUpdate,
+            long triggerRevision
+    ) {
         try {
             Catalog catalog = catalogLatestVersion();
 
             CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
 
-            partitionIds.values().forEach(ids ->
-                    checkPartitionsRange(ids, Set.of(zone)));
+            partitionIds.values().forEach(ids -> checkPartitionsRange(ids, Set.of(zone)));
 
             return processNewRequest(
                     new GroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), partitionIds, manualUpdate),
@@ -982,7 +985,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     private static ByteArray zoneRecoveryTriggerRevisionKey(int zoneId) {
-        return new ByteArray(RECOVERY_TRIGGER_REVISION_KEY_PREFIX + "." + zoneId);
+        return new ByteArray(RECOVERY_TRIGGER_REVISION_KEY_PREFIX + zoneId);
     }
 
     ClusterNode localNode() {
