@@ -34,6 +34,9 @@ import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * Tests for {@link FailureProcessor} thread dump throttling.
+ */
 @ExtendWith(ConfigurationExtension.class)
 public class FailureProcessorThreadDumpThrottlingTest {
     @InjectConfiguration("mock: { "
@@ -138,8 +141,9 @@ public class FailureProcessorThreadDumpThrottlingTest {
                 FailureContext failureCtx = new FailureContext(SYSTEM_WORKER_BLOCKED, new Throwable("Failure context error"));
 
                 // Trigger the failure processing twice.
-                for (int i = 0; i < 2; i++)
+                for (int i = 0; i < 2; i++) {
                     assertThat(failureProcessor.process(failureCtx), is(false));
+                }
 
                 try {
                     Thread.sleep(3000);
@@ -148,8 +152,9 @@ public class FailureProcessorThreadDumpThrottlingTest {
                 }
 
                 // Trigger the failure processing twice.
-                for (int i = 0; i < 2; i++)
+                for (int i = 0; i < 2; i++) {
                     assertThat(failureProcessor.process(failureCtx), is(false));
+                }
             });
         } finally {
             logInspector.stop();
@@ -209,6 +214,9 @@ public class FailureProcessorThreadDumpThrottlingTest {
         assertThat(throttlingMessageCounter.get(), is(4));
     }
 
+    /**
+     * Creates a new instance of {@link FailureManager} with the given configuration and runs the test represented by {@code test} closure.
+     */
     public static void testFailureProcessing(FailureProcessorConfiguration configuration, Consumer<FailureProcessor> test) {
         FailureManager failureManager = new FailureManager(() -> {}, configuration);
 

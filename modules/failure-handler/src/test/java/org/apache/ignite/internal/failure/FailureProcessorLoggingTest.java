@@ -33,6 +33,9 @@ import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+/**
+ * Tests for {@link FailureProcessor} logging.
+ */
 @ExtendWith(ConfigurationExtension.class)
 public class FailureProcessorLoggingTest {
     @InjectConfiguration("mock: { "
@@ -87,12 +90,12 @@ public class FailureProcessorLoggingTest {
         LogInspector logInspector = new LogInspector(FailureManager.class.getName());
 
         logInspector.addHandler(
-                evt -> evt.getMessage().getFormattedMessage().startsWith(THREAD_DUMP_MSG) &&
-                        evt.getLevel() == Level.ERROR,
+                evt -> evt.getMessage().getFormattedMessage().startsWith(THREAD_DUMP_MSG)
+                        && evt.getLevel() == Level.ERROR,
                 dumpMessageCounter::incrementAndGet);
         logInspector.addHandler(
-                evt -> evt.getMessage().getFormattedMessage().startsWith("Critical system error detected") &&
-                        evt.getLevel() == Level.ERROR,
+                evt -> evt.getMessage().getFormattedMessage().startsWith("Critical system error detected")
+                        && evt.getLevel() == Level.ERROR,
                 errorMessageCounter::incrementAndGet);
 
         logInspector.start();
