@@ -645,6 +645,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     operationId
             );
         } else {
+            // In case of manual request - it is ok to bypass the revision check,
+            // because we have no any trigger with revision for this call.
             metaStorageManager.put(RECOVERY_TRIGGER_KEY, serializedRequest);
         }
 
