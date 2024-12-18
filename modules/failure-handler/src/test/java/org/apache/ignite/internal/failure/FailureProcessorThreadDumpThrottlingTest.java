@@ -30,6 +30,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,7 +39,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link FailureProcessor} thread dump throttling.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class FailureProcessorThreadDumpThrottlingTest {
+public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock: { "
             + "oomBufferSizeBites=0, "
             + "dumpThreadsOnFailure=true,"

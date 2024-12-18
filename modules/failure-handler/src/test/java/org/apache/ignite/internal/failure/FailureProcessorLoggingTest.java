@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link FailureProcessor} logging.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class FailureProcessorLoggingTest {
+public class FailureProcessorLoggingTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock: { "
             + "oomBufferSizeBites=0, "
             + "dumpThreadsOnFailure=true,"
