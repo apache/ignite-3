@@ -137,7 +137,7 @@ public class IgniteUtils {
     private static final String JMX_MBEAN_PACKAGE = "org.apache";
 
     /** Thread dump message. */
-    private static final String THREAD_DUMP_MSG = "Thread dump at ";
+    public static final String THREAD_DUMP_MSG = "Thread dump at ";
 
     /** Date format for thread dumps. */
     private static final DateTimeFormatter THREAD_DUMP_FMT =

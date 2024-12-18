@@ -280,12 +280,9 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      */
     private boolean throttleThreadDump(FailureType type) {
         Map<FailureType, Long> dumpPerFailureTypeTs = threadDumpPerFailureTypeTs;
-        if (dumpPerFailureTypeTs == null) {
-            return true;
-        }
-
         long dumpThrottlingTimeout = dumpThreadsThrottlingTimeout;
-        if (dumpThrottlingTimeout == 0) {
+
+        if (dumpThrottlingTimeout == 0 || dumpPerFailureTypeTs == null) {
             return false;
         }
 
