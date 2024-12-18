@@ -63,24 +63,6 @@ public class HybridClockImpl implements HybridClock {
     }
 
     @Override
-    public final long nowLong(HybridTimestamp causal) {
-        while (true) {
-            long now = max(currentTime(), causal.longValue());
-
-            // Read the latest time after accessing UTC time to reduce contention.
-            long oldLatestTime = latestTime;
-
-            if (oldLatestTime >= now) {
-                return LATEST_TIME.incrementAndGet(this);
-            }
-
-            if (LATEST_TIME.compareAndSet(this, oldLatestTime, now)) {
-                return now;
-            }
-        }
-    }
-
-    @Override
     public final long currentLong() {
         long current = currentTime();
 
@@ -90,11 +72,6 @@ public class HybridClockImpl implements HybridClock {
     @Override
     public final HybridTimestamp now() {
         return hybridTimestamp(nowLong());
-    }
-
-    @Override
-    public HybridTimestamp now(HybridTimestamp causal) {
-        return hybridTimestamp(nowLong(causal));
     }
 
     @Override

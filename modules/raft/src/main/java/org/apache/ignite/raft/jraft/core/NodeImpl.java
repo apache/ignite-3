@@ -309,7 +309,7 @@ public class NodeImpl implements Node, RaftServerService {
 
                 // Tick once per batch.
                 if (safeTs == null) {
-                    safeTs = command.initiatorTime() == null ? clock.now() : clock.now(command.initiatorTime());
+                    safeTs = command.initiatorTime() == null ? clock.now() : clock.update(command.initiatorTime());
                 }
 
                 clo.patch(safeTs);
