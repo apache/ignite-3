@@ -320,10 +320,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
         InetSocketAddress recipientAddress = resolveRecipientAddress(recipient);
 
         if (doLogging) {
-            LOG.info("!!! Sending [target=[id={}, uuid={}, addr={}], localNode=[id={}, uuid={}, addr={}], msg={}].",
+            LOG.info("!!! Sending [target=[id={}, uuid={}, addr={}], localNode=[id={}, uuid={}, addr={}], msg={}, knownTopology={}].",
                     recipient.name(), recipient.id(), recipientAddress,
                     topologyService.localMember().name(), topologyService.localMember().id(), topologyService.localMember().address(),
-                    msg
+                    msg, topologyService.allMembers()
             );
         }
 
