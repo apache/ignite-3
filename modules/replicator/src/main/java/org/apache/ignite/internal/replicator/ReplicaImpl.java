@@ -20,6 +20,11 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
@@ -30,17 +35,23 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
+import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
+import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -99,6 +110,12 @@ public class ReplicaImpl implements Replica {
 
     private final BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure;
 
+    private final Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier;
+
+    private LeaderElectionListener onLeaderElectedFailoverCallback;
+
+    private final FailureManager failureManager;
+
     /**
      * The constructor of a replica server.
      *
@@ -111,6 +128,9 @@ public class ReplicaImpl implements Replica {
      * @param clockService Clock service.
      * @param replicaReservationClosure Closure that will be called to reserve the replica for becoming primary. It returns whether
      *     the reservation was successful.
+     * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
+     * @param failureManager Failure manager in case if we couldn't subscribe failover callback on raft client.
+     *
      */
     public ReplicaImpl(
             ReplicationGroupId replicaGrpId,
@@ -120,7 +140,9 @@ public class ReplicaImpl implements Replica {
             ExecutorService executor,
             PlacementDriver placementDriver,
             ClockService clockService,
-            BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure
+            BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure,
+            Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
+            FailureManager failureManager
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
@@ -131,8 +153,13 @@ public class ReplicaImpl implements Replica {
         this.placementDriver = placementDriver;
         this.clockService = clockService;
         this.replicaReservationClosure = replicaReservationClosure;
+        this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
+        this.failureManager = failureManager;
 
         raftClient.subscribeLeader(this::onLeaderElected);
+
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::registerFailoverCallback);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::unregisterFailoverCallback);
     }
 
     @Override
@@ -147,7 +174,7 @@ public class ReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<ReplicaResult> processRequest(ReplicaRequest request, UUID senderId) {
-        assert replicaGrpId.equals(request.groupId().asReplicationGroupId()) : IgniteStringFormatter.format(
+        assert replicaGrpId.equals(request.groupId().asReplicationGroupId()) : format(
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),
                 replicaGrpId);
@@ -318,6 +345,9 @@ public class ReplicaImpl implements Replica {
 
     @Override
     public CompletableFuture<Void> shutdown() {
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, this::registerFailoverCallback);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, this::unregisterFailoverCallback);
+
         listener.onShutdown();
         return raftClient.unsubscribeLeader()
                 .thenAccept(v -> raftClient.shutdown());
@@ -340,5 +370,93 @@ public class ReplicaImpl implements Replica {
     @Override
     public CompletableFuture<Void> transferLeadershipTo(String targetConsistentId) {
         return raftClient.transferLeadership(new Peer(targetConsistentId));
+    }
+
+    private CompletableFuture<Boolean> registerFailoverCallback(PrimaryReplicaEventParameters parameters) {
+        if (!parameters.leaseholderId().equals(localNode.id()) || !(replicaGrpId.equals(parameters.groupId()))) {
+            return falseCompletedFuture();
+        }
+
+        assert onLeaderElectedFailoverCallback == null : format(
+                "We already have failover subscription [thisGrpId={}, thisNode={}, givenExpiredPrimaryId={}, givenExpiredPrimaryNode={}",
+                replicaGrpId,
+                localNode.name(),
+                parameters.groupId(),
+                parameters.leaseholder()
+        );
+
+        onLeaderElectedFailoverCallback = (leaderNode, term) -> changePeersAndLearnersAsyncIfPendingExists(term);
+
+        return raftClient
+                .subscribeLeader(onLeaderElectedFailoverCallback)
+                .exceptionally(e -> {
+                    LOG.error("Rebalance failover subscription on elected primary replica failed [groupId=" + replicaGrpId + "].", e);
+
+                    failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+
+                    return null;
+                })
+                .thenApply(v -> false);
+    }
+
+    private void changePeersAndLearnersAsyncIfPendingExists(long term) {
+        getPendingAssignmentsSupplier.apply(replicaGrpId).exceptionally(e -> {
+            LOG.error("Couldn't fetch pending assignments for rebalance failover [groupId={}, term={}].", e, replicaGrpId, term);
+
+            return null;
+        }).thenCompose(pendingsBytes -> {
+            if (pendingsBytes == null) {
+                return nullCompletedFuture();
+            }
+
+            PeersAndLearners newConfiguration = fromAssignments(Assignments.fromBytes(pendingsBytes).nodes());
+
+            LOG.info(
+                    "New leader elected. Going to apply new configuration [tablePartitionId={}, peers={}, learners={}]",
+                    replicaGrpId,
+                    newConfiguration.peers(),
+                    newConfiguration.learners()
+            );
+
+            // TODO: add retries on fail https://issues.apache.org/jira/browse/IGNITE-23633
+            return raftClient.changePeersAndLearnersAsync(newConfiguration, term);
+        }).exceptionally(e -> {
+            LOG.error("Failover ChangePeersAndLearners failed [groupId={}, term={}].", e, replicaGrpId, term);
+
+            return null;
+        });
+    }
+
+    private CompletableFuture<Boolean> unregisterFailoverCallback(PrimaryReplicaEventParameters parameters) {
+        if (!parameters.leaseholderId().equals(localNode.id()) || !(replicaGrpId.equals(parameters.groupId()))) {
+            return falseCompletedFuture();
+        }
+
+        /* This check defends us from the situation:
+         * 1. 3 nodes {A, B, C} are started with a created table with replica factor 3
+         * 2. Partition 16_part_0 starts and A.16_0 became a primary replica.
+         * 3. A.16_0 partition restarts then there no more onLeaderElectedFailoverCallback neither the failover callback subscription.
+         * 4. Primary replica expires and trigger the event.
+         * 5. A.16_0 receives the event, found itself, but the callback is null due to the node A restart.
+         *
+         * In the case we should so nothing.
+         */
+        if (onLeaderElectedFailoverCallback == null) {
+            return falseCompletedFuture();
+        }
+
+        assert onLeaderElectedFailoverCallback != null : format(
+                "We have no failover subscription [thisGrpId={}, thisNode={}, givenExpiredPrimaryId={}, givenExpiredPrimaryNode={}",
+                replicaGrpId,
+                localNode.name(),
+                parameters.groupId(),
+                parameters.leaseholder()
+        );
+
+        raftClient.unsubscribeLeader(onLeaderElectedFailoverCallback);
+
+        onLeaderElectedFailoverCallback = null;
+
+        return falseCompletedFuture();
     }
 }
