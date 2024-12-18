@@ -227,6 +227,13 @@ public final class Commons {
     }
 
     /**
+     * Returns a given object as a typed one.
+     */
+    public static <T> T cast(Object src) {
+        return (T) src;
+    }
+
+    /**
      * Transforms a given list using map function.
      */
     public static <T, R> List<R> transform(List<T> src, Function<T, R> mapFun) {

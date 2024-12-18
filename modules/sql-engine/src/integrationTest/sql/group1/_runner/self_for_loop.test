@@ -6,6 +6,16 @@
 statement ok
 PRAGMA enable_verification
 
+# check single parameter in for
+for e in [1]
+
+query I
+SELECT c1 FROM (VALUES (${e})) t(c1);
+----
+1
+
+endfor
+
 # check for
 for e in [0, 2]
 

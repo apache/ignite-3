@@ -53,8 +53,8 @@ import org.apache.ignite.internal.sql.engine.prepare.PlannerPhase;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
+import org.apache.ignite.internal.sql.engine.rel.IgniteHashJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
-import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -207,7 +207,7 @@ public class PlannerTest extends AbstractPlannerTest {
         assertPlan(sql, publicSchema,
                 nodeOrAnyChild(isInstanceOf(IgniteSort.class)
                         .and(hasCollation(RelCollations.of(ImmutableIntList.of(3, 0))))
-                        .and(nodeOrAnyChild(isInstanceOf(IgniteNestedLoopJoin.class)
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteHashJoin.class)
                                 .and(hasChildThat(isTableScan("EMP")))
                                 .and(hasChildThat(isTableScan("DEPT")))
                         ))
