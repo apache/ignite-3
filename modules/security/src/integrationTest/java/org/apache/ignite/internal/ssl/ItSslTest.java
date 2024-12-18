@@ -97,7 +97,8 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                 + "  rest: {\n"
                 + "    port: {},\n"
                 + "    ssl.port: {}\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
 
         @BeforeAll
@@ -200,7 +201,8 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                 + "  rest: {\n"
                 + "    port: {},\n"
                 + "    ssl.port: {}\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
 
         @BeforeAll
@@ -440,7 +442,8 @@ public class ItSslTest extends BaseIgniteAbstractTest {
                 + "  rest: {\n"
                 + "    port: {}, \n"
                 + "    ssl.port: {} \n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
 
         @BeforeAll

@@ -149,7 +149,8 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
             + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
             + "  },\n"
             + "  clientConnector.port: {},\n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     /**
