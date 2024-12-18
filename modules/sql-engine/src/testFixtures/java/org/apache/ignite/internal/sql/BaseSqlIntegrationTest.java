@@ -137,7 +137,7 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
                 "HashJoinConverter"
         ),
 
-        HASHJOIN(
+        HASH(
                 "MergeJoinConverter",
                 "JoinCommuteRule",
                 "NestedLoopJoinConverter",

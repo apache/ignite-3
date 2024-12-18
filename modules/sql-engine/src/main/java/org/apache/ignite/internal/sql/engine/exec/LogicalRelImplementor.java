@@ -43,6 +43,7 @@ import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
+import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
@@ -281,7 +282,18 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rightType = rel.getRight().getRowType();
         JoinRelType joinType = rel.getJoinType();
 
-        Node<RowT> node = HashJoinNode.create(ctx, outType, leftType, rightType, joinType, rel.analyzeCondition());
+        RexNode nonEquiConditionExpression = RexUtil.composeConjunction(
+                Commons.rexBuilder(), rel.analyzeCondition().nonEquiConditions, true
+        );
+
+        BiPredicate<RowT, RowT> nonEquiCondition = null;
+        if (nonEquiConditionExpression != null) {
+            RelDataType rowType = combinedRowType(ctx.getTypeFactory(), leftType, rightType);
+
+            nonEquiCondition = expressionFactory.biPredicate(rel.getCondition(), rowType);
+        }
+
+        Node<RowT> node = HashJoinNode.create(ctx, outType, leftType, rightType, joinType, rel.analyzeCondition(), nonEquiCondition);
 
         Node<RowT> leftInput = visit(rel.getLeft());
         Node<RowT> rightInput = visit(rel.getRight());

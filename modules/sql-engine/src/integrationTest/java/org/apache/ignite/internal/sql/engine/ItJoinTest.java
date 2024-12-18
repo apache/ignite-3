@@ -37,6 +37,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Check JOIN on basic cases.
  */
+@SuppressWarnings("ConcatenationWithEmptyString")
 public class ItJoinTest extends BaseSqlIntegrationTest {
     @BeforeAll
     public static void beforeTestsStarted() {
@@ -1067,12 +1068,30 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(value = JoinType.class, names = {"NESTED_LOOP", "HASH"}, mode = Mode.INCLUDE)
+    void partiallyEquiJoin(JoinType type) {
+        assertQuery("" 
+                + "SELECT t1.c1, t1.c2, t2.c1, t2.c2 FROM" 
+                + "  (SELECT x::integer AS c1, x % 2 AS c2 FROM system_range(1, 10)) AS t1" 
+                + " JOIN" 
+                + "  (SELECT x::integer AS c1, x % 3 AS c2 FROM system_range(1, 10)) t2" 
+                + "   ON t1.c1 = t2.c1 AND t1.c2 < t2.c2", type
+        )
+                .returns(2, 0, 2, 2)
+                .returns(4, 0, 4, 1)
+                .returns(5, 1, 5, 2)
+                .returns(8, 0, 8, 2)
+                .returns(10, 0, 10, 1)
+                .check();
+    }
+
     private static Stream<Arguments> joinTypes() {
         Stream<Arguments> types = Arrays.stream(JoinType.values())
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove filter below
                 .filter(type -> type != JoinType.CORRELATED)
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-22074 hash join to make a deal with "is not distinct" expression
-                .filter(type -> type != JoinType.HASHJOIN)
+                .filter(type -> type != JoinType.HASH)
                 .flatMap(v -> Stream.of(Arguments.of(v, false), Arguments.of(v, true)));
 
         return types;
