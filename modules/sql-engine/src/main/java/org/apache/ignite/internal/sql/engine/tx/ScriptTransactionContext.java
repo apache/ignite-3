@@ -72,6 +72,17 @@ public class ScriptTransactionContext implements QueryTransactionContext {
     }
 
     @Override
+    public QueryTransactionWrapper getOrStartImplicitOnePhase(boolean readOnly) {
+        QueryTransactionWrapper wrapper = this.wrapper;
+
+        if (wrapper == null) {
+            return txContext.getOrStartImplicitOnePhase(readOnly);
+        }
+
+        return wrapper;
+    }
+
+    @Override
     public void updateObservableTime(HybridTimestamp time) {
         txContext.updateObservableTime(time);
     }
