@@ -304,19 +304,15 @@ public class NodeImpl implements Node, RaftServerService {
 
             // Patch the command.
             if (event.done instanceof CommandClosure) {
-                CommandClosure<?> cmd = (CommandClosure<?>) event.done;
-                Command command = cmd.command();
+                CommandClosure<?> clo = (CommandClosure<?>) event.done;
+                Command command = clo.command();
 
                 // Tick once per batch.
                 if (safeTs == null) {
                     safeTs = command.initiatorTime() == null ? clock.now() : clock.now(command.initiatorTime());
                 }
 
-                // Binary patch.
-                options.getCommandsMarshaller().patch(event.entry.getData(), safeTs);
-
-                // Object patch.
-                command.patch(safeTs);
+                clo.patch(safeTs);
             }
 
             this.tasks.add(event);

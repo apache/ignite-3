@@ -17,8 +17,16 @@
 
 package org.apache.ignite.internal.raft;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+
 /**
  * A write command.
  */
 public interface WriteCommand extends Command {
+    /**
+     * This is called before a command is submitted to replication pipeline.
+     *
+     * @param safeTs Safe timestamp.
+     */
+    default void patch(HybridTimestamp safeTs) {}
 }

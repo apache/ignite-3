@@ -26,13 +26,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface Command extends NetworkMessage {
     /**
-     * This is called before a command is submitted to replication pipeline.
-     *
-     * @param safeTs Safe timestamp.
-     */
-    default void patch(HybridTimestamp safeTs) {}
-
-    /**
      * Holds request's initiator timestamp.
      *
      * @return The timestamp.

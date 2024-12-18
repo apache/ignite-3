@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Marshaller;
@@ -172,21 +173,32 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      * @param command The command.
      * @param rpcCtx The context.
      */
-    private void applyWrite(Node node, WriteActionRequest request, Command command, RpcContext rpcCtx) {
-        node.apply(new Task(ByteBuffer.wrap(request.command()),
-                new CommandClosureImpl<>(command) {
-                    @Override
-                    public void result(Serializable res) {
-                        sendResponse(res, rpcCtx);
-                    }
+    private void applyWrite(Node node, WriteActionRequest request, WriteCommand command, RpcContext rpcCtx) {
+        ByteBuffer wrapper = ByteBuffer.wrap(request.command());
+        node.apply(new Task(wrapper, new WriteCommandClosure() {
+            @Override
+            public void result(Serializable res) {
+                sendResponse(res, rpcCtx);
+            }
 
-                    @Override
-                    public void run(Status status) {
-                        assert !status.isOk() : status;
+            @Override
+            public WriteCommand command() {
+                return command;
+            }
 
-                        sendRaftError(rpcCtx, status, node);
-                    }
-                }));
+            @Override
+            public void run(Status status) {
+                assert !status.isOk() : status;
+
+                sendRaftError(rpcCtx, status, node);
+            }
+
+            @Override
+            public void patch(HybridTimestamp safeTs) {
+                node.getOptions().getCommandsMarshaller().patch(wrapper, safeTs);
+                command.patch(safeTs);
+            }
+        }));
     }
 
     /**
@@ -322,20 +334,6 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         ctx.sendResponse(response);
     }
 
-    /** The implementation. */
-    private abstract static class CommandClosureImpl<T extends Command> implements Closure, CommandClosure<T> {
-        private final T command;
-
-        /**
-         * @param command The command.
-         */
-        public CommandClosureImpl(T command) {
-            this.command = command;
-        }
-
-        /** {@inheritDoc} */
-        @Override public T command() {
-            return command;
-        }
+    private interface WriteCommandClosure extends Closure, CommandClosure<WriteCommand> {
     }
 }

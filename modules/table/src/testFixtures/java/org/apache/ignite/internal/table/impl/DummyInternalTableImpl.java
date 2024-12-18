@@ -343,8 +343,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     synchronized (raftServiceMutex) {
                         Command cmd = invocationClose.getArgument(0);
 
-                        cmd.patch(CLOCK.now());
-
                         long commandIndex = raftIndex.incrementAndGet();
 
                         CompletableFuture<Serializable> res = new CompletableFuture<>();
@@ -371,6 +369,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                 } else {
                                     res.complete(r);
                                 }
+                            }
+
+                            @Override
+                            public void patch(HybridTimestamp safeTs) {
+                                command().patch(CLOCK.now());
                             }
                         };
 

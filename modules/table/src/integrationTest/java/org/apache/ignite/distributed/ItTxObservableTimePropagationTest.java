@@ -119,13 +119,12 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
 
         txTestCluster.raftServers().values().stream().map(Loza::server).forEach(s -> {
             JraftServerImpl srv = (JraftServerImpl) s;
-            List<RaftGroupService> grps = srv.localNodes().stream().map(srv::raftGroupService).collect(toList());
-            for (RaftGroupService raftGroupService : grps) {
+            srv.localNodes().stream().map(srv::raftGroupService).forEach(raftGroupService -> {
                 NodeImpl raftNode = (NodeImpl) raftGroupService.getRaftNode();
 
                 // Skip other table.
                 if (!raftNode.getNodeId().getGroupId().equals(part.toString())) {
-                    continue;
+                    return;
                 }
 
                 // Ignore current leader.
@@ -149,7 +148,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
                 }
 
                 LOG.info("DBG: node={}, group={}, safeTs={}", raftNode.getNodeId(), raftNode.getGroupId(), safeTime.current());
-            }
+            });
         });
 
         assertNotEquals(leader[0].getNodeId(), handle[0].getNodeId());

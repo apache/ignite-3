@@ -321,7 +321,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             int pos = buf.position();
 
-            GridUnsafe.putInt(heapArr, baseOff + pos, val);
+            if (IS_BIG_ENDIAN) {
+                GridUnsafe.putIntLittleEndian(heapArr, baseOff + pos, val);
+            } else {
+                GridUnsafe.putInt(heapArr, baseOff + pos, val);
+            }
 
             pos += Integer.BYTES;
 
@@ -337,7 +341,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (lastFinished) {
             int pos = buf.position();
 
-            GridUnsafe.putLong(heapArr, baseOff + pos, val);
+            if (IS_BIG_ENDIAN) {
+                GridUnsafe.putLongLittleEndian(heapArr, baseOff + pos, val);
+            } else {
+                GridUnsafe.putLong(heapArr, baseOff + pos, val);
+            }
 
             pos += Long.BYTES;
 
