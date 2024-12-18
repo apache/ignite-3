@@ -69,6 +69,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
@@ -212,8 +213,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         private RaftGroupService raftClient;
 
-        private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTs =
-                new PendingComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
+        private final SafeTimeValuesTracker safeTs = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
         PartialNode(String nodeName) {
             this.nodeName = nodeName;
