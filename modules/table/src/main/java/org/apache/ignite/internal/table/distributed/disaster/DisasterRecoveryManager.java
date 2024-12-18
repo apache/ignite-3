@@ -608,6 +608,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return zoneDescriptors;
     }
 
+
+    /**
+     * Short version of {@link DisasterRecoveryManager#processNewRequest(DisasterRecoveryRequest, long)} without revision.
+     *
+     * @param request Request.
+     * @return Operation future.
+     */
     private CompletableFuture<Void> processNewRequest(DisasterRecoveryRequest request) {
         return processNewRequest(request, -1);
     }
@@ -644,6 +651,15 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return operationFuture;
     }
 
+    /**
+     * Put the {@link DisasterRecoveryManager#RECOVERY_TRIGGER_KEY}
+     * if the revision of the trigger event is not processed for this zone yet.
+     *
+     * @param zoneId Zone id.
+     * @param revisionBytes Trigger event revision as bytes.
+     * @param recoveryTriggerValue Recovery trigger as bytes.
+     * @param operationId Operation ID.
+     */
     private void putRecoveryTriggerIfRevisionIsNotProcessed(
             int zoneId,
             byte[] revisionBytes,
