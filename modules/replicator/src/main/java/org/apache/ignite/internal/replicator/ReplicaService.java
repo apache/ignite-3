@@ -73,6 +73,12 @@ public class ReplicaService {
     /** Replicator network message factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
+    public void doLogging(boolean doLogging) {
+        messagingService.doLogging(doLogging);
+    }
+
+    public String localNodeName;
+
     /**
      * The constructor of replica client.
      *
@@ -146,7 +152,8 @@ public class ReplicaService {
                 if (throwable instanceof TimeoutException) {
                     // As a timeout has happened, we are probably on the system delayer thread, we should leave it.
                     partitionOperationsExecutor.execute(
-                            () -> res.completeExceptionally(new ReplicationTimeoutException(req.groupId().asReplicationGroupId()))
+                            () -> res.completeExceptionally(new ReplicationTimeoutException(req.groupId().asReplicationGroupId(),
+                                    localNodeName, targetNodeConsistentId, req))
                     );
                 } else {
                     res.completeExceptionally(withCause(
