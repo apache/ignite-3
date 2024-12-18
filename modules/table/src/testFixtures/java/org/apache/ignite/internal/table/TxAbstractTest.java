@@ -2087,15 +2087,15 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertAsyncThrowsTxFinishedException(() -> accountsKv.containsAsync(tx, makeKey(1)));
         assertAsyncThrowsTxFinishedException(() -> accountsKv.containsAllAsync(tx, List.of(makeKey(1))));
 
-        InternalTransaction iTx = (InternalTransaction) tx;
+        InternalTransaction internalTx = (InternalTransaction) tx;
 
         assertThrowsTxFinishedException(() -> {
             Flow.Publisher<BinaryRow> pub = accounts.internalTable().scan(
                     0,
-                    iTx.id(),
-                    iTx.readTimestamp(),
+                    internalTx.id(),
+                    internalTx.readTimestamp(),
                     new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
-                    iTx.coordinatorId()
+                    internalTx.coordinatorId()
             );
 
             AtomicReference<Throwable> errorRef = new AtomicReference<>();
@@ -2110,14 +2110,14 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertThrowsTxFinishedException(() -> {
             Flow.Publisher<BinaryRow> pub = accounts.internalTable().lookup(
                     0,
-                    iTx.id(),
-                    iTx.readTimestamp(),
+                    internalTx.id(),
+                    internalTx.readTimestamp(),
                     new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
                     0,
                     // Binary tuple is null for testing purposes, assuming that it wouldn't be processed anyway.
                     null,
                     null,
-                    iTx.coordinatorId()
+                    internalTx.coordinatorId()
             );
 
             AtomicReference<Throwable> errorRef = new AtomicReference<>();
