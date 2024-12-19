@@ -651,7 +651,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return null;
 
             case ClientOp.TABLES_GET:
-                return ClientTablesGetRequest.process(out, igniteTables);
+                return ClientTablesGetRequest.process(out, igniteTables).thenRun(() -> {
+                    out.meta(clockService.current());
+                });
 
             case ClientOp.SCHEMAS_GET:
                 return ClientSchemasGetRequest.process(in, out, igniteTables, schemaVersions);
@@ -718,13 +720,19 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientJdbcConnectRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC:
-                return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler);
+                return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler).thenRun(() -> {
+                    // TODO: Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    out.meta(clockService.current());
+                });
 
             case ClientOp.JDBC_CANCEL:
                 return ClientJdbcCancelRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC_BATCH:
-                return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler).thenRun(() -> {
+                    // TODO: Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    out.meta(clockService.current());
+                });
 
             case ClientOp.JDBC_SQL_EXEC_PS_BATCH:
                 return ClientJdbcPreparedStmntBatchRequest.process(in, out, jdbcQueryEventHandler);
@@ -745,7 +753,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientJdbcColumnMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_SCHEMAS_META:
-                return ClientJdbcSchemasMetadataRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcSchemasMetadataRequest.process(in, out, jdbcQueryEventHandler).thenRun(() -> {
+                    out.meta(clockService.current());
+                });
 
             case ClientOp.JDBC_PK_META:
                 return ClientJdbcPrimaryKeyMetadataRequest.process(in, out, jdbcQueryEventHandler);
@@ -788,7 +798,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientClusterGetNodesRequest.process(out, clusterService);
 
             case ClientOp.SQL_EXEC:
-                return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics);
+                return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics).thenRun(() -> {
+                    // TODO: Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    out.meta(clockService.current());
+                });
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientSqlCursorNextPageRequest.process(in, out, resources);
@@ -803,13 +816,18 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_EXEC_SCRIPT:
-                return ClientSqlExecuteScriptRequest.process(in, queryProcessor);
+                return ClientSqlExecuteScriptRequest.process(in, queryProcessor).thenRun(() -> {
+                    out.meta(clockService.current());
+                });
 
             case ClientOp.SQL_QUERY_META:
                 return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);
 
             case ClientOp.SQL_EXEC_BATCH:
-                return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources);
+                return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources).thenRun(() -> {
+                    // TODO: Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    out.meta(clockService.current());
+                });
 
             case ClientOp.STREAMER_BATCH_SEND:
                 return ClientStreamerBatchSendRequest.process(in, out, igniteTables);
