@@ -256,7 +256,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                true
+                true,
+                -1
         );
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
@@ -302,8 +303,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                Set.of(anotherPartId),
-                true
+                Set.of(anotherPartId)
         );
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
@@ -342,7 +342,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                true
+                true,
+                0
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());
@@ -551,7 +552,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         blockRebalanceStableSwitch(partId, assignment013);
 
-        CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true);
+        CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true, -1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.DEGRADED);
@@ -570,7 +571,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.DEGRADED);
 
-        resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true);
+        resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true, -1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
@@ -621,7 +622,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                false
+                false,
+                1
         );
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
@@ -663,7 +665,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                false
+                false,
+                1
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());
@@ -730,7 +733,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         stopNode(4);
 
         CompletableFuture<Void> resetFuture =
-                node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, false);
+                node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, false, 1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         Assignments assignmentForced1 = Assignments.forced(Set.of(Assignment.forPeer(node(1).name())), timestamp);
@@ -853,7 +856,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                true
+                true,
+                -1
         );
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -985,7 +989,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                false
+                false,
+                1
         );
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -1044,7 +1049,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                true
+                true,
+                -1
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());
