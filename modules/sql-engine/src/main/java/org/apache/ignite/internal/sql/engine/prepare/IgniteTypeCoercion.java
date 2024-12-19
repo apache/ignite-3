@@ -89,6 +89,11 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
         validateBinaryComparisonCoercion(binding, leftType, rightType, (IgniteSqlValidator) validator);
 
+        // If types are equal, no need in coercion.
+        if (leftType.equals(rightType)) {
+            return false;
+        }
+
         // Otherwise find the least restrictive type among the operand types
         // and coerce the operands to that type if such type exists.
         //
@@ -129,7 +134,12 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         RelDataType leftType = binding.getOperandType(0);
         RelDataType rightType = binding.getOperandType(1);
 
-        return typeFamiliesAreCompatible(typeFactory, leftType, rightType) && super.binaryComparisonCoercion(binding);
+        //noinspection SimplifiableIfStatement
+        if (!typeFamiliesAreCompatible(typeFactory, leftType, rightType)) {
+            return false;
+        }
+
+        return super.binaryArithmeticCoercion(binding);
     }
 
     /** {@inheritDoc} */
