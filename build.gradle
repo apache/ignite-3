@@ -30,6 +30,9 @@ apply from: "$rootDir/buildscripts/javadoc.gradle"
 repositories {
     maven {
         url = uri('https://repository.apache.org/snapshots')
+        mavenContent {
+            snapshotsOnly()
+        }
     }
 
     maven {

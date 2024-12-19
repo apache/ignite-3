@@ -27,6 +27,7 @@ import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -206,7 +207,13 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
 
             assert batchSize > 0 : batchSize;
 
-            inflightBatchRequestTracker.onRequestBegin();
+            try {
+                inflightBatchRequestTracker.onRequestBegin();
+            } catch (TransactionException e) {
+                completeSubscription(e);
+
+                return nullCompletedFuture();
+            }
 
             return retrieveBatch(scanId, batchSize)
                     .whenComplete((batch, err) -> inflightBatchRequestTracker.onRequestEnd())

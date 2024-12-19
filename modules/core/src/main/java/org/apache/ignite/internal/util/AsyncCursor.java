@@ -45,17 +45,7 @@ public interface AsyncCursor<T> {
      *
      * @return A future which will be completed when the resources will be actually released.
      */
-    default CompletableFuture<Void> closeAsync() {
-        return closeAsync(false);
-    }
-
-    /**
-     * Releases resources acquired by the cursor.
-     *
-     * @param cancelled Whether the cursor is closed due to query cancellation.
-     * @return A future which will be completed when the resources will be actually released.
-     */
-    CompletableFuture<Void> closeAsync(boolean cancelled);
+    CompletableFuture<Void> closeAsync();
 
     /**
      * Batch of the items.

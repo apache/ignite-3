@@ -66,7 +66,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -205,17 +204,10 @@ class IndexAvailabilityController implements ManuallyCloseable {
             return onIndexAvailable(parameters).thenApply(unused -> false);
         });
 
-        metaStorageManager.registerPrefixWatch(ByteArray.fromString(PARTITION_BUILD_INDEX_KEY_PREFIX), new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                return onUpdatePartitionBuildIndexKey(event).thenApply(unused -> null);
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                LOG.error("Error on handle partition build index key", e);
-            }
-        });
+        metaStorageManager.registerPrefixWatch(
+                ByteArray.fromString(PARTITION_BUILD_INDEX_KEY_PREFIX),
+                event -> onUpdatePartitionBuildIndexKey(event).thenApply(unused -> null)
+        );
 
         indexBuilder.listen(new IndexBuildCompletionListener() {
             @Override

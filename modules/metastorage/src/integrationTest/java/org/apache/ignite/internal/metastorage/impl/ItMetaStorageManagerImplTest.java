@@ -74,8 +74,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
@@ -340,20 +338,13 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         AtomicBoolean watchCompleted = new AtomicBoolean(false);
         CompletableFuture<HybridTimestamp> watchEventTsFuture = new CompletableFuture<>();
 
-        metaStorageManager.registerExactWatch(FOO_KEY, new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                watchEventTsFuture.complete(event.timestamp());
+        metaStorageManager.registerExactWatch(FOO_KEY, event -> {
+            watchEventTsFuture.complete(event.timestamp());
 
-                // The future will set the flag and complete after 300ms to allow idle safe time mechanism (which ticks each 100ms)
-                // to advance SafeTime (if there is still a bug for which this test is written).
-                return waitFor(300, TimeUnit.MILLISECONDS)
-                        .whenComplete((res, ex) -> watchCompleted.set(true));
-            }
-
-            @Override
-            public void onError(Throwable e) {
-            }
+            // The future will set the flag and complete after 300ms to allow idle safe time mechanism (which ticks each 100ms)
+            // to advance SafeTime (if there is still a bug for which this test is written).
+            return waitFor(300, TimeUnit.MILLISECONDS)
+                    .whenComplete((res, ex) -> watchCompleted.set(true));
         });
 
         metaStorageManager.put(FOO_KEY, VALUE);

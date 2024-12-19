@@ -67,7 +67,7 @@ public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializing
 
     @Override
     protected void normalize() {
-        var builder = new BinaryTupleBuilder(projection.length);
+        var builder = new BinaryTupleBuilder(projection.length, 32, false);
         var newProjection = new int[projection.length];
 
         for (int i = 0; i < projection.length; i++) {

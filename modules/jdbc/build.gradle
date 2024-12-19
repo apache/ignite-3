@@ -42,9 +42,11 @@ dependencies {
 
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(":ignite-core"))
+    integrationTestImplementation testFixtures(project(":ignite-sql-engine-api"))
     integrationTestImplementation testFixtures(project(":ignite-sql-engine"))
     integrationTestImplementation testFixtures(project(':ignite-jdbc'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation project(":ignite-runner")
     integrationTestImplementation project(":ignite-api")
     integrationTestImplementation project(":ignite-system-view-api")

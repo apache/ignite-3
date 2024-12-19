@@ -10,11 +10,7 @@ statement ok
 CREATE TABLE dates(i DATE)
 
 statement ok
-INSERT INTO dates VALUES (date '1993-08-14')
-
-# TODO https://issues.apache.org/jira/browse/IGNITE-15123 Multi-tuple insert fails on validation
-statement ok
-INSERT INTO dates VALUES (NULL)
+INSERT INTO dates VALUES (date '1993-08-14'), (NULL)
 
 # check that we can select dates
 query T rowsort

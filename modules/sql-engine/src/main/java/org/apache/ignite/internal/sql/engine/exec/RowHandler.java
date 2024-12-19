@@ -43,9 +43,6 @@ public interface RowHandler<RowT> {
      */
     boolean isNull(int field, RowT row);
 
-    /** Concatenate two rows. */
-    RowT concat(RowT left, RowT right);
-
     /** Return column count contained in the incoming row. */
     int columnCount(RowT row);
 
@@ -114,6 +111,9 @@ public interface RowHandler<RowT> {
          * @return A new row with fields from the specified mapping.
          */
         RowT map(RowT row, int[] mapping);
+
+        /** Concatenate two rows. The result row will satisfy the current factory's schema. */
+        RowT concat(RowT left, RowT right);
     }
 
     /**

@@ -137,15 +137,10 @@ public class JdbcConnection implements Connection {
         netTimeout = connProps.getConnectionTimeout();
         qryTimeout = connProps.getQueryTimeout();
 
-        long reconnectThrottlingPeriod = connProps.getReconnectThrottlingPeriod();
-        int reconnectThrottlingRetries = connProps.getReconnectThrottlingRetries();
-
         try {
             client = ((TcpIgniteClient) IgniteClient.builder()
                     .addresses(addrs)
                     .connectTimeout(netTimeout)
-                    .reconnectThrottlingPeriod(reconnectThrottlingPeriod)
-                    .reconnectThrottlingRetries(reconnectThrottlingRetries)
                     .ssl(extractSslConfiguration(connProps))
                     .authenticator(extractAuthenticationConfiguration(connProps))
                     .build());

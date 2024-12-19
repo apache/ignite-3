@@ -46,8 +46,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.raft.jraft.RaftGroupService;
@@ -152,17 +150,10 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
     }
 
     private static void watchExact(MetaStorageManager metaStorageManager, ByteArray key, CountDownLatch latch) {
-        metaStorageManager.registerExactWatch(key, new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                latch.countDown();
+        metaStorageManager.registerExactWatch(key, event -> {
+            latch.countDown();
 
-                return nullCompletedFuture();
-            }
-
-            @Override
-            public void onError(Throwable e) {
-            }
+            return nullCompletedFuture();
         });
     }
 

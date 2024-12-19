@@ -174,7 +174,6 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
 
         return IgniteClient.builder()
                 .addresses(addresses)
-                .reconnectThrottlingPeriod(0)
                 .retryPolicy(new RetryLimitPolicy().retryLimit(3))
                 .build();
     }

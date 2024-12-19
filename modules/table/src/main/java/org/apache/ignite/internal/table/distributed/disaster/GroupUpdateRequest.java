@@ -382,7 +382,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * @param plannedAssignmentsBytes Value for {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or {@code null}.
      * @return {@link Iif} instance.
      */
-    private static Iif prepareMsInvokeClosure(
+    static Iif prepareMsInvokeClosure(
             TablePartitionId partId,
             byte[] revisionBytes,
             byte[] pendingAssignmentsBytes,
@@ -402,7 +402,9 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                                         ? remove(partAssignmentsPlannedKey)
                                         : put(partAssignmentsPlannedKey, plannedAssignmentsBytes)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
-                        ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal())
+                        ops(
+                                put(pendingChangeTriggerKey, revisionBytes)
+                        ).yield(PENDING_KEY_UPDATED.ordinal())
                 ),
                 ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
         );

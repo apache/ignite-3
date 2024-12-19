@@ -141,7 +141,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -192,6 +191,7 @@ import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtensionConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -785,7 +785,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 transactionInflights,
                 txManager,
                 lowWatermark,
-                threadPoolsManager.commonScheduler()
+                threadPoolsManager.commonScheduler(),
+                new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService())
         );
 
         sqlRef.set(new IgniteSqlImpl(qryEngine, new HybridTimestampTracker()));
@@ -1696,18 +1697,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private void createWatchListener(MetaStorageManager metaStorageManager, String prefix, Consumer<WatchEvent> listener) {
         metaStorageManager.registerPrefixWatch(
                 new ByteArray(prefix.getBytes(StandardCharsets.UTF_8)),
-                new WatchListener() {
-                    @Override
-                    public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                        listener.accept(event);
+                event -> {
+                    listener.accept(event);
 
-                        return nullCompletedFuture();
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-                        log.error("Error in test watch listener", e);
-                    }
+                    return nullCompletedFuture();
                 }
         );
     }

@@ -41,7 +41,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -58,6 +57,7 @@ import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
@@ -81,10 +81,7 @@ import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.incoming.IncomingSnapshotCopier;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
 import org.apache.ignite.raft.jraft.RaftGroupService;
@@ -114,7 +111,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -123,8 +119,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("resource")
 @Timeout(90)
-@ExtendWith(WorkDirectoryExtension.class)
-class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
+class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTableRaftSnapshotsTest.class);
 
     private static final int AWAIT_PRIMARY_REPLICA_SECONDS = 10;
@@ -158,30 +153,30 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
      */
     private static final String DEFAULT_STORAGE_ENGINE = "<default>";
 
-    @WorkDirectory
-    private Path workDir;
-
-    private Cluster cluster;
-
     private LogInspector replicatorLogInspector;
 
     private LogInspector copierLogInspector;
 
-    @BeforeEach
-    void createCluster(TestInfo testInfo) {
-        cluster = new Cluster(testInfo, workDir, NODE_BOOTSTRAP_CFG);
+    @Override
+    protected String getNodeBootstrapConfigTemplate() {
+        return NODE_BOOTSTRAP_CFG;
+    }
 
+    @Override
+    protected int[] cmgMetastoreNodes() {
+        return new int[]{0, 1, 2};
+    }
+
+    @BeforeEach
+    void createLogInspectors(TestInfo testInfo) {
         replicatorLogInspector = LogInspector.create(Replicator.class, true);
         copierLogInspector = LogInspector.create(IncomingSnapshotCopier.class, true);
     }
 
     @AfterEach
-    @Timeout(60)
-    void shutdownCluster() {
+    void stopLogInspectors() {
         replicatorLogInspector.stop();
         copierLogInspector.stop();
-
-        cluster.shutdown();
     }
 
     /**
@@ -272,8 +267,6 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
             String storageEngine,
             Consumer<Cluster> doOnClusterAfterInit
     ) throws InterruptedException {
-        startAndInitCluster();
-
         doOnClusterAfterInit.accept(cluster);
 
         createTestTableWith3Replicas(storageEngine);
@@ -315,10 +308,6 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
         assertThat(primary, willCompleteSuccessfully());
 
         return primary.join().getLeaseholder();
-    }
-
-    private void startAndInitCluster() {
-        cluster.startAndInit(3, IntStream.range(0, 3).toArray());
     }
 
     private void putToNode(int nodeIndex, int key, String value) {
@@ -431,7 +420,7 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
 
         replicatorLogInspector.addHandler(
                 evt -> evt.getMessage().getFormattedMessage().matches(
-                        "Node \\S+ received InstallSnapshotResponse from \\S+_" + nodeIndex + " .+ success=true"),
+                        "Node \\S+ received InstallSnapshotResponse from " + cluster.nodeName(nodeIndex) + " .+ success=true"),
                 snapshotInstalledLatch::countDown
         );
 
@@ -475,8 +464,6 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
      * partition state arrives in a RAFT snapshot, then the transaction is seen as committed (i.e. its effects are seen).
      */
     private void txSemanticsIsMaintainedAfterInstallingSnapshot() throws Exception {
-        startAndInitCluster();
-
         createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
 
         // Prepare the scene: first act - force node 0 to be a leader, and node 2 to be a follower.
@@ -733,7 +720,11 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
             int nodeIndexTo,
             CompletableFuture<Void> snapshotInstallSuccessfullyFuture
     ) {
-        String regexp = "Node \\S+" + nodeIndexFrom + " received InstallSnapshotResponse from \\S+_" + nodeIndexTo + " .+ success=true";
+        String regexp = String.format(
+                "Node \\S+%s received InstallSnapshotResponse from %s .+ success=true",
+                cluster.nodeName(nodeIndexFrom),
+                cluster.nodeName(nodeIndexTo)
+        );
 
         replicatorLogInspector.addHandler(
                 evt -> evt.getMessage().getFormattedMessage().matches(regexp),
@@ -795,8 +786,6 @@ class ItTableRaftSnapshotsTest extends BaseIgniteAbstractTest {
      */
     @Test
     void laggingSchemasOnFollowerPreventSnapshotInstallation() throws Exception {
-        startAndInitCluster();
-
         createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
 
         // Prepare the scene: force node 0 to be a leader, and node 2 to be a follower.

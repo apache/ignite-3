@@ -65,7 +65,13 @@ public final class TpchHelper {
         }
     }
 
-    static String loadFromResource(String resource) {
+    /**
+     * Loads resource with given name as string.
+     *
+     * @param resource Name of the resource to load.
+     * @return Resource as string.
+     */
+    public static String loadFromResource(String resource) {
         try (InputStream is = TpchHelper.class.getClassLoader().getResourceAsStream(resource)) {
             if (is == null) {
                 throw new IllegalArgumentException("Resource does not exist: " + resource);

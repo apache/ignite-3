@@ -542,8 +542,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     @Override
-    protected RelDataType createTargetRowType(SqlValidatorTable table,
-            @Nullable SqlNodeList targetColumnList, boolean append) {
+    protected RelDataType createTargetRowType(
+            SqlValidatorTable table,
+            SqlNodeList targetColumnList,
+            boolean append,
+            SqlIdentifier targetTableAlias
+    ) {
         RelDataType baseRowType = table.unwrap(IgniteTable.class).rowTypeForInsert((IgniteTypeFactory) typeFactory);
         if (targetColumnList == null) {
             return baseRowType;

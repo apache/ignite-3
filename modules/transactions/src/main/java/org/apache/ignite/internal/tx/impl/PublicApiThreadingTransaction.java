@@ -137,6 +137,11 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
+    public boolean isFinishingOrFinished() {
+        return transaction.isFinishingOrFinished();
+    }
+
+    @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
         return classToUnwrap.cast(transaction);
     }

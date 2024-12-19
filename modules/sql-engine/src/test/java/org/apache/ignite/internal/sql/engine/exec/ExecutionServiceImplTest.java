@@ -45,8 +45,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -73,6 +71,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -83,6 +82,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -92,10 +92,13 @@ import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImplTest.TestExecutionDistributionProvider;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
@@ -120,6 +123,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueModifyPlan;
+import org.apache.ignite.internal.sql.engine.prepare.KillPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
@@ -215,6 +219,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private final List<QueryTaskExecutor> executers = new ArrayList<>();
 
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+
+    private final KillCommandHandler killCommandHandler =
+            new KillCommandHandler(nodeNames.get(0), mock(LogicalTopologyService.class), mock(MessagingService.class));
 
     private ClusterNode firstNode;
 
@@ -878,8 +885,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testTimeoutKvGet() {
-        int deadlineMillis = 500;
-
         // Use a separate context, so planning won't timeout.
         SqlOperationContext planCtx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl WHERE id = 1", planCtx);
@@ -887,12 +892,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertInstanceOf(KeyValueGetPlan.class, plan);
 
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
 
-        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
-        tableRegistry.setGetTableDelay(delay);
-
-        awaitExecutionTimeout(execService, plan, deadlineMillis, SqlException.class);
+        awaitExecutionTimeout(execService, plan, 500, SqlException.class);
     }
 
     @Test
@@ -903,13 +904,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertInstanceOf(KeyValueModifyPlan.class, plan);
 
-        int deadlineMillis = 500;
-
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
-
-        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
-        tableRegistry.setGetTableDelay(delay);
 
         awaitExecutionTimeout(execService, plan, 500, SqlException.class);
     }
@@ -922,19 +917,41 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertInstanceOf(DdlPlan.class, plan);
 
-        int deadlineMillis = 500;
-
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-
-        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
-
-        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
-        tableRegistry.setGetTableDelay(delay);
 
         DdlCommandHandler ddlCommandHandler = execService.ddlCommandHandler();
         when(ddlCommandHandler.handle(any(CatalogCommand.class))).thenReturn(new CompletableFuture<>());
 
         // DDL handler does convert exceptions to SqlException, so we get QueryCancelledException here.
+        awaitExecutionTimeout(execService, plan, 500, QueryCancelledException.class);
+    }
+
+    @Test
+    public void testTimeoutKill() {
+        SqlOperationContext planCtx = createContext();
+        QueryPlan plan = prepare("KILL QUERY '" + randomUUID() + '\'', planCtx);
+
+        assertInstanceOf(KillPlan.class, plan);
+
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
+
+        killCommandHandler.register(new OperationKillHandler() {
+            @Override
+            public CompletableFuture<Boolean> cancelAsync(String operationId) {
+                return new CompletableFuture<>();
+            }
+
+            @Override
+            public boolean local() {
+                return false;
+            }
+
+            @Override
+            public CancellableOperationType type() {
+                return CancellableOperationType.QUERY;
+            }
+        });
+
         awaitExecutionTimeout(execService, plan, 500, QueryCancelledException.class);
     }
 
@@ -952,13 +969,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertInstanceOf(SelectCountPlan.class, plan);
 
-        int deadlineMillis = 500;
-
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
-
-        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
-        tableRegistry.setGetTableDelay(delay);
 
         Function<QueryCancel, SqlOperationContext> implicitTx = (cancel) -> operationContext()
                 .cancel(cancel)
@@ -1195,6 +1206,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps, tableFunctionRegistry),
                 clockService,
+                killCommandHandler,
                 SHUTDOWN_TIMEOUT
         );
 

@@ -39,6 +39,7 @@ import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.metrics.exporters.configuration.HeadersView;
 import org.apache.ignite.internal.metrics.exporters.configuration.OtlpExporterView;
 import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.internal.network.ssl.KeystoreLoader;
+import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -71,17 +73,17 @@ class MetricReporter implements AutoCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MetricReporter.class);
 
     private final Collection<MetricData> metrics = new CopyOnWriteArrayList<>();
-    private final Resource resource;
+    private final Lazy<Resource> resource;
 
     private MetricExporter exporter;
 
-    MetricReporter(OtlpExporterView view, String clusterId, String nodeName) {
+    MetricReporter(OtlpExporterView view, Supplier<UUID> clusterIdSupplier, String nodeName) {
         this.exporter = createExporter(view);
 
-        this.resource = Resource.builder()
-                .put("service.name", clusterId)
+        this.resource = new Lazy<>(() -> Resource.builder()
+                .put("service.name", clusterIdSupplier.get().toString())
                 .put("service.instance.id", nodeName)
-                .build();
+                .build());
     }
 
     void addMetricSet(MetricSet metricSet) {
@@ -106,7 +108,9 @@ class MetricReporter implements AutoCloseable {
     }
 
     void report() {
-        exporter.export(metrics);
+        if (!metrics.isEmpty()) {
+            exporter.export(metrics);
+        }
     }
 
     @Override
@@ -118,7 +122,6 @@ class MetricReporter implements AutoCloseable {
     void exporter(MetricExporter exporter) {
         this.exporter = exporter;
     }
-
 
     private static Supplier<Map<String, String>> headers(NamedListView<? extends HeadersView> headers) {
         return () -> headers.stream().collect(Collectors.toUnmodifiableMap(HeadersView::name, HeadersView::header));
@@ -220,7 +223,7 @@ class MetricReporter implements AutoCloseable {
         return builder.build();
     }
 
-    private static @Nullable MetricData toMetricData(Resource resource, InstrumentationScopeInfo scope, Metric metric) {
+    private static @Nullable MetricData toMetricData(Lazy<Resource> resource, InstrumentationScopeInfo scope, Metric metric) {
         if (metric instanceof IntMetric) {
             return new IgniteIntMetricData(resource, scope, (IntMetric) metric);
         }

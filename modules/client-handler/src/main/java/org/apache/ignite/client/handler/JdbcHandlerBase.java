@@ -108,6 +108,7 @@ abstract class JdbcHandlerBase {
                     return new JdbcQuerySingleResult(cursorId, updCount, cur.hasNextResult());
                 }
                 case DDL:
+                case KILL:
                 case TX_CONTROL:
                     return new JdbcQuerySingleResult(cursorId, 0, cur.hasNextResult());
                 default:

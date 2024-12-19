@@ -110,7 +110,7 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     }
 
     @Override
-    public CompletableFuture<Void> closeAsync(boolean cancelled) {
+    public CompletableFuture<Void> closeAsync() {
         return nullCompletedFuture();
     }
 

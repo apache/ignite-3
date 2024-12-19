@@ -31,6 +31,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -55,6 +56,8 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionDependencyResolverImpl;
@@ -69,6 +72,8 @@ import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
+import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProviderImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingServiceImpl;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
@@ -161,6 +166,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private final SystemViewManager systemViewManager;
 
+    private final KillCommandHandler killCommandHandler;
+
     private volatile QueryExecutor queryExecutor;
 
     private volatile QueryTaskExecutor taskExecutor;
@@ -216,7 +223,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             TransactionInflights transactionInflights,
             TxManager txManager,
             LowWatermark lowWaterMark,
-            ScheduledExecutorService commonScheduler
+            ScheduledExecutorService commonScheduler,
+            KillCommandHandler killCommandHandler
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -237,6 +245,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.txTracker = new InflightTransactionTracker(transactionInflights);
         this.txManager = txManager;
         this.commonScheduler = commonScheduler;
+        this.killCommandHandler = killCommandHandler;
         sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -289,7 +298,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(
-                tableManager, schemaManager, sqlSchemaManager, replicaService, clockService, TABLE_CACHE_SIZE
+                tableManager, schemaManager, sqlSchemaManager, replicaService, clockService, TABLE_CACHE_SIZE, CACHE_FACTORY
         );
 
         var tableFunctionRegistry = new TableFunctionRegistryImpl();
@@ -329,6 +338,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 dependencyResolver,
                 tableFunctionRegistry,
                 clockService,
+                killCommandHandler,
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
 
@@ -355,6 +365,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         registerService(sqlStatisticManager);
 
         services.forEach(LifecycleAware::start);
+
+        killCommandHandler.register(new SqlQueryKillHandler());
 
         return nullCompletedFuture();
     }
@@ -549,14 +561,20 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     /** Returns the number of running queries. */
     @TestOnly
-    public int runningQueries() {
+    public int runningQueriesCount() {
+        return runningQueries().size();
+    }
+
+    /** Returns the list of running queries. */
+    @TestOnly
+    public List<QueryInfo> runningQueries() {
         QueryExecutor executor = queryExecutor;
 
         if (executor == null) {
-            return 0;
+            return List.of();
         }
 
-        return executor.runningQueries().size();
+        return executor.runningQueries();
     }
 
     @Override
@@ -579,6 +597,27 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
         public CompletableFuture<Void> prefetchFuture() {
             return prefetchFuture;
+        }
+    }
+
+    private class SqlQueryKillHandler implements OperationKillHandler {
+        @Override
+        public CompletableFuture<Boolean> cancelAsync(String operationId) {
+            Objects.requireNonNull(operationId, "operationId");
+
+            UUID queryId = UUID.fromString(operationId);
+
+            return queryExecutor.cancelQuery(queryId);
+        }
+
+        @Override
+        public boolean local() {
+            return true;
+        }
+
+        @Override
+        public CancellableOperationType type() {
+            return CancellableOperationType.QUERY;
         }
     }
 }

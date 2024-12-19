@@ -555,7 +555,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txConfiguration,
                 clusterService,
                 replicaSvc,
-                new HeapLockManager(),
+                new HeapLockManager(1024, 1024),
                 CLOCK_SERVICE,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
@@ -575,12 +575,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
         return super.get(keyRow, tx);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int partition(BinaryRowEx keyRow) {
-        return 0;
     }
 
     /** {@inheritDoc} */

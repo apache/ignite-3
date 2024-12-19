@@ -17,6 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Collections.emptyList;
 import static java.util.Collections.synchronizedList;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -74,7 +75,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
-import java.util.function.Consumer;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -117,6 +117,7 @@ import org.apache.ignite.raft.jraft.option.BootstrapOptions;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.option.ReadOnlyOption;
+import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
 import org.apache.ignite.raft.jraft.rpc.RpcClientEx;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcServer;
@@ -124,9 +125,13 @@ import org.apache.ignite.raft.jraft.rpc.TestIgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcClient;
 import org.apache.ignite.raft.jraft.rpc.impl.IgniteRpcServer;
 import org.apache.ignite.raft.jraft.rpc.impl.core.DefaultRaftClientService;
+import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.ThroughputSnapshotThrottle;
+import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotCopier;
+import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
 import org.apache.ignite.raft.jraft.test.TestPeer;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.raft.jraft.util.Bits;
@@ -580,7 +585,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         UserReplicatorStateListener listener2 = new UserReplicatorStateListener();
 
         cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS,
-            opts -> opts.setReplicationStateListeners(List.of(listener1, listener2)), testInfo);
+                (peerId, opts) -> opts.setReplicationStateListeners(List.of(listener1, listener2)), testInfo);
 
         for (TestPeer peer : peers)
             assertTrue(cluster.start(peer));
@@ -680,7 +685,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
 
         cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS,
-            opts -> opts.setReplicationStateListeners(List.of(new UserReplicatorStateListener())), testInfo);
+                (peerId, opts) -> opts.setReplicationStateListeners(List.of(new UserReplicatorStateListener())), testInfo);
 
         for (TestPeer peer : peers)
             assertTrue(cluster.start(peer));
@@ -2811,6 +2816,252 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertFalse(res, "The follower shouldn't stop following");
     }
 
+    /**
+     * INSTALLING_SNAPSHOT is discarded only when:
+     * - the snapshot is installed correctly
+     * - if a leader dies and a new one is elected, the new leader installs a new snapshot
+     * - the node is restarted (INSTALLING_SNAPSHOT is stored in memory only)
+     */
+    @Test
+    public void testNodeWillNeverGetOutOfSnapshot() throws Exception {
+        CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
+        CompletableFuture<Void> snapshotStartedFuture = new CompletableFuture<>();
+
+        // Create a group of 3 nodes, A,B and C.
+        // Start nodes A and B, node C remains not started.
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
+
+        // Here we need custom SnapshotCopier that is capable of pausing snapshot installation.
+        BiConsumer<PeerId, NodeOptions> nodeOptionsConsumer = (peerId, nodeOptions) -> {
+            tapIntoSnapshotCopier(nodeOptions, snapshotFuture, snapshotStartedFuture);
+        };
+
+        cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS, nodeOptionsConsumer,
+                testInfo);
+
+        assertTrue(cluster.start(peers.get(0)));
+        assertTrue(cluster.start(peers.get(1)));
+
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+
+        // Add data to the group.
+        sendTestTaskAndWait(leader);
+
+        log.info("Trigger leader snapshot.");
+        CountDownLatch latch = new CountDownLatch(1);
+        leader.snapshot(new ExpectClosure(latch));
+        waitLatch(latch);
+        // Doing it twice to trigger log truncation.
+        latch = new CountDownLatch(1);
+        leader.snapshot(new ExpectClosure(latch));
+        waitLatch(latch);
+
+        log.info("Stop follower [id={}].",cluster.getFollowers().get(0).getNodeId().getPeerId().getConsistentId());
+        cluster.stop(cluster.getFollowers().get(0).getNodeId().getPeerId());
+
+        // Start node C, it should install snapshot from leader.
+        log.info("Start node [id={}].", peers.get(2).getPeerId().getConsistentId());
+        assertTrue(cluster.start(peers.get(2)));
+        assertTrue(waitForCondition(() -> cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot(), 10_000));
+
+        log.info("Waiting for snapshot to start executing.");
+        assertThat(snapshotStartedFuture, willCompleteSuccessfully());
+
+        // While snapshot is being installed, stop the leader.
+        log.info("Stopping leader [id={}].", leader.getLeaderId());
+        cluster.stop(leader.getLeaderId());
+        log.info("Leader stopped.");
+        
+        assertTrue(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
+
+        // Wait 30 seconds to check if snapshot is still installing.
+        Thread.sleep(30_000);
+
+        // Even after 30 seconds (in reality, forever), the snapshot is still installing.
+        assertTrue(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
+    }
+
+    /**
+     * A case when blocked TimeoutNow leads to nodes fail to elect a new leader.
+     */
+    @Test
+    public void testNodeBlockedTimeoutNow() throws Exception {
+        CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
+        CompletableFuture<Void> snapshotStartedFuture = new CompletableFuture<>();
+
+        // Create a group of 3 nodes, A,B and C.
+        // A is the leader, B and C are followers.
+        // C is not started, moreover C is on different configuration.
+        // Write data to the group and then start C.
+        // A is killed. C is in INSTALLING_SNAPSHOT.
+        // B starts PreVote. But C cannot vote for it as the configuration does not match.
+        // C cannot start prevote as C is in INSTALLING_SNAPSHOT.
+        List<TestPeer> allPeers = TestUtils.generatePeers(testInfo, 5);
+        List<TestPeer> peers = allPeers.subList(0, 3);
+
+        // Here we need custom SnapshotCopier that is capable of pausing snapshot installation.
+        BiConsumer<PeerId, NodeOptions> nodeOptionsConsumer = (peerId, nodeOptions) -> {
+            if (peerId.equals(peers.get(2).getPeerId())) {
+                nodeOptions.setInitialConf(new Configuration(
+                        allPeers.subList(2, 5).stream().map(TestPeer::getPeerId).collect(toList()),
+                        emptyList()
+                ));
+            }
+
+            tapIntoSnapshotCopier(nodeOptions, snapshotFuture, snapshotStartedFuture);
+        };
+
+        cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS, nodeOptionsConsumer,
+                testInfo);
+
+        assertTrue(cluster.start(peers.get(0)));
+        assertTrue(cluster.start(peers.get(1)));
+
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+
+        // Add data to the group.
+        sendTestTaskAndWait(leader);
+
+        log.info("Trigger leader snapshot.");
+        CountDownLatch latch = new CountDownLatch(1);
+        leader.snapshot(new ExpectClosure(latch));
+        waitLatch(latch);
+        // Doing it twice to trigger log truncation.
+        latch = new CountDownLatch(1);
+        leader.snapshot(new ExpectClosure(latch));
+        waitLatch(latch);
+
+        // Start node C, it should install snapshot from leader.
+        log.info("Start node [id={}].", peers.get(2).getPeerId().getConsistentId());
+        assertTrue(cluster.start(peers.get(2)));
+        blockMessagesOnFollowers(cluster.getNodes().stream().map(Node.class::cast).collect(toList()), (msg, nodeId) -> {
+            if (msg instanceof RpcRequests.TimeoutNowRequest) {
+                log.info("Blocking TimeoutNowRequest on [node={}, msg={}].", nodeId, msg);
+                return true;
+            }
+
+            return false;
+        });
+        assertTrue(waitForCondition(() -> cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot(), 10_000));
+        // While snapshot is being installed, stop the leader.
+
+        log.info("Waiting for snapshot to start executing.");
+        assertThat(snapshotStartedFuture, willCompleteSuccessfully());
+
+        log.info("Stopping leader [id={}].", leader.getLeaderId());
+        cluster.stop(leader.getLeaderId());
+        log.info("Leader stopped.");
+
+        Thread.sleep(30_000);
+
+        assertTrue(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
+    }
+
+    @Test
+    public void testReelectionWithTimeoutNow() throws Exception {
+        CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
+        CompletableFuture<Void> snapshotStartedFuture = new CompletableFuture<>();
+        // Create a group of 3 nodes, A,B and C.
+        // A is the leader, B and C are followers.
+        // C is not started, moreover C is on different configuration.
+        // Write data to the group and then start C.
+        // A is killed. C is in INSTALLING_SNAPSHOT.
+        // A sends TimeoutNow on stop,
+        // B receives it, elects itself a leader and sends RequestVoteRequest.
+        // C votes for it and B becomes the new leader of (A,B,C).
+        List<TestPeer> allPeers = TestUtils.generatePeers(testInfo, 5);
+        List<TestPeer> peers = allPeers.subList(0, 3);
+
+        // Here we need custom SnapshotCopier that is capable of pausing snapshot installation.
+        BiConsumer<PeerId, NodeOptions> nodeOptionsConsumer = (peerId, nodeOptions) -> {
+            if (peerId.equals(peers.get(2).getPeerId())) {
+                nodeOptions.setInitialConf(new Configuration(
+                        allPeers.subList(2, 5).stream().map(TestPeer::getPeerId).collect(toList()),
+                        emptyList()
+                ));
+            }
+
+            tapIntoSnapshotCopier(nodeOptions, snapshotFuture, snapshotStartedFuture);
+        };
+
+        cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS, nodeOptionsConsumer,
+                testInfo);
+
+        assertTrue(cluster.start(peers.get(0)));
+        assertTrue(cluster.start(peers.get(1)));
+
+        Node leader = cluster.waitAndGetLeader();
+        assertNotNull(leader);
+
+        // Add data to the group.
+        sendTestTaskAndWait(leader);
+
+        log.info("Trigger leader snapshot.");
+        CountDownLatch latch = new CountDownLatch(1);
+        leader.snapshot(new ExpectClosure(latch));
+        waitLatch(latch);
+        // Doing it twice to trigger log truncation.
+        latch = new CountDownLatch(1);
+        leader.snapshot(new ExpectClosure(latch));
+        waitLatch(latch);
+
+        // Start node C, it should install snapshot from leader.
+        log.info("Start node [id={}].", peers.get(2).getPeerId().getConsistentId());
+        assertTrue(cluster.start(peers.get(2)));
+
+        assertTrue(waitForCondition(() -> cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot(), 10_000));
+        // While snapshot is being installed, stop the leader.
+        log.info("Stopping leader [id={}].", leader.getLeaderId());
+        cluster.stop(leader.getLeaderId());
+        log.info("Leader stopped.");
+
+        assertFalse(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
+    }
+
+    private void tapIntoSnapshotCopier(
+            NodeOptions nodeOptions,
+            CompletableFuture<Void> snapshotFuture,
+            CompletableFuture<Void> snapshotStartedFuture
+    ) {
+        nodeOptions.setServiceFactory(new TestJRaftServiceFactory() {
+            @Override
+            public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+                return new LocalSnapshotStorage(uri, raftOptions) {
+
+                    @Override
+                    public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
+                        LocalSnapshotCopier copier = new LocalSnapshotCopier() {
+                            @Override
+                            public void join() throws InterruptedException {
+                                // Pause snapshot installation.
+                                snapshotStartedFuture.complete(null);
+
+                                snapshotFuture.join();
+                                super.join();
+                            }
+
+                            @Override
+                            public void cancel() {
+                                // Unblock snapshot installation if snapshot request is cancelled.
+                                snapshotFuture.complete(null);
+                                super.cancel();
+                            }
+                        };
+                        copier.setStorage(this);
+                        if (!copier.init(uri, opts)) {
+                            logger().error("Fail to init copier to {}.", uri);
+                            return null;
+                        }
+                        copier.start();
+                        return copier;
+                    }
+                };
+            }
+        });
+    }
+
     @Test
     public void readCommittedUserLog() throws Exception {
         // setup cluster
@@ -3708,7 +3959,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         int maxElectionRoundsWithoutAdjusting = 3;
 
         cluster = new TestCluster("unittest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS,
-                opts -> opts.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy(11_000, maxElectionRoundsWithoutAdjusting)),
+                (peerId, opts) ->
+                        opts.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy(11_000, maxElectionRoundsWithoutAdjusting)),
                 testInfo);
 
         for (TestPeer peer : peers) {
@@ -3846,8 +4098,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         assertThat(lastLogIndexAt(forcedLeaderPeer), is(configFromResetIndex));
 
-        Consumer<NodeOptions> installExternalIndex = nodeOptions -> nodeOptions.setExternallyEnforcedConfigIndex(configFromResetIndex);
-        cluster.setNodeOptionsCustomizer(installExternalIndex);
+        cluster.setNodeOptionsCustomizer((peerId, opts) -> opts.setExternallyEnforcedConfigIndex(configFromResetIndex));
 
         assertTrue(cluster.start(originalLeaderPeer));
 
@@ -3911,8 +4162,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         Node node = cluster.waitAndGetLeader();
         assertThat(node.getLeaderId(), is(forcedLeaderPeer.getPeerId()));
 
-        Consumer<NodeOptions> installExternalIndex = nodeOptions -> nodeOptions.setExternallyEnforcedConfigIndex(configFromResetIndex);
-        cluster.setNodeOptionsCustomizer(installExternalIndex);
+        cluster.setNodeOptionsCustomizer((peerId, opts) -> opts.setExternallyEnforcedConfigIndex(configFromResetIndex));
 
         assertTrue(cluster.start(originalLeaderPeer));
 

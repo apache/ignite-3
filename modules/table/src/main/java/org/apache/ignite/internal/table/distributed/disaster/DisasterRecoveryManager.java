@@ -211,19 +211,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         this.tableManager = tableManager;
         this.metricManager = metricManager;
 
-        watchListener = new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                handleTriggerKeyUpdate(event);
+        watchListener = event -> {
+            handleTriggerKeyUpdate(event);
 
-                // There is no need to block a watch thread any longer.
-                return nullCompletedFuture();
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                // No-op.
-            }
+            // There is no need to block a watch thread any longer.
+            return nullCompletedFuture();
         };
     }
 

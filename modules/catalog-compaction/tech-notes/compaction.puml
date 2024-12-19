@@ -10,7 +10,7 @@ crd -> node ++ : MinimumTimesRequest
 node -> node
 note right
   obtain previously published minimum
-  tx begin time using RaftGroupStateProvider
+  tx begin time using MinimumRequiredTimeCollectorService
   from all local replication groups
 end note
 node -> node : compute minimum among all replication groups

@@ -132,8 +132,8 @@ public class ItJdbcComplexDmlDdlSelfTest extends AbstractJdbcSelfTest {
 
         assertEquals(cnt[0], 34, "Invalid rows count");
 
-        sql(new UpdateChecker(0), "DROP TABLE city_t");
-        sql(new UpdateChecker(0), "DROP TABLE person_t");
+        sql(new UpdateChecker(0), "DROP TABLE IF EXISTS city_t");
+        sql(new UpdateChecker(0), "DROP TABLE IF EXISTS person_t");
     }
 
     /**

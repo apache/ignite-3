@@ -50,8 +50,8 @@ public abstract class AbstractCallExecutionPipeline<I extends CallInput, T> impl
     /** Provider for call's input. */
     protected final Supplier<I> inputProvider;
 
-    /** If {@code true}, debug output will be printed to console. */
-    protected final boolean verbose;
+    /** If non-empty, debug output will be printed to console. */
+    protected final boolean[] verbose;
 
     AbstractCallExecutionPipeline(
             PrintWriter output,
@@ -59,7 +59,7 @@ public abstract class AbstractCallExecutionPipeline<I extends CallInput, T> impl
             ExceptionHandlers exceptionHandlers,
             Decorator<T, TerminalOutput> decorator,
             Supplier<I> inputProvider,
-            boolean verbose
+            boolean[] verbose
     ) {
         this.output = output;
         this.exceptionHandlers = exceptionHandlers;
@@ -77,12 +77,12 @@ public abstract class AbstractCallExecutionPipeline<I extends CallInput, T> impl
     @Override
     public int runPipeline() {
         try {
-            if (verbose) {
-                CliLoggers.startOutputRedirect(errOutput);
+            if (verbose.length > 0) {
+                CliLoggers.startOutputRedirect(errOutput, verbose);
             }
             return runPipelineInternal();
         } finally {
-            if (verbose) {
+            if (verbose.length > 0) {
                 CliLoggers.stopOutputRedirect();
             }
         }

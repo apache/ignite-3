@@ -49,8 +49,6 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
@@ -103,22 +101,14 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
         // Check that the new node will receive events.
         var awaitFuture = new CompletableFuture<EntryEvent>();
 
-        secondNode.metaStorageManager.registerExactWatch(key, new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                // Skip the first update event, because it's not guaranteed to arrive here (insert may have happened before the watch was
-                // registered).
-                if (event.revision() != 1) {
-                    awaitFuture.complete(event.entryEvent());
-                }
-
-                return nullCompletedFuture();
+        secondNode.metaStorageManager.registerExactWatch(key, event -> {
+            // Skip the first update event, because it's not guaranteed to arrive here (insert may have happened before the watch was
+            // registered).
+            if (event.revision() != 1) {
+                awaitFuture.complete(event.entryEvent());
             }
 
-            @Override
-            public void onError(Throwable e) {
-                awaitFuture.completeExceptionally(e);
-            }
+            return nullCompletedFuture();
         });
 
         byte[] newValue = "baz".getBytes(UTF_8);
@@ -239,18 +229,10 @@ abstract class ItMetaStorageMultipleNodesVsStorageTest extends ItMetaStorageMult
 
         // Register watch listener, so that we can control safe time propagation.
         // Safe time can only be propagated when all of the listeners completed their futures successfully.
-        secondNode.metaStorageManager.registerExactWatch(testKey, new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                watchCalledLatch.countDown();
+        secondNode.metaStorageManager.registerExactWatch(testKey, event -> {
+            watchCalledLatch.countDown();
 
-                return watchCompletedFuture;
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                // No-op.
-            }
+            return watchCompletedFuture;
         });
 
         HybridTimestamp timeBeforeOp = firstNodeTime.currentSafeTime();

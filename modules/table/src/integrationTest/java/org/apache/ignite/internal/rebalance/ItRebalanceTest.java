@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -32,12 +33,13 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.ClusterConfiguration.Builder;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -50,38 +52,31 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test suite for the rebalance.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItRebalanceTest extends BaseIgniteAbstractTest {
-    @WorkDirectory
-    private Path workDir;
-
-    private Cluster cluster;
-
+public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
     private final HybridClock clock = new HybridClockImpl();
 
-    @BeforeEach
-    void createCluster(TestInfo testInfo) {
-        cluster = new Cluster(testInfo, workDir);
+    @Override
+    protected int initialNodes() {
+        return 4;
     }
 
-    @AfterEach
-    void shutdownCluster() {
-        cluster.shutdown();
+    @Override
+    protected void customizeInitParameters(InitParametersBuilder builder) {
+        builder.clusterConfiguration("ignite.replication.rpcTimeout: 8000");
+    }
+
+    @Override
+    protected void customizeConfiguration(Builder clusterConfigurationBuilder) {
+        clusterConfigurationBuilder
+                .nodeNamingStrategy((conf, index) -> testNodeName(conf.testInfo(), index));
     }
 
     /**
@@ -91,12 +86,6 @@ public class ItRebalanceTest extends BaseIgniteAbstractTest {
      */
     @Test
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
-        cluster.startAndInit(4, builder -> builder.clusterConfiguration("ignite {\n"
-                + "    \"replication\": {\n"
-                + "        \"rpcTimeout\": 8000 \n"
-                + "    }"
-                + "}"));
-
         createZone("TEST_ZONE", 1, 3);
         // Creates table with 1 partition and 3 replicas.
         createTestTable("TEST_TABLE", "TEST_ZONE");
