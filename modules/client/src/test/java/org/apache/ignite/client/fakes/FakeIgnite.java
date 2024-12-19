@@ -123,10 +123,6 @@ public class FakeIgnite implements Ignite {
         return name;
     }
 
-    public HybridTimestampTracker timestampTracker() {
-        return hybridTimestampTracker;
-    }
-
     public FakePlacementDriver placementDriver() {
         return placementDriver;
     }
