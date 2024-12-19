@@ -995,7 +995,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             return clockService.currentLong();
         }
 
-        return HybridTimestamp.MIN_VALUE.longValue();
+        // TODO: Temporary code left there, but the correct one is 'return HybridTimestamp.MIN_VALUE.longValue();'
+        return clockService.currentLong();
     }
 
     private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {
