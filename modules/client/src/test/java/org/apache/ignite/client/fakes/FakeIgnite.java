@@ -28,6 +28,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
@@ -122,11 +123,11 @@ public class FakeIgnite implements Ignite {
         return name;
     }
 
-    public HybridTimestampTracker timestampTracker() {
-        return hybridTimestampTracker;
-    }
-
     public FakePlacementDriver placementDriver() {
         return placementDriver;
+    }
+
+    public TxManager txManager() {
+        return txMgr;
     }
 }

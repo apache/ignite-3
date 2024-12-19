@@ -32,7 +32,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
@@ -49,9 +49,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
 
     /** Enlisted partitions: partition id -> (primary replica node, enlistment consistency token). */
     private final Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
-
-    /** The tracker is used to track an observable timestamp. */
-    private final HybridTimestampTracker observableTsTracker;
 
     /** A partition which stores the transaction state. */
     private volatile TablePartitionId commitPart;
@@ -73,14 +70,12 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      */
     public ReadWriteTransactionImpl(
             TxManager txManager,
-            HybridTimestampTracker observableTsTracker,
+            ObservableTimestampProvider observableTsTracker,
             UUID id,
             UUID txCoordinatorId,
             boolean implicit
     ) {
-        super(txManager, id, txCoordinatorId, implicit);
-
-        this.observableTsTracker = observableTsTracker;
+        super(txManager, observableTsTracker, id, txCoordinatorId, implicit);
     }
 
     /** {@inheritDoc} */
