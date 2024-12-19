@@ -263,7 +263,7 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
+        public QueryTransactionWrapper getOrStartImplicit(boolean readOnly, boolean tableDriven) {
             return txWrapper;
         }
 
