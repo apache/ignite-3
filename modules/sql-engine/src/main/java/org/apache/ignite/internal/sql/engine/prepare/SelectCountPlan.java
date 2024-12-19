@@ -37,6 +37,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
+import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -102,8 +103,9 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
         assert igniteTable != null;
 
-        CompletableFuture<Long> countFut = tableRegistry.getTable(catalogVersion, igniteTable.id())
-                .thenCompose(execTable -> execTable.scannableTable().estimatedSize());
+        ExecutableTable execTable = tableRegistry.getTable(catalogVersion, igniteTable.id());
+
+        CompletableFuture<Long> countFut = execTable.scannableTable().estimatedSize();
 
         Executor resultExecutor = task -> ctx.execute(task::run, error -> {
             LOG.error("Unexpected error", error);

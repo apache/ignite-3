@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
+import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -134,70 +135,68 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
             @Nullable QueryPrefetchCallback firstPageReadyCallback
     ) {
         IgniteTable sqlTable = table();
+        ExecutableTable execTable = tableRegistry.getTable(catalogVersion, sqlTable.id());
 
-        CompletableFuture<Iterator<InternalSqlRow>> result = tableRegistry.getTable(catalogVersion, sqlTable.id())
-                .thenCompose(execTable -> {
+        ImmutableBitSet requiredColumns = lookupNode.requiredColumns();
+        RexNode filterExpr = lookupNode.condition();
+        List<RexNode> projectionExpr = lookupNode.projects();
+        List<RexNode> keyExpressions = lookupNode.keyExpressions();
 
-                    ImmutableBitSet requiredColumns = lookupNode.requiredColumns();
-                    RexNode filterExpr = lookupNode.condition();
-                    List<RexNode> projectionExpr = lookupNode.projects();
-                    List<RexNode> keyExpressions = lookupNode.keyExpressions();
+        RelDataType rowType = sqlTable.getRowType(Commons.typeFactory(), requiredColumns);
 
-                    RelDataType rowType = sqlTable.getRowType(Commons.typeFactory(), requiredColumns);
+        Supplier<RowT> keySupplier = ctx.expressionFactory()
+                .rowSource(keyExpressions);
+        Predicate<RowT> filter = filterExpr == null ? null : ctx.expressionFactory()
+                .predicate(filterExpr, rowType);
+        Function<RowT, RowT> projection = projectionExpr == null ? null : ctx.expressionFactory()
+                .project(projectionExpr, rowType);
 
-                    Supplier<RowT> keySupplier = ctx.expressionFactory()
-                            .rowSource(keyExpressions);
-                    Predicate<RowT> filter = filterExpr == null ? null : ctx.expressionFactory()
-                            .predicate(filterExpr, rowType);
-                    Function<RowT, RowT> projection = projectionExpr == null ? null : ctx.expressionFactory()
-                            .project(projectionExpr, rowType);
+        RowHandler<RowT> rowHandler = ctx.rowHandler();
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        RowFactory<RowT> rowFactory = rowHandler.factory(rowSchema);
 
-                    RowHandler<RowT> rowHandler = ctx.rowHandler();
-                    RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-                    RowFactory<RowT> rowFactory = rowHandler.factory(rowSchema);
+        RelDataType resultType = lookupNode.getRowType();
+        BiFunction<Integer, Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
 
-                    RelDataType resultType = lookupNode.getRowType();
-                    BiFunction<Integer, Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
+        ScannableTable scannableTable = execTable.scannableTable();
+        Function<RowT, Iterator<InternalSqlRow>> postProcess = row -> {
+            if (row == null) {
+                return Collections.emptyIterator();
+            }
 
-                    ScannableTable scannableTable = execTable.scannableTable();
-                    Function<RowT, Iterator<InternalSqlRow>> postProcess = row -> {
-                        if (row == null) {
-                            return Collections.emptyIterator();
-                        }
+            if (filter != null && !filter.test(row)) {
+                return Collections.emptyIterator();
+            }
 
-                        if (filter != null && !filter.test(row)) {
-                            return Collections.emptyIterator();
-                        }
+            if (projection != null) {
+                row = projection.apply(row);
+            }
 
-                        if (projection != null) {
-                            row = projection.apply(row);
-                        }
+            return List.<InternalSqlRow>of(
+                    new InternalSqlRowImpl<>(row, rowHandler, internalTypeConverter)
+            ).iterator();
+        };
 
-                        return List.<InternalSqlRow>of(
-                                new InternalSqlRowImpl<>(row, rowHandler, internalTypeConverter)
-                        ).iterator();
-                    };
+        CompletableFuture<RowT> lookupResult = scannableTable.primaryKeyLookup(
+                ctx, tx, rowFactory, keySupplier.get(), requiredColumns.toBitSet()
+        );
 
-                    CompletableFuture<RowT> lookupResult = scannableTable.primaryKeyLookup(
-                            ctx, tx, rowFactory, keySupplier.get(), requiredColumns.toBitSet()
-                    );
+        CompletableFuture<Iterator<InternalSqlRow>> result;
+        if (projection == null && filter == null) {
+            // no arbitrary computations, should be safe to proceed execution on
+            // thread that completes the future
+            result = lookupResult.thenApply(postProcess);
+        } else {
+            Executor executor = task -> ctx.execute(task::run, error -> {
+                // this executor is used to process future chain, so any unhandled exception
+                // should be wrapped with CompletionException and returned as a result, implying
+                // no error handler should be called.
+                // But just in case there is error in future processing pipeline let's log error
+                LOG.error("Unexpected error", error);
+            });
 
-                    if (projection == null && filter == null) {
-                        // no arbitrary computations, should be safe to proceed execution on
-                        // thread that completes the future
-                        return lookupResult.thenApply(postProcess);
-                    } else {
-                        Executor executor = task -> ctx.execute(task::run, error -> {
-                            // this executor is used to process future chain, so any unhandled exception
-                            // should be wrapped with CompletionException and returned as a result, implying
-                            // no error handler should be called.
-                            // But just in case there is error in future processing pipeline let's log error
-                            LOG.error("Unexpected error", error);
-                        });
-
-                        return lookupResult.thenApplyAsync(postProcess, executor);
-                    }
-                });
+            result = lookupResult.thenApplyAsync(postProcess, executor);
+        }
 
         if (firstPageReadyCallback != null) {
             result.whenComplete((res, err) -> firstPageReadyCallback.onPrefetchComplete(err));

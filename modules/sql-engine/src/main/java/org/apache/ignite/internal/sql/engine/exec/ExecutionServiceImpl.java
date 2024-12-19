@@ -49,7 +49,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -965,15 +964,11 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 TxAttributes txAttributes
         ) {
             try {
-                // Because fragment execution runs on specific thread selected by taskExecutor,
-                // we should complete dependency resolution on the same thread
-                // that is going to be used for fragment execution.
                 ExecutionContext<RowT> context = createContext(initiatorNode, desc, txAttributes);
-                Executor exec = (r) -> context.execute(r::run, err -> handleError(err, initiatorNode, desc.fragmentId()));
                 IgniteRel treeRoot = relationalTreeFromJsonString(catalogVersion, fragmentString);
 
-                dependencyResolver.resolveDependencies(List.of(treeRoot), catalogVersion)
-                        .thenComposeAsync(deps -> executeFragment(treeRoot, deps, context), exec)
+                ResolvedDependencies resolvedDependencies = dependencyResolver.resolveDependencies(List.of(treeRoot), catalogVersion);
+                executeFragment(treeRoot, resolvedDependencies, context)
                         .exceptionally(ex -> {
                             handleError(ex, initiatorNode, desc.fragmentId());
 

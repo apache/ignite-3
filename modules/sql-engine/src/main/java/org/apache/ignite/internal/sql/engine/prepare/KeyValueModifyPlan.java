@@ -29,6 +29,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleLong;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
+import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
@@ -119,20 +120,18 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
             @Nullable QueryPrefetchCallback firstPageReadyCallback
     ) {
         IgniteTable sqlTable = table();
+        ExecutableTable execTable = tableRegistry.getTable(catalogVersion, sqlTable.id());
 
-        CompletableFuture<Iterator<InternalSqlRow>> result = tableRegistry.getTable(catalogVersion, sqlTable.id())
-                .thenCompose(execTable -> {
-                    List<RexNode> expressions = modifyNode.expressions();
+        List<RexNode> expressions = modifyNode.expressions();
 
-                    Supplier<RowT> rowSupplier = ctx.expressionFactory()
-                            .rowSource(expressions);
+        Supplier<RowT> rowSupplier = ctx.expressionFactory()
+                .rowSource(expressions);
 
-                    UpdatableTable updatableTable = execTable.updatableTable();
+        UpdatableTable updatableTable = execTable.updatableTable();
 
-                    return updatableTable.insert(
-                            tx, ctx, rowSupplier.get()
-                    ).thenApply(none -> List.<InternalSqlRow>of(new InternalSqlRowSingleLong(1L)).iterator());
-                });
+        CompletableFuture<Iterator<InternalSqlRow>> result = updatableTable.insert(
+                tx, ctx, rowSupplier.get()
+        ).thenApply(none -> List.<InternalSqlRow>of(new InternalSqlRowSingleLong(1L)).iterator());
 
         if (firstPageReadyCallback != null) {
             result.whenComplete((res, err) -> firstPageReadyCallback.onPrefetchComplete(err));
