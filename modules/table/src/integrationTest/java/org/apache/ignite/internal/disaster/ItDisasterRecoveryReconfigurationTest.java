@@ -781,9 +781,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // No fromReset flag is set on stable.
         Assignments assignmentsStable = Assignments.of(Set.of(
-                Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
-                Assignment.forPeer(node(2).name())
+                Assignment.forPeer(node(1).name())
         ), timestamp);
 
         assertStableAssignments(node0, partId, assignmentsStable);
