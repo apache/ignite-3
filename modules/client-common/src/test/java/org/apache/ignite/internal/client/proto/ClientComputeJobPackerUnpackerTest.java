@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.u
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import io.netty.buffer.ByteBufUtil;
@@ -39,6 +40,7 @@ import java.time.Period;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -85,7 +87,9 @@ class ClientComputeJobPackerUnpackerTest {
 
     private static Stream<Arguments> tupleCollections() {
         return Stream.of(
-                null,
+                List.of(),
+                Collections.singletonList(Tuple.create()),
+                Collections.singletonList(null),
                 List.of(Tuple.create(), Tuple.create().set("key", 1), Tuple.create().set("key", "value1")),
                 Set.of(Tuple.create().set("key", 2), Tuple.create().set("key", "value2"))
         ).map(Arguments::of);
@@ -129,12 +133,12 @@ class ClientComputeJobPackerUnpackerTest {
         try (var messageUnpacker = messageUnpacker(data)) {
             var res = unpackJobResult(messageUnpacker, null, null);
 
-            if (arg instanceof Set) {
-                arg = new ArrayList<>((Set<?>) arg);
-            }
-
             // Then.
-            assertEquals(arg, res);
+            if (arg instanceof Collection<?>) {
+                assertIterableEquals((Collection<?>) arg, (Collection<?>) res);
+            } else {
+                assertEquals(arg, res);
+            }
         }
     }
 
@@ -248,6 +252,19 @@ class ClientComputeJobPackerUnpackerTest {
                 () -> packJobResult(new Object(), null, messagePacker),
                 "Can't pack object"
         );
+    }
+
+    @MethodSource("tupleCollections")
+    @ParameterizedTest
+    void packUnpackTupleCollection(Collection<?> arg) {
+        packJobResult(arg, null, messagePacker);
+        byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
+
+        try (var messageUnpacker = messageUnpacker(data)) {
+            Collection<?> res = (Collection<?>) unpackJobResult(messageUnpacker, null, arg.getClass());
+
+            assertIterableEquals(arg, res);
+        }
     }
 
     private static class TestStringMarshaller implements Marshaller<String, byte[]> {
