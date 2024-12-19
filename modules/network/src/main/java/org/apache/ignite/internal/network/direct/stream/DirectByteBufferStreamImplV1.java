@@ -313,6 +313,46 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         writeVarInt(val + 1);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public void writeFixedInt(int val) {
+        lastFinished = remainingInternal() >= Integer.BYTES;
+
+        if (lastFinished) {
+            int pos = buf.position();
+
+            if (IS_BIG_ENDIAN) {
+                GridUnsafe.putIntLittleEndian(heapArr, baseOff + pos, val);
+            } else {
+                GridUnsafe.putInt(heapArr, baseOff + pos, val);
+            }
+
+            pos += Integer.BYTES;
+
+            setPosition(pos);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void writeFixedLong(long val) {
+        lastFinished = remainingInternal() >= Long.BYTES;
+
+        if (lastFinished) {
+            int pos = buf.position();
+
+            if (IS_BIG_ENDIAN) {
+                GridUnsafe.putLongLittleEndian(heapArr, baseOff + pos, val);
+            } else {
+                GridUnsafe.putLong(heapArr, baseOff + pos, val);
+            }
+
+            pos += Long.BYTES;
+
+            setPosition(pos);
+        }
+    }
+
     @Override
     public void writeBoxedInt(@Nullable Integer val) {
         if (val != null) {
@@ -1119,6 +1159,40 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
 
         setPosition(pos);
+
+        return val;
+    }
+
+    @Override
+    public int readFixedInt() {
+        lastFinished = remainingInternal() >= Integer.BYTES;
+
+        int val = 0;
+
+        if (lastFinished) {
+            int pos = buf.position();
+
+            val = GridUnsafe.getInt(heapArr, baseOff + pos);
+
+            setPosition(pos + Integer.BYTES);
+        }
+
+        return val;
+    }
+
+    @Override
+    public long readFixedLong() {
+        lastFinished = remainingInternal() >= Long.BYTES;
+
+        long val = 0;
+
+        if (lastFinished) {
+            int pos = buf.position();
+
+            val = GridUnsafe.getLong(heapArr, baseOff + pos);
+
+            setPosition(pos + Long.BYTES);
+        }
 
         return val;
     }

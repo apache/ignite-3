@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.raft.service;
 
 import java.io.Serializable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.Command;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,4 +56,11 @@ public interface CommandClosure<R extends Command> {
      * @param res Execution result.
      */
     void result(@Nullable Serializable res);
+
+    /**
+     * Patches the command.
+     *
+     * @param safeTs Safe timestamp.
+     */
+    default void patch(HybridTimestamp safeTs) {}
 }
