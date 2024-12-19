@@ -41,6 +41,7 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -134,6 +135,11 @@ public class ConfigurationValidatorImplTest extends BaseIgniteAbstractTest {
         @LeafValidation
         @Value(hasDefault = true)
         public String str = "foo";
+
+        @LeafValidation
+        @Value(hasDefault = true)
+        @PublicName("strChangedName")
+        public String strPublicName = "foo";
     }
 
     /**
@@ -144,6 +150,11 @@ public class ConfigurationValidatorImplTest extends BaseIgniteAbstractTest {
         @LeafValidation
         @Value(hasDefault = true)
         public String strInternal = "fooInternal";
+
+        @LeafValidation
+        @Value(hasDefault = true)
+        @PublicName("strInternalChangedName")
+        public String strInternalPublicName = "fooInternal";
     }
 
     /**
@@ -166,6 +177,11 @@ public class ConfigurationValidatorImplTest extends BaseIgniteAbstractTest {
         @LeafValidation
         @Value(hasDefault = true)
         public String strPoly = "fooPolyFirst";
+
+        @LeafValidation
+        @Value(hasDefault = true)
+        @PublicName("strPolyChangedName")
+        public String strPolyPublicName = "fooPolyFirst";
     }
 
     private InnerNode root;
@@ -196,9 +212,12 @@ public class ConfigurationValidatorImplTest extends BaseIgniteAbstractTest {
 
         List<ValidationIssue> expected = List.of(
                 new ExValidationIssue("bar", "root.child.str", "foo", "foo"),
+                new ExValidationIssue("bar", "root.child.strChangedName", "foo", "foo"),
                 new ExValidationIssue("bar", "root.child.strInternal", "fooInternal", "fooInternal"),
+                new ExValidationIssue("bar", "root.child.strInternalChangedName", "fooInternal", "fooInternal"),
                 new ExValidationIssue("bar", "root.poly.type", DEFAULT_POLY_TYPE, DEFAULT_POLY_TYPE),
-                new ExValidationIssue("bar", "root.poly.strPoly", "fooPolyFirst", "fooPolyFirst")
+                new ExValidationIssue("bar", "root.poly.strPoly", "fooPolyFirst", "fooPolyFirst"),
+                new ExValidationIssue("bar", "root.poly.strPolyChangedName", "fooPolyFirst", "fooPolyFirst")
         );
 
         assertThat(
@@ -396,7 +415,7 @@ public class ConfigurationValidatorImplTest extends BaseIgniteAbstractTest {
         /** {@inheritDoc} */
         @Override
         public String toString() {
-            return S.toString(ExValidationIssue.class, this, message());
+            return S.toString(ExValidationIssue.class, this, super.toString());
         }
 
         static int compareByCurrentKey(ValidationIssue o1, ValidationIssue o2) {
