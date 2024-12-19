@@ -95,6 +95,11 @@ public final class ClientComputeJobUnpacker {
                 List<Tuple> res = new ArrayList<>();
 
                 for (int i = 0; i < count; i++) {
+                    if (unpacker.tryUnpackNil()) {
+                        res.add(null);
+                        continue;
+                    }
+
                     res.add(TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary()));
                 }
 

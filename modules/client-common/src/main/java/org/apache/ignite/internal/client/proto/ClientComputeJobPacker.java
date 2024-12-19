@@ -21,9 +21,11 @@ import static org.apache.ignite.internal.compute.ComputeJobDataType.MARSHALLED_C
 import static org.apache.ignite.internal.compute.ComputeJobDataType.NATIVE;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.POJO;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE;
+import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE_COLLECTION;
 import static org.apache.ignite.internal.compute.PojoConverter.toTuple;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
@@ -97,6 +99,28 @@ public final class ClientComputeJobPacker {
             packer.packInt(TUPLE.id());
 
             packTuple((Tuple) obj, packer);
+            return;
+        }
+
+        if (obj instanceof Collection) {
+            Collection<?> col = (Collection<?>) obj;
+
+            packer.packInt(TUPLE_COLLECTION.id());
+            packer.packInt(col.size());
+
+            for (Object el : col) {
+                if (el == null) {
+                    packer.packNil();
+                    continue;
+                }
+
+                if (!(el instanceof Tuple)) {
+                    throw new MarshallingException("Can't pack collection: expected Tuple, but got " + el.getClass(), null);
+                }
+
+                packTuple((Tuple) el, packer);
+            }
+
             return;
         }
 
