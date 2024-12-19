@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.configuration;
 
-import static org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 
 import com.google.auto.service.AutoService;
 import java.util.Set;

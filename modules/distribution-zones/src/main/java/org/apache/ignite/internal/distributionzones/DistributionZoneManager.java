@@ -31,6 +31,8 @@ import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIG
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForRecoverableStateChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneCreation;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneRemoval;
@@ -99,7 +101,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration;
+import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationHolder;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -210,7 +212,7 @@ public class DistributionZoneManager extends
     private final ScheduledExecutorService rebalanceScheduler;
 
     /** Configuration of HA mode. */
-    private final DistributionZonesHighAvailabilityConfiguration configuration;
+    private final SystemDistributedConfigurationHolder<Integer> partitionDistributionResetTimeoutConfiguration;
 
     /**
      * Creates a new distribution zone manager.
@@ -264,9 +266,12 @@ public class DistributionZoneManager extends
                 catalogManager
         );
 
-        configuration = new DistributionZonesHighAvailabilityConfiguration(
+        partitionDistributionResetTimeoutConfiguration = new SystemDistributedConfigurationHolder<>(
                 systemDistributedConfiguration,
-                this::onUpdatePartitionDistributionResetBusy
+                this::onUpdatePartitionDistributionResetBusy,
+                PARTITION_DISTRIBUTION_RESET_TIMEOUT,
+                PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE,
+                Integer::parseInt
         );
     }
 
@@ -296,7 +301,7 @@ public class DistributionZoneManager extends
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
-            configuration.start();
+            partitionDistributionResetTimeoutConfiguration.start();
 
             return allOf(
                     createOrRestoreZonesStates(recoveryRevision, catalogVersion),
@@ -386,7 +391,7 @@ public class DistributionZoneManager extends
     }
 
     private void onUpdatePartitionDistributionResetBusy(
-            int partitionDistributionResetTimeoutSeconds,
+            Integer partitionDistributionResetTimeoutSeconds,
             long causalityToken
     ) {
         long updateTimestamp = timestampByRevision(causalityToken);
@@ -944,7 +949,7 @@ public class DistributionZoneManager extends
         int autoAdjust = zone.dataNodesAutoAdjust();
         int autoAdjustScaleDown = zone.dataNodesAutoAdjustScaleDown();
         int autoAdjustScaleUp = zone.dataNodesAutoAdjustScaleUp();
-        int partitionReset = configuration.partitionDistributionResetTimeoutSeconds();
+        int partitionReset = partitionDistributionResetTimeoutConfiguration.currentValue();
 
         int zoneId = zone.id();
 

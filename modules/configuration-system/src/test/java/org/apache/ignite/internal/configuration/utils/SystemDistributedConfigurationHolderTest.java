@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.distributionzones.configuration;
+package org.apache.ignite.internal.configuration.utils;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -34,67 +35,80 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-/** Tests for {@link DistributionZonesHighAvailabilityConfiguration}. */
+/** Tests for {@link SystemDistributedConfigurationHolder}. */
 @ExtendWith(ConfigurationExtension.class)
-public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgniteAbstractTest {
-    private static final String PARTITION_DISTRIBUTION_RESET_TIMEOUT = "partitionDistributionResetTimeout";
+public class SystemDistributedConfigurationHolderTest extends BaseIgniteAbstractTest {
+    private static final String PROPERTY_NAME = "distributedPropertyName";
 
-    private static final long PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE = 0;
+    private static final String DEFAULT_VALUE = "defaultValue";
 
-    private static final BiConsumer<Integer, Long> noOpConsumer = (partitionDistributionResetTimeout, revision) -> {};
+    private static final BiConsumer<String, Long> noOpConsumer = (value, revision) -> {};
+
+    private static SystemDistributedConfigurationHolder<String> configWrapperWithNoopConsumer;
 
     @Test
     void testEmptySystemProperties(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
-        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig, noOpConsumer);
+        var config = new SystemDistributedConfigurationHolder<>(
+                systemConfig,
+                noOpConsumer,
+                PROPERTY_NAME,
+                DEFAULT_VALUE,
+                Function.identity()
+        );
         config.startAndInit();
 
-        assertEquals(PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE, config.partitionDistributionResetTimeoutSeconds());
+        assertEquals(DEFAULT_VALUE, config.currentValue());
     }
 
     @Test
     void testValidSystemPropertiesOnStart(
             @InjectConfiguration("mock.properties = {"
-                    + PARTITION_DISTRIBUTION_RESET_TIMEOUT + ".propertyValue = \"5\"}")
+                    + PROPERTY_NAME + ".propertyValue = \"newValue\"}")
             SystemDistributedConfiguration systemConfig
     ) {
-        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig, noOpConsumer);
+        var config = noopConfigWrapper(systemConfig);
+
         config.startAndInit();
 
-        assertEquals(5, config.partitionDistributionResetTimeoutSeconds());
+        assertEquals("newValue", config.currentValue());
     }
 
     @Test
     void testValidSystemPropertiesOnChange(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
-        var config = new DistributionZonesHighAvailabilityConfiguration(systemConfig, noOpConsumer);
+        var config = noopConfigWrapper(systemConfig);
+
         config.startAndInit();
 
-        changeSystemConfig(systemConfig, "10");
+        changeSystemConfig(systemConfig, "newValue");
 
-        assertEquals(10, config.partitionDistributionResetTimeoutSeconds());
+        assertEquals("newValue", config.currentValue());
     }
 
     @Test
-    void testUpdateConfigListener(@InjectConfiguration SystemDistributedConfiguration systemConfig) throws InterruptedException {
-        AtomicReference<Integer> partitionDistributionResetTimeoutValue = new AtomicReference<>();
+    void testUpdateConfigListenerWithConverter(@InjectConfiguration SystemDistributedConfiguration systemConfig) throws InterruptedException {
+        AtomicReference<Integer> currentValue = new AtomicReference<>();
         AtomicReference<Long> revisionValue = new AtomicReference<>();
 
-        var config = new DistributionZonesHighAvailabilityConfiguration(
+        var config = new SystemDistributedConfigurationHolder<>(
                 systemConfig,
-                (partitionDistributionResetTimeout, revision) -> {
-                    partitionDistributionResetTimeoutValue.set(partitionDistributionResetTimeout);
+                (v, revision) -> {
+                    currentValue.set(v);
                     revisionValue.set(revision);
-                }
+                },
+                PROPERTY_NAME,
+                0,
+                Integer::parseInt
         );
         config.startAndInit();
 
-        assertNotEquals(10, partitionDistributionResetTimeoutValue.get());
+        assertNotEquals(10, currentValue.get());
         assertNotEquals(1, revisionValue.get());
 
         changeSystemConfig(systemConfig, "10");
 
         assertTrue(waitForCondition(() ->
-                partitionDistributionResetTimeoutValue.get() != null
-                        && partitionDistributionResetTimeoutValue.get() == 10, 1_000));
+                currentValue.get() != null
+                        && currentValue.get().equals(10), 1_000));
         assertEquals(1, revisionValue.get());
     }
 
@@ -103,9 +117,19 @@ public class DistributionZonesHighAvailabilityConfigurationTest extends BaseIgni
             String partitionDistributionReset
     ) {
         CompletableFuture<Void> changeFuture = systemConfig.change(c0 -> c0.changeProperties()
-                .create(PARTITION_DISTRIBUTION_RESET_TIMEOUT, c1 -> c1.changePropertyValue(partitionDistributionReset))
+                .create(PROPERTY_NAME, c1 -> c1.changePropertyValue(partitionDistributionReset))
         );
 
         assertThat(changeFuture, willCompleteSuccessfully());
+    }
+
+    private static SystemDistributedConfigurationHolder<String> noopConfigWrapper(SystemDistributedConfiguration systemConfig) {
+        return new SystemDistributedConfigurationHolder<>(
+                systemConfig,
+                noOpConsumer,
+                PROPERTY_NAME,
+                DEFAULT_VALUE,
+                Function.identity()
+        );
     }
 }
