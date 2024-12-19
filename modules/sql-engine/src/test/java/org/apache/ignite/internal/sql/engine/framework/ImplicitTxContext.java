@@ -33,7 +33,7 @@ public class ImplicitTxContext implements QueryTransactionContext {
     private ImplicitTxContext() { }
 
     @Override
-    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
+    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly, boolean tableDriven) {
         return new QueryTransactionWrapperImpl(new NoOpTransaction("dummy", false), true, NoOpTransactionTracker.INSTANCE);
     }
 

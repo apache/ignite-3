@@ -50,29 +50,21 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
         this.txTracker = txTracker;
     }
 
-    /**
-     * Starts an implicit transaction if there is no external transaction.
-     *
-     * @param readOnly Query type.
-     * @return Transaction wrapper.
-     */
-    @Override
-    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
-        return getOrStartImplicit0(readOnly, false);
-    }
 
+    /** {@inheritDoc} */
     @Override
-    public QueryTransactionWrapper getOrStartImplicitOnePhase(boolean readOnly) {
-        return getOrStartImplicit0(readOnly, true);
-    }
-
-    private QueryTransactionWrapper getOrStartImplicit0(boolean readOnly, boolean implicitOnePhase) {
+    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly, boolean tableDriven) {
         InternalTransaction transaction;
         QueryTransactionWrapper result;
 
         if (tx == null) {
-            transaction = txManager.begin(observableTimeTracker, implicitOnePhase, readOnly);
-            result = new QueryTransactionWrapperImpl(transaction, true, txTracker);
+            transaction = txManager.begin(observableTimeTracker, tableDriven, readOnly);
+
+            if (tableDriven) {
+                result = new TableDrivenImplicitTransactionWrapper(transaction, txTracker);
+            } else {
+                result = new QueryTransactionWrapperImpl(transaction, true, txTracker);
+            }
         } else {
             transaction = tx.unwrap();
             result = tx;
