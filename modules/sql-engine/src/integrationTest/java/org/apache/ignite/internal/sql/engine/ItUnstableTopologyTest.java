@@ -39,7 +39,8 @@ public class ItUnstableTopologyTest extends BaseSqlIntegrationTest {
             + "  nodeAttributes: {\n"
             + "    nodeAttributes: {role: {attribute: \"data\"}}\n"
             + "  },\n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     @Override

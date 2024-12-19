@@ -27,6 +27,7 @@ import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.PeerUnavailableException;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.raft.jraft.Status;
@@ -45,7 +46,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
-import org.apache.ignite.raft.jraft.util.internal.ThrowUtil;
 
 /**
  * Abstract RPC client service based.
@@ -233,7 +233,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                         }
                     }
                     else {
-                        if (ThrowUtil.hasCause(err, null, PeerUnavailableException.class, ConnectException.class))
+                        if (ExceptionUtils.hasCause(err, null, PeerUnavailableException.class, ConnectException.class))
                             readyConsistentIds.remove(peerId.getConsistentId()); // Force logical reconnect.
 
                         if (done != null) {

@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.failure;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMPONENT_NOT_STARTED_ERR;
 
+import java.util.EnumMap;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
@@ -38,6 +41,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -72,6 +76,18 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     /** Failure context. */
     private volatile FailureContext failureCtx;
 
+    /** Reserve buffer, which can be dropped to handle {@link OutOfMemoryError}. */
+    private volatile byte @Nullable [] reserveBuf;
+
+    /** If this flag is true, then the failure processor prints threads dump. */
+    private volatile boolean dumpThreadsOnFailure;
+
+    /** Timeout for throttling of thread dumps generation (millis). */
+    private volatile long dumpThreadsThrottlingTimeout;
+
+    /** Thread dump per failure type timestamps. */
+    private volatile @Nullable Map<FailureType, Long> threadDumpPerFailureTypeTs;
+
     /**
      * Creates a new instance of a failure processor.
      *
@@ -98,6 +114,8 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         initFailureHandler();
 
+        LOG.info("Configured failure handler: [hnd={}]", handler);
+
         return nullCompletedFuture();
     }
 
@@ -119,7 +137,7 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      * Processes failure accordingly to configured {@link FailureHandler}.
      *
      * @param failureCtx Failure context.
-     * @return {@code True} If this very call led to Ignite node invalidation.
+     * @return {@code true} If this call leads to Ignite node invalidation and {@code false} otherwise.
      */
     @Override
     public boolean process(FailureContext failureCtx) {
@@ -152,10 +170,20 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             LOG.error(FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx.type());
         }
 
+        if (reserveBuf != null && hasCause(failureCtx.error(), null, OutOfMemoryError.class)) {
+            reserveBuf = null;
+        }
+
+        if (dumpThreadsOnFailure && !throttleThreadDump(failureCtx.type())) {
+            IgniteUtils.dumpThreads(LOG, !handler.ignoredFailureTypes().contains(failureCtx.type()));
+        }
+
         boolean invalidated = handler.onFailure(failureCtx);
 
         if (invalidated) {
             this.failureCtx = failureCtx;
+
+            LOG.error("Ignite node is in invalid state due to a critical failure.");
         }
 
         return invalidated;
@@ -167,6 +195,24 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
 
             return;
         }
+
+        dumpThreadsOnFailure = configuration.dumpThreadsOnFailure().value();
+        dumpThreadsThrottlingTimeout = configuration.dumpThreadsThrottlingTimeoutMillis().value();
+        threadDumpPerFailureTypeTs = null;
+
+        if (dumpThreadsOnFailure) {
+            if (dumpThreadsThrottlingTimeout > 0) {
+                Map<FailureType, Long> dumpPerFailureTypeTs = new EnumMap<>(FailureType.class);
+
+                for (FailureType type : FailureType.values()) {
+                    dumpPerFailureTypeTs.put(type, 0L);
+                }
+
+                threadDumpPerFailureTypeTs = dumpPerFailureTypeTs;
+            }
+        }
+
+        reserveBuf = new byte[configuration.oomBufferSizeBites().value()];
 
         AbstractFailureHandler hnd;
 
@@ -224,5 +270,37 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      */
     FailureHandler handler() {
         return handler;
+    }
+
+    /**
+     * Defines whether thread dump should be throttled for given failure type or not.
+     *
+     * @param type Failure type.
+     * @return {@code true} if thread dump generation should be throttled for given failure type.
+     */
+    private boolean throttleThreadDump(FailureType type) {
+        Map<FailureType, Long> dumpPerFailureTypeTs = threadDumpPerFailureTypeTs;
+        long dumpThrottlingTimeout = dumpThreadsThrottlingTimeout;
+
+        if (dumpThrottlingTimeout == 0 || dumpPerFailureTypeTs == null) {
+            return false;
+        }
+
+        long curr = System.currentTimeMillis();
+
+        Long last = dumpPerFailureTypeTs.get(type);
+
+        assert last != null : "Unknown failure type " + type;
+
+        boolean throttle = curr - last < dumpThrottlingTimeout;
+
+        if (!throttle) {
+            dumpPerFailureTypeTs.put(type, curr);
+        } else {
+            LOG.info("Thread dump is hidden due to throttling settings. "
+                    + "Set 'dumpThreadsThrottlingTimeoutMillis' property to 0 to see all thread dumps.");
+        }
+
+        return throttle;
     }
 }

@@ -68,7 +68,8 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
                 + "  compute: {"
                 + "    threadPoolSize: 1,\n"
                 + "    statesLifetimeMillis: 1000\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
     }
 

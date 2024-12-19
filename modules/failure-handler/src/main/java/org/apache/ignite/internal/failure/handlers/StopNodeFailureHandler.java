@@ -19,12 +19,14 @@ package org.apache.ignite.internal.failure.handlers;
 
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.NodeStopper;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 
 /**
  * Handler will stop node in case of critical error using provided {@link NodeStopper}.
  */
 public class StopNodeFailureHandler extends AbstractFailureHandler {
+    @IgniteToStringExclude
     private final NodeStopper nodeStopper;
 
     public StopNodeFailureHandler(NodeStopper nodeStopper) {

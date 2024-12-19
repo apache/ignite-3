@@ -70,7 +70,8 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             + "  nodeAttributes.nodeAttributes: {region.attribute = US, storage.attribute = SSD},\n"
             + "  storage.profiles: {lru_rocks.engine = rocksdb, segmented_aipersist.engine = aipersist},\n"
             + "  clientConnector.port: {},\n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     private final LogicalTopologyEventListener listener = new LogicalTopologyEventListener() {
