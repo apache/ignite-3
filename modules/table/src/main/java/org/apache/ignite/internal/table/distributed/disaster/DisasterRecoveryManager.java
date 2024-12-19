@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartit
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.READ_ONLY;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.DisasterRecovery.PARTITION_STATE_ERR;
 
@@ -295,7 +296,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         if (!tablePartitionsToReset.isEmpty()) {
             return resetPartitions(zoneDescriptor.name(), tablePartitionsToReset, false, revision).thenApply(r -> false);
         } else {
-            return nullCompletedFuture();
+            return falseCompletedFuture();
         }
     }
 
