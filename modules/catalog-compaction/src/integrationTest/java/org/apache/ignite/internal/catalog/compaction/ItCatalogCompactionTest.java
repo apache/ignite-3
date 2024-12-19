@@ -102,7 +102,8 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 + "  },\n"
                 + "  clientConnector.port: {},\n"
                 + "  rest.port: {},\n"
-                + "  compute.threadPoolSize: 1\n"
+                + "  compute.threadPoolSize: 1,\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
     }
 
