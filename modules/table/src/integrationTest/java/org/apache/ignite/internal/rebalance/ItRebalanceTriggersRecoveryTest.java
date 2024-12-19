@@ -64,7 +64,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
             + "  nodeAttributes: {\n"
             + "    nodeAttributes: {region: {attribute: \"US\"}, zone: {attribute: \"global\"}}\n"
             + "  },\n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     private static final String GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
@@ -78,7 +79,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
             + "  nodeAttributes: {\n"
             + "    nodeAttributes: {zone: {attribute: \"global\"}}\n"
             + "  },\n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     @Override
