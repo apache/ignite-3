@@ -37,7 +37,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.client.proto.pojo.Pojo;
@@ -80,6 +83,14 @@ class ClientComputeJobPackerUnpackerTest {
         ).map(Arguments::of);
     }
 
+    private static Stream<Arguments> tupleCollections() {
+        return Stream.of(
+                null,
+                List.of(Tuple.create(), Tuple.create().set("key", 1), Tuple.create().set("key", "value1")),
+                Set.of(Tuple.create().set("key", 2), Tuple.create().set("key", "value2"))
+        ).map(Arguments::of);
+    }
+
     private static List<Object> pojo() {
         return List.of(Pojo.generateTestPojo());
     }
@@ -107,7 +118,7 @@ class ClientComputeJobPackerUnpackerTest {
         return new ClientMessageUnpacker(Unpooled.wrappedBuffer(data, 4, data.length - 4));
     }
 
-    @MethodSource({"tuples", "nativeTypes"})
+    @MethodSource({"tuples", "nativeTypes", "tupleCollections"})
     @ParameterizedTest
     void packUnpackNoMarshalling(Object arg) {
         // When pack job result without marshaller.
@@ -117,6 +128,10 @@ class ClientComputeJobPackerUnpackerTest {
         // And unpack job result without marshaller.
         try (var messageUnpacker = messageUnpacker(data)) {
             var res = unpackJobResult(messageUnpacker, null, null);
+
+            if (arg instanceof Set) {
+                arg = new ArrayList<>((Set<?>) arg);
+            }
 
             // Then.
             assertEquals(arg, res);
