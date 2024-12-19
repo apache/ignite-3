@@ -18,10 +18,9 @@
 package org.apache.ignite.client.handler.requests.jdbc;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 
 /**
  * Client jdbc explicit transaction complete request handler.
@@ -38,15 +37,14 @@ public class ClientJdbcFinishTxRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            JdbcQueryEventHandler handler,
-            ClockService clockService
+            JdbcQueryEventHandlerImpl handler
     ) {
         long connectionId = in.unpackLong();
         boolean commit = in.unpackBoolean();
 
         return handler.finishTxAsync(connectionId, commit).thenAccept(res -> {
             if (commit) {
-                out.meta(clockService.current());
+                out.meta(handler.getTimestampTracker().get());
             }
 
             res.writeBinary(out);

@@ -110,7 +110,6 @@ import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -164,7 +163,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final TxManager txManager;
 
     /** JDBC Handler. */
-    private final JdbcQueryEventHandler jdbcQueryEventHandler;
+    private final JdbcQueryEventHandlerImpl jdbcQueryEventHandler;
 
     /** Connection resources. */
     private final ClientResourceRegistry resources = new ClientResourceRegistry();
@@ -715,16 +714,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientJdbcConnectRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC:
-                return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler, clockService);
+                return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_CANCEL:
                 return ClientJdbcCancelRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC_BATCH:
-                return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler, clockService);
+                return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_SQL_EXEC_PS_BATCH:
-                return ClientJdbcPreparedStmntBatchRequest.process(in, out, jdbcQueryEventHandler, clockService);
+                return ClientJdbcPreparedStmntBatchRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_NEXT:
                 return ClientJdbcFetchRequest.process(in, out, jdbcQueryCursorHandler);
@@ -797,7 +796,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTablePartitionPrimaryReplicasGetRequest.process(in, out, primaryReplicaTracker);
 
             case ClientOp.JDBC_TX_FINISH:
-                return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler, clockService);
+                return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(in, queryProcessor);
@@ -992,6 +991,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             if (meta instanceof HybridTimestamp) {
                 return ((HybridTimestamp) meta).longValue();
             }
+        } else {
+            return clockService.currentLong();
         }
 
         return HybridTimestamp.MIN_VALUE.longValue();
