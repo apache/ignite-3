@@ -711,7 +711,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTupleContainsAllKeysRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.JDBC_CONNECT:
-                //TODO: JDBC request ought to contain the client observation timestamp.
+                // TODO: JDBC request ought to contain the client observation timestamp.
                 jdbcQueryEventHandler.getTimestampTracker().update(clockService.current());
                 out.meta(jdbcQueryEventHandler.getTimestampTracker().get());
 
@@ -999,8 +999,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             return clockService.currentLong();
         }
 
-        // TODO: Temporary code left there, but the correct one is 'return HybridTimestamp.MIN_VALUE.longValue();'
-        return clockService.currentLong();
+        return HybridTimestamp.MIN_VALUE.longValue();
     }
 
     private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {
