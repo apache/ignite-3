@@ -113,6 +113,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -511,6 +512,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      *     <li>We execute "resetPartitions" and expect that data from node 0 will be available after that.</li>
      * </ul>
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23783")
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1)
     public void testIncompleteRebalanceAfterResetPartitions() throws Exception {
