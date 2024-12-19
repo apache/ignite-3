@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.calcite.rel.core.JoinRelType.INNER;
 import static org.apache.calcite.rel.core.JoinRelType.RIGHT;
+import static org.apache.calcite.rel.core.JoinRelType.SEMI;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -129,7 +130,7 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
     }
 
     @Test
-    void hashJoinWithPostFiltration() {
+    void innerHashJoinWithPostFiltration() {
         ExecutionContext<Object[]> ctx = executionContext(true);
 
         ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
@@ -167,11 +168,53 @@ public class HashJoinExecutionTest extends AbstractJoinExecutionTest {
             rows.add(node.next());
         }
 
-        assertEquals(2, rows.size());
-
         Object[][] expected = {
                 {1, "Core", 0, "Igor", 1},
                 {1, "Core", 3, "Alexey", 1},
+        };
+
+        assert2DimArrayEquals(expected, rows);
+    }
+
+    @Test
+    void semiHashJoinWithPostFiltration() {
+        ExecutionContext<Object[]> ctx = executionContext(true);
+
+        ScanNode<Object[]> persons = new ScanNode<>(ctx, Arrays.asList(
+                new Object[]{0, "Igor", 1},
+                new Object[]{1, "Roman", 2},
+                new Object[]{2, "Ivan", 5},
+                new Object[]{3, "Alexey", 1}
+        ));
+
+        ScanNode<Object[]> deps = new ScanNode<>(ctx, Arrays.asList(
+                new Object[]{1, "Core"},
+                new Object[]{2, "SQL"},
+                new Object[]{3, "QA"}
+        ));
+
+        IgniteTypeFactory tf = ctx.getTypeFactory();
+
+        RelDataType leftType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
+        RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf,
+                NativeTypes.INT32, NativeTypes.STRING, NativeTypes.INT32));
+
+        AbstractRightMaterializedJoinNode<Object[]> join = HashJoinNode.create(ctx, leftType, leftType, rightType, SEMI,
+                JoinInfo.of(ImmutableIntList.of(0), ImmutableIntList.of(2)), (l, r) -> ((String) l[1]).length() > 3);
+
+        join.register(asList(deps, persons));
+
+        RootNode<Object[]> node = new RootNode<>(ctx);
+        node.register(join);
+
+        ArrayList<Object[]> rows = new ArrayList<>();
+
+        while (node.hasNext()) {
+            rows.add(node.next());
+        }
+
+        Object[][] expected = {
+                {1, "Core"}
         };
 
         assert2DimArrayEquals(expected, rows);
