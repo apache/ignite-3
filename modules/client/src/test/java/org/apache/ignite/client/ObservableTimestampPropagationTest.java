@@ -104,7 +104,7 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         assertEquals(11, lastObservableTimestamp(ch));
 
         Statement statement = client.sql().statementBuilder()
-                .query("SELECT 1")
+                .query("CREATE TABLE t1 (id INT PRIMARY KEY, name VARCHAR)")
                 .build();
 
         // Execution of a SQL query should propagate observable time, not the current time of the clock.
@@ -115,16 +115,18 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         assertNotNull(rs);
 
         // Every fetch should propagate observable time, not the current time of the clock.
-        currentServerTimestamp.set(20);
+        currentServerTimestamp.set(24);
         await(rs.fetchNextPage());
         assertEquals(20, lastObservableTimestamp(ch));
 
-        currentServerTimestamp.set(24);
         await(rs.fetchNextPage());
-        assertEquals(24, lastObservableTimestamp(ch));
+        assertEquals(20, lastObservableTimestamp(ch));
 
         // Closing a result set should propagate observable time as well.
         await(rs.closeAsync());
+        assertEquals(20, lastObservableTimestamp(ch));
+
+        await(client.sql().executeAsync(null, "INSERT INTO t1 (1, 'Smith')"));
         assertEquals(24, lastObservableTimestamp(ch));
     }
 
