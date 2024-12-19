@@ -28,8 +28,8 @@ public interface QueryTransactionContext {
     QueryTransactionWrapper getOrStartImplicit(boolean readOnly);
 
     default QueryTransactionWrapper getOrStartImplicitOnePhase(boolean readOnly) {
-        // TODO remove
-        throw new UnsupportedOperationException();
+        // TODO Remove this method.
+        return getOrStartImplicit(readOnly);
     }
 
     /** Updates tracker of latest time observed by client. */
