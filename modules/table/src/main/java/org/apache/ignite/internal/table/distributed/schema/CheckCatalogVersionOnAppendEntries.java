@@ -25,6 +25,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Marshaller;
+import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
@@ -59,7 +60,7 @@ public class CheckCatalogVersionOnAppendEntries implements AppendEntriesRequestI
 
         Node node = (Node) service;
 
-        ByteBuffer allData = request.data().asReadOnlyBuffer();
+        ByteBuffer allData = request.data().asReadOnlyBuffer().order(OptimizedMarshaller.ORDER);
         int offset = 0;
 
         for (RaftOutter.EntryMeta entry : request.entriesList()) {

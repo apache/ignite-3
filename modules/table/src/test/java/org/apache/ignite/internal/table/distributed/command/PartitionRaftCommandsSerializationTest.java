@@ -101,6 +101,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                                 .build())
                 .txId(TestTransactionIds.newTransactionId())
                 .txCoordinatorId(UUID.randomUUID())
+                .initiatorTime(clock.now())
                 .build();
 
         UpdateCommand readCmd = copyCommand(cmd);
@@ -119,6 +120,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .rowUuid(UUID.randomUUID())
                 .txId(TestTransactionIds.newTransactionId())
                 .txCoordinatorId(UUID.randomUUID())
+                .initiatorTime(clock.now())
                 .build();
 
         UpdateCommand readCmd = copyCommand(cmd);
@@ -151,6 +153,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .messageRowsToUpdate(rowsToUpdate)
                 .txId(UUID.randomUUID())
                 .txCoordinatorId(UUID.randomUUID())
+                .initiatorTime(clock.now())
                 .build();
 
         UpdateAllCommand readCmd = copyCommand(cmd);
@@ -190,6 +193,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .messageRowsToUpdate(rowsToRemove)
                 .txId(UUID.randomUUID())
                 .txCoordinatorId(UUID.randomUUID())
+                .initiatorTime(clock.now())
                 .build();
 
         UpdateAllCommand readCmd = copyCommand(cmd);
@@ -209,6 +213,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
         WriteIntentSwitchCommand cmd = PARTITION_REPLICATION_MESSAGES_FACTORY.writeIntentSwitchCommand()
                 .txId(UUID.randomUUID())
                 .commit(true)
+                .initiatorTime(clock.now())
                 .commitTimestamp(clock.now())
                 .build();
 
@@ -235,6 +240,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                 .txId(UUID.randomUUID())
                 .commit(true)
                 .commitTimestamp(clock.now())
+                .initiatorTime(clock.now())
                 .partitionIds(grps)
                 .build();
 
@@ -256,6 +262,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .commit(finishTxCommand.commit())
                     .partitionIds(finishTxCommand.partitionIds())
                     .commitTimestamp(finishTxCommand.commitTimestamp())
+                    .initiatorTime(finishTxCommand.initiatorTime())
                     .build();
         } else if (cmd instanceof WriteIntentSwitchCommand) {
             WriteIntentSwitchCommand writeIntentSwitchCommand = (WriteIntentSwitchCommand) cmd;
@@ -264,6 +271,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .txId(writeIntentSwitchCommand.txId())
                     .commit(writeIntentSwitchCommand.commit())
                     .commitTimestamp(writeIntentSwitchCommand.commitTimestamp())
+                    .initiatorTime(writeIntentSwitchCommand.initiatorTime())
                     .build();
         } else if (cmd instanceof UpdateCommand) {
             UpdateCommand updateCommand = (UpdateCommand) cmd;
@@ -274,6 +282,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .tablePartitionId(updateCommand.tablePartitionId())
                     .messageRowToUpdate(updateCommand.messageRowToUpdate())
                     .txCoordinatorId(updateCommand.txCoordinatorId())
+                    .initiatorTime(updateCommand.initiatorTime())
                     .build();
         } else if (cmd instanceof UpdateAllCommand) {
             UpdateAllCommand updateCommand = (UpdateAllCommand) cmd;
@@ -283,6 +292,7 @@ public class PartitionRaftCommandsSerializationTest extends IgniteAbstractTest {
                     .messageRowsToUpdate(updateCommand.messageRowsToUpdate())
                     .tablePartitionId(updateCommand.tablePartitionId())
                     .txCoordinatorId(updateCommand.txCoordinatorId())
+                    .initiatorTime(updateCommand.initiatorTime())
                     .build();
         } else {
             fail(cmd.toString());
