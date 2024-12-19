@@ -249,7 +249,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Tests numeric type convertation on equals.
+     * Tests numeric type conversion on equals.
      */
     @Test
     public void testNumericConvertingOnEquals() {
