@@ -81,7 +81,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void changeJobPriorityLocally() {
-        Ignite entryNode = node(0);
+        Ignite entryNode = ignite();
         JobTarget jobTarget = JobTarget.node(clusterNode(entryNode));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -122,7 +122,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesJobLocallyWithOptions() {
-        Ignite entryNode = node(0);
+        Ignite entryNode = ignite();
         JobTarget jobTarget = JobTarget.node(clusterNode(entryNode));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -174,7 +174,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void shouldNotConvertIgniteException() {
-        Ignite entryNode = node(0);
+        Ignite entryNode = ignite();
 
         IgniteException exception = new IgniteException(INTERNAL_ERR, "Test exception");
 
@@ -188,7 +188,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void shouldNotConvertIgniteCheckedException() {
-        Ignite entryNode = node(0);
+        Ignite entryNode = ignite();
 
         IgniteCheckedException exception = new IgniteCheckedException(INTERNAL_ERR, "Test exception");
 
@@ -212,7 +212,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     @ParameterizedTest
     @MethodSource("privateExceptions")
     void shouldConvertToComputeException(Throwable throwable) {
-        Ignite entryNode = node(0);
+        Ignite entryNode = ignite();
 
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
                 JobTarget.node(clusterNode(entryNode)),
@@ -239,7 +239,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesNullReturningJobViaSyncBroadcast() {
-        Ignite entryNode = node(0);
+        Ignite entryNode = ignite();
 
         Map<ClusterNode, Object> results = entryNode.compute()
                 .executeBroadcast(new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null);
@@ -250,7 +250,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesNullReturningJobViaAsyncBroadcast() {
-        Ignite entryNode = node(0);
+        Ignite entryNode = ignite();
 
         CompletableFuture<Map<ClusterNode, Object>> resultsFuture = entryNode.compute().executeBroadcastAsync(
                 new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null
@@ -264,7 +264,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesNullReturningJobViaSubmitBroadcast() {
-        Ignite entryNode = node(0);
+        Ignite entryNode = ignite();
 
         Map<ClusterNode, JobExecution<Object>> executionsMap = entryNode.compute().submitBroadcast(
                 new HashSet<>(entryNode.clusterNodes()),
