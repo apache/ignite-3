@@ -71,7 +71,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Integration tests for Compute functionality in embedded Ignite mode.
  */
-@SuppressWarnings("resource")
+@SuppressWarnings("NewClassNamingConvention")
 class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Override
