@@ -470,6 +470,8 @@ public class IgniteImpl implements Ignite {
 
     private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
 
+    public final ReplicaService replicaSvc;
+
     /**
      * The Constructor.
      *
@@ -792,13 +794,15 @@ public class IgniteImpl implements Ignite {
 
         TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
 
-        ReplicaService replicaSvc = new ReplicaService(
+        replicaSvc = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
                 clock,
                 threadPoolsManager.partitionOperationsExecutor(),
                 replicationConfig,
                 threadPoolsManager.commonScheduler()
         );
+
+        replicaSvc.localNodeName = name;
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
 

@@ -37,6 +37,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -46,7 +47,6 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -143,7 +143,6 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      * Test correctness of schemes recovery after node restart.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23927")
     public void checkSchemasCorrectlyRestore() {
         Ignite ignite1 = cluster.node(1);
 
@@ -163,9 +162,19 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         ignite1 = cluster.node(1);
 
+        IgniteImpl ignite1impl = unwrapIgniteImpl(ignite1);
+
         IgniteSql sql = ignite1.sql();
 
+        ignite1impl.replicaSvc.doLogging(true);
+
+        Loggers.forClass(ItDataSchemaSyncTest.class).info("!!! BEFORE SELECT");
+
         ResultSet<SqlRow> res = sql.execute(null, "SELECT valint2 FROM tbl1");
+
+        Loggers.forClass(ItDataSchemaSyncTest.class).info("!!! AFTER SELECT");
+
+        ignite1impl.replicaSvc.doLogging(false);
 
         for (int i = 0; i < 10; ++i) {
             assertNotNull(res.next().iterator().next());
