@@ -33,12 +33,13 @@ import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junitpioneer.jupiter.cartesian.CartesianTest;
+import org.junitpioneer.jupiter.cartesian.CartesianTest.Values;
 
 class AssignmentsSerializerTest {
-    private static final String NOT_FORCED_ASSIGNMENTS_SERIALIZED_WITH_V1 = "Ae++QwMEYWJjAQRkZWYAAFHCjAEA9AY=";
-    private static final String FORCED_ASSIGNMENTS_SERIALIZED_WITH_V1 = "Ae++QwMEYWJjAQRkZWYAAVHCjAEA9AY=";
+    private static final String NOT_FORCED_NOT_RESET_ASSIGNMENTS_SERIALIZED_WITH_V1 = "Ae++QwMEYWJjAQRkZWYAAFHCjAEA9AYA";
+    private static final String NOT_FORCED_RESET_ASSIGNMENTS_SERIALIZED_WITH_V1 = "Ae++QwMEYWJjAQRkZWYAAFHCjAEA9AYB";
+    private static final String FORCED_ASSIGNMENTS_SERIALIZED_WITH_V1 = "Ae++QwMEYWJjAQRkZWYAAVHCjAEA9AYA";
 
     private final AssignmentsSerializer serializer = new AssignmentsSerializer();
 
@@ -51,10 +52,12 @@ class AssignmentsSerializerTest {
         return new HybridTimestamp(BASE_PHYSICAL_TIME, logical).longValue();
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    void serializationAndDeserialization(boolean force) {
-        Assignments originalAssignments = testAssignments(force);
+    @CartesianTest
+    void serializationAndDeserialization(
+            @Values(booleans = {true, false}) boolean force,
+            @Values(booleans = {true, false}) boolean fromReset
+    ) {
+        Assignments originalAssignments = testAssignments(force, fromReset);
 
         byte[] bytes = VersionedSerialization.toBytes(originalAssignments, serializer);
         Assignments restoredAssignments = VersionedSerialization.fromBytes(bytes, serializer);
@@ -62,22 +65,35 @@ class AssignmentsSerializerTest {
         assertThat(restoredAssignments, equalTo(originalAssignments));
     }
 
-    private static Assignments testAssignments(boolean force) {
+    private static Assignments testAssignments(boolean force, boolean fromReset) {
         Set<Assignment> nodes = Set.of(Assignment.forPeer("abc"), Assignment.forLearner("def"));
 
         return force
                 ? Assignments.forced(nodes, baseTimestamp(5))
-                : Assignments.of(nodes, baseTimestamp(5));
+                : Assignments.of(nodes, baseTimestamp(5), fromReset);
     }
 
     @Test
-    void v1NotForcedCanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode(NOT_FORCED_ASSIGNMENTS_SERIALIZED_WITH_V1);
+    void v1NotForcedNotResetCanBeDeserialized() {
+        byte[] bytes = Base64.getDecoder().decode(NOT_FORCED_NOT_RESET_ASSIGNMENTS_SERIALIZED_WITH_V1);
         Assignments restoredAssignments = VersionedSerialization.fromBytes(bytes, serializer);
 
         assertNodesFromV1(restoredAssignments);
 
         assertThat(restoredAssignments.force(), is(false));
+        assertThat(restoredAssignments.fromReset(), is(false));
+        assertThat(restoredAssignments.timestamp(), is(baseTimestamp(5)));
+    }
+
+    @Test
+    void v1NotForcedResetCanBeDeserialized() {
+        byte[] bytes = Base64.getDecoder().decode(NOT_FORCED_RESET_ASSIGNMENTS_SERIALIZED_WITH_V1);
+        Assignments restoredAssignments = VersionedSerialization.fromBytes(bytes, serializer);
+
+        assertNodesFromV1(restoredAssignments);
+
+        assertThat(restoredAssignments.force(), is(false));
+        assertThat(restoredAssignments.fromReset(), is(true));
         assertThat(restoredAssignments.timestamp(), is(baseTimestamp(5)));
     }
 
@@ -93,8 +109,8 @@ class AssignmentsSerializerTest {
     }
 
     @SuppressWarnings("unused")
-    private String v1Base64(boolean force) {
-        Assignments originalAssignments = testAssignments(force);
+    private String v1Base64(boolean force, boolean fromReset) {
+        Assignments originalAssignments = testAssignments(force, fromReset);
         byte[] v1Bytes = VersionedSerialization.toBytes(originalAssignments, serializer);
         return Base64.getEncoder().encodeToString(v1Bytes);
     }
