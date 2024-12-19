@@ -409,7 +409,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                true
+                true,
+                -1
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());
