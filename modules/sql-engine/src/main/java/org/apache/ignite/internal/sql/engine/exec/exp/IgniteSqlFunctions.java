@@ -405,9 +405,9 @@ public class IgniteSqlFunctions {
     private static BigDecimal convertToBigDecimal(Number value) {
         BigDecimal dec;
         if (value instanceof Float) {
-            dec = new BigDecimal(value.toString());
+            dec = new BigDecimal(value.floatValue());
         } else if (value instanceof Double) {
-            dec = new BigDecimal(value.toString());
+            dec = new BigDecimal(value.doubleValue());
         } else if (value instanceof BigDecimal) {
             dec = (BigDecimal) value;
         } else if (value instanceof BigInteger) {
