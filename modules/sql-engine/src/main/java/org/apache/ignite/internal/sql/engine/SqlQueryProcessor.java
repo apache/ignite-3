@@ -72,6 +72,7 @@ import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
+import org.apache.ignite.internal.sql.engine.exec.fsm.QueryIdGenerator;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionDistributionProviderImpl;
@@ -354,7 +355,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 catalogManager,
                 executionSrvc,
                 DEFAULT_PROPERTIES,
-                txTracker
+                txTracker,
+                new QueryIdGenerator(nodeName.hashCode())
         ));
 
         queriesViewProvider.init(queryExecutor);
