@@ -21,12 +21,15 @@ import static org.apache.ignite.internal.compute.PojoConverter.fromTuple;
 import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.internal.compute.PojoConversionException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnmarshallingException;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /** Unpacks job results. */
@@ -66,6 +69,7 @@ public final class ClientComputeJobUnpacker {
                 }
 
                 return unpacker.unpackObjectFromBinaryTuple();
+
             case TUPLE:
                 return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
 
@@ -85,6 +89,17 @@ public final class ClientComputeJobUnpacker {
                     );
                 }
                 return unpackPojo(unpacker, resultClass);
+
+            case TUPLE_COLLECTION: {
+                int count = unpacker.unpackInt();
+                List<Tuple> res = new ArrayList<>();
+
+                for (int i = 0; i < count; i++) {
+                    res.add(TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary()));
+                }
+
+                return res;
+            }
 
             default:
                 throw new UnmarshallingException("Unsupported compute job type: " + type);
