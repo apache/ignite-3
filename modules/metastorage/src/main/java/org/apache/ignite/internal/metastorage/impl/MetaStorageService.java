@@ -135,6 +135,17 @@ public interface MetaStorageService extends ManuallyCloseable {
     CompletableFuture<Void> removeAll(Set<ByteArray> keys);
 
     /**
+     * Removes entries by given prefix.
+     *
+     * @param prefix Prefix to remove keys by. Couldn't be {@code null}.
+     * @return Completed future.
+     * @throws OperationTimeoutException If the operation is timed out. Will be thrown on getting future result.
+     * @see ByteArray
+     * @see Entry
+     */
+    CompletableFuture<Void> removeAll(ByteArray prefix);
+
+    /**
      * Updates an entry for the given key conditionally.
      *
      * <p>Conditional update could be treated as <i>if(condition)-then(success)-else(failure)</i> expression.</p>

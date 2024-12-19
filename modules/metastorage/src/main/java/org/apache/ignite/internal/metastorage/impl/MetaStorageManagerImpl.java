@@ -967,6 +967,24 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
+    /**
+     * Removes entries by the given prefix.
+     *
+     * @see MetaStorageService#removeAll(ByteArray)
+     */
+    @Override
+    public CompletableFuture<Void> removeAll(ByteArray prefix) {
+        if (!busyLock.enterBusy()) {
+            return failedFuture(new NodeStoppingException());
+        }
+
+        try {
+            return metaStorageSvcFut.thenCompose(svc -> svc.removeAll(prefix));
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     @Override
     public CompletableFuture<Boolean> invoke(Condition cond, Operation success, Operation failure) {
         if (!busyLock.enterBusy()) {

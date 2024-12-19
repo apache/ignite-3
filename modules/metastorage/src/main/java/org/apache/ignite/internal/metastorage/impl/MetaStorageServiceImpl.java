@@ -49,6 +49,7 @@ import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
+import org.apache.ignite.internal.metastorage.command.RemoveByPrefixCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
 import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
@@ -164,6 +165,16 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         RemoveAllCommand removeAllCommand = removeAllCommand(context.commandsFactory(), keys, clock.now());
 
         return context.raftService().run(removeAllCommand);
+    }
+
+    @Override
+    public CompletableFuture<Void> removeAll(ByteArray prefix) {
+        RemoveByPrefixCommand removeByPrefix = context.commandsFactory().removeByPrefixCommand()
+                .prefix(ByteBuffer.wrap(prefix.bytes()))
+                .initiatorTime(clock.now())
+                .build();
+
+        return context.raftService().run(removeByPrefix);
     }
 
     @Override
