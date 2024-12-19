@@ -49,6 +49,7 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation libs.mockito.core
     testImplementation libs.hamcrest.core
+    testImplementation libs.awaitility
 
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.awaitility
