@@ -92,6 +92,12 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
         return parameterMetadata;
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public boolean transactional() {
+        return true;
+    }
+
     /** Returns a table in question. */
     private IgniteTable table() {
         IgniteTable table = modifyNode.getTable().unwrap(IgniteTable.class);
