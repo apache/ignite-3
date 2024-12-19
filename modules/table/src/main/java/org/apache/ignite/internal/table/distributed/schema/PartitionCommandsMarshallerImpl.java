@@ -48,6 +48,7 @@ public class PartitionCommandsMarshallerImpl extends OptimizedMarshaller impleme
         // We need fixed values here to know the offset for binary patcher.
         // See org.apache.ignite.internal.raft.Marshaller.patch.
         stream.writeFixedInt(requiredCatalogVersion);
+        // Allocates space for safe timestamp.
         stream.writeFixedLong(0);
     }
 

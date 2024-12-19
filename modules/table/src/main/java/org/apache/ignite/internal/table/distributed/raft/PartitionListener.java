@@ -113,7 +113,7 @@ public class PartitionListener implements RaftGroupListener {
     private final TxStateStorage txStateStorage;
 
     /** Safe time tracker. */
-    private final SafeTimeValuesTracker safeTime;
+    private final SafeTimeValuesTracker safeTimeTracker;
 
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
@@ -136,7 +136,7 @@ public class PartitionListener implements RaftGroupListener {
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
             TxStateStorage txStateStorage,
-            SafeTimeValuesTracker safeTime,
+            SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CatalogService catalogService,
             SchemaRegistry schemaRegistry,
@@ -148,7 +148,7 @@ public class PartitionListener implements RaftGroupListener {
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
         this.txStateStorage = txStateStorage;
-        this.safeTime = safeTime;
+        this.safeTimeTracker = safeTimeTracker;
         this.storageIndexTracker = storageIndexTracker;
         this.catalogService = catalogService;
         this.schemaRegistry = schemaRegistry;
@@ -248,7 +248,7 @@ public class PartitionListener implements RaftGroupListener {
 
                         assert safeTimePropagatingCommand.safeTime() != null;
 
-                        updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
+                        updateTrackerIgnoringTrackerClosedException(safeTimeTracker, safeTimePropagatingCommand.safeTime());
                     }
 
                     updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
@@ -279,11 +279,13 @@ public class PartitionListener implements RaftGroupListener {
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
+     *
+     * @return The result or {@code null}
      */
-    private UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+    private @Nullable UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return null;
+            return null; // Update result is not needed.
         }
 
         if (cmd.leaseStartTime() != null) {
@@ -597,8 +599,8 @@ public class PartitionListener implements RaftGroupListener {
      * Returns safe timestamp.
      */
     @TestOnly
-    public PendingComparableValuesTracker<HybridTimestamp, Void> getSafeTime() {
-        return safeTime;
+    public PendingComparableValuesTracker<HybridTimestamp, Void> getSafeTimeTracker() {
+        return safeTimeTracker;
     }
 
     /**

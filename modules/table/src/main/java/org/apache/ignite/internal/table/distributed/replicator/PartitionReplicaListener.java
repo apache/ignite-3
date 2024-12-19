@@ -830,7 +830,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         } else if (request instanceof ReadOnlyScanRetrieveBatchReplicaRequest) {
             return processReadOnlyScanRetrieveBatchAction((ReadOnlyScanRetrieveBatchReplicaRequest) request, isPrimary);
         } else if (request instanceof ReplicaSafeTimeSyncRequest) {
-            return processReplicaSafeTimeSyncRequest((ReplicaSafeTimeSyncRequest) request, isPrimary);
+            return processReplicaSafeTimeSyncRequest(isPrimary);
         } else if (request instanceof BuildIndexReplicaRequest) {
             return processBuildIndexReplicaRequest((BuildIndexReplicaRequest) request);
         } else if (request instanceof ReadOnlyDirectSingleRowReplicaRequest) {
@@ -1174,11 +1174,10 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Handler to process {@link ReplicaSafeTimeSyncRequest}.
      *
-     * @param request Request.
      * @param isPrimary Whether is primary replica.
      * @return Future.
      */
-    private CompletableFuture<Void> processReplicaSafeTimeSyncRequest(ReplicaSafeTimeSyncRequest request, Boolean isPrimary) {
+    private CompletableFuture<Void> processReplicaSafeTimeSyncRequest(Boolean isPrimary) {
         requireNonNull(isPrimary);
 
         if (!isPrimary) {
@@ -2764,6 +2763,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return safeTime.waitFor(safeTs)
                             .thenApply(ignored -> new CommandApplicationResult(safeTs, null));
                 } else {
+                    HybridTimestamp safeTs = updateCommandResult == null ? null : hybridTimestamp(updateCommandResult.safeTimestamp());
+
                     if (!SKIP_UPDATES) {
                         // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                         storageUpdateHandler.handleUpdate(
@@ -2773,14 +2774,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 cmd.rowToUpdate(),
                                 false,
                                 null,
-                                cmd.safeTime(),
+                                safeTs,
                                 null,
                                 indexIdsAtRwTxBeginTs(txId)
                         );
                     }
 
-                    // getCommand provides actual assigned safeTime (may be reassigned due to reorder)
-                    return completedFuture(new CommandApplicationResult(((UpdateCommand) res.getCommand()).safeTime(), null));
+                    return completedFuture(new CommandApplicationResult(safeTs, null));
                 }
             });
         }
@@ -4148,8 +4148,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Wrapper for the update(All)Command processing result that besides result itself stores actual command that was processed. It helps to
-     * manage commands substitutions on SafeTimeReorderException where cloned command with adjusted safeTime is sent.
+     * Wrapper for the update(All)Command processing result that besides result itself stores actual command that was processed.
      */
     private static class ResultWrapper<T> {
         private final Command command;

@@ -1105,13 +1105,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
-        HybridTimestamp proposedSafeTime = clockService.now();
-
-        lastIdleSafeTimeProposal = proposedSafeTime;
+        lastIdleSafeTimeProposal = clockService.now();
 
         for (Entry<ReplicationGroupId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
             try {
-                sendSafeTimeSyncIfReplicaReady(entry.getValue(), proposedSafeTime);
+                sendSafeTimeSyncIfReplicaReady(entry.getValue());
             } catch (Exception | AssertionError e) {
                 LOG.warn("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
             } catch (Error e) {
@@ -1122,7 +1120,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
     }
 
-    private void sendSafeTimeSyncIfReplicaReady(CompletableFuture<Replica> replicaFuture, HybridTimestamp proposedSafeTime) {
+    private void sendSafeTimeSyncIfReplicaReady(CompletableFuture<Replica> replicaFuture) {
         if (!isCompletedSuccessfully(replicaFuture)) {
             return;
         }
@@ -1135,7 +1133,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
             if (ex != null) {
-                LOG.error("Could not advance safe time for {} to {}", ex, replica.groupId(), proposedSafeTime);
+                LOG.error("Could not advance safe time for {}", ex, replica.groupId());
             }
         });
     }

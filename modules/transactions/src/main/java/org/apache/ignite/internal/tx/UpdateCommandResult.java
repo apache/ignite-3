@@ -99,6 +99,11 @@ public class UpdateCommandResult implements Serializable {
         return primaryInPeersAndLearners;
     }
 
+    /**
+     * Returns a safe timestamp associated with the moment of command application.
+     *
+     * @return The timestamp.
+     */
     public long safeTimestamp() {
         return safeTimestamp;
     }

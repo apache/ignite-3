@@ -51,7 +51,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Tests if commit timestamp and safe timestamp are monotonically grow on leader change.
+ * Tests if commit timestamp and safe timestamp monotonically grow on leader change.
  */
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "1000000")
@@ -136,7 +136,7 @@ public class ItTxObservableTimePropagationTest extends TxInfrastructureTest {
 
                 var fsm = (JraftServerImpl.DelegatingStateMachine) raftNode.getOptions().getFsm();
                 PartitionListener listener = (PartitionListener) fsm.getListener();
-                PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = listener.getSafeTime();
+                PendingComparableValuesTracker<HybridTimestamp, Void> safeTime = listener.getSafeTimeTracker();
 
                 try {
                     assertTrue(IgniteTestUtils.waitForCondition(() -> safeTime.current().equals(commitTs), 30_000),

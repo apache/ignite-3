@@ -28,7 +28,6 @@ dependencies {
     implementation project(':ignite-configuration-system')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-network-api')
-    implementation project(':ignite-network')
     implementation project(':ignite-vault')
     implementation project(':ignite-raft-api')
     implementation project(':ignite-raft')
@@ -39,7 +38,6 @@ dependencies {
     implementation project(':ignite-failure-handler')
     implementation project(':ignite-metrics')
     implementation project(':ignite-system-disaster-recovery-api')
-    implementation project(':ignite-catalog')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
