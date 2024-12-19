@@ -47,6 +47,7 @@ import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
 import org.apache.ignite.internal.metastorage.command.PutAllCommand;
 import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
+import org.apache.ignite.internal.metastorage.command.RemoveByPrefixCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
@@ -210,6 +211,13 @@ public class MetaStorageWriteHandler {
             RemoveAllCommand rmvAllCmd = (RemoveAllCommand) command;
 
             storage.removeAll(toByteArrayList(rmvAllCmd.keys()), context);
+
+            clo.result(null);
+        }
+        else if (command instanceof RemoveByPrefixCommand) {
+            RemoveByPrefixCommand rmvByPrefixCmd = (RemoveByPrefixCommand) command;
+
+            storage.removeAll(toByteArray((rmvByPrefixCmd.prefix())), context);
 
             clo.result(null);
         } else if (command instanceof InvokeCommand) {
