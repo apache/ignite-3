@@ -65,6 +65,7 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.internal.tx.TxManager;
@@ -81,6 +82,9 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
     /** {@link SqlQueryType}s allowed in JDBC update statements. **/
     private static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(DML, SqlQueryType.DDL, SqlQueryType.KILL);
+
+    /** Observation timestamp tracker. */
+    private final HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
 
     /** Sql query processor. */
     private final QueryProcessor processor;
@@ -153,7 +157,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         long correlationToken = req.correlationToken();
         CancellationToken token = connectionContext.registerExecution(correlationToken);
 
-        InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
+        InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction(timestampTracker);
 
         JdbcStatementType reqStmtType = req.getStmtType();
         boolean multiStatement = req.multiStatement();
@@ -164,7 +168,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
-                ObservableTimestampProvider.EMPTY_TS_PROVIDER,
+                timestampTracker,
                 tx,
                 token,
                 req.sqlQuery(),
@@ -175,6 +179,10 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
         return result.thenCompose(cursor -> createJdbcResult(new JdbcQueryCursor<>(req.maxRows(), cursor), req.pageSize()))
                 .exceptionally(t -> createErrorResult("Exception while executing query [query=" + req.sqlQuery() + "]", t, null));
+    }
+
+    public HybridTimestampTracker getTimestampTracker() {
+        return timestampTracker;
     }
 
     private static SqlProperties createProperties(
@@ -216,7 +224,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             return CompletableFuture.completedFuture(new JdbcBatchExecuteResult(Response.STATUS_FAILED, "Connection is broken"));
         }
 
-        InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
+        InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction(timestampTracker);
         long correlationToken = req.correlationToken();
         CancellationToken token = connectionContext.registerExecution(correlationToken);
         var queries = req.queries();
@@ -260,7 +268,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             return CompletableFuture.completedFuture(new JdbcBatchExecuteResult(Response.STATUS_FAILED, "Connection is broken"));
         }
 
-        InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
+        InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction(timestampTracker);
         long correlationToken = req.correlationToken();
         CancellationToken token = connectionContext.registerExecution(correlationToken);
         var argList = req.getArgs();
@@ -310,7 +318,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
-                ObservableTimestampProvider.EMPTY_TS_PROVIDER,
+                timestampTracker,
                 tx,
                 token,
                 sql,
@@ -429,10 +437,11 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
          *
          * <p>NOTE: this method is not thread-safe and should only be called by a single thread.
          *
+         * @param timestampProvider Observation timestamp provider.
          * @return Transaction associated with the current connection.
          */
-        InternalTransaction getOrStartTransaction() {
-            return tx == null ? tx = txManager.begin(ObservableTimestampProvider.EMPTY_TS_PROVIDER, false) : tx;
+        InternalTransaction getOrStartTransaction(ObservableTimestampProvider timestampProvider) {
+            return tx == null ? tx = txManager.begin(timestampProvider, false) : tx;
         }
 
         /**
