@@ -61,7 +61,7 @@ public class SumIsZeroAccumulatorTest extends BaseIgniteAbstractTest {
                 Arguments.of(namedAccumulator(() -> DecimalSumEmptyIsZero.FACTORY.apply(1)), new BigDecimal("3.4"),
                         new Object[]{new BigDecimal("1.31"), new BigDecimal("2.13")}),
                 Arguments.of(namedAccumulator(() -> DecimalSumEmptyIsZero.FACTORY.apply(1)), new BigDecimal("3.5"),
-                        new Object[]{new BigDecimal("1.32"), new BigDecimal("2.13")}),
+                        new Object[]{new BigDecimal("1.32"), new BigDecimal("2.23")}),
 
                 Arguments.of(namedAccumulator(() -> DecimalSumEmptyIsZero.FACTORY.apply(2)), new BigDecimal("3.44"),
                         new Object[]{new BigDecimal("1.31"), new BigDecimal("2.13")}),

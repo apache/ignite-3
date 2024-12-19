@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.datatypes;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.Random;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -96,7 +95,7 @@ public class ItDivisionDecimalTest extends BaseSqlIntegrationTest {
 
         BigDecimal a1 = IgniteTestUtils.randomBigDecimal(rnd, t1.getPrecision(), t1.getScale());
         BigDecimal a2 = IgniteTestUtils.randomBigDecimal(rnd, t2.getPrecision(), t2.getScale());
-        BigDecimal rs = a1.divide(a2, rt.getScale(), RoundingMode.HALF_UP);
+        BigDecimal rs = a1.divide(a2, rt.getScale(), IgniteTypeSystem.INSTANCE.roundingMode());
 
         String type1 = format("DECIMAL({}, {})", p1, s1);
         String type2 = format("DECIMAL({}, {})", p2, s2);
