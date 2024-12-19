@@ -153,6 +153,11 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
         return parameterMetadata;
     }
 
+    @Override
+    public boolean transactional() {
+        return false;
+    }
+
     private <RowT> Function<Long, Iterator<InternalSqlRow>> createResultProjection(ExecutionContext<RowT> ctx) {
         RelDataType getCountType = new RelDataTypeFactory.Builder(ctx.getTypeFactory())
                 .add("ROWCOUNT", SqlTypeName.BIGINT)

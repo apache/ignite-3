@@ -108,7 +108,6 @@ import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.KillPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.prepare.SelectCountPlan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
@@ -331,7 +330,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert txContext != null;
 
-        QueryTransactionWrapper txWrapper = txContext.getOrStartImplicit(plan.type() != SqlQueryType.DML);
+        QueryTransactionWrapper txWrapper = txContext.getOrStartImplicit(plan.type() != SqlQueryType.DML, false);
         InternalTransaction tx = txWrapper.unwrap();
 
         operationContext.notifyTxUsed(txWrapper);
@@ -444,14 +443,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         QueryTransactionWrapper txWrapper = txContext.explicitTx();
 
         if (txWrapper == null) {
-            // TODO change doc and checks
-            // underlying table will initiate transaction by itself, but we need stub to reuse
-            // TxAwareAsyncCursor
-            if (plan instanceof SelectCountPlan) {
-                txWrapper = NoopTransactionWrapper.INSTANCE;
-            } else {
-                txWrapper = txContext.getOrStartImplicitOnePhase(((ExplainablePlan) plan).type() != SqlQueryType.DML);
-            }
+            txWrapper = plan.transactional()
+                    // Underlying table will drive transaction by itself.
+                    ? txContext.getOrStartImplicit(((ExplainablePlan) plan).type() != SqlQueryType.DML, true)
+                    : NoopTransactionWrapper.INSTANCE;
         }
 
         PrefetchCallback prefetchCallback = new PrefetchCallback();

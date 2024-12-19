@@ -24,13 +24,15 @@ import org.jetbrains.annotations.Nullable;
  * Context that allows to get explicit transaction provided by user or start implicit one.
  */
 public interface QueryTransactionContext {
-    /** Returns explicit transaction or start implicit one. */
-    QueryTransactionWrapper getOrStartImplicit(boolean readOnly);
-
-    default QueryTransactionWrapper getOrStartImplicitOnePhase(boolean readOnly) {
-        // TODO Remove this method.
-        return getOrStartImplicit(readOnly);
-    }
+    /**
+     * Starts an implicit transaction if one has not been started previously
+     * and if there is no external (user-managed) transaction.
+     *
+     * @param readOnly Indicates whether the read-only transaction or read-write transaction should be started.
+     * @param tableDriven Indicates whether the implicit transaction will be managed by the table storage or the SQL engine.
+     * @return Transaction wrapper.
+     */
+    QueryTransactionWrapper getOrStartImplicit(boolean readOnly, boolean tableDriven);
 
     /** Updates tracker of latest time observed by client. */
     void updateObservableTime(HybridTimestamp time);

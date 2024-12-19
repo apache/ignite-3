@@ -26,7 +26,6 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Denotes a plan that can evaluates itself.
  */
-@FunctionalInterface
 public interface ExecutablePlan {
     /**
      * Evaluates plan and returns cursor over result.
@@ -44,4 +43,9 @@ public interface ExecutablePlan {
             ExecutableTableRegistry tableRegistry,
             @Nullable QueryPrefetchCallback firstPageReadyCallback
     );
+
+    /**
+     * Returns {@code true} if the plan is executed inside a transaction, {@code false} otherwise.
+     */
+    boolean transactional();
 }
