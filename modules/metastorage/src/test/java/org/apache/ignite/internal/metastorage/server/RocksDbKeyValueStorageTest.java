@@ -238,7 +238,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         long checksum2 = storage.checksum(2);
         assertThat(checksum2, is(checksum(
                 longToBytes(checksum1),
-                bytes(5), // REMOVE_BY_PREFIX
+                bytes(7), // REMOVE_BY_PREFIX
                 intToBytes(PREFIX_BYTES.length), PREFIX_BYTES
         )));
 
@@ -246,7 +246,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         removeByPrefixFromMs(PREFIX_BYTES);
         assertThat(storage.checksum(3), is(checksum(
                 longToBytes(checksum2),
-                bytes(5), // REMOVE_BY_PREFIX
+                bytes(7), // REMOVE_BY_PREFIX
                 intToBytes(PREFIX_BYTES.length), PREFIX_BYTES
         )));
     }
