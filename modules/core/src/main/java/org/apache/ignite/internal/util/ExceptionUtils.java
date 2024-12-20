@@ -338,22 +338,25 @@ public final class ExceptionUtils {
      * Note that this method follows includes {@link Throwable#getSuppressed()}
      * into check.
      *
-     * @param t Throwable to check (if {@code null}, {@code false} is returned).
-     * @param msg Message text that should be in cause.
-     * @param cls Cause classes to check (if {@code null} or empty, {@code false} is returned).
-     * @return {@code True} if one of the causing exception is an instance of passed in classes,
+     * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
+     * @param message Message text that should be in cause.
+     * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
+     * @return {@code true} if one of the causing exception is an instance of passed in classes,
      *      {@code false} otherwise.
      */
-    public static boolean hasCause(@Nullable Throwable t, @Nullable String msg, Class<?> @Nullable... cls) {
-        if (t == null || cls == null || cls.length == 0) {
+    public static boolean hasCauseOrSuppressed(
+            @Nullable Throwable throwable,
+            @Nullable String message,
+            Class<?> @Nullable... clazz) {
+        if (throwable == null || clazz == null || clazz.length == 0) {
             return false;
         }
 
-        for (Throwable th = t; th != null; th = th.getCause()) {
-            for (Class<?> c : cls) {
+        for (Throwable th = throwable; th != null; th = th.getCause()) {
+            for (Class<?> c : clazz) {
                 if (c.isAssignableFrom(th.getClass())) {
-                    if (msg != null) {
-                        if (th.getMessage() != null && th.getMessage().contains(msg)) {
+                    if (message != null) {
+                        if (th.getMessage() != null && th.getMessage().contains(message)) {
                             return true;
                         } else {
                             continue;
@@ -365,7 +368,7 @@ public final class ExceptionUtils {
             }
 
             for (Throwable n : th.getSuppressed()) {
-                if (hasCause(n, msg, cls)) {
+                if (hasCauseOrSuppressed(n, message, clazz)) {
                     return true;
                 }
             }

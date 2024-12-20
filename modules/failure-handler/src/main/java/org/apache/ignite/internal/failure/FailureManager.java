@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.failure;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMPONENT_NOT_STARTED_ERR;
 
 import java.util.EnumMap;
@@ -164,7 +164,7 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             LOG.error(FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx.type());
         }
 
-        if (reserveBuf != null && hasCause(failureCtx.error(), null, OutOfMemoryError.class)) {
+        if (reserveBuf != null && hasCauseOrSuppressed(failureCtx.error(), null, OutOfMemoryError.class)) {
             reserveBuf = null;
         }
 

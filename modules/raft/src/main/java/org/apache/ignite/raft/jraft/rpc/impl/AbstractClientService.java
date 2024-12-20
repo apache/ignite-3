@@ -233,7 +233,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                         }
                     }
                     else {
-                        if (ExceptionUtils.hasCause(err, null, PeerUnavailableException.class, ConnectException.class))
+                        if (ExceptionUtils.hasCauseOrSuppressed(err, null, PeerUnavailableException.class, ConnectException.class))
                             readyConsistentIds.remove(peerId.getConsistentId()); // Force logical reconnect.
 
                         if (done != null) {
