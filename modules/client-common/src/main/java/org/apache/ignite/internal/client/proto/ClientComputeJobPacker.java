@@ -145,7 +145,7 @@ public final class ClientComputeJobPacker {
 
             packTuple(toTuple(obj), packer);
         } catch (PojoConversionException e) {
-            throw new MarshallingException("Can't pack object", e);
+            throw new MarshallingException("Can't pack object: " + obj, e);
         }
     }
 
