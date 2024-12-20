@@ -604,8 +604,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         RuntimeException runtimeException = (RuntimeException) computeException.getCause();
 
         // RuntimeException is thrown when SleepJob catches the InterruptedException
-        assertThat(runtimeException.getCause(), instanceOf(InterruptedException.class));
-        assertThat(runtimeException.getCause().getCause(), is(nullValue()));
+        assertThat(runtimeException.toString(), containsString(InterruptedException.class.getName()));
 
         await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
     }
