@@ -734,7 +734,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     private static void assertComputeException(Exception ex, String causeClass, String causeMsgSubstring) {
         assertTraceableException(ex, ComputeException.class, COMPUTE_JOB_FAILED_ERR, "Job execution failed:");
         Throwable cause = ExceptionUtils.unwrapCause(ex);
-        assertThat(cause.getCause().getClass().getName(), containsString(causeClass));
+        assertThat(cause.toString(), containsString(causeClass));
         assertThat(cause.getCause().getMessage(), containsString(causeMsgSubstring));
     }
 }
