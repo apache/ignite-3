@@ -62,7 +62,7 @@ public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstract
     private static FailureProcessorConfiguration disabledThreadDumpConfiguration;
 
     /**
-     * Tests that thread dumps will not get if 'dumpThreadsOnFailure' equals to `false`.
+     * Tests that thread dumps will not be logged if 'dumpThreadsOnFailure' equals to `false`.
      */
     @Test
     public void testNoThreadDumps() {
