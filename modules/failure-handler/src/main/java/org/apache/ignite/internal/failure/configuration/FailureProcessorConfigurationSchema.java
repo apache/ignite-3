@@ -42,7 +42,7 @@ public class FailureProcessorConfigurationSchema {
 
     /**
      * Throttling time out for thread dump generation during failure handling in milliseconds.
-     * The default is 10 seconds. The {@code 0} value mens that throttling is disabled.
+     * The default is 10 seconds. The {@code 0} value means that throttling is disabled.
      */
     @Value(hasDefault = true)
     public long dumpThreadsThrottlingTimeoutMillis = 10_000;
