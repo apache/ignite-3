@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -50,7 +49,7 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
     void cleanup() {
         sql("DELETE FROM TEST");
 
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), is(0)));
+        waitUntilRunningQueriesCount(is(0));
     }
 
     @Test
@@ -69,7 +68,7 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
         List<AsyncSqlCursor<InternalSqlRow>> allCursors = fetchAllCursors(runScript(token, query.toString()));
 
         assertThat(allCursors, hasSize(statementsCount));
-        assertThat(queryProcessor().runningQueriesCount(), is(statementsCount + /* SCRIPT */ 1));
+        assertThat(queryProcessor().runningQueries().size(), is(statementsCount + /* SCRIPT */ 1));
 
         cancelHandle.cancel();
 
@@ -100,8 +99,7 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
         cancelHandle.cancel();
 
         assertThat(queryProcessor().openedCursors(), is(0));
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23939 Remove busy wait.
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), is(0)));
+        waitUntilRunningQueriesCount(is(0));
         assertEquals(0, txManager().pending());
 
         assertTrue(cursors.get(2).hasNextResult());
