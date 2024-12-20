@@ -93,6 +93,7 @@ public final class ClientComputeJobUnpacker {
                 return unpackPojo(unpacker, resultClass);
 
             case TUPLE_COLLECTION: {
+                // TODO: IGNITE-24059 Deduplicate with ComputeUtils.
                 ByteBuffer collectionBuf = unpacker.readBinaryUnsafe();
                 int count = collectionBuf.getInt();
                 BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf);

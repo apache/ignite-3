@@ -33,6 +33,8 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.MARSHALLING_TYPE_MISMAT
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -443,9 +445,10 @@ public class ComputeUtils {
             );
         }
         switch (type) {
-            case NATIVE:
+            case NATIVE: {
                 var reader = new BinaryTupleReader(3, argumentHolder.data());
                 return (T) ClientBinaryTupleUtils.readObject(reader, 0);
+            }
 
             case TUPLE: // Fallthrough TODO https://issues.apache.org/jira/browse/IGNITE-23320
             case POJO:
@@ -465,9 +468,27 @@ public class ComputeUtils {
                     throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller", ex);
                 }
 
-            case TUPLE_COLLECTION:
-                // TODO
-                throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Tuple collection is not supported");
+            case TUPLE_COLLECTION: {
+                // TODO: IGNITE-24059 Deduplicate with ClientComputeJobUnpacker.
+                ByteBuffer buffer = ByteBuffer.wrap(argumentHolder.data());
+                int count = buffer.getInt();
+                BinaryTupleReader reader = new BinaryTupleReader(count, buffer);
+
+                List<Tuple> res = new ArrayList<>();
+                for (int i = 0; i < count; i++) {
+                    // TODO: Use ByteBuffer to avoid copying.
+                    byte[] tupleBytes = reader.bytesValue(i);
+
+                    if (tupleBytes == null) {
+                        res.add(null);
+                        continue;
+                    }
+
+                    res.add(TupleWithSchemaMarshalling.unmarshal(tupleBytes));
+                }
+
+                return (T) res;
+            }
 
             default:
                 throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Unexpected job argument type: " + type);
