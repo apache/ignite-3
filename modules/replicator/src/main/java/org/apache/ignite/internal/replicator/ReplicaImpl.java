@@ -40,6 +40,7 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -207,7 +209,9 @@ public class ReplicaImpl implements Replica {
                         if (e != null) {
                             Throwable ex = unwrapCause(e);
 
-                            LOG.warn("Failed to process the lease granted message [msg={}].", ex, msg);
+                            if (!(ex instanceof NodeStoppingException) && !(ex instanceof TrackerClosedException)) {
+                                LOG.warn("Failed to process the lease granted message [msg={}].", ex, msg);
+                            }
 
                             // Just restart the negotiation in case of exception.
                             return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
