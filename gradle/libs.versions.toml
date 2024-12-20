@@ -16,7 +16,7 @@
 #
 
 [versions]
-assertj = "3.26.3"
+assertj = "3.27.0"
 asm = "9.7.1"
 bouncycastle = "1.79"
 compileTesting = "0.21.0"
