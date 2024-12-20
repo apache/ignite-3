@@ -24,10 +24,12 @@ import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE_COLLECTION;
 import static org.apache.ignite.internal.compute.PojoConverter.toTuple;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.PojoConversionException;
@@ -106,11 +108,14 @@ public final class ClientComputeJobPacker {
             Collection<?> col = (Collection<?>) obj;
 
             packer.packInt(TUPLE_COLLECTION.id());
+
+            // Pack entire collection into a single binary blob.
+            BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(col.size());
             packer.packInt(col.size());
 
             for (Object el : col) {
                 if (el == null) {
-                    packer.packNil();
+                    tupleBuilder.appendNull();
                     continue;
                 }
 
@@ -118,8 +123,11 @@ public final class ClientComputeJobPacker {
                     throw new MarshallingException("Can't pack collection: expected Tuple, but got " + el.getClass(), null);
                 }
 
-                packTuple((Tuple) el, packer);
+                tupleBuilder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) el));
             }
+
+            // TODO: Prepend or append the size of the collection to the binary blob?
+            ByteBuffer binTupleBytes = tupleBuilder.build();
 
             return;
         }

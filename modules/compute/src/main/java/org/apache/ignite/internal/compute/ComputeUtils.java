@@ -465,6 +465,10 @@ public class ComputeUtils {
                     throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller", ex);
                 }
 
+            case TUPLE_COLLECTION:
+                // TODO
+                throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Tuple collection is not supported");
+
             default:
                 throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Unexpected job argument type: " + type);
         }
