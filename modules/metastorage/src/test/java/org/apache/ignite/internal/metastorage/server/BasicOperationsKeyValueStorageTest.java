@@ -652,8 +652,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         byte[] key4 = key(4);
 
-        assertEquals(0, storage.revision());
-
         // Regular put.
         putToMs(key1, val1);
 

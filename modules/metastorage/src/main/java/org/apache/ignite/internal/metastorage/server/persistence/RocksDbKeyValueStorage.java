@@ -787,15 +787,14 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     public void removeByPrefix(byte[] prefix, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
-        try (WriteBatch batch = new WriteBatch(); Cursor<Entry> entries = range(prefix, nextKey(prefix))) {
+        try (WriteBatch batch = new WriteBatch(); Cursor<Entry> entryCursor = range(prefix, nextKey(prefix))) {
             long curRev = rev + 1;
 
-            for (Entry entry : entries) {
+            for (Entry entry : entryCursor) {
                 byte[] key = entry.key();
 
                 if (addToBatchForRemoval(batch, key, curRev, context.timestamp)) {
                     updateKeysIndex(batch, key, curRev);
-                    checksum.appendRemoveAsPart(key);
                 }
             }
 

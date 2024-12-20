@@ -289,14 +289,14 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     public void removeByPrefix(byte[] prefix, KeyValueUpdateContext context) {
         rwLock.writeLock().lock();
 
-        try (Cursor<Entry> cursor = range(prefix, nextKey(prefix))) {
+        try (Cursor<Entry> entryCursor = range(prefix, nextKey(prefix))) {
             long curRev = rev + 1;
 
             var keys = new ArrayList<byte[]>();
 
             var vals = new ArrayList<byte[]>();
 
-            for (Entry e : cursor) {
+            for (Entry e : entryCursor) {
                 if (e.empty() || e.tombstone()) {
                     continue;
                 }
