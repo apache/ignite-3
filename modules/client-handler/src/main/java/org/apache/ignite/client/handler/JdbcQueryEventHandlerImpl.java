@@ -84,7 +84,10 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
     /** {@link SqlQueryType}s allowed in JDBC update statements. **/
     private static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(DML, SqlQueryType.DDL, SqlQueryType.KILL);
 
-    /** Observation timestamp tracker. */
+    /**
+     * Observation timestamp tracker.
+     * TODO: IGNITE-24053 Remove this after the issue will be fixed.
+     * */
     private final HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
 
     /** Sql query processor. */

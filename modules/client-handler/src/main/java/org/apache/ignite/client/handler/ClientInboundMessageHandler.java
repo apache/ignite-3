@@ -713,7 +713,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTupleContainsAllKeysRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.JDBC_CONNECT:
-                // TODO: JDBC request ought to contain the client observation timestamp.
+                // TODO: IGNITE-24053 JDBC request ought to contain the client observation timestamp.
                 jdbcQueryEventHandler.getTimestampTracker().update(clockService.current());
                 out.meta(jdbcQueryEventHandler.getTimestampTracker().get());
 
@@ -721,8 +721,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.JDBC_EXEC:
                 return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler).thenRun(() -> {
-                    // TODO: Observation timestamp must be updated only for DDL "CREATE TABLE..."
-                    out.meta(clockService.current());
+                    // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    if (!(out.meta() instanceof HybridTimestamp)) {
+                        out.meta(clockService.current());
+                    }
                 });
 
             case ClientOp.JDBC_CANCEL:
@@ -730,8 +732,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.JDBC_EXEC_BATCH:
                 return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler).thenRun(() -> {
-                    // TODO: Observation timestamp must be updated only for DDL "CREATE TABLE..."
-                    out.meta(clockService.current());
+                    // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    if (!(out.meta() instanceof HybridTimestamp)) {
+                        out.meta(clockService.current());
+                    }
                 });
 
             case ClientOp.JDBC_SQL_EXEC_PS_BATCH:
@@ -799,8 +803,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics).thenRun(() -> {
-                    // TODO: Observation timestamp must be updated only for DDL "CREATE TABLE..."
-                    out.meta(clockService.current());
+                    // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    if (!(out.meta() instanceof HybridTimestamp)) {
+                        out.meta(clockService.current());
+                    }
                 });
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
@@ -817,7 +823,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(in, queryProcessor).thenRun(() -> {
-                    out.meta(clockService.current());
+                    // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    if (!(out.meta() instanceof HybridTimestamp)) {
+                        out.meta(clockService.current());
+                    }
                 });
 
             case ClientOp.SQL_QUERY_META:
@@ -825,8 +834,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources).thenRun(() -> {
-                    // TODO: Observation timestamp must be updated only for DDL "CREATE TABLE..."
-                    out.meta(clockService.current());
+                    // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    if (!(out.meta() instanceof HybridTimestamp)) {
+                        out.meta(clockService.current());
+                    }
                 });
 
             case ClientOp.STREAMER_BATCH_SEND:
