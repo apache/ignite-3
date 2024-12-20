@@ -218,7 +218,7 @@ public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstract
     /**
      * Creates a new instance of {@link FailureManager} with the given configuration and runs the test represented by {@code test} closure.
      */
-    public static void testFailureProcessing(FailureProcessorConfiguration configuration, Consumer<FailureProcessor> test) {
+    static void testFailureProcessing(FailureProcessorConfiguration configuration, Consumer<FailureProcessor> test) {
         FailureManager failureManager = new FailureManager(() -> {}, configuration);
 
         try {
