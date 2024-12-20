@@ -40,6 +40,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -656,6 +657,19 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         );
 
         assertThat(result, is(1));
+    }
+
+    @Test
+    void tupleCollectionSerialization() {
+        ClusterNode executeNode = clusterNode(node(1));
+
+        Collection<Tuple> result = compute().execute(
+                JobTarget.node(executeNode),
+                JobDescriptor.builder(TupleCollectionJob.class).units(units()).build(),
+                List.of(Tuple.create().set("COUNT", 1))
+        );
+
+        assertThat(result, contains(Tuple.create().set("COUNT", 1), Tuple.create().set("job-result", "done")));
     }
 
     static String concatJobClassName() {

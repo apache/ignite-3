@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.compute.ComputeJobDataType.MARSHALLED_C
 import static org.apache.ignite.internal.compute.ComputeJobDataType.NATIVE;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.POJO;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE;
+import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE_COLLECTION;
 import static org.apache.ignite.internal.compute.PojoConverter.fromTuple;
 import static org.apache.ignite.internal.compute.PojoConverter.toTuple;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -545,6 +546,37 @@ public class ComputeUtils {
             Tuple tuple = (Tuple) result;
             return new ComputeJobDataHolder(TUPLE, TupleWithSchemaMarshalling.marshal(tuple));
         }
+
+        if (result instanceof Collection) {
+            // TODO: IGNITE-24059 Deduplicate with ClientComputeJobPacker.
+            Collection<?> col = (Collection<?>) result;
+
+            // Pack entire collection into a single binary blob.
+            BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(col.size());
+
+            for (Object el : col) {
+                if (el == null) {
+                    tupleBuilder.appendNull();
+                    continue;
+                }
+
+                if (!(el instanceof Tuple)) {
+                    throw new MarshallingException("Can't pack collection: expected Tuple, but got " + el.getClass(), null);
+                }
+
+                tupleBuilder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) el));
+            }
+
+            ByteBuffer binTupleBytes = tupleBuilder.build();
+
+            byte[] resArr = new byte[Integer.BYTES + binTupleBytes.remaining()];
+            ByteBuffer resBuf = ByteBuffer.wrap(resArr).order(ByteOrder.LITTLE_ENDIAN);
+            resBuf.putInt(col.size());
+            resBuf.put(binTupleBytes);
+
+            return new ComputeJobDataHolder(TUPLE_COLLECTION, resArr);
+        }
+
 
         if (isNativeType(result.getClass())) {
             // Builder with inline schema.
