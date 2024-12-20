@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -31,6 +32,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -150,6 +152,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -730,6 +733,21 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void ensureRuntimeErrorIsPropagatedToFirstPageReadyCallbackKeyValuePlan() {
+        ExecutionService execService = executionServices.get(0);
+
+        SqlOperationContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl WHERE id=1/0", ctx);
+        assertThat(plan, instanceOf(KeyValueGetPlan.class));
+
+        AsyncDataCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
+
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Division by zero", () -> await(cursor.onFirstPageReady()));
+
+        assertThat(cursor.closeAsync(), willCompleteSuccessfully());
+    }
+
+    @Test
     public void testExecuteCancelled() {
         ExecutionService execService = executionServices.get(0);
 
@@ -1111,7 +1129,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryTransactionWrapper txWrapper = mock(QueryTransactionWrapper.class);
 
-        when(txContext.getOrStartImplicit(anyBoolean(), false)).thenReturn(txWrapper);
+        when(txContext.getOrStartImplicit(anyBoolean(), anyBoolean())).thenReturn(txWrapper);
 
         when(txWrapper.unwrap()).thenReturn(tx);
         when(txWrapper.implicit()).thenReturn(tx.implicit());
