@@ -174,7 +174,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         doWhenAllCursorsComplete(result, () -> connectionContext.deregisterExecution(correlationToken));
 
         return result.thenCompose(cursor -> createJdbcResult(new JdbcQueryCursor<>(req.maxRows(), cursor), req.pageSize()))
-                .exceptionally(t -> createErrorResult("Exception while executing query [query=" + req.sqlQuery() + "]", t, null));
+                .exceptionally(t -> createErrorResult("Exception while executing query.", t, null));
     }
 
     private static SqlProperties createProperties(
