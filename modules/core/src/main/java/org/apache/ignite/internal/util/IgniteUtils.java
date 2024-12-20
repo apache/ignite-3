@@ -1343,7 +1343,7 @@ public class IgniteUtils {
             logMessage(log, "No deadlocked threads detected.", isErrorLevel);
         } else {
             logMessage(log, "Deadlocked threads detected (see thread dump below) "
-                    + "[deadlockedThreadsCnt=" + deadlockedThreadsIds.size() + ']', isErrorLevel);
+                    + "[deadlockedThreadsCount=" + deadlockedThreadsIds.size() + ']', isErrorLevel);
         }
 
         ThreadInfo[] threadInfos =
