@@ -141,7 +141,7 @@ public class IgniteUtils {
 
     /** Date format for thread dumps. */
     private static final DateTimeFormatter THREAD_DUMP_FMT =
-            DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss z").withZone(ZoneId.systemDefault());
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z").withZone(ZoneId.systemDefault());
 
     /** System line separator. */
     private static final String NL = System.lineSeparator();
