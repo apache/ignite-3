@@ -121,7 +121,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     @Override
     public <RowT> AsyncCursor<InternalSqlRow> execute(
             ExecutionContext<RowT> ctx,
-            @Nullable InternalTransaction tx,
+            InternalTransaction tx,
             ExecutableTableRegistry tableRegistry,
             @Nullable QueryPrefetchCallback firstPageReadyCallback
     ) {

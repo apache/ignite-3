@@ -45,7 +45,7 @@ public interface ExecutablePlan {
     );
 
     /**
-     * Returns {@code true} if the plan is executed inside a transaction, {@code false} otherwise.
+     * Returns {@code true} if the plan is to be executed within a transaction (explicit or implicit), {@code false} otherwise.
      */
     boolean transactional();
 }

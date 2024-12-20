@@ -58,7 +58,7 @@ public class ScriptTransactionContext implements QueryTransactionContext {
      * Starts a new implicit transaction if there is no external or script-driven transaction.
      *
      * @param readOnly Indicates whether the read-only transaction or read-write transaction should be started.
-     * @param tableDriven Indicates whether the implicit transaction will be managed by the table manager or the SQL engine.
+     * @param tableDriven Indicates whether the implicit transaction will be partially managed by the table storage.
      * @return Transaction wrapper.
      */
     @Override

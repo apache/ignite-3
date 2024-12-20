@@ -59,12 +59,7 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
 
         if (tx == null) {
             transaction = txManager.begin(observableTimeTracker, tableDriven, readOnly);
-
-            if (tableDriven) {
-                result = new TableDrivenImplicitTransactionWrapper(transaction, txTracker);
-            } else {
-                result = new QueryTransactionWrapperImpl(transaction, true, txTracker);
-            }
+            result = new QueryTransactionWrapperImpl(transaction, true, txTracker);
         } else {
             transaction = tx.unwrap();
             result = tx;
