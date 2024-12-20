@@ -168,7 +168,7 @@ public class RebalanceUtil {
         if (consistencyMode == ConsistencyMode.HIGH_AVAILABILITY) {
             // All complicated logic here is needed because we want to return back to stable nodes
             // that are returned back after majority is lost and stable was narrowed.
-            // For more detailed example check <MUTED> https://issues.apache.org/jira/browse/IGNITE-23572
+            // <MUTED> For more detailed example check https://issues.apache.org/jira/browse/IGNITE-23572
 
             // First of all, we remove offline nodes from calculated assignments
             Set<Assignment> resultingAssignments = calculatedAssignments
