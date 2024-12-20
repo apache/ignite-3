@@ -1751,6 +1751,7 @@ public class Replicator implements ThreadId.OnError {
             .groupId(options.getGroupId())
             .serverId(options.getServerId().toString())
             .peerId(options.getPeerId().toString())
+            .timestamp(options.getNode().getOptions().getClock().now())
             .build();
 
         try {
