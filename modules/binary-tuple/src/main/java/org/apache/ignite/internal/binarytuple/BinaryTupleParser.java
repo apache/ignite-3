@@ -78,8 +78,8 @@ public class BinaryTupleParser {
     public BinaryTupleParser(int numElements, ByteBuffer buffer) {
         this.numElements = numElements;
 
-        assert buffer.order() == ORDER;
-        assert buffer.position() == 0;
+        assert buffer.order() == ORDER : "Buffer order must be LITTLE_ENDIAN, actual: " + buffer.order();
+        assert buffer.position() == 0 : "Buffer position must be 0, actual: " + buffer.position();
         this.buffer = buffer;
 
         byte flags = buffer.get(0);
