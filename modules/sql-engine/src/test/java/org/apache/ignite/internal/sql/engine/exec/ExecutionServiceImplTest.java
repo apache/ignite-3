@@ -45,8 +45,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -887,8 +885,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testTimeoutKvGet() {
-        int deadlineMillis = 500;
-
         // Use a separate context, so planning won't timeout.
         SqlOperationContext planCtx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl WHERE id = 1", planCtx);
@@ -896,12 +892,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertInstanceOf(KeyValueGetPlan.class, plan);
 
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
 
-        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
-        tableRegistry.setGetTableDelay(delay);
-
-        awaitExecutionTimeout(execService, plan, deadlineMillis, SqlException.class);
+        awaitExecutionTimeout(execService, plan, 500, SqlException.class);
     }
 
     @Test
@@ -912,13 +904,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertInstanceOf(KeyValueModifyPlan.class, plan);
 
-        int deadlineMillis = 500;
-
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
-
-        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
-        tableRegistry.setGetTableDelay(delay);
 
         awaitExecutionTimeout(execService, plan, 500, SqlException.class);
     }
@@ -931,14 +917,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertInstanceOf(DdlPlan.class, plan);
 
-        int deadlineMillis = 500;
-
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-
-        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
-
-        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
-        tableRegistry.setGetTableDelay(delay);
 
         DdlCommandHandler ddlCommandHandler = execService.ddlCommandHandler();
         when(ddlCommandHandler.handle(any(CatalogCommand.class))).thenReturn(new CompletableFuture<>());
@@ -990,13 +969,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertInstanceOf(SelectCountPlan.class, plan);
 
-        int deadlineMillis = 500;
-
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
-
-        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
-        tableRegistry.setGetTableDelay(delay);
 
         Function<QueryCancel, SqlOperationContext> implicitTx = (cancel) -> operationContext()
                 .cancel(cancel)

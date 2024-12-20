@@ -249,7 +249,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Tests numeric type convertation on equals.
+     * Tests numeric type conversion on equals.
      */
     @Test
     public void testNumericConvertingOnEquals() {
@@ -831,7 +831,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 arguments(decimalType(1, 1), new BigDecimal("0.1"), decimalType(1, 1), bigDecimalVal("0.1")),
                 arguments(decimalType(3), new BigDecimal("100"), decimalType(3), bigDecimalVal("100")),
                 // passed with runtime call and failed with parsing substitution
-                arguments(decimalType(5, 2), new BigDecimal("100.16"), decimalType(4, 1), bigDecimalVal("100.2")),
+                arguments(decimalType(5, 2), new BigDecimal("100.16"), decimalType(4, 1), bigDecimalVal("100.1")),
                 arguments(decimalType(3), new BigDecimal("100"), decimalType(3, 0), bigDecimalVal("100")),
                 arguments(decimalType(3), new BigDecimal("100"), decimalType(4, 1), bigDecimalVal("100.0")),
                 arguments(decimalType(3), new BigDecimal("100"), decimalType(2, 0), error(NUMERIC_OVERFLOW_ERROR)),

@@ -15,18 +15,18 @@
  * limitations under the License.
  */
 
+package org.apache.ignite.internal.metastorage.command;
 
-package org.apache.ignite.internal.sql.engine.exec;
-
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Resolves components required for execution.
+ * Removal command for MetaStorageCommandListener that removes all entries by the given prefix.
  */
-public interface ExecutionDependencyResolver {
-
+@Transferable(MetastorageCommandsMessageGroup.REMOVE_BY_PREFIX)
+public interface RemoveByPrefixCommand extends MetaStorageWriteCommand {
     /**
-     * Resolves dependencies required to execute the given list of relations.
+     * Returns prefix. Couldn't be {@code null}.
      */
-    ResolvedDependencies resolveDependencies(Iterable<IgniteRel> rels, int catalogVersion);
+    ByteBuffer prefix();
 }
