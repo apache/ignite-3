@@ -91,7 +91,7 @@ public class FailureProcessorThreadDumpThrottlingTest extends BaseIgniteAbstract
     }
 
     /**
-     * Tests that thread dumps will get for every failure for disabled throttling.
+     * Tests that thread dumps will get for every failure when throttling is disabled.
      */
     @Test
     public void testNoThrottling() {
