@@ -68,7 +68,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -337,7 +336,43 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                         : Assignments.toBytes(partAssignments, assignmentsTimestamp)
         );
 
-        return metaStorageMgr.invoke(invokeClosure).thenApply(StatementResult::getAsInt);
+        return metaStorageMgr.invoke(invokeClosure).thenApply(sr -> {
+            switch (UpdateStatus.valueOf(sr.getAsInt())) {
+                case PENDING_KEY_UPDATED:
+                    LOG.info(
+                            "Force update metastore pending partitions key [key={}, partition={}, table={}, newVal={}]",
+                            pendingChangeTriggerKey(partId).toString(),
+                            partId.partitionId(),
+                            partId.tableId(),
+                            nextAssignment
+                    );
+
+                    break;
+                case ASSIGNMENT_NOT_UPDATED:
+                    LOG.info(
+                            "Force assignments are not updated [key={}, partition={}, table={}, val={}]",
+                            pendingChangeTriggerKey(partId).toString(),
+                            partId.partitionId(),
+                            partId.tableId(),
+                            nextAssignment
+                    );
+
+                    break;
+                case OUTDATED_UPDATE_RECEIVED:
+                    LOG.info(
+                            "Received outdated force rebalance trigger event [revision={}, partition={}, table={}]",
+                            revision,
+                            partId.partitionId(),
+                            partId.tableId()
+                    );
+
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown return code for rebalance metastore multi-invoke");
+            }
+
+            return sr.getAsInt();
+        });
     }
 
     /**
@@ -393,19 +428,13 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
         return iif(notExists(pendingChangeTriggerKey).or(value(pendingChangeTriggerKey).lt(revisionBytes)),
-                iif(
-                        value(partAssignmentsPendingKey).ne(pendingAssignmentsBytes),
-                        ops(
-                                put(pendingChangeTriggerKey, revisionBytes),
-                                put(partAssignmentsPendingKey, pendingAssignmentsBytes),
-                                plannedAssignmentsBytes == null
-                                        ? remove(partAssignmentsPlannedKey)
-                                        : put(partAssignmentsPlannedKey, plannedAssignmentsBytes)
-                        ).yield(PENDING_KEY_UPDATED.ordinal()),
-                        ops(
-                                put(pendingChangeTriggerKey, revisionBytes)
-                        ).yield(PENDING_KEY_UPDATED.ordinal())
-                ),
+                ops(
+                        put(pendingChangeTriggerKey, revisionBytes),
+                        put(partAssignmentsPendingKey, pendingAssignmentsBytes),
+                        plannedAssignmentsBytes == null
+                                ? remove(partAssignmentsPlannedKey)
+                                : put(partAssignmentsPlannedKey, plannedAssignmentsBytes)
+                ).yield(PENDING_KEY_UPDATED.ordinal()),
                 ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
         );
     }
