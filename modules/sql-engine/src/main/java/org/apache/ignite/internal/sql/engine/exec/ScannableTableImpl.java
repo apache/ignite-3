@@ -221,7 +221,7 @@ public class ScannableTableImpl implements ScannableTable {
     @Override
     public <RowT> CompletableFuture<RowT> primaryKeyLookup(
             ExecutionContext<RowT> ctx,
-            @Nullable InternalTransaction explicitTx,
+            InternalTransaction tx,
             RowFactory<RowT> rowFactory,
             RowT key,
             BitSet requiredColumns
@@ -230,7 +230,7 @@ public class ScannableTableImpl implements ScannableTable {
 
         BinaryRowEx keyRow = converter.toKeyRow(ctx, key);
 
-        return internalTable.get(keyRow, explicitTx)
+        return internalTable.get(keyRow, tx)
                 .thenApply(tableRow -> {
                     if (tableRow == null) {
                         return null;
