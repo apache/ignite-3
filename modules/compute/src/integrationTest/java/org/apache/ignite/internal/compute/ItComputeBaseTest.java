@@ -396,15 +396,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void executeColocatedThrowsTableNotFoundExceptionWhenTableDoesNotExist() {
-        Ignite entryNode = node(0);
-
         var ex = assertThrows(CompletionException.class,
                 () -> compute().submit(
-                        JobTarget.colocated("\"bad-table\"", Tuple.create(Map.of("k", 1))),
+                        JobTarget.colocated("bad_table", Tuple.create(Map.of("k", 1))),
                         JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build(), null).resultAsync().join());
 
         assertInstanceOf(TableNotFoundException.class, ex.getCause());
-        assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-table\"]"));
+        assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad_table\"]"));
     }
 
     @ParameterizedTest(name = "local: {0}")
