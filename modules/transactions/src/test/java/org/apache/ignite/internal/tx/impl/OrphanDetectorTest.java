@@ -61,6 +61,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -103,6 +104,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
     private TransactionIdGenerator idGenerator;
 
+    private OrphanDetector orphanDetector;
+
     private static LockManager lockManager() {
         HeapLockManager lockManager = new HeapLockManager();
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
@@ -117,7 +120,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         resolutionCount.set(0);
 
-        OrphanDetector orphanDetector = new OrphanDetector(
+        orphanDetector = new OrphanDetector(
                 topologyService,
                 replicaService,
                 placementDriverHelper,
@@ -133,6 +136,11 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
         txStateMetaStorage.start();
 
         orphanDetector.start(txStateMetaStorage, txConfiguration.abandonedCheckTs());
+    }
+
+    @AfterEach
+    void cleanup() {
+        orphanDetector.stop();
     }
 
     @Test
