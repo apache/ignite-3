@@ -126,8 +126,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource("wrongJobClassArguments")
     void executesWrongJobClassOnRemoteNodes(String jobClassName, int errorCode, String msg) {
-        Ignite entryNode = node(0);
-
         IgniteException ex = assertThrows(IgniteException.class, () -> compute().execute(
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
                 JobDescriptor.builder(jobClassName).units(units()).build(),
@@ -139,8 +137,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @MethodSource("wrongJobClassArguments")
     void executesWrongJobClassOnRemoteNodesAsync(String jobClassName, int errorCode, String msg) {
-        Ignite entryNode = node(0);
-
         ExecutionException ex = assertThrows(ExecutionException.class, () -> compute().executeAsync(
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
                 JobDescriptor.builder(jobClassName).units(units()).build(),
@@ -178,8 +174,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void executesJobOnRemoteNodes() {
-        Ignite entryNode = node(0);
-
         String result = compute().execute(
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
                 JobDescriptor.builder(concatJobClass()).units(units()).build(),
@@ -190,8 +184,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void executesJobOnRemoteNodesAsync() {
-        Ignite entryNode = node(0);
-
         JobExecution<String> execution = compute().submit(
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
                 JobDescriptor.builder(concatJobClass()).units(units()).build(),
@@ -215,7 +207,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void remoteExecutionActuallyUsesRemoteNode() {
-        Ignite entryNode = node(0);
         Ignite remoteNode = node(1);
 
         CompletableFuture<String> fut = compute().executeAsync(
@@ -254,8 +245,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void executesFailingJobOnRemoteNodes() {
-        Ignite entryNode = node(0);
-
         IgniteException ex = assertThrows(IgniteException.class, () -> compute().execute(
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
                 JobDescriptor.builder(failingJobClassName()).units(units()).build(), null));
@@ -265,8 +254,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void executesFailingJobOnRemoteNodesWithOptions() {
-        Ignite entryNode = node(0);
-
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
 
         String result = compute().execute(
@@ -280,8 +267,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void executesFailingJobOnRemoteNodesAsync() {
-        Ignite entryNode = node(0);
-
         JobExecution<String> execution = compute().submit(
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
                 JobDescriptor.<Object, String>builder(failingJobClassName()).units(units()).build(), null);
@@ -358,8 +343,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesColocatedWithTupleKey() {
         createTestTableWithOneRow();
 
-        Ignite entryNode = node(0);
-
         String actualNodeName = compute().execute(
                 JobTarget.colocated("test", Tuple.create(Map.of("k", 1))),
                 JobDescriptor.builder(getNodeNameJobClass()).units(units()).build(), null);
@@ -370,8 +353,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @Test
     void executesColocatedWithTupleKeyAsync() {
         createTestTableWithOneRow();
-
-        Ignite entryNode = node(0);
 
         JobExecution<String> execution = compute().submit(
                 JobTarget.colocated("test", Tuple.create(Map.of("k", 1))),
@@ -408,7 +389,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest(name = "local: {0}")
     @ValueSource(booleans = {true, false})
     void cancelComputeExecuteAsyncWithCancelHandle(boolean local) {
-        Ignite entryNode = node(0);
         Ignite executeNode = local ? node(0) : node(1);
 
         CancelHandle cancelHandle = CancelHandle.create();
@@ -426,7 +406,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest(name = "local: {0}")
     @ValueSource(booleans = {true, false})
     void cancelComputeExecuteWithCancelHandle(boolean local) {
-        Ignite entryNode = node(0);
         Ignite executeNode = local ? node(0) : node(1);
 
         CancelHandle cancelHandle = CancelHandle.create();
@@ -481,8 +460,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void cancelComputeExecuteMapReduceAsyncWithCancelHandle() {
-        Ignite entryNode = node(0);
-
         CancelHandle cancelHandle = CancelHandle.create();
 
         CompletableFuture<Void> execution = compute()
@@ -510,8 +487,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesColocatedWithMappedKey() {
         createTestTableWithOneRow();
 
-        Ignite entryNode = node(0);
-
         String actualNodeName = compute().execute(
                 JobTarget.colocated("test", 1, Mapper.of(Integer.class)),
                 JobDescriptor.builder(getNodeNameJobClass()).units(units()).build(), null);
@@ -522,8 +497,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @Test
     void executesColocatedWithMappedKeyAsync() {
         createTestTableWithOneRow();
-
-        Ignite entryNode = node(0);
 
         JobExecution<String> execution = compute().submit(
                 JobTarget.colocated("test", 1, Mapper.of(Integer.class)),
@@ -536,8 +509,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void submitMapReduce() {
-        Ignite entryNode = node(0);
-
         IgniteCompute igniteCompute = compute();
         List<DeploymentUnit> units = units();
         @Nullable List<DeploymentUnit> arg = units();
@@ -557,8 +528,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void executeMapReduceAsync() {
-        Ignite entryNode = node(0);
-
         CompletableFuture<Integer> future = compute().executeMapReduceAsync(
                 TaskDescriptor.<List<DeploymentUnit>, Integer>builder(mapReduceTaskClassName()).units(units()).build(),
                 units());
@@ -569,8 +538,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void executeMapReduce() {
-        Ignite entryNode = node(0);
-
         int result = compute().executeMapReduce(
                 TaskDescriptor.<List<DeploymentUnit>, Integer>builder(mapReduceTaskClassName()).units(units()).build(),
                 units());
@@ -582,7 +549,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void cancelsJob(boolean local) {
-        Ignite entryNode = node(0);
         Ignite executeNode = local ? node(0) : node(1);
 
         // This job catches the interruption and throws a RuntimeException
@@ -612,7 +578,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void cancelsNotCancellableJob(boolean local) {
-        Ignite entryNode = node(0);
         Ignite executeNode = local ? node(0) : node(1);
 
         // This job catches the interruption and returns normally
@@ -641,7 +606,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void cancelsQueuedJob(boolean local) {
-        Ignite entryNode = node(0);
         Ignite executeNode = local ? node(0) : node(1);
         var nodes = JobTarget.node(clusterNode(executeNode));
 
@@ -670,7 +634,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void changeExecutingJobPriority(boolean local) {
-        Ignite entryNode = node(0);
         Ignite executeNode = local ? node(0) : node(1);
 
         JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units()).build();
@@ -683,7 +646,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void tupleSerialization() {
-        Ignite entryNode = node(0);
         ClusterNode executeNode = clusterNode(node(1));
 
         // Execute the job on remote node to trigger serialization
