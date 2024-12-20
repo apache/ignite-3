@@ -225,6 +225,33 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
     }
 
     @Test
+    public void removeByPrefixChecksum() {
+        byte[] key1 = key(1);
+        byte[] val1 = keyValue(1, 1);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
+
+        putAllToMs(List.of(key1, key2), List.of(val1, val2));
+        long checksum1 = storage.checksum(1);
+
+        removeByPrefixFromMs(PREFIX_BYTES);
+        long checksum2 = storage.checksum(2);
+        assertThat(checksum2, is(checksum(
+                longToBytes(checksum1),
+                bytes(5), // REMOVE_BY_PREFIX
+                intToBytes(PREFIX_BYTES.length), PREFIX_BYTES
+        )));
+
+        // Repeating the same command, the checksum must be different.
+        removeByPrefixFromMs(PREFIX_BYTES);
+        assertThat(storage.checksum(3), is(checksum(
+                longToBytes(checksum2),
+                bytes(5), // REMOVE_BY_PREFIX
+                intToBytes(PREFIX_BYTES.length), PREFIX_BYTES
+        )));
+    }
+
+    @Test
     public void removeAllChecksumDoesNotDependOnKeyOrder() {
         byte[] key1 = key(1);
         byte[] val1 = keyValue(1, 1);
@@ -266,7 +293,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] updateResult1 = KeyValueStorage.INVOKE_RESULT_TRUE_BYTES;
         assertThat(checksum1, is(checksum(
                 longToBytes(0), // prev checksum
-                bytes(5), // SINGLE_INVOKE
+                bytes(6), // SINGLE_INVOKE
                 intToBytes(updateResult1.length), updateResult1, // successful branch
                 intToBytes(2), // op count (as there is also a system command)
                 bytes(1), // PUT
@@ -287,7 +314,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] updateResult2 = KeyValueStorage.INVOKE_RESULT_FALSE_BYTES;
         assertThat(checksum2, is(checksum(
                 longToBytes(checksum1),
-                bytes(5), // SINGLE_INVOKE
+                bytes(6), // SINGLE_INVOKE
                 intToBytes(updateResult2.length), updateResult2, // failure branch
                 intToBytes(2), // op count (as there is also a system command)
                 bytes(3), // REMOVE
@@ -323,7 +350,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] updateResult1 = intToBytes(1);
         assertThat(checksum1, is(checksum(
                 longToBytes(0), // prev checksum
-                bytes(6), // MULTI_INVOKE
+                bytes(7), // MULTI_INVOKE
                 intToBytes(updateResult1.length), updateResult1, // successful branch
                 intToBytes(2), // op count (as there is also a system command)
                 bytes(1), // PUT
@@ -344,7 +371,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] updateResult2 = intToBytes(2);
         assertThat(checksum2, is(checksum(
                 longToBytes(checksum1),
-                bytes(6), // MULTI_INVOKE
+                bytes(7), // MULTI_INVOKE
                 intToBytes(updateResult2.length), updateResult2, // failure branch
                 intToBytes(2), // op count (as there is also a system command)
                 bytes(3), // REMOVE

@@ -168,7 +168,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     }
 
     @Override
-    public CompletableFuture<Void> removeAll(ByteArray prefix) {
+    public CompletableFuture<Void> removeByPrefix(ByteArray prefix) {
         RemoveByPrefixCommand removeByPrefix = context.commandsFactory().removeByPrefixCommand()
                 .prefix(ByteBuffer.wrap(prefix.bytes()))
                 .initiatorTime(clock.now())

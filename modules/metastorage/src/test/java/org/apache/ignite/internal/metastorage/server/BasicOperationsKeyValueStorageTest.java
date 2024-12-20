@@ -639,7 +639,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     @Test
-    public void removeAllByPrefix() {
+    public void removeByPrefix() {
         byte[] key1 = key(1);
         byte[] val1 = keyValue(1, 1);
 
@@ -665,48 +665,32 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         putToMs(key3, val31);
         removeFromMs(key3);
 
-        assertEquals(5, storage.revision());
+        byte[] keyAfterPrefix = storage.nextKey(PREFIX_BYTES);
+        byte[] keyAnotherPrefix = "another-prefix".getBytes(UTF_8);
 
-        removeAllFromMs(PREFIX_BYTES);
+        // These keys mustn't be removed as they don't have given prefix.
+        putToMs(keyAnotherPrefix, val1);
+        putToMs(keyAfterPrefix, val1);
 
-        assertEquals(6, storage.revision());
+        long revisionBeforeRemove = storage.revision();
 
-        Collection<Entry> entries = storage.getAll(List.of(key1, key2, key3, key4));
+        removeByPrefixFromMs(PREFIX_BYTES);
 
-        assertEquals(4, entries.size());
+        Collection<Entry> entries = storage.getAll(List.of(key1, key2, key3, key4, keyAnotherPrefix, keyAfterPrefix));
+
+        assertEquals(6, entries.size());
 
         Map<ByteArray, Entry> map = entries.stream().collect(Collectors.toMap(e -> new ByteArray(e.key()), identity()));
 
-        // Test regular put value.
-        Entry e1 = map.get(new ByteArray(key1));
+        // Values with another prefixes must not change.
+        assertValue(map.get(new ByteArray(keyAnotherPrefix)), val1);
+        assertValue(map.get(new ByteArray(keyAfterPrefix)), val1);
 
-        assertNotNull(e1);
-        assertEquals(6, e1.revision());
-        assertTrue(e1.tombstone());
-        assertFalse(e1.empty());
+        // Test regular put value.
+        assertIsTombstoneWithRevision(map.get(new ByteArray(key1)), revisionBeforeRemove + 1);
 
         // Test rewritten value.
-        Entry e2 = map.get(new ByteArray(key2));
-
-        assertNotNull(e2);
-        assertEquals(6, e2.revision());
-        assertTrue(e2.tombstone());
-        assertFalse(e2.empty());
-
-        // Test removed value.
-        Entry e3 = map.get(new ByteArray(key3));
-
-        assertNotNull(e3);
-        assertEquals(5, e3.revision());
-        assertTrue(e3.tombstone());
-        assertFalse(e3.empty());
-
-        // Test empty value.
-        Entry e4 = map.get(new ByteArray(key4));
-
-        assertNotNull(e4);
-        assertFalse(e4.tombstone());
-        assertTrue(e4.empty());
+        assertIsTombstoneWithRevision(map.get(new ByteArray(key1)), revisionBeforeRemove + 1);
     }
 
     @Test
@@ -2366,8 +2350,8 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         storage.removeAll(keys, kvContext(MIN_VALUE));
     }
 
-    void removeAllFromMs(byte[] prefix) {
-        storage.removeAll(prefix, kvContext(MIN_VALUE));
+    void removeByPrefixFromMs(byte[] prefix) {
+        storage.removeByPrefix(prefix, kvContext(MIN_VALUE));
     }
 
     private boolean invokeOnMs(Condition condition, List<Operation> success, List<Operation> failure) {
@@ -2406,6 +2390,20 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
     private void checkEntriesTimestamp(List<byte[]> keys, long revUpperBound, HybridTimestamp... timestamps) {
         assertEquals(List.of(timestamps), collectTimestamps(storage.getAll(keys, revUpperBound)));
+    }
+
+    private static void assertIsTombstoneWithRevision(Entry entry, long expectedRevision) {
+        assertNotNull(entry);
+        assertEquals(expectedRevision, entry.revision());
+        assertTrue(entry.tombstone());
+        assertFalse(entry.empty());
+    }
+
+    private static void assertValue(Entry entry, byte[] expectedValue) {
+        assertNotNull(entry);
+        assertFalse(entry.empty());
+        assertFalse(entry.tombstone());
+        assertArrayEquals(expectedValue, entry.value());
     }
 
     static CommandId createCommandId() {

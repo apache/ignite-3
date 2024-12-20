@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.zip.Checksum;
+import org.apache.ignite.internal.metastorage.command.RemoveByPrefixCommand;
 import org.apache.ignite.raft.jraft.util.CRC64;
 
 /**
@@ -151,6 +152,15 @@ public class MetastorageChecksum {
     }
 
     /**
+     * Calculates a checksum for a {@link RemoveByPrefixCommand}.
+     *
+     * @param prefix prefix.
+     */
+    public long wholeRemoveByPrefix(byte[] prefix) {
+        return checksumWholeOperation(Op.REMOVE_BY_PREFIX, () -> updateWithBytes(prefix));
+    }
+
+    /**
      * Initiates a round for an invocation command.
      *
      * @param multiInvoke Whether this is a multi-invoke.
@@ -208,8 +218,9 @@ public class MetastorageChecksum {
         PUT_ALL(2),
         REMOVE(3),
         REMOVE_ALL(4),
-        SINGLE_INVOKE(5),
-        MULTI_INVOKE(6);
+        REMOVE_BY_PREFIX(5),
+        SINGLE_INVOKE(6),
+        MULTI_INVOKE(7);
 
         private final int code;
 

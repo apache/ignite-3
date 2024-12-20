@@ -307,7 +307,7 @@ public interface MetaStorageManager extends IgniteComponent {
     /**
      * Removes entries by the given prefix.
      */
-    CompletableFuture<Void> removeAll(ByteArray prefix);
+    CompletableFuture<Void> removeByPrefix(ByteArray prefix);
 
     /**
      * Returns a publisher for getting the latest version of an entries for the given key prefix from the metastorage leader.

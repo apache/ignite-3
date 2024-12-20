@@ -289,7 +289,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param prefix Prefix.
      * @param context Operation's context.
      */
-    void removeAll(byte[] prefix, KeyValueUpdateContext context);
+    void removeByPrefix(byte[] prefix, KeyValueUpdateContext context);
 
     /**
      * Performs {@code success} operation if condition is {@code true}, otherwise performs {@code failure} operations.

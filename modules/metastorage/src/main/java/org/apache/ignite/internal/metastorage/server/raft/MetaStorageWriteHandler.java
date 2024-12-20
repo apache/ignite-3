@@ -213,11 +213,10 @@ public class MetaStorageWriteHandler {
             storage.removeAll(toByteArrayList(rmvAllCmd.keys()), context);
 
             clo.result(null);
-        }
-        else if (command instanceof RemoveByPrefixCommand) {
+        } else if (command instanceof RemoveByPrefixCommand) {
             RemoveByPrefixCommand rmvByPrefixCmd = (RemoveByPrefixCommand) command;
 
-            storage.removeAll(toByteArray((rmvByPrefixCmd.prefix())), context);
+            storage.removeByPrefix(toByteArray((rmvByPrefixCmd.prefix())), context);
 
             clo.result(null);
         } else if (command instanceof InvokeCommand) {

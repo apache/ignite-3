@@ -895,11 +895,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         );
     }
 
-    /**
-     * Inserts or updates an entry with the given key and the given value.
-     *
-     * @see MetaStorageService#put(ByteArray, byte[])
-     */
     @Override
     public CompletableFuture<Void> put(ByteArray key, byte[] val) {
         if (!busyLock.enterBusy()) {
@@ -913,11 +908,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
-    /**
-     * Inserts or updates entries with given keys and given values.
-     *
-     * @see MetaStorageService#putAll(Map)
-     */
     @Override
     public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
         if (!busyLock.enterBusy()) {
@@ -931,11 +921,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
-    /**
-     * Removes an entry for the given key.
-     *
-     * @see MetaStorageService#remove(ByteArray)
-     */
     @Override
     public CompletableFuture<Void> remove(ByteArray key) {
         if (!busyLock.enterBusy()) {
@@ -949,11 +934,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
-    /**
-     * Removes entries for given keys.
-     *
-     * @see MetaStorageService#removeAll(Set)
-     */
     @Override
     public CompletableFuture<Void> removeAll(Set<ByteArray> keys) {
         if (!busyLock.enterBusy()) {
@@ -967,19 +947,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
     }
 
-    /**
-     * Removes entries by the given prefix.
-     *
-     * @see MetaStorageService#removeAll(ByteArray)
-     */
     @Override
-    public CompletableFuture<Void> removeAll(ByteArray prefix) {
+    public CompletableFuture<Void> removeByPrefix(ByteArray prefix) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
 
         try {
-            return metaStorageSvcFut.thenCompose(svc -> svc.removeAll(prefix));
+            return metaStorageSvcFut.thenCompose(svc -> svc.removeByPrefix(prefix));
         } finally {
             busyLock.leaveBusy();
         }

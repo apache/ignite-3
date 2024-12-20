@@ -525,7 +525,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Tests {@link MetaStorageService#removeAll(ByteArray)}.
+     * Tests {@link MetaStorageService#removeByPrefix(ByteArray)}.
      *
      * @throws Exception If failed.
      */
@@ -537,9 +537,9 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         ByteArray prefix = new ByteArray(new byte[]{1});
 
-        doNothing().when(node.mockStorage).removeAll(eq(prefix.bytes()), any());
+        doNothing().when(node.mockStorage).removeByPrefix(eq(prefix.bytes()), any());
 
-        node.metaStorageService.removeAll(prefix).get();
+        node.metaStorageService.removeByPrefix(prefix).get();
     }
 
     /**

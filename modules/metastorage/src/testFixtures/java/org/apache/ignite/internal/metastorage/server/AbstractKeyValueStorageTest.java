@@ -30,7 +30,7 @@ import org.junit.jupiter.api.BeforeEach;
 public abstract class AbstractKeyValueStorageTest extends BaseIgniteAbstractTest {
     protected static final String NODE_NAME = "test";
 
-    protected static final String PREFIX = "key.";
+    protected static final String PREFIX = "key";
 
     protected static final byte[] PREFIX_BYTES = PREFIX.getBytes(UTF_8);
 
