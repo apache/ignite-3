@@ -23,11 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.io.IOException;
-import java.lang.management.LockInfo;
 import java.lang.management.ManagementFactory;
-import java.lang.management.MonitorInfo;
-import java.lang.management.ThreadInfo;
-import java.lang.management.ThreadMXBean;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
@@ -42,23 +38,18 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -135,16 +126,6 @@ public class IgniteUtils {
      * Root package for JMX MBeans.
      */
     private static final String JMX_MBEAN_PACKAGE = "org.apache";
-
-    /** Thread dump message. */
-    public static final String THREAD_DUMP_MSG = "Thread dump at ";
-
-    /** Date format for thread dumps. */
-    private static final DateTimeFormatter THREAD_DUMP_FMT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z").withZone(ZoneId.systemDefault());
-
-    /** System line separator. */
-    private static final String NL = System.lineSeparator();
 
     /**
      * Get JDK version.
@@ -1314,167 +1295,6 @@ public class IgniteUtils {
             // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. As we are not sure,
             // let's switch: false negative can produce assertion errors.
             return true;
-        }
-    }
-
-    /**
-     * Performs thread dump and prints all available info to the given log with WARN logging level.
-     *
-     * @param log Logger.
-     */
-    public static void dumpThreads(IgniteLogger log) {
-        dumpThreads(log, false);
-    }
-
-    /**
-     * Performs thread dump and prints all available info to the given log
-     * with WARN or ERROR logging level depending on {@code isErrorLevel} parameter.
-     *
-     * @param log Logger.
-     * @param isErrorLevel {@code true} if thread dump must be printed with ERROR logging level,
-     *      {@code false} if thread dump must be printed with WARN logging level.
-     */
-    public static void dumpThreads(IgniteLogger log, boolean isErrorLevel) {
-        ThreadMXBean mxBean = ManagementFactory.getThreadMXBean();
-
-        Set<Long> deadlockedThreadsIds = getDeadlockedThreadIds(mxBean);
-
-        if (deadlockedThreadsIds.isEmpty()) {
-            logMessage(log, "No deadlocked threads detected.", isErrorLevel);
-        } else {
-            logMessage(log, "Deadlocked threads detected (see thread dump below) "
-                    + "[deadlockedThreadsCount=" + deadlockedThreadsIds.size() + ']', isErrorLevel);
-        }
-
-        ThreadInfo[] threadInfos =
-                mxBean.dumpAllThreads(mxBean.isObjectMonitorUsageSupported(), mxBean.isSynchronizerUsageSupported());
-
-        StringBuilder sb = new StringBuilder(THREAD_DUMP_MSG)
-                .append(THREAD_DUMP_FMT.format(Instant.ofEpochMilli(System.currentTimeMillis())))
-                .append(NL);
-
-        for (ThreadInfo info : threadInfos) {
-            printThreadInfo(info, sb, deadlockedThreadsIds);
-
-            sb.append(NL);
-
-            if (info.getLockedSynchronizers() != null && info.getLockedSynchronizers().length > 0) {
-                printSynchronizersInfo(info.getLockedSynchronizers(), sb);
-
-                sb.append(NL);
-            }
-        }
-
-        sb.append(NL);
-
-        logMessage(log, sb.toString(), isErrorLevel);
-    }
-
-    /**
-     * Prints message to the given log with WARN or ERROR logging level depending on {@code isErrorLevel} parameter.
-     *
-     * @param log Logger.
-     * @param msg Message.
-     * @param isErrorLevel {@code true} if message must be printed with ERROR logging level,
-     *      {@code false} if message must be printed with WARN logging level.
-     */
-    private static void logMessage(IgniteLogger log, String msg, boolean isErrorLevel) {
-        if (isErrorLevel) {
-            log.error(msg);
-        } else {
-            log.warn(msg);
-        }
-    }
-
-    /**
-     * Get deadlocks from the thread bean.
-     *
-     * @param mxBean The management interface for the thread system.
-     * @return the set of deadlocked threads (may be empty Set, but never {@code null}).
-     */
-    private static Set<Long> getDeadlockedThreadIds(ThreadMXBean mxBean) {
-        long[] deadlockedIds = mxBean.isSynchronizerUsageSupported()
-                ? mxBean.findDeadlockedThreads() : null;
-
-        Set<Long> deadlockedThreadsIds;
-
-        if (deadlockedIds != null && deadlockedIds.length != 0) {
-            Set<Long> set = new HashSet<>();
-
-            for (long id : deadlockedIds) {
-                set.add(id);
-            }
-
-            deadlockedThreadsIds = Collections.unmodifiableSet(set);
-        } else {
-            deadlockedThreadsIds = Collections.emptySet();
-        }
-
-        return deadlockedThreadsIds;
-    }
-
-    /**
-     * Prints single thread info to a buffer.
-     *
-     * @param threadInfo Thread info.
-     * @param sb Buffer.
-     */
-    private static void printThreadInfo(ThreadInfo threadInfo, StringBuilder sb, Set<Long> deadlockedIdSet) {
-        long id = threadInfo.getThreadId();
-
-        if (deadlockedIdSet.contains(id)) {
-            sb.append("##### DEADLOCKED ");
-        }
-
-        sb.append("Thread [name=\"").append(threadInfo.getThreadName())
-                .append("\", id=").append(threadInfo.getThreadId())
-                .append(", state=").append(threadInfo.getThreadState())
-                .append(", blockCnt=").append(threadInfo.getBlockedCount())
-                .append(", waitCnt=").append(threadInfo.getWaitedCount())
-                .append(']').append(NL);
-
-        LockInfo lockInfo = threadInfo.getLockInfo();
-
-        if (lockInfo != null) {
-            sb.append("    Lock [object=")
-                    .append(lockInfo)
-                    .append(", ownerName=")
-                    .append(threadInfo.getLockOwnerName())
-                    .append(", ownerId=")
-                    .append(threadInfo.getLockOwnerId())
-                    .append(']')
-                    .append(NL);
-        }
-
-        MonitorInfo[] monitors = threadInfo.getLockedMonitors();
-        StackTraceElement[] elements = threadInfo.getStackTrace();
-
-        for (int i = 0; i < elements.length; i++) {
-            StackTraceElement e = elements[i];
-
-            sb.append("        at ").append(e.toString());
-
-            for (MonitorInfo monitor : monitors) {
-                if (monitor.getLockedStackDepth() == i) {
-                    sb.append(NL).append("        - locked ").append(monitor);
-                }
-            }
-
-            sb.append(NL);
-        }
-    }
-
-    /**
-     * Prints Synchronizers info to a buffer.
-     *
-     * @param syncs Synchronizers info.
-     * @param sb Buffer.
-     */
-    private static void printSynchronizersInfo(LockInfo[] syncs, StringBuilder sb) {
-        sb.append("    Locked synchronizers:");
-
-        for (LockInfo info : syncs) {
-            sb.append(NL).append("        ").append(info);
         }
     }
 }

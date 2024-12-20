@@ -41,7 +41,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.thread.ThreadUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -169,7 +169,7 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
         }
 
         if (dumpThreadsOnFailure && !throttleThreadDump(failureCtx.type())) {
-            IgniteUtils.dumpThreads(LOG, !handler.ignoredFailureTypes().contains(failureCtx.type()));
+            ThreadUtils.dumpThreads(LOG, !handler.ignoredFailureTypes().contains(failureCtx.type()));
         }
 
         boolean invalidated = handler.onFailure(failureCtx);

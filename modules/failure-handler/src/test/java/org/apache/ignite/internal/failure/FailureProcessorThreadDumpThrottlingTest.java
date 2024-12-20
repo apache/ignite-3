@@ -20,7 +20,7 @@ package org.apache.ignite.internal.failure;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_CRITICAL_OPERATION_TIMEOUT;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_BLOCKED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
-import static org.apache.ignite.internal.util.IgniteUtils.THREAD_DUMP_MSG;
+import static org.apache.ignite.internal.thread.ThreadUtils.THREAD_DUMP_MSG;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
