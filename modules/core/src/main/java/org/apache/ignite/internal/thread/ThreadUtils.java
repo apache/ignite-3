@@ -23,11 +23,13 @@ import java.lang.management.MonitorInfo;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 
 /**
@@ -40,6 +42,12 @@ public class ThreadUtils {
     /** Date format for thread dumps. */
     private static final DateTimeFormatter THREAD_DUMP_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z").withZone(ZoneId.systemDefault());
+
+    /**
+     * Short date format pattern for log messages in "quiet" mode. Only time is included since we don't expect "quiet" mode to be used for
+     * longer runs.
+     */
+    private static final DateTimeFormatter SHORT_DATE_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     /** System line separator. */
     private static final String NL = System.lineSeparator();
@@ -101,15 +109,15 @@ public class ThreadUtils {
      * Prints message to the given log with WARN or ERROR logging level depending on {@code isErrorLevel} parameter.
      *
      * @param log Logger.
-     * @param msg Message.
+     * @param message Message.
      * @param isErrorLevel {@code true} if message must be printed with ERROR logging level,
      *      {@code false} if message must be printed with WARN logging level.
      */
-    private static void logMessage(IgniteLogger log, String msg, boolean isErrorLevel) {
+    private static void logMessage(IgniteLogger log, String message, boolean isErrorLevel) {
         if (isErrorLevel) {
-            log.error(msg);
+            log.error(message);
         } else {
-            log.warn(msg);
+            log.warn(message);
         }
     }
 
@@ -144,16 +152,16 @@ public class ThreadUtils {
      * Prints single thread info to a buffer.
      *
      * @param threadInfo Thread info.
-     * @param sb Buffer.
+     * @param stringBuilder Buffer.
      */
-    private static void printThreadInfo(ThreadInfo threadInfo, StringBuilder sb, Set<Long> deadlockedIdSet) {
+    private static void printThreadInfo(ThreadInfo threadInfo, StringBuilder stringBuilder, Set<Long> deadlockedIdSet) {
         long id = threadInfo.getThreadId();
 
         if (deadlockedIdSet.contains(id)) {
-            sb.append("##### DEADLOCKED ");
+            stringBuilder.append("##### DEADLOCKED ");
         }
 
-        sb.append("Thread [name=\"").append(threadInfo.getThreadName())
+        stringBuilder.append("Thread [name=\"").append(threadInfo.getThreadName())
                 .append("\", id=").append(threadInfo.getThreadId())
                 .append(", state=").append(threadInfo.getThreadState())
                 .append(", blockCnt=").append(threadInfo.getBlockedCount())
@@ -163,7 +171,7 @@ public class ThreadUtils {
         LockInfo lockInfo = threadInfo.getLockInfo();
 
         if (lockInfo != null) {
-            sb.append("    Lock [object=")
+            stringBuilder.append("    Lock [object=")
                     .append(lockInfo)
                     .append(", ownerName=")
                     .append(threadInfo.getLockOwnerName())
@@ -179,15 +187,15 @@ public class ThreadUtils {
         for (int i = 0; i < elements.length; i++) {
             StackTraceElement e = elements[i];
 
-            sb.append("        at ").append(e.toString());
+            stringBuilder.append("        at ").append(e.toString());
 
             for (MonitorInfo monitor : monitors) {
                 if (monitor.getLockedStackDepth() == i) {
-                    sb.append(NL).append("        - locked ").append(monitor);
+                    stringBuilder.append(NL).append("        - locked ").append(monitor);
                 }
             }
 
-            sb.append(NL);
+            stringBuilder.append(NL);
         }
     }
 
@@ -195,13 +203,35 @@ public class ThreadUtils {
      * Prints Synchronizers info to a buffer.
      *
      * @param syncs Synchronizers info.
-     * @param sb Buffer.
+     * @param stringBuilder Buffer.
      */
-    private static void printSynchronizersInfo(LockInfo[] syncs, StringBuilder sb) {
-        sb.append("    Locked synchronizers:");
+    private static void printSynchronizersInfo(LockInfo[] syncs, StringBuilder stringBuilder) {
+        stringBuilder.append("    Locked synchronizers:");
 
         for (LockInfo info : syncs) {
-            sb.append(NL).append("        ").append(info);
+            stringBuilder.append(NL).append("        ").append(info);
+        }
+    }
+
+    /**
+     * Prints stack trace of the current thread to provided logger.
+     *
+     * @param log Logger.
+     * @param message Message to print with the stack.
+     * @deprecated Calls to this method should never be committed to master.
+     */
+    @Deprecated
+    public static void dumpStack(IgniteLogger log, String message, Object... params) {
+        String reason = "Dumping stack";
+
+        var err = new Exception(IgniteStringFormatter.format(message, params));
+
+        if (log != null) {
+            log.warn(reason, err);
+        } else {
+            System.err.println("[" + LocalDateTime.now().format(SHORT_DATE_FMT) + "] (err) " + reason);
+
+            err.printStackTrace(System.err);
         }
     }
 }
