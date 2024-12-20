@@ -691,9 +691,17 @@ public class BinaryTupleBuilder {
 
         int begin = buffer.position();
 
-        byte[] bytes = StringIntrospection.supportsFastGetLatin1Bytes(value)
-                ? StringIntrospection.fastAsciiBytes(value)
-                : value.getBytes(StandardCharsets.UTF_8);
+        byte[] bytes;
+        if (StringIntrospection.supportsFastGetLatin1Bytes(value)) {
+            bytes = StringIntrospection.fastAsciiBytes(value);
+
+            if (StringIntrospection.hasNegatives(bytes)) {
+                bytes = value.getBytes(StandardCharsets.UTF_8);
+            }
+        } else {
+            bytes = value.getBytes(StandardCharsets.UTF_8);
+        }
+
         putBytes(bytes);
 
         // UTF-8 encoded strings should not start with 0x80 (character codes larger than 127 have a multi-byte encoding).

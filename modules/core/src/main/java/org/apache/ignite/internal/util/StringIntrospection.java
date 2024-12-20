@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.util;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
@@ -33,6 +35,8 @@ public class StringIntrospection {
     private static final VarHandle STRING_CODER;
     private static final VarHandle STRING_VALUE;
 
+    private static final MethodHandle HAS_NEGATIVES;
+
     private static final byte LATIN1 = 0;
 
     static {
@@ -40,6 +44,21 @@ public class StringIntrospection {
 
         STRING_CODER = privateStringHandle("coder");
         STRING_VALUE = privateStringHandle("value");
+
+        MethodHandle hasNegatives;
+        try {
+            Class<?> stringCodingClass = Class.forName("java.lang.StringCoding");
+
+            hasNegatives = MethodHandles.privateLookupIn(stringCodingClass, MethodHandles.lookup()).findStatic(
+                    stringCodingClass,
+                    "hasNegatives",
+                    MethodType.methodType(boolean.class, new Class[]{byte[].class, int.class, int.class})
+            );
+        } catch (Exception e) {
+            hasNegatives = null;
+        }
+
+        HAS_NEGATIVES = hasNegatives;
 
         USE_UNSAFE_TO_GET_LATIN1_BYTES = maybeCompactStrings.orElse(false) && STRING_CODER != null && STRING_VALUE != null;
     }
@@ -128,6 +147,41 @@ public class StringIntrospection {
             // Fallback: something is different, let's not fail here, just pay performance penalty.
             return str.getBytes(StandardCharsets.ISO_8859_1);
         }
+    }
+
+    /**
+     * Checks if given array has any negative bytes in it.
+     */
+    public static boolean hasNegatives(byte[] bytes) {
+        try {
+            if (HAS_NEGATIVES != null) {
+                // Must be "invokeExact", everything else is slow.
+                return (boolean) HAS_NEGATIVES.invokeExact(bytes, 0, bytes.length);
+            }
+        } catch (Throwable ignore) {
+            // No-op.
+        }
+
+        // Fallback algorithm if there's an exception or if method handle is missing.
+        int length = bytes.length;
+        int off = 0;
+
+        // SWAR optimization to check 8 bytes at once.
+        for (int limit = length & -Long.BYTES; off < limit; off += Long.BYTES) {
+            long v = GridUnsafe.getLong(bytes, GridUnsafe.BYTE_ARR_OFF + off);
+
+            if ((v & 0x8080808080808080L) != 0L) {
+                return true;
+            }
+        }
+
+        for (; off < length; off++) {
+            if (bytes[off] < 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private StringIntrospection() {
