@@ -639,6 +639,59 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     @Test
+    public void removeByPrefix() {
+        byte[] key1 = key(1);
+        byte[] val1 = keyValue(1, 1);
+
+        byte[] key2 = key(2);
+        byte[] val21 = keyValue(2, 21);
+        byte[] val22 = keyValue(2, 22);
+
+        byte[] key3 = key(3);
+        byte[] val31 = keyValue(3, 31);
+
+        byte[] key4 = key(4);
+
+        // Regular put.
+        putToMs(key1, val1);
+
+        // Rewrite.
+        putToMs(key2, val21);
+        putToMs(key2, val22);
+
+        // Remove. Tombstone must not be removed again.
+        putToMs(key3, val31);
+        removeFromMs(key3);
+
+        byte[] keyAfterPrefix = storage.nextKey(PREFIX_BYTES);
+        byte[] keyAnotherPrefix = "another-prefix".getBytes(UTF_8);
+
+        // These keys mustn't be removed as they don't have given prefix.
+        putToMs(keyAnotherPrefix, val1);
+        putToMs(keyAfterPrefix, val1);
+
+        long revisionBeforeRemove = storage.revision();
+
+        removeByPrefixFromMs(PREFIX_BYTES);
+
+        Collection<Entry> entries = storage.getAll(List.of(key1, key2, key3, key4, keyAnotherPrefix, keyAfterPrefix));
+
+        assertEquals(6, entries.size());
+
+        Map<ByteArray, Entry> map = entries.stream().collect(Collectors.toMap(e -> new ByteArray(e.key()), identity()));
+
+        // Values with another prefixes must not change.
+        assertValue(map.get(new ByteArray(keyAnotherPrefix)), val1);
+        assertValue(map.get(new ByteArray(keyAfterPrefix)), val1);
+
+        // Test regular put value.
+        assertIsTombstoneWithRevision(map.get(new ByteArray(key1)), revisionBeforeRemove + 1);
+
+        // Test rewritten value.
+        assertIsTombstoneWithRevision(map.get(new ByteArray(key1)), revisionBeforeRemove + 1);
+    }
+
+    @Test
     public void invokeWithRevisionCondition_successBranch() {
         byte[] key1 = key(1);
         byte[] val11 = keyValue(1, 11);
@@ -2295,6 +2348,10 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         storage.removeAll(keys, kvContext(MIN_VALUE));
     }
 
+    void removeByPrefixFromMs(byte[] prefix) {
+        storage.removeByPrefix(prefix, kvContext(MIN_VALUE));
+    }
+
     private boolean invokeOnMs(Condition condition, List<Operation> success, List<Operation> failure) {
         return invokeOnMs(condition, success, failure, createCommandId());
     }
@@ -2331,6 +2388,20 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
     private void checkEntriesTimestamp(List<byte[]> keys, long revUpperBound, HybridTimestamp... timestamps) {
         assertEquals(List.of(timestamps), collectTimestamps(storage.getAll(keys, revUpperBound)));
+    }
+
+    private static void assertIsTombstoneWithRevision(Entry entry, long expectedRevision) {
+        assertNotNull(entry);
+        assertEquals(expectedRevision, entry.revision());
+        assertTrue(entry.tombstone());
+        assertFalse(entry.empty());
+    }
+
+    private static void assertValue(Entry entry, byte[] expectedValue) {
+        assertNotNull(entry);
+        assertFalse(entry.empty());
+        assertFalse(entry.tombstone());
+        assertArrayEquals(expectedValue, entry.value());
     }
 
     static CommandId createCommandId() {
