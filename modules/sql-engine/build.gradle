@@ -151,6 +151,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-runner'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.awaitility
 }
 
 integrationTest {

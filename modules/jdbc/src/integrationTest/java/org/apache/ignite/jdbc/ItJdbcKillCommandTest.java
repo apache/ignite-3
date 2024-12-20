@@ -33,6 +33,8 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -113,7 +115,7 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
 
                 // Actual kill.
                 assertThat(checker.check(existingQuery), is(0));
-                assertThat(runningQueries(), hasSize(0));
+                waitUntilRunningQueriesCount(is(0));
 
                 //noinspection ThrowableNotThrown
                 assertThrowsSqlException(
@@ -125,6 +127,12 @@ public class ItJdbcKillCommandTest extends AbstractJdbcSelfTest {
                 );
             }
         }
+    }
+
+    private static void waitUntilRunningQueriesCount(Matcher<Integer> count) {
+        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.node(0));
+        SqlQueryProcessor queryProcessor = (SqlQueryProcessor) ignite.queryEngine();
+        SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, is(count));
     }
 
     private static List<QueryInfo> runningQueries() {
