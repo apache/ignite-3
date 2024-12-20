@@ -24,6 +24,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursorExt.CancellationReason;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 
@@ -54,11 +55,9 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
 
                     query.cursor = cursor;
 
-                    query.cancel.add(timeout -> {
-                        if (!timeout) {
-                            cursor.closeAsync(true);
-                        }
-                    });
+                    query.cancel.add(timeout -> dataCursor.cancelAsync(
+                            timeout ? CancellationReason.TIMEOUT : CancellationReason.CANCEL
+                    ));
 
                     QueryTransactionContext txContext = query.txContext;
 

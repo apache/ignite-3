@@ -37,7 +37,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
-import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursorExt;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
@@ -286,7 +286,7 @@ public class QueryExecutor implements LifecycleAware {
         return clockService.now();
     }
 
-    CompletableFuture<AsyncDataCursor<InternalSqlRow>> executePlan(
+    CompletableFuture<AsyncDataCursorExt<InternalSqlRow>> executePlan(
             SqlOperationContext ctx,
             QueryPlan plan
     ) {

@@ -295,6 +295,8 @@ public class IgniteImpl implements Ignite {
     /** Ignite node name. */
     private final String name;
 
+    private final Path workDir;
+
     /** Lifecycle manager. */
     private final LifecycleManager lifecycleManager;
 
@@ -487,6 +489,7 @@ public class IgniteImpl implements Ignite {
             Executor asyncContinuationExecutor
     ) {
         this.name = node.name();
+        this.workDir = workDir;
 
         longJvmPauseDetector = new LongJvmPauseDetector(name);
 
@@ -948,6 +951,8 @@ public class IgniteImpl implements Ignite {
         metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
         this.catalogCompactionRunner = catalogCompactionRunner;
 
+        KillCommandHandler killCommandHandler = new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService());
+
         lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
                 params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
 
@@ -1085,7 +1090,7 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService())
+                killCommandHandler
         );
 
         systemViewManager.register(qryEngine);
@@ -1124,6 +1129,8 @@ public class IgniteImpl implements Ignite {
                 computeComponent,
                 clock
         );
+
+        killCommandHandler.register(((IgniteComputeImpl) compute).killHandler());
 
         authenticationManager = createAuthenticationManager();
 
@@ -1637,6 +1644,10 @@ public class IgniteImpl implements Ignite {
     @Override
     public IgniteCatalog catalog() {
         return publicCatalog;
+    }
+
+    public Path workDir() {
+        return workDir;
     }
 
     /**

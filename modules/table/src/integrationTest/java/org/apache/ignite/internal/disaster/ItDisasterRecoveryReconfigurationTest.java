@@ -34,6 +34,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -66,6 +67,7 @@ import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.ClusterConfiguration.Builder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -111,6 +113,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -146,6 +149,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     @Override
     protected int initialNodes() {
         return INITIAL_NODES;
+    }
+
+    @Override
+    protected void customizeConfiguration(Builder clusterConfigurationBuilder) {
+        clusterConfigurationBuilder
+                .nodeNamingStrategy((conf, index) -> testNodeName(conf.testInfo(), index));
     }
 
     @BeforeEach
@@ -250,7 +259,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                true
+                true,
+                -1
         );
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
@@ -305,8 +315,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                Set.of(anotherPartId),
-                true
+                Set.of(anotherPartId)
         );
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
@@ -345,7 +354,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                true
+                true,
+                0
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());
@@ -411,7 +421,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                true
+                true,
+                -1
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());
@@ -514,6 +525,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      *     <li>We execute "resetPartitions" and expect that data from node 0 will be available after that.</li>
      * </ul>
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23783")
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1)
     public void testIncompleteRebalanceAfterResetPartitions() throws Exception {
@@ -557,7 +569,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Reset produces
         // pending = [1, force]
         // planned = [0, 1, 3]
-        CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true);
+        CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true, -1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.DEGRADED);
@@ -585,7 +597,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.DEGRADED);
 
-        resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true);
+        resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true, -1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
@@ -762,7 +774,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                false
+                false,
+                1
         );
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
@@ -811,7 +824,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                false
+                false,
+                1
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());
@@ -878,7 +892,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         stopNode(4);
 
         CompletableFuture<Void> resetFuture =
-                node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, false);
+                node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, false, 1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         // force == true, secondPhaseOfReset == false.
@@ -1003,7 +1017,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                true
+                true,
+                -1
         );
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -1135,7 +1150,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                false
+                false,
+                1
         );
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -1194,7 +1210,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetAllPartitions(
                 zoneName,
                 QUALIFIED_TABLE_NAME,
-                true
+                true,
+                -1
         );
 
         assertThat(updateFuture, willCompleteSuccessfully());

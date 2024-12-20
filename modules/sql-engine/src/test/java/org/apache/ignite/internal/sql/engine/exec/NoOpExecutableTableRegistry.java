@@ -17,42 +17,26 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.time.Duration;
-import java.util.Objects;
+import java.util.BitSet;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Flow.Publisher;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.RangeCondition;
+import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
+import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.SubscriptionUtils;
+import org.jetbrains.annotations.Nullable;
 
 /** Stub implementation for {@link ExecutableTableRegistry}. */
 public final class NoOpExecutableTableRegistry implements ExecutableTableRegistry {
-
-    private static final IgniteLogger LOG = Loggers.forClass(NoOpExecutableTableRegistry.class);
-
-    private volatile Duration delay = Duration.ZERO;
-
-    /** Sets a delay for {@link #getTable(int, int)} operation. */
-    public void setGetTableDelay(Duration delay) {
-        this.delay = Objects.requireNonNull(delay, "delay");
-    }
-
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<ExecutableTable> getTable(int catalogVersion, int tableId) {
-        Duration delay = this.delay;
-
-        CompletableFuture<ExecutableTable> f = new CompletableFuture<>();
-
-        LOG.info("Requested tableId={} in catalogVersion={} with delay={}", tableId, catalogVersion, delay);
-
-        f.completeOnTimeout(new NoOpExecutableTable(tableId), delay.toMillis(), TimeUnit.MILLISECONDS).thenRun(() -> {
-            LOG.info("Return tableId={} in catalogVersion={} after delay={}", tableId, catalogVersion, delay);
-        });
-
-        return f;
+    public ExecutableTable getTable(int catalogVersion, int tableId) {
+        return new NoOpExecutableTable(tableId);
     }
 
     private static final class NoOpExecutableTable implements ExecutableTable {
@@ -66,13 +50,73 @@ public final class NoOpExecutableTableRegistry implements ExecutableTableRegistr
         /** {@inheritDoc} */
         @Override
         public ScannableTable scannableTable() {
-            throw noDependency();
+            return new ScannableTable() {
+                @Override
+                public <RowT> Publisher<RowT> scan(ExecutionContext<RowT> ctx, PartitionWithConsistencyToken partWithConsistencyToken,
+                        RowFactory<RowT> rowFactory, @Nullable BitSet requiredColumns) {
+                    return SubscriptionUtils.fromIterable(new CompletableFuture<>());
+                }
+
+                @Override
+                public <RowT> Publisher<RowT> indexRangeScan(ExecutionContext<RowT> ctx,
+                        PartitionWithConsistencyToken partWithConsistencyToken, RowFactory<RowT> rowFactory, int indexId,
+                        List<String> columns, @Nullable RangeCondition<RowT> cond, @Nullable BitSet requiredColumns) {
+                    return SubscriptionUtils.fromIterable(new CompletableFuture<>());
+                }
+
+                @Override
+                public <RowT> Publisher<RowT> indexLookup(ExecutionContext<RowT> ctx,
+                        PartitionWithConsistencyToken partWithConsistencyToken, RowFactory<RowT> rowFactory, int indexId,
+                        List<String> columns, RowT key, @Nullable BitSet requiredColumns) {
+                    return SubscriptionUtils.fromIterable(new CompletableFuture<>());
+                }
+
+                @Override
+                public <RowT> CompletableFuture<@Nullable RowT> primaryKeyLookup(ExecutionContext<RowT> ctx,
+                        @Nullable InternalTransaction explicitTx, RowFactory<RowT> rowFactory, RowT key, @Nullable BitSet requiredColumns) {
+                    return new CompletableFuture<>();
+                }
+
+                @Override
+                public CompletableFuture<Long> estimatedSize() {
+                    return new CompletableFuture<>();
+                }
+            };
         }
 
         /** {@inheritDoc} */
         @Override
         public UpdatableTable updatableTable() {
-            throw noDependency();
+            return new UpdatableTable() {
+                @Override
+                public TableDescriptor descriptor() {
+                    return null;
+                }
+
+                @Override
+                public <RowT> CompletableFuture<?> insertAll(ExecutionContext<RowT> ectx, List<RowT> rows,
+                        ColocationGroup colocationGroup) {
+                    return new CompletableFuture<>();
+                }
+
+                @Override
+                public <RowT> CompletableFuture<Void> insert(@Nullable InternalTransaction explicitTx, ExecutionContext<RowT> ectx,
+                        RowT row) {
+                    return new CompletableFuture<>();
+                }
+
+                @Override
+                public <RowT> CompletableFuture<?> upsertAll(ExecutionContext<RowT> ectx, List<RowT> rows,
+                        ColocationGroup colocationGroup) {
+                    return null;
+                }
+
+                @Override
+                public <RowT> CompletableFuture<?> deleteAll(ExecutionContext<RowT> ectx, List<RowT> rows,
+                        ColocationGroup colocationGroup) {
+                    return new CompletableFuture<>();
+                }
+            };
         }
 
         /** {@inheritDoc} */

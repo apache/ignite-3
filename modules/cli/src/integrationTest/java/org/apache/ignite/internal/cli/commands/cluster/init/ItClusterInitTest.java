@@ -17,29 +17,19 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.init;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import java.io.File;
 import org.apache.ignite.internal.cli.commands.CliCommandTestNotInitializedIntegrationBase;
 import org.apache.ignite.internal.cli.commands.cliconfig.TestConfigManagerHelper;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
 
 /**
  * Tests for {@link ClusterInitCommand}.
  */
 public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBase {
-    private static TestInfo TEST_INFO;
-
-    @BeforeAll
-    static void captureTestInfo(TestInfo testInfo) {
-        TEST_INFO = testInfo;
-    }
-
     @Test
     @DisplayName("Init cluster with basic authentication")
     void initClusterWithBasicAuthentication() throws InterruptedException {
@@ -51,8 +41,8 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
 
         execute(
                 "cluster", "init",
-                "--metastorage-group", testNodeName(TEST_INFO, 1),
-                "--cluster-management-group", testNodeName(TEST_INFO, 2),
+                "--metastorage-group", CLUSTER.nodeName(1),
+                "--cluster-management-group", CLUSTER.nodeName(2),
                 "--name", "cluster",
                 "--config-files", clusterConfigurationFile.getAbsolutePath()
         );
@@ -79,7 +69,7 @@ public class ItClusterInitTest extends CliCommandTestNotInitializedIntegrationBa
         execute("cluster", "topology", "logical");
         assertExitCodeIsZero();
         for (int i = 0; i < initialNodes(); i++) {
-            assertOutputContains(testNodeName(TEST_INFO, i));
+            assertOutputContains(CLUSTER.nodeName(i));
         }
     }
 

@@ -15,34 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.exporters;
+package org.apache.ignite.internal.table.distributed.disaster;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
-import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.junit.jupiter.api.Test;
 
-/**
- * Integration metrics tests.
- */
-public class ItMetricsTest extends ClusterPerTestIntegrationTest {
+/** Test multiple HA zone partitions recovery in a row. */
+public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHighAvailablePartitionsRecoveryTest {
     @Override
     protected int initialNodes() {
-        return 1;
+        return 5;
     }
 
     @Override
-    protected void customizeInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration("ignite.metrics.exporters.doubleStart.exporterName: doubleStart");
+    protected String getNodeBootstrapConfigTemplate() {
+        return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
-    /**
-     * Test that will ensure that metric exporter will be started once only despite the fact that start is triggered
-     * within both {@code MetricManager#start} and {@code IgniteImpl#recoverComponentsStateOnStart()}.
-     */
     @Test
-    void testMetricExporterStartsOnceOnly() {
-        assertEquals(1, TestDoubleStartExporter.startCounter());
+    void testTwoSequentialResets() throws InterruptedException {
+        createHaZoneWithTable();
+
+        IgniteImpl node = igniteImpl(0);
+
+        assertRecoveryKeyIsEmpty(node);
+
+        stopNodes(2, 3, 4);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0, 1));
+
+        stopNode(1);
+
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
     }
 }

@@ -15,18 +15,12 @@
  * limitations under the License.
  */
 
-
-package org.apache.ignite.internal.sql.engine.exec;
-
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+package org.apache.ignite.internal;
 
 /**
- * Resolves components required for execution.
+ * Strategy for configuring node names in a {@link Cluster}.
  */
-public interface ExecutionDependencyResolver {
-
-    /**
-     * Resolves dependencies required to execute the given list of relations.
-     */
-    ResolvedDependencies resolveDependencies(Iterable<IgniteRel> rels, int catalogVersion);
+@FunctionalInterface
+public interface NodeNamingStrategy {
+    String nodeName(ClusterConfiguration clusterConfiguration, int nodeIndex);
 }

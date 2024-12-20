@@ -33,7 +33,7 @@ import org.apache.ignite.network.ClusterNode;
 /**
  * The read-only implementation of an internal transaction.
  */
-class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
+public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     /** The read timestamp. */
     private final HybridTimestamp readTimestamp;
 
@@ -141,5 +141,10 @@ class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
         ((TxManagerImpl) txManager).completeReadOnlyTransactionFuture(new TxIdAndTimestamp(readTimestamp, id()));
 
         return txFuture;
+    }
+
+    @Override
+    public boolean isFinishingOrFinished() {
+        return finishGuard.get();
     }
 }

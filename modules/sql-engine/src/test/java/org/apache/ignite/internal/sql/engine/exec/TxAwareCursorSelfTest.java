@@ -57,7 +57,8 @@ public class TxAwareCursorSelfTest extends BaseIgniteAbstractTest {
         AsyncCursor<Integer> cursor = new TxAwareAsyncCursor<>(
                 txWrapper,
                 new AsyncWrapper<>(CompletableFuture.completedFuture(list.iterator()), Runnable::run),
-                nullCompletedFuture()
+                nullCompletedFuture(),
+                reason -> nullCompletedFuture()
         );
 
         int requestRows = 2;
@@ -83,7 +84,8 @@ public class TxAwareCursorSelfTest extends BaseIgniteAbstractTest {
         AsyncCursor<Integer> cursor = new TxAwareAsyncCursor<>(
                 txWrapper,
                 new AsyncWrapper<>(CompletableFuture.failedFuture(err), Runnable::run),
-                nullCompletedFuture()
+                nullCompletedFuture(),
+                reason -> nullCompletedFuture()
         );
 
         CompletionException t = assertThrows(CompletionException.class, () -> cursor.requestNextAsync(1).join());
@@ -103,7 +105,8 @@ public class TxAwareCursorSelfTest extends BaseIgniteAbstractTest {
         AsyncCursor<Integer> cursor = new TxAwareAsyncCursor<>(
                 txWrapper,
                 data,
-                nullCompletedFuture()
+                nullCompletedFuture(),
+                reason -> nullCompletedFuture()
         );
         cursor.closeAsync().join();
 
