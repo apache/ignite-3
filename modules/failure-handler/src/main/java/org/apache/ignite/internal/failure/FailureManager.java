@@ -268,6 +268,8 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
 
     /**
      * Defines whether thread dump should be throttled for given failure type or not.
+     * This method should be called under synchronization, see {@link #process(FailureContext, FailureHandler)},
+     * because it can modify throttling timeout for the given failure type {@link #threadDumpPerFailureTypeTs}.
      *
      * @param type Failure type.
      * @return {@code true} if thread dump generation should be throttled for given failure type.
