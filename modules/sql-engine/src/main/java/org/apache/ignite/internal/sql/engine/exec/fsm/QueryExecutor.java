@@ -75,6 +75,7 @@ public class QueryExecutor implements LifecycleAware {
     private final ExecutionService executionService;
     private final SqlProperties defaultProperties;
     private final TransactionTracker transactionTracker;
+    private final QueryIdGenerator idGenerator;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -95,6 +96,7 @@ public class QueryExecutor implements LifecycleAware {
      * @param executionService Service to submit query plans for execution.
      * @param defaultProperties Set of properties to use as defaults.
      * @param transactionTracker Tracker to track usage of transactions by query.
+     * @param idGenerator Id generator used to provide cluster-wide unique query id.
      */
     public QueryExecutor(
             CacheFactory cacheFactory,
@@ -108,7 +110,8 @@ public class QueryExecutor implements LifecycleAware {
             CatalogService catalogService,
             ExecutionService executionService,
             SqlProperties defaultProperties,
-            TransactionTracker transactionTracker
+            TransactionTracker transactionTracker,
+            QueryIdGenerator idGenerator
     ) {
         this.queryToParsedResultCache = cacheFactory.create(parsedResultsCacheSize);
         this.parserService = parserService;
@@ -121,6 +124,7 @@ public class QueryExecutor implements LifecycleAware {
         this.executionService = executionService;
         this.defaultProperties = defaultProperties;
         this.transactionTracker = transactionTracker;
+        this.idGenerator = idGenerator;
     }
 
     /**
@@ -147,7 +151,7 @@ public class QueryExecutor implements LifecycleAware {
         Query query = new Query(
                 Instant.ofEpochMilli(clockService.now().getPhysical()),
                 this,
-                UUID.randomUUID(),
+                idGenerator.next(),
                 sql,
                 properties0,
                 txContext,
@@ -191,7 +195,7 @@ public class QueryExecutor implements LifecycleAware {
                 parent,
                 parsedQuery,
                 statementNum,
-                UUID.randomUUID(),
+                idGenerator.next(),
                 scriptTxContext,
                 params,
                 nextCursorFuture

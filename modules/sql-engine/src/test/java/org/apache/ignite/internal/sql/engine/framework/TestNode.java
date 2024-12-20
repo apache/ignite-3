@@ -66,6 +66,7 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
+import org.apache.ignite.internal.sql.engine.exec.fsm.QueryIdGenerator;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
@@ -204,7 +205,8 @@ public class TestNode implements LifecycleAware {
                 catalogService,
                 executionService,
                 SqlQueryProcessor.DEFAULT_PROPERTIES,
-                NoOpTransactionTracker.INSTANCE
+                NoOpTransactionTracker.INSTANCE,
+                new QueryIdGenerator(nodeName.hashCode())
         ));
     }
 
