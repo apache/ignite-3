@@ -53,6 +53,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -145,7 +146,9 @@ public class ZoneRebalanceUtil {
             MetaStorageManager metaStorageMgr,
             int partNum,
             Set<Assignment> zoneCfgPartAssignments,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            Set<String> aliveNodes,
+            ConsistencyMode consistencyMode
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(zonePartitionId);
 
@@ -155,7 +158,33 @@ public class ZoneRebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(zonePartitionId);
 
-        Set<Assignment> partAssignments = calculateAssignmentForPartition(dataNodes, partNum, replicas);
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, replicas);
+
+        Set<Assignment> partAssignments;
+
+        if (consistencyMode == ConsistencyMode.HIGH_AVAILABILITY) {
+            // All complicated logic here is needed because we want to return back to stable nodes
+            // that are returned back after majority is lost and stable was narrowed.
+            // For more detailed example check https://issues.apache.org/jira/browse/IGNITE-23572
+
+            // First of all, we remove offline nodes from calculated assignments
+            Set<Assignment> resultingAssignments = calculatedAssignments
+                    .stream()
+                    .filter(a -> aliveNodes.contains(a.consistentId()))
+                    .collect(toSet());
+
+            // Here we re-introduce nodes that currently exist in the stable configuration
+            // but were previously removed without using the normal scale-down process.
+            for (Assignment assignment : zoneCfgPartAssignments) {
+                if (calculatedAssignments.contains(assignment)) {
+                    resultingAssignments.add(assignment);
+                }
+            }
+
+            partAssignments = resultingAssignments;
+        } else {
+            partAssignments = calculatedAssignments;
+        }
 
         boolean isNewAssignments = !zoneCfgPartAssignments.equals(partAssignments);
 
@@ -292,7 +321,8 @@ public class ZoneRebalanceUtil {
             long storageRevision,
             MetaStorageManager metaStorageManager,
             IgniteSpinBusyLock busyLock,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            Set<String> aliveNodes
     ) {
         CompletableFuture<Map<Integer, Assignments>> zoneAssignmentsFut = zoneAssignments(
                 metaStorageManager,
@@ -320,7 +350,9 @@ public class ZoneRebalanceUtil {
                         metaStorageManager,
                         finalPartId,
                         zoneAssignments.get(finalPartId).nodes(),
-                        assignmentsTimestamp
+                        assignmentsTimestamp,
+                        aliveNodes,
+                        zoneDescriptor.consistencyMode()
                 );
             }));
         }

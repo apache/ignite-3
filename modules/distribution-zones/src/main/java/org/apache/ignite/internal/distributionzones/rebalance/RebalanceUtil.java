@@ -53,6 +53,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -148,7 +149,9 @@ public class RebalanceUtil {
             MetaStorageManager metaStorageMgr,
             int partNum,
             Set<Assignment> tableCfgPartAssignments,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            Set<String> aliveNodes,
+            ConsistencyMode consistencyMode
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
 
@@ -158,7 +161,33 @@ public class RebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
-        Set<Assignment> partAssignments = calculateAssignmentForPartition(dataNodes, partNum, replicas);
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, replicas);
+
+        Set<Assignment> partAssignments;
+
+        if (consistencyMode == ConsistencyMode.HIGH_AVAILABILITY) {
+            // All complicated logic here is needed because we want to return back to stable nodes
+            // that are returned back after majority is lost and stable was narrowed.
+            // For more detailed example check https://issues.apache.org/jira/browse/IGNITE-23572
+
+            // First of all, we remove offline nodes from calculated assignments
+            Set<Assignment> resultingAssignments = calculatedAssignments
+                    .stream()
+                    .filter(a -> aliveNodes.contains(a.consistentId()))
+                    .collect(toSet());
+
+            // Here we re-introduce nodes that currently exist in the stable configuration
+            // but were previously removed without using the normal scale-down process.
+            for (Assignment assignment : tableCfgPartAssignments) {
+                if (calculatedAssignments.contains(assignment)) {
+                    resultingAssignments.add(assignment);
+                }
+            }
+
+            partAssignments = resultingAssignments;
+        } else {
+            partAssignments = calculatedAssignments;
+        }
 
         boolean isNewAssignments = !tableCfgPartAssignments.equals(partAssignments);
 
@@ -294,7 +323,8 @@ public class RebalanceUtil {
             Set<String> dataNodes,
             long storageRevision,
             MetaStorageManager metaStorageManager,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            Set<String> aliveNodes
     ) {
         int[] partitionIds = partitionIds(zoneDescriptor.partitions());
 
@@ -311,7 +341,8 @@ public class RebalanceUtil {
                             storageRevision,
                             metaStorageManager,
                             assignmentsTimestamp,
-                            stableAssignments
+                            stableAssignments,
+                            aliveNodes
                     );
                 });
     }
@@ -323,7 +354,8 @@ public class RebalanceUtil {
             long storageRevision,
             MetaStorageManager metaStorageManager,
             long assignmentsTimestamp,
-            Map<Integer, Assignments> tableAssignments
+            Map<Integer, Assignments> tableAssignments,
+            Set<String> aliveNodes
     ) {
         // tableAssignments should not be empty. It is checked for emptiness before calling this method.
         CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
@@ -342,7 +374,9 @@ public class RebalanceUtil {
                     metaStorageManager,
                     partId,
                     tableAssignments.get(partId).nodes(),
-                    assignmentsTimestamp
+                    assignmentsTimestamp,
+                    aliveNodes,
+                    zoneDescriptor.consistencyMode()
             );
         }
 
