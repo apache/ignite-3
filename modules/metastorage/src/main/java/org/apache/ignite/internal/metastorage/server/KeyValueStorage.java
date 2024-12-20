@@ -284,7 +284,7 @@ public interface KeyValueStorage extends ManuallyCloseable {
     void removeAll(List<byte[]> keys, KeyValueUpdateContext context);
 
     /**
-     * Remove all entries corresponding to given prefix.
+     * Removes all entries corresponding to given prefix.
      *
      * @param prefix Prefix.
      * @param context Operation's context.

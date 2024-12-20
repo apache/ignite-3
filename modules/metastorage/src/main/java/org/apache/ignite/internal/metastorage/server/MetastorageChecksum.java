@@ -218,9 +218,9 @@ public class MetastorageChecksum {
         PUT_ALL(2),
         REMOVE(3),
         REMOVE_ALL(4),
-        REMOVE_BY_PREFIX(5),
-        SINGLE_INVOKE(6),
-        MULTI_INVOKE(7);
+        SINGLE_INVOKE(5),
+        MULTI_INVOKE(6),
+        REMOVE_BY_PREFIX(7);
 
         private final int code;
 

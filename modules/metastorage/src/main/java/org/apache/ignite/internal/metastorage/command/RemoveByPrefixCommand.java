@@ -21,7 +21,7 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Remove all command for MetaStorageCommandListener that removes all entries by the given prefix.
+ * Removal command for MetaStorageCommandListener that removes all entries by the given prefix.
  */
 @Transferable(MetastorageCommandsMessageGroup.REMOVE_BY_PREFIX)
 public interface RemoveByPrefixCommand extends MetaStorageWriteCommand {

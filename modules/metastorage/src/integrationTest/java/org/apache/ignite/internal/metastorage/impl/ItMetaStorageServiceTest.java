@@ -530,7 +530,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testRemoveAllByPrefix() throws Exception {
+    public void testRemoveByPrefix() throws Exception {
         Node node = prepareNodes(1).get(0);
 
         startNodes();

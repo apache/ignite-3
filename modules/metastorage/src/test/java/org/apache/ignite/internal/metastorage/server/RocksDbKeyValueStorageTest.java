@@ -293,7 +293,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] updateResult1 = KeyValueStorage.INVOKE_RESULT_TRUE_BYTES;
         assertThat(checksum1, is(checksum(
                 longToBytes(0), // prev checksum
-                bytes(6), // SINGLE_INVOKE
+                bytes(5), // SINGLE_INVOKE
                 intToBytes(updateResult1.length), updateResult1, // successful branch
                 intToBytes(2), // op count (as there is also a system command)
                 bytes(1), // PUT
@@ -314,7 +314,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] updateResult2 = KeyValueStorage.INVOKE_RESULT_FALSE_BYTES;
         assertThat(checksum2, is(checksum(
                 longToBytes(checksum1),
-                bytes(6), // SINGLE_INVOKE
+                bytes(5), // SINGLE_INVOKE
                 intToBytes(updateResult2.length), updateResult2, // failure branch
                 intToBytes(2), // op count (as there is also a system command)
                 bytes(3), // REMOVE
@@ -350,7 +350,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] updateResult1 = intToBytes(1);
         assertThat(checksum1, is(checksum(
                 longToBytes(0), // prev checksum
-                bytes(7), // MULTI_INVOKE
+                bytes(6), // MULTI_INVOKE
                 intToBytes(updateResult1.length), updateResult1, // successful branch
                 intToBytes(2), // op count (as there is also a system command)
                 bytes(1), // PUT
@@ -371,7 +371,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
         byte[] updateResult2 = intToBytes(2);
         assertThat(checksum2, is(checksum(
                 longToBytes(checksum1),
-                bytes(7), // MULTI_INVOKE
+                bytes(6), // MULTI_INVOKE
                 intToBytes(updateResult2.length), updateResult2, // failure branch
                 intToBytes(2), // op count (as there is also a system command)
                 bytes(3), // REMOVE
