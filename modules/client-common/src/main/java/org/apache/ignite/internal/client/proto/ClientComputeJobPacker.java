@@ -127,7 +127,7 @@ public final class ClientComputeJobPacker {
 
             ByteBuffer binTupleBytes = tupleBuilder.build();
             packer.packBinaryHeader(Integer.BYTES + binTupleBytes.remaining());
-            packer.writePayload(col.size());
+            packer.writeIntLE(col.size());
             packer.writePayload(binTupleBytes);
 
             return;

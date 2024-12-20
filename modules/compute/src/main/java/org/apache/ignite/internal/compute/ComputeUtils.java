@@ -34,6 +34,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -470,9 +471,9 @@ public class ComputeUtils {
 
             case TUPLE_COLLECTION: {
                 // TODO: IGNITE-24059 Deduplicate with ClientComputeJobUnpacker.
-                ByteBuffer buffer = ByteBuffer.wrap(argumentHolder.data());
-                int count = buffer.getInt();
-                BinaryTupleReader reader = new BinaryTupleReader(count, buffer);
+                ByteBuffer collectionBuf = ByteBuffer.wrap(argumentHolder.data()).order(ByteOrder.LITTLE_ENDIAN);
+                int count = collectionBuf.getInt();
+                BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf.slice().order(ByteOrder.LITTLE_ENDIAN));
 
                 List<Tuple> res = new ArrayList<>();
                 for (int i = 0; i < count; i++) {

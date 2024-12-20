@@ -22,6 +22,7 @@ import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 
 import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -96,7 +97,7 @@ public final class ClientComputeJobUnpacker {
                 // TODO: IGNITE-24059 Deduplicate with ComputeUtils.
                 ByteBuffer collectionBuf = unpacker.readBinaryUnsafe();
                 int count = collectionBuf.getInt();
-                BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf);
+                BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf.slice().order(ByteOrder.LITTLE_ENDIAN));
 
                 List<Tuple> res = new ArrayList<>();
 
