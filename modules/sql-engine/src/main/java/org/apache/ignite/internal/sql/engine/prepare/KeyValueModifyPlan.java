@@ -135,9 +135,15 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
 
         UpdatableTable updatableTable = execTable.updatableTable();
 
-        CompletableFuture<Iterator<InternalSqlRow>> result = updatableTable.insert(
-                tx, ctx, rowSupplier.get()
-        ).thenApply(none -> List.<InternalSqlRow>of(new InternalSqlRowSingleLong(1L)).iterator());
+        CompletableFuture<Iterator<InternalSqlRow>> result;
+
+        try {
+            result = updatableTable.insert(
+                    tx, ctx, rowSupplier.get()
+            ).thenApply(none -> List.<InternalSqlRow>of(new InternalSqlRowSingleLong(1L)).iterator());
+        } catch (Throwable t) {
+            result = CompletableFuture.failedFuture(t);
+        }
 
         if (firstPageReadyCallback != null) {
             result.whenComplete((res, err) -> firstPageReadyCallback.onPrefetchComplete(err));
