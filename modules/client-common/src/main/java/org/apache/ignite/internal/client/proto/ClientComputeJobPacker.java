@@ -126,8 +126,9 @@ public final class ClientComputeJobPacker {
                 tupleBuilder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) el));
             }
 
-            // TODO: Prepend or append the size of the collection to the binary blob?
             ByteBuffer binTupleBytes = tupleBuilder.build();
+            binTupleBytes.putInt(col.size());
+            packer.packByteBuffer(binTupleBytes);
 
             return;
         }
