@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.lang.reflect.Type;
@@ -43,7 +42,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
-import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
@@ -103,6 +101,7 @@ public class ExecutionContext<RowT> implements DataContext {
     /**
      * Constructor.
      *
+     * @param expressionFactory Expression factory.
      * @param executor Task executor.
      * @param executionId Execution ID.
      * @param localNode Local node.
@@ -116,6 +115,7 @@ public class ExecutionContext<RowT> implements DataContext {
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
+            ExpressionFactory<RowT> expressionFactory,
             QueryTaskExecutor executor,
             ExecutionId executionId,
             ClusterNode localNode,
@@ -127,6 +127,7 @@ public class ExecutionContext<RowT> implements DataContext {
             ZoneId timeZoneId,
             @Nullable QueryCancel cancel
     ) {
+        this.expressionFactory = expressionFactory;
         this.executor = executor;
         this.executionId = executionId;
         this.description = description;
@@ -137,11 +138,6 @@ public class ExecutionContext<RowT> implements DataContext {
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
         this.cancel = cancel;
-
-        expressionFactory = new ExpressionFactoryImpl<>(
-                this,
-                FRAMEWORK_CONFIG.getParserConfig().conformance()
-        );
 
         Instant nowUtc = Instant.now();
         startTs = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();

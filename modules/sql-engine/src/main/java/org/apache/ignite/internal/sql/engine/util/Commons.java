@@ -343,10 +343,28 @@ public final class Commons {
     }
 
     /**
-     * Flat.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Flattens a list of lists into a single list containing all elements from the nested lists.
+     *
+     * <p>This method takes a source list where each element is itself a list and combines 
+     * all the nested lists into a single list containing all their elements in order.
+     *
+     * <p>For example:
+     * <pre>
+     * List&lt;List&lt;Integer&gt;&gt; nestedList = List.of(
+     *     List.of(1, 2, 3),
+     *     List.of(4, 5),
+     *     List.of(6)
+     * );
+     * List&lt;Integer&gt flattenedList = flat(nestedList);
+     * // Result: [1, 2, 3, 4, 5, 6]
+     * </pre>
+     *
+     * @param <T> The type of elements in the lists.
+     * @param src The source list of lists to be flattened.
+     * @return A single list containing all elements from the nested lists.
+     * @throws NullPointerException if {@code src} or any nested list within {@code src} is {@code null}.
      */
-    public static <T> List<T> flat(List<List<? extends T>> src) {
+    public static <T> List<T> flat(List<List<T>> src) {
         return src.stream().flatMap(List::stream).collect(Collectors.toList());
     }
 
