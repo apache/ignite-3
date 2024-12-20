@@ -111,7 +111,6 @@ public final class ClientComputeJobPacker {
 
             // Pack entire collection into a single binary blob.
             BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(col.size());
-            packer.packInt(col.size());
 
             for (Object el : col) {
                 if (el == null) {
@@ -127,8 +126,9 @@ public final class ClientComputeJobPacker {
             }
 
             ByteBuffer binTupleBytes = tupleBuilder.build();
-            binTupleBytes.putInt(col.size());
-            packer.packByteBuffer(binTupleBytes);
+            packer.packBinaryHeader(Integer.BYTES + binTupleBytes.remaining());
+            packer.writePayload(col.size());
+            packer.writePayload(binTupleBytes);
 
             return;
         }

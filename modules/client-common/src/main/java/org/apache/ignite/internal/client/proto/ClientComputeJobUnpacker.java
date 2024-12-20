@@ -21,8 +21,10 @@ import static org.apache.ignite.internal.compute.PojoConverter.fromTuple;
 import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 
 import java.lang.reflect.InvocationTargetException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
@@ -91,16 +93,22 @@ public final class ClientComputeJobUnpacker {
                 return unpackPojo(unpacker, resultClass);
 
             case TUPLE_COLLECTION: {
-                int count = unpacker.unpackInt();
+                ByteBuffer collectionBuf = unpacker.readBinaryUnsafe();
+                int count = collectionBuf.getInt();
+                BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf);
+
                 List<Tuple> res = new ArrayList<>();
 
                 for (int i = 0; i < count; i++) {
-                    if (unpacker.tryUnpackNil()) {
+                    // TODO: Use ByteBuffer to avoid copying.
+                    byte[] elementBytes = reader.bytesValue(i);
+
+                    if (elementBytes == null) {
                         res.add(null);
                         continue;
                     }
 
-                    res.add(TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary()));
+                    res.add(TupleWithSchemaMarshalling.unmarshal(elementBytes));
                 }
 
                 return res;

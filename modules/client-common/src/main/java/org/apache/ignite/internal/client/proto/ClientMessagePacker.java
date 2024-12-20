@@ -508,6 +508,12 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writeBytes(src, off, len);
     }
 
+    public void writePayload(int payload) {
+        assert !closed : "Packer is closed";
+
+        buf.writeInt(payload);
+    }
+
     /**
      * Writes a UUID.
      *
