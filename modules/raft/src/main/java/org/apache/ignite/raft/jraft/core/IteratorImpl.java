@@ -18,7 +18,7 @@ package org.apache.ignite.raft.jraft.core;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.raft.jraft.Closure;
+import java.util.function.BooleanSupplier;import org.apache.ignite.internal.raft.service.CommandClosure;import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownException;import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -46,9 +46,11 @@ public class IteratorImpl {
     private final AtomicLong applyingIndex;
     private RaftException error;
 
+    private final BooleanSupplier shuttingDown;
+
     public IteratorImpl(final StateMachine fsm, final LogManager logManager, final List<Closure> closures,
         final long firstClosureIndex, final long lastAppliedIndex, final long committedIndex,
-        final AtomicLong applyingIndex, NodeOptions options) {
+        final AtomicLong applyingIndex, NodeOptions options, BooleanSupplier shuttingDown) {
         super();
         this.fsm = fsm;
         this.logManager = logManager;
@@ -58,6 +60,8 @@ public class IteratorImpl {
         this.committedIndex = committedIndex;
         this.applyingIndex = applyingIndex;
         this.options = options;
+        this.shuttingDown = shuttingDown;
+
         next();
     }
 
@@ -78,7 +82,7 @@ public class IteratorImpl {
     }
 
     public boolean isGood() {
-        return this.currentIndex <= this.committedIndex && !hasError();
+        return this.currentIndex <= this.committedIndex && !hasError() && !shuttingDown.getAsBoolean();
     }
 
     public boolean hasError() {
@@ -131,6 +135,19 @@ public class IteratorImpl {
                 Requires.requireNonNull(this.error.getStatus(), "error.status");
                 final Status status = this.error.getStatus();
                 Utils.runClosureInThread(options.getCommonExecutor(), done, status);
+            }
+        }
+    }
+
+    void runTheRestClosureWithShutdownException() {
+        Exception shutdownException = new ShutdownException();
+
+        for (long i = Math.max(this.currentIndex, this.firstClosureIndex); i <= this.committedIndex; i++) {
+            final Closure done = this.closures.get((int) (i - this.firstClosureIndex));
+
+            if (done instanceof CommandClosure) {
+                CommandClosure<?> commandClosure = (CommandClosure<?>) done;
+                commandClosure.result(shutdownException);
             }
         }
     }

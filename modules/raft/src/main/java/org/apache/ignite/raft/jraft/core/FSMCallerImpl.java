@@ -152,6 +152,8 @@ public class FSMCallerImpl implements FSMCaller {
     private final CopyOnWriteArrayList<LastAppliedLogIndexListener> lastAppliedLogIndexListeners = new CopyOnWriteArrayList<>();
     private RaftMessagesFactory msgFactory;
 
+    private volatile boolean shuttingDown;
+
     public FSMCallerImpl() {
         super();
         this.currTask = TaskType.IDLE;
@@ -193,6 +195,8 @@ public class FSMCallerImpl implements FSMCaller {
             return;
         }
         LOG.info("Shutting down FSMCaller...");
+
+        this.shuttingDown = true;
 
         if (this.taskQueue != null) {
             final CountDownLatch latch = new CountDownLatch(1);
@@ -503,7 +507,7 @@ public class FSMCallerImpl implements FSMCaller {
 
             Requires.requireTrue(firstClosureIndex >= 0, "Invalid firstClosureIndex");
             final IteratorImpl iterImpl = new IteratorImpl(this.fsm, this.logManager, closures, firstClosureIndex,
-                lastAppliedIndex, committedIndex, this.applyingIndex, this.node.getOptions());
+                lastAppliedIndex, committedIndex, this.applyingIndex, this.node.getOptions(), () -> shuttingDown);
 
             while (iterImpl.isGood()) {
                 final LogEntry logEntry = iterImpl.entry();
@@ -542,6 +546,8 @@ public class FSMCallerImpl implements FSMCaller {
             if (iterImpl.hasError()) {
                 setError(iterImpl.getError());
                 iterImpl.runTheRestClosureWithError();
+            } else if (shuttingDown) {
+                iterImpl.runTheRestClosureWithShutdownException();
             }
             final long lastIndex = iterImpl.getIndex() - 1;
             final long lastTerm = this.logManager.getTerm(lastIndex);

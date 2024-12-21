@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,6 +54,7 @@ import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -72,6 +74,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
@@ -91,6 +94,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
+import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
@@ -2872,7 +2876,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         log.info("Stopping leader [id={}].", leader.getLeaderId());
         cluster.stop(leader.getLeaderId());
         log.info("Leader stopped.");
-        
+
         assertTrue(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
 
         // Wait 30 seconds to check if snapshot is still installing.
@@ -4182,6 +4186,86 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         );
     }
 
+    @Test
+    public void applicationOfLongBatchInStateMachineDoesNotPreventFastShutdown() throws Exception {
+        persistentLogStorageFactory = startPersistentLogStorageFactory();
+
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 1);
+        TestPeer peer = peers.get(0);
+
+        cluster = createClusterOfOnePeer(peer);
+        cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
+
+        assertTrue(cluster.start(peer));
+
+        try {
+            Node node = cluster.waitAndGetLeader();
+
+            submit1000TasksAndWaitForApplication(node);
+        } finally {
+            cluster.stopAll();
+            cluster = null;
+        }
+
+        // First cluster was used to fill the log with 1000 commands and apply them fast, second cluster will have slow state machine
+        // so their full replay takes 100 seconds.
+        TestCluster cluster2 = createClusterOfOnePeer(peer);
+        cluster2.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
+        cluster2.setStateMachineFactory(peerId -> new MockStateMachine(peerId) {
+            @Override
+            protected void executeCommand(ByteBuffer command) {
+                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(100));
+            }
+        });
+
+        assertTrue(cluster2.start(peer));
+
+        try {
+            assertTrue(waitForCondition(() -> cluster2.getNode(peer.getPeerId()).isLeader(), TimeUnit.SECONDS.toMillis(10)));
+        } finally {
+            // Now do the main part: verify that shutdown will happen fast and will not wait for whole batch of commends to be applied
+            // (which would take 0.1 * 1000 = 100 seconds).
+            assertTimeoutPreemptively(Duration.ofSeconds(10), cluster2::stopAll);
+        }
+    }
+
+    private TestCluster createClusterOfOnePeer(TestPeer peer) {
+        return new TestCluster(
+                "unitest",
+                dataPath,
+                List.of(peer),
+                new LinkedHashSet<>(),
+                3_000,
+                testInfo
+        );
+    }
+
+    private static void submit1000TasksAndWaitForApplication(Node node) {
+        int taskCount = 1000;
+        AtomicInteger tasksExecuted = new AtomicInteger(0);
+        CompletableFuture<Void> tasksFuture = new CompletableFuture<>();
+
+        for (int i = 0; i < taskCount; i++) {
+            ByteBuffer data = ByteBuffer.wrap("no closure".getBytes(UTF_8));
+            Task task = new Task(data, new Closure() {
+                @Override
+                public void run(Status status) {
+                    if (status.isOk()) {
+                        int executed = tasksExecuted.incrementAndGet();
+                        if (executed >= taskCount) {
+                            tasksFuture.complete(null);
+                        }
+                    } else {
+                        tasksFuture.completeExceptionally(new RuntimeException(status.getErrorMsg()));
+                    }
+                }
+            });
+            node.apply(task);
+        }
+
+        assertThat(tasksFuture, willCompleteSuccessfully());
+    }
+
     private NodeOptions createNodeOptions(int nodeIdx) {
         NodeOptions options = new NodeOptions();
 
@@ -4308,6 +4392,12 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 rpcServer.shutdown();
 
                 super.shutdown();
+
+                JRaftServiceFactory serviceFactory = nodeOptions.getServiceFactory();
+                if (serviceFactory instanceof IgniteJraftServiceFactory) {
+                    IgniteJraftServiceFactory igniteServiceFactory = (IgniteJraftServiceFactory) serviceFactory;
+                    assertThat(igniteServiceFactory.logStorageFactory().stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                }
 
                 assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
