@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.rule;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -29,6 +30,7 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
@@ -38,6 +40,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteHashJoin;
  * Hash join converter.
  */
 public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJoin> {
+    private static final EnumSet<JoinRelType> TYPES_SUPPORTING_NON_EQUI_CONDITIONS = EnumSet.of(JoinRelType.INNER, JoinRelType.SEMI);
+
     public static final RelOptRule INSTANCE = new HashJoinConverterRule();
 
     /**
@@ -68,8 +72,8 @@ public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJo
         }
 
         //noinspection RedundantIfStatement
-        if (!logicalJoin.analyzeCondition().isEqui() && logicalJoin.getJoinType().generatesNullsOnLeft()) {
-            // Joins which emits unmatched right part requires special handling of `nonEquiCondition`
+        if (!logicalJoin.analyzeCondition().isEqui() && !TYPES_SUPPORTING_NON_EQUI_CONDITIONS.contains(logicalJoin.getJoinType())) {
+            // Joins which emits unmatched left or right part requires special handling of `nonEquiCondition`
             // on execution level. As of now it's known limitations.
             return false;
         }

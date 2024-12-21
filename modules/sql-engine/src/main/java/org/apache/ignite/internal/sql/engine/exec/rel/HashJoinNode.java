@@ -224,6 +224,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         ) {
             super(ctx, joinInfo, outputRowFactory, nonEquiCondition);
 
+            assert nonEquiCondition == null : "Non equi condition is not supported in LEFT join";
+
             this.rightRowFactory = rightRowFactory;
         }
 
@@ -528,7 +530,20 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
                         Collection<RowT> rightRows = lookup(left);
 
-                        if (!rightRows.isEmpty()) {
+                        boolean anyMatched = !rightRows.isEmpty();
+
+                        if (anyMatched && nonEquiCondition != ALWAYS_TRUE) {
+                            anyMatched = false;
+                            for (RowT right : rightRows) {
+                                if (nonEquiCondition.test(left, right)) {
+                                    anyMatched = true;
+
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (anyMatched) {
                             requested--;
 
                             downstream().push(left);
@@ -564,6 +579,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 @Nullable BiPredicate<RowT, RowT> nonEquiCondition
         ) {
             super(ctx, joinInfo, outputRowFactory, nonEquiCondition);
+
+            assert nonEquiCondition == null : "Non equi condition is not supported in ANTI join";
         }
 
         /** {@inheritDoc} */
