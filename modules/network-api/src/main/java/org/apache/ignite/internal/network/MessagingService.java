@@ -250,4 +250,8 @@ public interface MessagingService {
      *                                  ID as the given {@code messageGroup}.
      */
     void addMessageHandler(Class<?> messageGroup, ExecutorChooser<NetworkMessage> executorChooser, NetworkMessageHandler handler);
+
+    default void doLogging(boolean doLogging) {
+        // no-op
+    }
 }
