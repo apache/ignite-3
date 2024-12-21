@@ -16,6 +16,13 @@
  */
 package org.apache.ignite.raft.jraft.core;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -42,13 +49,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class IteratorImplTest extends BaseIgniteAbstractTest {
@@ -66,6 +66,8 @@ public class IteratorImplTest extends BaseIgniteAbstractTest {
 
     private ExecutorService executor;
 
+    private boolean shuttingDown = false;
+
     @BeforeEach
     public void setup() {
         this.applyingIndex = new AtomicLong(0);
@@ -80,7 +82,7 @@ public class IteratorImplTest extends BaseIgniteAbstractTest {
         NodeOptions nodeOptions = new NodeOptions();
         executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
         nodeOptions.setCommonExecutor(executor);
-        this.iter = new IteratorImpl(fsm, logManager, closures, 0L, 0L, 10L, applyingIndex, nodeOptions);
+        this.iter = new IteratorImpl(fsm, logManager, closures, 0L, 0L, 10L, applyingIndex, nodeOptions, () -> shuttingDown);
     }
 
     @AfterEach
@@ -155,4 +157,11 @@ public class IteratorImplTest extends BaseIgniteAbstractTest {
         assertEquals(6, iter.getIndex());
     }
 
+    @Test
+    public void notGoodWhenShuttingDown() {
+        assertTrue(this.iter.isGood());
+
+        shuttingDown = true;
+        assertFalse(this.iter.isGood());
+    }
 }

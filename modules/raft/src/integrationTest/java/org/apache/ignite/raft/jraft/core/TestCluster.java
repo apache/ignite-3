@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -60,6 +61,7 @@ import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
+import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -97,6 +99,8 @@ public class TestCluster {
     private final int electionTimeoutMs;
     private final Lock lock = new ReentrantLock();
     private @Nullable BiConsumer<PeerId, NodeOptions> optsClo;
+
+    private volatile Function<PeerId, MockStateMachine> stateMachineFactory = MockStateMachine::new;
 
     /** Test info. */
     private final TestInfo testInfo;
@@ -243,7 +247,7 @@ public class TestCluster {
 
             nodeOptions.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy());
 
-            MockStateMachine fsm = new MockStateMachine(peer.getPeerId());
+            MockStateMachine fsm = stateMachineFactory.apply(peer.getPeerId());
             nodeOptions.setFsm(fsm);
 
             nodeOptions.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
@@ -611,5 +615,9 @@ public class TestCluster {
 
     public void setNodeOptionsCustomizer(BiConsumer<PeerId, NodeOptions> customizer) {
         this.optsClo = customizer;
+    }
+
+    public void setStateMachineFactory(Function<PeerId, MockStateMachine> factory) {
+        this.stateMachineFactory = factory;
     }
 }

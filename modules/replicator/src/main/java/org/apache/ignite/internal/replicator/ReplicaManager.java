@@ -922,7 +922,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
 
         return isRemovedFuture
-                .thenApply(v -> {
+                .thenApplyAsync(v -> {
                     try {
                         // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
                         raftManager.stopRaftNodes(replicaGrpId);
@@ -931,7 +931,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     }
 
                     return v;
-                });
+                }, replicaStateManager.replicaStartStopPool);
     }
 
     /** {@inheritDoc} */

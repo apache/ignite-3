@@ -22,7 +22,6 @@ import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -31,7 +30,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 import java.util.stream.Collectors;
@@ -166,25 +164,6 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-        if (!busyLock.enterBusy()) {
-            // Here, we just complete the closures with an exception and then return. From the point of view of JRaft, this means that
-            // we 'applied' the commands, even though we didn't. JRaft will wrongly increment its appliedIndex. But it doesn't seem to be
-            // a problem because the current run is being finished (the node is stopping itself), and the only way to persist appliedIndex
-            // (which might affect subsequent runs) is to save it into snapshot, but we use the busy lock in #onSnapshotSave(), so
-            // the snapshot with wrong appliedIndex will not be saved.
-            iterator.forEachRemaining(clo -> clo.result(new ShutdownException()));
-
-            return;
-        }
-
-        try {
-            onWriteBusy(iterator);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    private void onWriteBusy(Iterator<CommandClosure<WriteCommand>> iterator) {
         while (iterator.hasNext()) {
             CommandClosure<WriteCommand> clo = iterator.next();
 
@@ -350,11 +329,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        inBusyLock(busyLock, () -> onSnapshotSaveBusy(path, doneClo));
-    }
-
-    private CompletableFuture<Void> onSnapshotSaveBusy(Path path, Consumer<Throwable> doneClo) {
-        return storageManager.snapshot(path)
+        storageManager.snapshot(path)
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
