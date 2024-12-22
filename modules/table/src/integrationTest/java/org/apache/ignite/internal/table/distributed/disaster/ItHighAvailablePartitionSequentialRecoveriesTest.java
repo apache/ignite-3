@@ -35,6 +35,7 @@ public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHi
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24061")
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24061")
     void testTwoSequentialResets() throws InterruptedException {
         createHaZoneWithTable();
 
