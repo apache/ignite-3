@@ -115,6 +115,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -1412,6 +1413,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
 
+            SystemDistributedConfiguration systemDistributedConfiguration =
+                    clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
+
             distributionZoneManager = new DistributionZoneManager(
                     name,
                     registry,
@@ -1419,7 +1423,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     logicalTopologyService,
                     catalogManager,
                     rebalanceScheduler,
-                    clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
+                    systemDistributedConfiguration
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
@@ -1475,9 +1479,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             threadPoolsManager.partitionOperationsExecutor(),
                             clockService,
                             placementDriver,
-                            schemaSyncService
+                            schemaSyncService,
+                            systemDistributedConfiguration
                     ),
-                    minTimeCollectorService
+                    minTimeCollectorService,
+                    systemDistributedConfiguration
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

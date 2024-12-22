@@ -82,6 +82,7 @@ import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -233,6 +234,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock = {profiles.default = {engine = \"aipersist\"}}")
     private StorageConfiguration storageConfiguration;
+
+    @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @Mock
     private ConfigurationRegistry configRegistry;
@@ -848,7 +852,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 logSyncer,
                 partitionReplicaLifecycleManager,
-                new MinimumRequiredTimeCollectorServiceImpl()
+                new MinimumRequiredTimeCollectorServiceImpl(),
+                systemDistributedConfiguration
         ) {
 
             @Override

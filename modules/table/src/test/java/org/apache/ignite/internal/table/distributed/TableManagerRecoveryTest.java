@@ -67,6 +67,7 @@ import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -166,6 +167,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private TransactionConfiguration txConfig;
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
+    @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     // Table manager dependencies.
     private SchemaManager sm;
@@ -378,9 +381,11 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         partitionOperationsExecutor,
                         clockService,
                         placementDriver,
-                        schemaSyncService
+                        schemaSyncService,
+                        systemDistributedConfiguration
                 ),
-                minTimeCollectorService
+                minTimeCollectorService,
+                systemDistributedConfiguration
         ) {
 
             @Override

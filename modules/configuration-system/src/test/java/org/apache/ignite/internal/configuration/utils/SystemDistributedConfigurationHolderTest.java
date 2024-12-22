@@ -44,8 +44,6 @@ public class SystemDistributedConfigurationHolderTest extends BaseIgniteAbstract
 
     private static final BiConsumer<String, Long> noOpConsumer = (value, revision) -> {};
 
-    private static SystemDistributedConfigurationHolder<String> configWrapperWithNoopConsumer;
-
     @Test
     void testEmptySystemProperties(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
         var config = new SystemDistributedConfigurationHolder<>(
@@ -66,7 +64,7 @@ public class SystemDistributedConfigurationHolderTest extends BaseIgniteAbstract
                     + PROPERTY_NAME + ".propertyValue = \"newValue\"}")
             SystemDistributedConfiguration systemConfig
     ) {
-        var config = noopConfigWrapper(systemConfig);
+        var config = noopConfigHolder(systemConfig);
 
         config.startAndInit();
 
@@ -75,7 +73,7 @@ public class SystemDistributedConfigurationHolderTest extends BaseIgniteAbstract
 
     @Test
     void testValidSystemPropertiesOnChange(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
-        var config = noopConfigWrapper(systemConfig);
+        var config = noopConfigHolder(systemConfig);
 
         config.startAndInit();
 
@@ -123,7 +121,7 @@ public class SystemDistributedConfigurationHolderTest extends BaseIgniteAbstract
         assertThat(changeFuture, willCompleteSuccessfully());
     }
 
-    private static SystemDistributedConfigurationHolder<String> noopConfigWrapper(SystemDistributedConfiguration systemConfig) {
+    private static SystemDistributedConfigurationHolder<String> noopConfigHolder(SystemDistributedConfiguration systemConfig) {
         return new SystemDistributedConfigurationHolder<>(
                 systemConfig,
                 noOpConsumer,

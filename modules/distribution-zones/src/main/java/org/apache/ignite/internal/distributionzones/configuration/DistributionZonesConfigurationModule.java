@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones.configuration;
 
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.REBALANCE_RETRY_DELAY_MS;
 
 import com.google.auto.service.AutoService;
 import java.util.Set;
@@ -37,7 +38,8 @@ public class DistributionZonesConfigurationModule implements ConfigurationModule
     @Override
     public Set<Validator<?, ?>> validators() {
         return Set.of(
-                new NonNegativeIntegerNumberSystemPropertyValueValidator(PARTITION_DISTRIBUTION_RESET_TIMEOUT)
+                new NonNegativeIntegerNumberSystemPropertyValueValidator(PARTITION_DISTRIBUTION_RESET_TIMEOUT),
+                new NonNegativeIntegerNumberSystemPropertyValueValidator(REBALANCE_RETRY_DELAY_MS)
         );
     }
 }
