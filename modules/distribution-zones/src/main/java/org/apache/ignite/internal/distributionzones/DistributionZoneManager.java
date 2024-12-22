@@ -391,7 +391,7 @@ public class DistributionZoneManager extends
     }
 
     private void onUpdatePartitionDistributionResetBusy(
-            Integer partitionDistributionResetTimeoutSeconds,
+            int partitionDistributionResetTimeoutSeconds,
             long causalityToken
     ) {
         long updateTimestamp = timestampByRevision(causalityToken);

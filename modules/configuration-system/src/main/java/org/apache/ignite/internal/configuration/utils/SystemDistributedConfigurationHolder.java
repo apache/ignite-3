@@ -63,6 +63,8 @@ public class SystemDistributedConfigurationHolder<T> {
 
     /** Starts component. */
     public void start() {
+        updateSystemProperties(systemDistributedConfig.value(), -1);
+
         systemDistributedConfig.listen(ctx -> {
             updateSystemProperties(ctx.newValue(), ctx.storageRevision());
 
@@ -90,6 +92,8 @@ public class SystemDistributedConfigurationHolder<T> {
 
         currentValue.set(value);
 
-        valueListener.accept(value, revision);
+        if (revision != -1) {
+            valueListener.accept(value, revision);
+        }
     }
 }
