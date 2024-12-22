@@ -60,6 +60,7 @@ import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Listener for the raft group events, which must provide correct error handling of rebalance process
@@ -221,6 +222,17 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             busyLock.leaveBusy();
         }
     }
+
+    /**
+     * Returns current retry delay.
+     *
+     * @return Current retry delay
+     */
+    @TestOnly
+    public int currentRetryDelay() {
+        return retryDelayConfiguration.currentValue();
+    }
+
 
     /**
      * Schedules changing peers according to the current rebalance.

@@ -69,6 +69,7 @@ import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Listener for the raft group events, which must provide correct error handling of rebalance process and start new rebalance after the
@@ -279,6 +280,16 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    /**
+     * Returns current retry delay.
+     *
+     * @return Current retry delay
+     */
+    @TestOnly
+    public int currentRetryDelay() {
+        return retryDelayConfiguration.currentValue();
     }
 
     /**
