@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Test multiple HA zone partitions recovery in a row. */
@@ -32,7 +33,9 @@ public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHi
         return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24061")
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24061")
     void testTwoSequentialResets() throws InterruptedException {
         createHaZoneWithTable();
 

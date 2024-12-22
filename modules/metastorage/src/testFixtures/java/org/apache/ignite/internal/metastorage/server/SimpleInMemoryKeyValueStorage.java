@@ -286,6 +286,33 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
+    public void removeByPrefix(byte[] prefix, KeyValueUpdateContext context) {
+        rwLock.writeLock().lock();
+
+        try (Cursor<Entry> entryCursor = range(prefix, nextKey(prefix))) {
+            long curRev = rev + 1;
+
+            var keys = new ArrayList<byte[]>();
+
+            var vals = new ArrayList<byte[]>();
+
+            for (Entry e : entryCursor) {
+                if (e.empty() || e.tombstone()) {
+                    continue;
+                }
+
+                keys.add(e.key());
+
+                vals.add(TOMBSTONE);
+            }
+
+            doPutAll(curRev, keys, vals, context);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
     public boolean invoke(
             Condition condition,
             List<Operation> success,

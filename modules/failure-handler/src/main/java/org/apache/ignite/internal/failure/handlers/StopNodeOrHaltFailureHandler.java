@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.NodeStopper;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -37,6 +38,7 @@ public class StopNodeOrHaltFailureHandler extends AbstractFailureHandler {
     private static final int KILL_EXIT_CODE = 130;
 
     /** Node stopper. */
+    @IgniteToStringExclude
     private final NodeStopper nodeStopper;
 
     /** Try stop. */

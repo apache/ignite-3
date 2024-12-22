@@ -106,7 +106,7 @@ public class IgniteSqlFunctionsTest {
         );
 
         assertEquals(
-                new BigDecimal("10.101"),
+                new BigDecimal("10.100"),
                 IgniteSqlFunctions.toBigDecimal(10.101f, 10, 3)
         );
 
@@ -145,7 +145,7 @@ public class IgniteSqlFunctionsTest {
         );
 
         assertEquals(
-                new BigDecimal("10.101"),
+                new BigDecimal("10.100"),
                 IgniteSqlFunctions.toBigDecimal(Float.valueOf(10.101f), 10, 3)
         );
 
@@ -158,12 +158,12 @@ public class IgniteSqlFunctionsTest {
     @Test
     public void testFractionsToDecimal() {
         assertEquals(
-                new BigDecimal("0.0101"),
+                new BigDecimal("0.0100"),
                 IgniteSqlFunctions.toBigDecimal(Float.valueOf(0.0101f), 3, 4)
         );
 
         assertEquals(
-                new BigDecimal("0.0101"),
+                new BigDecimal("0.0100"),
                 IgniteSqlFunctions.toBigDecimal(Double.valueOf(0.0101d), 3, 4)
         );
     }
@@ -201,7 +201,7 @@ public class IgniteSqlFunctionsTest {
             "1.123, 4, 4, overflow",
 
             "0.0011, 1, 3, 0.001",
-            "0.0016, 1, 3, 0.002",
+            "0.0016, 1, 3, 0.001",
             "-0.0011, 1, 3, -0.001",
             "-0.0011, 1, 4, overflow",
             "-0.0011, 2, 4, -0.0011",

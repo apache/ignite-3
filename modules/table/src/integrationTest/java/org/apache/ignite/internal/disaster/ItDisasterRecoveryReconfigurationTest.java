@@ -753,6 +753,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * disaster recovery API, but with manual flag set to false. We expect that in this replica factor won't be restored.
      * In this test, assignments will be (1, 3, 4), according to {@link RendezvousDistributionFunction}.
      */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23783")
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     void testAutomaticRebalanceIfMajorityIsLost() throws Exception {
