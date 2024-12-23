@@ -92,7 +92,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     @InjectConfiguration("mock.properties = {"
             + PARTITION_DISTRIBUTION_RESET_TIMEOUT + ".propertyValue = \"" + IMMEDIATE_TIMER_VALUE + "\", "
             + "}")
-    protected SystemDistributedConfiguration systemDistributedConfiguration;
+    SystemDistributedConfiguration systemDistributedConfiguration;
 
     @BeforeEach
     void setUp() throws Exception {

@@ -83,7 +83,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
-import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationHolder;
+import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
@@ -205,7 +205,7 @@ public class PartitionReplicaLifecycleManager extends
     private final Predicate<Assignment> isLocalNodeAssignment = assignment -> assignment.consistentId().equals(localNode().name());
 
     /** Configuration of rebalance retries delay. */
-    private final SystemDistributedConfigurationHolder<Integer> rebalanceRetryDelayConfiguration;
+    private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
 
     /**
      * The constructor.
@@ -252,7 +252,7 @@ public class PartitionReplicaLifecycleManager extends
 
         this.placementDriver = placementDriver;
 
-        this.rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationHolder<>(
+        rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
                 (v, r) -> {},
                 DistributionZonesUtil.REBALANCE_RETRY_DELAY_MS,
@@ -291,7 +291,7 @@ public class PartitionReplicaLifecycleManager extends
                         inBusyLock(busyLock, () -> onCreateZone(parameters).thenApply((ignored) -> false))
         );
 
-        rebalanceRetryDelayConfiguration.start();
+        rebalanceRetryDelayConfiguration.init();
 
         return processZonesAndAssignmentsOnStart;
     }

@@ -19,15 +19,21 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.junit.jupiter.api.Test;
 
 /** Test for the HA zones recovery. */
@@ -80,6 +86,21 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, table1, PARTITION_IDS, Set.of(node.name()));
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, table21, PARTITION_IDS, Set.of(node.name()));
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, table22, PARTITION_IDS, Set.of(node.name()));
+    }
+
+    @Test
+    void testInvaliPartitionResetTimeoutUpdate() {
+        IgniteImpl node = igniteImpl(0);
+
+        CompletableFuture<Void> changeFuture = node
+                .clusterConfiguration()
+                .getConfiguration(SystemDistributedExtensionConfiguration.KEY)
+                .system().change(c0 -> c0.changeProperties()
+                        .createOrUpdate(PARTITION_DISTRIBUTION_RESET_TIMEOUT,
+                                c1 -> c1.changePropertyValue(String.valueOf(-1)))
+                );
+
+        assertThat(changeFuture, willThrowWithCauseOrSuppressed(ConfigurationValidationException.class));
     }
 
     @Test

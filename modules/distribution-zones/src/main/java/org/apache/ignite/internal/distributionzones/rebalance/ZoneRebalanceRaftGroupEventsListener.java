@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationHolder;
+import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -125,7 +125,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     private final AtomicInteger rebalanceAttempts = new AtomicInteger(0);
 
     /** Configuration of rebalance retries delay. */
-    private final SystemDistributedConfigurationHolder<Integer> retryDelayConfiguration;
+    private final SystemDistributedConfigurationPropertyHolder<Integer> retryDelayConfiguration;
 
     /** Function that calculates assignments for zone's partition. */
     private final BiFunction<ZonePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn;
@@ -148,7 +148,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             PartitionMover partitionMover,
             ScheduledExecutorService rebalanceScheduler,
             BiFunction<ZonePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
-            SystemDistributedConfigurationHolder<Integer> retryDelayConfiguration
+            SystemDistributedConfigurationPropertyHolder<Integer> retryDelayConfiguration
     ) {
         this.metaStorageMgr = metaStorageMgr;
         this.zonePartitionId = zonePartitionId;

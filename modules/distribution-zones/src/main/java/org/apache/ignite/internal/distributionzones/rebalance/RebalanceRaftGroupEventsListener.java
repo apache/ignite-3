@@ -43,7 +43,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationHolder;
+import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -118,7 +118,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
 
     /** Configuration of rebalance retries delay. */
-    private final SystemDistributedConfigurationHolder<Integer> retryDelayConfiguration;
+    private final SystemDistributedConfigurationPropertyHolder<Integer> retryDelayConfiguration;
 
     /** Function that calculates assignments for table's partition. */
     private final BiFunction<TablePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn;
@@ -141,7 +141,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             PartitionMover partitionMover,
             BiFunction<TablePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
             ScheduledExecutorService rebalanceScheduler,
-            SystemDistributedConfigurationHolder<Integer> retryDelayConfiguration
+            SystemDistributedConfigurationPropertyHolder<Integer> retryDelayConfiguration
     ) {
         this.metaStorageMgr = metaStorageMgr;
         this.tablePartitionId = tablePartitionId;
@@ -232,7 +232,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     public int currentRetryDelay() {
         return retryDelayConfiguration.currentValue();
     }
-
 
     /**
      * Schedules changing peers according to the current rebalance.

@@ -1877,7 +1877,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     }
                 })
                 .filter(d -> !d.equals(-1))
-                        .collect(Collectors.toUnmodifiableList());
+                .collect(Collectors.toUnmodifiableList());
 
         assertTrue(waitForCondition(
                 () -> {
@@ -1888,13 +1888,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         ));
     }
 
-    private CompletableFuture<Void> updateRebalanceRetryDelay(SystemDistributedConfiguration systemDistributedConfiguration, int delay) {
+    private static CompletableFuture<Void> updateRebalanceRetryDelay(SystemDistributedConfiguration systemDistributedConfiguration,
+            int delay) {
         return systemDistributedConfiguration
                 .change(c0 -> c0
                         .changeProperties()
                         .createOrUpdate(
                                 REBALANCE_RETRY_DELAY_MS,
                                 c1 -> c1.changePropertyValue(String.valueOf(delay))
-                ));
+                        )
+                );
     }
 }

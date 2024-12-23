@@ -107,7 +107,7 @@ import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
-import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationHolder;
+import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
@@ -433,7 +433,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final CompletableFuture<Void> recoveryFuture = new CompletableFuture<>();
 
     /** Configuration of rebalance retries delay. */
-    private final SystemDistributedConfigurationHolder<Integer> rebalanceRetryDelayConfiguration;
+    private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
 
     /**
      * Creates a new table manager.
@@ -610,7 +610,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 this::onZoneReplicaStopped
         );
 
-        this.rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationHolder<>(
+        rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
                 (v, r) -> {},
                 DistributionZonesUtil.REBALANCE_RETRY_DELAY_MS,
@@ -632,7 +632,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             assert recoveryFinishFuture.isDone();
 
-            this.rebalanceRetryDelayConfiguration.start();
+            rebalanceRetryDelayConfiguration.init();
 
             long recoveryRevision = recoveryFinishFuture.join().revision();
 

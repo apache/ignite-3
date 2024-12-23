@@ -35,9 +35,9 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-/** Tests for {@link SystemDistributedConfigurationHolder}. */
+/** Tests for {@link SystemDistributedConfigurationPropertyHolder}. */
 @ExtendWith(ConfigurationExtension.class)
-public class SystemDistributedConfigurationHolderTest extends BaseIgniteAbstractTest {
+public class SystemDistributedConfigurationPropertyHolderTest extends BaseIgniteAbstractTest {
     private static final String PROPERTY_NAME = "distributedPropertyName";
 
     private static final String DEFAULT_VALUE = "defaultValue";
@@ -46,14 +46,14 @@ public class SystemDistributedConfigurationHolderTest extends BaseIgniteAbstract
 
     @Test
     void testEmptySystemProperties(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
-        var config = new SystemDistributedConfigurationHolder<>(
+        var config = new SystemDistributedConfigurationPropertyHolder<>(
                 systemConfig,
                 noOpConsumer,
                 PROPERTY_NAME,
                 DEFAULT_VALUE,
                 Function.identity()
         );
-        config.startAndInit();
+        config.init();
 
         assertEquals(DEFAULT_VALUE, config.currentValue());
     }
@@ -66,7 +66,7 @@ public class SystemDistributedConfigurationHolderTest extends BaseIgniteAbstract
     ) {
         var config = noopConfigHolder(systemConfig);
 
-        config.startAndInit();
+        config.init();
 
         assertEquals("newValue", config.currentValue());
     }
@@ -75,7 +75,7 @@ public class SystemDistributedConfigurationHolderTest extends BaseIgniteAbstract
     void testValidSystemPropertiesOnChange(@InjectConfiguration SystemDistributedConfiguration systemConfig) {
         var config = noopConfigHolder(systemConfig);
 
-        config.startAndInit();
+        config.init();
 
         changeSystemConfig(systemConfig, "newValue");
 
@@ -87,7 +87,7 @@ public class SystemDistributedConfigurationHolderTest extends BaseIgniteAbstract
         AtomicReference<Integer> currentValue = new AtomicReference<>();
         AtomicReference<Long> revisionValue = new AtomicReference<>();
 
-        var config = new SystemDistributedConfigurationHolder<>(
+        var config = new SystemDistributedConfigurationPropertyHolder<>(
                 systemConfig,
                 (v, revision) -> {
                     currentValue.set(v);
@@ -97,7 +97,7 @@ public class SystemDistributedConfigurationHolderTest extends BaseIgniteAbstract
                 0,
                 Integer::parseInt
         );
-        config.startAndInit();
+        config.init();
 
         assertNotEquals(10, currentValue.get());
         assertNotEquals(1, revisionValue.get());
@@ -121,8 +121,8 @@ public class SystemDistributedConfigurationHolderTest extends BaseIgniteAbstract
         assertThat(changeFuture, willCompleteSuccessfully());
     }
 
-    private static SystemDistributedConfigurationHolder<String> noopConfigHolder(SystemDistributedConfiguration systemConfig) {
-        return new SystemDistributedConfigurationHolder<>(
+    private static SystemDistributedConfigurationPropertyHolder<String> noopConfigHolder(SystemDistributedConfiguration systemConfig) {
+        return new SystemDistributedConfigurationPropertyHolder<>(
                 systemConfig,
                 noOpConsumer,
                 PROPERTY_NAME,

@@ -100,8 +100,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
-import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationHolder;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -212,7 +212,7 @@ public class DistributionZoneManager extends
     private final ScheduledExecutorService rebalanceScheduler;
 
     /** Configuration of HA mode. */
-    private final SystemDistributedConfigurationHolder<Integer> partitionDistributionResetTimeoutConfiguration;
+    private final SystemDistributedConfigurationPropertyHolder<Integer> partitionDistributionResetTimeoutConfiguration;
 
     /**
      * Creates a new distribution zone manager.
@@ -266,7 +266,7 @@ public class DistributionZoneManager extends
                 catalogManager
         );
 
-        partitionDistributionResetTimeoutConfiguration = new SystemDistributedConfigurationHolder<>(
+        partitionDistributionResetTimeoutConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
                 this::onUpdatePartitionDistributionResetBusy,
                 PARTITION_DISTRIBUTION_RESET_TIMEOUT,
@@ -301,7 +301,7 @@ public class DistributionZoneManager extends
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
-            partitionDistributionResetTimeoutConfiguration.start();
+            partitionDistributionResetTimeoutConfiguration.init();
 
             return allOf(
                     createOrRestoreZonesStates(recoveryRevision, catalogVersion),

@@ -24,10 +24,9 @@ import java.util.function.Function;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedView;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
-import org.jetbrains.annotations.TestOnly;
 
-/** Configuration for zones high availability configurations. */
-public class SystemDistributedConfigurationHolder<T> {
+/** Holder of system distributed configuration property with auto-update and support of external listener. */
+public class SystemDistributedConfigurationPropertyHolder<T> {
     /** Configuration property name. */
     private final String propertyName;
 
@@ -43,11 +42,19 @@ public class SystemDistributedConfigurationHolder<T> {
     /** Listener, which receives (newValue, revision) on every configuration update. */
     private final BiConsumer<T, Long> valueListener;
 
-    /** Converter to translate String representation to target type. */
+    /** Converter to translate {@link String} representation of property value to target type. */
     private final Function<String, T> propertyConverter;
 
-    /** Constructor. */
-    public SystemDistributedConfigurationHolder(
+    /**
+     * Constructor.
+     *
+     * @param systemDistributedConfig System distributed configuration.
+     * @param valueListener Listener, which receives (newValue, revision) on every configuration update.
+     * @param propertyName Configuration property name.
+     * @param defaultValue Default value.
+     * @param propertyConverter Converter to translate {@link String} representation of property value to target type.
+     */
+    public SystemDistributedConfigurationPropertyHolder(
             SystemDistributedConfiguration systemDistributedConfig,
             BiConsumer<T, Long> valueListener,
             String propertyName,
@@ -59,11 +66,6 @@ public class SystemDistributedConfigurationHolder<T> {
         this.propertyName = propertyName;
         this.defaultValue = defaultValue;
         this.propertyConverter = propertyConverter;
-    }
-
-    /** Starts component. */
-    public void start() {
-        updateSystemProperties(systemDistributedConfig.value(), -1);
 
         systemDistributedConfig.listen(ctx -> {
             updateSystemProperties(ctx.newValue(), ctx.storageRevision());
@@ -72,19 +74,28 @@ public class SystemDistributedConfigurationHolder<T> {
         });
     }
 
-    /** Starts the component and initializes the configuration immediately. */
-    @TestOnly
-    void startAndInit() {
-        start();
-
-        updateSystemProperties(systemDistributedConfig.value(), 0);
+    /**
+     * Init property value, but doesn't call the listener.
+     */
+    public void init() {
+        updateSystemProperties(systemDistributedConfig.value(), -1);
     }
 
-    /** Returns current value of configuration property. */
+    /**
+     * Returns current value of configuration property.
+     *
+     * @return Current value.
+     */
     public T currentValue() {
         return currentValue.get();
     }
 
+    /**
+     * Update current value and call listener (if revision != -1).
+     *
+     * @param view System distributed view.
+     * @param revision Metastorage revision.
+     */
     private void updateSystemProperties(SystemDistributedView view, long revision) {
         SystemPropertyView systemPropertyView = view.properties().get(propertyName);
 
