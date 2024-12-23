@@ -56,7 +56,7 @@ import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -400,7 +400,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
     protected abstract QueryProcessor getEngine();
 
-    protected abstract HybridTimestampTracker observableTimeTracker();
+    protected abstract HybridTimestampTrackerImpl observableTimeTracker();
 
     protected void checkMetadata(ResultSetMetadata metadata) {
         // No-op.

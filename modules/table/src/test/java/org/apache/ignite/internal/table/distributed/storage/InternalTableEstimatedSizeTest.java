@@ -91,7 +91,7 @@ import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSour
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -205,7 +205,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 txStateTableStorage,
                 new ReplicaService(clusterService.messagingService(), clock, replicationConfiguration),
                 clockService,
-                new HybridTimestampTracker(),
+                new HybridTimestampTrackerImpl(),
                 placementDriver,
                 new TransactionInflights(placementDriver, clockService),
                 0,

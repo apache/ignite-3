@@ -29,9 +29,9 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.TxState;
@@ -63,17 +63,17 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction begin(ObservableTimestampProvider tracker, boolean implicit) {
+    public InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit) {
         return begin(tracker, implicit, false);
     }
 
     @Override
-    public InternalTransaction begin(ObservableTimestampProvider timestampTracker, boolean implicit, boolean readOnly) {
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly) {
         return begin(timestampTracker, implicit, readOnly, TxPriority.NORMAL);
     }
 
     @Override
-    public InternalTransaction begin(ObservableTimestampProvider tracker, boolean implicit, boolean readOnly, TxPriority priority) {
+    public InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit, boolean readOnly, TxPriority priority) {
         return new InternalTransaction() {
             private final UUID id = UUID.randomUUID();
 
@@ -190,7 +190,7 @@ public class FakeTxManager implements TxManager {
 
     @Override
     public CompletableFuture<Void> finish(
-            ObservableTimestampProvider timestampTracker,
+            HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
             Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
@@ -242,7 +242,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public void finishFull(ObservableTimestampProvider timestampTracker, UUID txId, HybridTimestamp ts, boolean commit) {
+    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit) {
         // No-op.
     }
 }

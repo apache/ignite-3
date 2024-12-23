@@ -460,7 +460,7 @@ public class ClientTableCommon {
             boolean readOnly
     ) {
         return txManager.begin(
-                new ClientObservableTimestampTracker(currentTs, implicit ? out::meta : ts -> {}),
+                new ClientHybridTimestampTracker(currentTs, implicit ? out::meta : ts -> {}),
                 implicit,
                 readOnly
         );

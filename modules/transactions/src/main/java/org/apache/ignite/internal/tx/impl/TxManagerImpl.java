@@ -86,11 +86,11 @@ import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LocalRwTxCounter;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
-import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -371,18 +371,18 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction begin(ObservableTimestampProvider timestampTracker, boolean implicit) {
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit) {
         return begin(timestampTracker, implicit, false);
     }
 
     @Override
-    public InternalTransaction begin(ObservableTimestampProvider timestampTracker, boolean implicit, boolean readOnly) {
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly) {
         return begin(timestampTracker, implicit, readOnly, TxPriority.NORMAL);
     }
 
     @Override
     public InternalTransaction begin(
-            ObservableTimestampProvider timestampTracker,
+            HybridTimestampTracker timestampTracker,
             boolean implicit,
             boolean readOnly,
             TxPriority priority
@@ -454,7 +454,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public void finishFull(ObservableTimestampProvider timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit) {
+    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit) {
         TxState finalState;
 
         finishedTxs.add(1);
@@ -486,7 +486,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     @Override
     public CompletableFuture<Void> finish(
-            ObservableTimestampProvider observableTimestampTracker,
+            HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commitIntent,
             Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
@@ -569,7 +569,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     private CompletableFuture<Void> prepareFinish(
-            ObservableTimestampProvider observableTimestampTracker,
+            HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
             Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,
@@ -611,7 +611,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * Durable finish request.
      */
     private CompletableFuture<Void> durableFinish(
-            ObservableTimestampProvider observableTimestampTracker,
+            HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
             Map<TablePartitionId, String> replicationGroupIds,
@@ -683,7 +683,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     private CompletableFuture<Void> makeFinishRequest(
-            ObservableTimestampProvider observableTimestampTracker,
+            HybridTimestampTracker observableTimestampTracker,
             TablePartitionId commitPartition,
             String primaryConsistentId,
             Long enlistmentConsistencyToken,

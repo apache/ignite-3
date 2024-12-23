@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.ObservableTimestampProvider;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -55,7 +55,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      */
     ReadOnlyTransactionImpl(
             TxManagerImpl txManager,
-            ObservableTimestampProvider observableTsTracker,
+            HybridTimestampTracker observableTsTracker,
             UUID id,
             UUID txCoordinatorId,
             boolean implicit,

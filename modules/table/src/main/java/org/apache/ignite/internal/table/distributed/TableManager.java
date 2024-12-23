@@ -204,7 +204,7 @@ import org.apache.ignite.internal.table.distributed.storage.NullStorageEngine;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -362,7 +362,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final LowWatermark lowWatermark;
 
-    private final HybridTimestampTracker observableTimestampTracker;
+    private final HybridTimestampTrackerImpl observableTimestampTracker;
 
     /** Placement driver. */
     private final PlacementDriver executorInclinedPlacementDriver;
@@ -484,7 +484,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             DistributionZoneManager distributionZoneManager,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
-            HybridTimestampTracker observableTimestampTracker,
+            HybridTimestampTrackerImpl observableTimestampTracker,
             PlacementDriver placementDriver,
             Supplier<IgniteSql> sql,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,

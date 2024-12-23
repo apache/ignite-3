@@ -56,8 +56,8 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -97,7 +97,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private final QueryProcessor queryProcessor;
 
-    private final ObservableTimestampProvider observableTimestampTracker;
+    private final HybridTimestampTracker observableTimestampTracker;
 
     /**
      * Constructor.
@@ -107,7 +107,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      */
     public IgniteSqlImpl(
             QueryProcessor queryProcessor,
-            ObservableTimestampProvider observableTimestampTracker
+            HybridTimestampTracker observableTimestampTracker
     ) {
         this.queryProcessor = queryProcessor;
         this.observableTimestampTracker = observableTimestampTracker;
@@ -465,7 +465,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      */
     public static CompletableFuture<long[]> executeBatchCore(
             QueryProcessor queryProcessor,
-            ObservableTimestampProvider observableTimestampTracker,
+            HybridTimestampTracker observableTimestampTracker,
             @Nullable InternalTransaction transaction,
             String query,
             BatchedArguments batch,
@@ -611,7 +611,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
      */
     public static CompletableFuture<Void> executeScriptCore(
             QueryProcessor queryProcessor,
-            ObservableTimestampProvider observableTimestampTracker,
+            HybridTimestampTracker observableTimestampTracker,
             Supplier<Boolean> enterBusy,
             Runnable leaveBusy,
             String query,

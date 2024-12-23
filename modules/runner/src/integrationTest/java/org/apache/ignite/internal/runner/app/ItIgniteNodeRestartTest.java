@@ -215,7 +215,7 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -731,7 +731,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
-                new HybridTimestampTracker(),
+                new HybridTimestampTrackerImpl(),
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
                 resourcesRegistry,
@@ -789,7 +789,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService())
         );
 
-        sqlRef.set(new IgniteSqlImpl(qryEngine, new HybridTimestampTracker()));
+        sqlRef.set(new IgniteSqlImpl(qryEngine, new HybridTimestampTrackerImpl()));
 
         // Preparing the result map.
 

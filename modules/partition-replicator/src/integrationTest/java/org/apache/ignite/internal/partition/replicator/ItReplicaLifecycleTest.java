@@ -198,7 +198,7 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -981,7 +981,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         private final IndexMetaStorage indexMetaStorage;
 
-        private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+        private final HybridTimestampTrackerImpl observableTimestampTracker = new HybridTimestampTrackerImpl();
 
         private volatile MvTableStorage mvTableStorage;
 
