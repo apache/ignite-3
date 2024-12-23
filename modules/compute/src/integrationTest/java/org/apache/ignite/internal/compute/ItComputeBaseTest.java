@@ -517,7 +517,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         IgniteCompute igniteCompute = compute();
         List<DeploymentUnit> units = units();
         @Nullable List<DeploymentUnit> arg = units();
-        TaskExecution<Integer> taskExecution = igniteCompute.submitMapReduce(
+        TaskExecution<Integer> taskExecution = compute().submitMapReduce(
                 TaskDescriptor.<List<DeploymentUnit>, Integer>builder(mapReduceTaskClassName()).units(units).build(), arg);
 
         int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(Ignite::name).map(String::length).reduce(Integer::sum).orElseThrow();
