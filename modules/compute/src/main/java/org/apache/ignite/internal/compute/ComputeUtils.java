@@ -476,7 +476,7 @@ public class ComputeUtils {
                 int count = collectionBuf.getInt();
                 BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf.slice().order(ByteOrder.LITTLE_ENDIAN));
 
-                List<Tuple> res = new ArrayList<>();
+                List<Tuple> res = new ArrayList<>(count);
                 for (int i = 0; i < count; i++) {
                     ByteBuffer elementBytes = reader.bytesValueAsBuffer(i);
 
