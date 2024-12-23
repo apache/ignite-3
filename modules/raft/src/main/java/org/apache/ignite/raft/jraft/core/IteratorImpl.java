@@ -18,7 +18,10 @@ package org.apache.ignite.raft.jraft.core;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BooleanSupplier;import org.apache.ignite.internal.raft.service.CommandClosure;import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownException;import org.apache.ignite.raft.jraft.Closure;
+import java.util.function.BooleanSupplier;
+import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownException;
+import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
