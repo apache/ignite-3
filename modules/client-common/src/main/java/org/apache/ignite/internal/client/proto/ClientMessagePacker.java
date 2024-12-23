@@ -508,7 +508,7 @@ public class ClientMessagePacker implements AutoCloseable {
         buf.writeBytes(src, off, len);
     }
 
-    void writeIntLE(int payload) {
+    void writeIntRawLittleEndian(int payload) {
         assert !closed : "Packer is closed";
 
         buf.writeIntLE(payload);
