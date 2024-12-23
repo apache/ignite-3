@@ -340,6 +340,7 @@ public class BinaryTupleParser {
             bytes = getBytes(begin, end);
             begin = 0;
         }
+
         return new String(bytes, begin, len, StandardCharsets.UTF_8);
     }
 
@@ -361,6 +362,27 @@ public class BinaryTupleParser {
         }
 
         return getBytes(begin, end);
+    }
+
+    /**
+     * Reads value of specified element as a ByteBuffer.
+     * The returned buffer is a slice of the original buffer.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    public final ByteBuffer bytesValueAsBuffer(int begin, int end) {
+        int len = end - begin;
+        if (len <= 0) {
+            throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
+        }
+
+        if (buffer.get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            begin++;
+        }
+
+        return buffer.duplicate().position(begin).limit(end).slice();
     }
 
     /**
