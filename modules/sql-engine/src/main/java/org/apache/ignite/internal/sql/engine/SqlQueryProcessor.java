@@ -561,12 +561,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 .count();
     }
 
-    /** Returns the number of running queries. */
-    @TestOnly
-    public int runningQueriesCount() {
-        return runningQueries().size();
-    }
-
     /** Returns the list of running queries. */
     @TestOnly
     public List<QueryInfo> runningQueries() {

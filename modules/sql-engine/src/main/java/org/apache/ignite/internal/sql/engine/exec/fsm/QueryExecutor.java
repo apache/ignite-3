@@ -316,10 +316,16 @@ public class QueryExecutor implements LifecycleAware {
     }
 
     private void trackQuery(Query query, @Nullable CancellationToken cancellationToken) {
-        CompletableFuture<?> unregisterFuture = query.register(runningQueries);
+        Query old = runningQueries.put(query.id, query);
+
+        assert old == null : "Query with the same id already registered";
+
+        CompletableFuture<Void> queryTerminationFut = query.onPhaseStarted(ExecutionPhase.TERMINATED);
+
+        queryTerminationFut.whenComplete((ignored, ex) -> runningQueries.remove(query.id));
 
         if (cancellationToken != null) {
-            CancelHandleHelper.addCancelAction(cancellationToken, query::cancel, unregisterFuture);
+            CancelHandleHelper.addCancelAction(cancellationToken, query::cancel, queryTerminationFut);
         }
     }
 
