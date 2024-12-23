@@ -19,7 +19,8 @@ package org.apache.ignite.internal.replicator;
 
 // TODO: https://issues.apache.org/jira/browse/IGNITE-19170 Should be refactored to ZonePartitionId.
 
-import java.util.Objects;
+import static java.util.Objects.hash;
+
 import java.util.regex.Pattern;
 
 /**
@@ -98,7 +99,7 @@ public class TablePartitionId implements PartitionGroupId {
 
     @Override
     public int hashCode() {
-        return Objects.hash(partId, tableId);
+        return hash(partId, tableId);
     }
 
     @Override
