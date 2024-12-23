@@ -58,7 +58,7 @@ public final class TupleWithSchemaMarshalling {
      * valueBinaryTuple := | value1 | ... | valueN |.
      * </pre>
      */
-    public static byte [] marshal(Tuple tuple) {
+    public static byte[] marshal(Tuple tuple) {
         // Allocate all the memory we need upfront.
         int size = tuple.columnCount();
         Object[] values = new Object[size];
@@ -97,18 +97,28 @@ public final class TupleWithSchemaMarshalling {
         return result;
     }
 
+
+    /**
+     * Unmarshal tuple (LITTLE_ENDIAN).
+     *
+     * @param raw bytes that are marshaled by {@link #marshal(Tuple)}.
+     */
+    public static Tuple unmarshal(byte[] raw) {
+        return unmarshal(ByteBuffer.wrap(raw));
+    }
+
     /**
      * Unmarshal tuple (LITTLE_ENDIAN).
      *
      * @param raw byte[] bytes that are marshaled by {@link #marshal(Tuple)}.
      */
-    public static Tuple unmarshal(byte[] raw) {
-        if (raw.length < 8) {
-            throw new UnmarshallingException("byte[] length can not be less than 8");
+    public static Tuple unmarshal(ByteBuffer raw) {
+        if (raw.remaining() < 8) {
+            throw new UnmarshallingException("Data length can not be less than 8");
         }
 
         // Read first int32.
-        ByteBuffer buff = ByteBuffer.wrap(raw).order(BYTE_ORDER);
+        ByteBuffer buff = raw.order(BYTE_ORDER);
         int size = buff.getInt(0);
         if (size < 0) {
             throw new UnmarshallingException("Size of the tuple can not be less than zero");
@@ -119,10 +129,10 @@ public final class TupleWithSchemaMarshalling {
         if (valueOffset < 0) {
             throw new UnmarshallingException("valueOffset can not be less than zero");
         }
-        if (valueOffset > raw.length) {
+        if (valueOffset > raw.remaining()) {
             throw new UnmarshallingException(
-                    "valueOffset can not be greater than byte[] length, valueOffset: "
-                            + valueOffset + ", length: " + raw.length
+                    "valueOffset can not be greater than data length, valueOffset: "
+                            + valueOffset + ", length: " + raw.remaining()
             );
         }
 
@@ -130,7 +140,7 @@ public final class TupleWithSchemaMarshalling {
                 .position(8).limit(valueOffset)
                 .slice().order(BYTE_ORDER);
         ByteBuffer valueBuff = buff
-                .position(valueOffset).limit(raw.length)
+                .position(valueOffset).limit(raw.remaining())
                 .slice().order(BYTE_ORDER);
 
         BinaryTupleReader schemaReader = new BinaryTupleReader(size * 2, schemaBuff);
