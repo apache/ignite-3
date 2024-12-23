@@ -33,7 +33,6 @@ public class ItHighAvailablePartitionSequentialRecoveriesTest extends AbstractHi
         return FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24061")
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24061")
     void testTwoSequentialResets() throws InterruptedException {
