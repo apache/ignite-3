@@ -28,7 +28,7 @@ import java.util.concurrent.CompletionStage;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.client.handler.requests.table.ClientObservableTimestampTracker;
+import org.apache.ignite.client.handler.requests.table.ClientHybridTimestampTracker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -40,8 +40,8 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -84,7 +84,7 @@ public class ClientSqlExecuteRequest {
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
 
-        var tsUpdater = new ClientObservableTimestampTracker(clientTs, out::meta);
+        var tsUpdater = new ClientHybridTimestampTracker(clientTs, out::meta);
 
         return executeAsync(tx, sql, tsUpdater, statement, props.pageSize(), props.toSqlProps(), arguments)
                 .thenCompose(asyncResultSet -> {
@@ -153,7 +153,7 @@ public class ClientSqlExecuteRequest {
     private static CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
             QueryProcessor qryProc,
-            ObservableTimestampProvider timestampTracker,
+            HybridTimestampTracker timestampTracker,
             String query,
             int pageSize,
             SqlProperties props,

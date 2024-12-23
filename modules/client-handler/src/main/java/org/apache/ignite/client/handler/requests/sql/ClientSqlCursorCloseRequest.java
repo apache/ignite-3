@@ -44,9 +44,6 @@ public class ClientSqlCursorCloseRequest {
 
         ClientSqlResultSet asyncResultSet = resources.remove(resourceId).get(ClientSqlResultSet.class);
 
-        return asyncResultSet.closeAsync()
-                .thenApply(ignored -> {
-                    return null;
-                });
+        return asyncResultSet.closeAsync();
     }
 }

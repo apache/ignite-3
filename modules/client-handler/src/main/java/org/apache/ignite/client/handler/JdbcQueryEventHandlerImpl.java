@@ -66,8 +66,8 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.CancelHandle;
@@ -88,7 +88,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
      * Observation timestamp tracker.
      * TODO: IGNITE-24053 Remove this after the issue will be fixed.
      * */
-    private final HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
+    private final HybridTimestampTrackerImpl timestampTracker = new HybridTimestampTrackerImpl();
 
     /** Sql query processor. */
     private final QueryProcessor processor;
@@ -185,7 +185,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 .exceptionally(t -> createErrorResult("Exception while executing query.", t, null));
     }
 
-    public HybridTimestampTracker getTimestampTracker() {
+    public HybridTimestampTrackerImpl getTimestampTracker() {
         return timestampTracker;
     }
 
@@ -455,7 +455,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
          * @param timestampProvider Observation timestamp provider.
          * @return Transaction associated with the current connection.
          */
-        InternalTransaction getOrStartTransaction(ObservableTimestampProvider timestampProvider) {
+        InternalTransaction getOrStartTransaction(HybridTimestampTracker timestampProvider) {
             return tx == null ? tx = txManager.begin(timestampProvider, false) : tx;
         }
 

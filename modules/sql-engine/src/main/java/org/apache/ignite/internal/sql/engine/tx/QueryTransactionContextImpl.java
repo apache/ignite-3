@@ -22,8 +22,8 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHE
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -33,14 +33,14 @@ import org.jetbrains.annotations.Nullable;
  */
 public class QueryTransactionContextImpl implements QueryTransactionContext {
     private final TxManager txManager;
-    private final ObservableTimestampProvider observableTimeTracker;
+    private final HybridTimestampTracker observableTimeTracker;
     private final @Nullable QueryTransactionWrapper tx;
     private final TransactionTracker txTracker;
 
     /** Constructor. */
     public QueryTransactionContextImpl(
             TxManager txManager,
-            ObservableTimestampProvider observableTimeTracker,
+            HybridTimestampTracker observableTimeTracker,
             @Nullable InternalTransaction tx,
             TransactionTracker txTracker
     ) {

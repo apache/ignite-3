@@ -186,13 +186,13 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.index.MetaIndexStatusChange;
 import org.apache.ignite.internal.table.distributed.raft.UnexpectedTransactionStateException;
 import org.apache.ignite.internal.table.distributed.schema.ValidationSchemasSource;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.IncompatibleSchemaAbortException;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockKey;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
-import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
@@ -676,7 +676,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         // meaning that the state is changed to aborted and a corresponding cleanup request
         // is sent in a common durable manner to a partition that have initiated recovery.
         return txManager.finish(
-                        ObservableTimestampProvider.EMPTY_TS_PROVIDER,
+                        HybridTimestampTracker.EMPTY_TS_PROVIDER,
                         // Tx recovery is executed on the commit partition.
                         replicationGroupId,
                         false,

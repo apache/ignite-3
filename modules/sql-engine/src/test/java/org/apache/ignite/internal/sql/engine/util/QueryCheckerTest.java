@@ -40,8 +40,8 @@ import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -278,7 +278,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         return queryCheckerFactory.create(
                 NODE_NAME,
                 new TestQueryProcessor(testNode, false),
-                new HybridTimestampTracker(),
+                new HybridTimestampTrackerImpl(),
                 null,
                 qry
         );
@@ -290,7 +290,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         return queryCheckerFactory.create(
                 NODE_NAME,
                 new TestQueryProcessor(testNode, true),
-                new HybridTimestampTracker(),
+                new HybridTimestampTrackerImpl(),
                 null,
                 qry
         );
@@ -323,7 +323,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         @Override
         public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
                 SqlProperties properties,
-                ObservableTimestampProvider observableTimeTracker,
+                HybridTimestampTracker observableTimeTracker,
                 @Nullable InternalTransaction transaction,
                 @Nullable CancellationToken cancellationToken,
                 String qry,

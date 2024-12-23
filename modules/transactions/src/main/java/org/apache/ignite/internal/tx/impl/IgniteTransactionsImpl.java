@@ -19,7 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxPriority;
@@ -35,14 +35,14 @@ import org.jetbrains.annotations.TestOnly;
 public class IgniteTransactionsImpl implements IgniteTransactions {
     private final TxManager txManager;
 
-    private final HybridTimestampTracker observableTimestampTracker;
+    private final HybridTimestampTrackerImpl observableTimestampTracker;
 
     /**
      * The constructor.
      *
      * @param txManager The manager.
      */
-    public IgniteTransactionsImpl(TxManager txManager, HybridTimestampTracker observableTimestampTracker) {
+    public IgniteTransactionsImpl(TxManager txManager, HybridTimestampTrackerImpl observableTimestampTracker) {
         this.txManager = txManager;
         this.observableTimestampTracker = observableTimestampTracker;
     }
@@ -56,7 +56,7 @@ public class IgniteTransactionsImpl implements IgniteTransactions {
         observableTimestampTracker.update(ts);
     }
 
-    public HybridTimestampTracker observableTimestampTracker() {
+    public HybridTimestampTrackerImpl observableTimestampTracker() {
         return observableTimestampTracker;
     }
 

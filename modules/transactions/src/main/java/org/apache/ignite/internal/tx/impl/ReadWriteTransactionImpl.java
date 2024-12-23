@@ -32,7 +32,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.ObservableTimestampProvider;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
@@ -70,7 +70,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      */
     public ReadWriteTransactionImpl(
             TxManager txManager,
-            ObservableTimestampProvider observableTsTracker,
+            HybridTimestampTracker observableTsTracker,
             UUID id,
             UUID txCoordinatorId,
             boolean implicit

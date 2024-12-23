@@ -42,8 +42,8 @@ import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.ObservableTimestampProvider;
 import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -141,7 +141,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
         @Override
         public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
                 SqlProperties properties,
-                ObservableTimestampProvider observableTimeTracker,
+                HybridTimestampTracker observableTimeTracker,
                 @Nullable InternalTransaction transaction,
                 @Nullable CancellationToken cancellationToken,
                 String qry,

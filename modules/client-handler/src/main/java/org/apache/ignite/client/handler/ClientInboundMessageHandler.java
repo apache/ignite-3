@@ -1016,16 +1016,24 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         return null;
     }
 
+    /**
+     * Gets an observation timestamp for the operation being processed or {@link HybridTimestamp#MIN_VALUE} if the timestamp was not defined
+     * by the operation.
+     * The method returns a current timestamp for the handshake operation.
+     *
+     * @param out Output message packer.
+     * @return A long representation of the observation timestamp.
+     */
     private long observableTimestamp(@Nullable ClientMessagePacker out) {
         // Certain operations can override the timestamp and provide it in the meta object.
-        if (out != null) {
-            Object meta = out.meta();
-
-            if (meta instanceof HybridTimestamp) {
-                return ((HybridTimestamp) meta).longValue();
-            }
-        } else {
+        if (out == null) {
             return clockService.currentLong();
+        }
+
+        Object meta = out.meta();
+
+        if (meta instanceof HybridTimestamp) {
+            return ((HybridTimestamp) meta).longValue();
         }
 
         return HybridTimestamp.MIN_VALUE.longValue();

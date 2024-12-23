@@ -44,7 +44,7 @@ public interface TxManager extends IgniteComponent {
      * @param implicit Whether the transaction is implicit or not.
      * @return The transaction.
      */
-    InternalTransaction begin(ObservableTimestampProvider timestampTracker, boolean implicit);
+    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit);
 
     /**
      * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value. The transaction has
@@ -60,7 +60,7 @@ public interface TxManager extends IgniteComponent {
      * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data
      *         available in the tables.
      */
-    InternalTransaction begin(ObservableTimestampProvider timestampTracker, boolean implicit, boolean readOnly);
+    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly);
 
     /**
      * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
@@ -75,7 +75,7 @@ public interface TxManager extends IgniteComponent {
      *         the more likely the transaction will win the conflict.
      * @return The started transaction.
      */
-    InternalTransaction begin(ObservableTimestampProvider timestampTracker, boolean implicit, boolean readOnly, TxPriority priority);
+    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly, TxPriority priority);
 
     /**
      * Returns a transaction state meta.
@@ -121,7 +121,7 @@ public interface TxManager extends IgniteComponent {
      * @param ts The timestamp which is associated to txn completion.
      * @param commit {@code True} if a commit requested.
      */
-    void finishFull(ObservableTimestampProvider timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit);
+    void finishFull(HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit);
 
     /**
      * Finishes a dependant transactions.
@@ -134,7 +134,7 @@ public interface TxManager extends IgniteComponent {
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(
-            ObservableTimestampProvider timestampTracker,
+            HybridTimestampTracker timestampTracker,
             TablePartitionId commitPartition,
             boolean commit,
             Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups,

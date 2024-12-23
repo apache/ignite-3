@@ -254,7 +254,7 @@ import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionC
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.threading.PublicApiThreadingIgniteCatalog;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -431,7 +431,7 @@ public class IgniteImpl implements Ignite {
     private final AuthenticationManager authenticationManager;
 
     /** Timestamp tracker for embedded transactions. */
-    private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+    private final HybridTimestampTrackerImpl observableTimestampTracker = new HybridTimestampTrackerImpl();
 
     /** System views manager. */
     private final SystemViewManagerImpl systemViewManager;
@@ -1669,7 +1669,7 @@ public class IgniteImpl implements Ignite {
         return clusterCfgMgr.configurationRegistry();
     }
 
-    public HybridTimestampTracker observableTimeTracker() {
+    public HybridTimestampTrackerImpl observableTimeTracker() {
         return observableTimestampTracker;
     }
 

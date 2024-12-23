@@ -21,7 +21,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.client.handler.requests.table.ClientObservableTimestampTracker;
+import org.apache.ignite.client.handler.requests.table.ClientHybridTimestampTracker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -61,7 +61,7 @@ public class ClientSqlExecuteBatchRequest {
         }
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        var tsUpdater = new ClientObservableTimestampTracker(clientTs, out::meta);
+        var tsUpdater = new ClientHybridTimestampTracker(clientTs, out::meta);
 
         return IgniteSqlImpl.executeBatchCore(
                 sql,
