@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
@@ -57,6 +56,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnType;
@@ -64,6 +64,7 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.awaitility.Awaitility;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -83,7 +84,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     public void checkResourceLeak() {
         sql("DELETE FROM test");
 
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), is(0)));
+        waitUntilRunningQueriesCount(is(0));
         assertThat(txManager().pending(), is(0));
     }
 
@@ -143,7 +144,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
         assertThat(executeKillSqlQuery(node, targetQueryId), is(true));
 
-        assertThat(runningQueries(), is(empty()));
+        waitUntilRunningQueriesCount(is(0));
         expectQueryCancelled(new DrainCursor(cursor));
 
         assertThat(executeKillSqlQuery(node, targetQueryId), is(false));
@@ -181,7 +182,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
             assertThat(executeKill(remote, QUERY, targetQueryId, false), is(true));
 
-            assertThat(runningQueries(), is(empty()));
+            waitUntilRunningQueriesCountInCluster(is(0));
             expectQueryCancelled(new DrainCursor(cursor));
         }
 
@@ -195,7 +196,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
             assertThat(executeKill(remote, QUERY, targetQueryId, false), is(true));
 
-            assertThat(runningQueries(), is(empty()));
+            waitUntilRunningQueriesCountInCluster(is(0));
             expectQueryCancelled(() -> await(curFut));
         }
     }
@@ -215,7 +216,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
             assertThat(executeKill(remote, QUERY, targetQueryId, true), is(true));
 
-            Awaitility.await().untilAsserted(() -> assertThat(runningQueries(), is(empty())));
+            waitUntilRunningQueriesCountInCluster(is(0));
             expectQueryCancelled(new DrainCursor(cursor));
         }
 
@@ -229,7 +230,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
             assertThat(executeKill(remote, QUERY, targetQueryId, true), is(true));
 
-            Awaitility.await().untilAsserted(() -> assertThat(runningQueries(), is(empty())));
+            waitUntilRunningQueriesCountInCluster(is(0));
             expectQueryCancelled(() -> await(curFut));
         }
     }
@@ -321,5 +322,13 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
                 null,
                 query
         );
+    }
+
+    private static void waitUntilRunningQueriesCountInCluster(Matcher<Integer> matcher) {
+        CLUSTER.runningNodes().forEach(node -> {
+            SqlQueryProcessor queryProcessor = (SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine();
+
+            SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, matcher);
+        });
     }
 }

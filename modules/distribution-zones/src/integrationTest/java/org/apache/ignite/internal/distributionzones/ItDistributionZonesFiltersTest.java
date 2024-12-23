@@ -90,7 +90,8 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
                 + "  nodeAttributes.nodeAttributes: " + nodeAttributes + ",\n"
                 + "  storage.profiles: " + storageProfiles + ",\n"
                 + "  clientConnector.port: {},\n"
-                + "  rest.port: {}\n"
+                + "  rest.port: {},\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
     }
 
