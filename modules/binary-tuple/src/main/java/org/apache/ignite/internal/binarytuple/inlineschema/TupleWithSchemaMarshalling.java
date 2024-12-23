@@ -109,7 +109,7 @@ public final class TupleWithSchemaMarshalling {
     /**
      * Unmarshal tuple (LITTLE_ENDIAN).
      *
-     * @param raw byte[] bytes that are marshaled by {@link #marshal(Tuple)}.
+     * @param raw bytes that are marshaled by {@link #marshal(Tuple)}.
      */
     public static Tuple unmarshal(ByteBuffer raw) {
         int dataLen = raw.remaining();
