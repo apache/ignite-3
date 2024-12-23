@@ -26,6 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Denotes a plan that can evaluates itself.
  */
+@FunctionalInterface
 public interface ExecutablePlan {
     /**
      * Evaluates plan and returns cursor over result.
