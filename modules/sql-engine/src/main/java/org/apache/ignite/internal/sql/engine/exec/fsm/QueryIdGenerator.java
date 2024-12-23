@@ -15,19 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failure;
+package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-import org.apache.ignite.internal.failure.handlers.FailureHandler;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * General failure processing API.
+ * Generates query IDs.
  */
-public interface FailureProcessor {
+public class QueryIdGenerator {
+    private final AtomicLong counter = new AtomicLong();
+
+    private final int nodeId;
+
     /**
-     * Processes failure accordingly to configured {@link FailureHandler}.
+     * Constructs the generator.
      *
-     * @param failureCtx Failure context.
-     * @return {@code true} If this call leads to Ignite node invalidation and {@code false} otherwise.
+     * @param nodeId Unique identifier of a node within the cluster.
      */
-    boolean process(FailureContext failureCtx);
+    public QueryIdGenerator(int nodeId) {
+        this.nodeId = nodeId;
+    }
+
+    /** Returns next id. */
+    public UUID next() {
+        return new UUID(nodeId, counter.getAndIncrement());
+    }
 }

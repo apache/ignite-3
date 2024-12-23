@@ -225,6 +225,33 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
     }
 
     @Test
+    public void removeByPrefixChecksum() {
+        byte[] key1 = key(1);
+        byte[] val1 = keyValue(1, 1);
+        byte[] key2 = key(2);
+        byte[] val2 = keyValue(2, 2);
+
+        putAllToMs(List.of(key1, key2), List.of(val1, val2));
+        long checksum1 = storage.checksum(1);
+
+        removeByPrefixFromMs(PREFIX_BYTES);
+        long checksum2 = storage.checksum(2);
+        assertThat(checksum2, is(checksum(
+                longToBytes(checksum1),
+                bytes(7), // REMOVE_BY_PREFIX
+                intToBytes(PREFIX_BYTES.length), PREFIX_BYTES
+        )));
+
+        // Repeating the same command, the checksum must be different.
+        removeByPrefixFromMs(PREFIX_BYTES);
+        assertThat(storage.checksum(3), is(checksum(
+                longToBytes(checksum2),
+                bytes(7), // REMOVE_BY_PREFIX
+                intToBytes(PREFIX_BYTES.length), PREFIX_BYTES
+        )));
+    }
+
+    @Test
     public void removeAllChecksumDoesNotDependOnKeyOrder() {
         byte[] key1 = key(1);
         byte[] val1 = keyValue(1, 1);

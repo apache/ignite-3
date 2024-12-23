@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.failure;
+package org.apache.ignite.internal.metastorage.command;
 
-import org.apache.ignite.internal.failure.handlers.FailureHandler;
+import java.nio.ByteBuffer;
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * General failure processing API.
+ * Removal command for MetaStorageCommandListener that removes all entries by the given prefix.
  */
-public interface FailureProcessor {
+@Transferable(MetastorageCommandsMessageGroup.REMOVE_BY_PREFIX)
+public interface RemoveByPrefixCommand extends MetaStorageWriteCommand {
     /**
-     * Processes failure accordingly to configured {@link FailureHandler}.
-     *
-     * @param failureCtx Failure context.
-     * @return {@code true} If this call leads to Ignite node invalidation and {@code false} otherwise.
+     * Returns prefix. Couldn't be {@code null}.
      */
-    boolean process(FailureContext failureCtx);
+    ByteBuffer prefix();
 }

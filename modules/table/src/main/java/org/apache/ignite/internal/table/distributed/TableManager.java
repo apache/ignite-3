@@ -1048,7 +1048,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
+        if (!busyLock.enterBusy()) {
+            return falseCompletedFuture();
+        }
+
+        try {
             int newEarliestCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             List<CompletableFuture<Void>> futures = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion).stream()
@@ -1056,7 +1060,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .collect(toList());
 
             return allOf(futures.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
-        });
+        } catch (Throwable t) {
+            return failedFuture(t);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     private CompletableFuture<?> onTableRename(RenameTableEventParameters parameters) {
