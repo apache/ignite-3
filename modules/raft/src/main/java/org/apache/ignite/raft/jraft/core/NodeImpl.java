@@ -47,10 +47,10 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.sources.RaftMetricSource;
-import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
-import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.WriteCommandClosure;
 import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
@@ -303,13 +303,13 @@ public class NodeImpl implements Node, RaftServerService {
             }
 
             // Patch the command.
-            if (event.done instanceof CommandClosure) {
-                CommandClosure<?> clo = (CommandClosure<?>) event.done;
-                Command command = clo.command();
+            if (event.done instanceof WriteCommandClosure) {
+                WriteCommandClosure clo = (WriteCommandClosure) event.done;
+                WriteCommand command = clo.command();
 
                 // Tick once per batch.
                 if (safeTs == null) {
-                    safeTs = command.initiatorTime() == null ? clock.now() : clock.update(command.initiatorTime());
+                    safeTs = clock.update(command.initiatorTime());
                 }
 
                 clo.patch(safeTs);

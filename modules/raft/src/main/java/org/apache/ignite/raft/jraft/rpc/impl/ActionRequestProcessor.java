@@ -35,6 +35,7 @@ import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownException;
+import org.apache.ignite.internal.raft.service.WriteCommandClosure;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
@@ -175,7 +176,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
      */
     private void applyWrite(Node node, WriteActionRequest request, WriteCommand command, RpcContext rpcCtx) {
         ByteBuffer wrapper = ByteBuffer.wrap(request.command());
-        node.apply(new Task(wrapper, new WriteCommandClosure() {
+        node.apply(new Task(wrapper, new RaftWriteCommandClosure() {
             @Override
             public void result(Serializable res) {
                 sendResponse(res, rpcCtx);
@@ -334,6 +335,6 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
         ctx.sendResponse(response);
     }
 
-    private interface WriteCommandClosure extends Closure, CommandClosure<WriteCommand> {
+    private interface RaftWriteCommandClosure extends Closure, WriteCommandClosure {
     }
 }

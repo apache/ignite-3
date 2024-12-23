@@ -43,6 +43,7 @@ import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -202,7 +203,7 @@ public class PartitionListener implements RaftGroupListener {
                             + ", mvAppliedIndex=" + storage.lastAppliedIndex()
                             + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
 
-            Serializable result = null;
+            IgniteBiTuple<Serializable, Boolean> result = null;
 
             // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
             // storages!
@@ -216,32 +217,30 @@ public class PartitionListener implements RaftGroupListener {
             storage.acquirePartitionSnapshotsReadLock();
 
             try {
-                boolean[] applied = {false};
-
                 if (command instanceof UpdateCommand) {
-                    result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm, applied);
+                    result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof UpdateAllCommand) {
-                    result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm, applied);
+                    result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof FinishTxCommand) {
-                    result = handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm, applied);
+                    result = handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof WriteIntentSwitchCommand) {
-                    handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm, applied);
+                    result = handleWriteIntentSwitchCommand((WriteIntentSwitchCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof SafeTimeSyncCommand) {
-                    handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm, applied);
+                    result = handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof BuildIndexCommand) {
-                    handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm, applied);
+                    result = handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof PrimaryReplicaChangeCommand) {
-                    handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm, applied);
+                    result = handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof VacuumTxStatesCommand) {
-                    handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm, applied);
+                    result = handleVacuumTxStatesCommand((VacuumTxStatesCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof UpdateMinimumActiveTxBeginTimeCommand) {
-                    handleUpdateMinimalActiveTxTimeCommand((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex, commandTerm,
-                            applied);
+                    result = handleUpdateMinimalActiveTxTimeCommand((UpdateMinimumActiveTxBeginTimeCommand) command, commandIndex,
+                            commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
 
-                if (applied[0]) {
+                if (Boolean.TRUE.equals(result.get2())) {
                     // Adjust safe time before completing update to reduce waiting.
                     if (command instanceof SafeTimePropagatingCommand) {
                         SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
@@ -280,12 +279,12 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      *
-     * @return The result or {@code null}
+     * @return The result.
      */
-    private @Nullable UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+    private IgniteBiTuple<Serializable, Boolean> handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return null; // Update result is not needed.
+            return new IgniteBiTuple<>(null, false); // Update result is not needed.
         }
 
         if (cmd.leaseStartTime() != null) {
@@ -294,16 +293,14 @@ public class PartitionListener implements RaftGroupListener {
             long storageLeaseStartTime = storage.leaseStartTime();
 
             if (leaseStartTime != storageLeaseStartTime) {
-                return new UpdateCommandResult(
+                return new IgniteBiTuple<>(new UpdateCommandResult(
                         false,
                         storageLeaseStartTime,
                         isPrimaryInGroupTopology(),
                         cmd.safeTime().longValue()
-                );
+                ), false);
             }
         }
-
-        applied[0] = true;
 
         UUID txId = cmd.txId();
 
@@ -332,7 +329,7 @@ public class PartitionListener implements RaftGroupListener {
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
 
-        return new UpdateCommandResult(true, isPrimaryInGroupTopology(), cmd.safeTime().longValue());
+        return new IgniteBiTuple<>(new UpdateCommandResult(true, isPrimaryInGroupTopology(), cmd.safeTime().longValue()), true);
     }
 
     /**
@@ -342,10 +339,10 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private UpdateCommandResult handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+    private IgniteBiTuple<Serializable, Boolean> handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return null;
+            return new IgniteBiTuple<>(null, false);
         }
 
         if (cmd.leaseStartTime() != null) {
@@ -354,16 +351,14 @@ public class PartitionListener implements RaftGroupListener {
             long storageLeaseStartTime = storage.leaseStartTime();
 
             if (leaseStartTime != storageLeaseStartTime) {
-                return new UpdateCommandResult(
+                return new IgniteBiTuple<>(new UpdateCommandResult(
                         false,
                         storageLeaseStartTime,
                         isPrimaryInGroupTopology(),
                         cmd.safeTime().longValue()
-                );
+                ), false);
             }
         }
-
-        applied[0] = true;
 
         UUID txId = cmd.txId();
 
@@ -387,7 +382,7 @@ public class PartitionListener implements RaftGroupListener {
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
 
-        return new UpdateCommandResult(true, isPrimaryInGroupTopology(), cmd.safeTime().longValue());
+        return new IgniteBiTuple<>(new UpdateCommandResult(true, isPrimaryInGroupTopology(), cmd.safeTime().longValue()), true);
     }
 
     /**
@@ -399,14 +394,12 @@ public class PartitionListener implements RaftGroupListener {
      * @return The actually stored transaction state {@link TransactionResult}.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
-    private @Nullable TransactionResult handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm, boolean[] applied)
+    private IgniteBiTuple<Serializable, Boolean> handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
             throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStateStorage.lastAppliedIndex()) {
-            return null;
+            return new IgniteBiTuple<>(null, false);
         }
-
-        applied[0] = true;
 
         UUID txId = cmd.txId();
 
@@ -439,7 +432,7 @@ public class PartitionListener implements RaftGroupListener {
             onTxStateStorageCasFail(txId, txMetaBeforeCas, txMetaToSet);
         }
 
-        return new TransactionResult(stateToSet, cmd.commitTimestamp());
+        return new IgniteBiTuple<>(new TransactionResult(stateToSet, cmd.commitTimestamp()), true);
     }
 
     private static List<TablePartitionId> fromPartitionIdMessage(List<TablePartitionIdMessage> partitionIds) {
@@ -459,13 +452,15 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private void handleWriteIntentSwitchCommand(WriteIntentSwitchCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+    private IgniteBiTuple<Serializable, Boolean> handleWriteIntentSwitchCommand(
+            WriteIntentSwitchCommand cmd,
+            long commandIndex,
+            long commandTerm
+    ) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
+            return new IgniteBiTuple<>(null, false);
         }
-
-        applied[0] = true;
 
         UUID txId = cmd.txId();
 
@@ -478,6 +473,8 @@ public class PartitionListener implements RaftGroupListener {
                 () -> storage.lastApplied(commandIndex, commandTerm),
                 indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
         );
+
+        return new IgniteBiTuple<>(null, true);
     }
 
     /**
@@ -487,17 +484,17 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex RAFT index of the command.
      * @param commandTerm RAFT term of the command.
      */
-    private void handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+    private IgniteBiTuple<Serializable, Boolean>  handleSafeTimeSyncCommand(SafeTimeSyncCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
+            return new IgniteBiTuple<>(null, false);
         }
-
-        applied[0] = true;
 
         // We MUST bump information about last updated index+term.
         // See a comment in #onWrite() for explanation.
         advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+
+        return new IgniteBiTuple<>(null, true);
     }
 
     private void advanceLastAppliedIndexConsistently(long commandIndex, long commandTerm) {
@@ -610,19 +607,17 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex RAFT index of the command.
      * @param commandTerm RAFT term of the command.
      */
-    void handleBuildIndexCommand(BuildIndexCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+    IgniteBiTuple<Serializable, Boolean> handleBuildIndexCommand(BuildIndexCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
+            return new IgniteBiTuple<>(null, false);
         }
-
-        applied[0] = true;
 
         IndexMeta indexMeta = indexMetaStorage.indexMeta(cmd.indexId());
 
         if (indexMeta == null || indexMeta.isDropped()) {
             // Index has been dropped.
-            return;
+            return new IgniteBiTuple<>(null, true);
         }
 
         BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(indexMeta);
@@ -657,6 +652,8 @@ public class PartitionListener implements RaftGroupListener {
                     storage.tableId(), storage.partitionId(), cmd.indexId()
             );
         }
+
+        return new IgniteBiTuple<>(null, true);
     }
 
     /**
@@ -666,14 +663,15 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Command index.
      * @param commandTerm Command term.
      */
-    private void handlePrimaryReplicaChangeCommand(PrimaryReplicaChangeCommand cmd, long commandIndex, long commandTerm,
-            boolean[] applied) {
+    private IgniteBiTuple<Serializable, Boolean> handlePrimaryReplicaChangeCommand(
+            PrimaryReplicaChangeCommand cmd,
+            long commandIndex,
+            long commandTerm
+    ) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
+            return new IgniteBiTuple<>(null, false);
         }
-
-        applied[0] = true;
 
         storage.runConsistently(locker -> {
             storage.updateLease(cmd.leaseStartTime(), cmd.primaryReplicaNodeId(), cmd.primaryReplicaNodeName());
@@ -682,6 +680,8 @@ public class PartitionListener implements RaftGroupListener {
 
             return null;
         });
+
+        return new IgniteBiTuple<>(null, true);
     }
 
     /**
@@ -691,25 +691,30 @@ public class PartitionListener implements RaftGroupListener {
      * @param commandIndex Command index.
      * @param commandTerm Command term.
      */
-    private void handleVacuumTxStatesCommand(VacuumTxStatesCommand cmd, long commandIndex, long commandTerm, boolean[] applied) {
+    private IgniteBiTuple<Serializable, Boolean>  handleVacuumTxStatesCommand(
+            VacuumTxStatesCommand cmd,
+            long commandIndex,
+            long commandTerm
+    ) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
+            return new IgniteBiTuple<>(null, false);
         }
-
-        applied[0] = true;
 
         txStateStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
+
+        return new IgniteBiTuple<>(null, true);
     }
 
-    private void handleUpdateMinimalActiveTxTimeCommand(UpdateMinimumActiveTxBeginTimeCommand cmd, long commandIndex, long commandTerm,
-            boolean[] applied) {
+    private IgniteBiTuple<Serializable, Boolean> handleUpdateMinimalActiveTxTimeCommand(
+            UpdateMinimumActiveTxBeginTimeCommand cmd,
+            long commandIndex,
+            long commandTerm
+    ) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
+            return new IgniteBiTuple<>(null, false);
         }
-
-        applied[0] = true;
 
         long timestamp = cmd.timestamp();
 
@@ -719,6 +724,8 @@ public class PartitionListener implements RaftGroupListener {
                 minTimeCollectorService.recordMinActiveTxTimestamp(partitionId, timestamp);
             }
         });
+
+        return new IgniteBiTuple<>(null, true);
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {

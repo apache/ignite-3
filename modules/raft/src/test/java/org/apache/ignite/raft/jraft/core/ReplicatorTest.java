@@ -635,6 +635,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .groupId(this.opts.getGroupId())
             .serverId(this.opts.getServerId().toString())
             .peerId(this.opts.getPeerId().toString())
+            .timestamp(this.node.clock().now())
             .build();
     }
 

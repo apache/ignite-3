@@ -24,6 +24,13 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
  */
 public interface WriteCommand extends Command {
     /**
+     * Holds request's initiator timestamp.
+     *
+     * @return The timestamp.
+     */
+    HybridTimestamp initiatorTime();
+
+    /**
      * This is called before a command is submitted to replication pipeline.
      *
      * @param safeTs Safe timestamp.

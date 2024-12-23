@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft;
+package org.apache.ignite.internal.raft.service;
 
-import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
- * A marker interface for replication group command.
+ * The marker interface for a write command closure.
  */
-public interface Command extends NetworkMessage {
+public interface WriteCommandClosure extends CommandClosure<WriteCommand> {
 }
