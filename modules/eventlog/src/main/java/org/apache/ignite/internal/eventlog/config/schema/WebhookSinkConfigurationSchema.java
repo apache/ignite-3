@@ -15,51 +15,56 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.exporters.configuration;
-
-import static io.opentelemetry.exporter.otlp.internal.OtlpConfigUtil.PROTOCOL_GRPC;
-import static io.opentelemetry.exporter.otlp.internal.OtlpConfigUtil.PROTOCOL_HTTP_PROTOBUF;
+package org.apache.ignite.internal.eventlog.config.schema;
 
 import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.configuration.validation.Endpoint;
-import org.apache.ignite.internal.metrics.exporters.otlp.OtlpPushMetricExporter;
+import org.apache.ignite.configuration.validation.OneOf;
+import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.SslConfigurationValidator;
 
-/**
- * Configuration for OTLP push exporter.
- */
-@PolymorphicConfigInstance(OtlpPushMetricExporter.EXPORTER_NAME)
-public class OtlpExporterConfigurationSchema extends ExporterConfigurationSchema {
-    /** Export period, in milliseconds. */
-    @Value(hasDefault = true)
-    public long period = 30_000;
+/** Configuration schema for webhook sink. */
+@PolymorphicConfigInstance(WebhookSinkConfigurationSchema.POLYMORPHIC_ID)
+public class WebhookSinkConfigurationSchema extends SinkConfigurationSchema {
+    public static final String POLYMORPHIC_ID = "webhook";
 
     /** String in "host:port" format. */
-    @Value
     @Endpoint
+    @Value
     public String endpoint;
 
-    /** OTLP protocol. */
-    @OneOf({PROTOCOL_GRPC, PROTOCOL_HTTP_PROTOBUF})
+    /** The protocol name of this endpoint. */
+    @OneOf("http/json")
     @Value(hasDefault = true)
-    public String protocol = PROTOCOL_GRPC;
+    public String protocol = "http/json";
 
-    /** Connection headers configuration schema. */
-    @NamedConfigValue
-    public HeadersConfigurationSchema headers;
+    /**
+     * When size of a batch is greater than {@link #batchSize} or it's lifetime is greater than the given value batch will be sent
+     * to a webhook.
+     */
+    @Value(hasDefault = true)
+    @Range(min = 1)
+    public long batchSendFrequency = 10_000;
+
+    /** Maximum batch size for packet with events, in milliseconds. */
+    @Value(hasDefault = true)
+    @Range(min = 1)
+    public int batchSize = 1_000;
+
+    /** Maximum queue size of the event queue. */
+    @Value(hasDefault = true)
+    @Range(min = 1)
+    public int queueSize = 10_000;
 
     /** SSL configuration schema. */
     @ConfigValue
     @SslConfigurationValidator
     public SslConfigurationSchema ssl;
 
-    /** Method used to compress payloads. */
-    @OneOf({"none", "gzip"})
-    @Value(hasDefault = true)
-    public String compression = "gzip";
+    /** Retry policy configuration schema. */
+    @ConfigValue
+    public WebhookSinkRetryPolicyConfigurationSchema retryPolicy;
 }

@@ -17,19 +17,28 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
 import org.apache.ignite.internal.eventlog.config.schema.SinkView;
+import org.apache.ignite.internal.eventlog.config.schema.WebhookSinkView;
 import org.apache.ignite.internal.eventlog.ser.EventSerializer;
 
 /**
  * Factory for creating sink instances.
  */
-class LogSinkFactory implements SinkFactory {
+class SinkFactoryFactoryImpl implements SinkFactory {
     private final EventSerializer eventSerializer;
 
-    LogSinkFactory(EventSerializer eventSerializer) {
+    private final  Supplier<UUID> clusterIdSupplier;
+
+    private final String nodeName;
+
+    SinkFactoryFactoryImpl(EventSerializer eventSerializer, Supplier<UUID> clusterIdSupplier, String nodeName) {
         this.eventSerializer = eventSerializer;
+        this.clusterIdSupplier = clusterIdSupplier;
+        this.nodeName = nodeName;
     }
 
     /**
@@ -42,6 +51,10 @@ class LogSinkFactory implements SinkFactory {
     public Sink createSink(SinkView sinkView) {
         if (sinkView instanceof LogSinkView) {
             return new LogSink((LogSinkView) sinkView, eventSerializer);
+        }
+
+        if (sinkView instanceof WebhookSinkView) {
+            return new WebhookSink((WebhookSinkView) sinkView, eventSerializer, clusterIdSupplier, nodeName);
         }
 
         return SinkFactory.super.createSink(sinkView);

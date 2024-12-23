@@ -17,21 +17,24 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.Sink;
+import org.apache.ignite.internal.eventlog.config.schema.SinkView;
 
-class InMemoryCollectionSink implements Sink {
-    private final CopyOnWriteArrayList<Event> events = new CopyOnWriteArrayList<>();
+class TestSinkFactory implements SinkFactory {
+    private final SinkFactory delegate;
+    private final InMemoryCollectionSink inMemoryCollectionSink;
 
-    @Override
-    public void write(Event event) {
-        events.add(event);
+    TestSinkFactory(SinkFactory delegate, InMemoryCollectionSink inMemoryCollectionSink) {
+        this.delegate = delegate;
+        this.inMemoryCollectionSink = inMemoryCollectionSink;
     }
 
-    List<Event> events() {
-        return new ArrayList<>(events);
+    @Override
+    public Sink createSink(SinkView sinkView) {
+        if (sinkView instanceof InMemoryCollectionSinkView) {
+            return inMemoryCollectionSink;
+        }
+
+        return delegate.createSink(sinkView);
     }
 }
