@@ -40,9 +40,7 @@ public class IgniteClientProperties {
     private Boolean metricsEnabled;
     private IgniteClientAuthenticator authenticator;
     private Long operationTimeout;
-    private Long reconnectThrottlingPeriod;
-    private Integer reconnectThrottlingRetries;
-    private Long reconnectInterval;
+    private Long backgroundReconnectInterval;
     private Executor asyncContinuationExecutor;
     private Long heartbeatInterval;
     private Long heartbeatTimeout;
@@ -174,45 +172,17 @@ public class IgniteClientProperties {
     }
 
     /**
-     * Gets reconnect throttling period.
-     */
-    public Long getReconnectThrottlingPeriod() {
-        return reconnectThrottlingPeriod;
-    }
-
-    /**
-     * Sets reconnect throttling period.
-     */
-    public void setReconnectThrottlingPeriod(Long reconnectThrottlingPeriod) {
-        this.reconnectThrottlingPeriod = reconnectThrottlingPeriod;
-    }
-
-    /**
-     * Gets reconnect throttling retries.
-     */
-    public Integer getReconnectThrottlingRetries() {
-        return reconnectThrottlingRetries;
-    }
-
-    /**
-     * Sets reconnect throttling retries.
-     */
-    public void setReconnectThrottlingRetries(Integer reconnectThrottlingRetries) {
-        this.reconnectThrottlingRetries = reconnectThrottlingRetries;
-    }
-
-    /**
      * Gets reconnect interval.
      */
-    public Long getReconnectInterval() {
-        return reconnectInterval;
+    public Long getBackgroundReconnectInterval() {
+        return backgroundReconnectInterval;
     }
 
     /**
      * Sets reconnect interval.
      */
-    public void setReconnectInterval(Long reconnectInterval) {
-        this.reconnectInterval = reconnectInterval;
+    public void setBackgroundReconnectInterval(Long backgroundReconnectInterval) {
+        this.backgroundReconnectInterval = backgroundReconnectInterval;
     }
 
     /**

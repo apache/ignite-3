@@ -17,13 +17,11 @@
 
 package org.apache.ignite;
 
+import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_BACKGROUND_RECONNECT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_CONNECT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_INTERVAL;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_HEARTBEAT_TIMEOUT;
 import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT;
-import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_INTERVAL;
-import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_PERIOD;
-import static org.apache.ignite.client.IgniteClientConfiguration.DFLT_RECONNECT_THROTTLING_RETRIES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -31,6 +29,7 @@ import java.nio.file.Path;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.RetryReadPolicy;
 import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -56,7 +55,9 @@ public class IgniteClientAutoConfigurationTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        this.cluster = new Cluster(testInfo, workDir);
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir).build();
+
+        this.cluster = new Cluster(clusterConfiguration);
         this.cluster.startAndInit(1);
     }
 
@@ -74,12 +75,10 @@ public class IgniteClientAutoConfigurationTest extends BaseIgniteAbstractTest {
         contextRunner.run(context -> {
             IgniteClient client = context.getBean(IgniteClient.class);
 
-            assertEquals(DFLT_RECONNECT_THROTTLING_PERIOD, client.configuration().reconnectThrottlingPeriod());
             assertEquals(DFLT_CONNECT_TIMEOUT, client.configuration().connectTimeout());
             assertEquals(DFLT_HEARTBEAT_TIMEOUT, client.configuration().heartbeatTimeout());
             assertEquals(DFLT_HEARTBEAT_INTERVAL, client.configuration().heartbeatInterval());
-            assertEquals(DFLT_RECONNECT_THROTTLING_RETRIES, client.configuration().reconnectThrottlingRetries());
-            assertEquals(DFLT_RECONNECT_INTERVAL, client.configuration().reconnectInterval());
+            assertEquals(DFLT_BACKGROUND_RECONNECT_INTERVAL, client.configuration().backgroundReconnectInterval());
             assertEquals(DFLT_OPERATION_TIMEOUT, client.configuration().operationTimeout());
         });
     }
@@ -91,7 +90,7 @@ public class IgniteClientAutoConfigurationTest extends BaseIgniteAbstractTest {
         long operationTimeout = 2222;
         long reconnectThrottlingPeriod = 3333;
         int reconnectThrottlingRetries = 4444;
-        long reconnectInterval = 5555;
+        long backgroundReconnectInterval = 5555;
         long heartbeatInterval = 6666;
         long heartbeatTimeout = 7777;
 
@@ -104,7 +103,7 @@ public class IgniteClientAutoConfigurationTest extends BaseIgniteAbstractTest {
                         "ignite.client.operationTimeout=" + operationTimeout,
                         "ignite.client.reconnectThrottlingPeriod=" + reconnectThrottlingPeriod,
                         "ignite.client.reconnectThrottlingRetries=" + reconnectThrottlingRetries,
-                        "ignite.client.reconnectInterval=" + reconnectInterval,
+                        "ignite.client.backgroundReconnectInterval=" + backgroundReconnectInterval,
                         "ignite.client.heartbeatInterval=" + heartbeatInterval,
                         "ignite.client.heartbeatTimeout=" + heartbeatTimeout)
                 .withConfiguration(AutoConfigurations.of(IgniteClientAutoConfiguration.class));
@@ -116,9 +115,7 @@ public class IgniteClientAutoConfigurationTest extends BaseIgniteAbstractTest {
             assertEquals(connectTimeout, client.configuration().connectTimeout());
             assertEquals(heartbeatTimeout, client.configuration().heartbeatTimeout());
             assertEquals(heartbeatInterval, client.configuration().heartbeatInterval());
-            assertEquals(reconnectThrottlingPeriod, client.configuration().reconnectThrottlingPeriod());
-            assertEquals(reconnectThrottlingRetries, client.configuration().reconnectThrottlingRetries());
-            assertEquals(reconnectInterval, client.configuration().reconnectInterval());
+            assertEquals(backgroundReconnectInterval, client.configuration().backgroundReconnectInterval());
             assertEquals(operationTimeout, client.configuration().operationTimeout());
         });
     }
