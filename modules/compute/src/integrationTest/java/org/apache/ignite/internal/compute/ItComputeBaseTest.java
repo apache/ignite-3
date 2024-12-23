@@ -514,7 +514,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void submitMapReduce() {
-        IgniteCompute igniteCompute = compute();
         List<DeploymentUnit> units = units();
         @Nullable List<DeploymentUnit> arg = units();
         TaskExecution<Integer> taskExecution = compute().submitMapReduce(
