@@ -102,8 +102,7 @@ public final class ClientComputeJobUnpacker {
                 List<Tuple> res = new ArrayList<>();
 
                 for (int i = 0; i < count; i++) {
-                    // TODO: Use ByteBuffer to avoid copying.
-                    byte[] elementBytes = reader.bytesValue(i);
+                    ByteBuffer elementBytes = reader.bytesValueAsBuffer(i);
 
                     if (elementBytes == null) {
                         res.add(null);

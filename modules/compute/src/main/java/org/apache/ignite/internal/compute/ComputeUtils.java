@@ -478,15 +478,14 @@ public class ComputeUtils {
 
                 List<Tuple> res = new ArrayList<>();
                 for (int i = 0; i < count; i++) {
-                    // TODO: Use ByteBuffer to avoid copying.
-                    byte[] tupleBytes = reader.bytesValue(i);
+                    ByteBuffer elementBytes = reader.bytesValueAsBuffer(i);
 
-                    if (tupleBytes == null) {
+                    if (elementBytes == null) {
                         res.add(null);
                         continue;
                     }
 
-                    res.add(TupleWithSchemaMarshalling.unmarshal(tupleBytes));
+                    res.add(TupleWithSchemaMarshalling.unmarshal(elementBytes));
                 }
 
                 return (T) res;
