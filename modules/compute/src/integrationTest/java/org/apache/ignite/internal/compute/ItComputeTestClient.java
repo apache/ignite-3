@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.app.IgniteImpl;
