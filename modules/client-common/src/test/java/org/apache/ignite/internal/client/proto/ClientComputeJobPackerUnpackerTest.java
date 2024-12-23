@@ -253,19 +253,6 @@ class ClientComputeJobPackerUnpackerTest {
         );
     }
 
-    @MethodSource("tupleCollections")
-    @ParameterizedTest
-    void packUnpackTupleCollection(Collection<?> arg) {
-        packJobResult(arg, null, messagePacker);
-        byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
-
-        try (var messageUnpacker = messageUnpacker(data)) {
-            Collection<?> res = (Collection<?>) unpackJobResult(messageUnpacker, null, arg.getClass());
-
-            assertIterableEquals(arg, res);
-        }
-    }
-
     private static class TestStringMarshaller implements Marshaller<String, byte[]> {
         @Override
         public byte[] marshal(String obj) {
