@@ -107,12 +107,6 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         return parameterMetadata;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public boolean transactional() {
-        return true;
-    }
-
     /** Returns a table in question. */
     private IgniteTable table() {
         IgniteTable table = lookupNode.getTable().unwrap(IgniteTable.class);
@@ -148,65 +142,60 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         List<RexNode> projectionExpr = lookupNode.projects();
         List<RexNode> keyExpressions = lookupNode.keyExpressions();
 
-        CompletableFuture<Iterator<InternalSqlRow>> result;
+        RelDataType rowType = sqlTable.getRowType(Commons.typeFactory(), requiredColumns);
 
-        try {
-            RelDataType rowType = sqlTable.getRowType(Commons.typeFactory(), requiredColumns);
+        Supplier<RowT> keySupplier = ctx.expressionFactory()
+                .rowSource(keyExpressions);
+        Predicate<RowT> filter = filterExpr == null ? null : ctx.expressionFactory()
+                .predicate(filterExpr, rowType);
+        Function<RowT, RowT> projection = projectionExpr == null ? null : ctx.expressionFactory()
+                .project(projectionExpr, rowType);
 
-            Supplier<RowT> keySupplier = ctx.expressionFactory()
-                    .rowSource(keyExpressions);
-            Predicate<RowT> filter = filterExpr == null ? null : ctx.expressionFactory()
-                    .predicate(filterExpr, rowType);
-            Function<RowT, RowT> projection = projectionExpr == null ? null : ctx.expressionFactory()
-                    .project(projectionExpr, rowType);
+        RowHandler<RowT> rowHandler = ctx.rowHandler();
+        RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
+        RowFactory<RowT> rowFactory = rowHandler.factory(rowSchema);
 
-            RowHandler<RowT> rowHandler = ctx.rowHandler();
-            RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-            RowFactory<RowT> rowFactory = rowHandler.factory(rowSchema);
+        RelDataType resultType = lookupNode.getRowType();
+        BiFunction<Integer, Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
 
-            RelDataType resultType = lookupNode.getRowType();
-            BiFunction<Integer, Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
-
-            ScannableTable scannableTable = execTable.scannableTable();
-            Function<RowT, Iterator<InternalSqlRow>> postProcess = row -> {
-                if (row == null) {
-                    return Collections.emptyIterator();
-                }
-
-                if (filter != null && !filter.test(row)) {
-                    return Collections.emptyIterator();
-                }
-
-                if (projection != null) {
-                    row = projection.apply(row);
-                }
-
-                return List.<InternalSqlRow>of(
-                        new InternalSqlRowImpl<>(row, rowHandler, internalTypeConverter)
-                ).iterator();
-            };
-
-            CompletableFuture<RowT> lookupResult = scannableTable.primaryKeyLookup(
-                    ctx, tx, rowFactory, keySupplier.get(), requiredColumns.toBitSet()
-            );
-
-            if (projection == null && filter == null) {
-                // no arbitrary computations, should be safe to proceed execution on
-                // thread that completes the future
-                result = lookupResult.thenApply(postProcess);
-            } else {
-                Executor executor = task -> ctx.execute(task::run, error -> {
-                    // this executor is used to process future chain, so any unhandled exception
-                    // should be wrapped with CompletionException and returned as a result, implying
-                    // no error handler should be called.
-                    // But just in case there is error in future processing pipeline let's log error
-                    LOG.error("Unexpected error", error);
-                });
-
-                result = lookupResult.thenApplyAsync(postProcess, executor);
+        ScannableTable scannableTable = execTable.scannableTable();
+        Function<RowT, Iterator<InternalSqlRow>> postProcess = row -> {
+            if (row == null) {
+                return Collections.emptyIterator();
             }
-        } catch (Throwable t) {
-            result = CompletableFuture.failedFuture(t);
+
+            if (filter != null && !filter.test(row)) {
+                return Collections.emptyIterator();
+            }
+
+            if (projection != null) {
+                row = projection.apply(row);
+            }
+
+            return List.<InternalSqlRow>of(
+                    new InternalSqlRowImpl<>(row, rowHandler, internalTypeConverter)
+            ).iterator();
+        };
+
+        CompletableFuture<RowT> lookupResult = scannableTable.primaryKeyLookup(
+                ctx, tx, rowFactory, keySupplier.get(), requiredColumns.toBitSet()
+        );
+
+        CompletableFuture<Iterator<InternalSqlRow>> result;
+        if (projection == null && filter == null) {
+            // no arbitrary computations, should be safe to proceed execution on
+            // thread that completes the future
+            result = lookupResult.thenApply(postProcess);
+        } else {
+            Executor executor = task -> ctx.execute(task::run, error -> {
+                // this executor is used to process future chain, so any unhandled exception
+                // should be wrapped with CompletionException and returned as a result, implying
+                // no error handler should be called.
+                // But just in case there is error in future processing pipeline let's log error
+                LOG.error("Unexpected error", error);
+            });
+
+            result = lookupResult.thenApplyAsync(postProcess, executor);
         }
 
         if (firstPageReadyCallback != null) {

@@ -226,6 +226,8 @@ public class ScannableTableImpl implements ScannableTable {
             RowT key,
             BitSet requiredColumns
     ) {
+        assert tx != null;
+
         TableRowConverter converter = converterFactory.create(requiredColumns);
 
         BinaryRowEx keyRow = converter.toKeyRow(ctx, key);

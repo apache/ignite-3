@@ -29,10 +29,10 @@ public interface QueryTransactionContext {
      * and if there is no external (user-managed) transaction.
      *
      * @param readOnly Indicates whether the read-only transaction or read-write transaction should be started.
-     * @param tableDriven Indicates whether the implicit transaction will be managed by the table storage or the SQL engine.
+     * @param implicit Indicates whether the implicit transaction will be managed by the table storage or the SQL engine.
      * @return Transaction wrapper.
      */
-    QueryTransactionWrapper getOrStartImplicit(boolean readOnly, boolean tableDriven);
+    QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit);
 
     /** Updates tracker of latest time observed by client. */
     void updateObservableTime(HybridTimestamp time);

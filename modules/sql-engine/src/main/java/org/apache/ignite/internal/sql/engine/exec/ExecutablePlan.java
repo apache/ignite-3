@@ -39,13 +39,8 @@ public interface ExecutablePlan {
      */
     <RowT> AsyncCursor<InternalSqlRow> execute(
             ExecutionContext<RowT> ctx,
-            @Nullable InternalTransaction tx,
+            InternalTransaction tx,
             ExecutableTableRegistry tableRegistry,
             @Nullable QueryPrefetchCallback firstPageReadyCallback
     );
-
-    /**
-     * Returns {@code true} if the plan is to be executed within a transaction (explicit or implicit), {@code false} otherwise.
-     */
-    boolean transactional();
 }

@@ -1129,7 +1129,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryTransactionWrapper txWrapper = mock(QueryTransactionWrapper.class);
 
-        when(txContext.getOrStartImplicit(anyBoolean(), anyBoolean())).thenReturn(txWrapper);
+        when(txContext.getOrStartSqlManaged(anyBoolean(), anyBoolean())).thenReturn(txWrapper);
 
         when(txWrapper.unwrap()).thenReturn(tx);
         when(txWrapper.implicit()).thenReturn(tx.implicit());

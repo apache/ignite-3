@@ -203,6 +203,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
             ExecutionContext<RowT> ectx,
             RowT row
     ) {
+        assert tx != null;
+
         validateNotNullConstraint(ectx.rowHandler(), row);
 
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());

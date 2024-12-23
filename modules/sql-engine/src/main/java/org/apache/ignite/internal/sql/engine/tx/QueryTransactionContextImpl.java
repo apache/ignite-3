@@ -53,12 +53,12 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
 
     /** {@inheritDoc} */
     @Override
-    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly, boolean tableDriven) {
+    public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit) {
         InternalTransaction transaction;
         QueryTransactionWrapper result;
 
         if (tx == null) {
-            transaction = txManager.begin(observableTimeTracker, tableDriven, readOnly);
+            transaction = txManager.begin(observableTimeTracker, implicit, readOnly);
             result = new QueryTransactionWrapperImpl(transaction, true, txTracker);
         } else {
             transaction = tx.unwrap();

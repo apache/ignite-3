@@ -58,15 +58,15 @@ public class ScriptTransactionContext implements QueryTransactionContext {
      * Starts a new implicit transaction if there is no external or script-driven transaction.
      *
      * @param readOnly Indicates whether the read-only transaction or read-write transaction should be started.
-     * @param tableDriven Indicates whether the implicit transaction will be partially managed by the table storage.
+     * @param implicit Indicates whether the implicit transaction will be partially managed by the table storage.
      * @return Transaction wrapper.
      */
     @Override
-    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly, boolean tableDriven) {
+    public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit) {
         QueryTransactionWrapper wrapper = this.wrapper;
 
         if (wrapper == null) {
-            return txContext.getOrStartImplicit(readOnly, tableDriven);
+            return txContext.getOrStartSqlManaged(readOnly, implicit);
         }
 
         return wrapper;
@@ -108,7 +108,7 @@ public class ScriptTransactionContext implements QueryTransactionContext {
             }
 
             boolean readOnly = ((IgniteSqlStartTransaction) node).getMode() == IgniteSqlStartTransactionMode.READ_ONLY;
-            InternalTransaction tx = txContext.getOrStartImplicit(readOnly, false).unwrap();
+            InternalTransaction tx = txContext.getOrStartSqlManaged(readOnly, false).unwrap();
 
             this.wrapper = new ScriptTransactionWrapperImpl(tx, txTracker);
 
