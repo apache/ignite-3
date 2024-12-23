@@ -63,7 +63,8 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "  },\n"
             + "  clientConnector.port: {},\n"
             + "  rest.port: {},\n"
-            + "  compute.threadPoolSize: 1\n"
+            + "  compute.threadPoolSize: 1,\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
@@ -84,7 +85,8 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} }, \n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     /** Template for node bootstrap config with Scalecube settings for a disabled failure detection. */
@@ -99,7 +101,8 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     protected Cluster cluster;

@@ -333,6 +333,55 @@ public final class ExceptionUtils {
     }
 
     /**
+     * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
+     * <b>including</b> that throwable itself.
+     * Note that this method follows includes {@link Throwable#getSuppressed()}
+     * into check.
+     *
+     * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
+     * @param message Message text that should be in cause.
+     * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
+     * @return {@code true} if one of the causing exception is an instance of passed in classes,
+     *      {@code false} otherwise.
+     */
+    public static boolean hasCauseOrSuppressed(
+            @Nullable Throwable throwable,
+            @Nullable String message,
+            Class<?> @Nullable... clazz) {
+        if (throwable == null || clazz == null || clazz.length == 0) {
+            return false;
+        }
+
+        for (Throwable th = throwable; th != null; th = th.getCause()) {
+            for (Class<?> c : clazz) {
+                if (c.isAssignableFrom(th.getClass())) {
+                    if (message != null) {
+                        if (th.getMessage() != null && th.getMessage().contains(message)) {
+                            return true;
+                        } else {
+                            continue;
+                        }
+                    }
+
+                    return true;
+                }
+            }
+
+            for (Throwable n : th.getSuppressed()) {
+                if (hasCauseOrSuppressed(n, message, clazz)) {
+                    return true;
+                }
+            }
+
+            if (th.getCause() == th) {
+                break;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Unwraps exception cause from wrappers like CompletionException and ExecutionException.
      *
      * @param e Throwable.

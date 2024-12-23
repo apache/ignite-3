@@ -89,7 +89,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
             + "  clientConnector.port: {},\n"
             + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
             + "  rest.port: {},\n"
-            + "  compute.threadPoolSize: 1\n"
+            + "  compute.threadPoolSize: 1,\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     /** Cluster nodes. */
