@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.cluster.management;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.cluster.management.LogicalTopologyJoinAwaiter.awaitLogicalTopologyToMatchPhysicalTopology;
 
 import java.util.Collection;
 import java.util.List;
@@ -44,8 +43,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.TopologyEventHandler;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -167,7 +164,7 @@ public class ClusterInitializer {
                                     initMessage.metaStorageNodes()
                             );
 
-                            return awaitCorrectClusterTopology();
+                            return awaitLogicalTopologyToMatchPhysicalTopology(clusterService.topologyService(), logicalTopology);
                         } else {
                             if (e instanceof CompletionException) {
                                 e = e.getCause();
@@ -188,10 +185,6 @@ public class ClusterInitializer {
         } catch (Exception e) {
             return failedFuture(e);
         }
-    }
-
-    private CompletableFuture<Void> awaitCorrectClusterTopology() {
-        return new ClusterNodesJoinAwaiter(clusterService, logicalTopology);
     }
 
     private CompletableFuture<Void> cancelInit(Collection<ClusterNode> nodes, Throwable e) {
