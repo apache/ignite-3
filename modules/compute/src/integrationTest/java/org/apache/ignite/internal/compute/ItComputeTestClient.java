@@ -35,7 +35,7 @@ public class ItComputeTestClient extends ItComputeTestEmbedded {
 
     @BeforeEach
     void startClient() {
-        int port = Wrappers.unwrap(node(0), IgniteImpl.class).clientAddress().port();
+        int port = unwrapIgniteImpl(node(0)).clientAddress().port();
 
         client = IgniteClient.builder()
                 .addresses("localhost:" + port)
