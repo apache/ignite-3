@@ -88,11 +88,9 @@ public class IgniteClientAutoConfigurationTest extends BaseIgniteAbstractTest {
         boolean metricsEnabled = true;
         long connectTimeout = 1111;
         long operationTimeout = 2222;
-        long reconnectThrottlingPeriod = 3333;
-        int reconnectThrottlingRetries = 4444;
-        long backgroundReconnectInterval = 5555;
-        long heartbeatInterval = 6666;
-        long heartbeatTimeout = 7777;
+        long backgroundReconnectInterval = 3333;
+        long heartbeatInterval = 4444;
+        long heartbeatTimeout = 5555;
 
 
         ApplicationContextRunner contextRunner = new ApplicationContextRunner()
@@ -101,8 +99,6 @@ public class IgniteClientAutoConfigurationTest extends BaseIgniteAbstractTest {
                         "ignite.client.metricsEnabled=" + metricsEnabled,
                         "ignite.client.connectTimeout=" + connectTimeout,
                         "ignite.client.operationTimeout=" + operationTimeout,
-                        "ignite.client.reconnectThrottlingPeriod=" + reconnectThrottlingPeriod,
-                        "ignite.client.reconnectThrottlingRetries=" + reconnectThrottlingRetries,
                         "ignite.client.backgroundReconnectInterval=" + backgroundReconnectInterval,
                         "ignite.client.heartbeatInterval=" + heartbeatInterval,
                         "ignite.client.heartbeatTimeout=" + heartbeatTimeout)
