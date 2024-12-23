@@ -87,7 +87,8 @@ public class ItSslTest {
                 + "  rest: {\n"
                 + "    port: {},\n"
                 + "    ssl.port: {}\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
 
         @Override
@@ -188,7 +189,8 @@ public class ItSslTest {
                 + "  rest: {\n"
                 + "    port: {},\n"
                 + "    ssl.port: {}\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
 
         @Override
@@ -424,7 +426,8 @@ public class ItSslTest {
                 + "  rest: {\n"
                 + "    port: {}, \n"
                 + "    ssl.port: {} \n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
 
         @Override

@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -91,6 +92,14 @@ public class OrphanDetector {
      */
     private long checkTxStateInterval;
 
+    private final ConfigurationListener<Long> checkTxStateIntervalListener = ctx -> {
+        this.checkTxStateInterval = ctx.newValue();
+
+        return nullCompletedFuture();
+    };
+
+    private volatile @Nullable ConfigurationValue<Long> checkTxStateIntervalProvider;
+
     /** Local transaction state storage. */
     private VolatileTxStateMetaStorage txLocalStateStorage;
 
@@ -125,13 +134,10 @@ public class OrphanDetector {
      */
     public void start(VolatileTxStateMetaStorage txLocalStateStorage, ConfigurationValue<Long> checkTxStateIntervalProvider) {
         this.txLocalStateStorage = txLocalStateStorage;
+        this.checkTxStateIntervalProvider = checkTxStateIntervalProvider;
         this.checkTxStateInterval = checkTxStateIntervalProvider.value();
 
-        checkTxStateIntervalProvider.listen(ctx -> {
-            this.checkTxStateInterval = ctx.newValue();
-
-            return nullCompletedFuture();
-        });
+        checkTxStateIntervalProvider.listen(checkTxStateIntervalListener);
 
         lockManager.listen(LockEvent.LOCK_CONFLICT, lockConflictListener);
     }
@@ -143,6 +149,11 @@ public class OrphanDetector {
         busyLock.block();
 
         lockManager.removeListener(LockEvent.LOCK_CONFLICT, lockConflictListener);
+
+        ConfigurationValue<Long> localCheckTxStateIntervalProvider = checkTxStateIntervalProvider;
+        if (localCheckTxStateIntervalProvider != null) {
+            localCheckTxStateIntervalProvider.stopListen(checkTxStateIntervalListener);
+        }
     }
 
     /**

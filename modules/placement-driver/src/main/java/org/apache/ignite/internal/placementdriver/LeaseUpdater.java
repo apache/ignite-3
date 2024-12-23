@@ -50,6 +50,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.IgniteTuple3;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -74,6 +75,7 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNode;
@@ -570,7 +572,9 @@ public class LeaseUpdater {
                     noop()
             ).whenComplete((success, e) -> {
                 if (e != null) {
-                    LOG.error("Lease update invocation failed", e);
+                    if (!(ExceptionUtils.unwrapCause(e) instanceof NodeStoppingException)) {
+                        LOG.error("Lease update invocation failed", e);
+                    }
 
                     return;
                 }
