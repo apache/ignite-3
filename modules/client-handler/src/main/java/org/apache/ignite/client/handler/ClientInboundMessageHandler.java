@@ -1025,7 +1025,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @return A long representation of the observation timestamp.
      */
     private long observableTimestamp(@Nullable ClientMessagePacker out) {
-        // Certain operations can override the timestamp and provide it in the meta object.
         if (out == null) {
             return clockService.currentLong();
         }
