@@ -20,7 +20,6 @@ package org.apache.ignite.internal.compute;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
