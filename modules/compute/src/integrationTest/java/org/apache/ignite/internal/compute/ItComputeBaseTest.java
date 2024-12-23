@@ -38,9 +38,12 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,6 +53,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
@@ -659,17 +663,33 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(result, is(1));
     }
 
-    @Test
-    void tupleCollectionSerialization() {
-        ClusterNode executeNode = clusterNode(node(1));
+    @MethodSource("tupleCollections")
+    @ParameterizedTest
+    void tupleCollectionSerialization(Collection<Tuple> arg) {
+        List<Tuple> expected = new ArrayList<>(arg);
+        expected.add(Tuple.create().set("job-result", "done"));
 
-        Collection<Tuple> result = compute().execute(
-                JobTarget.node(executeNode),
-                JobDescriptor.builder(TupleCollectionJob.class).units(units()).build(),
-                List.of(Tuple.create().set("COUNT", 1))
-        );
+        for (int nodeIdx = 0; nodeIdx < initialNodes(); nodeIdx++) {
+            ClusterNode executeNode = clusterNode(node(nodeIdx));
 
-        assertThat(result, contains(Tuple.create().set("COUNT", 1), Tuple.create().set("job-result", "done")));
+            Collection<Tuple> result = compute().execute(
+                    JobTarget.node(executeNode),
+                    JobDescriptor.builder(TupleCollectionJob.class).units(units()).build(),
+                    arg
+            );
+
+            assertIterableEquals(expected, result);
+        }
+    }
+
+    private static Stream<Arguments> tupleCollections() {
+        return Stream.of(
+                List.of(),
+                Collections.singletonList(Tuple.create()),
+                Collections.singletonList(null),
+                List.of(Tuple.create(), Tuple.create().set("key", 1), Tuple.create().set("key", "value1")),
+                Set.of(Tuple.create().set("key", 2), Tuple.create().set("key", "value2"))
+        ).map(Arguments::of);
     }
 
     static String concatJobClassName() {
