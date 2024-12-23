@@ -83,7 +83,9 @@ public class SystemDistributedConfigurationPropertyHolderTest extends BaseIgnite
     }
 
     @Test
-    void testUpdateConfigListenerWithConverter(@InjectConfiguration SystemDistributedConfiguration systemConfig) throws InterruptedException {
+    void testUpdateConfigListenerWithConverter(
+            @InjectConfiguration SystemDistributedConfiguration systemConfig
+    ) throws InterruptedException {
         AtomicReference<Integer> currentValue = new AtomicReference<>();
         AtomicReference<Long> revisionValue = new AtomicReference<>();
 
