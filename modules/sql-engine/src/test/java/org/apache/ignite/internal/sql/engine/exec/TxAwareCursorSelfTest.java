@@ -32,7 +32,6 @@ import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.AsyncWrapper;
@@ -120,6 +119,6 @@ public class TxAwareCursorSelfTest extends BaseIgniteAbstractTest {
     }
 
     private static QueryTransactionWrapper newTxWrapper(boolean implicit) {
-        return new QueryTransactionWrapperImpl(NoOpTransaction.readOnly("TX"), implicit, Mockito.mock(TransactionInflights.class));
+        return new QueryTransactionWrapperImpl(NoOpTransaction.readOnly("TX", false), implicit, Mockito.mock(TransactionTracker.class));
     }
 }

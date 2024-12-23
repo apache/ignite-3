@@ -40,6 +40,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -134,11 +135,11 @@ public class IndexBuildingManager implements IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
-            CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
+            CompletableFuture<Revisions> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
 
             assert recoveryFinishedFuture.isDone();
 
-            long recoveryRevision = recoveryFinishedFuture.join();
+            long recoveryRevision = recoveryFinishedFuture.join().revision();
 
             indexAvailabilityController.start(recoveryRevision);
 

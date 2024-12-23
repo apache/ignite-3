@@ -271,10 +271,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 storage.releasePartitionSnapshotsReadLock();
             }
 
-            // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
-            // trigger other actions taking same locks.
-            clo.result(result);
-
+            // Adjust safe time before completing update to reduce waiting.
             if (command instanceof SafeTimePropagatingCommand) {
                 SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
 
@@ -282,6 +279,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, safeTimePropagatingCommand.safeTime());
             }
+
+            // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
+            // trigger other actions taking same locks.
+            clo.result(result);
 
             updateTrackerIgnoringTrackerClosedException(storageIndexTracker, commandIndex);
         });
@@ -587,7 +588,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
             if (maxObservableSafeTime == -1) {
                 maxObservableSafeTime = clockService.now().addPhysicalTime(clockService.maxClockSkewMillis()).longValue();
-                LOG.info("maxObservableSafeTime is initialized with [" + maxObservableSafeTime + "].");
+                LOG.info("maxObservableSafeTime has been initialized with [{}].", HybridTimestamp.hybridTimestamp(maxObservableSafeTime));
             }
 
             // Because of clock.tick it's guaranteed that two different commands will have different safe timestamps.
@@ -606,7 +607,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     @Override
     public void onLeaderStop() {
         maxObservableSafeTime = -1;
-        LOG.info("maxObservableSafeTime is set to [" + maxObservableSafeTime + "] on leader stop.");
+        LOG.info("maxObservableSafeTime has been reset on leader stop.");
     }
 
     /**

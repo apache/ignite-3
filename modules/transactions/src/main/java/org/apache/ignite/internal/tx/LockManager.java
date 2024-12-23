@@ -29,6 +29,13 @@ import org.jetbrains.annotations.TestOnly;
 /** Lock manager allows to acquire locks and release locks and supports deadlock prevention by transaction id ordering. */
 public interface LockManager extends EventProducer<LockEvent, LockEventParameters> {
     /**
+     * Start the lock manager.
+     *
+     * @param deadlockPreventionPolicy Deadlock prevention policy.
+     */
+    void start(DeadlockPreventionPolicy deadlockPreventionPolicy);
+
+    /**
      * Attempts to acquire a lock for the specified {@code lockKey} in specified {@code lockMode}.
      *
      * @param txId Transaction id.
@@ -54,6 +61,13 @@ public interface LockManager extends EventProducer<LockEvent, LockEventParameter
      * @param lockMode Lock mode, for example shared, exclusive, intention-shared etc.
      */
     void release(UUID txId, LockKey lockKey, LockMode lockMode);
+
+    /**
+     * Retrieves all locks.
+     *
+     * @return An iterator over a collection of locks.
+     */
+    Iterator<Lock> locks();
 
     /**
      * Retrieves all locks for the specified transaction id.

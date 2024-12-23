@@ -38,13 +38,22 @@ import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.util.CursorUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
  * Base class for SQL multi-statement queries integration tests.
  */
 public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
+    private final List<AsyncSqlCursor<?>> cursorsToClose = new ArrayList<>();
+
+    @BeforeEach
+    void cleanupResources() {
+        cursorsToClose.forEach(cursor -> await(cursor.closeAsync()));
+    }
+
     @AfterEach
     protected void checkNoPendingTransactionsAndOpenedCursors() {
         assertEquals(0, txManager().pending());
@@ -68,37 +77,45 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
     /** Fully executes multi-statements query without reading cursor data. */
     void executeScript(String query, @Nullable InternalTransaction tx, Object ... params) {
-        iterateThroughResultsAndCloseThem(runScript(query, tx, params));
+        iterateThroughResultsAndCloseThem(runScript(tx, null, query, params));
     }
 
     /** Initiates multi-statements query execution. */
-    AsyncSqlCursor<InternalSqlRow> runScript(String query) {
-        return runScript(query, null);
+    AsyncSqlCursor<InternalSqlRow> runScript(String query, Object... params) {
+        return runScript(null, null, query, params);
     }
 
-    AsyncSqlCursor<InternalSqlRow> runScript(String query, @Nullable InternalTransaction tx, Object ... params) {
+    /** Initiates multi-statements query execution. */
+    AsyncSqlCursor<InternalSqlRow> runScript(CancellationToken cancellationToken, String query, Object... params) {
+        return runScript(null, cancellationToken, query, params);
+    }
+
+    AsyncSqlCursor<InternalSqlRow> runScript(@Nullable InternalTransaction tx, @Nullable CancellationToken cancellationToken, String query,
+            Object... params) {
         SqlProperties properties = SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
                 .build();
 
         AsyncSqlCursor<InternalSqlRow> cursor = await(
-                queryProcessor().queryAsync(properties, observableTimeTracker(), tx, query, params)
+                queryProcessor().queryAsync(properties, observableTimeTracker(), tx, cancellationToken, query, params)
         );
 
         return Objects.requireNonNull(cursor);
     }
 
-    static List<AsyncSqlCursor<InternalSqlRow>> fetchAllCursors(AsyncSqlCursor<InternalSqlRow> cursor) {
+    List<AsyncSqlCursor<InternalSqlRow>> fetchAllCursors(AsyncSqlCursor<InternalSqlRow> cursor) {
         return fetchCursors(cursor, -1, false);
     }
 
-    static List<AsyncSqlCursor<InternalSqlRow>> fetchCursors(AsyncSqlCursor<InternalSqlRow> cursor, int count, boolean close) {
+    List<AsyncSqlCursor<InternalSqlRow>> fetchCursors(AsyncSqlCursor<InternalSqlRow> cursor, int count, boolean close) {
         List<AsyncSqlCursor<InternalSqlRow>> cursors = new ArrayList<>();
 
         cursors.add(cursor);
 
         if (close) {
             cursor.closeAsync();
+        } else {
+            cursorsToClose.add(cursor);
         }
 
         while ((count < 0 || --count > 0) && cursor.hasNextResult()) {
@@ -110,6 +127,8 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
             if (close) {
                 cursor.closeAsync();
+            } else {
+                cursorsToClose.add(cursor);
             }
         }
 

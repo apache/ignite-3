@@ -158,7 +158,6 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
         return cmgMessagesFactory.metaStorageInfo()
                 .metaStorageNodes(clusterState.metaStorageNodes())
-                .metastorageRepairClusterId(storageManager.getMetastorageRepairClusterId())
                 .metastorageRepairingConfigIndex(storageManager.getMetastorageRepairingConfigIndex())
                 .build();
     }
@@ -322,10 +321,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
         storageManager.putClusterState(newState);
 
-        assert (command.metastorageRepairClusterId() == null) == (command.metastorageRepairingConfigIndex() == null)
-                : "Repair-related properties must either all be present or all be absent [command=" + command + "]";
-        if (command.metastorageRepairClusterId() != null) {
-            storageManager.saveMetastorageRepairInfo(command.metastorageRepairClusterId(), command.metastorageRepairingConfigIndex());
+        if (command.metastorageRepairingConfigIndex() != null) {
+            storageManager.saveMetastorageRepairInfo(command.metastorageRepairingConfigIndex());
         }
     }
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -256,7 +257,7 @@ public abstract class ItNotNullConstraintTest extends ClusterPerClassIntegration
             publisher.submit(DataStreamerItem.of(item));
         }
 
-        assertThrows(MarshallerException.class, () -> await(streamerFut), error);
+        assertThrowsWithCause(() -> await(streamerFut), MarshallerException.class, error);
     }
 
     private static <R> void checkDataStreamer(RecordView<R> view, R item, String error) {
@@ -267,7 +268,7 @@ public abstract class ItNotNullConstraintTest extends ClusterPerClassIntegration
             publisher.submit(DataStreamerItem.of(item));
         }
 
-        assertThrows(MarshallerException.class, () -> await(streamerFut), error);
+        assertThrowsWithCause(() -> await(streamerFut), MarshallerException.class, error);
     }
 
     static class Val {

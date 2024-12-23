@@ -95,6 +95,23 @@ class ExecutorInclinedRaftCommandRunnerTest extends BaseIgniteAbstractTest {
         verify(actualRunner).run(command);
     }
 
+    @Test
+    void delegatesRunWithTimeout() {
+        CompletableFuture<Void> originalFuture = new CompletableFuture<>();
+
+        when(actualRunner.<Void>run(command, 100)).thenReturn(originalFuture);
+
+        CompletableFuture<Void> finalFuture = decorator.run(command, 100);
+
+        assertThat(finalFuture, not(completedFuture()));
+
+        originalFuture.complete(null);
+
+        assertThat(finalFuture, willCompleteSuccessfully());
+
+        verify(actualRunner).run(command, 100);
+    }
+
     /**
      * Makes sure that, if the future returned from run() is completed right from its creation, its dependant
      * is completed either in the supplied executor or the current thread.

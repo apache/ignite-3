@@ -50,13 +50,10 @@ def tokens = [
         APP_JAR             : "${project(':ignite-cli').name}-${project(':ignite-cli').version}.jar".toString(),
         SETUP_JAVA_FILE_NAME: 'setup-java.sh',
         MAIN_CLASS          : 'org.apache.ignite.internal.cli.Main',
-        ARGS                : '$@'
 ]
 
 def createChecksums = tasks.register('createChecksums', Checksum) {
-    dependsOn distZip
-
-    inputFiles.from distZip.outputs.files
+    inputFiles.from distZip
     checksumAlgorithm = Checksum.Algorithm.SHA512
 }
 

@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.configuration.validation;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.hasItems;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -114,10 +114,11 @@ public class TestValidationUtil {
             List<String> messages = argumentCaptor.getAllValues().stream()
                     .map(ValidationIssue::message).collect(Collectors.toList());
 
-            List<Matcher<? super String>> matchers = Arrays.stream(errorMessagePrefixes)
-                    .map(Matchers::startsWith).collect(Collectors.toList());
+            Matcher<String>[] matchers = Arrays.stream(errorMessagePrefixes)
+                    .map(Matchers::startsWith)
+                    .toArray(Matcher[]::new);
 
-            assertThat(messages, contains(matchers));
+            assertThat(messages, hasItems(matchers));
         }
     }
 

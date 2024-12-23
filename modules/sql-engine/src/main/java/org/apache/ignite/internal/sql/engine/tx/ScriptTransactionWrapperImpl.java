@@ -26,14 +26,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.SqlException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Wraps a transaction, which is managed by SQL engine via {@link SqlQueryType#TX_CONTROL} statements.
@@ -64,13 +67,13 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
     private Throwable rollbackCause;
 
-    private final TransactionInflights transactionInflights;
+    private final TransactionTracker txTracker;
 
     private final AtomicBoolean completedTx = new AtomicBoolean();
 
-    ScriptTransactionWrapperImpl(InternalTransaction managedTx, TransactionInflights transactionInflights) {
+    ScriptTransactionWrapperImpl(InternalTransaction managedTx, TransactionTracker txTracker) {
         this.managedTx = managedTx;
-        this.transactionInflights = transactionInflights;
+        this.txTracker = txTracker;
     }
 
     @Override
@@ -98,11 +101,13 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
             cursorsToClose = List.copyOf(openedCursors.values());
         }
 
+        boolean cancelled = cause instanceof QueryCancelledException;
+
         // Close all associated cursors on error.
         for (CompletableFuture<? extends AsyncCursor<?>> fut : cursorsToClose) {
             fut.whenComplete((cursor, ex) -> {
                 if (cursor != null) {
-                    cursor.closeAsync();
+                    cursor.closeAsync(cancelled);
                 }
             });
         }
@@ -121,7 +126,23 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
     CompletableFuture<Void> commit() {
         changeState(State.COMMIT);
 
-        return txFinishFuture;
+        return txFinishFuture.handle((ignore, ex) -> {
+            synchronized (mux) {
+                if (rollbackCause == null && ex == null) {
+                    return ignore;
+                }
+
+                if (rollbackCause != null) {
+                    if (ex != null) {
+                        rollbackCause.addSuppressed(ex);
+                    }
+
+                    throw new CompletionException(rollbackCause);
+                }
+
+                throw new CompletionException(ex);
+            }
+        });
     }
 
     /** Rolls back the transaction when all cursors are closed. */
@@ -193,11 +214,11 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         }
 
         if (managedTx.isReadOnly() && completedTx.compareAndSet(false, true)) {
-            transactionInflights.removeInflight(managedTx.id());
+            txTracker.unregister(managedTx.id());
         }
     }
 
-    private void completeTxFuture(Void unused, Throwable e) {
+    private void completeTxFuture(@Nullable Void unused, Throwable e) {
         if (e != null) {
             txFinishFuture.completeExceptionally(e);
         } else {

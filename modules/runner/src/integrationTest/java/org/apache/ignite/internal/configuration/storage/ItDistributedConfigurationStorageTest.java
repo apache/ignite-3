@@ -231,7 +231,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         /**
          * Starts the created components.
          */
-        void start() {
+        void startUpToCmgManager() {
             assertThat(
                     startAsync(new ComponentContext(),
                             vaultManager,
@@ -241,9 +241,18 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
                             msLogStorageFactory,
                             raftManager,
                             failureManager,
-                            cmgManager,
-                            metaStorageManager
+                            cmgManager
                     ),
+                    willCompleteSuccessfully()
+            );
+        }
+
+        /**
+         * Starts the created components.
+         */
+        void startComponentsAfterCmgManager() {
+            assertThat(
+                    startAsync(new ComponentContext(), metaStorageManager),
                     willCompleteSuccessfully()
             );
 
@@ -300,9 +309,11 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         Map<String, Serializable> data = Map.of("foo", "bar");
 
         try {
-            node.start();
+            node.startUpToCmgManager();
 
             node.cmgManager.initCluster(List.of(node.name()), List.of(), "cluster");
+
+            node.startComponentsAfterCmgManager();
 
             node.waitWatches();
 
@@ -319,7 +330,8 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
         var node2 = new Node(testInfo, workDir);
 
         try {
-            node2.start();
+            node2.startUpToCmgManager();
+            node2.startComponentsAfterCmgManager();
 
             node2.waitWatches();
 

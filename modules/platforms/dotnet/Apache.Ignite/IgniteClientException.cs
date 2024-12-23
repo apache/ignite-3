@@ -19,7 +19,6 @@ namespace Apache.Ignite
 {
     using System;
     using System.Diagnostics.CodeAnalysis;
-    using System.Runtime.Serialization;
 
     /// <summary>
     /// Ignite thin client exception.
@@ -52,17 +51,6 @@ namespace Apache.Ignite
         /// <param name="innerException">Inner exception.</param>
         public IgniteClientException(Guid traceId, int code, string message, Exception? innerException = null)
             : base(traceId, code, message, innerException)
-        {
-            // No-op.
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="IgniteClientException"/> class.
-        /// </summary>
-        /// <param name="serializationInfo">Serialization information.</param>
-        /// <param name="streamingContext">Streaming context.</param>
-        protected IgniteClientException(SerializationInfo serializationInfo, StreamingContext streamingContext)
-            : base(serializationInfo, streamingContext)
         {
             // No-op.
         }

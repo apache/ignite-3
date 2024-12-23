@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
@@ -61,7 +62,7 @@ public class MetricConfigurationTest extends BaseIgniteAbstractTest {
 
         availableExporters.put("test", exporter);
 
-        metricManager.configure(metricConfiguration);
+        metricManager.configure(metricConfiguration, UUID::randomUUID, "test-node");
 
         metricManager.start(availableExporters);
     }

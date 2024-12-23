@@ -61,6 +61,8 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     private volatile boolean closed = false;
 
+    private volatile boolean cancelled = false;
+
     /**
      * Amount of rows which were requested from a source.
      *
@@ -124,17 +126,17 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
     public CompletableFuture<BatchedResult<OutRowT>> requestNextAsync(int rows) {
         CompletableFuture<BatchedResult<OutRowT>> next = new CompletableFuture<>();
 
-        Throwable t = ex.get();
-
-        if (t != null) {
-            next.completeExceptionally(t);
-
-            return next;
-        }
-
         synchronized (lock) {
+            Throwable t = ex.get();
+
+            if (t != null) {
+                next.completeExceptionally(t);
+
+                return next;
+            }
+
             if (closed) {
-                next.completeExceptionally(new CursorClosedException());
+                next.completeExceptionally(cancelled ? new QueryCancelledException() : new CursorClosedException());
 
                 return next;
             }
@@ -149,9 +151,11 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> closeAsync() {
+    public CompletableFuture<Void> closeAsync(boolean cancelled) {
         if (!closed) {
             synchronized (lock) {
+                this.cancelled = cancelled;
+
                 if (!closed) {
                     Throwable th = ex.get();
 
@@ -200,6 +204,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
         if (waiting == 0) {
             try {
+                //noinspection NestedAssignment
                 source.request(waiting = IN_BUFFER_SIZE);
             } catch (Exception ex) {
                 onError(ex);
@@ -230,19 +235,30 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
             currentReq.buff.add(buff.remove());
         }
 
-        boolean hasMoreRows = waiting != -1 || !buff.isEmpty();
+        HasMore hasMore;
+        if (waiting == -1 && buff.isEmpty()) {
+            hasMore = HasMore.NO;
+        } else if (!buff.isEmpty()) {
+            hasMore = HasMore.YES;
+        } else {
+            hasMore = HasMore.UNCERTAIN;
+        }
 
-        if (currentReq.buff.size() == currentReq.requested || !hasMoreRows) {
+        // Even if demand is fulfilled we should not complete request
+        // if we are not sure whether there are more rows or not to
+        // avoid returning false-positive result.
+        if ((currentReq.buff.size() == currentReq.requested && hasMore != HasMore.UNCERTAIN) || hasMore == HasMore.NO) {
             // use poll() instead of remove() because latter throws exception when queue is empty,
             // and queue may be cleared concurrently by cancellation
             pendingRequests.poll();
 
-            currentReq.fut.complete(new BatchedResult<>(currentReq.buff, hasMoreRows));
+            currentReq.fut.complete(new BatchedResult<>(currentReq.buff, hasMore == HasMore.YES));
         }
 
-        if (waiting == 0) {
+        if (waiting == 0 && buff.isEmpty()) {
+            //noinspection NestedAssignment
             source.request(waiting = IN_BUFFER_SIZE);
-        } else if (!hasMoreRows) {
+        } else if (hasMore == HasMore.NO) {
             closeAsync();
         }
     }
@@ -292,5 +308,9 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
             this.fut = fut;
             this.buff = new ArrayList<>(requested);
         }
+    }
+
+    private enum HasMore {
+        YES, NO, UNCERTAIN
     }
 }

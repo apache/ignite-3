@@ -53,6 +53,11 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     private final CatalogStorageProfilesDescriptor storageProfiles;
 
     /**
+     * Specifies the consistency mode of the zone, determining how the system balances data consistency and availability.
+     */
+    private final ConsistencyMode consistencyMode;
+
+    /**
      * Constructs a distribution zone descriptor.
      *
      * @param id Id of the distribution zone.
@@ -64,6 +69,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      * @param filter Nodes filter.
      * @param storageProfiles Storage profiles descriptor.
+     * @param consistencyMode Consistency mode of the zone.
      */
     public CatalogZoneDescriptor(
             int id,
@@ -74,10 +80,11 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
             String filter,
-            CatalogStorageProfilesDescriptor storageProfiles
+            CatalogStorageProfilesDescriptor storageProfiles,
+            ConsistencyMode consistencyMode
     ) {
         this(id, name, partitions, replicas, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
-                filter, storageProfiles, INITIAL_CAUSALITY_TOKEN);
+                filter, storageProfiles, INITIAL_CAUSALITY_TOKEN, consistencyMode);
     }
 
     /**
@@ -103,7 +110,8 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
             int dataNodesAutoAdjustScaleDown,
             String filter,
             CatalogStorageProfilesDescriptor storageProfiles,
-            long causalityToken
+            long causalityToken,
+            ConsistencyMode consistencyMode
     ) {
         super(id, Type.ZONE, name, causalityToken);
 
@@ -114,6 +122,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
         this.storageProfiles = storageProfiles;
+        this.consistencyMode = consistencyMode;
     }
 
     /**
@@ -165,6 +174,13 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     }
 
     /**
+     * Specifies the consistency mode of the zone, determining how the system balances data consistency and availability.
+     */
+    public ConsistencyMode consistencyMode() {
+        return consistencyMode;
+    }
+
+    /**
      * Returns the storage profiles descriptor.
      */
     public CatalogStorageProfilesDescriptor storageProfiles() {
@@ -182,18 +198,19 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
     private static class ZoneDescriptorSerializer implements CatalogObjectSerializer<CatalogZoneDescriptor> {
         @Override
         public CatalogZoneDescriptor readFrom(IgniteDataInput input) throws IOException {
-            int id = input.readInt();
+            int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readLong();
+            long updateToken = input.readVarInt();
 
             CatalogStorageProfilesDescriptor catalogStorageProfilesDescriptor = CatalogStorageProfilesDescriptor.SERIALIZER.readFrom(input);
 
-            int partitions = input.readInt();
-            int replicas = input.readInt();
-            int dataNodesAutoAdjust = input.readInt();
-            int dataNodesAutoAdjustScaleUp = input.readInt();
-            int dataNodesAutoAdjustScaleDown = input.readInt();
+            int partitions = input.readVarIntAsInt();
+            int replicas = input.readVarIntAsInt();
+            int dataNodesAutoAdjust = input.readVarIntAsInt();
+            int dataNodesAutoAdjustScaleUp = input.readVarIntAsInt();
+            int dataNodesAutoAdjustScaleDown = input.readVarIntAsInt();
             String filter = input.readUTF();
+            ConsistencyMode consistencyMode = ConsistencyMode.forId(input.readByte());
 
             return new CatalogZoneDescriptor(
                     id,
@@ -205,24 +222,26 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
                     dataNodesAutoAdjustScaleDown,
                     filter,
                     catalogStorageProfilesDescriptor,
-                    updateToken
+                    updateToken,
+                    consistencyMode
             );
         }
 
         @Override
         public void writeTo(CatalogZoneDescriptor descriptor, IgniteDataOutput output) throws IOException {
-            output.writeInt(descriptor.id());
+            output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
-            output.writeLong(descriptor.updateToken());
+            output.writeVarInt(descriptor.updateToken());
 
             CatalogStorageProfilesDescriptor.SERIALIZER.writeTo(descriptor.storageProfiles(), output);
 
-            output.writeInt(descriptor.partitions());
-            output.writeInt(descriptor.replicas());
-            output.writeInt(descriptor.dataNodesAutoAdjust());
-            output.writeInt(descriptor.dataNodesAutoAdjustScaleUp());
-            output.writeInt(descriptor.dataNodesAutoAdjustScaleDown());
+            output.writeVarInt(descriptor.partitions());
+            output.writeVarInt(descriptor.replicas());
+            output.writeVarInt(descriptor.dataNodesAutoAdjust());
+            output.writeVarInt(descriptor.dataNodesAutoAdjustScaleUp());
+            output.writeVarInt(descriptor.dataNodesAutoAdjustScaleDown());
             output.writeUTF(descriptor.filter());
+            output.writeByte(descriptor.consistencyMode().id());
         }
     }
 }

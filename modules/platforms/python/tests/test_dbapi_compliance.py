@@ -44,7 +44,6 @@ class TestPyignite3(dbapi20.DatabaseAPI20Test):
         pass
 
     def test_executemany(self):
-        # TODO: IGNITE-22742 Implement execution with a batch of parameters
         pass
 
     def test_nextset(self):
@@ -56,7 +55,7 @@ class TestPyignite3(dbapi20.DatabaseAPI20Test):
         pass
 
     def test_setinputsizes(self):
-        # TODO: IGNITE-22742 Implement execution with a batch of parameters
+        # setoutputsize does not do anything currently.
         pass
 
     def test_setoutputsize(self):

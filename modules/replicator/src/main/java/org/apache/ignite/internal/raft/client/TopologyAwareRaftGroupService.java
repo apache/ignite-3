@@ -337,10 +337,16 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
                     if (!leaderWithTerm.isEmpty()) {
-                        serverEventHandler.onLeaderElected(
-                                clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId()),
-                                leaderWithTerm.term()
-                        );
+                        ClusterNode leaderHost = clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId());
+
+                        if (leaderHost != null) {
+                            serverEventHandler.onLeaderElected(
+                                    leaderHost,
+                                    leaderWithTerm.term()
+                            );
+                        } else {
+                            LOG.warn("Leader host occurred to leave the topology [nodeId = {}].", leaderWithTerm.leader().consistentId());
+                        }
                     }
                 }, executor);
             }, executor);
@@ -464,6 +470,11 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     }
 
     @Override
+    public <R> CompletableFuture<R> run(Command cmd, long timeoutMillis) {
+        return raftClient.run(cmd, timeoutMillis);
+    }
+
+    @Override
     public void shutdown() {
         logicalTopologyService.removeEventListener(topologyEventsListener);
 
@@ -572,11 +583,15 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         allOf(futures.toArray(CompletableFuture[]::new)).thenAcceptAsync(unused -> {
             if (notifyOnSubscription) {
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
-                    if (!leaderWithTerm.isEmpty()) {
+                    ClusterNode leaderHost = clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId());
+
+                    if (leaderHost != null) {
                         serverEventHandler.onLeaderElected(
-                                clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId()),
+                                leaderHost,
                                 leaderWithTerm.term()
                         );
+                    } else {
+                        LOG.warn("Leader host occurred to leave the topology [nodeId = {}].", leaderWithTerm.leader().consistentId());
                     }
                 }, executor);
             }

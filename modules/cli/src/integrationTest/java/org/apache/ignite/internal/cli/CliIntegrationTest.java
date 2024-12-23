@@ -165,6 +165,15 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
         assertExitCodeIs(0);
     }
 
+    protected void assertExitCodeIsError() {
+        assertExitCodeIs(errorExitCode());
+    }
+
+    // REPL mode has no exit code for error, override this method in tests for repl commands.
+    protected int errorExitCode() {
+        return 1;
+    }
+
     protected void assertOutputIsNotEmpty() {
         assertThat(sout.toString())
                 .as("Expected command output not to be empty")
@@ -189,6 +198,12 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 .contains(expectedOutput);
     }
 
+    protected void assertOutputHasLineCount(int expectedLineCount) {
+        assertThat(sout.toString())
+                .as("Expected command output to has " + expectedLineCount + " lines but was " + sout.toString())
+                .hasLineCount(expectedLineCount);
+    }
+
     protected void assertOutputContainsAnyIgnoringCase(Set<String> expectedOutput) {
         CharSequence[] expectedUpperCase = expectedOutput.stream().map(String::toUpperCase).toArray(CharSequence[]::new);
 
@@ -198,7 +213,6 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
     }
 
     protected void assertOutputContainsAny(Set<String> expectedOutput) {
-
         assertThat(sout.toString())
                 .as("Expected command output to contain any of: " + expectedOutput + " but was " + sout.toString())
                 .containsAnyOf(expectedOutput.toArray(CharSequence[]::new));

@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.StringUtils.toStringWithoutPrefix;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -179,7 +180,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Data> readDataOnRecovery() throws StorageException {
         CompletableFuture<Data> future = metaStorageMgr.recoveryFinishedFuture()
-                .thenApplyAsync(this::readDataOnRecovery0, threadPool);
+                .thenApplyAsync(revisions -> readDataOnRecovery0(revisions.revision()), threadPool);
 
         return registerFuture(future);
     }
@@ -210,11 +211,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
                     continue;
                 }
 
-                int startIdx = DST_KEYS_START_RANGE.length();
-
-                int keyLengthWithoutPrefix = key.length - startIdx;
-
-                var dataKey = new String(key, startIdx, keyLengthWithoutPrefix, UTF_8);
+                String dataKey = toStringWithoutPrefix(key, DST_KEYS_START_RANGE.length());
 
                 data.put(dataKey, ConfigurationSerializationUtil.fromBytes(value));
             }
@@ -329,7 +326,7 @@ public class DistributedConfigurationStorage implements ConfigurationStorage {
     @Override
     public CompletableFuture<Long> localRevision() {
         return metaStorageMgr.recoveryFinishedFuture()
-                .thenApply(rev -> metaStorageMgr.getLocally(MASTER_KEY, rev).revision());
+                .thenApply(revisions -> metaStorageMgr.getLocally(MASTER_KEY, revisions.revision()).revision());
     }
 
     private <T> CompletableFuture<T> registerFuture(CompletableFuture<T> future) {

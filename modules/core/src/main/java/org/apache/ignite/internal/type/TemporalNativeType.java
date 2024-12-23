@@ -19,6 +19,7 @@ package org.apache.ignite.internal.type;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import java.util.Objects;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -93,6 +94,28 @@ public class TemporalNativeType extends NativeType {
     @Override
     public String displayName() {
         return format("{}({})", super.displayName(), precision);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        TemporalNativeType that = (TemporalNativeType) o;
+        return precision == that.precision;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), precision);
     }
 
     /** {@inheritDoc} */

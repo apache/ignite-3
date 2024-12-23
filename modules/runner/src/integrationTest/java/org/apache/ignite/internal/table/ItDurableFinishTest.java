@@ -66,7 +66,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -82,7 +81,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private void createTestTableWith3Replicas() {
         String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20))"
-                + " with primary_zone='TEST_ZONE'";
+                + " zone TEST_ZONE";
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
@@ -381,16 +380,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 },
                 10_000)
         );
-    }
-
-    private @Nullable Integer nodeIndex(String name) {
-        for (int i = 0; i < initialNodes(); i++) {
-            if (node(i).name().equals(name)) {
-                return i;
-            }
-        }
-
-        return null;
     }
 
     private static class Context {

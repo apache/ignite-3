@@ -110,7 +110,7 @@ public class CatalogTableSchemaVersions {
         @Override
         public CatalogTableSchemaVersions readFrom(IgniteDataInput input) throws IOException {
             TableVersion[] versions = readArray(TableVersionSerializer.INSTANCE, input, TableVersion.class);
-            int base = input.readInt();
+            int base = input.readVarIntAsInt();
 
             return new CatalogTableSchemaVersions(base, versions);
         }
@@ -118,7 +118,7 @@ public class CatalogTableSchemaVersions {
         @Override
         public void writeTo(CatalogTableSchemaVersions tabVersions, IgniteDataOutput output) throws IOException {
             writeArray(tabVersions.versions, TableVersionSerializer.INSTANCE, output);
-            output.writeInt(tabVersions.base);
+            output.writeVarInt(tabVersions.base);
         }
     }
 

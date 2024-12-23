@@ -119,6 +119,11 @@ namespace Apache.Ignite.Internal
         public Guid ClientId { get; } = Guid.NewGuid();
 
         /// <summary>
+        /// Gets a value indicating whether the socket is disposed.
+        /// </summary>
+        public bool IsDisposed => _disposed;
+
+        /// <summary>
         /// Connects the socket.
         /// </summary>
         /// <param name="configuration">Client configuration.</param>
@@ -439,13 +444,7 @@ namespace Apache.Ignite.Internal
         /// <summary>
         /// Throws if disposed.
         /// </summary>
-        private void ThrowIfDisposed()
-        {
-            if (_disposed)
-            {
-                throw new ObjectDisposedException(nameof(ClientFailoverSocket));
-            }
-        }
+        private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 
         /// <summary>
         /// Gets the next connected socket, or connects a new one.

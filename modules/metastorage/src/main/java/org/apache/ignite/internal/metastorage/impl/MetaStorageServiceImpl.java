@@ -30,16 +30,19 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.metastorage.command.EvictIdempotentCommandsCacheCommand;
 import org.apache.ignite.internal.metastorage.command.GetAllCommand;
+import org.apache.ignite.internal.metastorage.command.GetChecksumCommand;
 import org.apache.ignite.internal.metastorage.command.GetCommand;
-import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
+import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionsCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.MultiInvokeCommand;
@@ -48,12 +51,14 @@ import org.apache.ignite.internal.metastorage.command.PutCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveAllCommand;
 import org.apache.ignite.internal.metastorage.command.RemoveCommand;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
+import org.apache.ignite.internal.metastorage.command.response.ChecksumInfo;
+import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
-import org.apache.ignite.internal.metastorage.server.time.ClusterTime;
 import org.apache.ignite.internal.raft.ReadCommand;
+import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -71,7 +76,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     private final MetaStorageServiceContext context;
 
-    private final ClusterTime clusterTime;
+    private final HybridClock clock;
 
     private final CommandIdGenerator commandIdGenerator;
 
@@ -84,7 +89,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             String nodeName,
             RaftGroupService metaStorageRaftGrpSvc,
             IgniteSpinBusyLock busyLock,
-            ClusterTime clusterTime,
+            HybridClock clock,
             Supplier<UUID> nodeIdSupplier
     ) {
         this.context = new MetaStorageServiceContext(
@@ -95,7 +100,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 busyLock
         );
 
-        this.clusterTime = clusterTime;
+        this.clock = clock;
         this.commandIdGenerator = new CommandIdGenerator(nodeIdSupplier);
     }
 
@@ -133,7 +138,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         PutCommand putCommand = context.commandsFactory().putCommand()
                 .key(ByteBuffer.wrap(key.bytes()))
                 .value(ByteBuffer.wrap(value))
-                .initiatorTime(clusterTime.now())
+                .initiatorTime(clock.now())
                 .build();
 
         return context.raftService().run(putCommand);
@@ -141,7 +146,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
 
     @Override
     public CompletableFuture<Void> putAll(Map<ByteArray, byte[]> vals) {
-        PutAllCommand putAllCommand = putAllCommand(context.commandsFactory(), vals, clusterTime.now());
+        PutAllCommand putAllCommand = putAllCommand(context.commandsFactory(), vals, clock.now());
 
         return context.raftService().run(putAllCommand);
     }
@@ -149,14 +154,14 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     @Override
     public CompletableFuture<Void> remove(ByteArray key) {
         RemoveCommand removeCommand = context.commandsFactory().removeCommand().key(ByteBuffer.wrap(key.bytes()))
-                .initiatorTime(clusterTime.now()).build();
+                .initiatorTime(clock.now()).build();
 
         return context.raftService().run(removeCommand);
     }
 
     @Override
     public CompletableFuture<Void> removeAll(Set<ByteArray> keys) {
-        RemoveAllCommand removeAllCommand = removeAllCommand(context.commandsFactory(), keys, clusterTime.now());
+        RemoveAllCommand removeAllCommand = removeAllCommand(context.commandsFactory(), keys, clock.now());
 
         return context.raftService().run(removeAllCommand);
     }
@@ -176,7 +181,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
                 .condition(condition)
                 .success(success)
                 .failure(failure)
-                .initiatorTime(clusterTime.now())
+                .initiatorTime(clock.now())
                 .id(commandIdGenerator.newId())
                 .build();
 
@@ -187,7 +192,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     public CompletableFuture<StatementResult> invoke(Iif iif) {
         MultiInvokeCommand multiInvokeCommand = context.commandsFactory().multiInvokeCommand()
                 .iif(iif)
-                .initiatorTime(clusterTime.now())
+                .initiatorTime(clock.now())
                 .id(commandIdGenerator.newId())
                 .build();
 
@@ -247,7 +252,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
      * @param safeTime New safe time.
      * @return Future that will be completed when message is sent.
      */
-    public CompletableFuture<Void> syncTime(HybridTimestamp safeTime, long term) {
+    CompletableFuture<Void> syncTime(HybridTimestamp safeTime, long term) {
         SyncTimeCommand syncTimeCommand = context.commandsFactory().syncTimeCommand()
                 .initiatorTime(safeTime)
                 .initiatorTerm(term)
@@ -257,8 +262,17 @@ public class MetaStorageServiceImpl implements MetaStorageService {
     }
 
     @Override
-    public CompletableFuture<Long> currentRevision() {
-        GetCurrentRevisionCommand cmd = context.commandsFactory().getCurrentRevisionCommand().build();
+    public CompletableFuture<RevisionsInfo> currentRevisions() {
+        GetCurrentRevisionsCommand cmd = context.commandsFactory().getCurrentRevisionsCommand().build();
+
+        return context.raftService().run(cmd, RaftCommandRunner.NO_TIMEOUT);
+    }
+
+    @Override
+    public CompletableFuture<ChecksumInfo> checksum(long revision) {
+        GetChecksumCommand cmd = context.commandsFactory().getChecksumCommand()
+                .revision(revision)
+                .build();
 
         return context.raftService().run(cmd);
     }
@@ -273,7 +287,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         EvictIdempotentCommandsCacheCommand evictIdempotentCommandsCacheCommand = evictIdempotentCommandsCacheCommand(
                 context.commandsFactory(),
                 evictionTimestamp,
-                clusterTime.now()
+                clock.now()
         );
 
         return context.raftService().run(evictIdempotentCommandsCacheCommand);
@@ -357,5 +371,20 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             HybridTimestamp ts
     ) {
         return commandsFactory.evictIdempotentCommandsCacheCommand().evictionTimestamp(evictionTimestamp).initiatorTime(ts).build();
+    }
+
+    /**
+     * Sends command {@link CompactionCommand} to the leader.
+     *
+     * @param compactionRevision New metastorage compaction revision.
+     * @return Operation future.
+     */
+    CompletableFuture<Void> sendCompactionCommand(long compactionRevision) {
+        CompactionCommand command = context.commandsFactory().compactionCommand()
+                .compactionRevision(compactionRevision)
+                .initiatorTime(clock.now())
+                .build();
+
+        return context.raftService().run(command);
     }
 }

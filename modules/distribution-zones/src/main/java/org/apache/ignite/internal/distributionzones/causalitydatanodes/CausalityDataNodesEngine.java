@@ -21,13 +21,13 @@ import static java.lang.Math.max;
 import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -38,14 +38,14 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.OutdatedTokenException;
+import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.causality.VersionedValue;
+import org.apache.ignite.internal.distributionzones.DataNodesMapSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
@@ -101,7 +101,7 @@ public class CausalityDataNodesEngine {
      */
     public CausalityDataNodesEngine(
             IgniteSpinBusyLock busyLock,
-            Consumer<LongFunction<CompletableFuture<?>>> registry,
+            RevisionListenerRegistry registry,
             MetaStorageManager msManager,
             Map<Integer, ZoneState> zonesState,
             DistributionZoneManager distributionZoneManager,
@@ -188,7 +188,7 @@ public class CausalityDataNodesEngine {
                     return emptySet();
                 }
 
-                Set<NodeWithAttributes> logicalTopology = fromBytes(topologyEntry.value());
+                Set<NodeWithAttributes> logicalTopology = deserializeLogicalTopologySet(topologyEntry.value());
 
                 Set<Node> logicalTopologyNodes = logicalTopology.stream().map(n -> n.node()).collect(toSet());
 
@@ -227,7 +227,9 @@ public class CausalityDataNodesEngine {
                 return emptySet();
             }
 
-            Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(fromBytes(dataNodesEntry.value()));
+            Set<Node> baseDataNodes = DistributionZonesUtil.dataNodes(
+                    DataNodesMapSerializer.deserialize(dataNodesEntry.value())
+            );
             long scaleUpTriggerRevision = bytesToLongKeepingOrder(scaleUpChangeTriggerKey.value());
             long scaleDownTriggerRevision = bytesToLongKeepingOrder(scaleDownChangeTriggerKey.value());
 
@@ -239,15 +241,11 @@ public class CausalityDataNodesEngine {
                 // Update the data nodes set with pending data from augmentation map
                 subAugmentationMap.forEach((rev, augmentation) -> {
                     if (augmentation.addition() && rev > scaleUpTriggerRevision && rev <= lastScaleUpRevision) {
-                        for (Node node : augmentation.nodes()) {
-                            finalDataNodes.add(node);
-                        }
+                        finalDataNodes.addAll(augmentation.nodes());
                     }
 
                     if (!augmentation.addition() && rev > scaleDownTriggerRevision && rev <= lastScaleDownRevision) {
-                        for (Node node : augmentation.nodes()) {
-                            finalDataNodes.remove(node);
-                        }
+                        finalDataNodes.removeAll(augmentation.nodes());
                     }
                 });
             }
@@ -410,7 +408,7 @@ public class CausalityDataNodesEngine {
         if (!topologyEntry.empty()) {
             byte[] newerLogicalTopologyBytes = topologyEntry.value();
 
-            newerLogicalTopology = fromBytes(newerLogicalTopologyBytes);
+            newerLogicalTopology = deserializeLogicalTopologySet(newerLogicalTopologyBytes);
 
             newerTopologyRevision = topologyEntry.revision();
 
@@ -426,7 +424,7 @@ public class CausalityDataNodesEngine {
                 } else {
                     byte[] olderLogicalTopologyBytes = topologyEntry.value();
 
-                    olderLogicalTopology = fromBytes(olderLogicalTopologyBytes);
+                    olderLogicalTopology = deserializeLogicalTopologySet(olderLogicalTopologyBytes);
                 }
 
                 CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(catalogVersion).zone(zoneId);

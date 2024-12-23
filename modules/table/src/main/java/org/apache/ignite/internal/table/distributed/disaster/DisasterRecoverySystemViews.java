@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Comparator.comparing;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.INT64;
 import static org.apache.ignite.internal.type.NativeTypes.STRING;
 
 import java.util.Comparator;
@@ -46,6 +47,8 @@ class DisasterRecoverySystemViews {
         return SystemViews.<GlobalPartitionState>clusterViewBuilder()
                 .name("GLOBAL_PARTITION_STATES")
                 .addColumn("ZONE_NAME", STRING, state -> state.zoneName)
+                .addColumn("TABLE_ID", INT32, state -> state.tableId)
+                .addColumn("SCHEMA_NAME", STRING, state -> state.schemaName)
                 .addColumn("TABLE_NAME", STRING, state -> state.tableName)
                 .addColumn("PARTITION_ID", INT32, state -> state.partitionId)
                 .addColumn("STATE", STRING, state -> state.state.name())
@@ -58,9 +61,12 @@ class DisasterRecoverySystemViews {
                 .name("LOCAL_PARTITION_STATES")
                 .addColumn("NODE_NAME", STRING, state -> state.nodeName)
                 .addColumn("ZONE_NAME", STRING, state -> state.state.zoneName)
+                .addColumn("TABLE_ID", INT32, state -> state.state.tableId)
+                .addColumn("SCHEMA_NAME", STRING, state -> state.state.schemaName)
                 .addColumn("TABLE_NAME", STRING, state -> state.state.tableName)
                 .addColumn("PARTITION_ID", INT32, state -> state.state.partitionId)
                 .addColumn("STATE", STRING, state -> state.state.state.name())
+                .addColumn("ESTIMATED_ROWS", INT64, state -> state.state.estimatedRows)
                 .dataProvider(systemViewPublisher(() -> localPartitionStatesAsync(manager)))
                 .build();
     }

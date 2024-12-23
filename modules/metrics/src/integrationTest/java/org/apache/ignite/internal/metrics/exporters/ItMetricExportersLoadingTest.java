@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
+import java.util.UUID;
 import java.util.concurrent.locks.LockSupport;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -56,7 +57,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
     public void test() throws Exception {
         MetricManager metricManager = new MetricManagerImpl();
 
-        metricManager.configure(metricConfiguration);
+        metricManager.configure(metricConfiguration, UUID::randomUUID, "test-node");
 
         TestMetricsSource src = new TestMetricsSource("TestMetricsSource");
 

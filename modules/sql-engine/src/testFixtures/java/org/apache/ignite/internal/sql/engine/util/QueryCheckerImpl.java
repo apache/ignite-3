@@ -45,6 +45,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -85,6 +86,8 @@ abstract class QueryCheckerImpl implements QueryChecker {
     private Object[] params = OBJECT_EMPTY_ARRAY;
 
     private ZoneId timeZoneId = SqlQueryProcessor.DEFAULT_TIME_ZONE_ID;
+
+    private String defaultSchema = SqlCommon.DEFAULT_SCHEMA_NAME;
 
     private final @Nullable InternalTransaction tx;
 
@@ -148,6 +151,19 @@ abstract class QueryCheckerImpl implements QueryChecker {
     @Override
     public QueryChecker withTimeZoneId(ZoneId zoneId) {
         this.timeZoneId = zoneId;
+
+        return this;
+    }
+
+    /**
+     * Set schema name.
+     *
+     * @param schema Schema name.
+     * @return This.
+     */
+    @Override
+    public QueryChecker withDefaultSchema(String schema) {
+        this.defaultSchema = schema;
 
         return this;
     }
@@ -300,6 +316,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
         SqlProperties newProperties = SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
                 .set(QueryProperty.TIME_ZONE_ID, timeZoneId)
+                .set(QueryProperty.DEFAULT_SCHEMA, defaultSchema)
                 .build();
 
         SqlProperties properties = SqlPropertiesHelper.merge(newProperties, SqlQueryProcessor.DEFAULT_PROPERTIES);
@@ -310,7 +327,13 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.queryAsync(
-                    properties, observableTimeTracker(), tx, "EXPLAIN PLAN FOR " + qry, params);
+                    properties,
+                    observableTimeTracker(),
+                    tx,
+                    null,
+                    "EXPLAIN PLAN FOR " + qry,
+                    params
+            );
             AsyncSqlCursor<InternalSqlRow> explainCursor = await(explainCursors);
             List<InternalSqlRow> explainRes = getAllFromCursor(explainCursor);
 
@@ -336,7 +359,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         // Check result.
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursors =
-                bypassingThreadAssertionsAsync(() -> qryProc.queryAsync(properties, observableTimeTracker(), tx, qry, params));
+                bypassingThreadAssertionsAsync(() -> qryProc.queryAsync(properties, observableTimeTracker(), tx, null, qry, params));
 
         AsyncSqlCursor<InternalSqlRow> cur = await(cursors);
 

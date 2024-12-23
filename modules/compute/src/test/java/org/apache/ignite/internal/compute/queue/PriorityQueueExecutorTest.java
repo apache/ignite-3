@@ -245,7 +245,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
                 execution::state,
                 jobStateWithStatusAndCreateTimeStartTime(CANCELED, executingState.createTime(), executingState.startTime())
         );
-        assertThat(execution.resultAsync(), willBe(0));
+        assertThat(execution.resultAsync(), willThrow(CancellationException.class));
     }
 
     @Test

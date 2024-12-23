@@ -101,7 +101,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
         partitionIdleSafeTimePropagationPeriod.set(CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
 
-        metastore = StandaloneMetaStorageManager.create(NODE_NAME);
+        metastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
         updateLog = spy(new UpdateLogImpl(metastore));
         clockWaiter = spy(new ClockWaiter(NODE_NAME, clock));
@@ -115,7 +115,11 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 partitionIdleSafeTimePropagationPeriod::get
         );
 
-        assertThat(startAsync(new ComponentContext(), metastore, clockWaiter, manager), willCompleteSuccessfully());
+        ComponentContext context = new ComponentContext();
+        assertThat(startAsync(context, metastore), willCompleteSuccessfully());
+        assertThat(metastore.recoveryFinishedFuture(), willCompleteSuccessfully());
+
+        assertThat(startAsync(context, clockWaiter, manager), willCompleteSuccessfully());
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 

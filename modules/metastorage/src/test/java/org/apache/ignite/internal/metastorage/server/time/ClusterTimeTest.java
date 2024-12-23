@@ -35,6 +35,7 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -51,7 +52,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ClusterTimeTest extends BaseIgniteAbstractTest {
-    private final ClusterTimeImpl clusterTime = new ClusterTimeImpl("foo", new IgniteSpinBusyLock(), new HybridClockImpl());
+    private final HybridClock clock = new HybridClockImpl();
+
+    private final ClusterTimeImpl clusterTime = new ClusterTimeImpl("foo", new IgniteSpinBusyLock(), clock);
 
     @AfterEach
     void tearDown() {
@@ -61,7 +64,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
 
     @Test
     void testWaitFor() {
-        HybridTimestamp now = clusterTime.now();
+        HybridTimestamp now = clock.now();
 
         CompletableFuture<Void> future = clusterTime.waitFor(now);
 
@@ -72,7 +75,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
 
     @Test
     void testWaitForCancellation() throws Exception {
-        HybridTimestamp now = clusterTime.now();
+        HybridTimestamp now = clock.now();
 
         CompletableFuture<Void> future = clusterTime.waitFor(now);
 
@@ -110,11 +113,11 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Tests that {@link ClusterTimeImpl#adjust} re-schedules the idle time sync timer.
+     * Tests that {@link ClusterTimeImpl#adjustClock} re-schedules the idle time sync timer.
      */
     @Test
     void testSchedulerProlongation(@InjectConfiguration("mock.idleSyncTimeInterval=250") MetaStorageConfiguration config) {
-        assertDoesNotThrow(() -> clusterTime.adjust(clusterTime.now()));
+        assertDoesNotThrow(() -> clusterTime.adjustClock(clock.now()));
 
         SyncTimeAction action = mock(SyncTimeAction.class);
 
@@ -124,7 +127,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
 
         verify(action, after(150).never()).syncTime(any());
 
-        clusterTime.adjust(clusterTime.now());
+        clusterTime.adjustClock(clock.now());
 
         verify(action, after(150).never()).syncTime(any());
 

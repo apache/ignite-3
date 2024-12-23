@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager.configureCmgManagerToStartMetastorage;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -36,7 +38,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionCommand;
+import org.apache.ignite.internal.metastorage.command.GetCurrentRevisionsCommand;
+import org.apache.ignite.internal.metastorage.command.response.RevisionsInfo;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -77,10 +80,12 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
         when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
                 new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(mcNodeName)).build()
         ));
+        configureCmgManagerToStartMetastorage(cmgManager);
         when(clusterService.nodeName()).thenReturn(mcNodeName);
         when(raftManager.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(raftGroupService);
-        when(raftGroupService.run(any(GetCurrentRevisionCommand.class))).thenAnswer(invocation -> completedFuture(0L));
+        when(raftGroupService.run(any(GetCurrentRevisionsCommand.class), anyLong()))
+                .thenAnswer(invocation -> completedFuture(new RevisionsInfo(0, -1)));
 
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 

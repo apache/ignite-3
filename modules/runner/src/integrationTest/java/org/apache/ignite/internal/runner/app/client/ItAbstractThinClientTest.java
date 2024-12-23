@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app.client;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -110,6 +111,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
+                .clusterConfiguration("ignite.replication.idleSafeTimePropagationDuration: " + idleSafeTimePropagationDuration())
                 .build();
         TestIgnitionManager.init(metaStorageNode, initParameters);
 
@@ -124,7 +126,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         sql.execute(null,  "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10, STORAGE_PROFILES='"
                 + DEFAULT_STORAGE_PROFILE + "'");
         sql.execute(null, "CREATE TABLE " + TABLE_NAME + "("
-                + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
+                + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) ZONE TEST_ZONE");
 
         client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
 
@@ -175,6 +177,10 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         return nodes.stream()
                 .map(ignite -> unwrapIgniteImpl(ignite).clientAddress().port())
                 .collect(toList());
+    }
+
+    protected long idleSafeTimePropagationDuration() {
+        return DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
     }
 
     protected IgniteClient client() {

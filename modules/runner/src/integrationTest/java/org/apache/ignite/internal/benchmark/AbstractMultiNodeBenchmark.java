@@ -40,6 +40,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.intellij.lang.annotations.Language;
+import org.jetbrains.annotations.Nullable;
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
@@ -74,6 +75,11 @@ public class AbstractMultiNodeBenchmark {
     @Param({"false", "true"})
     private boolean fsync;
 
+    @Nullable
+    protected String clusterConfiguration() {
+        return "";
+    }
+
     /**
      * Starts ignite node and creates table {@link #TABLE_NAME}.
      */
@@ -90,7 +96,7 @@ public class AbstractMultiNodeBenchmark {
 
             getAllFromCursor(
                     await(queryEngine.queryAsync(
-                            SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, createZoneStatement
+                            SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, null, createZoneStatement
                     ))
             );
 
@@ -132,11 +138,11 @@ public class AbstractMultiNodeBenchmark {
             createTableStatement += "\nCOLOCATE BY (" + String.join(", ", colocationKeys) + ")";
         }
 
-        createTableStatement += "\nWITH primary_zone='" + ZONE_NAME + "'";
+        createTableStatement += "\nZONE " + ZONE_NAME;
 
         getAllFromCursor(
                 await(igniteImpl.queryEngine().queryAsync(
-                        SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, createTableStatement
+                        SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, null, createTableStatement
                 ))
         );
     }
@@ -197,7 +203,8 @@ public class AbstractMultiNodeBenchmark {
                 + "  },\n"
                 + "  clientConnector: { port:{} },\n"
                 + "  rest.port: {},\n"
-                + "  raft.fsync = " + fsync
+                + "  raft.fsync = " + fsync() + ",\n"
+                + "  system.partitionsLogPath = \"" + logPath() + "\",\n"
                 + "}";
 
         for (int i = 0; i < nodes(); i++) {
@@ -212,9 +219,15 @@ public class AbstractMultiNodeBenchmark {
 
         String metaStorageNodeName = nodeName(BASE_PORT);
 
+        @Language("HOCON")
+        String clusterCfg = "ignite {\n"
+                + clusterConfiguration() + "\n"
+                + "}";
+
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodeNames(metaStorageNodeName)
                 .clusterName("cluster")
+                .clusterConfiguration(clusterCfg)
                 .build();
 
         TestIgnitionManager.init(igniteServers.get(0), initParameters);
@@ -235,6 +248,14 @@ public class AbstractMultiNodeBenchmark {
 
     protected Path workDir() throws Exception {
         return Files.createTempDirectory("tmpDirPrefix").toFile().toPath();
+    }
+
+    protected String logPath() {
+        return "";
+    }
+
+    protected boolean fsync() {
+        return fsync;
     }
 
     protected int nodes() {

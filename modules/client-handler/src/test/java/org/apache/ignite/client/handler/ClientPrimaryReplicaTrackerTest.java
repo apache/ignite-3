@@ -89,10 +89,10 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     public void testUpdateByEvent() {
         tracker.start();
 
-        assertEquals(1, tracker.maxStartTime());
-        driver.updateReplica("s3", TABLE_ID, 0, 2);
-
         assertEquals(2, tracker.maxStartTime());
+        driver.updateReplica("s3", TABLE_ID, 0, 3);
+
+        assertEquals(3, tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());
@@ -105,10 +105,10 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         driver.updateReplica(null, TABLE_ID, 0, 2);
         tracker.start();
 
-        assertEquals(1, tracker.maxStartTime());
-        driver.updateReplica(null, TABLE_ID, 1, 2);
-
         assertEquals(2, tracker.maxStartTime());
+        driver.updateReplica(null, TABLE_ID, 1, 3);
+
+        assertEquals(3, tracker.maxStartTime());
 
         PrimaryReplicasResult replicas = tracker.primaryReplicasAsync(TABLE_ID, null).join();
         assertEquals(PARTITIONS, replicas.nodeNames().size());

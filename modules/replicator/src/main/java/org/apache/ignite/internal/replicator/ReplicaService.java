@@ -55,9 +55,6 @@ import org.jetbrains.annotations.TestOnly;
 
 /** The service is intended to execute requests on replicas. */
 public class ReplicaService {
-    /** Retry timeout. */
-    private static final int RETRY_TIMEOUT_MILLIS = 10;
-
     /** Message service. */
     private final MessagingService messagingService;
 
@@ -121,18 +118,22 @@ public class ReplicaService {
         this.retryExecutor = retryExecutor;
     }
 
+    private <R> CompletableFuture<R> sendToReplica(String targetNodeConsistentId, ReplicaRequest req) {
+        return (CompletableFuture<R>) sendToReplicaRaw(targetNodeConsistentId, req).thenApply(res -> res.result());
+    }
+
     /**
-     * Sends request to the replica node.
+     * Sends request to the replica node and provides raw response.
      *
-     * @param targetNodeConsistentId A consistent id of the replica node..
+     * @param targetNodeConsistentId A consistent id of the replica node.
      * @param req Replica request.
      * @return Response future with either evaluation result or completed exceptionally.
      * @see NodeStoppingException If either supplier or demander node is stopping.
      * @see ReplicaUnavailableException If replica with given replication group id doesn't exist or not started yet.
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
-    private <R> CompletableFuture<R> sendToReplica(String targetNodeConsistentId, ReplicaRequest req) {
-        CompletableFuture<R> res = new CompletableFuture<>();
+    private CompletableFuture<ReplicaResponse> sendToReplicaRaw(String targetNodeConsistentId, ReplicaRequest req) {
+        CompletableFuture<ReplicaResponse> res = new CompletableFuture<>();
 
         messagingService.invoke(
                 targetNodeConsistentId,
@@ -227,11 +228,11 @@ public class ReplicaService {
                                     assert response0 instanceof AwaitReplicaResponse :
                                             "Incorrect response type [type=" + response0.getClass().getSimpleName() + ']';
 
-                                    sendToReplica(targetNodeConsistentId, req).whenComplete((r, e) -> {
+                                    sendToReplicaRaw(targetNodeConsistentId, req).whenComplete((r, e) -> {
                                         if (e != null) {
                                             res.completeExceptionally(e);
                                         } else {
-                                            res.complete((R) r);
+                                            res.complete(r);
                                         }
                                     });
                                 }
@@ -240,17 +241,19 @@ public class ReplicaService {
                             return null;
                         }, partitionOperationsExecutor);
                     } else {
-                        if (retryExecutor != null && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR)) {
+                        int replicaOperationRetryInterval = replicationConfiguration.replicaOperationRetryInterval().value();
+                        if (retryExecutor != null && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR)
+                                && replicaOperationRetryInterval > 0) {
                             retryExecutor.schedule(
                                     // Need to resubmit again to pool which is valid for synchronous IO execution.
                                     () -> partitionOperationsExecutor.execute(() -> res.completeExceptionally(errResp.throwable())),
-                                    RETRY_TIMEOUT_MILLIS, MILLISECONDS);
+                                    replicaOperationRetryInterval, MILLISECONDS);
                         } else {
                             res.completeExceptionally(errResp.throwable());
                         }
                     }
                 } else {
-                    res.complete((R) ((ReplicaResponse) response).result());
+                    res.complete((ReplicaResponse) response);
                 }
             }
         });
@@ -269,7 +272,7 @@ public class ReplicaService {
      * @see ReplicationTimeoutException If the response could not be received due to a timeout.
      */
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request) {
-        return sendToReplica(node.name(), request);
+        return invokeRaw(node, request).thenApply(r -> (R) r.result());
     }
 
     /**
@@ -299,6 +302,18 @@ public class ReplicaService {
      */
     public <R> CompletableFuture<R> invoke(ClusterNode node, ReplicaRequest request, String storageId) {
         return sendToReplica(node.name(), request);
+    }
+
+    /**
+     * Sends a request to the given replica {@code node} and returns a future that will be completed with a raw response.
+     * This can be used to carry additional metadata to the caller.
+     *
+     * @param node Cluster node.
+     * @param request The request.
+     * @return Response future with either evaluation raw response or completed exceptionally.
+     */
+    public CompletableFuture<ReplicaResponse> invokeRaw(ClusterNode node, ReplicaRequest request) {
+        return sendToReplicaRaw(node.name(), request);
     }
 
     public MessagingService messagingService() {

@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.QueryCancelledException.CANCEL_MSG;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.StringContains.containsString;
@@ -40,6 +43,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.Iterator;
@@ -60,6 +64,7 @@ import org.apache.calcite.util.DateString;
 import org.apache.calcite.util.TimeString;
 import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
@@ -73,6 +78,7 @@ import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -91,7 +97,12 @@ public class SqlTestUtils {
 
     private static final EnumMap<ColumnType, SqlTypeName> COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP = new EnumMap<>(ColumnType.class);
 
-    private static final DateTimeFormatter SQL_CONFORMANT_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    public static final DateTimeFormatter SQL_CONFORMANT_DATETIME_FORMATTER = new DateTimeFormatterBuilder()
+                .parseCaseInsensitive()
+                .append(ISO_LOCAL_DATE)
+                .appendLiteral(' ')
+                .append(ISO_LOCAL_TIME)
+                .toFormatter();
 
     static {
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.BOOLEAN, SqlTypeName.BOOLEAN);
@@ -125,10 +136,9 @@ public class SqlTestUtils {
      * @param expectedCode Expected error code of {@link SqlException}.
      * @param expectedMessage Expected error message of {@link SqlException}.
      * @param executable Supplier to execute and check thrown exception.
-     * @return Thrown the {@link SqlException}.
      */
-    public static SqlException assertThrowsSqlException(int expectedCode, String expectedMessage, Executable executable) {
-        return assertThrowsSqlException(SqlException.class, expectedCode, expectedMessage, executable);
+    public static void assertThrowsSqlException(int expectedCode, String expectedMessage, Executable executable) {
+        assertThrowsSqlException(SqlException.class, expectedCode, expectedMessage, executable);
     }
 
     /**
@@ -550,5 +560,24 @@ public class SqlTestUtils {
      */
     public static void executeUpdate(String query, IgniteSql sql) {
         executeUpdate(query, sql, null);
+    }
+
+    /** The action is expected to throw a {@link SqlException} with code {@link Sql#EXECUTION_CANCELLED_ERR}. */
+    public static void expectQueryCancelled(Executable action) {
+        assertThrowsSqlException(
+                Sql.EXECUTION_CANCELLED_ERR,
+                CANCEL_MSG,
+                action
+        );
+    }
+
+    /** The action is expected to throw a {@link QueryCancelledException}. */
+    public static void expectQueryCancelledInternalException(Executable action) {
+        //noinspection ThrowableNotThrown
+        IgniteTestUtils.assertThrows(
+                QueryCancelledException.class,
+                action,
+                CANCEL_MSG
+        );
     }
 }

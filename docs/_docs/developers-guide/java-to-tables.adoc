@@ -39,7 +39,7 @@ You use the `@Table` and other annotations that are located in the `org.apache.i
 @Zone(
         value = "zone_test",
         partitions = 2,
-        engine = ZoneEngine.ROCKSDB
+        storageProfiles = "default"
 )
 class ZoneTest {}
 
@@ -82,7 +82,7 @@ The result is equivalent to the following SQL multi-statement:
 
 [source, sql]
 ----
-CREATE ZONE IF NOT EXISTS zone_test ENGINE ROCKSDB WITH PARTITIONS=2;
+CREATE ZONE IF NOT EXISTS zone_test ENGINE ROCKSDB WITH PARTITIONS=2, STORAGE_PROFILES='default';
 
 CREATE TABLE IF NOT EXISTS kv_pojo_test (
 	id int,
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS kv_pojo_test (
 	PRIMARY KEY (id, id_str desc)
 )
 COLOCATE BY (f_name, l_name)
-WITH PRIMARY_ZONE='ZONE_TEST';
+ZONE ZONE_TEST;
 
 CREATE INDEX ix_test (f_name, l_name desc nulls last);
 ----
@@ -168,7 +168,8 @@ class Pojo {
 
 ignite.catalog()
   .create(ZoneDefinition.builder("zone_test")
-    .partitions(2));
+    .partitions(2)
+    .storageProfiles("default"));
 
 ignite.catalog()
   .create(TableDefinition.builder("pojo_test")

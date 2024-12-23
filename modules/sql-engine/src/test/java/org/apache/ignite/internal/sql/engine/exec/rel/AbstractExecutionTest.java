@@ -50,10 +50,8 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
-import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -124,7 +122,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 fragmentDesc,
                 rowHandler(),
                 Map.of(),
-                TxAttributes.fromTx(new NoOpTransaction("fake-test-node")),
+                TxAttributes.fromTx(new NoOpTransaction("fake-test-node", false)),
                 SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
                 null
         );
@@ -336,35 +334,6 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
         public void closeRewindableRoot() {
             super.closeInternal();
         }
-    }
-
-    static RowHandler.RowFactory<Object[]> rowFactory() {
-        return new RowHandler.RowFactory<>() {
-            @Override
-            public RowHandler<Object[]> handler() {
-                return ArrayRowHandler.INSTANCE;
-            }
-
-            @Override
-            public RowBuilder<Object[]> rowBuilder() {
-                throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public Object[] create() {
-                throw new AssertionError();
-            }
-
-            @Override
-            public Object[] create(Object... fields) {
-                return fields;
-            }
-
-            @Override
-            public Object[] create(InternalTuple tuple) {
-                throw new UnsupportedOperationException();
-            }
-        };
     }
 
     static TupleFactory tupleFactoryFromSchema(BinaryTupleSchema schema) {

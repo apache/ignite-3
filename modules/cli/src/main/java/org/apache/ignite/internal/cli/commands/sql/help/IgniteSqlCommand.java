@@ -50,8 +50,8 @@ public enum IgniteSqlCommand {
     CREATE_TABLE("CREATE TABLE",
             "CREATE TABLE [IF NOT EXISTS] tableName (tableColumn [, tableColumn]...)\n"
                     + "[COLOCATE [BY] (columnName [, columnName]...)]\n"
-                    + "[WITH paramName=paramValue [,paramName=paramValue]...]\n"
-                    + "[EXPIRE AT columnName]\n"
+                    + "[ZONE zoneName]\n"
+                    + "[STORAGE PROFILE storageProfile]\n"
                     + "tableColumn = columnName columnType [[NOT] NULL] [DEFAULT defaultValue] [PRIMARY KEY]"),
     create_table("create table", CREATE_TABLE.syntax),
 

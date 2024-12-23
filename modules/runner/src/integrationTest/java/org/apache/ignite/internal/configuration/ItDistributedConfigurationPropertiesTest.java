@@ -279,7 +279,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
         /**
          * Starts the created components.
          */
-        CompletableFuture<Void> start() {
+        void startUpToCmgManager() {
             assertThat(
                     startAsync(new ComponentContext(),
                             vaultManager,
@@ -289,9 +289,15 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                             msLogStorageFactory,
                             raftManager,
                             failureManager,
-                            cmgManager,
-                            metaStorageManager
+                            cmgManager
                     ),
+                    willCompleteSuccessfully()
+            );
+        }
+
+        CompletableFuture<Void> startComponentsAfterCmgManager() {
+            assertThat(
+                    startAsync(new ComponentContext(), metaStorageManager),
                     willCompleteSuccessfully()
             );
 
@@ -376,10 +382,15 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                 raftConfiguration
         );
 
-        CompletableFuture<?>[] startFutures = Stream.of(firstNode, secondNode).parallel().map(Node::start)
-                .toArray(CompletableFuture[]::new);
+        Stream.of(firstNode, secondNode).parallel().forEach(Node::startUpToCmgManager);
 
         firstNode.cmgManager.initCluster(List.of(firstNode.name()), List.of(), "cluster");
+
+        assertThat(firstNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
+        assertThat(secondNode.cmgManager.onJoinReady(), willCompleteSuccessfully());
+
+        CompletableFuture<?>[] startFutures = Stream.of(firstNode, secondNode).parallel().map(Node::startComponentsAfterCmgManager)
+                .toArray(CompletableFuture[]::new);
 
         assertThat(allOf(startFutures), willCompleteSuccessfully());
 

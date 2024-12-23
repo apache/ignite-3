@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.Map;
 import java.util.UUID;
@@ -34,6 +37,7 @@ import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The read-write implementation of an internal transaction.
@@ -65,14 +69,16 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param observableTsTracker Observable timestamp tracker.
      * @param id The id.
      * @param txCoordinatorId Transaction coordinator inconsistent ID.
+     * @param implicit True for an implicit transaction, false for an ordinary one.
      */
     public ReadWriteTransactionImpl(
             TxManager txManager,
             HybridTimestampTracker observableTsTracker,
             UUID id,
-            UUID txCoordinatorId
+            UUID txCoordinatorId,
+            boolean implicit
     ) {
-        super(txManager, id, txCoordinatorId);
+        super(txManager, id, txCoordinatorId, implicit);
 
         this.observableTsTracker = observableTsTracker;
     }
@@ -135,23 +141,43 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    protected CompletableFuture<Void> finish(boolean commit) {
+    public CompletableFuture<Void> commitAsync() {
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(
+                finish(true, null, false),
+                TX_COMMIT_ERR
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> rollbackAsync() {
+        return TransactionsExceptionMapperUtil.convertToPublicFuture(
+                finish(false, null, false),
+                TX_ROLLBACK_ERR
+        );
+    }
+
+    @Override
+    public CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full) {
         if (finishFuture != null) {
             return finishFuture;
         }
-
         enlistPartitionLock.writeLock().lock();
 
         try {
             if (finishFuture == null) {
-                CompletableFuture<Void> finishFutureInternal = finishInternal(commit);
+                if (full) {
+                    txManager.finishFull(observableTsTracker, id(), executionTimestamp, commit);
 
-                finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
+                    finishFuture = nullCompletedFuture();
+                } else {
+                    CompletableFuture<Void> finishFutureInternal = finishInternal(commit);
 
-                // Return the real future first time.
-                return finishFutureInternal;
+                    finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
+
+                    // Return the real future first time.
+                    return finishFutureInternal;
+                }
             }
 
             return finishFuture;

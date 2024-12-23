@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.cli.call.node.metric;
 
+import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.failure;
+import static org.apache.ignite.internal.cli.core.call.DefaultCallOutput.success;
+
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.call.metric.MetricSourceEnableCallInput;
 import org.apache.ignite.internal.cli.core.call.Call;
 import org.apache.ignite.internal.cli.core.call.CallOutput;
-import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliApiException;
 import org.apache.ignite.internal.cli.core.rest.ApiClientFactory;
 import org.apache.ignite.rest.client.api.NodeMetricApi;
@@ -28,16 +31,15 @@ import org.apache.ignite.rest.client.invoker.ApiException;
 
 /** Enables or disables metric source. */
 @Singleton
-public class NodeMetricSourceEnableCall implements Call<NodeMetricSourceEnableCallInput, String> {
+public class NodeMetricSourceEnableCall implements Call<MetricSourceEnableCallInput, String> {
     private final ApiClientFactory clientFactory;
 
     public NodeMetricSourceEnableCall(ApiClientFactory clientFactory) {
         this.clientFactory = clientFactory;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public CallOutput<String> execute(NodeMetricSourceEnableCallInput input) {
+    public CallOutput<String> execute(MetricSourceEnableCallInput input) {
         NodeMetricApi api = createApiClient(input);
 
         try {
@@ -47,13 +49,13 @@ public class NodeMetricSourceEnableCall implements Call<NodeMetricSourceEnableCa
                 api.disableNodeMetric(input.getSrcName());
             }
             String message = input.getEnable() ? "enabled" : "disabled";
-            return DefaultCallOutput.success("Metric source was " + message + " successfully");
+            return success("Metric source was " + message + " successfully");
         } catch (ApiException | IllegalArgumentException e) {
-            return DefaultCallOutput.failure(new IgniteCliApiException(e, input.getEndpointUrl()));
+            return failure(new IgniteCliApiException(e, input.getEndpointUrl()));
         }
     }
 
-    private NodeMetricApi createApiClient(NodeMetricSourceEnableCallInput input) {
+    private NodeMetricApi createApiClient(MetricSourceEnableCallInput input) {
         return new NodeMetricApi(clientFactory.getClient(input.getEndpointUrl()));
     }
 }

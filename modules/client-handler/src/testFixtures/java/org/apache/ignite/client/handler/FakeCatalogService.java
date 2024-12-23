@@ -31,6 +31,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.event.EventListener;
@@ -118,7 +119,18 @@ public class FakeCatalogService implements CatalogService {
 
     @Override
     public CatalogZoneDescriptor zone(int zoneId, long timestamp) {
-        return new CatalogZoneDescriptor(zoneId, "zone", partitions, 0, 0, 0, 0, "", fromParams(Collections.emptyList()));
+        return new CatalogZoneDescriptor(
+                zoneId,
+                "zone",
+                partitions,
+                0,
+                0,
+                0,
+                0,
+                "",
+                fromParams(Collections.emptyList()),
+                ConsistencyMode.STRONG_CONSISTENCY
+        );
     }
 
     @Override

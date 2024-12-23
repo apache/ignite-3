@@ -21,6 +21,9 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.endsWith;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -28,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -45,8 +49,11 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.DataStreamerException;
 import org.apache.ignite.table.DataStreamerItem;
+import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
@@ -218,19 +225,22 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     public void testMissingKeyColumn() {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
+        DataStreamerItem<Tuple> item = DataStreamerItem.of(Tuple.create());
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SimplePublisher<Tuple>()) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
             var options = DataStreamerOptions.builder().build();
             streamerFut = view.streamData(publisher, options);
 
-            var tuple = Tuple.create();
-
-            publisher.submit(tuple);
+            publisher.submit(item);
         }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
-        assertEquals("Missed key column: ID", ex.getCause().getMessage());
+        assertThat(ex.getMessage(), endsWith("Missed key column: ID"));
+
+        DataStreamerException cause = (DataStreamerException) ex.getCause();
+        assertEquals(1, cause.failedItems().size());
+        assertEquals(item, cause.failedItems().iterator().next());
     }
 
     @SuppressWarnings("Convert2MethodRef")
@@ -465,28 +475,87 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     public void testReceiverException(boolean async) {
         CompletableFuture<Void> streamerFut;
 
+        Object key = 0;
+        Tuple item = tupleKey(1);
+
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
                     t -> t,
-                    t -> 0,
+                    t -> key,
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
                     null,
                     DataStreamerOptions.builder().retryLimit(0).pageSize(1).build(),
                     async ? "throw-async" : "throw");
 
-            publisher.submit(tupleKey(1));
+            publisher.submit(item);
         }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
-        assertEquals(
-                "Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: test",
-                ex.getCause().getMessage());
+        assertThat(
+                ex.getCause().getMessage(),
+                endsWith("Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: test"));
+
+        DataStreamerException cause = (DataStreamerException) ex.getCause();
+        assertEquals(1, cause.failedItems().size());
+        assertEquals(item, cause.failedItems().iterator().next());
+    }
+
+    @Test
+    public void testFailedItems() {
+        RecordView<Tuple> view = defaultTable().recordView();
+
+        CompletableFuture<Void> streamerFut;
+
+        var invalidItemsAdded = new ArrayList<DataStreamerItem<Tuple>>();
+
+        try (var publisher = new DirectPublisher<DataStreamerItem<Tuple>>()) {
+            var options = DataStreamerOptions.builder()
+                    .pageSize(10)
+                    .perPartitionParallelOperations(3)
+                    .autoFlushInterval(100)
+                    .build();
+
+            streamerFut = view.streamData(publisher, options);
+
+            TestUtils.waitForCondition(() -> publisher.requested() > 0, 5000);
+
+            // Submit valid items.
+            for (int i = 0; i < 100; i++) {
+                publisher.submit(DataStreamerItem.of(tuple(i, "foo-" + i)));
+            }
+
+            TestUtils.waitForCondition(() -> view.contains(null, tupleKey(99)), 5000);
+
+            // Submit invalid items.
+            for (int i = 200; i < 300; i++) {
+                DataStreamerItem<Tuple> item = DataStreamerItem.of(
+                        Tuple.create().set("id", i).set("name1", "bar-" + i),
+                        i % 2 == 0 ? DataStreamerOperationType.PUT : DataStreamerOperationType.REMOVE);
+
+                try {
+                    publisher.submit(item);
+                    invalidItemsAdded.add(item);
+                } catch (Exception e) {
+                    break;
+                }
+            }
+        }
+
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        DataStreamerException cause = (DataStreamerException) ex.getCause();
+        Set<?> failedItems = cause.failedItems();
+
+        assertThat(invalidItemsAdded.size(), is(greaterThan(10)));
+        assertEquals(invalidItemsAdded.size(), failedItems.size());
+
+        for (DataStreamerItem<Tuple> item : invalidItemsAdded) {
+            assertTrue(failedItems.contains(item), "Failed item not found: " + item.get());
+        }
     }
 
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            @SuppressWarnings("resource")
             var tx = ignite().transactions().begin(new TransactionOptions().readOnly(true));
 
             try {
@@ -498,7 +567,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     private Table defaultTable() {
-        //noinspection resource
         return ignite().tables().table(TABLE_NAME);
     }
 
@@ -549,7 +617,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
-    @SuppressWarnings("resource")
     private static class TestReceiver implements DataStreamerReceiver<String, Object, String> {
         @Override
         public CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, Object arg) {
@@ -574,7 +641,6 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
-    @SuppressWarnings("resource")
     private static class NodeNameReceiver implements DataStreamerReceiver<Integer, Object, Void> {
         @Override
         public @Nullable CompletableFuture<List<Void>> receive(List<Integer> page, DataStreamerReceiverContext ctx, Object arg) {

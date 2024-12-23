@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
@@ -38,9 +39,6 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -48,9 +46,11 @@ import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
+import org.apache.ignite.internal.causality.TestRevisionListenerRegistry;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.ColumnType;
@@ -72,14 +72,12 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
     private static final long CAUSALITY_TOKEN_1 = 0;
     private static final long CAUSALITY_TOKEN_2 = 45;
+    private static final long CAUSALITY_TOKEN_3 = 56;
 
     private static final int CATALOG_VERSION_1 = 10;
     private static final int CATALOG_VERSION_2 = 11;
 
-    private final AtomicReference<LongFunction<CompletableFuture<?>>> onMetastoreRevisionCompleteHolder = new AtomicReference<>();
-
-    private final Consumer<LongFunction<CompletableFuture<?>>> registry = onMetastoreRevisionCompleteHolder::set;
-
+    private final TestRevisionListenerRegistry registry = new TestRevisionListenerRegistry();
     @Mock
     private CatalogService catalogService;
 
@@ -172,7 +170,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void completeCausalityToken(long causalityToken) {
-        assertThat(onMetastoreRevisionCompleteHolder.get().apply(causalityToken), willCompleteSuccessfully());
+        assertThat(registry.updateRevision(causalityToken), willCompleteSuccessfully());
     }
 
     @Test
@@ -271,12 +269,12 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
         when(catalogService.latestCatalogVersion()).thenReturn(2);
         when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
-        doReturn(CompletableFuture.completedFuture(CAUSALITY_TOKEN_2)).when(metaStorageManager).recoveryFinishedFuture();
+        doReturn(completedFuture(new Revisions(CAUSALITY_TOKEN_2, -1))).when(metaStorageManager).recoveryFinishedFuture();
 
         schemaManager = new SchemaManager(registry, catalogService);
         assertThat(schemaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        completeCausalityToken(CAUSALITY_TOKEN_2);
+        completeCausalityToken(CAUSALITY_TOKEN_3);
 
         SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(TABLE_ID);
 

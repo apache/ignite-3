@@ -45,12 +45,12 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.partition.replicator.network.raft.PartitionSnapshotMeta;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccess;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -67,7 +67,16 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
         UUID nextRowIdToBuild = UUID.randomUUID();
         int indexId = 1;
 
-        SnapshotMeta meta = snapshotMetaAt(100, 3, config, 42, Map.of(indexId, nextRowIdToBuild));
+        PartitionSnapshotMeta meta = snapshotMetaAt(
+                100,
+                3,
+                config,
+                42,
+                Map.of(indexId, nextRowIdToBuild),
+                777L,
+                new UUID(1, 2),
+                "primary"
+        );
 
         assertThat(meta.lastIncludedIndex(), is(100L));
         assertThat(meta.lastIncludedTerm(), is(3L));
@@ -77,11 +86,23 @@ class SnapshotMetaUtilsTest extends BaseIgniteAbstractTest {
         assertThat(meta.oldLearnersList(), is(List.of("learner1:3000")));
         assertThat(meta.requiredCatalogVersion(), is(42));
         assertThat(meta.nextRowIdToBuildByIndexId(), is(Map.of(indexId, nextRowIdToBuild)));
+        assertThat(meta.leaseStartTime(), is(777L));
+        assertThat(meta.primaryReplicaNodeId(), is(new UUID(1, 2)));
+        assertThat(meta.primaryReplicaNodeName(), is("primary"));
     }
 
     @Test
     void doesNotIncludeOldConfigWhenItIsNotThere() {
-        SnapshotMeta meta = snapshotMetaAt(100, 3, new RaftGroupConfiguration(List.of(), List.of(), null, null), 42, Map.of());
+        PartitionSnapshotMeta meta = snapshotMetaAt(
+                100,
+                3,
+                new RaftGroupConfiguration(List.of(), List.of(), null, null),
+                42,
+                Map.of(),
+                777L,
+                null,
+                null
+        );
 
         assertThat(meta.oldPeersList(), is(nullValue()));
         assertThat(meta.oldLearnersList(), is(nullValue()));

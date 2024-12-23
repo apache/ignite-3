@@ -38,8 +38,11 @@ public interface MetastorageCommandsMessageGroup {
     /** Message type for {@link GetAllCommand}. */
     short GET_ALL = 30;
 
-    /** Message type for {@link GetCurrentRevisionCommand}. */
-    short GET_CURRENT_REVISION = 33;
+    /** Message type for {@link GetCurrentRevisionsCommand}. */
+    short GET_CURRENT_REVISIONS = 33;
+
+    /** Message type for {@link GetChecksumCommand}. */
+    short GET_CHECKSUM = 34;
 
     /** Message type for {@link PutCommand}. */
     short PUT = 40;
@@ -64,4 +67,7 @@ public interface MetastorageCommandsMessageGroup {
 
     /** Message type for {@link EvictIdempotentCommandsCacheCommand}. */
     short EVICT_IDEMPOTENT_COMMAND_CACHE = 71;
+
+    /** Message type for {@link CompactionCommand}. */
+    short COMPACTION = 72;
 }

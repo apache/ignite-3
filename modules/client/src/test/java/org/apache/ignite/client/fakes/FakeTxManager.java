@@ -63,17 +63,17 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker tracker) {
-        return begin(tracker, false);
+    public InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit) {
+        return begin(tracker, implicit, false);
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly) {
-        return begin(timestampTracker, readOnly, TxPriority.NORMAL);
+    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly) {
+        return begin(timestampTracker, implicit, readOnly, TxPriority.NORMAL);
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker tracker, boolean readOnly, TxPriority priority) {
+    public InternalTransaction begin(HybridTimestampTracker tracker, boolean implicit, boolean readOnly, TxPriority priority) {
         return new InternalTransaction() {
             private final UUID id = UUID.randomUUID();
 
@@ -150,6 +150,16 @@ public class FakeTxManager implements TxManager {
             public HybridTimestamp startTimestamp() {
                 return timestamp;
             }
+
+            @Override
+            public boolean implicit() {
+                return false;
+            }
+
+            @Override
+            public CompletableFuture<Void> finish(boolean commit, HybridTimestamp executionTimestamp, boolean full) {
+                return nullCompletedFuture();
+            }
         };
     }
 
@@ -171,10 +181,6 @@ public class FakeTxManager implements TxManager {
     @Override
     public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
         return CompletableFuture.runAsync(runnable);
-    }
-
-    @Override
-    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
     }
 
     @Override
@@ -228,5 +234,10 @@ public class FakeTxManager implements TxManager {
     @Override
     public int pending() {
         return 0;
+    }
+
+    @Override
+    public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit) {
+        // No-op.
     }
 }

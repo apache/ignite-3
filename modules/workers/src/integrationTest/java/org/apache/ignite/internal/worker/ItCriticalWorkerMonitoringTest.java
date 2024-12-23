@@ -30,7 +30,6 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.raft.SnapshotMetaResponse;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -121,7 +120,7 @@ class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
 
     private static SnapshotMetaResponse snapshotMetaResponse() {
         return new PartitionReplicationMessagesFactory().snapshotMetaResponse()
-                .meta(new RaftMessagesFactory().snapshotMeta().build())
+                .meta(new PartitionReplicationMessagesFactory().partitionSnapshotMeta().build())
                 .build();
     }
 }

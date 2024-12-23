@@ -34,8 +34,6 @@ big_integer::big_integer(const int8_t *val, int32_t len, int8_t sign, bool big_e
     m_mpi.read(reinterpret_cast<const std::uint8_t *>(val), len, big_endian);
 
     m_mpi.set_sign(sign >= 0 ? detail::mpi_sign::POSITIVE : detail::mpi_sign::NEGATIVE);
-
-    m_mpi.shrink();
 }
 
 big_integer::big_integer(const std::byte *data, std::size_t size) {
@@ -60,8 +58,6 @@ big_integer::big_integer(const std::byte *data, std::size_t size) {
         }
         m_mpi.make_negative();
     }
-
-    m_mpi.shrink();
 }
 
 void big_integer::assign_int64(int64_t val) {
@@ -115,7 +111,7 @@ std::uint32_t big_integer::bit_length() const noexcept {
         auto last = view.back();
         if ((last & (last - 1)) == 0) {
             bool all_zero = true;
-            for (auto i = std::int64_t(view.size() - 2); i > 0; i--) {
+            for (auto i = std::int64_t(view.size_words() - 2); i > 0; i--) {
                 if (view[i] != 0) {
                     all_zero = false;
                     break;
@@ -139,8 +135,6 @@ void big_integer::store_bytes(std::byte *data) const {
         data[0] = std::byte{0};
         return;
     }
-
-    m_mpi.shrink();
 
     auto size = byte_size();
     m_mpi.write(reinterpret_cast<std::uint8_t *>(data), size);
@@ -237,8 +231,8 @@ int big_integer::compare(const big_integer &other, bool ignore_sign) const {
 
 int64_t big_integer::to_int64() const {
     auto mag = m_mpi.magnitude();
-    std::uint64_t high = mag.size() > 1 ? mag[1] : 0;
-    std::uint64_t low = mag.size() > 0 ? mag[0] : 0;
+    std::uint64_t high = mag.size_words() > 1 ? mag[1] : 0;
+    std::uint64_t low = mag.size_words() > 0 ? mag[0] : 0;
     return m_mpi.sign() * int64_t(high << 32 | low);
 }
 

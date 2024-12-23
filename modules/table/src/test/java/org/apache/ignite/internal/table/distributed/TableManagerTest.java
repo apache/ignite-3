@@ -66,20 +66,19 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
-import java.util.function.LongFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
@@ -96,7 +95,9 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -130,8 +131,9 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorServiceImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -140,7 +142,6 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CursorUtils;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -158,7 +159,7 @@ import org.mockito.quality.Strictness;
 
 /** Tests scenarios for table manager. */
 // TODO: test demands for reworking https://issues.apache.org/jira/browse/IGNITE-22388
-@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
     /** The name of the table which is preconfigured. */
@@ -216,7 +217,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private volatile TxStateTableStorage txStateTableStorage;
 
     /** Revision updater. */
-    private Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater;
+    private RevisionListenerRegistry revisionUpdater;
 
     /** Garbage collector configuration. */
     @InjectConfiguration
@@ -260,7 +261,11 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Catalog manager. */
     private CatalogManager catalogManager;
 
+    @InjectExecutorService(threadCount = 5, allowedOperations = {STORAGE_READ, STORAGE_WRITE})
     private ExecutorService partitionOperationsExecutor;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutor;
 
     private TestLowWatermark lowWatermark;
 
@@ -277,9 +282,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
         indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, catalogMetastore);
 
-        assertThat(startAsync(new ComponentContext(), catalogMetastore, catalogManager, indexMetaStorage), willCompleteSuccessfully());
+        ComponentContext context = new ComponentContext();
+        assertThat(startAsync(context, catalogMetastore), willCompleteSuccessfully());
+        assertThat(catalogMetastore.recoveryFinishedFuture(), willCompleteSuccessfully());
 
-        revisionUpdater = (LongFunction<CompletableFuture<?>> function) -> catalogMetastore.registerRevisionUpdateListener(function::apply);
+        assertThat(startAsync(context, catalogManager, indexMetaStorage), willCompleteSuccessfully());
+
+        revisionUpdater = new MetaStorageRevisionListenerRegistry(catalogMetastore);
 
         assertThat(catalogMetastore.deployWatches(), willCompleteSuccessfully());
 
@@ -311,11 +320,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         tblManagerFut = new CompletableFuture<>();
 
         mockMetastore();
-
-        partitionOperationsExecutor = Executors.newFixedThreadPool(
-                5,
-                IgniteThreadFactory.create("test", "partition-operations", log, STORAGE_READ, STORAGE_WRITE)
-        );
     }
 
     @AfterEach
@@ -337,9 +341,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 () -> assertThat(
                         stopAsync(componentContext, dsm, sm, indexMetaStorage, catalogManager, catalogMetastore),
                         willCompleteSuccessfully()
-                ),
-                partitionOperationsExecutor == null ? null
-                        : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
+                )
         );
     }
 
@@ -661,6 +663,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any(), any()))
                 .thenAnswer(mock -> mock(TopologyAwareRaftGroupService.class));
+        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
+                .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         createZone(1, 1);
 
@@ -675,10 +679,12 @@ public class TableManagerTest extends IgniteAbstractTest {
             when(mvPartitionStorage.lastAppliedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
         }
 
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(new byte[0]);
+
         doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
         when(txStateStorage.clear()).thenReturn(nullCompletedFuture());
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(2, -1)));
 
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
         createTableManager(tblManagerFut, (mvTableStorage) -> {
@@ -720,7 +726,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(msm.invoke(any(), anyList(), anyList())).thenReturn(trueCompletedFuture());
         when(msm.get(any())).thenReturn(nullCompletedFuture());
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(2, -1)));
 
         when(msm.prefixLocally(any(), anyLong())).thenReturn(CursorUtils.emptyCursor());
     }
@@ -823,7 +829,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 sm = new SchemaManager(revisionUpdater, catalogManager),
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
-                mock(ScheduledExecutorService.class),
+                scheduledExecutor,
+                scheduledExecutor,
                 new TestClockService(clock),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 distributionZoneManager,
@@ -892,7 +899,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                         null,
                         mock(FailureManager.class),
                         mock(LogSyncer.class),
-                        clock
+                        clock,
+                        scheduledExecutor
                 ),
                 storageConfiguration
         );

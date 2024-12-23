@@ -28,10 +28,14 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
+import static org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -44,8 +48,10 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -466,6 +472,59 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         assertZoneScaleUpChangeTriggerKey(revisionOfScaleUp + 100L, zoneId, keyValueStorage);
 
         assertDataNodesFromLogicalNodesInStorage(zoneId, Set.of(), keyValueStorage);
+    }
+
+    @Test
+    void testPartitionDistributionResetTaskScheduling() throws Exception {
+        startDistributionZoneManager();
+
+        topology.putNode(NODE_1);
+        topology.putNode(NODE_2);
+        topology.putNode(NODE_3);
+
+        assertLogicalTopology(Set.of(NODE_1, NODE_2, NODE_3), keyValueStorage);
+
+        String haZoneName = "haZone";
+        String scZoneName = "scZone";
+
+        createZone(haZoneName, ConsistencyMode.HIGH_AVAILABILITY);
+        createZone(scZoneName, ConsistencyMode.STRONG_CONSISTENCY);
+
+        int haZoneId = getZoneId(haZoneName);
+        int scZoneId = getZoneId(scZoneName);
+
+        topology.removeNodes(Set.of(NODE_3));
+
+        assertLogicalTopology(Set.of(NODE_1, NODE_2), keyValueStorage);
+
+        long topologyRevision = metaStorageManager.get(
+                zonesLogicalTopologyKey()).get(1, TimeUnit.SECONDS).revision();
+
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision, 1000));
+
+        assertNull(distributionZoneManager.zonesState().get(scZoneId).partitionDistributionResetTask());
+
+        assertNotNull(distributionZoneManager.zonesState().get(haZoneId).partitionDistributionResetTask());
+        assertEquals(
+                0,
+                distributionZoneManager.zonesState().get(haZoneId).partitionDistributionResetTask().getDelay(TimeUnit.SECONDS)
+        );
+
+        // We don't want trigger stop of the timer, so, the target configuration must be smaller than Integer.MAX_VALUE
+        CompletableFuture<Void> changeConfigFuture = systemDistributedConfiguration.change(c0 -> c0.changeProperties()
+                .update(PARTITION_DISTRIBUTION_RESET_TIMEOUT, c1 -> c1.changePropertyValue(String.valueOf(Integer.MAX_VALUE - 1)))
+        );
+        assertThat(changeConfigFuture, willCompleteSuccessfully());
+
+        topology.removeNodes(Set.of(NODE_2));
+
+        assertLogicalTopology(Set.of(NODE_1), keyValueStorage);
+
+        assertTrue(waitForCondition(
+                () -> distributionZoneManager.zonesState().get(haZoneId).partitionDistributionResetTask().getDelay(TimeUnit.SECONDS) > 0,
+                1000));
+        // Not HA zone is not changed
+        assertNull(distributionZoneManager.zonesState().get(scZoneId).partitionDistributionResetTask());
     }
 
     @Test
@@ -1066,5 +1125,16 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         assertEquals(scaleUpChangeTriggerKey, scaleDownChangeTriggerKey,
                 "zoneScaleUpChangeTriggerKey and zoneScaleDownChangeTriggerKey are not equal");
+    }
+
+    protected void createZone(
+            String zoneName,
+            ConsistencyMode consistencyMode
+    ) {
+        DistributionZonesTestUtil.createZone(
+                catalogManager,
+                zoneName,
+                consistencyMode
+        );
     }
 }

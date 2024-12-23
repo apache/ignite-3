@@ -19,7 +19,9 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.Collections.singleton;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
@@ -30,6 +32,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -60,6 +64,7 @@ import org.jetbrains.annotations.TestOnly;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockSettings;
 import org.mockito.quality.Strictness;
+import org.mockito.stubbing.Answer;
 
 /**
  * MetaStorageManager dummy implementation.
@@ -79,6 +84,11 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     /** Creates standalone MetaStorage manager. */
     public static StandaloneMetaStorageManager create() {
         return create(TEST_NODE_NAME);
+    }
+
+    /** Creates standalone MetaStorage manager. */
+    public static StandaloneMetaStorageManager create(HybridClock clock) {
+        return create(TEST_NODE_NAME, clock);
     }
 
     /** Creates standalone MetaStorage manager. */
@@ -187,13 +197,28 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
     }
 
     private static ClusterManagementGroupManager mockClusterGroupManager() {
-
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
+
         when(cmgManager.metaStorageInfo()).thenReturn(completedFuture(
                 new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(TEST_NODE_NAME)).build()
         ));
 
+        configureCmgManagerToStartMetastorage(cmgManager);
+
         return cmgManager;
+    }
+
+    /**
+     * Configures {@link ClusterManagementGroupManager} mock to return cluster state needed for {@link MetaStorageManagerImpl} start.
+     *
+     * @param cmgManagerMock Mock to configure.
+     */
+    public static void configureCmgManagerToStartMetastorage(ClusterManagementGroupManager cmgManagerMock) {
+        ClusterState clusterState = mock(ClusterState.class);
+        ClusterTag clusterTag = ClusterTag.randomClusterTag(new CmgMessagesFactory(), "cluster");
+
+        when(clusterState.clusterTag()).thenReturn(clusterTag);
+        when(cmgManagerMock.clusterState()).thenReturn(completedFuture(clusterState));
     }
 
     private static RaftManager mockRaftManager() {
@@ -224,16 +249,24 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
             throw new RuntimeException(e);
         }
 
-        when(raftGroupService.run(any())).thenAnswer(invocation -> {
-            Command command = invocation.getArgument(0);
+        Answer<Object> answer = invocation -> {
             RaftGroupListener listener = listenerCaptor.getValue();
+            // Both onBeforeApply and command processing within listener should be thread-safe.
+            // onBeforeApply is guarded by group specific monitor, precisely synchronized (groupIdSyncMonitor(request.groupId())).
+            // See ActionRequestProcessor.handleRequestInternal for more details.
+            // Command processing on its turn is expected to be processed under raft umbrella, meaning in single-thread environment.
+            synchronized (listener) {
+                Command command = invocation.getArgument(0);
 
-            if (listener instanceof BeforeApplyHandler) {
-                ((BeforeApplyHandler) listener).onBeforeApply(command);
+                if (listener instanceof BeforeApplyHandler && command instanceof WriteCommand) {
+                    ((BeforeApplyHandler) listener).onBeforeApply(command);
+                }
+
+                return runCommand(command, listener);
             }
-
-            return runCommand(command, listener);
-        });
+        };
+        lenient().when(raftGroupService.run(any())).thenAnswer(answer);
+        lenient().when(raftGroupService.run(any(), anyLong())).thenAnswer(answer);
 
         return raftManager;
     }

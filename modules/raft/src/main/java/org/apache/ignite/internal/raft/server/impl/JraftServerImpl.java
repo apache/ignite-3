@@ -410,16 +410,7 @@ public class JraftServerImpl implements RaftServer {
     }
 
     public static Path getServerDataPath(Path basePath, RaftNodeId nodeId) {
-        return basePath.resolve(nodeIdStr(nodeId));
-    }
-
-    private static String nodeIdStr(RaftNodeId nodeId) {
-        return String.join(
-                "_",
-                nodeId.groupId().toString(),
-                nodeId.peer().consistentId(),
-                String.valueOf(nodeId.peer().idx())
-        );
+        return basePath.resolve(nodeId.nodeIdStringForStorage());
     }
 
     @Override
@@ -456,7 +447,7 @@ public class JraftServerImpl implements RaftServer {
             // Thread pools are shared by all raft groups.
             NodeOptions nodeOptions = opts.copy();
 
-            nodeOptions.setLogUri(nodeIdStr(nodeId));
+            nodeOptions.setLogUri(nodeId.nodeIdStringForStorage());
 
             Path serverDataPath = serverDataPathForNodeId(nodeId, groupOptions);
 
@@ -571,8 +562,8 @@ public class JraftServerImpl implements RaftServer {
     public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
         // TODO: IGNITE-23079 - improve on what we do if it was not possible to destroy any of the storages.
         try {
-            String uri = nodeIdStr(nodeId);
-            groupOptions.getLogStorageFactory().destroyLogStorage(uri);
+            String logUri = nodeId.nodeIdStringForStorage();
+            groupOptions.getLogStorageFactory().destroyLogStorage(logUri);
         } finally {
             Path serverDataPath = serverDataPathForNodeId(nodeId, groupOptions);
 

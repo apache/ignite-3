@@ -186,6 +186,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         private final KeyValueStorage mockStorage;
 
+        private final HybridClock clock;
+
         private final ClusterTimeImpl clusterTime;
 
         private RaftGroupService metaStorageRaftService;
@@ -199,7 +201,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         Node(ClusterService clusterService, RaftConfiguration raftConfiguration, Path dataPath) {
             this.clusterService = clusterService;
 
-            HybridClock clock = new HybridClockImpl();
+            clock = new HybridClockImpl();
 
             ComponentWorkingDir workingDir = new ComponentWorkingDir(dataPath.resolve(name()));
 
@@ -237,7 +239,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
                     clusterService.nodeName(),
                     metaStorageRaftService,
                     new IgniteSpinBusyLock(),
-                    clusterTime,
+                    clock,
                     () -> clusterService.topologyService().localMember().id()
             );
         }
@@ -255,7 +257,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             assert peer != null;
 
-            var listener = new MetaStorageListener(mockStorage, clusterTime);
+            var listener = new MetaStorageListener(mockStorage, clock, clusterTime);
 
             var raftNodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, peer);
 

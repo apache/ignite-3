@@ -57,13 +57,16 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.SingleClusterNodeResolver;
+import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateAllCommand;
@@ -81,6 +84,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
+import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NullBinaryRow;
@@ -96,6 +100,7 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -103,6 +108,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
@@ -112,6 +118,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -119,6 +126,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.stubbing.Answer;
 
 /**
  * Tests for data colocation.
@@ -237,7 +245,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             groupRafts.put(new TablePartitionId(tblId, i), r);
         }
 
-        when(replicaService.invoke(any(ClusterNode.class), any())).thenAnswer(invocation -> {
+        Answer<CompletableFuture<?>> clo = invocation -> {
             ClusterNode node = invocation.getArgument(0);
             ReplicaRequest request = invocation.getArgument(1);
             var commitPartId = new TablePartitionId(2, 0);
@@ -276,7 +284,40 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         .txCoordinatorId(node.id())
                         .build());
             }
-        });
+        };
+        when(replicaService.invoke(any(ClusterNode.class), any())).thenAnswer(clo);
+        when(replicaService.invokeRaw(any(ClusterNode.class), any())).thenAnswer(
+                invocation -> clo.answer(invocation).thenApply(res -> new TimestampAwareReplicaResponse() {
+                    @Override
+                    public @Nullable Object result() {
+                        return res;
+                    }
+
+                    @Override
+                    public @Nullable HybridTimestamp timestamp() {
+                        return clock.now();
+                    }
+
+                    @Override
+                    public MessageSerializer<NetworkMessage> serializer() {
+                        return null;
+                    }
+
+                    @Override
+                    public short messageType() {
+                        return 0;
+                    }
+
+                    @Override
+                    public short groupType() {
+                        return 0;
+                    }
+
+                    @Override
+                    public NetworkMessage clone() {
+                        return null;
+                    }
+                }));
 
         intTable = new InternalTableImpl(
                 "PUBLIC.TEST",
@@ -404,9 +445,15 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class), -1);
+        tbl = new TableImpl(intTable, schemaRegistry, lockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class), -1);
 
         marshaller = new TupleMarshallerImpl(schema);
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     private Tuple createTuple(int k, NativeTypeSpec t0, NativeTypeSpec t1) {

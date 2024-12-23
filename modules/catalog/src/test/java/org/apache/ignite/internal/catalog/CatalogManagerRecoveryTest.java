@@ -45,6 +45,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.nio.file.Path;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestUpdateHandlerInterceptor;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
@@ -59,6 +60,8 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.junit.jupiter.api.AfterEach;
@@ -68,11 +71,15 @@ import org.mockito.Mockito;
 
 /** For {@link CatalogManager} testing on recovery. */
 @ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test-node-name";
 
     @WorkDirectory
     private Path workDir;
+
+    @InjectExecutorService
+    private ScheduledExecutorService scheduledExecutorService;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -193,7 +200,13 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     private void createComponents() {
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        var keyValueStorage = new RocksDbKeyValueStorage(NODE_NAME, workDir, new NoOpFailureManager(), readOperationForCompactionTracker);
+        var keyValueStorage = new RocksDbKeyValueStorage(
+                NODE_NAME,
+                workDir,
+                new NoOpFailureManager(),
+                readOperationForCompactionTracker,
+                scheduledExecutorService
+        );
 
         metaStorageManager = spy(StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker));
 
@@ -207,8 +220,13 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     }
 
     private void startComponentsAndDeployWatches() {
+        ComponentContext context = new ComponentContext();
+
+        assertThat(startAsync(context, metaStorageManager), willCompleteSuccessfully());
+        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+
         assertThat(
-                startAsync(new ComponentContext(), metaStorageManager, catalogManager)
+                startAsync(context, catalogManager)
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );

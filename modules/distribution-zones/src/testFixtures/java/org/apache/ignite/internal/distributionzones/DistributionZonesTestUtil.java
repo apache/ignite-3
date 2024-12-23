@@ -19,6 +19,7 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
@@ -27,7 +28,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -50,6 +50,7 @@ import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -79,7 +80,7 @@ public class DistributionZonesTestUtil {
             int replicas,
             @Nullable String storageProfile
     ) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, storageProfile);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null, storageProfile);
     }
 
     /**
@@ -91,7 +92,32 @@ public class DistributionZonesTestUtil {
      * @param replicas Zone number of replicas.
      */
     public static void createZone(CatalogManager catalogManager, String zoneName, int partitions, int replicas) {
-        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, DEFAULT_STORAGE_PROFILE);
+        createZone(catalogManager, zoneName, partitions, replicas, null, null, null, null,  DEFAULT_STORAGE_PROFILE);
+    }
+
+    /**
+     * Creates a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param consistencyMode Zone consistency mode.
+     */
+    public static void createZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            ConsistencyMode consistencyMode
+    ) {
+        createZone(
+                catalogManager,
+                zoneName,
+                null,
+                null,
+                null,
+                null,
+                null,
+                consistencyMode,
+                DEFAULT_STORAGE_PROFILE
+        );
     }
 
     /**
@@ -120,6 +146,7 @@ public class DistributionZonesTestUtil {
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 filter,
+                null,
                 DEFAULT_STORAGE_PROFILE
         );
     }
@@ -152,6 +179,7 @@ public class DistributionZonesTestUtil {
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 filter,
+                null,
                 storageProfiles
         );
     }
@@ -164,6 +192,7 @@ public class DistributionZonesTestUtil {
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
+            @Nullable ConsistencyMode consistencyMode,
             String storageProfiles
     ) {
         CreateZoneCommandBuilder builder = CreateZoneCommand.builder().zoneName(zoneName);
@@ -186,6 +215,10 @@ public class DistributionZonesTestUtil {
 
         if (filter != null) {
             builder.filter(filter);
+        }
+
+        if (consistencyMode != null) {
+            builder.consistencyModeParams(consistencyMode);
         }
 
         assertNotNull(storageProfiles);
@@ -215,7 +248,7 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zoneDataNodesKey(zoneId).bytes(),
-                value -> DistributionZonesUtil.dataNodes(fromBytes(value)),
+                value -> DistributionZonesUtil.dataNodes(deserializeDataNodesMap(value)),
                 nodes,
                 2000
         );
@@ -237,7 +270,7 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zoneDataNodesKey(zoneId).bytes(),
-                value -> DistributionZonesUtil.dataNodes(fromBytes(value)),
+                value -> DistributionZonesUtil.dataNodes(deserializeDataNodesMap(value)),
                 nodes,
                 2000
         );
@@ -305,7 +338,7 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 keyValueStorage,
                 zonesLogicalTopologyKey().bytes(),
-                ByteUtils::fromBytes,
+                DistributionZonesUtil::deserializeLogicalTopologySet,
                 nodes,
                 1000
         );
@@ -331,7 +364,7 @@ public class DistributionZonesTestUtil {
         assertValueInStorage(
                 metaStorageManager,
                 zonesLogicalTopologyKey(),
-                ByteUtils::fromBytes,
+                DistributionZonesUtil::deserializeLogicalTopologySet,
                 nodes,
                 1000
         );

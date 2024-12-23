@@ -39,7 +39,9 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
@@ -226,7 +228,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         return new TableImpl(
                 new FakeInternalTable(name, id, keyExtractor, compute, placementDriver),
                 schemaReg,
-                new HeapLockManager(),
+                lockManager(),
                 new SchemaVersions() {
                     @Override
                     public CompletableFuture<Integer> schemaVersionAt(HybridTimestamp timestamp, int tableId) {
@@ -234,13 +236,19 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                     }
 
                     @Override
-                    public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
+                    public CompletableFuture<Integer> schemaVersionAtCurrentTime(int tableId) {
                         return completedFuture(schemaReg.lastKnownSchemaVersion());
                     }
                 },
                 mock(IgniteSql.class),
                 -1
         );
+    }
+
+    private static LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager();
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+        return lockManager;
     }
 
     /**

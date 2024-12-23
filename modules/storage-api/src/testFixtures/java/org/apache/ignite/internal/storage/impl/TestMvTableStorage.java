@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -243,14 +244,19 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public CompletableFuture<Void> finishRebalancePartition(
-            int partitionId,
-            long lastAppliedIndex,
-            long lastAppliedTerm,
-            byte[] groupConfig
-    ) {
+    public CompletableFuture<Void> finishRebalancePartition(int partitionId, MvPartitionMeta partitionMeta) {
         return mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
-            mvPartitionStorage.finishRebalance(lastAppliedIndex, lastAppliedTerm, groupConfig);
+            mvPartitionStorage.finishRebalance(partitionMeta);
+
+            if (partitionMeta.primaryReplicaNodeId() != null) {
+                assert partitionMeta.primaryReplicaNodeId() != null;
+
+                mvPartitionStorage.updateLease(
+                        partitionMeta.leaseStartTime(),
+                        partitionMeta.primaryReplicaNodeId(),
+                        partitionMeta.primaryReplicaNodeName()
+                );
+            }
 
             testHashIndexStorageStream(partitionId).forEach(TestHashIndexStorage::finishRebalance);
 

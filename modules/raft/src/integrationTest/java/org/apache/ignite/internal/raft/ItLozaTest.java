@@ -344,7 +344,7 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         loza.stopRaftNodes(replicationGroupId);
 
-        String groupUri = nodeId.groupId().toString() + "_" + nodeId.peer().consistentId() + "_" + nodeId.peer().idx();
+        String groupUri = nodeId.groupId().toString() + "-" + nodeId.peer().idx();
         Path groupRaftStoragesPath = partitionsWorkDir.metaPath().resolve(groupUri);
 
         assertTrue(Files.isDirectory(groupRaftStoragesPath));
