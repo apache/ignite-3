@@ -306,17 +306,24 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         }
     }
 
-    @Test
-    public void testJmxExport() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testJmxExport(boolean metricsEnabled) throws Exception {
         server = AbstractClientTest.startServer(1000, new FakeIgnite());
-        client = clientBuilder().build();
+        client = clientBuilder().metricsEnabled(metricsEnabled).build();
         client.tables().tables();
 
         String beanName = "org.apache.ignite:group=metrics,name=client";
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         ObjectName objName = new ObjectName(beanName);
-        assert mbeanSrv.isRegistered(objName) : "MBean is not registered: " + beanName;
+        boolean registered = mbeanSrv.isRegistered(objName);
+
+        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + "]");
+
+        if (!metricsEnabled) {
+            return;
+        }
 
         DynamicMBean mBean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
         assertEquals(1L, mBean.getAttribute("ConnectionsActive"));
