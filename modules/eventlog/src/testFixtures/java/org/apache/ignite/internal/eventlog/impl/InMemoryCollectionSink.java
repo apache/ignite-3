@@ -17,22 +17,37 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.Sink;
-import org.apache.ignite.internal.eventlog.config.schema.SinkView;
+import org.jetbrains.annotations.VisibleForTesting;
 
-class TestSinkFactory implements SinkFactory {
-    private final InMemoryCollectionSink inMemoryCollectionSink;
+class InMemoryCollectionSink implements Sink {
+    private final CopyOnWriteArrayList<Event> events = new CopyOnWriteArrayList<>();
 
-    TestSinkFactory(InMemoryCollectionSink inMemoryCollectionSink) {
-        this.inMemoryCollectionSink = inMemoryCollectionSink;
+    private final AtomicInteger stopCounter = new AtomicInteger(0);
+
+    @Override
+    public void write(Event event) {
+        events.add(event);
     }
 
     @Override
-    public Sink createSink(SinkView sinkView) {
-        if (sinkView.type().equals("inMemory")) {
-            return inMemoryCollectionSink;
-        }
+    public void stop() {
+        stopCounter.incrementAndGet();
 
-        return SinkFactory.super.createSink(sinkView);
+        Sink.super.stop();
+    }
+
+    @VisibleForTesting
+    List<Event> events() {
+        return new ArrayList<>(events);
+    }
+
+    public int getStopCounter() {
+        return stopCounter.get();
     }
 }

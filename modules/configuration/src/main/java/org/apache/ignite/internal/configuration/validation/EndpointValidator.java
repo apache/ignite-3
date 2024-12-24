@@ -15,20 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.exporters.validator;
+package org.apache.ignite.internal.configuration.validation;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import org.apache.ignite.configuration.validation.Endpoint;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 
-/** Implementation of the {@link EndpointValidator}. */
-public class EndpointValidatorImpl implements Validator<EndpointValidator, String> {
-    public static final EndpointValidatorImpl INSTANCE = new EndpointValidatorImpl();
-
+/** {@link Validator} implementation for the {@link Endpoint} annotation. */
+public class EndpointValidator implements Validator<Endpoint, String> {
     @Override
-    public void validate(EndpointValidator annotation, ValidationContext<String> ctx) {
+    public void validate(Endpoint annotation, ValidationContext<String> ctx) {
         String endpoint = ctx.getNewValue();
 
         try {

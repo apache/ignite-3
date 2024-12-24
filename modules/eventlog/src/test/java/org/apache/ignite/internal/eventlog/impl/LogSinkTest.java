@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.hasSize;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.Event;
@@ -69,7 +70,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
             logSinkChange.changeFormat("json");
         })).get();
         // And log sink.
-        Sink logSink = new LogSinkFactory(new EventSerializerFactory().createEventSerializer())
+        Sink logSink = new SinkFactoryFactoryImpl(new EventSerializerFactory().createEventSerializer(), UUID::randomUUID, "default")
                 .createSink(cfg.sinks().get("logSink").value());
         // And event.
         Event event = IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(
