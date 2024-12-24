@@ -168,40 +168,40 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         CompletableFuture<Set<String>> dataNodesFuture = disasterRecoveryManager.dzManager.dataNodes(msRevision, catalogVersion, zoneId);
 
         return dataNodesFuture.thenCombine(localStates, (dataNodes, localStatesMap) -> {
-                    Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
-                            .stream()
-                            .map(NodeWithAttributes::nodeName)
-                            .collect(toSet());
+            Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
+                    .stream()
+                    .map(NodeWithAttributes::nodeName)
+                    .collect(toSet());
 
-                    List<CompletableFuture<Void>> tableFuts = new ArrayList<>(partitionIds.size());
+            List<CompletableFuture<Void>> tableFuts = new ArrayList<>(partitionIds.size());
 
-                    for (Entry<Integer, Set<Integer>> tablePartitionEntry : partitionIds.entrySet()) {
+            for (Entry<Integer, Set<Integer>> tablePartitionEntry : partitionIds.entrySet()) {
 
-                        int[] partitionIdsArray = AssignmentUtil.partitionIds(tablePartitionEntry.getValue(), zoneDescriptor.partitions());
+                int[] partitionIdsArray = AssignmentUtil.partitionIds(tablePartitionEntry.getValue(), zoneDescriptor.partitions());
 
-                        tableFuts.add(forceAssignmentsUpdate(
-                                tablePartitionEntry.getKey(),
-                                zoneDescriptor,
-                                dataNodes,
-                                nodeConsistentIds,
-                                msRevision,
-                                disasterRecoveryManager.metaStorageManager,
-                                localStatesMap,
-                                catalog.time(),
-                                partitionIdsArray,
-                                manualUpdate
-                        ));
-                    }
+                tableFuts.add(forceAssignmentsUpdate(
+                        tablePartitionEntry.getKey(),
+                        zoneDescriptor,
+                        dataNodes,
+                        nodeConsistentIds,
+                        msRevision,
+                        disasterRecoveryManager.metaStorageManager,
+                        localStatesMap,
+                        catalog.time(),
+                        partitionIdsArray,
+                        manualUpdate
+                ));
+            }
 
-                    return allOf(tableFuts.toArray(new CompletableFuture[]{}));
-                })
-                .thenCompose(Function.identity())
-                .whenComplete((unused, throwable) -> {
-                    // TODO: IGNITE-23635 Add fail handling for failed resetPeers
-                    if (throwable != null) {
-                        LOG.error("Failed to reset partition", throwable);
-                    }
-                });
+            return allOf(tableFuts.toArray(new CompletableFuture[]{}));
+        })
+        .thenCompose(Function.identity())
+        .whenComplete((unused, throwable) -> {
+            // TODO: IGNITE-23635 Add fail handling for failed resetPeers
+            if (throwable != null) {
+                LOG.error("Failed to reset partition", throwable);
+            }
+        });
     }
 
     /**
