@@ -232,12 +232,9 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                     token,
                     query,
                     OBJECT_EMPTY_ARRAY,
-                    queryTimeoutMillis
-            ).thenApply(cnt -> {
-                list.add(cnt.intValue());
-
-                return list;
-            }));
+                    queryTimeoutMillis,
+                    list
+            ));
         }
 
         return tail.handle((ignored, t) -> {
@@ -271,12 +268,8 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
         for (Object[] args : argList) {
             tail = tail.thenCompose(list -> executeAndCollectUpdateCount(
-                    connectionContext, tx, token, req.getQuery(), args, timeoutMillis
-            ).thenApply(cnt -> {
-                list.add(cnt.intValue());
-
-                return list;
-            }));
+                    connectionContext, tx, token, req.getQuery(), args, timeoutMillis, list
+            ));
         }
 
         return tail.handle((ignored, t) -> {
@@ -290,14 +283,15 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         });
     }
 
-    private CompletableFuture<Integer> executeAndCollectUpdateCount(
+    private CompletableFuture<IntArrayList> executeAndCollectUpdateCount(
             JdbcConnectionContext context,
             @Nullable InternalTransaction tx,
             CancellationToken token,
             String sql,
             Object[] arg,
-            long timeoutMillis) {
-
+            long timeoutMillis,
+            IntArrayList resultUpdateCounters
+    ) {
         if (!context.valid()) {
             return CompletableFuture.failedFuture(new IgniteInternalException(CONNECTION_ERR, "Connection is closed"));
         }
@@ -314,7 +308,13 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         );
 
         return result.thenCompose(cursor -> cursor.requestNextAsync(1)
-                .thenApply(batch -> handleBatchResult(cursor.queryType(), batch)));
+                .thenApply(batch -> {
+                    int updateCounter = handleBatchResult(cursor.queryType(), batch);
+
+                    resultUpdateCounters.add(updateCounter);
+
+                    return resultUpdateCounters;
+                }));
     }
 
     private static int handleBatchResult(SqlQueryType type, BatchedResult<InternalSqlRow> result) {
