@@ -17,7 +17,8 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.nio.ByteBuffer;
-import java.util.function.BooleanSupplier;import org.apache.ignite.raft.jraft.Closure;
+import java.util.function.BooleanSupplier;
+import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
