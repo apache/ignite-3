@@ -78,6 +78,13 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Executes partition reset request to restore partition assignments when majority is not available.
+ *
+ * <p>The reset is executed in two stages - first we switch to a single node having the most up-to-date data,
+ * then we switch to other available nodes up to the configured replica factor, in the case of manual reset, and to the available nodes from
+ * the original group, in the case of the automatic reset.
+ */
 class GroupUpdateRequest implements DisasterRecoveryRequest {
     private static final IgniteLogger LOG = Loggers.forClass(GroupUpdateRequest.class);
 
@@ -333,7 +340,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                 // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
                 isProposedPendingEqualsProposedPlanned
                         ? null
-                        : Assignments.toBytes(partAssignments, assignmentsTimestamp)
+                        : Assignments.toBytes(partAssignments, assignmentsTimestamp, true)
         );
 
         return metaStorageMgr.invoke(invokeClosure).thenApply(sr -> {
@@ -366,8 +373,8 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
     }
 
     /**
-     * Returns an assignment with the most up to date log index, if there are more than one node with the same index,
-     * returns the first one in the lexicographic order.
+     * Returns an assignment with the most up to date log index, if there are more than one node with the same index, returns the first one
+     * in the lexicographic order.
      */
     private static Assignment nextAssignment(
             LocalPartitionStateMessageByNode localPartitionStateByNode,
