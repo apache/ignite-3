@@ -307,8 +307,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client = clientBuilder().build();
         client.tables().tables();
 
-        // Get MX beans.
-        String beanName = "org.apache.ignite.client:type=ClientMetrics";
+        String beanName = "org.apache.ignite:group=metrics,name=client";
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
         assert mbeanSrv.isRegistered(new ObjectName(beanName));
