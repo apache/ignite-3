@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.quoteIfNeeded;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
@@ -26,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -39,7 +39,7 @@ public class QualifiedNameTest {
     @ParameterizedTest
     @CsvSource({
             "foo, FOO", "fOo, FOO", "FOO, FOO", "f23, F23", // Uppercased
-            "\"FOO\", FOO", "\"foo\", foo", "\"fOo\", fOo", // Quoted
+            "\"FOO\", FOO", "\"foo\", foo", "\"fOo\", fOo", "\"@#$\", @#$", // Quoted
             "\"f.f\", f.f", "\"f\"\"f\", f\"f", "\"f\"\"bar\"\"f\", f\"bar\"f", // Escaped
     })
     public void validSimpleNames(String source, String expected) {
@@ -54,15 +54,14 @@ public class QualifiedNameTest {
 
         assertEquals(parsed, simple);
 
-        // TODO: Fix an ambiguity, when the name starts with non-letter symbol should be wither quoted or uppercased.
-        // assertThat(parsed.toString(), equalTo(expected));
+        assertThat(parsed.toString(), equalTo(quoteIfNeeded(expected)));
     }
 
     @ParameterizedTest
     @CsvSource({
             "foo.bar, FOO, BAR", "fOo.bAr, FOO, BAR", "FOO.BAR, FOO, BAR", "foo.b23, FOO, B23", "f23.bar, F23, BAR",// Uppercased
             "\"FOO\".\"BAR\", FOO, BAR", "\"foo\".\"bar\", foo, bar", "\"fOo\".\"bAr\", fOo, bAr", "\"fOo\".bAr, fOo, BAR",
-            "fOo.\"bAr\", FOO, bAr", // Quoted
+            "fOo.\"bAr\", FOO, bAr", "\"@#$\".bar, @#$, BAR", "foo.\"@#$\", FOO, @#$", // Quoted
             "\"foo.bar\".baz, foo.bar, BAZ", "foo.\"bar.baz\", FOO, bar.baz",
             "\"foo.\"\"bar\"\"\".baz, foo.\"bar\", BAZ", "foo.\"bar.\"\"baz\"\"\", FOO, bar.\"baz\"" // Escaped
     })
@@ -72,8 +71,7 @@ public class QualifiedNameTest {
         assertThat(parsed.schemaName(), equalTo(schemaName));
         assertThat(parsed.name(), equalTo(objectName));
 
-        // TODO: Fix an ambiguity, when the name starts with non-letter symbol should be wither quoted or uppercased.
-        // assertThat(parsed.toString(), equalTo(quoteIfNeeded(schemaName) + '.' + quoteIfNeeded(objectName)));
+        assertThat(parsed.toString(), equalTo(quoteIfNeeded(schemaName) + '.' + quoteIfNeeded(objectName)));
     }
 
 
@@ -116,16 +114,5 @@ public class QualifiedNameTest {
                 equalTo("Schema name can't be empty."),
                 equalTo("Object name can't be null or empty."),
                 containsString("Malformed name [name=" + source))));
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            "foo, \"foo\"", "fOo, \"fOo\"", "FOO, FOO", "\"FOO\", \"FOO\"", "1o0, \"1o0\"", "@#$, \"@#$\"",
-            "\"foo\", \"foo\"", "\"fOo\", \"fOo\"", "\"f.f\", \"f.f\"",
-            "foo\"bar\", \"foo\"\"bar\"\"\"", "\"foo\"\"bar\"\"\", \"foo\"\"bar\"\"\"",
-            "foo\"bar, \"foo\"\"bar\"", "\"foo\"\"bar\", \"foo\"\"bar\""
-    })
-    public void quoteIfNeeded(String source, String expected) {
-        assertThat(IgniteNameUtils.quoteIfNeeded(source), equalTo(expected));
     }
 }

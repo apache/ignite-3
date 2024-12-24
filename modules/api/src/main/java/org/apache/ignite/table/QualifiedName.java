@@ -36,7 +36,7 @@ public class QualifiedName {
      * Parses given simple or canonical name, and returns the object qualified name.
      */
     public static QualifiedName parse(String simpleOrCanonicalName) {
-        notNullOrEmpty(simpleOrCanonicalName);
+        verifyObjectName(simpleOrCanonicalName);
 
         Tokenizer tokenizer = new Tokenizer(simpleOrCanonicalName);
 
@@ -53,10 +53,17 @@ public class QualifiedName {
             throw new IllegalArgumentException("Canonical name format mismatch: " + simpleOrCanonicalName);
         }
 
-        nullOrNonEmpty(schemaName);
-        notNullOrEmpty(objectName);
+        verifySchemaName(schemaName);
+        verifyObjectName(objectName);
 
         return new QualifiedName(schemaName, objectName);
+    }
+
+    /**
+     * Resolves (maybe lazily) given simple name against default schema.
+     */
+    public static QualifiedName fromSimple(String simpleName) {
+        return of(null, simpleName);
     }
 
     /**
@@ -66,13 +73,13 @@ public class QualifiedName {
         String normalizedSchemaName = schemaName == null ? null : parseIdentifier(schemaName);
         String normalizedObjectName = parseIdentifier(objectName);
 
-        nullOrNonEmpty(normalizedSchemaName);
-        notNullOrEmpty(normalizedObjectName);
+        verifySchemaName(normalizedSchemaName);
+        verifyObjectName(normalizedObjectName);
 
         return new QualifiedName(normalizedSchemaName, normalizedObjectName);
     }
 
-    public static String parseIdentifier(String name) {
+    private static String parseIdentifier(String name) {
         if (name == null || name.isEmpty()) {
             return name;
         }
@@ -88,23 +95,16 @@ public class QualifiedName {
         return parsedName;
     }
 
-    private static void notNullOrEmpty(@Nullable String name) {
+    private static void verifyObjectName(@Nullable String name) {
         if (name == null || name.isEmpty()) {
             throw new IllegalArgumentException("Object name can't be null or empty.");
         }
     }
 
-    private static void nullOrNonEmpty(@Nullable String schemaName) {
+    private static void verifySchemaName(@Nullable String schemaName) {
         if (schemaName != null && schemaName.isEmpty()) {
             throw new IllegalArgumentException("Schema name can't be empty.");
         }
-    }
-
-    /**
-     * Resolves (maybe lazily) given simple name against default schema.
-     */
-    public static QualifiedName fromSimple(String simpleName) {
-        return of(null, simpleName);
     }
 
     private final @Nullable String schemaName;
@@ -158,7 +158,6 @@ public class QualifiedName {
         return schemaName == null ? simpleName : IgniteNameUtils.quoteIfNeeded(schemaName) + '.' + simpleName;
     }
 
-
     /**
      * Identifier chain tokenizer.
      *
@@ -168,8 +167,9 @@ public class QualifiedName {
      * is to split the chain into parts by a dot considering the quotation.
      */
     private static class Tokenizer {
-        private int currentPosition;
         private final String source;
+        private int currentPosition;
+        private boolean foundDot;
 
         /**
          * Creates a tokenizer for given string source.
@@ -182,12 +182,15 @@ public class QualifiedName {
 
         /** Returns {@code true} if at least one token is available. */
         boolean hasNext() {
-            return !isEol();
+            return foundDot || !isEol();
         }
 
         /** Returns next token. */
         @Nullable String nextToken() {
             if (!hasNext()) {
+                return null;
+            } else if (isEol()) {
+                foundDot = false;
                 return null;
             }
 
@@ -199,6 +202,7 @@ public class QualifiedName {
 
             int start = currentPosition;
             StringBuilder sb = new StringBuilder();
+            foundDot = false;
 
             if (!quoted && !isEol()) {
                 if (identifierStart(currentPosition)) {
@@ -227,6 +231,7 @@ public class QualifiedName {
                         // looks like we just found a closing quote
                         sb.append(source, start, currentPosition);
 
+                        foundDot = hasNextChar();
                         currentPosition += 2;
 
                         return sb.toString();
@@ -241,6 +246,7 @@ public class QualifiedName {
                     sb.append(source, start, currentPosition);
 
                     currentPosition++;
+                    foundDot = true;
 
                     return sb.toString().toUpperCase();
                 } else if (!quoted && !identifierStart(currentPosition) && !identifierExtend(currentPosition)) {
