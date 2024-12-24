@@ -34,7 +34,12 @@ import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import javax.management.DynamicMBean;
+import javax.management.MBeanAttributeInfo;
+import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
+import javax.management.MBeanServerInvocationHandler;
+import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
@@ -310,7 +315,16 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         String beanName = "org.apache.ignite:group=metrics,name=client";
         MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
 
-        assert mbeanSrv.isRegistered(new ObjectName(beanName));
+        ObjectName objName = new ObjectName(beanName);
+        assert mbeanSrv.isRegistered(objName) : "MBean is not registered: " + beanName;
+
+        DynamicMBean mBean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
+        assertEquals(1L, mBean.getAttribute("ConnectionsActive"));
+        assertEquals(1L, mBean.getAttribute("ConnectionsEstablished"));
+
+        MBeanInfo mBeanInfo = mBean.getMBeanInfo();
+        MBeanAttributeInfo[] attributes = mBeanInfo.getAttributes();
+        assertEquals("ConnectionsActive", attributes[0].getName());
     }
 
     private Table oneColumnTable() {
