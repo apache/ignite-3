@@ -78,7 +78,6 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
-import org.awaitility.Awaitility;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -960,21 +959,21 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
 
         // Wait until FIRST script statement is started to execute.
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), greaterThan(1)));
+        waitUntilRunningQueriesCount(greaterThan(1));
 
         assertThat(scriptFut.isDone(), is(false));
 
         cancelHandle.cancel();
 
-        expectQueryCancelled(() -> IgniteTestUtils.await(scriptFut));
+        expectQueryCancelled(() -> await(scriptFut));
 
-        assertThat(queryProcessor().runningQueriesCount(), is(0));
+        waitUntilRunningQueriesCount(is(0));
         assertThat(txManager().pending(), is(0));
 
         // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
         expectQueryCancelled(() -> executeScript(sql, token, "SELECT 1; SELECT 2;"));
 
-        assertThat(queryProcessor().runningQueriesCount(), is(0));
+        waitUntilRunningQueriesCount(is(0));
         assertThat(txManager().pending(), is(0));
     }
 
@@ -995,7 +994,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CompletableFuture<?> f = IgniteTestUtils.runAsync(() -> execute(sql, null, token, query));
 
         // Wait until the query starts executing.
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), greaterThan(0)));
+        waitUntilRunningQueriesCount(greaterThan(0));
         // Wait a bit more to improve failure rate.
         Thread.sleep(500);
 
@@ -1003,7 +1002,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         cancelHandle.cancel();
 
         // Query was actually cancelled.
-        assertThat(queryProcessor().runningQueriesCount(), is(0));
+        waitUntilRunningQueriesCount(is(0));
         expectQueryCancelled(() -> await(f));
         assertThat(txManager().pending(), is(0));
     }
@@ -1093,7 +1092,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 assertThat(killResultset.wasApplied(), is(true));
             }
 
-            assertThat(queryProcessor().runningQueriesCount(), is(0));
+            waitUntilRunningQueriesCount(is(0));
 
             assertThrowsSqlException(
                     Sql.EXECUTION_CANCELLED_ERR,
