@@ -79,6 +79,13 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Executes partition reset request to restore partition assignments when majority is not available.
+ *
+ * <p>The reset is executed in two stages - first we switch to a single node having the most up-to-date data,
+ * then we switch to other available nodes up to the configured replica factor, in the case of manual reset, and to available nodes from the
+ * original group, in the case of manual.
+ */
 class GroupUpdateRequest implements DisasterRecoveryRequest {
     private static final IgniteLogger LOG = Loggers.forClass(GroupUpdateRequest.class);
 
@@ -161,40 +168,40 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         CompletableFuture<Set<String>> dataNodesFuture = disasterRecoveryManager.dzManager.dataNodes(msRevision, catalogVersion, zoneId);
 
         return dataNodesFuture.thenCombine(localStates, (dataNodes, localStatesMap) -> {
-            Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
-                    .stream()
-                    .map(NodeWithAttributes::nodeName)
-                    .collect(toSet());
+                    Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
+                            .stream()
+                            .map(NodeWithAttributes::nodeName)
+                            .collect(toSet());
 
-            List<CompletableFuture<Void>> tableFuts = new ArrayList<>(partitionIds.size());
+                    List<CompletableFuture<Void>> tableFuts = new ArrayList<>(partitionIds.size());
 
-            for (Entry<Integer, Set<Integer>> tablePartitionEntry : partitionIds.entrySet()) {
+                    for (Entry<Integer, Set<Integer>> tablePartitionEntry : partitionIds.entrySet()) {
 
-                int[] partitionIdsArray = AssignmentUtil.partitionIds(tablePartitionEntry.getValue(), zoneDescriptor.partitions());
+                        int[] partitionIdsArray = AssignmentUtil.partitionIds(tablePartitionEntry.getValue(), zoneDescriptor.partitions());
 
-                tableFuts.add(forceAssignmentsUpdate(
-                        tablePartitionEntry.getKey(),
-                        zoneDescriptor,
-                        dataNodes,
-                        nodeConsistentIds,
-                        msRevision,
-                        disasterRecoveryManager.metaStorageManager,
-                        localStatesMap,
-                        catalog.time(),
-                        partitionIdsArray,
-                        manualUpdate
-                ));
-            }
+                        tableFuts.add(forceAssignmentsUpdate(
+                                tablePartitionEntry.getKey(),
+                                zoneDescriptor,
+                                dataNodes,
+                                nodeConsistentIds,
+                                msRevision,
+                                disasterRecoveryManager.metaStorageManager,
+                                localStatesMap,
+                                catalog.time(),
+                                partitionIdsArray,
+                                manualUpdate
+                        ));
+                    }
 
-            return allOf(tableFuts.toArray(new CompletableFuture[]{}));
-        })
-        .thenCompose(Function.identity())
-        .whenComplete((unused, throwable) -> {
-            // TODO: IGNITE-23635 Add fail handling for failed resetPeers
-            if (throwable != null) {
-                LOG.error("Failed to reset partition", throwable);
-            }
-        });
+                    return allOf(tableFuts.toArray(new CompletableFuture[]{}));
+                })
+                .thenCompose(Function.identity())
+                .whenComplete((unused, throwable) -> {
+                    // TODO: IGNITE-23635 Add fail handling for failed resetPeers
+                    if (throwable != null) {
+                        LOG.error("Failed to reset partition", throwable);
+                    }
+                });
     }
 
     /**
@@ -341,8 +348,8 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
     }
 
     /**
-     * Returns an assignment with the most up to date log index, if there are more than one node with the same index,
-     * returns the first one in the lexicographic order.
+     * Returns an assignment with the most up to date log index, if there are more than one node with the same index, returns the first one
+     * in the lexicographic order.
      */
     private static Assignment nextAssignment(
             LocalPartitionStateMessageByNode localPartitionStateByNode,

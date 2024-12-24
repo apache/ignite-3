@@ -56,6 +56,7 @@ public class Assignments {
 
     /**
      * This assignment was created in the second phase of reset.
+     * See GroupUpdateRequest javadoc for details.
      */
     private final boolean fromReset;
 
