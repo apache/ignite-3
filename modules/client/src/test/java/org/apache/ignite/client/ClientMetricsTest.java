@@ -330,7 +330,10 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
 
         MBeanInfo mBeanInfo = mBean.getMBeanInfo();
         MBeanAttributeInfo[] attributes = mBeanInfo.getAttributes();
-        assertEquals("ConnectionsActive", attributes[0].getName());
+        MBeanAttributeInfo attribute = attributes[0];
+        assertEquals("ConnectionsActive", attribute.getName());
+        assertEquals("Currently active connections", attribute.getDescription());
+        assertEquals("java.lang.Long", attribute.getType());
     }
 
     private Table oneColumnTable() {
