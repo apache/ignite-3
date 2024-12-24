@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
@@ -43,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -53,6 +55,7 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -77,6 +80,8 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.Lock;
+import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -137,6 +142,62 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 + "  \"attemptsObtainLock\": 0\n"
                 + "  }\n"
                 + "}\n");
+    }
+
+    @Test
+    public void testMultipleAbandonedTxsAreAborted() throws Exception {
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+
+        String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
+
+        IgniteImpl commitPartNode = findNodeByName(leaseholder);
+
+        log.info("Transaction commit partition is determined [node={}].", commitPartNode.name());
+
+        IgniteImpl txCrdNode = nonPrimaryNode(leaseholder);
+
+        log.info("Transaction coordinator is chosen [node={}].", txCrdNode.name());
+
+        RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
+        view.upsert(null, Tuple.create().set("key", 42).set("val", "val1"));
+
+        List<InternalTransaction> txns = new ArrayList<>();
+
+        for (int i = 0; i < 10; i++) {
+            InternalTransaction tx = (InternalTransaction) txCrdNode.transactions().begin();
+            Tuple ignored = view.get(tx, Tuple.create().set("key", 42));
+            txns.add(tx);
+        }
+
+        LockManager lockManager = commitPartNode.txManager().lockManager();
+
+        for (InternalTransaction txn : txns) {
+            Iterator<Lock> locks = lockManager.locks(txn.id());
+            assertTrue(locks.hasNext());
+        }
+
+        txCrdNode.stop();
+
+        assertTrue(waitForCondition(
+                () -> node(0).clusterNodes().stream().filter(n -> txCrdNode.id().equals(n.id())).count() == 0,
+                10_000));
+
+        InternalTransaction conflictTx = (InternalTransaction) node(0).transactions().begin();
+        runConflictingTransaction(node(0), conflictTx);
+
+        // Test if all abandoned transactions are aborted.
+        for (InternalTransaction txn : txns) {
+            assertTrue(
+                    waitForCondition(() -> txStoredState(commitPartNode, txn.id()) == TxState.ABORTED, 10_000),
+                    txns.stream().map(tx -> format(
+                            "\n{} -> {}",
+                            tx.id(),
+                            txStoredMeta(commitPartNode, tx.id())
+                    )).collect(Collectors.joining(","))
+            );
+        }
     }
 
     @Test

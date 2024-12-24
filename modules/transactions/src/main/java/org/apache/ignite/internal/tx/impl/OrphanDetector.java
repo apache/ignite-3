@@ -22,11 +22,13 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
+import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -162,7 +164,13 @@ public class OrphanDetector {
     private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params) {
         if (busyLock.enterBusy()) {
             try {
-                return checkTxOrphanedInternal(params.lockHolderTx());
+                ArrayList<CompletableFuture<Boolean>> futs = new ArrayList<>(params.lockHolderTxs().size());
+
+                for (UUID txId : params.lockHolderTxs()) {
+                    futs.add(checkTxOrphanedInternal(txId));
+                }
+
+                return allOf(futs).thenApply(unused -> false);
             } finally {
                 busyLock.leaveBusy();
             }

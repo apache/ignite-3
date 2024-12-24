@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.event;
 
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.event.EventParameters;
 
@@ -24,8 +25,8 @@ import org.apache.ignite.internal.event.EventParameters;
  * This class encapsulates event parameters related to lock management.
  */
 public class LockEventParameters implements EventParameters {
-    /** Transaction ID, which holds a lock on the key. */
-    private final UUID lockHolderTx;
+    /** Transaction IDs, which hold a lock on the key. */
+    private final Set<UUID> lockHolderTxs;
 
     /** Transaction ID, which cannot take a lock due to the conflict with the lock holder transaction. */
     private final UUID lockAcquirerTx;
@@ -34,20 +35,20 @@ public class LockEventParameters implements EventParameters {
      * The constructor.
      *
      * @param lockAcquirerTx ID of conflicted transaction by the lock.
-     * @param lockHolderTx ID of transaction holding the lock.
+     * @param lockHolderTxs IDs of transaction holding the lock.
      */
-    public LockEventParameters(UUID lockAcquirerTx, UUID lockHolderTx) {
-        this.lockHolderTx = lockHolderTx;
+    public LockEventParameters(UUID lockAcquirerTx, Set<UUID> lockHolderTxs) {
         this.lockAcquirerTx = lockAcquirerTx;
+        this.lockHolderTxs = lockHolderTxs;
     }
 
     /**
-     * Gets a lock holder transaction ID.
+     * Gets a lock holder transaction IDs.
      *
-     * @return Transaction ID.
+     * @return Transaction IDs.
      */
-    public UUID lockHolderTx() {
-        return lockHolderTx;
+    public Set<UUID> lockHolderTxs() {
+        return lockHolderTxs;
     }
 
     /**
