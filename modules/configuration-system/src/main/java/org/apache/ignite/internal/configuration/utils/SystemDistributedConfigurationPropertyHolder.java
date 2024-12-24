@@ -77,7 +77,7 @@ public class SystemDistributedConfigurationPropertyHolder<T> {
     /**
      * Init property value, but doesn't call the listener.
      *
-     * <p> If this method's call or first configuration update will not occur before holder usage, it will produce a {@code null} value.
+     * <p>If this method's call or first configuration update will not occur before holder usage, it will produce a {@code null} value.
      */
     public void init() {
         updateSystemProperties(systemDistributedConfig.value(), -1);
