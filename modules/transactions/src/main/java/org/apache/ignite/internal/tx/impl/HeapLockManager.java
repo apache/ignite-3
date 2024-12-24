@@ -62,6 +62,7 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -657,7 +658,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         }
 
         private Set<UUID> allLockHolderTxs() {
-            return ixlockOwners.keySet();
+            return CollectionUtils.union(ixlockOwners.keySet(), slockOwners.keySet());
         }
 
         /**
