@@ -123,13 +123,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     private final Map<UUID, InetSocketAddress> recipientInetAddrByNodeId = new ConcurrentHashMap<>();
 
-    private volatile boolean doLogging = false;
-
-    @Override
-    public void doLogging(boolean doLogging) {
-        this.doLogging = doLogging;
-    }
-
     /**
      * Constructor.
      *
@@ -318,14 +311,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
         requestsMap.put(correlationId, new TimeoutObjectImpl(timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0, responseFuture));
 
         InetSocketAddress recipientAddress = resolveRecipientAddress(recipient);
-
-        if (doLogging) {
-            LOG.info("!!! Sending [target=[id={}, uuid={}, addr={}], localNode=[id={}, uuid={}, addr={}], msg={}].",
-                    recipient.name(), recipient.id(), recipientAddress,
-                    topologyService.localMember().name(), topologyService.localMember().id(), topologyService.localMember().address(),
-                    msg
-            );
-        }
 
         if (recipientAddress == null) {
             sendToSelf(msg, correlationId);

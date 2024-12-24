@@ -161,15 +161,9 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         ignite1 = cluster.node(1);
 
-        IgniteImpl ignite1impl = unwrapIgniteImpl(ignite1);
-
         IgniteSql sql = ignite1.sql();
 
-        ignite1impl.replicaSvc.doLogging(true);
-
         ResultSet<SqlRow> res = sql.execute(null, "SELECT valint2 FROM tbl1");
-
-        ignite1impl.replicaSvc.doLogging(false);
 
         for (int i = 0; i < 10; ++i) {
             assertNotNull(res.next().iterator().next());

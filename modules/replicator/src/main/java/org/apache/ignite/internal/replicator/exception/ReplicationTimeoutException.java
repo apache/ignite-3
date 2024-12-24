@@ -20,7 +20,6 @@ package org.apache.ignite.internal.replicator.exception;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 
 /**
@@ -34,21 +33,6 @@ public class ReplicationTimeoutException extends ReplicationException {
      */
     public ReplicationTimeoutException(ReplicationGroupId replicaGrpId) {
         super(Replicator.REPLICA_TIMEOUT_ERR, IgniteStringFormatter.format("Replication is timed out [replicaGrpId={}]", replicaGrpId));
-    }
-
-    /**
-     * No.
-     *
-     * @param replicaGrpId No.
-     * @param localNodeName NO.
-     * @param targetNodeId NO.
-     * @param req NO.
-     */
-    public ReplicationTimeoutException(ReplicationGroupId replicaGrpId, String localNodeName, String targetNodeId, ReplicaRequest req) {
-        super(Replicator.REPLICA_TIMEOUT_ERR, IgniteStringFormatter.format(
-                "!!! Replication is timed out [replicaGrpId={}, localNodeName={}, targetNodeId={}, req={}]",
-                replicaGrpId, localNodeName, targetNodeId, req)
-        );
     }
 
     /**
