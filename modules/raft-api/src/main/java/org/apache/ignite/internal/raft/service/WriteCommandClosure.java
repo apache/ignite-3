@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
+package org.apache.ignite.internal.raft.service;
 
-import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
- * Request that initiates safe time synchronization.
+ * The marker interface for a write command closure.
  */
-@Transferable(ReplicaMessageGroup.SAFE_TIME_SYNC_REQUEST)
-public interface ReplicaSafeTimeSyncRequest extends ReplicaRequest {
+public interface WriteCommandClosure extends CommandClosure<WriteCommand> {
 }

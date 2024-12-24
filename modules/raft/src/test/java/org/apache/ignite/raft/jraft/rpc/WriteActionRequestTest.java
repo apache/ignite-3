@@ -20,6 +20,7 @@ package org.apache.ignite.raft.jraft.rpc;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -75,6 +76,11 @@ class WriteActionRequestTest {
 
         @Override
         public NetworkMessage clone() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public HybridTimestamp initiatorTime() {
             throw new UnsupportedOperationException();
         }
     }
