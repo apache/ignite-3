@@ -66,8 +66,6 @@ public class IteratorImplTest extends BaseIgniteAbstractTest {
 
     private ExecutorService executor;
 
-    private boolean shuttingDown = false;
-
     @BeforeEach
     public void setup() {
         this.applyingIndex = new AtomicLong(0);
@@ -82,7 +80,7 @@ public class IteratorImplTest extends BaseIgniteAbstractTest {
         NodeOptions nodeOptions = new NodeOptions();
         executor = JRaftUtils.createExecutor("test-executor", Utils.cpus());
         nodeOptions.setCommonExecutor(executor);
-        this.iter = new IteratorImpl(fsm, logManager, closures, 0L, 0L, 10L, applyingIndex, nodeOptions, () -> shuttingDown);
+        this.iter = new IteratorImpl(fsm, logManager, closures, 0L, 0L, 10L, applyingIndex, nodeOptions);
     }
 
     @AfterEach
@@ -155,13 +153,5 @@ public class IteratorImplTest extends BaseIgniteAbstractTest {
                 "StateMachine meet critical error when applying one or more tasks since index=6, Status[UNKNOWN<-1>: test]",
                 iter.getError().getStatus().getErrorMsg());
         assertEquals(6, iter.getIndex());
-    }
-
-    @Test
-    public void notGoodWhenShuttingDown() {
-        assertTrue(this.iter.isGood());
-
-        shuttingDown = true;
-        assertFalse(this.iter.isGood());
     }
 }

@@ -120,11 +120,7 @@ public class MockStateMachine extends StateMachineAdapter {
                 this.lastAppliedIndex.set(iter.getIndex());
                 this.logs.add(iter.getData().slice());
 
-                executeCommand(iter.getData().slice());
-
-                if (iter.done() != null) {
-                    iter.done().run(Status.OK());
-                }
+                executeCommand(iter);
             }
             finally {
                 this.lock.unlock();
@@ -134,8 +130,10 @@ public class MockStateMachine extends StateMachineAdapter {
         }
     }
 
-    protected void executeCommand(final ByteBuffer command) {
-        // Do nothing by default.
+    protected void executeCommand(Iterator iter) {
+        if (iter.done() != null) {
+            iter.done().run(Status.OK());
+        }
     }
 
     public boolean isLeader() {

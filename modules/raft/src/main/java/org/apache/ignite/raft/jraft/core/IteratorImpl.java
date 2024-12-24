@@ -18,7 +18,6 @@ package org.apache.ignite.raft.jraft.core;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownException;
 import org.apache.ignite.raft.jraft.Closure;
@@ -49,11 +48,9 @@ public class IteratorImpl {
     private final AtomicLong applyingIndex;
     private RaftException error;
 
-    private final BooleanSupplier shuttingDown;
-
     public IteratorImpl(final StateMachine fsm, final LogManager logManager, final List<Closure> closures,
         final long firstClosureIndex, final long lastAppliedIndex, final long committedIndex,
-        final AtomicLong applyingIndex, NodeOptions options, BooleanSupplier shuttingDown) {
+        final AtomicLong applyingIndex, NodeOptions options) {
         super();
         this.fsm = fsm;
         this.logManager = logManager;
@@ -63,7 +60,6 @@ public class IteratorImpl {
         this.committedIndex = committedIndex;
         this.applyingIndex = applyingIndex;
         this.options = options;
-        this.shuttingDown = shuttingDown;
 
         next();
     }
@@ -85,7 +81,7 @@ public class IteratorImpl {
     }
 
     public boolean isGood() {
-        return this.currentIndex <= this.committedIndex && !hasError() && !shuttingDown.getAsBoolean();
+        return this.currentIndex <= this.committedIndex && !hasError();
     }
 
     public boolean hasError() {
@@ -142,6 +138,10 @@ public class IteratorImpl {
         }
     }
 
+    /**
+     * Notifies closures for commands that remain unexecuted due to an early shut down. The iterator state is not changed
+     * (it is not advanced).
+     */
     void runTheRestClosureWithShutdownException() {
         Exception shutdownException = new ShutdownException();
 

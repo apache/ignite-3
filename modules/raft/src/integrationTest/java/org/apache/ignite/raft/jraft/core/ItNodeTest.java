@@ -25,8 +25,12 @@ import static org.apache.ignite.internal.util.IgniteUtils.byteBufferToByteArray;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.apache.ignite.raft.jraft.test.TestUtils.sender;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -51,6 +55,7 @@ import com.codahale.metrics.ConsoleReporter;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.RingBuffer;
 import java.io.File;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -62,9 +67,13 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.NavigableMap;
+import java.util.NavigableSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -86,6 +95,9 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownException;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -142,6 +154,7 @@ import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -4190,80 +4203,122 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     public void applicationOfLongBatchInStateMachineDoesNotPreventFastShutdown() throws Exception {
         persistentLogStorageFactory = startPersistentLogStorageFactory();
 
-        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 1);
-        TestPeer peer = peers.get(0);
+        CompletableFuture<Void> allowExecutionFuture = new CompletableFuture<>();
 
-        cluster = createClusterOfOnePeer(peer);
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 2);
+
+        // We pause first command application to allow many subsequent commands to be added to log so that they
+        // start being executed as a single long batch.
+
+        TestCluster cluster = createClusterOf(peers);
         cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
-
-        assertTrue(cluster.start(peer));
-
-        try {
-            Node node = cluster.waitAndGetLeader();
-
-            submit1000TasksAndWaitForApplication(node);
-        } finally {
-            cluster.stopAll();
-            cluster = null;
-        }
-
-        // First cluster was used to fill the log with 1000 commands and apply them fast, second cluster will have slow state machine
-        // so their full replay takes 100 seconds.
-        TestCluster cluster2 = createClusterOfOnePeer(peer);
-        cluster2.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
-        cluster2.setStateMachineFactory(peerId -> new MockStateMachine(peerId) {
+        cluster.setStateMachineFactory(peerId -> new MockStateMachine(peerId) {
             @Override
-            protected void executeCommand(ByteBuffer command) {
-                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(100));
+            protected void executeCommand(Iterator iterator) {
+                int ordinal = iterator.getData().get(0);
+
+                if (ordinal == 0) {
+                    allowExecutionFuture.join();
+                }
+
+                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1000));
+
+                if (iterator.done() != null) {
+                    ((CommandClosure<?>) iterator.done()).result(ordinal);
+                }
             }
         });
 
-        assertTrue(cluster2.start(peer));
+        int taskCount = 1000;
+        NavigableSet<Integer> successfullyExecuted = new ConcurrentSkipListSet<>();
+        NavigableMap<Integer, Throwable> exceptions = new ConcurrentSkipListMap<>();
+        NavigableMap<Integer, String> statusErrors = new ConcurrentSkipListMap<>();
+        Set<Integer> resultOrRunCalled = new ConcurrentHashSet<>();
+        CompletableFuture<Void> tasksFuture = new CompletableFuture<>();
 
         try {
-            assertTrue(waitForCondition(() -> cluster2.getNode(peer.getPeerId()).isLeader(), TimeUnit.SECONDS.toMillis(10)));
+            for (TestPeer peer : peers) {
+                assertTrue(cluster.start(peer));
+            }
+
+            Node node = cluster.waitAndGetLeader();
+
+            CompletableFuture<Void> firstTaskApplied = new CompletableFuture<>();
+
+            for (int i = 0; i < taskCount; i++) {
+                ByteBuffer data = ByteBuffer.wrap(new byte[]{(byte) i});
+                int ordinal = i;
+                Task task = new Task(data, new CombinedClosure() {
+                    @Override
+                    public WriteCommand command() {
+                        return mock(WriteCommand.class);
+                    }
+
+                    @Override
+                    public void result(@Nullable Serializable res) {
+                        if (ordinal == 0) {
+                            firstTaskApplied.complete(null);
+                        }
+
+                        if (res instanceof Throwable) {
+                            exceptions.put(ordinal, (Throwable) res);
+                        } else {
+                            successfullyExecuted.add(ordinal);
+                        }
+
+                        resultOrRunCalled.add(ordinal);
+                        if (resultOrRunCalled.size() == taskCount) {
+                            tasksFuture.complete(null);
+                        }
+                    }
+
+                    @Override
+                    public void run(Status status) {
+                        assertFalse(status.isOk());
+
+                        statusErrors.put(ordinal, status.getErrorMsg());
+
+                        resultOrRunCalled.add(ordinal);
+                        if (resultOrRunCalled.size() == taskCount) {
+                            tasksFuture.complete(null);
+                        }
+                    }
+                });
+                node.apply(task);
+            }
+
+            allowExecutionFuture.complete(null);
+            assertThat(firstTaskApplied, willCompleteSuccessfully());
         } finally {
             // Now do the main part: verify that shutdown will happen fast and will not wait for whole batch of commends to be applied
             // (which would take 0.1 * 1000 = 100 seconds).
-            assertTimeoutPreemptively(Duration.ofSeconds(10), cluster2::stopAll);
+            assertTimeoutPreemptively(Duration.ofSeconds(10), cluster::stopAll);
         }
+
+        assertThat(tasksFuture, willCompleteSuccessfully());
+
+        // Make sure all closures were executed as expected.
+        assertThat(successfullyExecuted, hasSize(successfullyExecuted.last() - successfullyExecuted.first() + 1));
+        assertThat(exceptions, is(aMapWithSize(exceptions.lastKey() - exceptions.firstKey() + 1)));
+        if (!statusErrors.isEmpty()) {
+            assertThat(statusErrors, is(aMapWithSize(statusErrors.lastKey() - statusErrors.firstKey() + 1)));
+        }
+
+        assertThat(exceptions.values(), everyItem(isA(ShutdownException.class)));
+        assertThat(statusErrors.values(), everyItem(is("Leader stepped down")));
+
+        assertThat(successfullyExecuted.size() + exceptions.size() + statusErrors.size(), is(taskCount));
     }
 
-    private TestCluster createClusterOfOnePeer(TestPeer peer) {
+    private TestCluster createClusterOf(List<TestPeer> peers) {
         return new TestCluster(
                 "unitest",
                 dataPath,
-                List.of(peer),
+                peers,
                 new LinkedHashSet<>(),
                 3_000,
                 testInfo
         );
-    }
-
-    private static void submit1000TasksAndWaitForApplication(Node node) {
-        int taskCount = 1000;
-        AtomicInteger tasksExecuted = new AtomicInteger(0);
-        CompletableFuture<Void> tasksFuture = new CompletableFuture<>();
-
-        for (int i = 0; i < taskCount; i++) {
-            ByteBuffer data = ByteBuffer.wrap("no closure".getBytes(UTF_8));
-            Task task = new Task(data, new Closure() {
-                @Override
-                public void run(Status status) {
-                    if (status.isOk()) {
-                        int executed = tasksExecuted.incrementAndGet();
-                        if (executed >= taskCount) {
-                            tasksFuture.complete(null);
-                        }
-                    } else {
-                        tasksFuture.completeExceptionally(new RuntimeException(status.getErrorMsg()));
-                    }
-                }
-            });
-            node.apply(task);
-        }
-
-        assertThat(tasksFuture, willCompleteSuccessfully());
     }
 
     private NodeOptions createNodeOptions(int nodeIdx) {
@@ -4520,4 +4575,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     private static TestPeer findById(Collection<TestPeer> peers, PeerId id) {
         return peers.stream().filter(t -> t.getPeerId().equals(id)).findAny().orElseThrow();
     }
+
+    /** Interface combining both Closure and CommandClosure. */
+    interface CombinedClosure extends Closure, CommandClosure<WriteCommand> {
+    };
 }

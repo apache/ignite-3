@@ -507,9 +507,9 @@ public class FSMCallerImpl implements FSMCaller {
 
             Requires.requireTrue(firstClosureIndex >= 0, "Invalid firstClosureIndex");
             final IteratorImpl iterImpl = new IteratorImpl(this.fsm, this.logManager, closures, firstClosureIndex,
-                lastAppliedIndex, committedIndex, this.applyingIndex, this.node.getOptions(), () -> shuttingDown);
+                lastAppliedIndex, committedIndex, this.applyingIndex, this.node.getOptions());
 
-            while (iterImpl.isGood()) {
+            while (!shuttingDown && iterImpl.isGood()) {
                 final LogEntry logEntry = iterImpl.entry();
                 if (logEntry.getType() != EnumOutter.EntryType.ENTRY_TYPE_DATA) {
                     if (logEntry.getType() == EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
@@ -570,7 +570,7 @@ public class FSMCallerImpl implements FSMCaller {
     }
 
     private void doApplyTasks(final IteratorImpl iterImpl) {
-        final IteratorWrapper iter = new IteratorWrapper(iterImpl);
+        final IteratorWrapper iter = new IteratorWrapper(iterImpl, () -> shuttingDown);
         final long startApplyMs = Utils.monotonicMs();
         final long startIndex = iter.getIndex();
         try {
@@ -584,7 +584,11 @@ public class FSMCallerImpl implements FSMCaller {
             LOG.error("Iterator is still valid, did you return before iterator reached the end?");
         }
         // Try move to next in case that we pass the same log twice.
-        iter.next();
+        // But if we are shutting down, current entry is not applied, so we should not advance the iterator to allow a ShutdownException
+        // being sent to its client.
+        if (!shuttingDown) {
+            iter.next();
+        }
     }
 
     private void doSnapshotSave(final SaveSnapshotClosure done) {

@@ -17,7 +17,7 @@
 package org.apache.ignite.raft.jraft.core;
 
 import java.nio.ByteBuffer;
-import org.apache.ignite.raft.jraft.Closure;
+import java.util.function.BooleanSupplier;import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -26,21 +26,30 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
 public class IteratorWrapper implements Iterator {
 
     private final IteratorImpl impl;
+    private final BooleanSupplier shuttingDown;
 
-    public IteratorWrapper(IteratorImpl iterImpl) {
+    public IteratorWrapper(IteratorImpl iterImpl, BooleanSupplier shuttingDown) {
         super();
         this.impl = iterImpl;
+        this.shuttingDown = shuttingDown;
     }
 
     @Override
     public boolean hasNext() {
+        return iteratorHasNext() && !shuttingDown.getAsBoolean();
+    }
+
+    private boolean iteratorHasNext() {
         return this.impl.isGood() && this.impl.entry().getType() == EnumOutter.EntryType.ENTRY_TYPE_DATA;
     }
 
     @Override
     public ByteBuffer next() {
         final ByteBuffer data = getData();
-        if (hasNext()) {
+        // This method deliberately breaks Iterator#next() contract. It might be called even when it wasn't checked that #hasNext()
+        // returns true, and it's not expected to throw a NoSuchElementException. But we need to advance the underlying iterator here
+        // (if it can be advanced) even if shutdown was requested, hence we use #iteratorHasNext() instead of #hasNext().
+        if (iteratorHasNext()) {
             this.impl.next();
         }
         return data;
