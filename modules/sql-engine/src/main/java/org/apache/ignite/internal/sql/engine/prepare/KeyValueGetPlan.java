@@ -24,8 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
@@ -44,6 +42,9 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlPredicate;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -144,11 +145,11 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
 
         RelDataType rowType = sqlTable.getRowType(Commons.typeFactory(), requiredColumns);
 
-        Supplier<RowT> keySupplier = ctx.expressionFactory()
+        SqlRowProvider<RowT> keySupplier = ctx.expressionFactory()
                 .rowSource(keyExpressions);
-        Predicate<RowT> filter = filterExpr == null ? null : ctx.expressionFactory()
+        SqlPredicate<RowT> filter = filterExpr == null ? null : ctx.expressionFactory()
                 .predicate(filterExpr, rowType);
-        Function<RowT, RowT> projection = projectionExpr == null ? null : ctx.expressionFactory()
+        SqlProjection<RowT> projection = projectionExpr == null ? null : ctx.expressionFactory()
                 .project(projectionExpr, rowType);
 
         RowHandler<RowT> rowHandler = ctx.rowHandler();
@@ -164,12 +165,12 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
                 return Collections.emptyIterator();
             }
 
-            if (filter != null && !filter.test(row)) {
+            if (filter != null && !filter.test(ctx, row)) {
                 return Collections.emptyIterator();
             }
 
             if (projection != null) {
-                row = projection.apply(row);
+                row = projection.project(ctx, row);
             }
 
             return List.<InternalSqlRow>of(
@@ -178,7 +179,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
         };
 
         CompletableFuture<RowT> lookupResult = scannableTable.primaryKeyLookup(
-                ctx, tx, rowFactory, keySupplier.get(), requiredColumns.toBitSet()
+                ctx, tx, rowFactory, keySupplier.get(ctx), requiredColumns.toBitSet()
         );
 
         CompletableFuture<Iterator<InternalSqlRow>> result;

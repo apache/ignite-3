@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlExplainLevel;
@@ -33,6 +32,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -124,13 +124,13 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
 
         List<RexNode> expressions = modifyNode.expressions();
 
-        Supplier<RowT> rowSupplier = ctx.expressionFactory()
+        SqlRowProvider<RowT> rowSupplier = ctx.expressionFactory()
                 .rowSource(expressions);
 
         UpdatableTable updatableTable = execTable.updatableTable();
 
         CompletableFuture<Iterator<InternalSqlRow>> result = updatableTable.insert(
-                tx, ctx, rowSupplier.get()
+                tx, ctx, rowSupplier.get(ctx)
         ).thenApply(none -> List.<InternalSqlRow>of(new InternalSqlRowSingleLong(1L)).iterator());
 
         if (firstPageReadyCallback != null) {

@@ -35,9 +35,7 @@ import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
-import org.apache.ignite.internal.sql.engine.exec.exp.BiScalar;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
-import org.apache.ignite.internal.sql.engine.exec.exp.SingleScalar;
 
 /**
  * Contains methods used in metadata definitions.
@@ -61,12 +59,6 @@ public enum IgniteMethod {
 
     /** See {@link ExecutionContext#getParameter(String, Type)}. */
     CONTEXT_GET_PARAMETER_VALUE(ExecutionContext.class, "getParameter", String.class, Type.class),
-
-    /** See {@link SingleScalar#execute(ExecutionContext, Object, RowBuilder)}. */
-    SCALAR_EXECUTE(SingleScalar.class, "execute", ExecutionContext.class, Object.class, RowBuilder.class),
-
-    /** See {@link BiScalar#execute(ExecutionContext, Object, Object, RowBuilder)}. */
-    BI_SCALAR_EXECUTE(BiScalar.class, "execute", ExecutionContext.class, Object.class, Object.class, RowBuilder.class),
 
     /** See {@link IgniteSqlFunctions#subtractTimeZoneOffset(long, TimeZone)}. **/
     SUBTRACT_TIMEZONE_OFFSET(IgniteSqlFunctions.class, "subtractTimeZoneOffset", long.class, TimeZone.class),

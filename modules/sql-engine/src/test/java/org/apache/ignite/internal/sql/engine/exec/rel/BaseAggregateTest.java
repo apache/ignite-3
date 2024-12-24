@@ -32,7 +32,6 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
@@ -691,13 +690,13 @@ public abstract class BaseAggregateTest extends AbstractExecutionTest<Object[]> 
             boolean group
     );
 
-    protected Supplier<List<AccumulatorWrapper<Object[]>>> accFactory(
+    protected List<AccumulatorWrapper<Object[]>> accFactory(
             ExecutionContext<Object[]> ctx,
             AggregateCall call,
             AggregateType type,
             RelDataType inRowType
     ) {
-        return ctx.expressionFactory().accumulatorsFactory(type, asList(call), inRowType);
+        return ctx.expressionFactory().accumulatorsFactory(type, asList(call), inRowType).get(ctx);
     }
 
     protected static RowSchema createOutputSchema(

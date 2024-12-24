@@ -19,8 +19,30 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 
 //CHECKSTYLE:OFF
 
+import static java.util.Objects.requireNonNull;
+import static org.apache.calcite.linq4j.tree.Expressions.constant;
+import static org.apache.calcite.sql.fun.SqlLibraryOperators.TRANSLATE3;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CASE;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CHAR_LENGTH;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.OCTET_LENGTH;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SEARCH;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUBSTRING;
+import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
+
+import com.google.common.base.CaseFormat;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
-import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.adapter.enumerable.PhysType;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.avatica.util.ByteString;
@@ -61,7 +83,6 @@ import org.apache.calcite.runtime.SpatialTypeFunctions;
 import org.apache.calcite.schema.FunctionContext;
 import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlWindowTableFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
@@ -71,41 +92,11 @@ import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.Pair;
-import org.apache.calcite.util.Util;
-
-import com.google.common.base.CaseFormat;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.locationtech.jts.geom.Geometry;
-
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.Type;
-import java.math.BigDecimal;
-import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Supplier;
-
-import static org.apache.calcite.linq4j.tree.Expressions.constant;
-import static org.apache.calcite.sql.fun.SqlLibraryOperators.TRANSLATE3;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CASE;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CHAR_LENGTH;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.OCTET_LENGTH;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.PREV;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SEARCH;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.SUBSTRING;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
-
-import static java.util.Objects.requireNonNull;
 
 /**
  * Translates {@link org.apache.calcite.rex.RexNode REX expressions} to
@@ -1082,12 +1073,11 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
   public static Expression translateCondition(RexProgram program,
       JavaTypeFactory typeFactory, BlockBuilder list, InputGetter inputGetter,
-      Function1<String, InputGetter> correlates, SqlConformance conformance) {
+      Function1<String, InputGetter> correlates, SqlConformance conformance, Expression root) {
     RexLocalRef condition = program.getCondition();
     if (condition == null) {
       return RexImpTable.TRUE_EXPR;
     }
-    final ParameterExpression root = DataContext.ROOT;
     RexToLixTranslator translator =
         new RexToLixTranslator(program, typeFactory, root, inputGetter, list,
             null, new RexBuilder(typeFactory), conformance, null);

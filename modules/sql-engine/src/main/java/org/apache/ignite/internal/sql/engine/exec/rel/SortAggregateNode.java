@@ -22,14 +22,12 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import java.util.ArrayDeque;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -72,7 +70,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
      * @param ctx Execution context.
      * @param type Aggregation operation (phase) type.
      * @param grpSet Bit set of grouping fields.
-     * @param accFactory Accumulators.
+     * @param accumulators Accumulators.
      * @param rowFactory Row factory.
      * @param comp Comparator.
      */
@@ -80,7 +78,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
             ExecutionContext<RowT> ctx,
             AggregateType type,
             ImmutableBitSet grpSet,
-            Supplier<List<AccumulatorWrapper<RowT>>> accFactory,
+            List<AccumulatorWrapper<RowT>> accumulators,
             RowFactory<RowT> rowFactory,
             Comparator<RowT> comp
     ) {
@@ -91,7 +89,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         this.rowFactory = rowFactory;
         this.grpSet = grpSet;
         this.comp = comp;
-        this.accs = accFactory != null ? accFactory.get() : Collections.emptyList();
+        this.accs = accumulators;
 
         init();
     }

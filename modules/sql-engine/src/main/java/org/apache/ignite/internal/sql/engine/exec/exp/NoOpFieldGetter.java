@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import java.lang.reflect.Type;
+import org.apache.calcite.linq4j.tree.BlockBuilder;
+import org.apache.calcite.linq4j.tree.Expression;
+import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator.InputGetter;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
-/**
- * Binary scalar used for two inputs and single output.
- */
-@FunctionalInterface
-public interface BiScalar extends Scalar {
-    /** Two inputs and single output. */
-    void execute(ExecutionContext ctx, Object in1, Object in2, RowBuilder out);
+class NoOpFieldGetter implements InputGetter {
+    static final InputGetter INSTANCE = new NoOpFieldGetter();
+
+    @Override
+    public Expression field(BlockBuilder list, int index, @Nullable Type storageType) {
+        throw new AssertionError("Should not be called");
+    }
 }

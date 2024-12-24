@@ -40,6 +40,7 @@ import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.TimestampString;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
@@ -130,6 +131,7 @@ public final class PartitionPruningPredicate {
     /**
      * Applies partition pruning to the list of given assignments and returns a list of partitions belonging to the given node.
      *
+     * @param context Execution context.
      * @param pruningColumns Partition pruning metadata.
      * @param table Table.
      * @param expressionFactory Expression factory.
@@ -139,6 +141,7 @@ public final class PartitionPruningPredicate {
      * @return List of partitions that belong to the provided node.
      */
     public static <RowT> List<PartitionWithConsistencyToken> prunePartitions(
+            ExecutionContext<RowT> context,
             PartitionPruningColumns pruningColumns,
             IgniteTable table,
             ExpressionFactory<RowT> expressionFactory,
@@ -155,7 +158,7 @@ public final class PartitionPruningPredicate {
                 ColumnDescriptor descriptor = table.descriptor().columnDescriptor(key);
                 NativeType physicalType = descriptor.physicalType();
 
-                Object valueInInternalForm = expressionFactory.execute(node).get();
+                Object valueInInternalForm = expressionFactory.scalar(node).get(context);
                 Class<?> storageType = NativeTypeSpec.toClass(physicalType.spec(), descriptor.nullable());
                 Object value = TypeUtils.fromInternal(valueInInternalForm, storageType);
 

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.M
 import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.REDUCE;
 import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.SINGLE;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.Comparator;
 import java.util.List;
@@ -36,6 +37,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
@@ -63,10 +65,13 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
 
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
-
-        if (grpSet.isEmpty() && cmp == null) {
+        Comparator<Object[]> cmp;
+        if (grpSet.isEmpty() && (collation == null || nullOrEmpty(collation.getFieldCollations()))) {
             cmp = (k1, k2) -> 0;
+        } else {
+            SqlComparator<Object[]> comparator = ctx.expressionFactory().comparator(collation);
+
+            cmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
 
         RowSchema outputRowSchema = createOutputSchema(ctx, call, inRowType, grpSet);
@@ -110,10 +115,13 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         RelCollation collation = RelCollations.of(ImmutableIntList.copyOf(grpSet.asList()));
 
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
-
-        if (grpSet.isEmpty() && cmp == null) {
+        Comparator<Object[]> cmp;
+        if (grpSet.isEmpty() && (collation == null || nullOrEmpty(collation.getFieldCollations()))) {
             cmp = (k1, k2) -> 0;
+        } else {
+            SqlComparator<Object[]> comparator = ctx.expressionFactory().comparator(collation);
+
+            cmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
 
         // Map node
@@ -149,10 +157,13 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
 
         RelCollation rdcCollation = RelCollations.of(reduceGrpFields);
 
-        Comparator<Object[]> rdcCmp = ctx.expressionFactory().comparator(rdcCollation);
-
-        if (grpSet.isEmpty() && rdcCmp == null) {
+        Comparator<Object[]> rdcCmp;
+        if (grpSet.isEmpty() && (rdcCollation == null || nullOrEmpty(rdcCollation.getFieldCollations()))) {
             rdcCmp = (k1, k2) -> 0;
+        } else {
+            SqlComparator<Object[]> comparator = ctx.expressionFactory().comparator(rdcCollation);
+
+            rdcCmp = (r1, r2) -> comparator.compare(ctx, r1, r2);
         }
 
         Mapping mapping = Commons.trimmingMapping(grpSet.length(), grpSet);

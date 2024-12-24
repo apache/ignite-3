@@ -69,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
@@ -93,6 +94,7 @@ import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContextImpl;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
@@ -123,6 +125,9 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     /** Size of the table access cache. */
     private static final int TABLE_CACHE_SIZE = 1024;
+
+    /** Size of the compiled expressions cache. */
+    private static final int COMPILED_EXPRESSIONS_CACHE_SIZE = 1024;
 
     /** Number of the schemas in cache. */
     private static final int SCHEMA_CACHE_SIZE = 128;
@@ -340,6 +345,9 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 tableFunctionRegistry,
                 clockService,
                 killCommandHandler,
+                new ExpressionFactoryImpl<>(
+                        Commons.typeFactory(), COMPILED_EXPRESSIONS_CACHE_SIZE, CACHE_FACTORY
+                ),
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
 

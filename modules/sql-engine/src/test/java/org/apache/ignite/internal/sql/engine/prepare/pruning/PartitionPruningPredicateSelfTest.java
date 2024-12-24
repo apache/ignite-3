@@ -211,7 +211,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
             ExpressionFactory<Object[]> expressionFactory = ctx.expressionFactory();
 
             List<PartitionWithConsistencyToken> result = PartitionPruningPredicate.prunePartitions(
-                    pruningColumns, table, expressionFactory, assignments, nodeName
+                    ctx, pruningColumns, table, expressionFactory, assignments, nodeName
             );
             dynamicActual.put(nodeName, result);
         }

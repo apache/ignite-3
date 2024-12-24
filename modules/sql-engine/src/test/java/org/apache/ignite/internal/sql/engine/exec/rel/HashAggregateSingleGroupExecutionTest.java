@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -376,13 +375,13 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
             RelDataType outputType,
             AggregateCall call
     ) {
-        Supplier<List<AccumulatorWrapper<Object[]>>> accFactory =
-                ctx.expressionFactory().accumulatorsFactory(aggregateType, List.of(call), inputType);
+        List<AccumulatorWrapper<Object[]>> accumulators =
+                ctx.expressionFactory().accumulatorsFactory(aggregateType, List.of(call), inputType).get(ctx);
 
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(outputType));
         RowFactory<Object[]> rowFactory = rowHandler().factory(rowSchema);
 
-        return new HashAggregateNode<>(ctx, aggregateType, grpSets, accFactory, rowFactory);
+        return new HashAggregateNode<>(ctx, aggregateType, grpSets, accumulators, rowFactory);
     }
 
     @Override
