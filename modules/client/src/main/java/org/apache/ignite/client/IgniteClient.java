@@ -274,6 +274,9 @@ public interface IgniteClient extends Ignite, AutoCloseable {
 
         /**
          * Enables or disables JMX metrics.
+         * <p>
+         * See <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/jmx/">Java Management Extensions (JMX)</a>
+         * for more information.
          *
          * @param metricsEnabled Metrics enabled flag.
          * @return This instance.
