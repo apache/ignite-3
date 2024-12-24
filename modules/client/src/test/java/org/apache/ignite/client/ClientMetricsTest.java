@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Constructor;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
@@ -33,6 +34,8 @@ import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import javax.management.MBeanServer;
+import javax.management.ObjectName;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteQueryProcessor;
@@ -296,6 +299,19 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
 
             assertNotNull(metric, "Metric is not registered: " + metricName);
         }
+    }
+
+    @Test
+    public void testJmxExport() throws Exception {
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
+        client = clientBuilder().build();
+        client.tables().tables();
+
+        // Get MX beans.
+        String beanName = "org.apache.ignite.client:type=ClientMetrics";
+        MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
+
+        assert mbeanSrv.isRegistered(new ObjectName(beanName));
     }
 
     private Table oneColumnTable() {
