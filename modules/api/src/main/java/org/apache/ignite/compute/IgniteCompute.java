@@ -136,13 +136,13 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param nodes Nodes to execute the job on.
+     * @param target Broadcast job target.
      * @param descriptor Job descriptor.
      * @param arg Argument of the job.
      * @return Map from node to job execution object.
      */
     <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
-            Set<ClusterNode> nodes,
+            BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     );
@@ -152,17 +152,17 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param nodes Nodes to execute the job on.
+     * @param target Broadcast job target.
      * @param descriptor Job descriptor.
      * @param arg Argument of the job.
      * @return Map from node to job result.
      */
     default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
-            Set<ClusterNode> nodes,
+            BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        return executeBroadcastAsync(nodes, descriptor, null, arg);
+        return executeBroadcastAsync(target, descriptor, null, arg);
     }
 
     /**
@@ -170,18 +170,21 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param nodes Nodes to execute the job on.
+     * @param target Broadcast job target.
      * @param descriptor Job descriptor.
      * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
      * @return Map from node to job result.
      */
     default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
-            Set<ClusterNode> nodes,
+            BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
+        // TODO: Support other types.
+        var nodes = ((NodesBroadcastJobTarget)target).nodes();
+
         Map<ClusterNode, CompletableFuture<R>> futures = nodes.stream()
                 .collect(toMap(identity(), node -> executeAsync(JobTarget.node(node), descriptor, cancellationToken, arg)));
 
@@ -203,18 +206,18 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param nodes Nodes to execute the job on.
+     * @param target Broadcast job target.
      * @param descriptor Job descriptor.
      * @param arg Argument of the job.
      * @return Map from node to job result.
      * @throws ComputeException If there is any problem executing the job.
      */
     default <T, R> Map<ClusterNode, R> executeBroadcast(
-            Set<ClusterNode> nodes,
+            BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        return executeBroadcast(nodes, descriptor, null, arg);
+        return executeBroadcast(target, descriptor, null, arg);
     }
 
     /**
@@ -222,7 +225,7 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param nodes Nodes to execute the job on.
+     * @param target Broadcast job target.
      * @param descriptor Job descriptor.
      * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
@@ -230,12 +233,15 @@ public interface IgniteCompute {
      * @throws ComputeException If there is any problem executing the job.
      */
     default <T, R> Map<ClusterNode, R> executeBroadcast(
-            Set<ClusterNode> nodes,
+            BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
         Map<ClusterNode, R> map = new HashMap<>();
+
+        // TODO: Support other types.
+        var nodes = ((NodesBroadcastJobTarget)target).nodes();
 
         for (ClusterNode node : nodes) {
             map.put(node, execute(JobTarget.node(node), descriptor, cancellationToken, arg));

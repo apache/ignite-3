@@ -20,19 +20,14 @@ package org.apache.ignite.compute;
 import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
 
-public interface BroadcastJobTarget {
-    static BroadcastJobTarget nodes(ClusterNode... nodes) {
-        return new NodesBroadcastJobTarget(Set.of(nodes));
+public class NodesBroadcastJobTarget implements BroadcastJobTarget {
+    private final Set<ClusterNode> nodes;
+
+    public NodesBroadcastJobTarget(Set<ClusterNode> nodes) {
+        this.nodes = nodes;
     }
 
-    /**
-     * Creates a broadcast job target for a specific table. The jobs will be executed on all nodes holding the table partitions,
-     * one job per node.
-     *
-     * @param tableName Table name.
-     * @return Broadcast job target.
-     */
-    static BroadcastJobTarget table(String tableName) {
-        return new TableBroadcastJobTarget(tableName);
+    public Set<ClusterNode> nodes() {
+        return nodes;
     }
 }
