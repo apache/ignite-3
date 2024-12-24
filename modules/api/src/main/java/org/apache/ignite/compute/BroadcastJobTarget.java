@@ -32,6 +32,16 @@ public interface BroadcastJobTarget {
     }
 
     /**
+     * Creates a broadcast job target for a specific nodes. The jobs will be executed on all specified nodes.
+     *
+     * @param nodes Nodes.
+     * @return Broadcast job target.
+     */
+    static BroadcastJobTarget nodes(Set<ClusterNode> nodes) {
+        return new NodesBroadcastJobTarget(nodes);
+    }
+
+    /**
      * Creates a broadcast job target for a specific table. The jobs will be executed on all nodes holding the table partitions,
      * one job per node.
      *
