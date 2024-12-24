@@ -32,7 +32,7 @@ import org.apache.ignite.tx.Transaction;
 /**
  * Client operation type.
  * <p>
- * Used for custom {@link RetryPolicy} implementations - see {@link RetryPolicyContext}.
+ * Used for custom {@link RetryPolicy} implementations - see {@link RetryPolicyContext}, {@link IgniteClientConfiguration#retryPolicy()}.
  */
 public enum ClientOperationType {
     /**
