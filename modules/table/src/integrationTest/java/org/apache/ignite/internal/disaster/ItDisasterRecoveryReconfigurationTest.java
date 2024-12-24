@@ -695,7 +695,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
-    public void testPlanningIsOverwritten() throws Exception {
+    public void testPlannedIsOverwritten() throws Exception {
         // Disable scale down to avoid unwanted rebalance.
         executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
         int partId = 0;
@@ -896,12 +896,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, false, 1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
-        // force == true, secondPhaseOfReset == false.
+        // force == true, fromReset == false.
         Assignments assignmentForced1 = Assignments.forced(Set.of(Assignment.forPeer(node(1).name())), timestamp);
 
         assertPendingAssignments(node0, partId, assignmentForced1);
 
-        // secondPhaseOfReset == true, force == false.
+        // fromReset == true, force == false.
         Assignments assignments13 = Assignments.of(Set.of(
                 Assignment.forPeer(node(1).name()),
                 Assignment.forPeer(node(3).name())
