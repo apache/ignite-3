@@ -21,6 +21,12 @@ import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
 
 public interface BroadcastJobTarget {
+    /**
+     * Creates a broadcast job target for a specific nodes. The jobs will be executed on all specified nodes.
+     *
+     * @param nodes Nodes.
+     * @return Broadcast job target.
+     */
     static BroadcastJobTarget nodes(ClusterNode... nodes) {
         return new NodesBroadcastJobTarget(Set.of(nodes));
     }
