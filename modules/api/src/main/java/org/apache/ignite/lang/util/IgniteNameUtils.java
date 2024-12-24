@@ -24,6 +24,8 @@ import org.jetbrains.annotations.Nullable;
  * Utility methods used for cluster's named objects: schemas, tables, columns, indexes, etc.
  */
 public final class IgniteNameUtils {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24021 drop this.
+    @Deprecated
     private static final Pattern NAME_PATTER = Pattern.compile("^(?:\\p{Alpha}\\w*)(?:\\.\\p{Alpha}\\w*)?$");
 
     /** No instance methods. */
@@ -36,6 +38,8 @@ public final class IgniteNameUtils {
      * @param name String to parse object name.
      * @return Unquoted name or name is cast to upper case. "tbl0" -&gt; "TBL0", "\"Tbl0\"" -&gt; "Tbl0".
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: Use QualifiedName instead.
+    //  This method should be called from QualifiedName class only. Rename to parseIdentifier.
     public static String parseSimpleName(String name) {
         if (name == null || name.isEmpty()) {
             return name;
@@ -53,13 +57,14 @@ public final class IgniteNameUtils {
     }
 
     /**
-     * Creates a fully qualified name in canonical form, that is,
-     * enclosing each part of the identifier chain in double quotes.
+     * Creates a fully qualified name in canonical form, that is, enclosing each part of the identifier chain in double quotes.
      *
      * @param schemaName Name of the schema.
      * @param objectName Name of the object.
      * @return Returns fully qualified name in canonical form.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: replace `quote` call with `quoteIfNeeded`
+    @Deprecated
     public static String canonicalName(String schemaName, String objectName) {
         return quote(schemaName) + '.' + quote(objectName);
     }
@@ -70,6 +75,8 @@ public final class IgniteNameUtils {
      * @param s String to test.
      * @return {@code True} if given string is fully qualified name in canonical form or simple name.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: drop this method.
+    @Deprecated
     public static boolean canonicalOrSimpleName(String s) {
         return NAME_PATTER.matcher(s).matches();
     }
@@ -80,6 +87,8 @@ public final class IgniteNameUtils {
      * @param name Object name.
      * @return Quoted object name.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24021 make it private, `quoteIfNeeded` should be used instead.
+    @Deprecated
     public static String quote(String name) {
         if (name == null || name.isEmpty()) {
             return name;
@@ -127,6 +136,22 @@ public final class IgniteNameUtils {
         return name.toUpperCase().equals(name) ? name : quote(name); // NOPMD
     }
 
+    /** An {@code identifier start} is any character in the Unicode General Category classes “Lu”, “Ll”, “Lt”, “Lm”, “Lo”, or “Nl”. */
+    public static boolean identifierStart(int codePoint) {
+        return Character.isAlphabetic(codePoint);
+    }
+
+    /** An {@code identifier extend} is U+00B7, or any character in the Unicode General Category classes “Mn”, “Mc”, “Nd”, “Pc”, or “Cf”.*/
+    public static boolean identifierExtend(int codePoint) {
+        return codePoint == ('·' & 0xff) /* “Middle Dot” character */
+                || ((((1 << Character.NON_SPACING_MARK)
+                | (1 << Character.COMBINING_SPACING_MARK)
+                | (1 << Character.DECIMAL_DIGIT_NUMBER)
+                | (1 << Character.CONNECTOR_PUNCTUATION)
+                | (1 << Character.FORMAT)) >> Character.getType(codePoint)) & 1) != 0;
+
+    }
+
     /**
      * Identifier chain tokenizer.
      *
@@ -135,6 +160,7 @@ public final class IgniteNameUtils {
      * <p>This tokenizer is not SQL compliant, but it is ok since it used to retrieve an object only. The sole purpose of this tokenizer
      * is to split the chain into parts by a dot considering the quotation.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24021 Replace this with tokenizer from QualifiedName.
     private static class Tokenizer {
         private int currentPosition;
         private final String source;
