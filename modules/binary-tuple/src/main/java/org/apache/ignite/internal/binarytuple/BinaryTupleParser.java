@@ -78,8 +78,8 @@ public class BinaryTupleParser {
     public BinaryTupleParser(int numElements, ByteBuffer buffer) {
         this.numElements = numElements;
 
-        assert buffer.order() == ORDER;
-        assert buffer.position() == 0;
+        assert buffer.order() == ORDER : "Buffer order must be LITTLE_ENDIAN, actual: " + buffer.order();
+        assert buffer.position() == 0 : "Buffer position must be 0, actual: " + buffer.position();
         this.buffer = buffer;
 
         byte flags = buffer.get(0);
@@ -340,6 +340,7 @@ public class BinaryTupleParser {
             bytes = getBytes(begin, end);
             begin = 0;
         }
+
         return new String(bytes, begin, len, StandardCharsets.UTF_8);
     }
 
@@ -361,6 +362,27 @@ public class BinaryTupleParser {
         }
 
         return getBytes(begin, end);
+    }
+
+    /**
+     * Reads value of specified element as a ByteBuffer.
+     * The returned buffer is a slice of the original buffer.
+     *
+     * @param begin Start offset of the element.
+     * @param end End offset of the element.
+     * @return Element value.
+     */
+    public final ByteBuffer bytesValueAsBuffer(int begin, int end) {
+        int len = end - begin;
+        if (len <= 0) {
+            throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
+        }
+
+        if (buffer.get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            begin++;
+        }
+
+        return buffer.duplicate().position(begin).limit(end).slice();
     }
 
     /**
