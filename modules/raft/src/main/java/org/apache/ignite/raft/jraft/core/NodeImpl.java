@@ -306,13 +306,16 @@ public class NodeImpl implements Node, RaftServerService {
             if (event.done instanceof WriteCommandClosure) {
                 WriteCommandClosure clo = (WriteCommandClosure) event.done;
                 WriteCommand command = clo.command();
+                HybridTimestamp timestamp = command.initiatorTime();
 
-                // Tick once per batch.
-                if (safeTs == null) {
-                    safeTs = clock.update(command.initiatorTime());
+                if (timestamp != null) {
+                    // Tick once per batch.
+                    if (safeTs == null) {
+                        safeTs = clock.update(timestamp);
+                    }
+
+                    clo.patch(safeTs);
                 }
-
-                clo.patch(safeTs);
             }
 
             this.tasks.add(event);

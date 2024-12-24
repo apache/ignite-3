@@ -268,7 +268,7 @@ public class PartitionListener implements RaftGroupListener {
 
             // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
             // trigger other actions taking same locks.
-            clo.result(result);
+            clo.result(result.get1());
         });
     }
 
