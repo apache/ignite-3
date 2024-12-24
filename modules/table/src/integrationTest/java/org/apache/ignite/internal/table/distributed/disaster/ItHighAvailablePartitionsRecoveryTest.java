@@ -89,7 +89,7 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
     }
 
     @Test
-    void testInvaliPartitionResetTimeoutUpdate() {
+    void testInvalidPartitionResetTimeoutUpdate() {
         IgniteImpl node = igniteImpl(0);
 
         CompletableFuture<Void> changeFuture = node
