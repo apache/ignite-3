@@ -981,6 +981,19 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<Void> safeReadFuture = isPrimaryInTimestamp(isPrimary, readTimestamp) ? nullCompletedFuture()
                 : safeTime.waitFor(readTimestamp);
 
+        if (IgniteSystemProperties.getBoolean("IGNITE_PVD_DEBUG", false)) {
+            long start = System.currentTimeMillis();
+
+            safeReadFuture.thenRun(() -> {
+                LOG.info(
+                        "Waiting safe time [isPrimary={}, readTimestamp={}, duration={}]",
+                        isPrimary,
+                        readTimestamp,
+                        System.currentTimeMillis() - start
+                );
+            });
+        }
+
         if (request.indexToUse() != null) {
             TableSchemaAwareIndexStorage indexStorage = secondaryIndexStorages.get().get(request.indexToUse());
 
