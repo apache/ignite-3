@@ -67,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -233,7 +234,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                     OBJECT_EMPTY_ARRAY,
                     queryTimeoutMillis
             ).thenApply(cnt -> {
-                list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
+                list.add(cnt.intValue());
 
                 return list;
             }));
@@ -272,7 +273,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             tail = tail.thenCompose(list -> executeAndCollectUpdateCount(
                     connectionContext, tx, token, req.getQuery(), args, timeoutMillis
             ).thenApply(cnt -> {
-                list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
+                list.add(cnt.intValue());
 
                 return list;
             }));
@@ -289,7 +290,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         });
     }
 
-    private CompletableFuture<Long> executeAndCollectUpdateCount(
+    private CompletableFuture<Integer> executeAndCollectUpdateCount(
             JdbcConnectionContext context,
             @Nullable InternalTransaction tx,
             CancellationToken token,
@@ -312,8 +313,24 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 arg == null ? OBJECT_EMPTY_ARRAY : arg
         );
 
-        return result.thenCompose(cursor -> cursor.requestNextAsync(1))
-                .thenApply(batch -> (Long) batch.items().get(0).get(0));
+        return result.thenCompose(cursor -> cursor.requestNextAsync(1)
+                .thenApply(batch -> handleBatchResult(cursor.queryType(), batch)));
+    }
+
+    private static int handleBatchResult(SqlQueryType type, BatchedResult<InternalSqlRow> result) {
+        switch (type) {
+            case DDL:
+            case KILL:
+                return Statement.SUCCESS_NO_INFO;
+            case DML:
+                Long updateCounts = (Long) result.items().get(0).get(0);
+
+                assert updateCounts != null : "Invalid MDL result";
+
+                return updateCounts > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : updateCounts.intValue();
+            default:
+                throw new IllegalStateException("Unexpected query type: " + type);
+        }
     }
 
     private static JdbcBatchExecuteResult handleBatchException(Throwable e, String query, int[] counters) {
