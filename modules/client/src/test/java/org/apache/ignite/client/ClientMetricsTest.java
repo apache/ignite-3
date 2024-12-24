@@ -39,7 +39,6 @@ import javax.management.MBeanAttributeInfo;
 import javax.management.MBeanInfo;
 import javax.management.MBeanServer;
 import javax.management.MBeanServerInvocationHandler;
-import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
