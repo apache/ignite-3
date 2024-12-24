@@ -36,6 +36,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -84,7 +85,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     private RaftConfiguration raftConfiguration;
 
-    private static final int MAX_CLOCK_SKEW = 500;
+    @InjectConfiguration("mock: { maxClockSkew: 500 }")
+    private SchemaSynchronizationConfiguration schemaSynchronizationConfiguration;
 
     private static final int BASE_PORT = 1234;
 
@@ -267,7 +269,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     ),
                     RaftGroupEventsListener.noopLsnr,
                     RaftGroupOptions.defaults()
-                            .maxClockSkew(MAX_CLOCK_SKEW)
+                            .maxClockSkew(schemaSynchronizationConfiguration.maxClockSkew().value().intValue())
                             .commandsMarshaller(new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()))
                             .serverDataPath(workingDir.metaPath())
                             .setLogStorageFactory(partitionsLogStorageFactory)

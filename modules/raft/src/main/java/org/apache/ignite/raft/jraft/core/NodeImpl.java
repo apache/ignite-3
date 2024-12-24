@@ -3749,10 +3749,10 @@ public class NodeImpl implements Node, RaftServerService {
                     .build();
             }
 
-            // Keep ordering with current primary.
-            if (request.timestamp() != null) {
-                getOptions().getClock().update(request.timestamp());
-            }
+            // There is a case in raft, then a leader can directly transfer leadership to follower.
+            // For this case it's necessary to include ordering information, because such request ignores leader lease timeout.
+            // Applicable only to timeoutnowrequest.
+            getOptions().getClock().update(request.timestamp());
 
             final long savedTerm = this.currTerm;
             final TimeoutNowResponse resp = raftOptions.getRaftMessagesFactory()
