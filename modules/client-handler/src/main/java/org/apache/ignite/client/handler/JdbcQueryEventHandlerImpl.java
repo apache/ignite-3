@@ -325,7 +325,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             case DML:
                 Long updateCounts = (Long) result.items().get(0).get(0);
 
-                assert updateCounts != null : "Invalid MDL result";
+                assert updateCounts != null : "Invalid DML result";
 
                 return updateCounts > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : updateCounts.intValue();
             default:
