@@ -36,8 +36,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -51,15 +49,12 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.apache.ignite.internal.util.MyIgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /** The service is intended to execute requests on replicas. */
 public class ReplicaService {
-    private static final IgniteLogger LOG = Loggers.forClass(ReplicaService.class);
-
     /** Message service. */
     private final MessagingService messagingService;
 
@@ -155,10 +150,6 @@ public class ReplicaService {
                 throwable = unwrapCause(throwable);
 
                 if (throwable instanceof TimeoutException) {
-                    if (req.getClass().getSimpleName().equals("ReadOnlyScanRetrieveBatchReplicaRequestImpl")) {
-                        MyIgniteUtils.dumpThreads(LOG, false);
-                    }
-
                     // As a timeout has happened, we are probably on the system delayer thread, we should leave it.
                     partitionOperationsExecutor.execute(
                             () -> res.completeExceptionally(new ReplicationTimeoutException(req.groupId().asReplicationGroupId(),
