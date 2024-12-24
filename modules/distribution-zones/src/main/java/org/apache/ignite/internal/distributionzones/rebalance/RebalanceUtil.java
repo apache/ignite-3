@@ -168,7 +168,13 @@ public class RebalanceUtil {
         if (consistencyMode == ConsistencyMode.HIGH_AVAILABILITY) {
             // All complicated logic here is needed because we want to return back to stable nodes
             // that are returned back after majority is lost and stable was narrowed.
-            // For more detailed example check IGNITE–23572
+            // Let's consider example:
+            // stable = [A, B, C], dataNodes = [A, B, C]
+            // B, C left, stable = [A], dataNodes = [A, B, C]
+            // B returned, we want stable = [A, B], but in terms of data nodes they are not changed and equal [A, B, C]
+            // So, because scale up mechanism in this case won't adjust stable, we need to add B to stable manually.
+            // General idea is to filter offline nodes from data nodes, but we need to be careful and do not remove nodes
+            // bypassing scale down mechanism. If node is offline and presented in previous stable, we won't remove that node.
 
             // First of all, we remove offline nodes from calculated assignments
             Set<Assignment> resultingAssignments = calculatedAssignments

@@ -348,16 +348,6 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     );
 
                     break;
-                case ASSIGNMENT_NOT_UPDATED:
-                    LOG.info(
-                            "Force assignments are not updated [key={}, partition={}, table={}, val={}]",
-                            pendingChangeTriggerKey(partId).toString(),
-                            partId.partitionId(),
-                            partId.tableId(),
-                            nextAssignment
-                    );
-
-                    break;
                 case OUTDATED_UPDATE_RECEIVED:
                     LOG.info(
                             "Received outdated force rebalance trigger event [revision={}, partition={}, table={}]",
