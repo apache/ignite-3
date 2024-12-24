@@ -324,12 +324,12 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
             return;
         }
 
-        DynamicMBean mBean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
-        assertEquals(1L, mBean.getAttribute("ConnectionsActive"));
-        assertEquals(1L, mBean.getAttribute("ConnectionsEstablished"));
+        DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
+        assertEquals(1L, bean.getAttribute("ConnectionsActive"));
+        assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
 
-        MBeanInfo mBeanInfo = mBean.getMBeanInfo();
-        MBeanAttributeInfo[] attributes = mBeanInfo.getAttributes();
+        MBeanInfo beanInfo = bean.getMBeanInfo();
+        MBeanAttributeInfo[] attributes = beanInfo.getAttributes();
         MBeanAttributeInfo attribute = attributes[0];
         assertEquals("ConnectionsActive", attribute.getName());
         assertEquals("Currently active connections", attribute.getDescription());
