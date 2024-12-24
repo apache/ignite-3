@@ -83,8 +83,8 @@ import org.jetbrains.annotations.Nullable;
  * Executes partition reset request to restore partition assignments when majority is not available.
  *
  * <p>The reset is executed in two stages - first we switch to a single node having the most up-to-date data,
- * then we switch to other available nodes up to the configured replica factor, in the case of manual reset, and to available nodes from the
- * original group, in the case of manual.
+ * then we switch to other available nodes up to the configured replica factor, in the case of manual reset, and to the available nodes from
+ * the original group, in the case of the automatic reset.
  */
 class GroupUpdateRequest implements DisasterRecoveryRequest {
     private static final IgniteLogger LOG = Loggers.forClass(GroupUpdateRequest.class);
