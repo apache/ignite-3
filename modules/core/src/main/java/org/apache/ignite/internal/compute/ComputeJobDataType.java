@@ -28,7 +28,8 @@ public enum ComputeJobDataType {
     NATIVE(0),
     TUPLE(1),
     MARSHALLED_CUSTOM(2),
-    POJO(3);
+    POJO(3),
+    TUPLE_COLLECTION(4);
 
     private static final ComputeJobDataType[] VALUES = values();
 

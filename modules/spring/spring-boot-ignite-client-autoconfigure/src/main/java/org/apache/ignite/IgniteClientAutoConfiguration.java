@@ -70,16 +70,9 @@ public class IgniteClientAutoConfiguration {
             }
         }
 
-        if (config.getReconnectThrottlingRetries() != null) {
-            builder.reconnectThrottlingRetries(config.getReconnectThrottlingRetries());
-        }
 
-        if (config.getReconnectThrottlingPeriod() != null) {
-            builder.reconnectThrottlingPeriod(config.getReconnectThrottlingPeriod());
-        }
-
-        if (config.getReconnectInterval() != null) {
-            builder.reconnectInterval(config.getReconnectInterval());
+        if (config.getBackgroundReconnectInterval() != null) {
+            builder.backgroundReconnectInterval(config.getBackgroundReconnectInterval());
         }
 
         if (config.getHeartbeatInterval() != null) {
