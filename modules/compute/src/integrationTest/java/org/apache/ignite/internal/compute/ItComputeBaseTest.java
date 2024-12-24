@@ -55,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
@@ -289,7 +290,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         Ignite entryNode = node(0);
 
         Map<ClusterNode, JobExecution<String>> results = compute().submitBroadcast(
-                Set.of(clusterNode(entryNode), clusterNode(node(1)), clusterNode(node(2))),
+                BroadcastJobTarget.nodes(clusterNode(entryNode), clusterNode(node(1)), clusterNode(node(2))),
                 JobDescriptor.builder(concatJobClass()).units(units()).build(),
                 new Object[] {"a", 42});
 
@@ -308,7 +309,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         Ignite entryNode = node(0);
 
         Map<ClusterNode, JobExecution<String>> results = compute().submitBroadcast(
-                Set.of(clusterNode(entryNode), clusterNode(node(1)), clusterNode(node(2))),
+                BroadcastJobTarget.nodes(clusterNode(entryNode), clusterNode(node(1)), clusterNode(node(2))),
                 JobDescriptor.builder(getNodeNameJobClass()).units(units()).build(), null);
 
         assertThat(results, is(aMapWithSize(3)));
@@ -326,7 +327,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         Ignite entryNode = node(0);
 
         Map<ClusterNode, JobExecution<String>> results = compute().submitBroadcast(
-                Set.of(clusterNode(entryNode), clusterNode(node(1)), clusterNode(node(2))),
+                BroadcastJobTarget.nodes(clusterNode(entryNode), clusterNode(node(1)), clusterNode(node(2))),
                 JobDescriptor.<Object, String>builder(failingJobClassName()).units(units()).build(), null);
 
         assertThat(results, is(aMapWithSize(3)));
@@ -429,8 +430,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ValueSource(booleans = {true, false})
     void cancelComputeExecuteBroadcastAsyncWithCancelHandle(boolean local) {
         Ignite entryNode = node(0);
-        Set<ClusterNode> executeNodes =
-                local ? Set.of(clusterNode(entryNode), clusterNode(node(2))) : Set.of(clusterNode(node(1)), clusterNode(node(2)));
+        BroadcastJobTarget executeNodes =
+                local
+                        ? BroadcastJobTarget.nodes(clusterNode(entryNode), clusterNode(node(2)))
+                        : BroadcastJobTarget.nodes(clusterNode(node(1)), clusterNode(node(2)));
 
         CancelHandle cancelHandle = CancelHandle.create();
 
@@ -448,8 +451,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @ValueSource(booleans = {true, false})
     void cancelComputeExecuteBroadcastWithCancelHandle(boolean local) {
         Ignite entryNode = node(0);
-        Set<ClusterNode> executeNodes =
-                local ? Set.of(clusterNode(entryNode), clusterNode(node(2))) : Set.of(clusterNode(node(1)), clusterNode(node(2)));
+        BroadcastJobTarget executeNodes =
+                local
+                        ? BroadcastJobTarget.nodes(clusterNode(entryNode), clusterNode(node(2)))
+                        : BroadcastJobTarget.nodes(clusterNode(node(1)), clusterNode(node(2)));
 
         CancelHandle cancelHandle = CancelHandle.create();
 
