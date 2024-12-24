@@ -75,7 +75,7 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeInternalException;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -676,7 +676,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         IgniteImpl txCrdNode2 = unwrapIgniteImpl(node(0));
 
         CompletableFuture<Void> finish2 = txCrdNode2.txManager().finish(
-                new HybridTimestampTracker(),
+                new HybridTimestampTrackerImpl(),
                 ((InternalTransaction) rwTx1).commitPartition(),
                 false,
                 Map.of(((InternalTransaction) rwTx1).commitPartition(), new IgniteBiTuple<>(txCrdNode2.node(), 0L)),

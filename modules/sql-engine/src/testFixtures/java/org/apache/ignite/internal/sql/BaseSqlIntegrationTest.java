@@ -37,7 +37,7 @@ import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -223,7 +223,7 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
     /**
      * Returns observable time of first cluster node.
      */
-    protected HybridTimestampTracker observableTimeTracker() {
+    protected HybridTimestampTrackerImpl observableTimeTracker() {
         return unwrapIgniteImpl(CLUSTER.aliveNode()).observableTimeTracker();
     }
 

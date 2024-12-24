@@ -381,7 +381,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly, TxPriority priority) {
+    public InternalTransaction begin(
+            HybridTimestampTracker timestampTracker,
+            boolean implicit,
+            boolean readOnly,
+            TxPriority priority
+    ) {
         HybridTimestamp beginTimestamp = readOnly ? clockService.now() : createBeginTimestampWithIncrementRwTxCounter();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
 
@@ -455,6 +460,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         finishedTxs.add(1);
 
         if (commit) {
+            assert ts != null : "RW transaction commit timestamp cannot be null.";
+
             timestampTracker.update(ts);
 
             finalState = COMMITTED;

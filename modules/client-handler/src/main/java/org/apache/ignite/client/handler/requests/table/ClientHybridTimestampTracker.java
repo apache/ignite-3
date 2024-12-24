@@ -15,39 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.client.handler.requests.table;
 
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Interface is used to provide a track timestamp into a transaction operation.
+ * Client operation timestamp updater.
  */
-public interface HybridTimestampTracker {
-    /** This tracker do nothing.*/
-    HybridTimestampTracker EMPTY_TS_PROVIDER = new HybridTimestampTracker() {
-        @Override
-        public @Nullable HybridTimestamp get() {
-            return null;
-        }
+public class ClientHybridTimestampTracker implements HybridTimestampTracker {
+    private final HybridTimestamp currentTs;
+    private final Consumer<HybridTimestamp> updateTs;
 
-        @Override
-        public void update(@Nullable HybridTimestamp ts) {
+    public ClientHybridTimestampTracker(@Nullable HybridTimestamp currentTs, Consumer<HybridTimestamp> updateTs) {
+        this.currentTs = currentTs;
+        this.updateTs = updateTs;
+    }
 
-        }
-    };
+    @Override
+    public @Nullable HybridTimestamp get() {
+        return currentTs;
+    }
 
-    /**
-     * Get the observable timestamp.
-     *
-     * @return Hybrid timestamp.
-     */
-    @Nullable HybridTimestamp get();
-
-    /**
-     * Updates the observable timestamp after an operation is executed.
-     *
-     * @param ts Hybrid timestamp.
-     */
-    void update(@Nullable HybridTimestamp ts);
+    @Override
+    public void update(@Nullable HybridTimestamp ts) {
+        updateTs.accept(ts);
+    }
 }

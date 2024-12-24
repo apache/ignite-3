@@ -100,6 +100,7 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -139,7 +140,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     /** Keys count to check. */
     private static final int KEYS = 100;
 
-    private static final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+    private static final HybridTimestampTrackerImpl observableTimestampTracker = new HybridTimestampTrackerImpl();
 
     /** Dummy internal table for tests. */
     private static InternalTable intTable;

@@ -26,6 +26,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -43,6 +44,9 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     /** The transaction manager. */
     protected final TxManager txManager;
 
+    /** The tracker is used to track an observable timestamp. */
+    protected final HybridTimestampTracker observableTsTracker;
+
     /**
      * Transaction coordinator inconsistent ID.
      */
@@ -56,11 +60,19 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      *
      * @param txManager The tx manager.
      * @param id The id.
+     * @param observableTsTracker Observation timestamp tracker.
      * @param coordinatorId Transaction coordinator inconsistent ID.
      * @param implicit True for an implicit transaction, false for an ordinary one.
      */
-    public IgniteAbstractTransactionImpl(TxManager txManager, UUID id, UUID coordinatorId, boolean implicit) {
+    public IgniteAbstractTransactionImpl(
+            TxManager txManager,
+            HybridTimestampTracker observableTsTracker,
+            UUID id,
+            UUID coordinatorId,
+            boolean implicit
+    ) {
         this.txManager = txManager;
+        this.observableTsTracker = observableTsTracker;
         this.id = id;
         this.coordinatorId = coordinatorId;
         this.implicit = implicit;

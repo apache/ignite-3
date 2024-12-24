@@ -17,37 +17,38 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Interface is used to provide a track timestamp into a transaction operation.
+ * Hybrid timestamp tracker.
  */
-public interface HybridTimestampTracker {
-    /** This tracker do nothing.*/
-    HybridTimestampTracker EMPTY_TS_PROVIDER = new HybridTimestampTracker() {
-        @Override
-        public @Nullable HybridTimestamp get() {
-            return null;
-        }
-
-        @Override
-        public void update(@Nullable HybridTimestamp ts) {
-
-        }
-    };
+public class HybridTimestampTrackerImpl implements HybridTimestampTracker {
+    /** Timestamp. */
+    private final AtomicLong timestamp = new AtomicLong(NULL_HYBRID_TIMESTAMP);
 
     /**
-     * Get the observable timestamp.
+     * Get current tracked timestamp.
      *
-     * @return Hybrid timestamp.
+     * @return Timestamp or {@code null} if the tracker has never updated.
      */
-    @Nullable HybridTimestamp get();
+    @Override
+    public @Nullable HybridTimestamp get() {
+        return HybridTimestamp.nullableHybridTimestamp(timestamp.get());
+    }
 
     /**
-     * Updates the observable timestamp after an operation is executed.
+     * Updates the tracked timestamp if a provided timestamp is greater.
      *
-     * @param ts Hybrid timestamp.
+     * @param ts Timestamp to use for update.
      */
-    void update(@Nullable HybridTimestamp ts);
+    @Override
+    public void update(@Nullable HybridTimestamp ts) {
+        long tsVal = HybridTimestamp.hybridTimestampToLong(ts);
+
+        timestamp.updateAndGet(x -> Math.max(x, tsVal));
+    }
 }

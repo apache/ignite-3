@@ -118,7 +118,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -186,7 +186,7 @@ public class InternalTableImpl implements InternalTable {
     private final ClockService clockService;
 
     /** Observable timestamp tracker. */
-    private final HybridTimestampTracker observableTimestampTracker;
+    private final HybridTimestampTrackerImpl observableTimestampTracker;
 
     /** Placement driver. */
     private final PlacementDriver placementDriver;
@@ -230,7 +230,7 @@ public class InternalTableImpl implements InternalTable {
             TxStateTableStorage txStateStorage,
             ReplicaService replicaSvc,
             ClockService clockService,
-            HybridTimestampTracker observableTimestampTracker,
+            HybridTimestampTrackerImpl observableTimestampTracker,
             PlacementDriver placementDriver,
             TransactionInflights transactionInflights,
             long implicitTransactionTimeout,

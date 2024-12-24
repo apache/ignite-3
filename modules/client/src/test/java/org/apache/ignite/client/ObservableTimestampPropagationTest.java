@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -31,7 +30,6 @@ import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -80,70 +78,59 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
                 ch.observableTimestamp(),
                 "Handshake should initialize observable timestamp");
 
-        assertNull(lastObservableTimestamp());
-
         // RW TX does not propagate timestamp.
         var rwTx = client.transactions().begin();
         ClientLazyTransaction.ensureStarted(rwTx, ch, null).join();
-        assertNull(lastObservableTimestamp());
 
         // RO TX propagates timestamp.
         var roTx = client.transactions().begin(roOpts);
         ClientLazyTransaction.ensureStarted(roTx, ch, null).join();
-        assertEquals(1, lastObservableTimestamp());
+        assertEquals(1, lastObservableTimestamp(ch));
 
         // Increase timestamp on server - client does not know about it initially.
         currentServerTimestamp.set(11);
         ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
-        assertEquals(1, lastObservableTimestamp());
+        assertEquals(1, lastObservableTimestamp(ch));
 
         // Subsequent RO TX propagates latest known timestamp.
         client.tables().tables();
         ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
-        assertEquals(11, lastObservableTimestamp());
+        assertEquals(11, lastObservableTimestamp(ch));
 
         // Smaller timestamp from server is ignored by client.
         currentServerTimestamp.set(9);
         ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
         ClientLazyTransaction.ensureStarted(client.transactions().begin(roOpts), ch, null).join();
-        assertEquals(11, lastObservableTimestamp());
+        assertEquals(11, lastObservableTimestamp(ch));
 
         Statement statement = client.sql().statementBuilder()
-                .query("SELECT 1")
+                .query("CREATE TABLE t1 (id INT PRIMARY KEY, name VARCHAR)")
                 .build();
 
         // Execution of a SQL query should propagate observable time, not the current time of the clock.
         currentServerTimestamp.set(20);
-        updateObservableTimestamp(14);
         AsyncResultSet<?> rs = await(client.sql().executeAsync(null, statement));
-        assertEquals(14, lastObservableTimestamp());
+        assertEquals(20, lastObservableTimestamp(ch));
 
         assertNotNull(rs);
 
         // Every fetch should propagate observable time, not the current time of the clock.
-        currentServerTimestamp.set(20);
-        updateObservableTimestamp(18);
-        await(rs.fetchNextPage());
-        assertEquals(18, lastObservableTimestamp());
-
         currentServerTimestamp.set(24);
-        updateObservableTimestamp(20);
         await(rs.fetchNextPage());
-        assertEquals(20, lastObservableTimestamp());
+        assertEquals(20, lastObservableTimestamp(ch));
+
+        await(rs.fetchNextPage());
+        assertEquals(20, lastObservableTimestamp(ch));
 
         // Closing a result set should propagate observable time as well.
-        updateObservableTimestamp(22);
         await(rs.closeAsync());
-        assertEquals(22, lastObservableTimestamp());
+        assertEquals(20, lastObservableTimestamp(ch));
+
+        await(client.sql().executeAsync(null, "INSERT INTO t1 (1, 'Smith')"));
+        assertEquals(24, lastObservableTimestamp(ch));
     }
 
-    private static @Nullable Long lastObservableTimestamp() {
-        HybridTimestamp ts = ignite.timestampTracker().get();
-
-        return ts == null ? null : ts.longValue() >> LOGICAL_TIME_BITS_SIZE;
-    }
-
-    private static void updateObservableTimestamp(long newTime) {
-        ignite.timestampTracker().update(HybridTimestamp.hybridTimestamp(newTime << LOGICAL_TIME_BITS_SIZE));
+    private static @Nullable Long lastObservableTimestamp(ReliableChannel ch) {
+        return ch.observableTimestamp() >> LOGICAL_TIME_BITS_SIZE;
     }
 }

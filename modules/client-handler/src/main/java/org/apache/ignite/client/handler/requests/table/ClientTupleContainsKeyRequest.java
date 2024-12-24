@@ -17,14 +17,15 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -38,22 +39,23 @@ public class ClientTupleContainsKeyRequest {
      * @param out       Packer.
      * @param tables    Ignite tables.
      * @param resources Resource registry.
+     * @param txManager Transaction manager.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             IgniteTables tables,
-            ClientResourceRegistry resources
+            ClientResourceRegistry resources,
+            TxManager txManager
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readTx(in, out, resources);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, true);
             return readTuple(in, table, true).thenCompose(keyTuple -> {
-                return table.recordView().getAsync(tx, keyTuple)
-                        .thenAccept(t -> {
-                            out.packInt(table.schemaView().lastKnownSchemaVersion());
-                            out.packBoolean(t != null);
-                        });
+                return table.recordView().getAsync(tx, keyTuple).thenAccept(t -> {
+                    out.packInt(table.schemaView().lastKnownSchemaVersion());
+                    out.packBoolean(t != null);
+                });
             });
         });
     }

@@ -26,7 +26,7 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -40,7 +40,7 @@ public class ClientTupleGetAndReplaceRequest {
      * @param out Packer.
      * @param tables Ignite tables.
      * @param resources Resource registry.
-     * @param transactions Ignite transactions.
+     * @param txManager Ignite transactions.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
@@ -48,14 +48,13 @@ public class ClientTupleGetAndReplaceRequest {
             ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            IgniteTransactionsImpl transactions
+            TxManager txManager
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, transactions, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
             return readTuple(in, table, false).thenCompose(tuple -> {
                 return table.recordView().getAndReplaceAsync(tx, tuple).thenAccept(resTuple -> {
                     ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, table.schemaView());
-                    out.meta(transactions.observableTimestamp());
                 });
             });
         });
