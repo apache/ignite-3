@@ -41,13 +41,13 @@ public final class ValidationHelper {
         SqlQueryType queryType = parsedResult.queryType();
 
         if (parsedResult.queryType() == SqlQueryType.TX_CONTROL) {
-            String message = "Transaction control statement can not be executed as an independent statement";
+            String message = "Transaction control statement can not be executed as an independent statement.";
 
             throw new SqlException(STMT_VALIDATION_ERR, message);
         }
 
         if (!allowedTypes.contains(queryType)) {
-            String message = format("Invalid SQL statement type. Expected {} but got {}", allowedTypes, queryType);
+            String message = format("Invalid SQL statement type. Expected {} but got {}.", allowedTypes, queryType);
 
             throw new SqlException(STMT_VALIDATION_ERR, message);
         }
