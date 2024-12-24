@@ -640,7 +640,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
     void testTableReplicaListenersRemoveAfterRebalance(TestInfo testInfo) throws Exception {
         String zoneName = "TEST_ZONE";
         String tableName = "TEST_TABLE";
