@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Constructor;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
@@ -33,6 +34,12 @@ import java.util.concurrent.SubmissionPublisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import javax.management.DynamicMBean;
+import javax.management.MBeanAttributeInfo;
+import javax.management.MBeanInfo;
+import javax.management.MBeanServer;
+import javax.management.MBeanServerInvocationHandler;
+import javax.management.ObjectName;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteQueryProcessor;
@@ -296,6 +303,37 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
 
             assertNotNull(metric, "Metric is not registered: " + metricName);
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testJmxExport(boolean metricsEnabled) throws Exception {
+        server = AbstractClientTest.startServer(1000, new FakeIgnite());
+        client = clientBuilder().metricsEnabled(metricsEnabled).build();
+        client.tables().tables();
+
+        String beanName = "org.apache.ignite:group=metrics,name=client";
+        MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
+
+        ObjectName objName = new ObjectName(beanName);
+        boolean registered = mbeanSrv.isRegistered(objName);
+
+        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + "]");
+
+        if (!metricsEnabled) {
+            return;
+        }
+
+        DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
+        assertEquals(1L, bean.getAttribute("ConnectionsActive"));
+        assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
+
+        MBeanInfo beanInfo = bean.getMBeanInfo();
+        MBeanAttributeInfo[] attributes = beanInfo.getAttributes();
+        MBeanAttributeInfo attribute = attributes[0];
+        assertEquals("ConnectionsActive", attribute.getName());
+        assertEquals("Currently active connections", attribute.getDescription());
+        assertEquals("java.lang.Long", attribute.getType());
     }
 
     private Table oneColumnTable() {

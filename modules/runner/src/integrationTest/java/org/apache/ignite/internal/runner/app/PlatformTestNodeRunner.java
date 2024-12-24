@@ -292,7 +292,9 @@ public class PlatformTestNodeRunner {
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodes(metaStorageNode)
                 .clusterName("cluster")
+                .clusterConfiguration("ignite.metrics.exporters.jmx.exporterName: jmx")
                 .build();
+
         TestIgnitionManager.init(metaStorageNode, initParameters);
 
         System.out.println("Initialization complete");
