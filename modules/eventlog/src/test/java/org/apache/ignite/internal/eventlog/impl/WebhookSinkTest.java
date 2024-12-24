@@ -85,7 +85,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         assertThat(sink.getEvents(), hasSize(1));
 
-        var expectedSentContent = "[{\"type\" : \"USER_AUTHENTICATION_SUCCESS\"}, {\"type\" : \"USER_AUTHENTICATION_FAILURE\",}]";
+        var expectedSentContent = "[{\"type\" : \"USER_AUTHENTICATION_SUCCESS\"}, {\"type\" : \"USER_AUTHENTICATION_FAILURE\"}]";
 
         clientAndServer
                 .verify(
@@ -96,8 +96,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                                 .withHeader("X-SINK-CLUSTER-ID", CLUSTER_ID.toString())
                                 .withHeader("X-SINK-NODE-NAME", "default")
                                 .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS)),
-                        VerificationTimes.exactly(1)
-                );
+                        VerificationTimes.exactly(1));
     }
 
     @Test
@@ -129,8 +128,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                                 .withHeader("X-SINK-CLUSTER-ID", CLUSTER_ID.toString())
                                 .withHeader("X-SINK-NODE-NAME", "default")
                                 .withBody(json(expectedSentContent, ONLY_MATCHING_FIELDS)),
-                        VerificationTimes.exactly(1)
-                );
+                        VerificationTimes.exactly(1));
     }
 
     @Test
@@ -159,8 +157,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                                 .withContentType(APPLICATION_JSON)
                                 .withHeader("X-SINK-CLUSTER-ID", CLUSTER_ID.toString())
                                 .withHeader("X-SINK-NODE-NAME", "default"),
-                        VerificationTimes.never()
-                );
+                        VerificationTimes.never());
     }
 
     @ParameterizedTest
@@ -190,8 +187,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                                 .withContentType(APPLICATION_JSON)
                                 .withHeader("X-SINK-CLUSTER-ID", CLUSTER_ID.toString())
                                 .withHeader("X-SINK-NODE-NAME", "default"),
-                        VerificationTimes.atLeast(2)
-                );
+                        VerificationTimes.atLeast(2));
     }
 
     @BeforeAll
