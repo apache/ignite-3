@@ -36,11 +36,6 @@ import org.apache.ignite.network.ClusterNode;
 public class JumpToExecutorByConsistentIdAfterSend implements MessagingService {
     private final MessagingService messagingService;
 
-    @Override
-    public void doLogging(boolean doLogging) {
-        messagingService.doLogging(doLogging);
-    }
-
     private final String localConsistentId;
 
     private final ExecutorChooser<NetworkMessage> executorChooser;

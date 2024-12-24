@@ -37,7 +37,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -168,11 +167,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         ignite1impl.replicaSvc.doLogging(true);
 
-        Loggers.forClass(ItDataSchemaSyncTest.class).info("!!! BEFORE SELECT");
-
         ResultSet<SqlRow> res = sql.execute(null, "SELECT valint2 FROM tbl1");
-
-        Loggers.forClass(ItDataSchemaSyncTest.class).info("!!! AFTER SELECT");
 
         ignite1impl.replicaSvc.doLogging(false);
 
