@@ -285,6 +285,17 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * Reads value of specified element.
      *
      * @param index Element index.
+     * @return Element value as a {@link ByteBuffer}.
+     */
+    public @Nullable ByteBuffer bytesValueAsBuffer(int index) {
+        seek(index);
+        return begin == end ? null : bytesValueAsBuffer(begin, end);
+    }
+
+    /**
+     * Reads value of specified element.
+     *
+     * @param index Element index.
      * @return Element value.
      */
     public @Nullable UUID uuidValue(int index) {

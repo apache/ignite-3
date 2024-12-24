@@ -100,15 +100,25 @@ public final class TupleWithSchemaMarshalling {
     /**
      * Unmarshal tuple (LITTLE_ENDIAN).
      *
-     * @param raw byte[] bytes that are marshaled by {@link #marshal(Tuple)}.
+     * @param raw bytes that are marshaled by {@link #marshal(Tuple)}.
      */
     public static Tuple unmarshal(byte[] raw) {
-        if (raw.length < 8) {
-            throw new UnmarshallingException("byte[] length can not be less than 8");
+        return unmarshal(ByteBuffer.wrap(raw));
+    }
+
+    /**
+     * Unmarshal tuple (LITTLE_ENDIAN).
+     *
+     * @param raw bytes that are marshaled by {@link #marshal(Tuple)}.
+     */
+    public static Tuple unmarshal(ByteBuffer raw) {
+        int dataLen = raw.remaining();
+        if (dataLen < 8) {
+            throw new UnmarshallingException("Data length can not be less than 8");
         }
 
         // Read first int32.
-        ByteBuffer buff = ByteBuffer.wrap(raw).order(BYTE_ORDER);
+        ByteBuffer buff = raw.order(BYTE_ORDER);
         int size = buff.getInt(0);
         if (size < 0) {
             throw new UnmarshallingException("Size of the tuple can not be less than zero");
@@ -119,10 +129,10 @@ public final class TupleWithSchemaMarshalling {
         if (valueOffset < 0) {
             throw new UnmarshallingException("valueOffset can not be less than zero");
         }
-        if (valueOffset > raw.length) {
+        if (valueOffset > dataLen) {
             throw new UnmarshallingException(
-                    "valueOffset can not be greater than byte[] length, valueOffset: "
-                            + valueOffset + ", length: " + raw.length
+                    "valueOffset can not be greater than data length, valueOffset: "
+                            + valueOffset + ", length: " + dataLen
             );
         }
 
@@ -130,7 +140,7 @@ public final class TupleWithSchemaMarshalling {
                 .position(8).limit(valueOffset)
                 .slice().order(BYTE_ORDER);
         ByteBuffer valueBuff = buff
-                .position(valueOffset).limit(raw.length)
+                .position(valueOffset).limit(dataLen)
                 .slice().order(BYTE_ORDER);
 
         BinaryTupleReader schemaReader = new BinaryTupleReader(size * 2, schemaBuff);

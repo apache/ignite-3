@@ -50,7 +50,8 @@ public abstract class IgniteServerBase : IDisposable
         _listener.Bind(new IPEndPoint(IPAddress.Any, port));
         _listener.Listen(backlog: 1);
 
-        Console.WriteLine($"Fake server started [port={Port}, test={TestContext.CurrentContext.Test.Name}]");
+        Name = TestContext.CurrentContext.Test.Name;
+        Console.WriteLine($"Fake server started [port={Port}, test={Name}]");
 
         Task.Run(ListenLoop);
     }
@@ -60,6 +61,8 @@ public abstract class IgniteServerBase : IDisposable
     public string Endpoint => "127.0.0.1:" + Port;
 
     public bool AllowMultipleConnections { get; set; }
+
+    public string Name { get; set; }
 
     public bool DropNewConnections
     {
@@ -166,7 +169,7 @@ public abstract class IgniteServerBase : IDisposable
                     continue;
                 }
 
-                Console.WriteLine("Error in FakeServer: " + e);
+                Console.WriteLine($"Error in FakeServer [Name={Name}]: {e}");
             }
         }
     }

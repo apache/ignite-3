@@ -298,7 +298,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     }
 
     private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
-        inBusyLock(busyLock, () -> {
+        inBusyLockSafe(busyLock, () -> {
             int lwmCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             readOnlyIndexes.removeIf(readOnlyIndexInfo -> readOnlyIndexInfo.indexRemovalCatalogVersion() <= lwmCatalogVersion);

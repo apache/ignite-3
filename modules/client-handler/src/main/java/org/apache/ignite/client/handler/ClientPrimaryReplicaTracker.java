@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.tableIdNotFoundException;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -315,7 +316,7 @@ public class ClientPrimaryReplicaTracker {
     }
 
     private void onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
-        inBusyLock(busyLock, () -> {
+        inBusyLockSafe(busyLock, () -> {
             int earliestVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
             List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);

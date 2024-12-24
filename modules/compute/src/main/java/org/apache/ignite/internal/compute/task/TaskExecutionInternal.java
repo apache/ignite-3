@@ -209,8 +209,10 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
             return falseCompletedFuture();
         }
 
-        // If the split job is not complete, this will cancel the executions future.
+        // If the split job is not complete.
         if (splitExecution.cancel()) {
+            // The split job cancelled, but since it's not a direct chain of futures, we should cancel the next future in chain manually.
+            executionsFuture.cancel(true);
             return trueCompletedFuture();
         }
 

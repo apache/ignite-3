@@ -19,14 +19,14 @@ package org.apache.ignite.internal.ssl;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.escapeWindowsPath;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getResourcePath;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
@@ -35,6 +35,8 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
@@ -87,7 +89,8 @@ public class ItSslTest {
                 + "  rest: {\n"
                 + "    port: {},\n"
                 + "    ssl.port: {}\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
 
         @Override
@@ -188,7 +191,8 @@ public class ItSslTest {
                 + "  rest: {\n"
                 + "    port: {},\n"
                 + "    ssl.port: {}\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
 
         @Override
@@ -233,9 +237,36 @@ public class ItSslTest {
                 }
             });
 
-            assertEquals("Client SSL configuration error: keystore password was incorrect", ex.getMessage());
-            assertInstanceOf(IOException.class, ex.getCause());
-            assertEquals("keystore password was incorrect", ex.getCause().getMessage());
+            assertThat(ex.getMessage(), is("Client SSL configuration error: keystore password was incorrect"));
+            // Exceptions thrown from the synchronous build method are copied to include the sync method
+            assertThat(ex.getCause(), isA(IgniteClientConnectionException.class));
+            assertThat(ex.getCause().getCause(), isA(IOException.class));
+            assertThat(ex.getCause().getCause().getMessage(), is("keystore password was incorrect"));
+        }
+
+        @Test
+        @DisplayName("Client cannot connect with SSL configured and invalid trust store password async method")
+        void clientCanNotConnectWithSslAndInvalidTrustStorePasswordAsync() {
+            var sslConfiguration =
+                    SslConfiguration.builder()
+                            .enabled(true)
+                            .trustStorePath(trustStorePath)
+                            .trustStorePassword(PASSWORD + "_foo")
+                            .build();
+
+            CompletableFuture<IgniteClient> clientFuture =
+                    IgniteClient.builder().addresses("localhost:10800").ssl(sslConfiguration).buildAsync();
+
+            assertThat(clientFuture, willThrow(IgniteClientConnectionException.class));
+
+            CompletionException completionException = assertThrows(CompletionException.class, clientFuture::join);
+
+            assertThat(completionException.getCause(), isA(IgniteClientConnectionException.class));
+            IgniteClientConnectionException ex = (IgniteClientConnectionException) completionException.getCause();
+
+            assertThat(ex.getMessage(), is("Client SSL configuration error: keystore password was incorrect"));
+            assertThat(ex.getCause(), isA(IOException.class));
+            assertThat(ex.getCause().getMessage(), is("keystore password was incorrect"));
         }
 
         @Test
@@ -424,7 +455,8 @@ public class ItSslTest {
                 + "  rest: {\n"
                 + "    port: {}, \n"
                 + "    ssl.port: {} \n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
 
         @Override

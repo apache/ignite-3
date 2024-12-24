@@ -102,6 +102,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.KillPlan;
@@ -114,7 +115,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.sql.engine.tx.NoopTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -122,6 +122,7 @@ import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -329,7 +330,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert txContext != null;
 
-        QueryTransactionWrapper txWrapper = txContext.getOrStartImplicit(plan.type() != SqlQueryType.DML);
+        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(plan.type() != SqlQueryType.DML, false);
         InternalTransaction tx = txWrapper.unwrap();
 
         operationContext.notifyTxUsed(txWrapper);
@@ -442,14 +443,21 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         QueryTransactionWrapper txWrapper = txContext.explicitTx();
 
         if (txWrapper == null) {
-            // underlying table will initiate transaction by itself, but we need stub to reuse
-            // TxAwareAsyncCursor
-            txWrapper = NoopTransactionWrapper.INSTANCE;
+            // Underlying table will drive transaction by itself.
+            txWrapper = txContext.getOrStartSqlManaged(((ExplainablePlan) plan).type() != SqlQueryType.DML, true);
         }
 
         PrefetchCallback prefetchCallback = new PrefetchCallback();
 
-        AsyncCursor<InternalSqlRow> dataCursor = plan.execute(ectx, txWrapper.unwrap(), tableRegistry, prefetchCallback);
+        AsyncCursor<InternalSqlRow> dataCursor;
+
+        try {
+            dataCursor = plan.execute(ectx, txWrapper.unwrap(), tableRegistry, prefetchCallback);
+        } catch (Throwable t) {
+            prefetchCallback.onPrefetchComplete(t);
+
+            dataCursor = new AsyncWrapper<>(CompletableFuture.failedFuture(t), Runnable::run);
+        }
 
         return new TxAwareAsyncCursor<>(
                 txWrapper,

@@ -149,7 +149,6 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -644,13 +643,11 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(1, getAllTablesFut.join().size());
     }
 
-    @Disabled("IGNITE-23899")
     @Test
     void testStoragesGetClearedInMiddleOfFailedTxStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(true);
     }
 
-    @Disabled("IGNITE-23899")
     @Test
     void testStoragesGetClearedInMiddleOfFailedPartitionStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(false);
@@ -668,8 +665,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 .thenAnswer(mock -> mock(TopologyAwareRaftGroupService.class));
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
                 .thenReturn(completedFuture(Set.of(NODE_NAME)));
-
-        createZone(1, 1);
 
         var txStateStorage = mock(TxStateStorage.class);
         var mvPartitionStorage = mock(MvPartitionStorage.class);
@@ -698,6 +693,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             doReturn(txStateStorage).when(txStateTableStorage).getOrCreateTxStateStorage(anyInt());
             doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
         });
+
+        createZone(1, 1);
 
         createTable(PRECONFIGURED_TABLE_NAME);
 

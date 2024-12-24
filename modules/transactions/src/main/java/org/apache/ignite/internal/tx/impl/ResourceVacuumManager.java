@@ -26,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -71,6 +72,9 @@ public class ResourceVacuumManager implements IgniteComponent {
 
     private final TxManager txManager;
 
+    private volatile ScheduledFuture<?> vacuumOperationFuture;
+    private volatile ScheduledFuture<?> broadcastClosedTransactionsFuture;
+
     /**
      * Constructor.
      *
@@ -109,14 +113,14 @@ public class ResourceVacuumManager implements IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         if (resourceVacuumIntervalMilliseconds > 0) {
-            resourceVacuumExecutor.scheduleAtFixedRate(
+            vacuumOperationFuture = resourceVacuumExecutor.scheduleAtFixedRate(
                     this::runVacuumOperations,
                     0,
                     resourceVacuumIntervalMilliseconds,
                     TimeUnit.MILLISECONDS
             );
 
-            resourceVacuumExecutor.scheduleAtFixedRate(
+            broadcastClosedTransactionsFuture = resourceVacuumExecutor.scheduleAtFixedRate(
                     finishedReadOnlyTransactionTracker::broadcastClosedTransactions,
                     0,
                     resourceVacuumIntervalMilliseconds,
@@ -132,6 +136,14 @@ public class ResourceVacuumManager implements IgniteComponent {
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         busyLock.block();
+
+        if (vacuumOperationFuture != null) {
+            vacuumOperationFuture.cancel(false);
+        }
+
+        if (broadcastClosedTransactionsFuture != null) {
+            broadcastClosedTransactionsFuture.cancel(false);
+        }
 
         shutdownAndAwaitTermination(resourceVacuumExecutor, 10, TimeUnit.SECONDS);
 

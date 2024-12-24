@@ -87,8 +87,10 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
             + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
             + "  },\n"
             + "  clientConnector.port: {},\n"
+            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
             + "  rest.port: {},\n"
-            + "  compute.threadPoolSize: 1\n"
+            + "  compute.threadPoolSize: 1,\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     /** Cluster nodes. */

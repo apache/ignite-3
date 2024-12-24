@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -922,7 +923,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
 
         return isRemovedFuture
-                .thenApply(v -> {
+                .thenApplyAsync(v -> {
                     try {
                         // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
                         raftManager.stopRaftNodes(replicaGrpId);
@@ -931,7 +932,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     }
 
                     return v;
-                });
+                }, replicaStateManager.replicaStartStopPool);
     }
 
     /** {@inheritDoc} */
@@ -1139,7 +1140,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .build();
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
-            if (ex != null) {
+            if (ex != null && !hasCauseOrSuppressed(ex, null, NodeStoppingException.class)) {
                 LOG.error("Could not advance safe time for {} to {}", ex, replica.groupId(), proposedSafeTime);
             }
         });
