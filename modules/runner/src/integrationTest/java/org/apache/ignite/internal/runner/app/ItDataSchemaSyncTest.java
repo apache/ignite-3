@@ -40,7 +40,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
@@ -144,7 +143,6 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      * Test correctness of schemes recovery after node restart.
      */
     @Test
-    @WithSystemProperty(key = "IGNITE_PVD_DEBUG", value = "true")
     public void checkSchemasCorrectlyRestore() {
         Ignite ignite1 = cluster.node(1);
 
