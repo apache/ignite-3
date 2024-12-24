@@ -286,6 +286,24 @@ SqlCreate SqlCreateIndex(Span s, boolean replace) :
     }
 }
 
+SqlCreate SqlCreateSchema(Span s, boolean replace) :
+{
+        final boolean ifNotExists;
+        final SqlIdentifier id;
+        SqlNodeList optionList = null;
+}
+{
+    <SCHEMA> { s.add(this); }
+        ifNotExists = IfNotExistsOpt()
+        id = CompoundIdentifier()
+    [
+        <WITH> { s.add(this); } optionList = CreateZoneOptionList()
+    ]
+    {
+        return new IgniteSqlCreateSchema(s.end(this), ifNotExists, id);
+    }
+}
+
 boolean IfExistsOpt() :
 {
 }
@@ -314,6 +332,32 @@ SqlDrop SqlDropIndex(Span s, boolean replace) :
 {
     <INDEX> ifExists = IfExistsOpt() idxId = CompoundIdentifier() {
         return new IgniteSqlDropIndex(s.end(this), ifExists, idxId);
+    }
+}
+
+SqlDrop SqlDropSchema(Span s, boolean replace) :
+{
+    final SqlIdentifier schemaName;
+    final boolean ifExists;
+    IgniteSqlDropSchemaPolicy dropPolicy = IgniteSqlDropSchemaPolicy.IMPLICIT_RESTRICT;
+}
+{
+    <SCHEMA>
+    ifExists = IfExistsOpt()
+    schemaName = CompoundIdentifier()
+    [
+        (
+          <CASCADE> {
+            dropPolicy = IgniteSqlDropSchemaPolicy.CASCADE;
+          }
+          |
+          <RESTRICT> {
+            dropPolicy = IgniteSqlDropSchemaPolicy.RESTRICT;
+          }
+        )
+    ]
+    {
+        return new IgniteSqlDropSchema(s.end(this), ifExists, schemaName, dropPolicy);
     }
 }
 

@@ -42,10 +42,13 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateSchema",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropSchema",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropSchemaPolicy",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction",
@@ -322,7 +325,8 @@ data: {
     createStatementParserMethods: [
       "SqlCreateTable",
       "SqlCreateIndex",
-      "SqlCreateZone"
+      "SqlCreateZone",
+      "SqlCreateSchema"
     ]
 
     # List of methods for parsing extensions to "DROP" calls.
@@ -331,7 +335,8 @@ data: {
     dropStatementParserMethods: [
       "SqlDropTable",
       "SqlDropIndex",
-      "SqlDropZone"
+      "SqlDropZone",
+      "SqlDropSchema"
     ]
 
     # List of methods for parsing extensions to "DROP" calls.
