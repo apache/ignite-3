@@ -33,6 +33,8 @@ import java.util.Arrays;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -87,6 +89,8 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
     private PartitionCommandsMarshallerImpl commandsMarshaller;
 
+    private final HybridClock clock = new HybridClockImpl();
+
     @BeforeEach
     void initMocks() {
         when(rpcContext.getNodeManager()).thenReturn(nodeManager);
@@ -110,7 +114,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
     }
 
     private WriteCommand commandWithoutRequiredCatalogVersion() {
-        return replicaMessagesFactory.safeTimeSyncCommand().build();
+        return replicaMessagesFactory.safeTimeSyncCommand().initiatorTime(clock.now()).build();
     }
 
     @Test
@@ -132,6 +136,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
                 .rowUuid(UUID.randomUUID())
                 .txCoordinatorId(UUID.randomUUID())
                 .requiredCatalogVersion(requiredVersion)
+                .initiatorTime(clock.now())
                 .build();
     }
 

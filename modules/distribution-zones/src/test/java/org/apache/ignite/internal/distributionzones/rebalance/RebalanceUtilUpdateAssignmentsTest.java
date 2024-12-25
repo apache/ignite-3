@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -543,7 +544,9 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 metaStorageManager,
                 partNum,
                 tableCfgAssignments,
-                assignmentsTimestamp
+                assignmentsTimestamp,
+                Set.of(),
+                ConsistencyMode.STRONG_CONSISTENCY
         );
 
         byte[] actualStableBytes = keyValueStorage.get(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes()).value();

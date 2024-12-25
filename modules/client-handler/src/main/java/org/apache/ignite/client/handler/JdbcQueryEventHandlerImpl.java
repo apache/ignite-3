@@ -67,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -231,12 +232,9 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                     token,
                     query,
                     OBJECT_EMPTY_ARRAY,
-                    queryTimeoutMillis
-            ).thenApply(cnt -> {
-                list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
-
-                return list;
-            }));
+                    queryTimeoutMillis,
+                    list
+            ));
         }
 
         return tail.handle((ignored, t) -> {
@@ -270,12 +268,8 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
         for (Object[] args : argList) {
             tail = tail.thenCompose(list -> executeAndCollectUpdateCount(
-                    connectionContext, tx, token, req.getQuery(), args, timeoutMillis
-            ).thenApply(cnt -> {
-                list.add(cnt > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : cnt.intValue());
-
-                return list;
-            }));
+                    connectionContext, tx, token, req.getQuery(), args, timeoutMillis, list
+            ));
         }
 
         return tail.handle((ignored, t) -> {
@@ -289,14 +283,15 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         });
     }
 
-    private CompletableFuture<Long> executeAndCollectUpdateCount(
+    private CompletableFuture<IntArrayList> executeAndCollectUpdateCount(
             JdbcConnectionContext context,
             @Nullable InternalTransaction tx,
             CancellationToken token,
             String sql,
             Object[] arg,
-            long timeoutMillis) {
-
+            long timeoutMillis,
+            IntArrayList resultUpdateCounters
+    ) {
         if (!context.valid()) {
             return CompletableFuture.failedFuture(new IgniteInternalException(CONNECTION_ERR, "Connection is closed"));
         }
@@ -312,8 +307,30 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 arg == null ? OBJECT_EMPTY_ARRAY : arg
         );
 
-        return result.thenCompose(cursor -> cursor.requestNextAsync(1))
-                .thenApply(batch -> (Long) batch.items().get(0).get(0));
+        return result.thenCompose(cursor -> cursor.requestNextAsync(1)
+                .thenApply(batch -> {
+                    int updateCounter = handleBatchResult(cursor.queryType(), batch);
+
+                    resultUpdateCounters.add(updateCounter);
+
+                    return resultUpdateCounters;
+                }));
+    }
+
+    private static int handleBatchResult(SqlQueryType type, BatchedResult<InternalSqlRow> result) {
+        switch (type) {
+            case DDL:
+            case KILL:
+                return Statement.SUCCESS_NO_INFO;
+            case DML:
+                Long updateCounts = (Long) result.items().get(0).get(0);
+
+                assert updateCounts != null : "Invalid DML result";
+
+                return updateCounts > Integer.MAX_VALUE ? Statement.SUCCESS_NO_INFO : updateCounts.intValue();
+            default:
+                throw new IllegalStateException("Unexpected query type: " + type);
+        }
     }
 
     private static JdbcBatchExecuteResult handleBatchException(Throwable e, String query, int[] counters) {

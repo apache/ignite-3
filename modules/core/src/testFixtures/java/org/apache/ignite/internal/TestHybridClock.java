@@ -21,7 +21,7 @@ import java.util.function.LongSupplier;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 
 /**
- * Test hybrid clock with custom supplier of current time. TODO delete
+ * Test hybrid clock with custom supplier of current time.
  */
 public class TestHybridClock extends HybridClockImpl {
     /** Supplier of current time in milliseconds. */

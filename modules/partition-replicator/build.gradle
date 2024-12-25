@@ -36,6 +36,7 @@ dependencies {
     implementation project(':ignite-partition-distribution')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-network')
+    implementation project(':ignite-configuration-system')
     implementation project(':ignite-schema')
     implementation project(':ignite-transactions')
     implementation project(':ignite-storage-api')

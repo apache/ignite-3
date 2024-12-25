@@ -64,6 +64,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -697,6 +698,18 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
 
         // Check that the leader was updated as well.
         assertThat(service.leader(), is(NODES.get(NODES.size() - 1)));
+    }
+
+    @Test
+    public void testRetryOnRecipientLeftException() {
+        when(messagingService.invoke(any(ClusterNode.class), any(ReadActionRequest.class), anyLong()))
+                .thenReturn(failedFuture(new RecipientLeftException()));
+
+        RaftGroupService service = startRaftGroupServiceWithRefreshLeader(NODES);
+
+        CompletableFuture<Object> response = service.run(mock(ReadCommand.class));
+
+        assertThat(response, willThrow(TimeoutException.class, "Send with retry timed out"));
     }
 
     private RaftGroupService startRaftGroupService(List<Peer> peers) {
