@@ -94,11 +94,8 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
     }
 
     @Override
-    public <RowT> AsyncCursor<InternalSqlRow> execute(ExecutionContext<RowT> ctx, @Nullable InternalTransaction tx,
+    public <RowT> AsyncCursor<InternalSqlRow> execute(ExecutionContext<RowT> ctx, InternalTransaction ignored,
             ExecutableTableRegistry tableRegistry, @Nullable QueryPrefetchCallback firstPageReadyCallback) {
-
-        assert tx == null : "SelectCount plan can only run within implicit transaction";
-
         RelOptTable optTable = selectCountNode.getTable();
         IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
         assert igniteTable != null;

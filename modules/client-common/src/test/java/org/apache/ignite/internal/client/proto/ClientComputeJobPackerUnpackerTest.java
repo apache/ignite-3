@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.u
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import io.netty.buffer.ByteBufUtil;
@@ -37,7 +38,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.client.proto.pojo.Pojo;
@@ -80,6 +84,16 @@ class ClientComputeJobPackerUnpackerTest {
         ).map(Arguments::of);
     }
 
+    private static Stream<Arguments> tupleCollections() {
+        return Stream.of(
+                List.of(),
+                Collections.singletonList(Tuple.create()),
+                Collections.singletonList(null),
+                List.of(Tuple.create(), Tuple.create().set("key", 1), Tuple.create().set("key", "value1")),
+                Set.of(Tuple.create().set("key", 2), Tuple.create().set("key", "value2"))
+        ).map(Arguments::of);
+    }
+
     private static List<Object> pojo() {
         return List.of(Pojo.generateTestPojo());
     }
@@ -107,7 +121,7 @@ class ClientComputeJobPackerUnpackerTest {
         return new ClientMessageUnpacker(Unpooled.wrappedBuffer(data, 4, data.length - 4));
     }
 
-    @MethodSource({"tuples", "nativeTypes"})
+    @MethodSource({"tuples", "nativeTypes", "tupleCollections"})
     @ParameterizedTest
     void packUnpackNoMarshalling(Object arg) {
         // When pack job result without marshaller.
@@ -119,7 +133,11 @@ class ClientComputeJobPackerUnpackerTest {
             var res = unpackJobResult(messageUnpacker, null, null);
 
             // Then.
-            assertEquals(arg, res);
+            if (arg instanceof Collection<?>) {
+                assertIterableEquals((Collection<?>) arg, (Collection<?>) res);
+            } else {
+                assertEquals(arg, res);
+            }
         }
     }
 

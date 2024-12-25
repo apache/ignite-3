@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.sql.ResultSet;
@@ -48,7 +49,9 @@ public class ExampleApplicationTest {
 
     @BeforeEach
     void setUp(TestInfo testInfo) {
-        this.cluster = new Cluster(testInfo, workDir);
+        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir).build();
+
+        this.cluster = new Cluster(clusterConfiguration);
         this.cluster.startAndInit(1);
     }
 
