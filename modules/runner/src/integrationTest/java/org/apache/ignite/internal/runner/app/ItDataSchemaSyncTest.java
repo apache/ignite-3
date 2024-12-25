@@ -58,7 +58,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
     @Override
     protected void customizeInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration("ignite.replication.rpcTimeout: 30000");
+        builder.clusterConfiguration("ignite.replication.rpcTimeout: 10000");
     }
 
     /**
