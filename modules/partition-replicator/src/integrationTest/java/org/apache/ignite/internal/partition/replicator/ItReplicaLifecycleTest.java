@@ -226,6 +226,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -237,7 +238,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
 @Timeout(60)
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
 public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItReplicaLifecycleTest.class);
 
@@ -455,7 +455,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22944")
     void testAlterReplicaTrigger(TestInfo testInfo) throws Exception {
         startNodes(testInfo, 3);
 
@@ -642,6 +641,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23252")
     void testTableReplicaListenersRemoveAfterRebalance(TestInfo testInfo) throws Exception {
         String zoneName = "TEST_ZONE";
         String tableName = "TEST_TABLE";
