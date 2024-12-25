@@ -61,7 +61,6 @@ import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
-import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
@@ -105,18 +104,14 @@ public class TestCluster {
     /** Test info. */
     private final TestInfo testInfo;
 
-    private JRaftServiceFactory raftServiceFactory = new TestJRaftServiceFactory();
+    private Function<PeerId, JRaftServiceFactory> raftServiceFactories = peerId -> new TestJRaftServiceFactory();
 
     private LinkedHashSet<TestPeer> learners;
 
     private JraftGroupEventsListener raftGrpEvtsLsnr;
 
-    public JRaftServiceFactory getRaftServiceFactory() {
-        return this.raftServiceFactory;
-    }
-
-    public void setRaftServiceFactory(JRaftServiceFactory raftServiceFactory) {
-        this.raftServiceFactory = raftServiceFactory;
+    public void setRaftServiceFactories(Function<PeerId, JRaftServiceFactory> raftServiceFactories) {
+        this.raftServiceFactories = raftServiceFactories;
     }
 
     public LinkedHashSet<PeerId> getLearners() {
@@ -222,7 +217,7 @@ public class TestCluster {
             nodeOptions.setEnableMetrics(enableMetrics);
             nodeOptions.setSnapshotThrottle(snapshotThrottle);
             nodeOptions.setSnapshotIntervalSecs(snapshotIntervalSecs);
-            nodeOptions.setServiceFactory(this.raftServiceFactory);
+            nodeOptions.setServiceFactory(this.raftServiceFactories.apply(peer.getPeerId()));
             if (clock != null) {
                 nodeOptions.setClock(clock);
             }
