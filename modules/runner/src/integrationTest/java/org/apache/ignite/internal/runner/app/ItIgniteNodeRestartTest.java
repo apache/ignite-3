@@ -113,6 +113,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -141,7 +142,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -192,6 +192,7 @@ import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtensionConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -680,6 +681,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var dataNodesMock = dataNodesMockByNode.get(idx);
 
+        SystemDistributedConfiguration systemDistributedConfiguration =
+                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
+
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
@@ -687,7 +691,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 catalogManager,
                 rebalanceScheduler,
-                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
+                systemDistributedConfiguration
         ) {
             @Override
             public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
@@ -751,9 +755,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         threadPoolsManager.partitionOperationsExecutor(),
                         clockService,
                         placementDriverManager.placementDriver(),
-                        schemaSyncService
+                        schemaSyncService,
+                        systemDistributedConfiguration
                 ),
-                minTimeCollectorService
+                minTimeCollectorService,
+                systemDistributedConfiguration
         );
 
         var indexManager = new IndexManager(
@@ -785,7 +791,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 transactionInflights,
                 txManager,
                 lowWatermark,
-                threadPoolsManager.commonScheduler()
+                threadPoolsManager.commonScheduler(),
+                new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService())
         );
 
         sqlRef.set(new IgniteSqlImpl(qryEngine, new HybridTimestampTracker()));
@@ -1696,18 +1703,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private void createWatchListener(MetaStorageManager metaStorageManager, String prefix, Consumer<WatchEvent> listener) {
         metaStorageManager.registerPrefixWatch(
                 new ByteArray(prefix.getBytes(StandardCharsets.UTF_8)),
-                new WatchListener() {
-                    @Override
-                    public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                        listener.accept(event);
+                event -> {
+                    listener.accept(event);
 
-                        return nullCompletedFuture();
-                    }
-
-                    @Override
-                    public void onError(Throwable e) {
-                        log.error("Error in test watch listener", e);
-                    }
+                    return nullCompletedFuture();
                 }
         );
     }

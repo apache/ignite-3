@@ -91,8 +91,8 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> closeAsync(boolean cancelled) {
-        return dataCursor.closeAsync(cancelled);
+    public CompletableFuture<Void> closeAsync() {
+        return dataCursor.closeAsync();
     }
 
     /** {@inheritDoc} */

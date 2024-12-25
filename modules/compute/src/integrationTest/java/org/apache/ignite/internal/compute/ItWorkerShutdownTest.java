@@ -330,7 +330,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         try {
             HybridClock clock = igniteImpl.clock();
             TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
-            TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), table.partition(Tuple.create(1).set("K", 1)));
+            TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), table.partitionId(Tuple.create(1).set("K", 1)));
 
             ReplicaMeta replicaMeta = igniteImpl.placementDriver().getPrimaryReplica(tablePartitionId, clock.now()).get();
             if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {

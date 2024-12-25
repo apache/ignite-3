@@ -38,8 +38,6 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -70,7 +68,6 @@ import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -647,34 +644,6 @@ public class IgniteUtils {
     }
 
     /**
-     * Short date format pattern for log messages in "quiet" mode. Only time is included since we don't expect "quiet" mode to be used for
-     * longer runs.
-     */
-    private static final DateTimeFormatter SHORT_DATE_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
-
-    /**
-     * Prints stack trace of the current thread to provided logger.
-     *
-     * @param log Logger.
-     * @param msg Message to print with the stack.
-     * @deprecated Calls to this method should never be committed to master.
-     */
-    @Deprecated
-    public static void dumpStack(IgniteLogger log, String msg, Object... params) {
-        String reason = "Dumping stack";
-
-        var err = new Exception(IgniteStringFormatter.format(msg, params));
-
-        if (log != null) {
-            log.warn(reason, err);
-        } else {
-            System.err.println("[" + LocalDateTime.now().format(SHORT_DATE_FMT) + "] (err) " + reason);
-
-            err.printStackTrace(System.err);
-        }
-    }
-
-    /**
      * Atomically moves or renames a file to a target file.
      *
      * @param sourcePath The path to the file to move.
@@ -1108,7 +1077,7 @@ public class IgniteUtils {
      * Serializes collection to bytes.
      *
      * @param collection Collection.
-     * @param transform Tranform function for the collection element.
+     * @param transform Transform function for the collection element.
      * @return Byte array.
      */
     public static <T> byte[] collectionToBytes(Collection<T> collection, Function<T, byte[]> transform) {

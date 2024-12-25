@@ -107,7 +107,11 @@ final class For extends Command {
                 // if the first token start with [vv, remove [
                 // If the last token ends with vv], we should remove ] .
                 if (elem == 0 && tok.startsWith("[")) {
-                    current.append(tok.substring(1));
+                    if (i + 1 == cmdTokens.length && tok.endsWith("]")) {
+                        current.append(tok, 1, tok.length() - 1);
+                    } else {
+                        current.append(tok.substring(1));
+                    }
                 } else if (i + 1 == cmdTokens.length && tok.endsWith("]")) {
                     current.append(tok, 0, tok.length() - 1);
                 } else {

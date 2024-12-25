@@ -389,7 +389,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
             BinaryRowEx r = marshaller.marshal(t);
 
-            int part = intTable.partition(r);
+            int part = intTable.partitionId(r);
 
             assertThat(CollectionUtils.first(CMDS_MAP.get(part)), is(instanceOf(UpdateCommand.class)));
         }
@@ -414,7 +414,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
             BinaryRowEx r = marshaller.marshal(t);
 
-            int part = intTable.partition(r);
+            int part = intTable.partitionId(r);
 
             partsMap.merge(part, 1, (cnt, ignore) -> ++cnt);
         }
@@ -428,7 +428,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             cmd.rowsToUpdate().values().forEach(rowMessage -> {
                 Row r = Row.wrapBinaryRow(schema, rowMessage.binaryRow());
 
-                assertEquals(intTable.partition(r), p);
+                assertEquals(intTable.partitionId(r), p);
             });
         });
     }

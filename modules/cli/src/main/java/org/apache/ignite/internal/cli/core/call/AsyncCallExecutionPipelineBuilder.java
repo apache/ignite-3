@@ -55,7 +55,7 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implement
 
     private Decorator<T, TerminalOutput> decorator;
 
-    private boolean verbose;
+    private boolean[] verbose;
 
     AsyncCallExecutionPipelineBuilder(Function<ProgressTracker, AsyncCall<I, T>> callFactory) {
         this.callFactory = callFactory;
@@ -111,7 +111,7 @@ public class AsyncCallExecutionPipelineBuilder<I extends CallInput, T> implement
     }
 
     @Override
-    public AsyncCallExecutionPipelineBuilder<I, T> verbose(boolean verbose) {
+    public AsyncCallExecutionPipelineBuilder<I, T> verbose(boolean[] verbose) {
         this.verbose = verbose;
         return this;
     }

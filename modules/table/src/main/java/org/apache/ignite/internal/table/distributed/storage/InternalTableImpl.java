@@ -131,7 +131,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Storage of table rows.
@@ -870,6 +869,8 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
+        checkTransactionFinishStarted(tx);
+
         if (isDirectFlowApplicableTx(tx)) {
             return evaluateReadOnlyPrimaryNode(
                     tx,
@@ -955,6 +956,8 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
+        checkTransactionFinishStarted(tx);
+
         if (CollectionUtils.nullOrEmpty(keyRows)) {
             return emptyListCompletedFuture();
         }
@@ -1189,6 +1192,8 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row, InternalTransaction tx) {
+        checkTransactionFinishStarted(tx);
+
         return enlistInTx(
                 row,
                 tx,
@@ -1341,6 +1346,8 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, InternalTransaction tx) {
+        checkTransactionFinishStarted(tx);
+
         return enlistInTx(
                 row,
                 tx,
@@ -1410,6 +1417,8 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row, InternalTransaction tx) {
+        checkTransactionFinishStarted(tx);
+
         return enlistInTx(
                 row,
                 tx,
@@ -1850,13 +1859,6 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /** {@inheritDoc} */
-    @TestOnly
-    @Override
-    public int partition(BinaryRowEx keyRow) {
-        return partitionId(keyRow);
-    }
-
-    /** {@inheritDoc} */
     @Override
     public int partitionId(BinaryRowEx row) {
         return IgniteUtils.safeAbs(row.colocationHash()) % partitions;
@@ -2268,5 +2270,15 @@ public class InternalTableImpl implements InternalTable {
 
     private static long enlistmentConsistencyToken(ReplicaMeta replicaMeta) {
         return replicaMeta.getStartTime().longValue();
+    }
+
+    private void checkTransactionFinishStarted(@Nullable InternalTransaction transaction) {
+        if (transaction != null && transaction.isFinishingOrFinished()) {
+            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
+                    "Transaction is already finished () [txId={}, readOnly={}].",
+                    transaction.id(),
+                    transaction.isReadOnly()
+            ));
+        }
     }
 }

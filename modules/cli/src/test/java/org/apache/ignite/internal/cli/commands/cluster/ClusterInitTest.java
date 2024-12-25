@@ -23,7 +23,6 @@ import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
 import static org.mockserver.model.HttpRequest.request;
 import static org.mockserver.model.HttpResponse.response;
 import static org.mockserver.model.HttpStatusCode.INTERNAL_SERVER_ERROR_500;
-import static org.mockserver.model.HttpStatusCode.OK_200;
 import static org.mockserver.model.JsonBody.json;
 
 import com.typesafe.config.ConfigFactory;
@@ -69,6 +68,8 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
 
     @Test
     void wrongConfigFilePath() {
+        clientAndServer.when(request().withMethod("POST").withPath("/management/v1/cluster/init")).respond(response(null));
+
         execute(
                 "--url", mockUrl,
                 "--metastorage-group", "node1ConsistentId",
@@ -77,6 +78,14 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
         );
 
         assertErrOutputIs("Couldn't read cluster configuration file wrong-path");
+
+        execute(
+                "--url", mockUrl,
+                "--metastorage-group", "node1ConsistentId",
+                "--name", "cluster"
+        );
+
+        assertSuccessfulOutputIs("Cluster was initialized successfully");
     }
 
     @Test
@@ -212,12 +221,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
     @Test
     @DisplayName("--url http://localhost:10300 --metastorage-group node2ConsistentId, node3ConsistentId")
     void cmgNodesAreNotMandatoryForInit() {
-        clientAndServer
-                .when(request()
-                        .withMethod("POST")
-                        .withPath("/management/v1/cluster/init")
-                )
-                .respond(response().withStatusCode(OK_200.code()));
+        clientAndServer.when(request().withMethod("POST").withPath("/management/v1/cluster/init")).respond(response(null));
 
         execute(
                 "--url", mockUrl,

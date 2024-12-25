@@ -59,6 +59,8 @@ public class IteratorTest extends BaseIgniteAbstractTest {
     private List<Closure> closures;
     private AtomicLong applyingIndex;
 
+    private boolean shuttingDown = false;
+
     @BeforeEach
     public void setup() {
         this.applyingIndex = new AtomicLong(0);
@@ -72,7 +74,7 @@ public class IteratorTest extends BaseIgniteAbstractTest {
             Mockito.when(this.logManager.getEntry(i)).thenReturn(log);
         }
         this.iterImpl = new IteratorImpl(fsm, logManager, closures, 0L, 0L, 10L, applyingIndex, new NodeOptions());
-        this.iter = new IteratorWrapper(iterImpl);
+        this.iter = new IteratorWrapper(iterImpl, () -> shuttingDown);
     }
 
     @Test
@@ -112,5 +114,13 @@ public class IteratorTest extends BaseIgniteAbstractTest {
             "StateMachine meet critical error when applying one or more tasks since index=6, Status[UNKNOWN<-1>: test]",
             iterImpl.getError().getStatus().getErrorMsg());
         assertEquals(6, iter.getIndex());
+    }
+
+    @Test
+    public void hasNextReturnsFalseWhenShuttingDown() {
+        assertTrue(this.iter.hasNext());
+
+        shuttingDown = true;
+        assertFalse(this.iter.hasNext());
     }
 }

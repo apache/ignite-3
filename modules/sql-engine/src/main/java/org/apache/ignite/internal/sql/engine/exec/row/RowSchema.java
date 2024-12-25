@@ -27,7 +27,6 @@ import org.apache.ignite.internal.type.NativeType;
  * Row schema used by execution engine.
  */
 public final class RowSchema {
-
     private final List<TypeSpec> fields;
 
     private RowSchema(List<TypeSpec> types) {
@@ -100,5 +99,38 @@ public final class RowSchema {
         public RowSchema build() {
             return new RowSchema(types);
         }
+    }
+
+    /**
+     * Creates a new schema based on original schema and provided mapping.
+     */
+    public static RowSchema map(RowSchema schema, int[] mapping) {
+        assert mapping != null && mapping.length > 0;
+
+        List<TypeSpec> fields = schema.fields();
+        Builder builder = builder();
+
+        for (int i : mapping) {
+            TypeSpec typeSpec = fields.get(i);
+            builder.addField(typeSpec);
+        }
+
+        return builder.build();
+    }
+
+    /**
+     * Creates a new schema as a concatenation of the given schemas.
+     */
+    public static RowSchema concat(RowSchema left, RowSchema right) {
+        Builder builder = builder();
+
+        for (TypeSpec typeSpec : left.fields()) {
+            builder.addField(typeSpec);
+        }
+        for (TypeSpec typeSpec : right.fields()) {
+            builder.addField(typeSpec);
+        }
+
+        return builder.build();
     }
 }

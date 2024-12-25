@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.util.CollectionUtils.last;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -85,7 +84,6 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
@@ -101,8 +99,6 @@ public class PartitionListener implements RaftGroupListener {
 
     /** Transaction manager. */
     private final TxManager txManager;
-
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
@@ -169,25 +165,6 @@ public class PartitionListener implements RaftGroupListener {
 
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-        if (!busyLock.enterBusy()) {
-            // Here, we just complete the closures with an exception and then return. From the point of view of JRaft, this means that
-            // we 'applied' the commands, even though we didn't. JRaft will wrongly increment its appliedIndex. But it doesn't seem to be
-            // a problem because the current run is being finished (the node is stopping itself), and the only way to persist appliedIndex
-            // (which might affect subsequent runs) is to save it into snapshot, but we use the busy lock in #onSnapshotSave(), so
-            // the snapshot with wrong appliedIndex will not be saved.
-            iterator.forEachRemaining(clo -> clo.result(new ShutdownException()));
-
-            return;
-        }
-
-        try {
-            onWriteBusy(iterator);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    private void onWriteBusy(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
 
@@ -535,10 +512,6 @@ public class PartitionListener implements RaftGroupListener {
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        inBusyLock(busyLock, () -> onSnapshotSaveBusy(doneClo));
-    }
-
-    private void onSnapshotSaveBusy(Consumer<Throwable> doneClo) {
         // The max index here is required for local recovery and a possible scenario
         // of false node failure when we actually have all required data. This might happen because we use the minimal index
         // among storages on a node restart.
@@ -574,8 +547,6 @@ public class PartitionListener implements RaftGroupListener {
 
     @Override
     public void onShutdown() {
-        busyLock.block();
-
         storage.close();
     }
 

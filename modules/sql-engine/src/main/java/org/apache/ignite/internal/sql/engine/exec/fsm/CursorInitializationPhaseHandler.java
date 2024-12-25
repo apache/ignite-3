@@ -24,6 +24,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursorExt.CancellationReason;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 
@@ -54,41 +55,22 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
 
                     query.cursor = cursor;
 
-                    query.cancel.add(timeout -> {
-                        if (!timeout) {
-                            cursor.closeAsync(true);
-                        }
-                    });
+                    query.cancel.add(timeout -> dataCursor.cancelAsync(
+                            timeout ? CancellationReason.TIMEOUT : CancellationReason.CANCEL
+                    ));
 
                     QueryTransactionContext txContext = query.txContext;
 
                     assert txContext != null;
 
                     if (queryType == SqlQueryType.QUERY) {
-                        if (txContext.explicitTx() == null) {
-                            // TODO: IGNITE-23604
-                            // implicit transaction started by InternalTable doesn't update observableTimeTracker. At
-                            // this point we don't know whether tx was started by InternalTable or ExecutionService, thus
-                            // let's update tracker explicitly to preserve consistency
-                            txContext.updateObservableTime(query.executor.clockNow());
-                        }
-
                         // preserve lazy execution for statements that only reads
                         return nullCompletedFuture();
                     }
 
                     // for other types let's wait for the first page to make sure premature
                     // close of the cursor won't cancel an entire operation
-                    return cursor.onFirstPageReady()
-                            .thenRun(() -> {
-                                if (txContext.explicitTx() == null) {
-                                    // TODO: IGNITE-23604
-                                    // implicit transaction started by InternalTable doesn't update observableTimeTracker. At
-                                    // this point we don't know whether tx was started by InternalTable or ExecutionService, thus
-                                    // let's update tracker explicitly to preserve consistency
-                                    txContext.updateObservableTime(query.executor.clockNow());
-                                }
-                            });
+                    return cursor.onFirstPageReady();
                 });
 
         return Result.proceedAfter(awaitFuture);

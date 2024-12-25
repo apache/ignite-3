@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.sql.engine.SqlQueriesViewProvider.SCRIPT_QUERY_TYPE;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -40,10 +39,10 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
-import org.awaitility.Awaitility;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
@@ -153,7 +152,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         long timeAfter = clockService.now().getPhysical();
 
         assertThat(cursors, hasSize(3));
-        assertThat(queryProcessor().runningQueries(), is(4));
+        assertThat(queryProcessor().runningQueries().size(), is(4));
 
         // Verify script query info.
         {
@@ -198,10 +197,10 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
 
         // Closing cursors.
         await(cursors.get(0).closeAsync());
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueries(), is(3)));
+        waitUntilRunningQueriesCount(is(3));
 
         await(cursors.get(1).closeAsync());
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueries(), is(2)));
+        waitUntilRunningQueriesCount(is(2));
 
         await(cursors.get(2).closeAsync());
         checkNoPendingQueries();
@@ -224,8 +223,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         long timeAfter = clockService.now().getPhysical();
 
         // "DDL" and "EXPLAIN" queries close cursor automatically.
-        waitForCondition(() -> queryProcessor().runningQueries() == 4, 5_000);
-        assertThat(queryProcessor().runningQueries(), is(4));
+        waitUntilRunningQueriesCount(is(4));
 
         String sql = "SELECT * FROM SYSTEM.SQL_QUERIES "
                 + "WHERE PARENT_ID=(SELECT ID FROM SYSTEM.SQL_QUERIES WHERE TYPE='SCRIPT') "
@@ -308,7 +306,7 @@ public class ItSqlQueriesSystemViewTest extends BaseSqlMultiStatementTest {
         for (Ignite node : nodes) {
             SqlQueryProcessor queryProcessor = (SqlQueryProcessor) unwrapIgniteImpl(node).queryEngine();
 
-            Awaitility.await().untilAsserted(() -> assertThat(queryProcessor.runningQueries(), is(0)));
+            SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, is(0));
         }
     }
 

@@ -133,7 +133,8 @@ public class RestNode {
                 + "        password: " + trustStorePassword + "\n"
                 + "      }\n"
                 + "    }\n"
-                + "  }\n"
+                + "  },\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
     }
 }

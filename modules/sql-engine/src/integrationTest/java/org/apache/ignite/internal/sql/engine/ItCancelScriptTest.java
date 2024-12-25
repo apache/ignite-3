@@ -49,7 +49,7 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
     void cleanup() {
         sql("DELETE FROM TEST");
 
-        assertThat(queryProcessor().runningQueries(), is(0));
+        waitUntilRunningQueriesCount(is(0));
     }
 
     @Test
@@ -68,7 +68,7 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
         List<AsyncSqlCursor<InternalSqlRow>> allCursors = fetchAllCursors(runScript(token, query.toString()));
 
         assertThat(allCursors, hasSize(statementsCount));
-        assertThat(queryProcessor().runningQueries(), is(statementsCount + /* SCRIPT */ 1));
+        assertThat(queryProcessor().runningQueries().size(), is(statementsCount + /* SCRIPT */ 1));
 
         cancelHandle.cancel();
 
@@ -99,7 +99,7 @@ public class ItCancelScriptTest extends BaseSqlMultiStatementTest {
         cancelHandle.cancel();
 
         assertThat(queryProcessor().openedCursors(), is(0));
-        assertThat(queryProcessor().runningQueries(), is(0));
+        waitUntilRunningQueriesCount(is(0));
         assertEquals(0, txManager().pending());
 
         assertTrue(cursors.get(2).hasNextResult());

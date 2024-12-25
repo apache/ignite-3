@@ -137,4 +137,15 @@ class Query {
 
         resultHolder.completeExceptionally(th);
     }
+
+    /**
+     * Cancels this query.
+     *
+     * @return Future that completes when the query is cancelled and is removed from the running queries registry.
+     */
+    CompletableFuture<Void> cancel() {
+        cancel.cancel();
+
+        return onPhaseStarted(ExecutionPhase.TERMINATED);
+    }
 }

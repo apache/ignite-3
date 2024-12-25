@@ -62,7 +62,6 @@ import org.apache.ignite.internal.table.distributed.storage.RowBatch;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.SqlException;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Ignite table implementation.
@@ -200,10 +199,12 @@ public final class UpdatableTableImpl implements UpdatableTable {
     /** {@inheritDoc} */
     @Override
     public <RowT> CompletableFuture<Void> insert(
-            @Nullable InternalTransaction explicitTx,
+            InternalTransaction tx,
             ExecutionContext<RowT> ectx,
             RowT row
     ) {
+        assert tx != null;
+
         validateNotNullConstraint(ectx.rowHandler(), row);
 
         RelDataType rowType = rowType(descriptor(), ectx.getTypeFactory());
@@ -213,7 +214,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
         BinaryRowEx tableRow = rowConverter.toFullRow(ectx, validatedRow);
 
-        return table.insert(tableRow, explicitTx)
+        return table.insert(tableRow, tx)
                 .thenApply(success -> {
                     if (success) {
                         return null;

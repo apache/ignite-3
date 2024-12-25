@@ -25,8 +25,12 @@ import static org.apache.ignite.internal.util.IgniteUtils.byteBufferToByteArray;
 import static org.apache.ignite.raft.jraft.core.TestCluster.ELECTION_TIMEOUT_MILLIS;
 import static org.apache.ignite.raft.jraft.test.TestUtils.sender;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,9 +55,11 @@ import com.codahale.metrics.ConsoleReporter;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.RingBuffer;
 import java.io.File;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -60,9 +67,13 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.NavigableMap;
+import java.util.NavigableSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -72,6 +83,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
@@ -83,6 +95,9 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
+import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.service.CommandClosure;
+import org.apache.ignite.internal.raft.service.RaftGroupListener.ShutdownException;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -91,6 +106,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
+import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.NodeManager;
@@ -138,6 +154,7 @@ import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -197,7 +214,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
     private final List<FixedThreadsExecutorGroup> appendEntriesExecutors = new ArrayList<>();
 
-    private @Nullable DefaultLogStorageFactory persistentLogStorageFactory;
+    private PersistentLogStorageFactories persistentLogStorageFactories;
+
     /** Test info. */
     private TestInfo testInfo;
 
@@ -225,6 +243,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         testStartMs = Utils.monotonicMs();
         dumpThread.interrupt(); // reset dump timeout
+
+        persistentLogStorageFactories = new PersistentLogStorageFactories(dataPath);
     }
 
     @AfterEach
@@ -250,9 +270,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         TestUtils.assertAllJraftThreadsStopped();
 
-        if (persistentLogStorageFactory != null) {
-            assertThat(persistentLogStorageFactory.stopAsync(), willCompleteSuccessfully());
-        }
+        persistentLogStorageFactories.shutdown();
 
         log.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName() + ", cost:"
             + (Utils.monotonicMs() - testStartMs) + " ms.");
@@ -2825,6 +2843,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testNodeWillNeverGetOutOfSnapshot() throws Exception {
         CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
+        CompletableFuture<Void> snapshotStartedFuture = new CompletableFuture<>();
 
         // Create a group of 3 nodes, A,B and C.
         // Start nodes A and B, node C remains not started.
@@ -2832,41 +2851,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // Here we need custom SnapshotCopier that is capable of pausing snapshot installation.
         BiConsumer<PeerId, NodeOptions> nodeOptionsConsumer = (peerId, nodeOptions) -> {
-
-            nodeOptions.setServiceFactory(new TestJRaftServiceFactory() {
-                @Override
-                public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
-                    return new LocalSnapshotStorage(uri, raftOptions) {
-
-                        @Override
-                        public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
-                            LocalSnapshotCopier copier = new LocalSnapshotCopier() {
-                                @Override
-                                public void join() throws InterruptedException {
-                                    // Pause snapshot installation.
-                                    snapshotFuture.join();
-                                    super.join();
-                                }
-
-                                @Override
-                                public void cancel() {
-                                    // Unblock snapshot installation if snapshot request is cancelled.
-                                    snapshotFuture.complete(null);
-                                    super.cancel();
-                                }
-                            };
-                            copier.setStorage(this);
-                            if (!copier.init(uri, opts)) {
-                                logger().error("Fail to init copier to {}.", uri);
-                                return null;
-                            }
-                            copier.start();
-                            return copier;
-                        }
-                    };
-                }
-            });
+            tapIntoSnapshotCopier(nodeOptions, snapshotFuture, snapshotStartedFuture);
         };
+
         cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS, nodeOptionsConsumer,
                 testInfo);
 
@@ -2879,7 +2866,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // Add data to the group.
         sendTestTaskAndWait(leader);
 
-        log.info("Trigger leader snapshot");
+        log.info("Trigger leader snapshot.");
         CountDownLatch latch = new CountDownLatch(1);
         leader.snapshot(new ExpectClosure(latch));
         waitLatch(latch);
@@ -2888,15 +2875,21 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         leader.snapshot(new ExpectClosure(latch));
         waitLatch(latch);
 
-        log.info("Stop follower.");
+        log.info("Stop follower [id={}].",cluster.getFollowers().get(0).getNodeId().getPeerId().getConsistentId());
         cluster.stop(cluster.getFollowers().get(0).getNodeId().getPeerId());
 
         // Start node C, it should install snapshot from leader.
-        log.info("Start node.");
+        log.info("Start node [id={}].", peers.get(2).getPeerId().getConsistentId());
         assertTrue(cluster.start(peers.get(2)));
         assertTrue(waitForCondition(() -> cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot(), 10_000));
+
+        log.info("Waiting for snapshot to start executing.");
+        assertThat(snapshotStartedFuture, willCompleteSuccessfully());
+
         // While snapshot is being installed, stop the leader.
+        log.info("Stopping leader [id={}].", leader.getLeaderId());
         cluster.stop(leader.getLeaderId());
+        log.info("Leader stopped.");
 
         assertTrue(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
 
@@ -2913,6 +2906,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testNodeBlockedTimeoutNow() throws Exception {
         CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
+        CompletableFuture<Void> snapshotStartedFuture = new CompletableFuture<>();
 
         // Create a group of 3 nodes, A,B and C.
         // A is the leader, B and C are followers.
@@ -2933,40 +2927,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 ));
             }
 
-            nodeOptions.setServiceFactory(new TestJRaftServiceFactory() {
-                @Override
-                public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
-                    return new LocalSnapshotStorage(uri, raftOptions) {
-
-                        @Override
-                        public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
-                            LocalSnapshotCopier copier = new LocalSnapshotCopier() {
-                                @Override
-                                public void join() throws InterruptedException {
-                                    // Pause snapshot installation.
-                                    snapshotFuture.join();
-                                    super.join();
-                                }
-
-                                @Override
-                                public void cancel() {
-                                    // Unblock snapshot installation if snapshot request is cancelled.
-                                    snapshotFuture.complete(null);
-                                    super.cancel();
-                                }
-                            };
-                            copier.setStorage(this);
-                            if (!copier.init(uri, opts)) {
-                                logger().error("Fail to init copier to {}.", uri);
-                                return null;
-                            }
-                            copier.start();
-                            return copier;
-                        }
-                    };
-                }
-            });
+            tapIntoSnapshotCopier(nodeOptions, snapshotFuture, snapshotStartedFuture);
         };
+
         cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS, nodeOptionsConsumer,
                 testInfo);
 
@@ -2979,7 +2942,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // Add data to the group.
         sendTestTaskAndWait(leader);
 
-        log.info("Trigger leader snapshot");
+        log.info("Trigger leader snapshot.");
         CountDownLatch latch = new CountDownLatch(1);
         leader.snapshot(new ExpectClosure(latch));
         waitLatch(latch);
@@ -2989,11 +2952,11 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         waitLatch(latch);
 
         // Start node C, it should install snapshot from leader.
-        log.info("Start node.");
+        log.info("Start node [id={}].", peers.get(2).getPeerId().getConsistentId());
         assertTrue(cluster.start(peers.get(2)));
         blockMessagesOnFollowers(cluster.getNodes().stream().map(Node.class::cast).collect(toList()), (msg, nodeId) -> {
             if (msg instanceof RpcRequests.TimeoutNowRequest) {
-                log.info("Blocking TimeoutNowRequest on [node={}, msg={}]", nodeId, msg);
+                log.info("Blocking TimeoutNowRequest on [node={}, msg={}].", nodeId, msg);
                 return true;
             }
 
@@ -3001,9 +2964,13 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         });
         assertTrue(waitForCondition(() -> cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot(), 10_000));
         // While snapshot is being installed, stop the leader.
-        log.info("Stopping leader");
+
+        log.info("Waiting for snapshot to start executing.");
+        assertThat(snapshotStartedFuture, willCompleteSuccessfully());
+
+        log.info("Stopping leader [id={}].", leader.getLeaderId());
         cluster.stop(leader.getLeaderId());
-        log.info("Leader stopped");
+        log.info("Leader stopped.");
 
         Thread.sleep(30_000);
 
@@ -3013,7 +2980,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testReelectionWithTimeoutNow() throws Exception {
         CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
-
+        CompletableFuture<Void> snapshotStartedFuture = new CompletableFuture<>();
         // Create a group of 3 nodes, A,B and C.
         // A is the leader, B and C are followers.
         // C is not started, moreover C is on different configuration.
@@ -3034,40 +3001,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 ));
             }
 
-            nodeOptions.setServiceFactory(new TestJRaftServiceFactory() {
-                @Override
-                public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
-                    return new LocalSnapshotStorage(uri, raftOptions) {
-
-                        @Override
-                        public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
-                            LocalSnapshotCopier copier = new LocalSnapshotCopier() {
-                                @Override
-                                public void join() throws InterruptedException {
-                                    // Pause snapshot installation.
-                                    snapshotFuture.join();
-                                    super.join();
-                                }
-
-                                @Override
-                                public void cancel() {
-                                    // Unblock snapshot installation if snapshot request is cancelled.
-                                    snapshotFuture.complete(null);
-                                    super.cancel();
-                                }
-                            };
-                            copier.setStorage(this);
-                            if (!copier.init(uri, opts)) {
-                                logger().error("Fail to init copier to {}.", uri);
-                                return null;
-                            }
-                            copier.start();
-                            return copier;
-                        }
-                    };
-                }
-            });
+            tapIntoSnapshotCopier(nodeOptions, snapshotFuture, snapshotStartedFuture);
         };
+
         cluster = new TestCluster("unitest", dataPath, peers, new LinkedHashSet<>(), ELECTION_TIMEOUT_MILLIS, nodeOptionsConsumer,
                 testInfo);
 
@@ -3080,7 +3016,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // Add data to the group.
         sendTestTaskAndWait(leader);
 
-        log.info("Trigger leader snapshot");
+        log.info("Trigger leader snapshot.");
         CountDownLatch latch = new CountDownLatch(1);
         leader.snapshot(new ExpectClosure(latch));
         waitLatch(latch);
@@ -3090,16 +3026,58 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         waitLatch(latch);
 
         // Start node C, it should install snapshot from leader.
-        log.info("Start node.");
+        log.info("Start node [id={}].", peers.get(2).getPeerId().getConsistentId());
         assertTrue(cluster.start(peers.get(2)));
 
         assertTrue(waitForCondition(() -> cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot(), 10_000));
         // While snapshot is being installed, stop the leader.
-        log.info("Stopping leader");
+        log.info("Stopping leader [id={}].", leader.getLeaderId());
         cluster.stop(leader.getLeaderId());
-        log.info("Leader stopped");
+        log.info("Leader stopped.");
 
         assertFalse(cluster.getNode(peers.get(2).getPeerId()).isInstallingSnapshot());
+    }
+
+    private void tapIntoSnapshotCopier(
+            NodeOptions nodeOptions,
+            CompletableFuture<Void> snapshotFuture,
+            CompletableFuture<Void> snapshotStartedFuture
+    ) {
+        nodeOptions.setServiceFactory(new TestJRaftServiceFactory() {
+            @Override
+            public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+                return new LocalSnapshotStorage(uri, raftOptions) {
+
+                    @Override
+                    public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
+                        LocalSnapshotCopier copier = new LocalSnapshotCopier() {
+                            @Override
+                            public void join() throws InterruptedException {
+                                // Pause snapshot installation.
+                                snapshotStartedFuture.complete(null);
+
+                                snapshotFuture.join();
+                                super.join();
+                            }
+
+                            @Override
+                            public void cancel() {
+                                // Unblock snapshot installation if snapshot request is cancelled.
+                                snapshotFuture.complete(null);
+                                super.cancel();
+                            }
+                        };
+                        copier.setStorage(this);
+                        if (!copier.init(uri, opts)) {
+                            logger().error("Fail to init copier to {}.", uri);
+                            return null;
+                        }
+                        copier.start();
+                        return copier;
+                    }
+                };
+            }
+        });
     }
 
     @Test
@@ -4120,9 +4098,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 testInfo
         );
 
-        persistentLogStorageFactory = startPersistentLogStorageFactory();
-
-        cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
+        cluster.setRaftServiceFactories(peerId -> new IgniteJraftServiceFactory(persistentLogStorageFactories.factoryFor(peerId)));
 
         for (TestPeer peer : peers) {
             assertTrue(cluster.start(peer));
@@ -4184,9 +4160,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 testInfo
         );
 
-        persistentLogStorageFactory = startPersistentLogStorageFactory();
-
-        cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
+        cluster.setRaftServiceFactories(peerId -> new IgniteJraftServiceFactory(persistentLogStorageFactories.factoryFor(peerId)));
 
         for (TestPeer peer : peers) {
             assertTrue(cluster.start(peer));
@@ -4219,6 +4193,126 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(
                 waitForCondition(() -> cluster.getNode(originalLeaderPeer.getPeerId()).isLeader(), TimeUnit.SECONDS.toMillis(10)),
                 "Original leader was not able to become a leader after reset"
+        );
+    }
+
+    @Test
+    public void applicationOfLongBatchInStateMachineDoesNotPreventFastShutdown() throws Exception {
+        CompletableFuture<Void> allowExecutionFuture = new CompletableFuture<>();
+
+        List<TestPeer> peers = TestUtils.generatePeers(testInfo, 2);
+
+        // We pause first command application to allow many subsequent commands to be added to log so that they
+        // start being executed as a single long batch.
+
+        TestCluster cluster = createClusterOf(peers);
+        cluster.setRaftServiceFactories(peerId -> new IgniteJraftServiceFactory(persistentLogStorageFactories.factoryFor(peerId)));
+        cluster.setStateMachineFactory(peerId -> new MockStateMachine(peerId) {
+            @Override
+            protected void executeCommand(Iterator iterator) {
+                int ordinal = iterator.getData().get(0);
+
+                if (ordinal == 0) {
+                    allowExecutionFuture.join();
+                }
+
+                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1000));
+
+                if (iterator.done() != null) {
+                    ((CommandClosure<?>) iterator.done()).result(ordinal);
+                }
+            }
+        });
+
+        int taskCount = 1000;
+        NavigableSet<Integer> successfullyExecuted = new ConcurrentSkipListSet<>();
+        NavigableMap<Integer, Throwable> exceptions = new ConcurrentSkipListMap<>();
+        NavigableMap<Integer, String> statusErrors = new ConcurrentSkipListMap<>();
+        Set<Integer> resultOrRunCalled = new ConcurrentHashSet<>();
+        CompletableFuture<Void> tasksFuture = new CompletableFuture<>();
+
+        try {
+            for (TestPeer peer : peers) {
+                assertTrue(cluster.start(peer));
+            }
+
+            Node node = cluster.waitAndGetLeader();
+
+            CompletableFuture<Void> firstTaskApplied = new CompletableFuture<>();
+
+            for (int i = 0; i < taskCount; i++) {
+                ByteBuffer data = ByteBuffer.wrap(new byte[]{(byte) i});
+                int ordinal = i;
+                Task task = new Task(data, new CombinedClosure() {
+                    @Override
+                    public WriteCommand command() {
+                        return mock(WriteCommand.class);
+                    }
+
+                    @Override
+                    public void result(@Nullable Serializable res) {
+                        if (ordinal == 0) {
+                            firstTaskApplied.complete(null);
+                        }
+
+                        if (res instanceof Throwable) {
+                            exceptions.put(ordinal, (Throwable) res);
+                        } else {
+                            successfullyExecuted.add(ordinal);
+                        }
+
+                        resultOrRunCalled.add(ordinal);
+                        if (resultOrRunCalled.size() == taskCount) {
+                            tasksFuture.complete(null);
+                        }
+                    }
+
+                    @Override
+                    public void run(Status status) {
+                        assertFalse(status.isOk());
+
+                        statusErrors.put(ordinal, status.getErrorMsg());
+
+                        resultOrRunCalled.add(ordinal);
+                        if (resultOrRunCalled.size() == taskCount) {
+                            tasksFuture.complete(null);
+                        }
+                    }
+                });
+                node.apply(task);
+            }
+
+            allowExecutionFuture.complete(null);
+            assertThat(firstTaskApplied, willCompleteSuccessfully());
+        } finally {
+            // Now do the main part: verify that shutdown will happen fast and will not wait for whole batch of commends to be applied
+            // (which would take 0.1 * 1000 = 100 seconds).
+            assertTimeoutPreemptively(Duration.ofSeconds(10), cluster::stopAll);
+        }
+
+        assertThat(tasksFuture, willCompleteSuccessfully());
+
+        // Make sure all closures were executed as expected.
+        assertThat(successfullyExecuted, hasSize(successfullyExecuted.last() - successfullyExecuted.first() + 1));
+        assertThat(exceptions, is(aMapWithSize(exceptions.lastKey() - exceptions.firstKey() + 1)));
+        if (!statusErrors.isEmpty()) {
+            assertThat(statusErrors, is(aMapWithSize(statusErrors.lastKey() - statusErrors.firstKey() + 1)));
+        }
+
+        assertThat(exceptions.values(), everyItem(isA(ShutdownException.class)));
+        assertThat(statusErrors.values(), everyItem(is("Leader stepped down")));
+
+        assertThat(successfullyExecuted.size() + exceptions.size() + statusErrors.size(), is(taskCount));
+    }
+
+    private TestCluster createClusterOf(List<TestPeer> peers) {
+        return new TestCluster(
+                "unitest",
+                dataPath,
+                peers,
+                new LinkedHashSet<>(),
+                3_000,
+                testInfo
         );
     }
 
@@ -4349,6 +4443,12 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
                 super.shutdown();
 
+                JRaftServiceFactory serviceFactory = nodeOptions.getServiceFactory();
+                if (serviceFactory instanceof IgniteJraftServiceFactory) {
+                    IgniteJraftServiceFactory igniteServiceFactory = (IgniteJraftServiceFactory) serviceFactory;
+                    assertThat(igniteServiceFactory.logStorageFactory().stopAsync(new ComponentContext()), willCompleteSuccessfully());
+                }
+
                 assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
             }
         };
@@ -4470,4 +4570,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     private static TestPeer findById(Collection<TestPeer> peers, PeerId id) {
         return peers.stream().filter(t -> t.getPeerId().equals(id)).findAny().orElseThrow();
     }
+
+    /** Interface combining both Closure and CommandClosure. */
+    interface CombinedClosure extends Closure, CommandClosure<WriteCommand> {
+    };
 }

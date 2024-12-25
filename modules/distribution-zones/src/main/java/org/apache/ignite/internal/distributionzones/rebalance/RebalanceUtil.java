@@ -53,6 +53,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -148,7 +149,9 @@ public class RebalanceUtil {
             MetaStorageManager metaStorageMgr,
             int partNum,
             Set<Assignment> tableCfgPartAssignments,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            Set<String> aliveNodes,
+            ConsistencyMode consistencyMode
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
 
@@ -158,7 +161,39 @@ public class RebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
-        Set<Assignment> partAssignments = calculateAssignmentForPartition(dataNodes, partNum, replicas);
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, replicas);
+
+        Set<Assignment> partAssignments;
+
+        if (consistencyMode == ConsistencyMode.HIGH_AVAILABILITY) {
+            // All complicated logic here is needed because we want to return back to stable nodes
+            // that are returned back after majority is lost and stable was narrowed.
+            // Let's consider example:
+            // stable = [A, B, C], dataNodes = [A, B, C]
+            // B, C left, stable = [A], dataNodes = [A, B, C]
+            // B returned, we want stable = [A, B], but in terms of data nodes they are not changed and equal [A, B, C]
+            // So, because scale up mechanism in this case won't adjust stable, we need to add B to stable manually.
+            // General idea is to filter offline nodes from data nodes, but we need to be careful and do not remove nodes
+            // bypassing scale down mechanism. If node is offline and presented in previous stable, we won't remove that node.
+
+            // First of all, we remove offline nodes from calculated assignments
+            Set<Assignment> resultingAssignments = calculatedAssignments
+                    .stream()
+                    .filter(a -> aliveNodes.contains(a.consistentId()))
+                    .collect(toSet());
+
+            // Here we re-introduce nodes that currently exist in the stable configuration
+            // but were previously removed without using the normal scale-down process.
+            for (Assignment assignment : tableCfgPartAssignments) {
+                if (calculatedAssignments.contains(assignment)) {
+                    resultingAssignments.add(assignment);
+                }
+            }
+
+            partAssignments = resultingAssignments;
+        } else {
+            partAssignments = calculatedAssignments;
+        }
 
         boolean isNewAssignments = !tableCfgPartAssignments.equals(partAssignments);
 
@@ -294,7 +329,8 @@ public class RebalanceUtil {
             Set<String> dataNodes,
             long storageRevision,
             MetaStorageManager metaStorageManager,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            Set<String> aliveNodes
     ) {
         int[] partitionIds = partitionIds(zoneDescriptor.partitions());
 
@@ -311,7 +347,8 @@ public class RebalanceUtil {
                             storageRevision,
                             metaStorageManager,
                             assignmentsTimestamp,
-                            stableAssignments
+                            stableAssignments,
+                            aliveNodes
                     );
                 });
     }
@@ -323,7 +360,8 @@ public class RebalanceUtil {
             long storageRevision,
             MetaStorageManager metaStorageManager,
             long assignmentsTimestamp,
-            Map<Integer, Assignments> tableAssignments
+            Map<Integer, Assignments> tableAssignments,
+            Set<String> aliveNodes
     ) {
         // tableAssignments should not be empty. It is checked for emptiness before calling this method.
         CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
@@ -342,7 +380,9 @@ public class RebalanceUtil {
                     metaStorageManager,
                     partId,
                     tableAssignments.get(partId).nodes(),
-                    assignmentsTimestamp
+                    assignmentsTimestamp,
+                    aliveNodes,
+                    zoneDescriptor.consistencyMode()
             );
         }
 
@@ -633,6 +673,30 @@ public class RebalanceUtil {
                     assert e != null && !e.empty() && !e.tombstone() : e;
 
                     return Assignments.fromBytes(e.value());
+                })
+                .collect(toList());
+    }
+
+    /**
+     * Returns table pending assignments for all table partitions from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param tableId Table id.
+     * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
+     * @return Future with table assignments as a value.
+     */
+    public static List<Assignments> tablePendingAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            int tableId,
+            int numberOfPartitions,
+            long revision
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(p -> {
+                    Entry e = metaStorageManager.getLocally(pendingPartAssignmentsKey(new TablePartitionId(tableId, p)), revision);
+
+                    return e != null ? Assignments.fromBytes(e.value()) : null;
                 })
                 .collect(toList());
     }

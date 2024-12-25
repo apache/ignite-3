@@ -62,6 +62,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -790,7 +791,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private static boolean recoverable(Throwable t) {
         t = unwrapCause(t);
 
-        return t instanceof TimeoutException || t instanceof IOException || t instanceof PeerUnavailableException;
+        return t instanceof TimeoutException
+                || t instanceof IOException
+                || t instanceof PeerUnavailableException
+                || t instanceof RecipientLeftException;
     }
 
     private Peer randomNode() {
@@ -819,8 +823,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             if (availablePeers.isEmpty()) {
                 LOG.warn(
-                        "All peers are unavailable, going to keep retrying until timeout [peers = {}, trace ID: {}].",
-                        localPeers, retryContext.errorTraceId()
+                        "All peers are unavailable, going to keep retrying until timeout [peers = {}, group = {}, trace ID: {}].",
+                        localPeers, groupId, retryContext.errorTraceId()
                 );
 
                 retryContext.resetUnavailablePeers();

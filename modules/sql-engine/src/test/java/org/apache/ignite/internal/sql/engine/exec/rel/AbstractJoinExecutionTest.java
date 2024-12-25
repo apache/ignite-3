@@ -425,7 +425,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
                     (r1, r2) -> getFieldFromBiRows(hnd, 2, r1, r2) == getFieldFromBiRows(hnd, 3, r1, r2));
         } else {
             join = HashJoinNode.create(ctx, outType, leftType, rightType, joinType,
-                    JoinInfo.of(ImmutableIntList.of(2), ImmutableIntList.of(0)));
+                    JoinInfo.of(ImmutableIntList.of(2), ImmutableIntList.of(0)), null);
         }
 
         join.register(asList(leftNode, rightNode));

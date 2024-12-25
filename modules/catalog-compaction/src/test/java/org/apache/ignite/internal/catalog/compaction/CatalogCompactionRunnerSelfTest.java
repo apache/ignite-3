@@ -46,6 +46,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.HashMap;
@@ -89,6 +91,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
@@ -111,6 +114,8 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.awaitility.Awaitility;
+import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
@@ -120,6 +125,8 @@ import org.junit.jupiter.api.Test;
  * Tests for class {@link CatalogCompactionRunner}.
  */
 public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTest {
+    private static final Duration BUSY_WAIT_TIMEOUT = Duration.of(3, ChronoUnit.SECONDS);
+
     private static final LogicalNode NODE1 = new LogicalNode(nodeId(1), "node1", new NetworkAddress("localhost", 123));
 
     private static final LogicalNode NODE2 = new LogicalNode(nodeId(2), "node2", new NetworkAddress("localhost", 123));
@@ -149,7 +156,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     }
 
     @Test
-    public void routineSucceedOnCoordinator() throws InterruptedException {
+    public void routineSucceedOnCoordinator() {
         CatalogCommand createTable = CreateTableCommand.builder()
                 .tableName("TEST")
                 .schemaName("PUBLIC")
@@ -186,8 +193,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
         int expectedEarliestCatalogVersion = catalog1.version() - 1;
 
-        boolean done = waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 3_000);
-        assertTrue(done, "Compaction should have been triggered");
+        expectEarliestVersion("Compaction should have been triggered", is(expectedEarliestCatalogVersion));
 
         verify(messagingService, times(logicalNodes.size() - 1))
                 .invoke(any(ClusterNode.class), any(CatalogCompactionMinimumTimesRequest.class), anyLong());
@@ -205,7 +211,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     }
 
     @Test
-    public void mustTriggerWhenRequiredPartitionsAreSomeSubSetOfAvailablePartitions() throws InterruptedException {
+    public void mustTriggerWhenRequiredPartitionsAreSomeSubSetOfAvailablePartitions() {
         CatalogCommand createTable = CreateTableCommand.builder()
                 .tableName("TEST")
                 .schemaName("PUBLIC")
@@ -250,12 +256,11 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         HybridTimestamp now = clockService.now();
         compactionRunner.onLowWatermarkChanged(now);
 
-        boolean done = waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 3_000);
-        assertTrue(done, "Compaction should have been triggered");
+        expectEarliestVersion("Compaction should have been triggered", is(expectedEarliestCatalogVersion));
     }
 
     @Test
-    public void mustTriggerWhenAvailablePartitionsHaveMoreTablesThenRequired() throws InterruptedException {
+    public void mustTriggerWhenAvailablePartitionsHaveMoreTablesThenRequired() {
         CatalogCommand createTable = CreateTableCommand.builder()
                 .tableName("TEST")
                 .schemaName("PUBLIC")
@@ -298,12 +303,11 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         HybridTimestamp now = clockService.now();
         compactionRunner.onLowWatermarkChanged(now);
 
-        boolean done = waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 3_000);
-        assertTrue(done, "Compaction should have been triggered");
+        expectEarliestVersion("Compaction should have been triggered", is(expectedEarliestCatalogVersion));
     }
 
     @Test
-    public void mustTriggerWheLogicalTopologyHasMoreNodesThenRequired() throws InterruptedException {
+    public void mustTriggerWheLogicalTopologyHasMoreNodesThenRequired() {
         CatalogCommand createTable = CreateTableCommand.builder()
                 .tableName("TEST")
                 .schemaName("PUBLIC")
@@ -342,8 +346,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         HybridTimestamp now = clockService.now();
         compactionRunner.onLowWatermarkChanged(now);
 
-        boolean done = waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 3_000);
-        assertTrue(done, "Compaction should have been triggered");
+        expectEarliestVersion("Compaction should have been triggered", is(expectedEarliestCatalogVersion));
     }
 
     @Test
@@ -387,7 +390,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         MinTimeSupplier minTimeSupplier = new MinTimeSupplier((n) -> earliestCatalog.time() - 1, otherNodeMinTime);
 
         CatalogCompactionRunner compactor =
-                createRunner(NODE1, NODE1, minTimeSupplier, logicalNodes, logicalNodes);
+                createRunner(NODE1, NODE1, minTimeSupplier, logicalNodes, logicalNodes, clockService::nowLong);
 
         // Do not set low watermark
 
@@ -401,7 +404,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     }
 
     @Test
-    public void mustNotTriggerCompactionWhenIndexBuildingIsTakingPlace() throws InterruptedException {
+    public void mustNotTriggerCompactionWhenIndexBuildingIsTakingPlace() {
         CatalogCommand command = CreateTableCommand.builder()
                 .tableName("T1")
                 .schemaName("PUBLIC")
@@ -446,8 +449,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
             assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
 
-            boolean done = waitForCondition(() -> catalogManager.earliestCatalogVersion() > initialVersion, 3_000);
-            assertTrue(done, "Should have advanced catalog version after initial compaction");
+            expectEarliestVersion("Should have advanced catalog version after initial compaction", greaterThan(initialVersion));
         }
 
         // The first version after initial compaction.
@@ -483,8 +485,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
             assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
 
-            boolean done = waitForCondition(() -> catalogManager.earliestCatalogVersion() == firstVersion, 3_000);
-            assertTrue(done, "Index is being built but catalog compaction was triggered");
+            expectEarliestVersion("Index is being built but catalog compaction was triggered", is(firstVersion));
         }
 
         {
@@ -505,8 +506,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
             assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
 
-            boolean done = waitForCondition(() -> catalogManager.earliestCatalogVersion() == latestVersion - 1, 3_000);
-            assertTrue(done, "Index is available but compaction has not been triggered");
+            expectEarliestVersion("Index is available but compaction has not been triggered", is(latestVersion - 1));
         }
     }
 
@@ -520,7 +520,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         MinTimeSupplier minTimeSupplier = new MinTimeSupplier((n) -> 1L, otherNodeMinTime);
 
         CatalogCompactionRunner compactor =
-                createRunner(NODE1, NODE1, minTimeSupplier, logicalNodes, logicalNodes);
+                createRunner(NODE1, NODE1, minTimeSupplier, logicalNodes, logicalNodes, clockService::nowLong);
 
         // Do not set low watermark
         compactor.triggerCompaction(clockService.now());
@@ -572,7 +572,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             int expectedEarliestCatalogVersion = catalog1.version() - 1;
 
-            boolean failed = waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 3_000);
+            boolean failed = waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 500);
             assertFalse(failed, "Compaction should not have started");
 
             assertEquals(firstVersion, catalogManager.earliestCatalogVersion());
@@ -590,8 +590,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             int expectedEarliestCatalogVersion = catalog1.version() - 1;
 
-            boolean done = waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 3_000);
-            assertTrue(done, "Compaction should have been triggered");
+            expectEarliestVersion("Compaction should have been triggered", is(expectedEarliestCatalogVersion));
         }
     }
 
@@ -638,7 +637,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             int expectedEarliestCatalogVersion = catalog1.version() - 1;
 
-            boolean failed = waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 3_000);
+            boolean failed = waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 500);
             assertFalse(failed, "Compaction should not have started");
 
             assertEquals(firstVersion, catalogManager.earliestCatalogVersion());
@@ -656,8 +655,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             int expectedEarliestCatalogVersion = catalog1.version() - 1;
 
-            boolean done = waitForCondition(() -> expectedEarliestCatalogVersion == catalogManager.earliestCatalogVersion(), 3_000);
-            assertTrue(done, "Compaction should have been triggered");
+            expectEarliestVersion("Compaction should have been triggered", is(expectedEarliestCatalogVersion));
         }
     }
 
@@ -742,9 +740,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
 
             compactor.triggerCompaction(clockService.now());
             assertThat(compactor.lastRunFuture(), willCompleteSuccessfully());
-            waitForCondition(() -> catalogManager.earliestCatalogVersion() == catalog.version() - 1, 1_000);
 
-            assertThat(catalogManager.earliestCatalogVersion(), is(catalog.version() - 1));
+            expectEarliestVersion("Compaction should have been triggered", is(catalog.version() - 1));
         }
     }
 
@@ -994,6 +991,57 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         assertThat(ts1, lessThan(time));
     }
 
+    @Test
+    public void rebalancePreventsCompaction() {
+        CatalogCommand createTbl = CreateTableCommand.builder()
+                .tableName("T1")
+                .schemaName("PUBLIC")
+                .columns(List.of(columnParams("key1", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1")).build())
+                .colocationColumns(List.of("key1"))
+                .build();
+
+        assertThat(catalogManager.execute(createTbl), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+
+        assertThat(catalogManager.earliestCatalogVersion(), is(0));
+        assertThat(catalogManager.latestCatalogVersion(), is(3));
+
+        // Rebalance prevents compaction.
+        {
+            RebalanceMinimumRequiredTimeProvider rebalanceMinTimeProvider = () -> 1L;
+            CatalogCompactionRunner compactionRunner = createRunner(
+                    NODE1, NODE1, new MinTimeSupplier((n) -> clockService.nowLong(), null), logicalNodes, logicalNodes,
+                    rebalanceMinTimeProvider
+            );
+
+            assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
+            assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
+
+            assertThat(catalogManager.earliestCatalogVersion(), is(0));
+        }
+
+        // Rebalance doesn't prevent compaction.
+        {
+            RebalanceMinimumRequiredTimeProvider requiredTimeProvider = () -> clockService.nowLong();
+            CatalogCompactionRunner compactionRunner = createRunner(
+                    NODE1, NODE1, new MinTimeSupplier((n) -> clockService.nowLong(), null), logicalNodes, logicalNodes,
+                    requiredTimeProvider
+            );
+
+            assertThat(compactionRunner.onLowWatermarkChanged(clockService.now()), willBe(false));
+            assertThat(compactionRunner.lastRunFuture(), willCompleteSuccessfully());
+
+            expectEarliestVersion("Compaction should have been successful", is(catalogManager.latestCatalogVersion() - 1));
+        }
+    }
+
+    private void expectEarliestVersion(String reason, Matcher<Integer> versionMatcher) {
+        Awaitility.await()
+                .timeout(BUSY_WAIT_TIMEOUT)
+                .untilAsserted(() -> assertThat(reason, catalogManager.earliestCatalogVersion(), versionMatcher));
+    }
+
     private Catalog prepareCatalogWithTables() {
         CreateTableCommandBuilder tableCmdBuilder = CreateTableCommand.builder()
                 .schemaName("PUBLIC")
@@ -1017,7 +1065,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             ClusterNode coordinator,
             Function<String, Long> timeSupplier
     ) {
-        return createRunner(localNode, coordinator, new MinTimeSupplier(timeSupplier, null), logicalNodes, logicalNodes);
+        return createRunner(localNode, coordinator, new MinTimeSupplier(timeSupplier, null), logicalNodes, logicalNodes,
+                clockService::nowLong);
     }
 
     private CatalogCompactionRunner createRunner(
@@ -1027,7 +1076,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             List<LogicalNode> topology,
             List<LogicalNode> assignmentNodes
     ) {
-        return createRunner(localNode, coordinator, new MinTimeSupplier(timeSupplier, null), topology, assignmentNodes);
+        return createRunner(localNode, coordinator, new MinTimeSupplier(timeSupplier, null), topology, assignmentNodes,
+                clockService::nowLong);
     }
 
     private CatalogCompactionRunner createRunner(
@@ -1035,7 +1085,8 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             ClusterNode coordinator,
             MinTimeSupplier timeSupplier,
             List<LogicalNode> topology,
-            List<LogicalNode> assignmentNodes
+            List<LogicalNode> assignmentNodes,
+            RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider
     ) {
         coordinatorNodeHolder.set(coordinator);
         messagingService = mock(MessagingService.class);
@@ -1117,12 +1168,12 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 topologyService,
                 ForkJoinPool.commonPool(),
                 clockService::nowLong,
-                minTimeCollector
+                minTimeCollector,
+                rebalanceMinimumRequiredTimeProvider
         );
 
         await(runner.startAsync(mock(ComponentContext.class)));
 
-        runner.enable(true);
         runner.updateCoordinator(coordinator);
 
         return runner;

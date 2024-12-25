@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.tx.event.LockEvent.LOCK_CONFLICT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_TIMEOUT_ERR;
 
@@ -44,8 +45,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
@@ -57,6 +62,7 @@ import org.apache.ignite.internal.tx.LockMode;
 import org.apache.ignite.internal.tx.Waiter;
 import org.apache.ignite.internal.tx.event.LockEvent;
 import org.apache.ignite.internal.tx.event.LockEventParameters;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -74,15 +80,20 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Additionally limits the lock map size.
  */
 public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventParameters> implements LockManager {
+    private static final IgniteLogger LOG = Loggers.forClass(HeapLockManager.class);
+
     /**
      * Table size. TODO make it configurable IGNITE-20694
      */
-    public static final int SLOTS = 131072;
+    public static final int SLOTS = 1_048_576;
 
     /**
      * Striped lock concurrency.
      */
     private static final int CONCURRENCY = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+
+    /** The interval is used to print a warning when the manager is overflowing. */
+    private final int warningPrintInterval = IgniteSystemProperties.getInteger("IGNITE_LOCK_WARNING_PRINT_INTERVAL", 10_000);
 
     /** Lock map size. */
     private final int lockMapSize;
@@ -124,6 +135,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * Coarse locks.
      */
     private final ConcurrentHashMap<Object, CoarseLockState> coarseMap = new ConcurrentHashMap<>();
+
+    /**
+     * The last timestamp of the printing warning about exhausted lock slots. It is {@code 0} if the warning has never been printed.
+     * The timestamp is updated periodically {@link this#warningPrintInterval}.
+     */
+    private final AtomicLong lastTsPintWarn = new AtomicLong();
 
     /**
      * Constructor.
@@ -282,6 +299,14 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 if (v == null) {
                     res[0] = slots[index];
                     assert !res[0].markedForRemove;
+
+                    long currentTs = coarseCurrentTimeMillis();
+
+                    long previousTs = lastTsPintWarn.get();
+
+                    if ((currentTs - previousTs) > warningPrintInterval && lastTsPintWarn.compareAndSet(previousTs, currentTs)) {
+                        LOG.warn("Log manager runs out of slots. So the lock state starts to share, and conflicts may appear frequently.");
+                    }
                 } else {
                     v.markedForRemove = false;
                     v.key = k;
@@ -632,17 +657,21 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             }
         }
 
+        private Set<UUID> allLockHolderTxs() {
+            return CollectionUtils.union(ixlockOwners.keySet(), slockOwners.keySet());
+        }
+
         /**
          * Triggers event and fails.
          *
          * @param txId Tx id.
-         * @param holderId Holder tx id.
+         * @param conflictedHolderId Holder tx id.
          * @return Failed future.
          */
-        CompletableFuture<Lock> notifyAndFail(UUID txId, UUID holderId) {
-            CompletableFuture<Void> res = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, holderId));
+        CompletableFuture<Lock> notifyAndFail(UUID txId, UUID conflictedHolderId) {
+            CompletableFuture<Void> res = fireEvent(LOCK_CONFLICT, new LockEventParameters(txId, allLockHolderTxs()));
             // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
-            return failedFuture(coarseLockException(txId, holderId, res.isCompletedExceptionally()));
+            return failedFuture(coarseLockException(txId, conflictedHolderId, res.isCompletedExceptionally()));
         }
 
         /**
@@ -862,7 +891,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 LockMode mode = tmp.lockMode;
 
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
-                    if (conflictFound(waiter.txId(), tmp.txId())) {
+                    if (conflictFound(waiter.txId())) {
                         waiter.fail(abandonedLockException(waiter.txId, tmp.txId));
 
                         return true;
@@ -883,7 +912,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 if (mode != null && !mode.isCompatible(waiter.intendedLockMode())) {
                     if (skipFail) {
                         return false;
-                    } else if (conflictFound(waiter.txId(), tmp.txId())) {
+                    } else if (conflictFound(waiter.txId())) {
                         waiter.fail(abandonedLockException(waiter.txId, tmp.txId));
 
                         return true;
@@ -1065,15 +1094,19 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * Notifies about the lock conflict found between transactions.
          *
          * @param acquirerTx Transaction which tries to acquire the lock.
-         * @param holderTx Transaction which holds the lock.
+         * @return True if the conflict connected with an abandoned transaction, false in the other case.
          */
-        private boolean conflictFound(UUID acquirerTx, UUID holderTx) {
-            CompletableFuture<Void> eventResult = fireEvent(LOCK_CONFLICT, new LockEventParameters(acquirerTx, holderTx));
+        private boolean conflictFound(UUID acquirerTx) {
+            CompletableFuture<Void> eventResult = fireEvent(LOCK_CONFLICT, new LockEventParameters(acquirerTx, allLockHolderTxs()));
             // No async handling is expected.
             // TODO: https://issues.apache.org/jira/browse/IGNITE-21153
             assert eventResult.isDone() : "Async lock conflict handling is not supported";
 
             return eventResult.isCompletedExceptionally();
+        }
+
+        private Set<UUID> allLockHolderTxs() {
+            return waiters.keySet();
         }
     }
 

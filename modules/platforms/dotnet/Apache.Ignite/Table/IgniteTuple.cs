@@ -97,5 +97,14 @@ namespace Apache.Ignite.Table
 
         /// <inheritdoc />
         public override int GetHashCode() => IIgniteTuple.GetHashCode(this);
+
+        /// <summary>
+        /// Clears the tuple.
+        /// </summary>
+        public void Clear()
+        {
+            _pairs.Clear();
+            _indexes.Clear();
+        }
     }
 }

@@ -75,7 +75,7 @@ public interface TxManager extends IgniteComponent {
      *         the more likely the transaction will win the conflict.
      * @return The started transaction.
      */
-    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, boolean implicit, TxPriority priority);
+    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly, TxPriority priority);
 
     /**
      * Returns a transaction state meta.

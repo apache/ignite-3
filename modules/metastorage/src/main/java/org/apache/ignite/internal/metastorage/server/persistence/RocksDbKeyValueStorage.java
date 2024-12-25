@@ -784,6 +784,32 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
+    public void removeByPrefix(byte[] prefix, KeyValueUpdateContext context) {
+        rwLock.writeLock().lock();
+
+        try (
+                WriteBatch batch = new WriteBatch();
+                Cursor<Entry> entryCursor = range(prefix, nextKey(prefix))
+        ) {
+            long curRev = rev + 1;
+
+            for (Entry entry : entryCursor) {
+                byte[] key = entry.key();
+
+                if (addToBatchForRemoval(batch, key, curRev, context.timestamp)) {
+                    updateKeysIndex(batch, key, curRev);
+                }
+            }
+
+            completeAndWriteBatch(batch, curRev, context, checksum.wholeRemoveByPrefix(prefix));
+        } catch (RocksDBException e) {
+            throw new MetaStorageException(OP_EXECUTION_ERR, e);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
     public boolean invoke(
             Condition condition,
             List<Operation> success,

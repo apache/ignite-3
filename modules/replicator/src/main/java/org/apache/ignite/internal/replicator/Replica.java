@@ -35,7 +35,7 @@ public interface Replica {
      *
      * @return RAFT client.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-23750
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-23974
     @Deprecated(forRemoval = true)
     TopologyAwareRaftGroupService raftClient();
 

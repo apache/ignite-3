@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,11 +45,11 @@ public class IgniteMath {
     private static final BigDecimal UPPER_FLOAT_BIG_DECIMAL = new BigDecimal(String.valueOf(Float.MAX_VALUE));
     private static final BigDecimal LOWER_FLOAT_BIG_DECIMAL = UPPER_FLOAT_BIG_DECIMAL.negate();
 
-    private static final double UPPER_FLOAT_DOUBLE = Float.MAX_VALUE;
-    private static final double LOWER_FLOAT_DOUBLE = -Float.MAX_VALUE;
+    private static final double UPPER_FLOAT_DOUBLE = Double.parseDouble("" + Float.MAX_VALUE);
+    private static final double LOWER_FLOAT_DOUBLE = Double.parseDouble("" + (-Float.MAX_VALUE));
 
     /** Decimal rounding mode. */
-    public static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_UP;
+    public static final RoundingMode ROUNDING_MODE = IgniteTypeSystem.INSTANCE.roundingMode();
 
     /** Returns the sum of its arguments, throwing an exception if the result overflows an {@code long}. */
     public static long addExact(long x, long y) {

@@ -43,6 +43,7 @@ public class AssignmentsSerializer extends VersionedSerializer<Assignments> {
 
         out.writeBoolean(assignments.force());
         hybridTimestamp(assignments.timestamp()).writeTo(out);
+        out.writeBoolean(assignments.fromReset());
     }
 
     private static void writeAssignment(Assignment assignment, IgniteDataOutput out) throws IOException {
@@ -55,8 +56,9 @@ public class AssignmentsSerializer extends VersionedSerializer<Assignments> {
         Set<Assignment> nodes = readNodes(in);
         boolean force = in.readBoolean();
         HybridTimestamp timestamp = HybridTimestamp.readFrom(in);
+        boolean fromReset = in.readBoolean();
 
-        return force ? Assignments.forced(nodes, timestamp.longValue()) : Assignments.of(nodes, timestamp.longValue());
+        return force ? Assignments.forced(nodes, timestamp.longValue()) : Assignments.of(nodes, timestamp.longValue(), fromReset);
     }
 
     private static Set<Assignment> readNodes(IgniteDataInput in) throws IOException {

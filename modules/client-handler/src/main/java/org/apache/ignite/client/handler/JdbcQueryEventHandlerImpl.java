@@ -80,7 +80,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
     private static final Set<SqlQueryType> SELECT_STATEMENT_QUERIES = Set.of(SqlQueryType.QUERY, SqlQueryType.EXPLAIN);
 
     /** {@link SqlQueryType}s allowed in JDBC update statements. **/
-    private static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(DML, SqlQueryType.DDL);
+    private static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(DML, SqlQueryType.DDL, SqlQueryType.KILL);
 
     /** Sql query processor. */
     private final QueryProcessor processor;
@@ -174,7 +174,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         doWhenAllCursorsComplete(result, () -> connectionContext.deregisterExecution(correlationToken));
 
         return result.thenCompose(cursor -> createJdbcResult(new JdbcQueryCursor<>(req.maxRows(), cursor), req.pageSize()))
-                .exceptionally(t -> createErrorResult("Exception while executing query [query=" + req.sqlQuery() + "]", t, null));
+                .exceptionally(t -> createErrorResult("Exception while executing query.", t, null));
     }
 
     private static SqlProperties createProperties(

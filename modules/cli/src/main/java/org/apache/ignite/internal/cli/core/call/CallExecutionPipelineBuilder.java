@@ -43,7 +43,7 @@ public interface CallExecutionPipelineBuilder<I extends CallInput, T> {
      * @param verbose Verbosity status.
      * @return Instance of the builder.
      */
-    CallExecutionPipelineBuilder<I, T> verbose(boolean verbose);
+    CallExecutionPipelineBuilder<I, T> verbose(boolean[] verbose);
 
     /**
      * Builds the pipeline.

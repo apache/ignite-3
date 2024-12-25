@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.Status;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Listener for the raft group events, which must provide correct error handling of rebalance process
@@ -72,9 +74,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
     /** Number of retrying of the current rebalance in case of errors. */
     private static final int REBALANCE_RETRY_THRESHOLD = 10;
-
-    /** Delay between unsuccessful trial of a rebalance and a new trial, ms. */
-    private static final int REBALANCE_RETRY_DELAY_MS = 200;
 
     /** Success code for the MetaStorage switch append assignments change. */
     private static final int SWITCH_APPEND_SUCCESS = 1;
@@ -118,6 +117,9 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Attempts to retry the current rebalance in case of errors. */
     private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
 
+    /** Configuration of rebalance retries delay. */
+    private final SystemDistributedConfigurationPropertyHolder<Integer> retryDelayConfiguration;
+
     /** Function that calculates assignments for table's partition. */
     private final BiFunction<TablePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn;
 
@@ -130,6 +132,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * @param partitionMover Class that moves partition between nodes.
      * @param calculateAssignmentsFn Function that calculates assignments for table's partition.
      * @param rebalanceScheduler Executor for scheduling rebalance retries.
+     * @param retryDelayConfiguration Configuration property for rebalance retries delay.
      */
     public RebalanceRaftGroupEventsListener(
             MetaStorageManager metaStorageMgr,
@@ -137,7 +140,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
             BiFunction<TablePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn,
-            ScheduledExecutorService rebalanceScheduler
+            ScheduledExecutorService rebalanceScheduler,
+            SystemDistributedConfigurationPropertyHolder<Integer> retryDelayConfiguration
     ) {
         this.metaStorageMgr = metaStorageMgr;
         this.tablePartitionId = tablePartitionId;
@@ -145,6 +149,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         this.partitionMover = partitionMover;
         this.calculateAssignmentsFn = calculateAssignmentsFn;
         this.rebalanceScheduler = rebalanceScheduler;
+        this.retryDelayConfiguration = retryDelayConfiguration;
     }
 
     /** {@inheritDoc} */
@@ -219,6 +224,16 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     }
 
     /**
+     * Returns current retry delay.
+     *
+     * @return Current retry delay
+     */
+    @TestOnly
+    public int currentRetryDelay() {
+        return retryDelayConfiguration.currentValue();
+    }
+
+    /**
      * Schedules changing peers according to the current rebalance.
      *
      * @param peersAndLearners Peers and learners.
@@ -237,7 +252,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             } finally {
                 busyLock.leaveBusy();
             }
-        }, REBALANCE_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
+        }, retryDelayConfiguration.currentValue(), TimeUnit.MILLISECONDS);
     }
 
     /**

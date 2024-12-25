@@ -20,6 +20,7 @@ package org.apache.ignite.marshalling;
 import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Exception thrown when an object type is not supported by the marshaller.
@@ -42,7 +43,7 @@ public class MarshallingException extends IgniteException {
      * @param msg Message.
      * @param cause The exception that caused the error.
      */
-    public MarshallingException(String msg, Throwable cause) {
+    public MarshallingException(String msg, @Nullable Throwable cause) {
         super(Marshalling.COMMON_ERR, msg, cause);
     }
 

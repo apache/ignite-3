@@ -243,32 +243,27 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .sql("SELECT CAST(? AS INTEGER)", 1)
                         .parameterTypes(nullable(NativeTypes.INT32))
-                        // We are going to cast at runtime.
-                        .project("?0"),
+                        .project("CAST(?0):INTEGER"),
 
                 checkStatement()
                         .sql("SELECT CAST(? AS DECIMAL(60, 30))", BigDecimal.ONE)
                         .parameterTypes(nullable(NativeTypes.decimalOf(60, 30)))
-                        // We are going to cast at runtime.
-                        .project("?0"),
+                        .project("CAST(?0):DECIMAL(60, 30)"),
 
                 checkStatement()
                         .sql("SELECT ?::DECIMAL(60, 30)", BigDecimal.ONE)
                         .parameterTypes(nullable(NativeTypes.decimalOf(60, 30)))
-                        // We are going to cast at runtime.
-                        .project("?0"),
+                        .project("CAST(?0):DECIMAL(60, 30)"),
 
                 checkStatement()
                         .sql("SELECT CAST(? AS INTEGER)", "1")
                         .parameterTypes(nullable(NativeTypes.STRING))
-                        // We are going to cast at runtime.
                         .project("CAST(?0):INTEGER"),
 
                 checkStatement()
                         .sql("SELECT CAST(? AS INTEGER)", Unspecified.UNKNOWN)
                         .parameterTypes(nullable(NativeTypes.INT32))
-                        // We are going to cast at runtime.
-                        .project("?0"),
+                        .project("CAST(?0):INTEGER"),
 
                 checkStatement()
                         .sql("SELECT -?", 1)
@@ -381,7 +376,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                         .ok(),
 
                 sql("SELECT 1 BETWEEN ? AND ?", Unspecified.UNKNOWN, 10L)
-                        .parameterTypes(nullable(NativeTypes.INT32), nullable(NativeTypes.INT64))
+                        .parameterTypes(nullable(NativeTypes.INT64), nullable(NativeTypes.INT64))
                         .ok(),
 
                 sql("SELECT ? BETWEEN ? AND ?", Unspecified.UNKNOWN, 1, 10)
@@ -445,7 +440,7 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .sql("SELECT NULLIF(CAST(? AS INTEGER), 1)", Unspecified.UNKNOWN)
                         .parameterTypes(nullable(NativeTypes.INT32))
-                        .project("CASE(=(?0, 1), null:INTEGER, ?0)")
+                        .project("CASE(=(CAST(?0):INTEGER, 1), null:INTEGER, CAST(?0):INTEGER)")
         );
     }
 

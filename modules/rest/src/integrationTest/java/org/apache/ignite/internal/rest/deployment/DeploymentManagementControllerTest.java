@@ -53,7 +53,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.rest.api.deployment.UnitStatus;
 import org.apache.ignite.internal.rest.api.deployment.UnitVersionStatus;
@@ -65,7 +65,7 @@ import org.junit.jupiter.api.Test;
  */
 @MicronautTest(rebuildContext = true)
 public class DeploymentManagementControllerTest extends ClusterPerTestIntegrationTest {
-    private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
+    private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
     private Path dummyFile;
 

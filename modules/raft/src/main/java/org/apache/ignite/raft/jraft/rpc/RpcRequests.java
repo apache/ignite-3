@@ -23,6 +23,8 @@ import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.tostring.IgniteStringifier;
+import org.apache.ignite.internal.tostring.SizeOnlyStringifier;
 import org.apache.ignite.raft.jraft.RaftMessageGroup;
 import org.apache.ignite.raft.jraft.entity.RaftOutter;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.EntryMeta;
@@ -230,6 +232,7 @@ public final class RpcRequests {
         @Nullable
         String serverId();
 
+        @IgniteStringifier(name = "entriesList.size", value = SizeOnlyStringifier.class)
         @Nullable List<ByteBuffer> entriesList();
 
         @Nullable

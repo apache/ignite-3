@@ -48,8 +48,6 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -1157,18 +1155,10 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
             CompletableFuture<Void> startHandleWatchEventFuture,
             CompletableFuture<Void> finishHandleWatchEventFuture
     ) {
-        storage.watchExact(key, storage.revision() + 1, new WatchListener() {
-            @Override
-            public CompletableFuture<Void> onUpdate(WatchEvent event) {
-                startHandleWatchEventFuture.complete(null);
+        storage.watchExact(key, storage.revision() + 1, event -> {
+            startHandleWatchEventFuture.complete(null);
 
-                return finishHandleWatchEventFuture;
-            }
-
-            @Override
-            public void onError(Throwable e) {
-                startHandleWatchEventFuture.completeExceptionally(e);
-            }
+            return finishHandleWatchEventFuture;
         });
     }
 

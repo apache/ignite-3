@@ -42,6 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -98,21 +99,19 @@ public class TestCluster {
     private final Lock lock = new ReentrantLock();
     private @Nullable BiConsumer<PeerId, NodeOptions> optsClo;
 
+    private volatile Function<PeerId, MockStateMachine> stateMachineFactory = MockStateMachine::new;
+
     /** Test info. */
     private final TestInfo testInfo;
 
-    private JRaftServiceFactory raftServiceFactory = new TestJRaftServiceFactory();
+    private Function<PeerId, JRaftServiceFactory> raftServiceFactories = peerId -> new TestJRaftServiceFactory();
 
     private LinkedHashSet<TestPeer> learners;
 
     private JraftGroupEventsListener raftGrpEvtsLsnr;
 
-    public JRaftServiceFactory getRaftServiceFactory() {
-        return this.raftServiceFactory;
-    }
-
-    public void setRaftServiceFactory(JRaftServiceFactory raftServiceFactory) {
-        this.raftServiceFactory = raftServiceFactory;
+    public void setRaftServiceFactories(Function<PeerId, JRaftServiceFactory> raftServiceFactories) {
+        this.raftServiceFactories = raftServiceFactories;
     }
 
     public LinkedHashSet<PeerId> getLearners() {
@@ -218,7 +217,7 @@ public class TestCluster {
             nodeOptions.setEnableMetrics(enableMetrics);
             nodeOptions.setSnapshotThrottle(snapshotThrottle);
             nodeOptions.setSnapshotIntervalSecs(snapshotIntervalSecs);
-            nodeOptions.setServiceFactory(this.raftServiceFactory);
+            nodeOptions.setServiceFactory(this.raftServiceFactories.apply(peer.getPeerId()));
             if (clock != null) {
                 nodeOptions.setClock(clock);
             }
@@ -243,7 +242,7 @@ public class TestCluster {
 
             nodeOptions.setElectionTimeoutStrategy(new ExponentialBackoffTimeoutStrategy());
 
-            MockStateMachine fsm = new MockStateMachine(peer.getPeerId());
+            MockStateMachine fsm = stateMachineFactory.apply(peer.getPeerId());
             nodeOptions.setFsm(fsm);
 
             nodeOptions.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
@@ -611,5 +610,9 @@ public class TestCluster {
 
     public void setNodeOptionsCustomizer(BiConsumer<PeerId, NodeOptions> customizer) {
         this.optsClo = customizer;
+    }
+
+    public void setStateMachineFactory(Function<PeerId, MockStateMachine> factory) {
+        this.stateMachineFactory = factory;
     }
 }

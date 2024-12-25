@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -254,6 +255,22 @@ public abstract class MutableTupleBinaryTupleAdapter implements Tuple, BinaryTup
         return tuple != null
                 ? tuple.doubleValue(columnIndex)
                 : binaryTuple.doubleValue(validateSchemaColumnType(columnIndex, ColumnType.DOUBLE));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(String columnName) {
+        return tuple != null
+                ? tuple.decimalValue(columnName)
+                : binaryTuple.decimalValue(validateSchemaColumnType(columnName, ColumnType.DECIMAL), Integer.MIN_VALUE);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public BigDecimal decimalValue(int columnIndex) {
+        return tuple != null
+                ? tuple.decimalValue(columnIndex)
+                : binaryTuple.decimalValue(validateSchemaColumnType(columnIndex, ColumnType.DECIMAL), Integer.MIN_VALUE);
     }
 
     /** {@inheritDoc} */

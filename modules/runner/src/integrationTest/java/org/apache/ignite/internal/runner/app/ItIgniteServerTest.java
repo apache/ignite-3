@@ -82,7 +82,8 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
                         + "    }\n"
                         + "  },\n"
                         + "  clientConnector.port: 10800,\n"
-                        + "  rest.port: 10300\n"
+                        + "  rest.port: 10300,\n"
+                        + "  failureHandler.dumpThreadsOnFailure: false\n"
                         + "}"
         );
 
@@ -96,7 +97,8 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
                         + "    }\n"
                         + "  },\n"
                         + "  clientConnector.port: 10801,\n"
-                        + "  rest.port: 10301\n"
+                        + "  rest.port: 10301,\n"
+                        + "  failureHandler.dumpThreadsOnFailure: false\n"
                         + "}"
         );
 
@@ -110,7 +112,8 @@ class ItIgniteServerTest extends BaseIgniteAbstractTest {
                         + "    }\n"
                         + "  },\n"
                         + "  clientConnector.port: 10802,\n"
-                        + "  rest.port: 10302\n"
+                        + "  rest.port: 10302,\n"
+                        + "  failureHandler.dumpThreadsOnFailure: false\n"
                         + "}"
         );
     }

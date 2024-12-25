@@ -26,6 +26,7 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptPlanner.CannotPlanException;
 import org.apache.calcite.plan.RelOptUtil;
@@ -153,15 +154,19 @@ public class HashJoinPlannerTest extends AbstractPlannerTest {
     }
 
     /** Check that only appropriate conditions are acceptable for hash join. */
-    @ParameterizedTest()
+    @ParameterizedTest
     @MethodSource("joinConditions")
     @SuppressWarnings("ThrowableNotThrown")
-    public void hashJoinAppliedConditions(String sql, boolean canBePlanned) throws Exception {
+    public void hashJoinAppliedConditions(String sql, boolean canBePlanned, boolean skipIfNotInnerAndNotSemi) throws Exception {
         IgniteTable tbl = createTestTable("ID", "C1");
 
         IgniteSchema schema = createSchema(tbl);
 
         for (String type : joinTypes) {
+            if (skipIfNotInnerAndNotSemi && !Set.of("INNER", "SEMI").contains(type)) {
+                continue;
+            }
+
             String sql0 = String.format(sql, type);
 
             if (canBePlanned) {
@@ -176,15 +181,15 @@ public class HashJoinPlannerTest extends AbstractPlannerTest {
 
     private static Stream<Arguments> joinConditions() {
         return Stream.of(
-                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = t2.c1", true),
-                Arguments.of("select t1.c1 from t1 %s join t1 t2 using(c1)", true),
-                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = 1", false),
-                Arguments.of("select t1.c1 from t1 %s join t1 t2 ON t1.id is not distinct from t2.c1", false),
-                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = ?", false),
-                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = OCTET_LENGTH('TEST')", false),
-                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = LOG10(t1.c1)", false),
-                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = t2.c1 and t1.ID > t2.ID", false),
-                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = 1 and t2.c1 = 1", false)
+                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = t2.c1", true, false),
+                Arguments.of("select t1.c1 from t1 %s join t1 t2 using(c1)", true, false),
+                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = 1", false, false),
+                Arguments.of("select t1.c1 from t1 %s join t1 t2 ON t1.id is not distinct from t2.c1", false, false),
+                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = ?", false, false),
+                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = OCTET_LENGTH('TEST')", false, false),
+                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = LOG10(t1.c1)", false, false),
+                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = t2.c1 and t1.ID > t2.ID", true, true),
+                Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = 1 and t2.c1 = 1", false, false)
         );
     }
 }

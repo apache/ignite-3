@@ -63,7 +63,8 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "  },\n"
             + "  clientConnector.port: {},\n"
             + "  rest.port: {},\n"
-            + "  compute.threadPoolSize: 1\n"
+            + "  compute.threadPoolSize: 1,\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
@@ -84,7 +85,8 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} }, \n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     /** Template for node bootstrap config with Scalecube settings for a disabled failure detection. */
@@ -99,7 +101,8 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
     protected Cluster cluster;
@@ -116,7 +119,12 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
      */
     @BeforeEach
     public void startCluster(TestInfo testInfo) throws Exception {
-        cluster = new Cluster(testInfo, workDir, getNodeBootstrapConfigTemplate());
+        ClusterConfiguration.Builder clusterConfiguration = ClusterConfiguration.builder(testInfo, workDir)
+                .defaultNodeBootstrapConfigTemplate(getNodeBootstrapConfigTemplate());
+
+        customizeConfiguration(clusterConfiguration);
+
+        cluster = new Cluster(clusterConfiguration.build());
 
         if (initialNodes() > 0) {
             cluster.startAndInit(initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
@@ -127,6 +135,12 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     @Timeout(60)
     public void stopCluster() {
         cluster.shutdown();
+    }
+
+    /**
+     * Inheritors should override this method to change configuration of the test cluster before its creation.
+     */
+    protected void customizeConfiguration(ClusterConfiguration.Builder clusterConfigurationBuilder) {
     }
 
     /**

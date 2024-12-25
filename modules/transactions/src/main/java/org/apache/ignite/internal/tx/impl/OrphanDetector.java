@@ -22,15 +22,18 @@ import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.
 import static org.apache.ignite.internal.tx.TxState.ABANDONED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 
+import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -91,6 +94,14 @@ public class OrphanDetector {
      */
     private long checkTxStateInterval;
 
+    private final ConfigurationListener<Long> checkTxStateIntervalListener = ctx -> {
+        this.checkTxStateInterval = ctx.newValue();
+
+        return nullCompletedFuture();
+    };
+
+    private volatile @Nullable ConfigurationValue<Long> checkTxStateIntervalProvider;
+
     /** Local transaction state storage. */
     private VolatileTxStateMetaStorage txLocalStateStorage;
 
@@ -125,13 +136,10 @@ public class OrphanDetector {
      */
     public void start(VolatileTxStateMetaStorage txLocalStateStorage, ConfigurationValue<Long> checkTxStateIntervalProvider) {
         this.txLocalStateStorage = txLocalStateStorage;
+        this.checkTxStateIntervalProvider = checkTxStateIntervalProvider;
         this.checkTxStateInterval = checkTxStateIntervalProvider.value();
 
-        checkTxStateIntervalProvider.listen(ctx -> {
-            this.checkTxStateInterval = ctx.newValue();
-
-            return nullCompletedFuture();
-        });
+        checkTxStateIntervalProvider.listen(checkTxStateIntervalListener);
 
         lockManager.listen(LockEvent.LOCK_CONFLICT, lockConflictListener);
     }
@@ -143,6 +151,11 @@ public class OrphanDetector {
         busyLock.block();
 
         lockManager.removeListener(LockEvent.LOCK_CONFLICT, lockConflictListener);
+
+        ConfigurationValue<Long> localCheckTxStateIntervalProvider = checkTxStateIntervalProvider;
+        if (localCheckTxStateIntervalProvider != null) {
+            localCheckTxStateIntervalProvider.stopListen(checkTxStateIntervalListener);
+        }
     }
 
     /**
@@ -151,7 +164,13 @@ public class OrphanDetector {
     private CompletableFuture<Boolean> lockConflictListener(LockEventParameters params) {
         if (busyLock.enterBusy()) {
             try {
-                return checkTxOrphanedInternal(params.lockHolderTx());
+                ArrayList<CompletableFuture<Boolean>> futs = new ArrayList<>(params.lockHolderTxs().size());
+
+                for (UUID txId : params.lockHolderTxs()) {
+                    futs.add(checkTxOrphanedInternal(txId));
+                }
+
+                return allOf(futs).thenApply(unused -> false);
             } finally {
                 busyLock.leaveBusy();
             }

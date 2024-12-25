@@ -31,6 +31,7 @@ import java.util.UUID;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.junit.jupiter.api.AssertionFailureBuilder;
 
 /**
  * Base class for client table tests.
@@ -85,6 +86,18 @@ public class AbstractClientTableTest extends AbstractClientTest {
 
     protected static Tuple tupleVal(String name) {
         return Tuple.create().set("name", name);
+    }
+
+    protected static void assertDecimalEqual(BigDecimal expected, BigDecimal actual) {
+        if (expected == null && actual == null) {
+            return;
+        }
+
+        if (expected != null && actual != null && expected.compareTo(actual) == 0) {
+            return;
+        }
+
+        AssertionFailureBuilder.assertionFailure().expected(expected).actual(actual).buildAndThrow();
     }
 
     protected Table defaultTable() {

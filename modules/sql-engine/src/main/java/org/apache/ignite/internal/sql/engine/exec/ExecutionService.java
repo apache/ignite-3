@@ -34,7 +34,7 @@ public interface ExecutionService extends LifecycleAware {
      * @return Future that will be completed when cursor is successfully initialized, implying for distributed plans all fragments have been
      *         sent successfully.
      */
-    CompletableFuture<AsyncDataCursor<InternalSqlRow>> executePlan(
+    CompletableFuture<AsyncDataCursorExt<InternalSqlRow>> executePlan(
             QueryPlan plan, SqlOperationContext operationContext
     );
 }
