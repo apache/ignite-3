@@ -41,7 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public abstract class BaseNodeRequestProcessorTest<T extends Message> extends BaseIgniteAbstractTest {
     @Mock(extraInterfaces = {RaftServerService.class})
-    private Node node;
+    protected Node node;
     protected final String groupId = "test";
     protected final String peerIdStr = "localhost:8081";
     protected MockAsyncContext asyncContext;

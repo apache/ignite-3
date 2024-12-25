@@ -34,6 +34,7 @@ public class TimeoutNowRequestProcessorTest extends BaseNodeRequestProcessorTest
             .serverId("localhost:8082")
             .peerId(peerId.toString())
             .term(0)
+            .timestamp(this.node.getOptions().getClock().now())
             .build();
         return request;
     }
