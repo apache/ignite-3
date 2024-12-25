@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.calcite.sql.SqlNode;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -36,6 +38,11 @@ public class SqlSchemaDdlParserTest extends AbstractParserTest {
         assertFalse(createSchema.ifNotExists());
 
         expectUnparsed(createSchema, "CREATE SCHEMA \"TEST_SCHEMA\"");
+    }
+
+    @Test
+    public void createSchemaInvalidSyntax() {
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Encountered \"cascade\"", () -> parse("create schema test cascade"));
     }
 
     @Test
@@ -111,6 +118,11 @@ public class SqlSchemaDdlParserTest extends AbstractParserTest {
 
             expectUnparsed(dropSchema, "DROP SCHEMA IF EXISTS \"TEST_SCHEMA\" RESTRICT");
         }
+    }
+
+    @Test
+    public void dropSchemaInvalidSyntax() {
+        assertThrowsSqlException(Sql.STMT_PARSE_ERR, "Encountered \"cascade1\"", () -> parse("drop schema test cascade1"));
     }
 
     private static IgniteSqlCreateSchema parseCreateSchema(String stmt) {
