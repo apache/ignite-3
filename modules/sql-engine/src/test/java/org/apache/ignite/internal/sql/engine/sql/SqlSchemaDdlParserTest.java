@@ -52,7 +52,7 @@ public class SqlSchemaDdlParserTest extends AbstractParserTest {
         IgniteSqlDropSchema dropSchema = parseDropSchema("drop schema test_schema");
 
         assertFalse(dropSchema.ifExists());
-        assertSame(IgniteSqlDropSchemaPolicy.IMPLICIT_RESTRICT, dropSchema.dropPolicy());
+        assertSame(IgniteSqlDropSchemaBehavior.IMPLICIT_RESTRICT, dropSchema.behavior());
 
         expectUnparsed(dropSchema, "DROP SCHEMA \"TEST_SCHEMA\"");
     }
@@ -62,19 +62,19 @@ public class SqlSchemaDdlParserTest extends AbstractParserTest {
         IgniteSqlDropSchema dropSchema = parseDropSchema("drop schema if exists test_schema");
 
         assertTrue(dropSchema.ifExists());
-        assertSame(IgniteSqlDropSchemaPolicy.IMPLICIT_RESTRICT, dropSchema.dropPolicy());
+        assertSame(IgniteSqlDropSchemaBehavior.IMPLICIT_RESTRICT, dropSchema.behavior());
 
         expectUnparsed(dropSchema, "DROP SCHEMA IF EXISTS \"TEST_SCHEMA\"");
     }
 
     @Test
-    public void dropSchemaPolicy() {
+    public void dropSchemaBehavior() {
         // CASCADE
         {
             IgniteSqlDropSchema dropSchema = parseDropSchema("drop schema test_schema cascade");
 
             assertFalse(dropSchema.ifExists());
-            assertSame(IgniteSqlDropSchemaPolicy.CASCADE, dropSchema.dropPolicy());
+            assertSame(IgniteSqlDropSchemaBehavior.CASCADE, dropSchema.behavior());
 
             expectUnparsed(dropSchema, "DROP SCHEMA \"TEST_SCHEMA\" CASCADE");
         }
@@ -84,20 +84,20 @@ public class SqlSchemaDdlParserTest extends AbstractParserTest {
             IgniteSqlDropSchema dropSchema = parseDropSchema("drop schema test_schema restrict");
 
             assertFalse(dropSchema.ifExists());
-            assertSame(IgniteSqlDropSchemaPolicy.RESTRICT, dropSchema.dropPolicy());
+            assertSame(IgniteSqlDropSchemaBehavior.RESTRICT, dropSchema.behavior());
 
             expectUnparsed(dropSchema, "DROP SCHEMA \"TEST_SCHEMA\" RESTRICT");
         }
     }
 
     @Test
-    public void dropSchemaIfExistsAndPolicy() {
+    public void dropSchemaIfExistsAndBehavior() {
         // CASCADE
         {
             IgniteSqlDropSchema dropSchema = parseDropSchema("drop schema if exists test_schema cascade");
 
             assertTrue(dropSchema.ifExists());
-            assertSame(IgniteSqlDropSchemaPolicy.CASCADE, dropSchema.dropPolicy());
+            assertSame(IgniteSqlDropSchemaBehavior.CASCADE, dropSchema.behavior());
 
             expectUnparsed(dropSchema, "DROP SCHEMA IF EXISTS \"TEST_SCHEMA\" CASCADE");
         }
@@ -107,7 +107,7 @@ public class SqlSchemaDdlParserTest extends AbstractParserTest {
             IgniteSqlDropSchema dropSchema = parseDropSchema("drop schema if exists test_schema restrict");
 
             assertTrue(dropSchema.ifExists());
-            assertSame(IgniteSqlDropSchemaPolicy.RESTRICT, dropSchema.dropPolicy());
+            assertSame(IgniteSqlDropSchemaBehavior.RESTRICT, dropSchema.behavior());
 
             expectUnparsed(dropSchema, "DROP SCHEMA IF EXISTS \"TEST_SCHEMA\" RESTRICT");
         }

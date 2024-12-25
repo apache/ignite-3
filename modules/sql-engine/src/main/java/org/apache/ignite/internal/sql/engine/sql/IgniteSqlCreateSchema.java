@@ -31,11 +31,11 @@ import org.apache.calcite.util.ImmutableNullableList;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Parse tree for {@code CREATE SCHEMA} statement with Ignite specific features.
+ * Parse tree for {@code CREATE SCHEMA} statement.
  */
 public class IgniteSqlCreateSchema extends SqlCreate {
 
-    /** CREATE ZONE operator. */
+    /** CREATE SCHEMA operator. */
     protected static class Operator extends IgniteDdlOperator {
 
         /** Constructor. */
@@ -90,16 +90,12 @@ public class IgniteSqlCreateSchema extends SqlCreate {
         name.unparse(writer, leftPrec, rightPrec);
     }
 
-    /**
-     * Get name of the schema.
-     */
+    /** Returns the schema name. */
     public SqlIdentifier name() {
         return name;
     }
 
-    /**
-     * Get whether the IF NOT EXISTS is specified.
-     */
+    /** Returns whether {@code IF NOT EXISTS} was specified. */
     public boolean ifNotExists() {
         return ifNotExists;
     }

@@ -48,7 +48,7 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropSchema",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropSchemaPolicy",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropSchemaBehavior",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction",

@@ -290,15 +290,11 @@ SqlCreate SqlCreateSchema(Span s, boolean replace) :
 {
         final boolean ifNotExists;
         final SqlIdentifier id;
-        SqlNodeList optionList = null;
 }
 {
     <SCHEMA> { s.add(this); }
         ifNotExists = IfNotExistsOpt()
         id = CompoundIdentifier()
-    [
-        <WITH> { s.add(this); } optionList = CreateZoneOptionList()
-    ]
     {
         return new IgniteSqlCreateSchema(s.end(this), ifNotExists, id);
     }
@@ -339,25 +335,25 @@ SqlDrop SqlDropSchema(Span s, boolean replace) :
 {
     final SqlIdentifier schemaName;
     final boolean ifExists;
-    IgniteSqlDropSchemaPolicy dropPolicy = IgniteSqlDropSchemaPolicy.IMPLICIT_RESTRICT;
+    IgniteSqlDropSchemaBehavior dropBehavior = IgniteSqlDropSchemaBehavior.IMPLICIT_RESTRICT;
 }
 {
-    <SCHEMA>
-    ifExists = IfExistsOpt()
-    schemaName = CompoundIdentifier()
+    <SCHEMA> { s.add(this); }
+        ifExists = IfExistsOpt()
+        schemaName = CompoundIdentifier()
     [
         (
           <CASCADE> {
-            dropPolicy = IgniteSqlDropSchemaPolicy.CASCADE;
+            dropBehavior = IgniteSqlDropSchemaBehavior.CASCADE;
           }
           |
           <RESTRICT> {
-            dropPolicy = IgniteSqlDropSchemaPolicy.RESTRICT;
+            dropBehavior = IgniteSqlDropSchemaBehavior.RESTRICT;
           }
         )
     ]
     {
-        return new IgniteSqlDropSchema(s.end(this), ifExists, schemaName, dropPolicy);
+        return new IgniteSqlDropSchema(s.end(this), ifExists, schemaName, dropBehavior);
     }
 }
 

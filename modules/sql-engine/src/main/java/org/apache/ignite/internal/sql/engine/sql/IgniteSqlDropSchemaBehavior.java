@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 /**
- * Drop schema policy.
+ * Drop schema behavior.
  */
-public enum IgniteSqlDropSchemaPolicy {
+public enum IgniteSqlDropSchemaBehavior {
+    /** Forces dropping all schema objects together at once. */
     CASCADE,
+    /** Fails if the schema is not empty. */
     RESTRICT,
+    /** If the user does not specify a reset behavior, the default behavior is set to {@link #RESTRICT}. */
     IMPLICIT_RESTRICT
 }

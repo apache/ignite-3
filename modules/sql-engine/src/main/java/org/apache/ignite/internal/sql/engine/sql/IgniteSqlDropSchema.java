@@ -35,36 +35,37 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  */
 public class IgniteSqlDropSchema extends SqlDrop {
 
-    /** DROP ZONE operator. */
+    /** DROP SCHEMA operator. */
     protected static class Operator extends IgniteDdlOperator {
-        private final IgniteSqlDropSchemaPolicy dropPolicy;
+        private final IgniteSqlDropSchemaBehavior dropBehavior;
 
         /** Constructor. */
-        protected Operator(boolean existFlag, IgniteSqlDropSchemaPolicy dropPolicy) {
+        protected Operator(boolean existFlag, IgniteSqlDropSchemaBehavior dropBehavior) {
             super("DROP SCHEMA", SqlKind.OTHER_DDL, existFlag);
 
-            this.dropPolicy = dropPolicy;
+            this.dropBehavior = dropBehavior;
         }
 
         /** {@inheritDoc} */
         @Override
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos,
                 @Nullable SqlNode... operands) {
-            return new IgniteSqlDropSchema(pos, existFlag(), (SqlIdentifier) operands[0], dropPolicy);
+            return new IgniteSqlDropSchema(pos, existFlag(), (SqlIdentifier) operands[0], dropBehavior);
         }
     }
 
-    /** Zone name. */
+    /** Schema name. */
     private final SqlIdentifier name;
 
-    private final IgniteSqlDropSchemaPolicy dropPolicy;
+    /** Drop behavior. */
+    private final IgniteSqlDropSchemaBehavior behavior;
 
     /** Constructor. */
-    public IgniteSqlDropSchema(SqlParserPos pos, boolean ifExists, SqlIdentifier name, IgniteSqlDropSchemaPolicy dropPolicy) {
-        super(new Operator(ifExists, dropPolicy), pos, ifExists);
+    public IgniteSqlDropSchema(SqlParserPos pos, boolean ifExists, SqlIdentifier name, IgniteSqlDropSchemaBehavior behavior) {
+        super(new Operator(ifExists, behavior), pos, ifExists);
 
         this.name = Objects.requireNonNull(name, "schema name");
-        this.dropPolicy = dropPolicy;
+        this.behavior = behavior;
     }
 
     /** {@inheritDoc} */
@@ -90,8 +91,17 @@ public class IgniteSqlDropSchema extends SqlDrop {
 
         name.unparse(writer, leftPrec, rightPrec);
 
-        if (dropPolicy != IgniteSqlDropSchemaPolicy.IMPLICIT_RESTRICT) {
-            writer.keyword(dropPolicy.name());
+        switch (behavior) {
+            case RESTRICT:
+                writer.keyword("RESTRICT");
+                break;
+            case CASCADE:
+                writer.keyword("CASCADE");
+                break;
+            case IMPLICIT_RESTRICT:
+                break;
+            default:
+                throw new IllegalStateException("Unexpected drop behavior: " + behavior);
         }
     }
 
@@ -104,7 +114,7 @@ public class IgniteSqlDropSchema extends SqlDrop {
         return operator.existFlag();
     }
 
-    public IgniteSqlDropSchemaPolicy dropPolicy() {
-        return dropPolicy;
+    public IgniteSqlDropSchemaBehavior behavior() {
+        return behavior;
     }
 }
