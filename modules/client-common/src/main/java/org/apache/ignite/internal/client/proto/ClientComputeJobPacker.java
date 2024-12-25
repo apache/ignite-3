@@ -21,11 +21,15 @@ import static org.apache.ignite.internal.compute.ComputeJobDataType.MARSHALLED_C
 import static org.apache.ignite.internal.compute.ComputeJobDataType.NATIVE;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.POJO;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE;
+import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE_COLLECTION;
 import static org.apache.ignite.internal.compute.PojoConverter.toTuple;
 
+import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.PojoConversionException;
@@ -100,6 +104,35 @@ public final class ClientComputeJobPacker {
             return;
         }
 
+        if (obj instanceof Collection) {
+            Collection<?> col = (Collection<?>) obj;
+
+            packer.packInt(TUPLE_COLLECTION.id());
+
+            // Pack entire collection into a single binary blob.
+            BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(col.size());
+
+            for (Object el : col) {
+                if (el == null) {
+                    tupleBuilder.appendNull();
+                    continue;
+                }
+
+                if (!(el instanceof Tuple)) {
+                    throw new MarshallingException("Can't pack collection: expected Tuple, but got " + el.getClass(), null);
+                }
+
+                tupleBuilder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) el));
+            }
+
+            ByteBuffer binTupleBytes = tupleBuilder.build();
+            packer.packBinaryHeader(Integer.BYTES + binTupleBytes.remaining());
+            packer.writeIntRawLittleEndian(col.size());
+            packer.writePayload(binTupleBytes);
+
+            return;
+        }
+
         if (isNativeType(obj.getClass())) {
             packer.packInt(NATIVE.id());
 
@@ -112,7 +145,7 @@ public final class ClientComputeJobPacker {
 
             packTuple(toTuple(obj), packer);
         } catch (PojoConversionException e) {
-            throw new MarshallingException("Can't pack object", e);
+            throw new MarshallingException("Can't pack object: " + obj, e);
         }
     }
 

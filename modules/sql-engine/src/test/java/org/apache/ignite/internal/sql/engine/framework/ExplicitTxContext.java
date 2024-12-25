@@ -41,7 +41,7 @@ public class ExplicitTxContext implements QueryTransactionContext {
     }
 
     @Override
-    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
+    public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit) {
         return txWrapper;
     }
 

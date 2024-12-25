@@ -38,6 +38,7 @@ dependencies {
     implementation project(':ignite-storage-api')
     implementation project(':ignite-transactions')
     implementation project(':ignite-configuration-api')
+    implementation project(':ignite-configuration-system')
     implementation project(':ignite-distribution-zones')
     implementation project(':ignite-vault')
     implementation project(':ignite-cluster-management')

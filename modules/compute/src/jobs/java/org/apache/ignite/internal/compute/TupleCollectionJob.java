@@ -15,40 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.tx;
+package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.table.Tuple;
 
 /**
- * No operation wrapper.
- * 
- * <p>Use on your own risk.
+ * Returns the provided tuple collection with added job result tuple.
  */
-public class NoopTransactionWrapper implements QueryTransactionWrapper {
-    public static final QueryTransactionWrapper INSTANCE = new NoopTransactionWrapper();
-
-    private NoopTransactionWrapper() { }
-
+public class TupleCollectionJob implements ComputeJob<Collection<Tuple>, Collection<Tuple>> {
     @Override
-    public InternalTransaction unwrap() {
-        return null;
-    }
+    public CompletableFuture<Collection<Tuple>> executeAsync(JobExecutionContext jobExecutionContext, Collection<Tuple> arg) {
+        List<Tuple> res = new ArrayList<>(arg);
+        res.add(Tuple.create().set("job-result", "done"));
 
-    @Override
-    public CompletableFuture<Void> commitImplicit() {
-        return nullCompletedFuture();
-    }
-
-    @Override
-    public CompletableFuture<Void> rollback(Throwable cause) {
-        return nullCompletedFuture();
-    }
-
-    @Override
-    public boolean implicit() {
-        return true;
+        return completedFuture(res);
     }
 }

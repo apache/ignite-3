@@ -153,6 +153,26 @@ public class DistributionZonesUtil {
             new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_PREFIX);
 
     /**
+     * Internal property that determines partition group members reset timeout after the partition group majority loss.
+     *
+     * <p>Default value is {@link #PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE}.</p>
+     */
+    public static final String PARTITION_DISTRIBUTION_RESET_TIMEOUT = "partitionDistributionResetTimeout";
+
+    /** Default value for the {@link #PARTITION_DISTRIBUTION_RESET_TIMEOUT}. */
+    static final int PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE = 0;
+
+    /**
+     * Internal property that determines delay between unsuccessful trial of a rebalance and a new trial, ms.
+     *
+     * <p>Default value is {@link #REBALANCE_RETRY_DELAY_DEFAULT}.</p>
+     */
+    public static final String REBALANCE_RETRY_DELAY_MS = "rebalanceRetryDelay";
+
+    /** Default value for the {@link #REBALANCE_RETRY_DELAY_MS}. */
+    public static final int REBALANCE_RETRY_DELAY_DEFAULT = 200;
+
+    /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX}.
      *
      * @param zoneId Zone id.

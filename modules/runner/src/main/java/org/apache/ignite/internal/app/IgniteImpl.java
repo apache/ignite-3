@@ -107,6 +107,7 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguration;
@@ -904,6 +905,9 @@ public class IgniteImpl implements Ignite {
 
         schemaManager = new SchemaManager(registry, catalogManager);
 
+        SystemDistributedConfiguration systemDistributedConfiguration =
+                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
+
         distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
@@ -911,7 +915,7 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 catalogManager,
                 rebalanceScheduler,
-                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
+                systemDistributedConfiguration
         );
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
@@ -926,7 +930,8 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.partitionOperationsExecutor(),
                 clockService,
                 placementDriverMgr.placementDriver(),
-                schemaSyncService
+                schemaSyncService,
+                systemDistributedConfiguration
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -1035,7 +1040,8 @@ public class IgniteImpl implements Ignite {
                 indexMetaStorage,
                 partitionsLogStorageFactory,
                 partitionReplicaLifecycleManager,
-                minTimeCollectorService
+                minTimeCollectorService,
+                systemDistributedConfiguration
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(

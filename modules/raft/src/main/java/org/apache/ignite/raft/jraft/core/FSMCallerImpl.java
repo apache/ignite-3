@@ -152,6 +152,8 @@ public class FSMCallerImpl implements FSMCaller {
     private final CopyOnWriteArrayList<LastAppliedLogIndexListener> lastAppliedLogIndexListeners = new CopyOnWriteArrayList<>();
     private RaftMessagesFactory msgFactory;
 
+    private volatile boolean shuttingDown;
+
     public FSMCallerImpl() {
         super();
         this.currTask = TaskType.IDLE;
@@ -193,6 +195,8 @@ public class FSMCallerImpl implements FSMCaller {
             return;
         }
         LOG.info("Shutting down FSMCaller...");
+
+        this.shuttingDown = true;
 
         if (this.taskQueue != null) {
             final CountDownLatch latch = new CountDownLatch(1);
@@ -505,7 +509,7 @@ public class FSMCallerImpl implements FSMCaller {
             final IteratorImpl iterImpl = new IteratorImpl(this.fsm, this.logManager, closures, firstClosureIndex,
                 lastAppliedIndex, committedIndex, this.applyingIndex, this.node.getOptions());
 
-            while (iterImpl.isGood()) {
+            while (!shuttingDown && iterImpl.isGood()) {
                 final LogEntry logEntry = iterImpl.entry();
                 if (logEntry.getType() != EnumOutter.EntryType.ENTRY_TYPE_DATA) {
                     if (logEntry.getType() == EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
@@ -542,6 +546,8 @@ public class FSMCallerImpl implements FSMCaller {
             if (iterImpl.hasError()) {
                 setError(iterImpl.getError());
                 iterImpl.runTheRestClosureWithError();
+            } else if (shuttingDown) {
+                iterImpl.runTheRestClosureWithShutdownException();
             }
             final long lastIndex = iterImpl.getIndex() - 1;
             final long lastTerm = this.logManager.getTerm(lastIndex);
@@ -564,7 +570,7 @@ public class FSMCallerImpl implements FSMCaller {
     }
 
     private void doApplyTasks(final IteratorImpl iterImpl) {
-        final IteratorWrapper iter = new IteratorWrapper(iterImpl);
+        final IteratorWrapper iter = new IteratorWrapper(iterImpl, () -> shuttingDown);
         final long startApplyMs = Utils.monotonicMs();
         final long startIndex = iter.getIndex();
         try {
@@ -578,7 +584,11 @@ public class FSMCallerImpl implements FSMCaller {
             LOG.error("Iterator is still valid, did you return before iterator reached the end?");
         }
         // Try move to next in case that we pass the same log twice.
-        iter.next();
+        // But if we are shutting down, current entry is not applied, so we should not advance the iterator to allow a ShutdownException
+        // being sent to its client.
+        if (!shuttingDown) {
+            iter.next();
+        }
     }
 
     private void doSnapshotSave(final SaveSnapshotClosure done) {

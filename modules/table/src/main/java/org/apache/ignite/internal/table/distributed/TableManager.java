@@ -106,7 +106,10 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
@@ -429,6 +432,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final CompletableFuture<Void> recoveryFuture = new CompletableFuture<>();
 
+    /** Configuration of rebalance retries delay. */
+    private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
+
     /**
      * Creates a new table manager.
      *
@@ -457,6 +463,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param transactionInflights Transaction inflights.
      * @param indexMetaStorage Index meta storage.
      * @param partitionReplicaLifecycleManager Partition replica lifecycle manager.
+     * @param minTimeCollectorService Collects minimum required timestamp for each partition.
+     * @param systemDistributedConfiguration System distributed configuration.
      */
     public TableManager(
             String nodeName,
@@ -493,7 +501,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             IndexMetaStorage indexMetaStorage,
             LogSyncer logSyncer,
             PartitionReplicaLifecycleManager partitionReplicaLifecycleManager,
-            MinimumRequiredTimeCollectorService minTimeCollectorService
+            MinimumRequiredTimeCollectorService minTimeCollectorService,
+            SystemDistributedConfiguration systemDistributedConfiguration
     ) {
         this.topologyService = topologyService;
         this.replicaMgr = replicaMgr;
@@ -601,6 +610,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 this::onZoneReplicaStopped
         );
 
+        rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
+                systemDistributedConfiguration,
+                (v, r) -> {},
+                DistributionZonesUtil.REBALANCE_RETRY_DELAY_MS,
+                DistributionZonesUtil.REBALANCE_RETRY_DELAY_DEFAULT,
+                Integer::parseInt
+        );
     }
 
     @Override
@@ -615,6 +631,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CompletableFuture<Revisions> recoveryFinishFuture = metaStorageMgr.recoveryFinishedFuture();
 
             assert recoveryFinishFuture.isDone();
+
+            rebalanceRetryDelayConfiguration.init();
 
             long recoveryRevision = recoveryFinishFuture.join().revision();
 
@@ -1305,7 +1323,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 busyLock,
                 partitionMover,
                 this::calculateAssignments,
-                rebalanceScheduler
+                rebalanceScheduler,
+                rebalanceRetryDelayConfiguration
         );
     }
 

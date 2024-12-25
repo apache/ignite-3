@@ -64,30 +64,13 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
                     assert txContext != null;
 
                     if (queryType == SqlQueryType.QUERY) {
-                        if (txContext.explicitTx() == null) {
-                            // TODO: IGNITE-23604
-                            // implicit transaction started by InternalTable doesn't update observableTimeTracker. At
-                            // this point we don't know whether tx was started by InternalTable or ExecutionService, thus
-                            // let's update tracker explicitly to preserve consistency
-                            txContext.updateObservableTime(query.executor.clockNow());
-                        }
-
                         // preserve lazy execution for statements that only reads
                         return nullCompletedFuture();
                     }
 
                     // for other types let's wait for the first page to make sure premature
                     // close of the cursor won't cancel an entire operation
-                    return cursor.onFirstPageReady()
-                            .thenRun(() -> {
-                                if (txContext.explicitTx() == null) {
-                                    // TODO: IGNITE-23604
-                                    // implicit transaction started by InternalTable doesn't update observableTimeTracker. At
-                                    // this point we don't know whether tx was started by InternalTable or ExecutionService, thus
-                                    // let's update tracker explicitly to preserve consistency
-                                    txContext.updateObservableTime(query.executor.clockNow());
-                                }
-                            });
+                    return cursor.onFirstPageReady();
                 });
 
         return Result.proceedAfter(awaitFuture);
