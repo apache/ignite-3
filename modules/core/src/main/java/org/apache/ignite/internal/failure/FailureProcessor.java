@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.failure;
 
+import org.apache.ignite.internal.failure.handlers.FailureHandler;
+
 /**
  * General failure processing API.
  */
@@ -25,7 +27,7 @@ public interface FailureProcessor {
      * Processes failure accordingly to configured {@link FailureHandler}.
      *
      * @param failureCtx Failure context.
-     * @return {@code True} If this very call led to Ignite node invalidation.
+     * @return {@code true} If this call leads to Ignite node invalidation and {@code false} otherwise.
      */
     boolean process(FailureContext failureCtx);
 }

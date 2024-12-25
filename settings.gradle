@@ -176,7 +176,7 @@ project(":ignite-configuration-system").projectDir = file('modules/configuration
 project(":ignite-system-disaster-recovery").projectDir = file('modules/system-disaster-recovery')
 project(":ignite-system-disaster-recovery-api").projectDir = file('modules/system-disaster-recovery-api')
 
-if (!JavaVersion.current().isJava11Compatible()) {
+if (JavaVersion.current() >= JavaVersion.VERSION_17) {
     include(':spring-boot-ignite-client-autoconfigure')
     include(':spring-boot-starter-ignite-client')
     include(':spring-boot-starter-ignite-client-example')

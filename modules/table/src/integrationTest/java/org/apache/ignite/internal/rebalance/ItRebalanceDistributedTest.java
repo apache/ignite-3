@@ -27,6 +27,8 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.REBALANCE_RETRY_DELAY_DEFAULT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.REBALANCE_RETRY_DELAY_MS;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
@@ -38,6 +40,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
@@ -56,6 +59,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.framework;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
@@ -89,8 +93,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfigurationSchema;
+import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -114,6 +121,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -121,11 +129,15 @@ import org.apache.ignite.internal.configuration.storage.DistributedConfiguration
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.configuration.validation.ConfigurationValidatorImpl;
+import org.apache.ignite.internal.configuration.validation.NonNegativeIntegerNumberSystemPropertyValueValidator;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -167,6 +179,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
+import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
@@ -217,6 +230,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl
 import org.apache.ignite.internal.table.distributed.schema.ThreadLocalPartitionCommandsMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -283,22 +297,22 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final int NODE_COUNT = 3;
 
     @InjectConfiguration
-    private static TransactionConfiguration txConfiguration;
+    private TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    private static RaftConfiguration raftConfiguration;
+    private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private static SystemLocalConfiguration systemConfiguration;
+    private SystemLocalConfiguration systemConfiguration;
 
     @InjectConfiguration
-    private static NodeAttributesConfiguration nodeAttributes;
+    private NodeAttributesConfiguration nodeAttributes;
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = \"aipersist\", test.engine=\"test\"}")
-    private static StorageConfiguration storageConfiguration;
+    private StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private static MetaStorageConfiguration metaStorageConfiguration;
+    private MetaStorageConfiguration metaStorageConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -370,6 +384,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     @AfterEach
     void after() {
         nodes.forEach(Node::stop);
+
+        // TODO: IGNITE-23956 Move this line in the base class.
+        // It is necessary to do after each test to prevent OOM in the middle of the test class execution.
+        framework().clearInlineMocks();
     }
 
     @Test
@@ -852,6 +870,31 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         dropMessages.set(false);
     }
 
+    @Test
+    void testRebalanceRetryDelayConfiguration() throws Exception {
+        Node node = getNode(0);
+
+        createZone(node, ZONE_NAME, 1, 1);
+
+        createTable(node, ZONE_NAME, TABLE_NAME);
+
+        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+
+        // Check default value
+        checkRebalanceRetryDelay(1, REBALANCE_RETRY_DELAY_DEFAULT);
+
+        SystemDistributedConfiguration configuration =
+                node.clusterCfgMgr.configurationRegistry().getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
+
+        assertThat(updateRebalanceRetryDelay(configuration, REBALANCE_RETRY_DELAY_DEFAULT + 1), willCompleteSuccessfully());
+
+        // Check delay after change
+        checkRebalanceRetryDelay(1, REBALANCE_RETRY_DELAY_DEFAULT + 1);
+
+        // Try invalid delay value
+        assertThat(updateRebalanceRetryDelay(configuration, -1), willThrowWithCauseOrSuppressed(ConfigurationValidationException.class));
+    }
+
     private static Set<Peer> assignmentsToPeersSet(Set<Assignment> assignments) {
         return assignments.stream()
                 .map(Assignment::consistentId)
@@ -1314,7 +1357,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(ClusterConfiguration.KEY),
                     cfgStorage,
                     clusterCfgGenerator,
-                    new TestConfigurationValidator()
+                    ConfigurationValidatorImpl.withDefaultValidators(
+                            clusterCfgGenerator, Set.of(new NonNegativeIntegerNumberSystemPropertyValueValidator(REBALANCE_RETRY_DELAY_MS))
+                    )
             );
 
             ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
@@ -1407,6 +1452,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
 
+            SystemDistributedConfiguration systemDistributedConfiguration =
+                    clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
+
             distributionZoneManager = new DistributionZoneManager(
                     name,
                     registry,
@@ -1414,7 +1462,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     logicalTopologyService,
                     catalogManager,
                     rebalanceScheduler,
-                    clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
+                    systemDistributedConfiguration
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
@@ -1470,9 +1518,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             threadPoolsManager.partitionOperationsExecutor(),
                             clockService,
                             placementDriver,
-                            schemaSyncService
+                            schemaSyncService,
+                            systemDistributedConfiguration
                     ),
-                    minTimeCollectorService
+                    minTimeCollectorService,
+                    systemDistributedConfiguration
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(
@@ -1800,5 +1850,53 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         for (Node node : nodes) {
             assertEquals(expNodeCount, getPartitionClusterNodes(node, tableName, partitionId).size(), node.name);
         }
+    }
+
+    private void checkRebalanceRetryDelay(int expectedRaftNodesCount, int delay) throws InterruptedException {
+        Supplier<List<Integer>> eventListenerRebalanceDelayValues = () -> nodes
+                .stream()
+                // Collect all raft group events listeners adapters
+                .flatMap((n) -> {
+                    List<JraftGroupEventsListener> nodeRaftGroupServices = new ArrayList<>();
+                    n.raftManager.forEach((nodeId, raftGroupService) -> {
+                        nodeRaftGroupServices.add(raftGroupService.getNodeOptions().getRaftGrpEvtsLsnr());
+                    });
+
+                    return nodeRaftGroupServices.stream();
+                })
+                // Get the real raft group events listeners
+                .map(l -> IgniteTestUtils.getFieldValue(l, "delegate"))
+                .map(listener -> {
+                    if (listener instanceof ZoneRebalanceRaftGroupEventsListener) {
+                        return ((ZoneRebalanceRaftGroupEventsListener) listener).currentRetryDelay();
+                    } else if (listener instanceof RebalanceRaftGroupEventsListener) {
+                        return ((RebalanceRaftGroupEventsListener) listener).currentRetryDelay();
+                    } else {
+                        // This value can be used, because configuration framework checks delay for positive value.
+                        return -1;
+                    }
+                })
+                .filter(d -> !d.equals(-1))
+                .collect(Collectors.toUnmodifiableList());
+
+        assertTrue(waitForCondition(
+                () -> {
+                    List<Integer> delays = eventListenerRebalanceDelayValues.get();
+                    return delays.size() == expectedRaftNodesCount && delays.stream().allMatch(d -> d.equals(delay));
+                },
+                10_000
+        ));
+    }
+
+    private static CompletableFuture<Void> updateRebalanceRetryDelay(SystemDistributedConfiguration systemDistributedConfiguration,
+            int delay) {
+        return systemDistributedConfiguration
+                .change(c0 -> c0
+                        .changeProperties()
+                        .createOrUpdate(
+                                REBALANCE_RETRY_DELAY_MS,
+                                c1 -> c1.changePropertyValue(String.valueOf(delay))
+                        )
+                );
     }
 }

@@ -193,7 +193,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
 
         List<Object> params = NativeTypeValues.values(rhs, 1);
 
-        String query = format("SELECT * FROM A1 WHERE COL1 > ?", rhs);
+        String query = "SELECT * FROM A1 WHERE COL1 > ?";
         assertPlan(query, igniteSchema, isInstanceOf(IgniteTableScan.class)
                 .and(node -> {
                     String actualPredicate = node.condition().toString();

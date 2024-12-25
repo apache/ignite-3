@@ -1457,12 +1457,12 @@ public class TestBuilders {
         }
 
         @Override
-        public CompletableFuture<ExecutableTable> getTable(int catalogVersion, int tableId) {
+        public ExecutableTable getTable(int catalogVersion, int tableId) {
             IgniteTable table = schemaManager.table(catalogVersion, tableId);
 
             assert table != null;
 
-            return CompletableFuture.completedFuture(new ExecutableTable() {
+            return new ExecutableTable() {
                 @Override
                 public ScannableTable scannableTable() {
                     ScannableTable scannableTable = tablesByName.apply(table.name());
@@ -1490,7 +1490,7 @@ public class TestBuilders {
                 public Supplier<PartitionCalculator> partitionCalculator() {
                     return table.partitionCalculator();
                 }
-            });
+            };
         }
     }
 

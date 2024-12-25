@@ -19,35 +19,22 @@ package org.apache.ignite.internal.metrics.exporters;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.nio.file.Path;
-import org.apache.ignite.internal.Cluster;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Integration metrics tests.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class ItMetricsTest extends BaseIgniteAbstractTest {
-    @WorkDirectory
-    private Path workDir;
-
-    private Cluster cluster;
-
-    @BeforeEach
-    void setUp(TestInfo testInfo) {
-        this.cluster = new Cluster(testInfo, workDir);
+public class ItMetricsTest extends ClusterPerTestIntegrationTest {
+    @Override
+    protected int initialNodes() {
+        return 1;
     }
 
-    @AfterEach
-    void tearDown() {
-        cluster.shutdown();
+    @Override
+    protected void customizeInitParameters(InitParametersBuilder builder) {
+        builder.clusterConfiguration("ignite.metrics.exporters.doubleStart.exporterName: doubleStart");
     }
 
     /**
@@ -56,9 +43,6 @@ public class ItMetricsTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testMetricExporterStartsOnceOnly() {
-        cluster.startAndInit(1, builder -> builder.clusterConfiguration(
-                "ignite.metrics.exporters.doubleStart.exporterName: doubleStart"));
-
         assertEquals(1, TestDoubleStartExporter.startCounter());
     }
 }

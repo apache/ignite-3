@@ -19,7 +19,6 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -34,15 +33,12 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.tx.TransactionResult;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
  * RAFT listener for the zone partition.
  */
 public class ZonePartitionRaftListener implements RaftGroupListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionRaftListener.class);
-
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     @Override
     public void onRead(Iterator<CommandClosure<ReadCommand>> iterator) {
@@ -55,25 +51,6 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     @Override
     public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-        if (!busyLock.enterBusy()) {
-            // Here, we just complete the closures with an exception and then return. From the point of view of JRaft, this means that
-            // we 'applied' the commands, even though we didn't. JRaft will wrongly increment its appliedIndex. But it doesn't seem to be
-            // a problem because the current run is being finished (the node is stopping itself), and the only way to persist appliedIndex
-            // (which might affect subsequent runs) is to save it into snapshot, but we use the busy lock in #onSnapshotSave(), so
-            // the snapshot with wrong appliedIndex will not be saved.
-            iterator.forEachRemaining(clo -> clo.result(new ShutdownException()));
-
-            return;
-        }
-
-        try {
-            onWriteBusy(iterator);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    private void onWriteBusy(Iterator<CommandClosure<WriteCommand>> iterator) {
         iterator.forEachRemaining((CommandClosure<? extends WriteCommand> clo) -> {
             Command command = clo.command();
 
@@ -105,10 +82,6 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     @Override
     public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-        inBusyLock(busyLock, () -> onSnapshotSaveBusy());
-    }
-
-    private void onSnapshotSaveBusy() {
         throw new UnsupportedOperationException("Snapshotting is not implemented");
     }
 
@@ -119,6 +92,6 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
 
     @Override
     public void onShutdown() {
-        busyLock.block();
+        // No-op.
     }
 }

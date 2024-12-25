@@ -39,14 +39,8 @@ public interface IgniteClientConfiguration {
     /** Default heartbeat interval, in milliseconds. */
     int DFLT_HEARTBEAT_INTERVAL = 30_000;
 
-    /** Default reconnect throttling period, in milliseconds. */
-    long DFLT_RECONNECT_THROTTLING_PERIOD = 30_000L;
-
-    /** Default reconnect throttling retries. */
-    int DFLT_RECONNECT_THROTTLING_RETRIES = 3;
-
-    /** Default reconnect interval, in milliseconds. */
-    long DFLT_RECONNECT_INTERVAL = 30_000L;
+    /** Default background reconnect interval, in milliseconds. */
+    long DFLT_BACKGROUND_RECONNECT_INTERVAL = 30_000L;
 
     /** Default operation timeout, in milliseconds. */
     int DFLT_OPERATION_TIMEOUT = 0;
@@ -85,22 +79,8 @@ public interface IgniteClientConfiguration {
     long connectTimeout();
 
     /**
-     * Gets the reconnect throttling period, in milliseconds.
-     *
-     * @return Reconnect period for throttling, in milliseconds.
-     */
-    long reconnectThrottlingPeriod();
-
-    /**
-     * Gets the reconnect throttling retries.
-     *
-     * @return Reconnect throttling retries.
-     */
-    int reconnectThrottlingRetries();
-
-    /**
      * Gets the background reconnect interval, in milliseconds. Set to {@code 0} to disable background reconnect.
-     * Default is {@link #DFLT_RECONNECT_INTERVAL}.
+     * Default is {@link #DFLT_BACKGROUND_RECONNECT_INTERVAL}.
      *
      * <p>Ignite balances requests across all healthy connections (when multiple endpoints are configured).
      * Ignite also repairs connections on demand (when a request is made).
@@ -109,7 +89,7 @@ public interface IgniteClientConfiguration {
      *
      * @return Background reconnect interval, in milliseconds.
      */
-    long reconnectInterval();
+    long backgroundReconnectInterval();
 
     /**
      * Gets the async continuation executor.

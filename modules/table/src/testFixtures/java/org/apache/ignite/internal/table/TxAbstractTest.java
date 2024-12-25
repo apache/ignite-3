@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -59,9 +60,11 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaImpl;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -97,6 +100,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -108,6 +112,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -2051,6 +2056,97 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
     }
 
     @Test
+    public void testReadOnlyTransactionAlreadyFinished() throws InterruptedException {
+        Transaction tx = igniteTransactions.begin(new TransactionOptions().readOnly(true));
+
+        tx.rollback();
+
+        RecordView accountsRv = accounts.recordView();
+
+        assertThrowsTxFinishedException(() -> accountsRv.get(tx, makeKey(1)));
+        assertThrowsTxFinishedException(() -> accountsRv.contains(tx, makeKey(1)));
+        assertThrowsTxFinishedException(() -> accountsRv.getAll(tx, List.of(makeKey(1))));
+        assertThrowsTxFinishedException(() -> accountsRv.containsAll(tx, List.of(makeKey(1))));
+        assertAsyncThrowsTxFinishedException(() -> accountsRv.getAsync(tx, makeKey(1)));
+        assertAsyncThrowsTxFinishedException(() -> accountsRv.containsAsync(tx, makeKey(1)));
+        assertAsyncThrowsTxFinishedException(() -> accountsRv.getAllAsync(tx, List.of(makeKey(1))));
+        assertAsyncThrowsTxFinishedException(() -> accountsRv.containsAllAsync(tx, List.of(makeKey(1))));
+
+        KeyValueView accountsKv = accounts.keyValueView();
+
+        assertThrowsTxFinishedException(() -> accountsKv.get(tx, makeKey(1)));
+        assertThrowsTxFinishedException(() -> accountsKv.getNullable(tx, makeKey(1)));
+        assertThrowsTxFinishedException(() -> accountsKv.getOrDefault(tx, makeKey(1), makeValue(1, BALANCE_1)));
+        assertThrowsTxFinishedException(() -> accountsKv.contains(tx, makeKey(1)));
+        assertThrowsTxFinishedException(() -> accountsKv.getAll(tx, List.of(makeKey(1))));
+        assertThrowsTxFinishedException(() -> accountsKv.containsAll(tx, List.of(makeKey(1))));
+        assertAsyncThrowsTxFinishedException(() -> accountsKv.getAsync(tx, makeKey(1)));
+        assertAsyncThrowsTxFinishedException(() -> accountsKv.getNullableAsync(tx, makeKey(1)));
+        assertAsyncThrowsTxFinishedException(() -> accountsKv.getOrDefaultAsync(tx, makeKey(1), makeValue(1, BALANCE_1)));
+        assertAsyncThrowsTxFinishedException(() -> accountsKv.getAllAsync(tx, List.of(makeKey(1))));
+        assertAsyncThrowsTxFinishedException(() -> accountsKv.containsAsync(tx, makeKey(1)));
+        assertAsyncThrowsTxFinishedException(() -> accountsKv.containsAllAsync(tx, List.of(makeKey(1))));
+
+        InternalTransaction internalTx = (InternalTransaction) tx;
+
+        assertThrowsTxFinishedException(() -> {
+            Flow.Publisher<BinaryRow> pub = accounts.internalTable().scan(
+                    0,
+                    internalTx.id(),
+                    internalTx.readTimestamp(),
+                    new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
+                    internalTx.coordinatorId()
+            );
+
+            AtomicReference<Throwable> errorRef = new AtomicReference<>();
+
+            pub.subscribe(new SingleRequestSubscriber<>(errorRef));
+
+            assertTrue(waitForCondition(() -> errorRef.get() != null, 1_000));
+
+            throw errorRef.get();
+        });
+
+        assertThrowsTxFinishedException(() -> {
+            Flow.Publisher<BinaryRow> pub = accounts.internalTable().lookup(
+                    0,
+                    internalTx.id(),
+                    internalTx.readTimestamp(),
+                    new ClusterNodeImpl(UUID.randomUUID(), "node", new NetworkAddress("localhost", 123)),
+                    0,
+                    // Binary tuple is null for testing purposes, assuming that it wouldn't be processed anyway.
+                    null,
+                    null,
+                    internalTx.coordinatorId()
+            );
+
+            AtomicReference<Throwable> errorRef = new AtomicReference<>();
+
+            pub.subscribe(new SingleRequestSubscriber<>(errorRef));
+
+            assertTrue(waitForCondition(() -> errorRef.get() != null, 1_000));
+
+            throw errorRef.get();
+        });
+    }
+
+    private void assertThrowsTxFinishedException(Executable run) {
+        assertThrowsWithCode(TransactionException.class, TX_ALREADY_FINISHED_ERR, run, "Transaction is already finished");
+    }
+
+    private void assertAsyncThrowsTxFinishedException(Supplier<CompletableFuture<?>> run) {
+        assertThrowsTxFinishedException(() -> {
+            try {
+                run.get().join();
+            } catch (CompletionException e) {
+                throw e.getCause();
+            } catch (Exception e) {
+                throw e;
+            }
+        });
+    }
+
+    @Test
     public void testImplicit() {
         accounts.recordView().upsert(null, makeValue(1, BALANCE_1));
         assertEquals(BALANCE_1, accounts.recordView().get(null, makeKey(1)).doubleValue("balance"));
@@ -2273,6 +2369,32 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
             res = accountsRv.getAll(null, List.of(makeKey(1), makeKey(2)));
 
             assertThat(res, contains(null, null));
+        }
+    }
+
+    private static class SingleRequestSubscriber<T> implements Flow.Subscriber<T> {
+        private final AtomicReference<Throwable> errorRef;
+
+        private SingleRequestSubscriber(AtomicReference<Throwable> errorRef) {
+            this.errorRef = errorRef;
+        }
+
+        @Override
+        public void onSubscribe(Flow.Subscription s) {
+            s.request(1);
+        }
+
+        @Override
+        public void onNext(T item) {
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            errorRef.set(throwable);
+        }
+
+        @Override
+        public void onComplete() {
         }
     }
 }

@@ -48,7 +48,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.Cluster;
+import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -66,7 +66,7 @@ import org.junit.jupiter.api.Test;
  */
 @MicronautTest
 public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegrationTest {
-    private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
+    private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
     private static final String FIRST_ZONE = "first_ZONE";
 

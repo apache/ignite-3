@@ -107,6 +107,7 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.JdbcPortProviderImpl;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.ServiceLoaderModulesProvider;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalExtensionConfiguration;
@@ -128,6 +129,7 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManager;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerImpl;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
@@ -293,6 +295,8 @@ public class IgniteImpl implements Ignite {
 
     /** Ignite node name. */
     private final String name;
+
+    private final Path workDir;
 
     /** Lifecycle manager. */
     private final LifecycleManager lifecycleManager;
@@ -486,6 +490,7 @@ public class IgniteImpl implements Ignite {
             Executor asyncContinuationExecutor
     ) {
         this.name = node.name();
+        this.workDir = workDir;
 
         longJvmPauseDetector = new LongJvmPauseDetector(name);
 
@@ -895,6 +900,9 @@ public class IgniteImpl implements Ignite {
 
         schemaManager = new SchemaManager(registry, catalogManager);
 
+        SystemDistributedConfiguration systemDistributedConfiguration =
+                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
+
         distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
@@ -902,7 +910,7 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 catalogManager,
                 rebalanceScheduler,
-                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
+                systemDistributedConfiguration
         );
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
@@ -917,7 +925,8 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.partitionOperationsExecutor(),
                 clockService,
                 placementDriverMgr.placementDriver(),
-                schemaSyncService
+                schemaSyncService,
+                systemDistributedConfiguration
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -940,11 +949,14 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 threadPoolsManager.commonScheduler(),
                 indexNodeFinishedRwTransactionsChecker,
-                minTimeCollectorService
+                minTimeCollectorService,
+                new RebalanceMinimumRequiredTimeProviderImpl(metaStorageMgr, catalogManager)
         );
 
         metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
         this.catalogCompactionRunner = catalogCompactionRunner;
+
+        KillCommandHandler killCommandHandler = new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService());
 
         lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
                 params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
@@ -1023,7 +1035,8 @@ public class IgniteImpl implements Ignite {
                 indexMetaStorage,
                 partitionsLogStorageFactory,
                 partitionReplicaLifecycleManager,
-                minTimeCollectorService
+                minTimeCollectorService,
+                systemDistributedConfiguration
         );
 
         disasterRecoveryManager = new DisasterRecoveryManager(
@@ -1083,7 +1096,7 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService())
+                killCommandHandler
         );
 
         systemViewManager.register(qryEngine);
@@ -1122,6 +1135,8 @@ public class IgniteImpl implements Ignite {
                 computeComponent,
                 clock
         );
+
+        killCommandHandler.register(((IgniteComputeImpl) compute).killHandler());
 
         authenticationManager = createAuthenticationManager();
 
@@ -1587,6 +1602,11 @@ public class IgniteImpl implements Ignite {
         return metricManager;
     }
 
+    @TestOnly
+    public TableManager distributedTableManager() {
+        return distributedTblMgr;
+    }
+
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
@@ -1630,6 +1650,10 @@ public class IgniteImpl implements Ignite {
     @Override
     public IgniteCatalog catalog() {
         return publicCatalog;
+    }
+
+    public Path workDir() {
+        return workDir;
     }
 
     /**

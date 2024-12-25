@@ -61,8 +61,6 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     private volatile boolean closed = false;
 
-    private volatile boolean cancelled = false;
-
     /**
      * Amount of rows which were requested from a source.
      *
@@ -136,7 +134,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
             }
 
             if (closed) {
-                next.completeExceptionally(cancelled ? new QueryCancelledException() : new CursorClosedException());
+                next.completeExceptionally(new CursorClosedException());
 
                 return next;
             }
@@ -151,11 +149,9 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> closeAsync(boolean cancelled) {
+    public CompletableFuture<Void> closeAsync() {
         if (!closed) {
             synchronized (lock) {
-                this.cancelled = cancelled;
-
                 if (!closed) {
                     Throwable th = ex.get();
 
@@ -229,8 +225,6 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
             return;
         }
 
-        taskScheduled.set(false);
-
         while (!buff.isEmpty() && currentReq.buff.size() < currentReq.requested) {
             currentReq.buff.add(buff.remove());
         }
@@ -255,11 +249,17 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
             currentReq.fut.complete(new BatchedResult<>(currentReq.buff, hasMore == HasMore.YES));
         }
 
-        if (waiting == 0 && buff.isEmpty()) {
-            //noinspection NestedAssignment
-            source.request(waiting = IN_BUFFER_SIZE);
-        } else if (hasMore == HasMore.NO) {
-            closeAsync();
+        if (buff.isEmpty()) {
+            if (waiting == 0) {
+                //noinspection NestedAssignment
+                source.request(waiting = IN_BUFFER_SIZE);
+            } else if (waiting == -1) {
+                assert hasMore == HasMore.NO : hasMore;
+
+                closeAsync();
+            }
+        } else if (!pendingRequests.isEmpty()) {
+            scheduleTask();
         }
     }
 
@@ -268,7 +268,11 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      */
     private void scheduleTask() {
         if (!pendingRequests.isEmpty() && taskScheduled.compareAndSet(false, true)) {
-            source.context().execute(this::flush, source::onError);
+            source.context().execute(() -> {
+                taskScheduled.set(false);
+
+                flush();
+            }, source::onError);
         }
     }
 

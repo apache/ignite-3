@@ -115,4 +115,12 @@ public interface InternalTransaction extends Transaction {
      * @return The future.
      */
     CompletableFuture<Void> finish(boolean commit, @Nullable HybridTimestamp executionTimestamp, boolean full);
+
+    /**
+     * Checks if the transaction is finishing or finished. If {@code true}, no more operations can be performed on the transaction.
+     * Becomes {@code true} after {@link #commitAsync()} or {@link #rollbackAsync()} is called.
+     *
+     * @return Whether the transaction is finishing or finished
+     */
+    boolean isFinishingOrFinished();
 }

@@ -56,6 +56,9 @@ public interface MetastorageCommandsMessageGroup {
     /** Message type for {@link RemoveAllCommand}. */
     short REMOVE_ALL = 51;
 
+    /** Message type for {@link RemoveByPrefixCommand}. */
+    short REMOVE_BY_PREFIX = 52;
+
     /** Message type for {@link GetRangeCommand}. */
     short GET_RANGE = 60;
 

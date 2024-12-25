@@ -82,6 +82,7 @@ import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -149,7 +150,6 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -233,6 +233,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock = {profiles.default = {engine = \"aipersist\"}}")
     private StorageConfiguration storageConfiguration;
+
+    @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @Mock
     private ConfigurationRegistry configRegistry;
@@ -644,13 +647,11 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(1, getAllTablesFut.join().size());
     }
 
-    @Disabled("IGNITE-23899")
     @Test
     void testStoragesGetClearedInMiddleOfFailedTxStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(true);
     }
 
-    @Disabled("IGNITE-23899")
     @Test
     void testStoragesGetClearedInMiddleOfFailedPartitionStorageRebalance() throws Exception {
         testStoragesGetClearedInMiddleOfFailedRebalance(false);
@@ -668,8 +669,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 .thenAnswer(mock -> mock(TopologyAwareRaftGroupService.class));
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
                 .thenReturn(completedFuture(Set.of(NODE_NAME)));
-
-        createZone(1, 1);
 
         var txStateStorage = mock(TxStateStorage.class);
         var mvPartitionStorage = mock(MvPartitionStorage.class);
@@ -698,6 +697,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             doReturn(txStateStorage).when(txStateTableStorage).getOrCreateTxStateStorage(anyInt());
             doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
         });
+
+        createZone(1, 1);
 
         createTable(PRECONFIGURED_TABLE_NAME);
 
@@ -848,7 +849,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 logSyncer,
                 partitionReplicaLifecycleManager,
-                new MinimumRequiredTimeCollectorServiceImpl()
+                new MinimumRequiredTimeCollectorServiceImpl(),
+                systemDistributedConfiguration
         ) {
 
             @Override

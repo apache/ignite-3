@@ -32,6 +32,7 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -46,11 +47,11 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,6 +73,9 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
     /** Show be greater than 2 x {@link #LW_UPDATE_TIME_MS}. */
     private static final long COMPACTION_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
+
+    /** Transactions that are started in the test. */
+    private final List<InternalTransaction> transactions = new ArrayList<>();
 
     @Override
     protected int initialNodes() {
@@ -98,7 +102,8 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 + "  },\n"
                 + "  clientConnector.port: {},\n"
                 + "  rest.port: {},\n"
-                + "  compute.threadPoolSize: 1\n"
+                + "  compute.threadPoolSize: 1,\n"
+                + "  failureHandler.dumpThreadsOnFailure: false\n"
                 + "}";
     }
 
@@ -114,18 +119,18 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     }
 
     @BeforeAll
-    void enableCompaction() {
+    void setup() {
         List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
         assertEquals(initialNodes(), nodes.size());
 
-        for (var node : nodes) {
-            IgniteImpl ignite = unwrapIgniteImpl(node);
-            ignite.catalogCompactionRunner().enable(true);
-        }
+        await(((SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager()).completeRegistration());
     }
 
     @BeforeEach
     public void beforeEach() {
+        transactions.forEach(Transaction::rollback);
+        transactions.clear();
+
         dropAllTables();
     }
 
@@ -141,27 +146,26 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 node2.catalogCompactionRunner()
         );
 
-        // The test requires that no one else change the schema while it is running.
-        await(((SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager()).completeRegistration());
-
         Catalog catalog1 = getLatestCatalog(node2);
 
-        Transaction tx1 = node0.transactions().begin();
+        Transaction tx1 = beginTx(node0, false);
 
         // Changing the catalog and starting transaction.
         sql("create table a(a int primary key)");
         Catalog catalog2 = getLatestCatalog(node0);
         assertThat(catalog2.version(), is(catalog1.version() + 1));
-        List<Transaction> txs2 = Stream.of(node1, node2).map(node -> node.transactions().begin()).collect(Collectors.toList());
+        List<Transaction> txs2 = Stream.of(node1, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
         List<InternalTransaction> ignoredReadonlyTxs = Stream.of(node0, node1, node2)
-                .map(node -> (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true)))
+                .map(node -> beginTx(node, true))
                 .collect(Collectors.toList());
 
         // Changing the catalog again and starting transaction.
         sql("alter table a add column (b int)");
+
+        Awaitility.await().untilAsserted(() -> assertThat(getLatestCatalogVersion(node1), is(catalog2.version() + 1)));
         Catalog catalog3 = getLatestCatalog(node1);
-        assertThat(catalog3.version(), is(catalog2.version() + 1));
-        List<Transaction> txs3 = Stream.of(node0, node2).map(node -> node.transactions().begin()).collect(Collectors.toList());
+
+        List<Transaction> txs3 = Stream.of(node0, node2).map(node -> beginTx(node, false)).collect(Collectors.toList());
 
         Collection<ClusterNode> topologyNodes = node0.clusterNodes();
 
@@ -243,6 +247,15 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         expectEarliestCatalogVersion(catalogVersion3 - 1);
     }
 
+    private InternalTransaction beginTx(Ignite node, boolean readOnly) {
+        TransactionOptions txOptions = new TransactionOptions().readOnly(readOnly);
+        InternalTransaction tx = (InternalTransaction) node.transactions().begin(txOptions);
+
+        transactions.add(tx);
+
+        return tx;
+    }
+
     private static int getLatestCatalogVersion(Ignite ignite) {
         Catalog catalog = getLatestCatalog(ignite);
 
@@ -260,22 +273,15 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
         return catalog;
     }
 
-    private static void expectEarliestCatalogVersion(int expectedVersion) throws InterruptedException {
-        long waitTime = COMPACTION_INTERVAL_MS;
-
-        boolean compacted = IgniteTestUtils.waitForCondition(() -> {
+    private static void expectEarliestCatalogVersion(int expectedVersion) {
+        Awaitility.await().timeout(COMPACTION_INTERVAL_MS, TimeUnit.MILLISECONDS).untilAsserted(() -> {
             for (var node : CLUSTER.runningNodes().collect(Collectors.toList())) {
                 IgniteImpl ignite = unwrapIgniteImpl(node);
                 CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
 
-                if (catalogManager.earliestCatalogVersion() != expectedVersion) {
-                    return false;
-                }
+                assertThat("The earliest catalog version does not match. ",
+                        catalogManager.earliestCatalogVersion(), is(expectedVersion));
             }
-
-            return true;
-        }, 1000, waitTime);
-
-        assertTrue(compacted, "The earliest catalog version does not match. Wait time ms=" + waitTime);
+        });
     }
 }

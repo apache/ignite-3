@@ -39,6 +39,7 @@ import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
@@ -84,9 +85,11 @@ public class TraversableTreeNodeTest {
     @Config
     public static class ParentConfigurationSchema {
         @ConfigValue
+        @PublicName("my-child")
         public ChildConfigurationSchema child;
 
         @NamedConfigValue
+        @PublicName("my-elements")
         public NamedElementConfigurationSchema elements;
     }
 
@@ -97,6 +100,7 @@ public class TraversableTreeNodeTest {
     public static class ChildConfigurationSchema {
         @Value(hasDefault = true)
         @Immutable
+        @PublicName("my-int-cfg")
         public int intCfg = 99;
 
         @Value
@@ -304,21 +308,21 @@ public class TraversableTreeNodeTest {
             public Object visitInnerNode(Field field, String key, InnerNode node) {
                 assertNull(node);
 
-                assertEquals("child", key);
+                assertEquals("my-child", key);
 
                 return keys.add(key);
             }
 
             @Override
             public Object visitNamedListNode(Field field, String key, NamedListNode<?> node) {
-                assertEquals("elements", key);
+                assertEquals("my-elements", key);
 
                 return keys.add(key);
             }
         }, true);
 
         // Assert that updates happened in the same order as fields declaration in schema.
-        assertEquals(new TreeSet<>(List.of("child", "elements")), keys);
+        assertEquals(new TreeSet<>(List.of("my-child", "my-elements")), keys);
 
         keys.clear();
 
@@ -332,7 +336,7 @@ public class TraversableTreeNodeTest {
         }, true);
 
         // Assert that updates happened in the same order as fields declaration in schema.
-        assertEquals(new TreeSet<>(List.of("intCfg", "strCfg")), keys);
+        assertEquals(new TreeSet<>(List.of("my-int-cfg", "strCfg")), keys);
     }
 
     /**
@@ -344,10 +348,10 @@ public class TraversableTreeNodeTest {
 
         // Assert that proper method has been invoked.
         assertThrows(VisitException.class, () ->
-                parentNode.traverseChild("child", new ConfigurationVisitor<Void>() {
+                parentNode.traverseChild("my-child", new ConfigurationVisitor<Void>() {
                     @Override
                     public Void visitInnerNode(Field field, String key, InnerNode node) {
-                        assertEquals("child", key);
+                        assertEquals("my-child", key);
 
                         throw new VisitException();
                     }
@@ -356,10 +360,10 @@ public class TraversableTreeNodeTest {
 
         // Assert that proper method has been invoked.
         assertThrows(VisitException.class, () ->
-                parentNode.traverseChild("elements", new ConfigurationVisitor<Void>() {
+                parentNode.traverseChild("my-elements", new ConfigurationVisitor<Void>() {
                     @Override
                     public Void visitNamedListNode(Field field, String key, NamedListNode<?> node) {
-                        assertEquals("elements", key);
+                        assertEquals("my-elements", key);
 
                         throw new VisitException();
                     }
@@ -370,10 +374,10 @@ public class TraversableTreeNodeTest {
 
         // Assert that proper method has been invoked.
         assertThrows(VisitException.class, () ->
-                childNode.traverseChild("intCfg", new ConfigurationVisitor<Void>() {
+                childNode.traverseChild("my-int-cfg", new ConfigurationVisitor<Void>() {
                     @Override
                     public Void visitLeafNode(Field field, String key, Serializable val) {
-                        assertEquals("intCfg", key);
+                        assertEquals("my-int-cfg", key);
 
                         throw new VisitException();
                     }

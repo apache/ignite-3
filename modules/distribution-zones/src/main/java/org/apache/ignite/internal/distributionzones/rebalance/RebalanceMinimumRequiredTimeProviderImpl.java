@@ -83,9 +83,12 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         Map<Integer, Integer> tableIdToZoneIdMap = tableIdToZoneIdMap(earliestCatalogVersion, latestCatalogVersion);
+
+        Map<Long, Long> updateTokensToActivationTimeMap = new HashMap<>();
         Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByTimestamp = allZonesByTimestamp(
                 earliestCatalogVersion,
-                latestCatalogVersion
+                latestCatalogVersion,
+                updateTokensToActivationTimeMap
         );
         Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByRevision = allZonesByRevision(allZonesByTimestamp);
         Map<Integer, Long> zoneDeletionTimestamps = zoneDeletionTimestamps(earliestCatalogVersion, latestCatalogVersion);
@@ -110,7 +113,7 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
 
             NavigableMap<Long, CatalogZoneDescriptor> map = allZonesByRevision.get(zoneId);
             Map.Entry<Long, CatalogZoneDescriptor> zone = map.floorEntry(zoneRevision);
-            long timestamp = metaStorageManager.timestampByRevisionLocally(zone.getValue().updateToken()).longValue();
+            long timestamp = updateTokensToActivationTimeMap.get(zone.getValue().updateToken());
 
             timestamp = ceilTime(zoneDescriptors, timestamp, latestTimestamp);
 
@@ -155,7 +158,8 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
      */
     Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZonesByTimestamp(
             int earliestCatalogVersion,
-            int latestCatalogVersion
+            int latestCatalogVersion,
+            Map<Long, Long> updateTokensToActivationTime
     ) {
         Map<Integer, NavigableMap<Long, CatalogZoneDescriptor>> allZones = new HashMap<>();
 
@@ -167,6 +171,8 @@ public class RebalanceMinimumRequiredTimeProviderImpl implements RebalanceMinimu
 
                 if (map.isEmpty() || updateRequiresAssignmentsRecalculation(map.lastEntry().getValue(), zone)) {
                     map.put(catalog.time(), zone);
+
+                    updateTokensToActivationTime.put(zone.updateToken(), catalog.time());
                 }
             }
         }

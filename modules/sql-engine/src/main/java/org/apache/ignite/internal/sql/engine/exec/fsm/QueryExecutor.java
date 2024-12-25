@@ -37,7 +37,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
-import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursorExt;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
@@ -75,6 +75,7 @@ public class QueryExecutor implements LifecycleAware {
     private final ExecutionService executionService;
     private final SqlProperties defaultProperties;
     private final TransactionTracker transactionTracker;
+    private final QueryIdGenerator idGenerator;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -95,6 +96,7 @@ public class QueryExecutor implements LifecycleAware {
      * @param executionService Service to submit query plans for execution.
      * @param defaultProperties Set of properties to use as defaults.
      * @param transactionTracker Tracker to track usage of transactions by query.
+     * @param idGenerator Id generator used to provide cluster-wide unique query id.
      */
     public QueryExecutor(
             CacheFactory cacheFactory,
@@ -108,7 +110,8 @@ public class QueryExecutor implements LifecycleAware {
             CatalogService catalogService,
             ExecutionService executionService,
             SqlProperties defaultProperties,
-            TransactionTracker transactionTracker
+            TransactionTracker transactionTracker,
+            QueryIdGenerator idGenerator
     ) {
         this.queryToParsedResultCache = cacheFactory.create(parsedResultsCacheSize);
         this.parserService = parserService;
@@ -121,6 +124,7 @@ public class QueryExecutor implements LifecycleAware {
         this.executionService = executionService;
         this.defaultProperties = defaultProperties;
         this.transactionTracker = transactionTracker;
+        this.idGenerator = idGenerator;
     }
 
     /**
@@ -147,7 +151,7 @@ public class QueryExecutor implements LifecycleAware {
         Query query = new Query(
                 Instant.ofEpochMilli(clockService.now().getPhysical()),
                 this,
-                UUID.randomUUID(),
+                idGenerator.next(),
                 sql,
                 properties0,
                 txContext,
@@ -191,7 +195,7 @@ public class QueryExecutor implements LifecycleAware {
                 parent,
                 parsedQuery,
                 statementNum,
-                UUID.randomUUID(),
+                idGenerator.next(),
                 scriptTxContext,
                 params,
                 nextCursorFuture
@@ -286,7 +290,7 @@ public class QueryExecutor implements LifecycleAware {
         return clockService.now();
     }
 
-    CompletableFuture<AsyncDataCursor<InternalSqlRow>> executePlan(
+    CompletableFuture<AsyncDataCursorExt<InternalSqlRow>> executePlan(
             SqlOperationContext ctx,
             QueryPlan plan
     ) {
@@ -312,10 +316,16 @@ public class QueryExecutor implements LifecycleAware {
     }
 
     private void trackQuery(Query query, @Nullable CancellationToken cancellationToken) {
-        CompletableFuture<?> unregisterFuture = query.register(runningQueries);
+        Query old = runningQueries.put(query.id, query);
+
+        assert old == null : "Query with the same id already registered";
+
+        CompletableFuture<Void> queryTerminationFut = query.onPhaseStarted(ExecutionPhase.TERMINATED);
+
+        queryTerminationFut.whenComplete((ignored, ex) -> runningQueries.remove(query.id));
 
         if (cancellationToken != null) {
-            CancelHandleHelper.addCancelAction(cancellationToken, query::cancel, unregisterFuture);
+            CancelHandleHelper.addCancelAction(cancellationToken, query::cancel, queryTerminationFut);
         }
     }
 

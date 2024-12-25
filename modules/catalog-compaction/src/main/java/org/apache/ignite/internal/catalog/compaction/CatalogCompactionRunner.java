@@ -35,6 +35,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -121,6 +123,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    private final AtomicBoolean stopGuard = new AtomicBoolean();
+
     private final MinimumRequiredTimeCollectorService localMinTimeCollectorService;
 
     private final String localNodeName;
@@ -132,6 +136,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private final SchemaSyncService schemaSyncService;
 
     private final TopologyService topologyService;
+
+    private final RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider;
 
     private CompletableFuture<Void> lastRunFuture = CompletableFutures.nullCompletedFuture();
 
@@ -145,8 +151,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
     private volatile HybridTimestamp lowWatermark;
 
     private volatile UUID localNodeId;
-
-    private volatile boolean enabled;
 
     /**
      * Constructs catalog compaction runner.
@@ -163,7 +167,8 @@ public class CatalogCompactionRunner implements IgniteComponent {
             TopologyService topologyService,
             Executor executor,
             ActiveLocalTxMinimumRequiredTimeProvider activeLocalTxMinimumRequiredTimeProvider,
-            MinimumRequiredTimeCollectorService minimumRequiredTimeCollectorService
+            MinimumRequiredTimeCollectorService minimumRequiredTimeCollectorService,
+            RebalanceMinimumRequiredTimeProvider rebalanceMinimumRequiredTimeProvider
     ) {
         this.localNodeName = localNodeName;
         this.messagingService = messagingService;
@@ -177,6 +182,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
         this.executor = executor;
         this.activeLocalTxMinimumRequiredTimeProvider = activeLocalTxMinimumRequiredTimeProvider;
         this.localMinTimeCollectorService = minimumRequiredTimeCollectorService;
+        this.rebalanceMinimumRequiredTimeProvider = rebalanceMinimumRequiredTimeProvider;
     }
 
     @Override
@@ -190,6 +196,10 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        if (!stopGuard.compareAndSet(false, true)) {
+            return CompletableFutures.nullCompletedFuture();
+        }
+
         busyLock.block();
 
         return CompletableFutures.nullCompletedFuture();
@@ -208,12 +218,6 @@ public class CatalogCompactionRunner implements IgniteComponent {
         return compactionCoordinatorNodeName;
     }
 
-    /** Enables or disables the compaction process. */
-    @TestOnly
-    public void enable(boolean value) {
-        this.enabled = value;
-    }
-
     /** Called when the low watermark has been changed. */
     public CompletableFuture<Boolean> onLowWatermarkChanged(HybridTimestamp newLowWatermark) {
         lowWatermark = newLowWatermark;
@@ -230,7 +234,7 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
     /** Starts the catalog compaction routine. */
     void triggerCompaction(@Nullable HybridTimestamp lwm) {
-        if (lwm == null || !localNodeName.equals(compactionCoordinatorNodeName) || !enabled) {
+        if (lwm == null || !localNodeName.equals(compactionCoordinatorNodeName)) {
             return;
         }
 
@@ -266,11 +270,15 @@ public class CatalogCompactionRunner implements IgniteComponent {
             partitionMinTime = Math.min(partitionMinTime, state);
         }
 
-        // Choose the minimum time between the low watermark and the minimum time among all partitions.
-        long chosenMinTime = Math.min(lwm.longValue(), partitionMinTime);
+        long rebalanceMinTime = rebalanceMinimumRequiredTimeProvider.minimumRequiredTime();
 
-        LOG.debug("Minimum required time was chosen [partitionMinTime={}, lowWatermark={}, chosen={}].",
+        // Choose the minimum time between the low watermark, minimum
+        // required rebalance time and the minimum time among all partitions.
+        long chosenMinTime = Math.min(Math.min(lwm.longValue(), partitionMinTime), rebalanceMinTime);
+
+        LOG.debug("Minimum required time was chosen [partitionMinTime={}, rebalanceMinTime={}, lowWatermark={}, chosen={}].",
                 partitionMinTime,
+                rebalanceMinTime,
                 lwm,
                 chosenMinTime
         );

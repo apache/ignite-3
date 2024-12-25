@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -31,6 +32,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -45,8 +47,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -152,6 +152,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -732,6 +733,21 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void ensureRuntimeErrorIsPropagatedToFirstPageReadyCallbackKeyValuePlan() {
+        ExecutionService execService = executionServices.get(0);
+
+        SqlOperationContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl WHERE id=1/0", ctx);
+        assertThat(plan, instanceOf(KeyValueGetPlan.class));
+
+        AsyncDataCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
+
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Division by zero", () -> await(cursor.onFirstPageReady()));
+
+        assertThat(cursor.closeAsync(), willCompleteSuccessfully());
+    }
+
+    @Test
     public void testExecuteCancelled() {
         ExecutionService execService = executionServices.get(0);
 
@@ -887,8 +903,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testTimeoutKvGet() {
-        int deadlineMillis = 500;
-
         // Use a separate context, so planning won't timeout.
         SqlOperationContext planCtx = createContext();
         QueryPlan plan = prepare("SELECT * FROM test_tbl WHERE id = 1", planCtx);
@@ -896,12 +910,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertInstanceOf(KeyValueGetPlan.class, plan);
 
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
 
-        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
-        tableRegistry.setGetTableDelay(delay);
-
-        awaitExecutionTimeout(execService, plan, deadlineMillis, SqlException.class);
+        awaitExecutionTimeout(execService, plan, 500, SqlException.class);
     }
 
     @Test
@@ -912,13 +922,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertInstanceOf(KeyValueModifyPlan.class, plan);
 
-        int deadlineMillis = 500;
-
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
-
-        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
-        tableRegistry.setGetTableDelay(delay);
 
         awaitExecutionTimeout(execService, plan, 500, SqlException.class);
     }
@@ -931,14 +935,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertInstanceOf(DdlPlan.class, plan);
 
-        int deadlineMillis = 500;
-
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-
-        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
-
-        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
-        tableRegistry.setGetTableDelay(delay);
 
         DdlCommandHandler ddlCommandHandler = execService.ddlCommandHandler();
         when(ddlCommandHandler.handle(any(CatalogCommand.class))).thenReturn(new CompletableFuture<>());
@@ -990,13 +987,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertInstanceOf(SelectCountPlan.class, plan);
 
-        int deadlineMillis = 500;
-
         ExecutionServiceImpl<?> execService = executionServices.get(0);
-        NoOpExecutableTableRegistry tableRegistry = (NoOpExecutableTableRegistry) execService.tableRegistry();
-
-        Duration delay = Duration.of(deadlineMillis * 2, ChronoUnit.MILLIS);
-        tableRegistry.setGetTableDelay(delay);
 
         Function<QueryCancel, SqlOperationContext> implicitTx = (cancel) -> operationContext()
                 .cancel(cancel)
@@ -1138,7 +1129,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryTransactionWrapper txWrapper = mock(QueryTransactionWrapper.class);
 
-        when(txContext.getOrStartImplicit(anyBoolean())).thenReturn(txWrapper);
+        when(txContext.getOrStartSqlManaged(anyBoolean(), anyBoolean())).thenReturn(txWrapper);
 
         when(txWrapper.unwrap()).thenReturn(tx);
         when(txWrapper.implicit()).thenReturn(tx.implicit());

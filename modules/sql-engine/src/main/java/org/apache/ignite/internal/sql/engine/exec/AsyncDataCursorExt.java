@@ -15,40 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.tx;
-
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.tx.InternalTransaction;
 
-/**
- * No operation wrapper.
- * 
- * <p>Use on your own risk.
- */
-public class NoopTransactionWrapper implements QueryTransactionWrapper {
-    public static final QueryTransactionWrapper INSTANCE = new NoopTransactionWrapper();
+/** Extension over {@link AsyncDataCursor} which gives an ability to specify a reason of cancellation. */
+public interface AsyncDataCursorExt<T> extends AsyncDataCursor<T> {
+    CompletableFuture<Void> cancelAsync(CancellationReason reason);
 
-    private NoopTransactionWrapper() { }
-
-    @Override
-    public InternalTransaction unwrap() {
-        return null;
-    }
-
-    @Override
-    public CompletableFuture<Void> commitImplicit() {
-        return nullCompletedFuture();
-    }
-
-    @Override
-    public CompletableFuture<Void> rollback(Throwable cause) {
-        return nullCompletedFuture();
-    }
-
-    @Override
-    public boolean implicit() {
-        return true;
+    /** Reason of cancellation. */
+    enum CancellationReason {
+        /** User's request. This reason denotes normal completion of an execution. */ 
+        CLOSE,
+        /** Execution must be terminated abruptly due to an external request or an error. */
+        CANCEL,
+        /** Execution must be terminated abruptly due to specified timeout. */
+        TIMEOUT
     }
 }

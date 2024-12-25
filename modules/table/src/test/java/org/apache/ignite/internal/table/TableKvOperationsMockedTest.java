@@ -43,21 +43,29 @@ import java.util.Random;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
 import org.apache.ignite.internal.table.KeyValueTestUtils.TestKeyObject;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
+import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
+import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
@@ -65,13 +73,30 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests for key-value operations that uses mocked structures and internal API.
  *
  *<p>For public API tests use ItTableViewApiUnifiedBaseTest.
  */
-public class TableKvOperationsMockedTest extends TableKvOperationsTestBase {
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
+public class TableKvOperationsMockedTest extends BaseIgniteAbstractTest {
+    private static final int SCHEMA_VERSION = 1;
+
+    private final SchemaVersions schemaVersions = new ConstantSchemaVersions(SCHEMA_VERSION);
+
+    @InjectConfiguration
+    private TransactionConfiguration txConfiguration;
+
+    @InjectConfiguration
+    private StorageUpdateConfiguration storageUpdateConfiguration;
+
+    @Mock(answer = RETURNS_DEEP_STUBS)
+    private ReplicaService replicaService;
+
     /** Simple schema with one key and one value column. */
     private final SchemaDescriptor simpleSchema = new SchemaDescriptor(
             SCHEMA_VERSION,
@@ -274,5 +299,9 @@ public class TableKvOperationsMockedTest extends TableKvOperationsTestBase {
                 marshallers,
                 recMapper
         );
+    }
+
+    private DummyInternalTableImpl createInternalTable(SchemaDescriptor schema) {
+        return new DummyInternalTableImpl(replicaService, schema, txConfiguration, storageUpdateConfiguration);
     }
 }
