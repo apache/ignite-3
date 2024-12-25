@@ -18,13 +18,11 @@
 package org.apache.ignite.data;
 
 import static java.util.Arrays.asList;
-import static org.apache.ignite.data.repository.Person.create;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.SoftAssertions.assertSoftly;
 
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -129,7 +127,7 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
     @Test
     public void savesAnEntity() {
 
-        Person p1 = repository.save(Person.create());
+        repository.save(Person.create());
 
         assertThat(repository.count()).isEqualTo(1);
     }
@@ -568,7 +566,7 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
         p2.setName("Diego");
         repository.save(p2);
 
-        Example<Person> example = Example.of(create(null, "Diego"));
+        Example<Person> example = Example.of(Person.create(null, "Diego"));
 
         Iterable<Person> allFound = repository.findAll(example);
 
@@ -718,9 +716,9 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     static Stream<Arguments> findAllByExamplePageableSource() {
         return Stream.of(
-                Arguments.of(PageRequest.of(0, 3), 3, 34, Arrays.asList("3", "4", "100")),
-                Arguments.of(PageRequest.of(1, 10), 10, 10, Arrays.asList("9", "20", "30")),
-                Arguments.of(PageRequest.of(2, 10), 10, 10, Arrays.asList("1", "2", "3")),
+                Arguments.of(PageRequest.of(0, 3), 3, 34, asList("3", "4", "100")),
+                Arguments.of(PageRequest.of(1, 10), 10, 10, asList("9", "20", "30")),
+                Arguments.of(PageRequest.of(2, 10), 10, 10, asList("1", "2", "3")),
                 Arguments.of(PageRequest.of(33, 3), 1, 34, Collections.emptyList()),
                 Arguments.of(PageRequest.of(36, 3), 0, 34, Collections.emptyList()),
                 Arguments.of(PageRequest.of(0, 10000), 100, 1, Collections.emptyList()),
@@ -739,7 +737,7 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
         p2.setName("Diego");
         repository.save(p2);
 
-        Example<Person> example = Example.of(create(null, "Diego"));
+        Example<Person> example = Example.of(Person.create(null, "Diego"));
 
         boolean exists = repository.exists(example);
 
@@ -841,7 +839,7 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
         Person p4 = Person.create("p4");
         p4.setFlag(false);
 
-        repository.saveAll(Arrays.asList(p1, p2, p3, p4));
+        repository.saveAll(asList(p1, p2, p3, p4));
 
         Example<Person> example = Example.of(p1, ExampleMatcher.matching().withIgnorePaths("name", "id"));
 
