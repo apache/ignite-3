@@ -126,7 +126,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void savesAnEntity() {
-
         repository.save(Person.create());
 
         assertThat(repository.count()).isEqualTo(1);
@@ -134,7 +133,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void saveAndLoadAnEntity() {
-
         Person p1 = repository.save(Person.create());
 
         assertThat(repository.findById(p1.getId())).hasValueSatisfying(it -> {
@@ -146,7 +144,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void insertsManyEntities() {
-
         Person p1 = Person.create();
         Person p2 = Person.create();
 
@@ -159,7 +156,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void existsReturnsTrueIffEntityExists() {
-
         Person p1 = repository.save(Person.create());
 
         assertThat(repository.existsById(p1.getId())).isTrue();
@@ -168,7 +164,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void findAllFindsAllEntities() {
-
         Person p1 = repository.save(Person.create());
         Person p2 = repository.save(Person.create());
 
@@ -181,7 +176,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void findAllFindsAllSpecifiedEntities() {
-
         Person p1 = repository.save(Person.create());
         Person p2 = repository.save(Person.create());
 
@@ -192,7 +186,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void countsEntities() {
-
         repository.save(Person.create());
         repository.save(Person.create());
         repository.save(Person.create());
@@ -202,7 +195,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void deleteById() {
-
         Person p1 = repository.save(Person.create());
         Person p2 = repository.save(Person.create());
         Person p3 = repository.save(Person.create());
@@ -216,7 +208,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void deleteByEntity() {
-
         Person p1 = repository.save(Person.create());
         Person p2 = repository.save(Person.create());
         Person p3 = repository.save(Person.create());
@@ -230,7 +221,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void deleteByList() {
-
         Person p1 = repository.save(Person.create());
         Person p2 = repository.save(Person.create());
         Person p3 = repository.save(Person.create());
@@ -244,7 +234,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void deleteByIdList() {
-
         Person p1 = repository.save(Person.create());
         Person p2 = repository.save(Person.create());
         Person p3 = repository.save(Person.create());
@@ -258,7 +247,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void deleteAll() {
-
         repository.save(Person.create());
         repository.save(Person.create());
         repository.save(Person.create());
@@ -272,7 +260,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void update() {
-
         Person p1 = repository.save(Person.create());
 
         p1.setName("something else");
@@ -286,7 +273,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void updateMany() {
-
         Person p1 = repository.save(Person.create());
         Person p2 = repository.save(Person.create());
 
@@ -304,7 +290,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void insertsOrUpdatesManyEntities() {
-
         Person p1 = repository.save(Person.create());
         p1.setName("something else");
         p1.setNew(false);
@@ -319,7 +304,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void findByIdReturnsEmptyWhenNoneFound() {
-
         // NOT saving anything, so DB is empty
 
         assertThat(repository.findById(-1L)).isEmpty();
@@ -327,7 +311,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void existsWorksAsExpected() {
-
         Person p1 = repository.save(Person.create());
 
         assertSoftly(softly -> {
@@ -343,7 +326,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void existsInWorksAsExpected() {
-
         Person p1 = repository.save(Person.create());
 
         assertSoftly(softly -> {
@@ -359,7 +341,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void existsNotInWorksAsExpected() {
-
         Person dummy = repository.save(Person.create());
 
         assertSoftly(softly -> {
@@ -375,7 +356,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void countByQueryDerivation() {
-
         Person p1 = Person.create();
         Person p2 = Person.create();
         p2.setName("other");
@@ -388,7 +368,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void pageByNameShouldReturnCorrectResult() {
-
         repository.saveAll(asList(Person.create("a1"), Person.create("a2"), Person.create("a3")));
 
         Page<Person> page = repository.findPageByNameContains("a", PageRequest.of(0, 5));
@@ -403,7 +382,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void selectWithLimitShouldReturnCorrectResult() {
-
         repository.saveAll(asList(Person.create("a1"), Person.create("a2"), Person.create("a3")));
 
         List<Person> page = repository.findByNameContains("a", Limit.of(3));
@@ -415,7 +393,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     public void sliceByNameShouldReturnCorrectResult() {
-
         repository.saveAll(asList(Person.create("a1"), Person.create("a2"), Person.create("a3")));
 
         Slice<Person> slice = repository.findSliceByNameContains("a", PageRequest.of(0, 5));
@@ -431,7 +408,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void derivedQueryWithBooleanLiteralFindsCorrectValues() {
-
         repository.save(Person.create());
         Person p1 = Person.create();
         p1.setFlag(true);
@@ -444,7 +420,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void queryBySimpleReference() {
-
         Person p1 = repository.save(Person.create());
         Person p2 = Person.create();
         p2.setRef(AggregateReference.to(p1.getId()));
@@ -457,7 +432,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void queryByAggregateReference() {
-
         Person p1 = repository.save(Person.create());
         Person p2 = Person.create();
         p2.setRef(AggregateReference.to(p1.getId()));
@@ -471,7 +445,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void queryByEnumTypeIn() {
-
         Person p1 = Person.create("p1");
         p1.setDirection(Direction.LEFT);
         Person p2 = Person.create("p2");
@@ -486,7 +459,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void queryByEnumTypeEqual() {
-
         Person p1 = Person.create("p1");
         p1.setDirection(Direction.LEFT);
         Person p2 = Person.create("p2");
@@ -501,7 +473,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void manyInsertsWithNestedEntities() {
-
         Root root1 = Root.create("root1");
         Root root2 = Root.create("root2");
 
@@ -514,7 +485,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void findOneByExampleShouldGetOne() {
-
         Person p1 = Person.create();
         p1.setFlag(true);
         repository.save(p1);
@@ -531,7 +501,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void findOneByExampleMultipleMatchShouldGetOne() {
-
         repository.save(Person.create());
         repository.save(Person.create());
 
@@ -543,7 +512,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void findOneByExampleShouldGetNone() {
-
         Person p1 = Person.create();
         p1.setFlag(true);
         repository.save(p1);
@@ -557,7 +525,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void findAllByExampleShouldGetOne() {
-
         Person p1 = Person.create();
         p1.setFlag(true);
         repository.save(p1);
@@ -576,7 +543,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void findAllByExampleMultipleMatchShouldGetOne() {
-
         repository.save(Person.create());
         repository.save(Person.create());
 
@@ -592,7 +558,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void findAllByExampleShouldGetNone() {
-
         Person p1 = Person.create();
         p1.setFlag(true);
 
@@ -607,7 +572,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void findAllByExamplePageableShouldGetOne() {
-
         Person p1 = Person.create();
         p1.setFlag(true);
 
@@ -629,7 +593,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void findAllByExamplePageableMultipleMatchShouldGetOne() {
-
         repository.save(Person.create());
         repository.save(Person.create());
 
@@ -646,7 +609,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void findAllByExamplePageableShouldGetNone() {
-
         Person p1 = Person.create();
         p1.setFlag(true);
 
@@ -662,7 +624,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void findAllByExamplePageableOutsidePageShouldGetNone() {
-
         repository.save(Person.create());
         repository.save(Person.create());
 
@@ -679,7 +640,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("findAllByExamplePageableSource")
     void findAllByExamplePageable(Pageable pageRequest, int size, int totalPages, List<String> notContains) {
-
         for (int i = 0; i < 100; i++) {
             Person p = Person.create();
             p.setFlag(true);
@@ -728,7 +688,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void existsByExampleShouldGetOne() {
-
         Person p1 = Person.create();
         p1.setFlag(true);
         repository.save(p1);
@@ -746,7 +705,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void existsByExampleMultipleMatchShouldGetOne() {
-
         Person p1 = Person.create();
         repository.save(p1);
 
@@ -761,7 +719,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void existsByExampleShouldGetNone() {
-
         Person p1 = Person.create();
         p1.setFlag(true);
 
@@ -776,7 +733,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void countByExampleShouldGetOne() {
-
         Person p1 = Person.create();
         p1.setFlag(true);
 
@@ -796,7 +752,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void countByExampleMultipleMatchShouldGetOne() {
-
         Person p1 = Person.create();
         repository.save(p1);
 
@@ -811,7 +766,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void countByExampleShouldGetNone() {
-
         Person p1 = Person.create();
         p1.setFlag(true);
 
@@ -826,7 +780,6 @@ public class SpringDataJdbcTest extends BaseIgniteAbstractTest {
 
     @Test
     void findByScrollPosition() {
-
         Person p1 = Person.create("p1");
         p1.setFlag(true);
 
