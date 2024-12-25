@@ -50,7 +50,7 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         inMemoryCollectionSink = new InMemoryCollectionSink();
-        SinkFactoryFactoryImpl defaultFactory = new SinkFactoryFactoryImpl(new EventSerializerFactory().createEventSerializer(),
+        SinkFactoryImpl defaultFactory = new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(),
                 UUID::randomUUID, "default");
 
         registry = new ConfigurationBasedSinkRegistry(cfg, new TestSinkFactory(defaultFactory, inMemoryCollectionSink));

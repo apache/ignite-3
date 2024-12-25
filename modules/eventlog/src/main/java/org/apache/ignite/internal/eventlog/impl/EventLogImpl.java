@@ -47,7 +47,7 @@ public class EventLogImpl implements EventLog {
      * @param cfg the configuration.
      */
     public EventLogImpl(EventLogConfiguration cfg, Supplier<UUID> clusterIdSupplier, String nodeName) {
-        this(cfg, new SinkFactoryFactoryImpl(new EventSerializerFactory().createEventSerializer(), clusterIdSupplier, nodeName));
+        this(cfg, new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(), clusterIdSupplier, nodeName));
     }
 
     EventLogImpl(EventLogConfiguration cfg, SinkFactory sinkFactory) {

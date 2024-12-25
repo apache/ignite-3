@@ -52,7 +52,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         inMemoryCollectionSink = new InMemoryCollectionSink();
-        SinkFactoryFactoryImpl defaultFactory = new SinkFactoryFactoryImpl(new EventSerializerFactory().createEventSerializer(),
+        SinkFactoryImpl defaultFactory = new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(),
                 UUID::randomUUID, "default");
         SinkFactory sinkFactory = new TestSinkFactory(defaultFactory, inMemoryCollectionSink);
         eventLog = new EventLogImpl(eventLogConfiguration, sinkFactory);

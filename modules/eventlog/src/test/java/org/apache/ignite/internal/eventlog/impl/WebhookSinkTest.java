@@ -132,7 +132,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void shouldSkipSendingEvents() throws InterruptedException {
+    void shouldSkipSendingEvents() {
         clientAndServer
                 .when(
                         request()
@@ -145,7 +145,9 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
-        Thread.sleep(500L);
+        Awaitility.await()
+                .timeout(Duration.ofMillis(500L))
+                .until(() -> sink.getLastSendMillis() == 0L);
 
         assertThat(sink.getEvents(), hasSize(1));
 
@@ -179,6 +181,8 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                 .atMost(Duration.ofMillis(500L))
                 .until(() -> sink.getLastSendMillis() > 0L);
 
+        assertThat(sink.getEvents(), hasSize(0));
+
         clientAndServer
                 .verify(
                         request()
@@ -186,8 +190,42 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                                 .withPath("/api/v1/events")
                                 .withContentType(APPLICATION_JSON)
                                 .withHeader("X-SINK-CLUSTER-ID", CLUSTER_ID.toString())
-                                .withHeader("X-SINK-NODE-NAME", "default"),
+                                .withHeader("X-SINK-NODE-NAME", "default")
+                                .withBody(json("[{\"type\" : \"USER_AUTHENTICATION_SUCCESS\"}]", ONLY_MATCHING_FIELDS)),
                         VerificationTimes.atLeast(2));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {500, 400, 404, 301})
+    void shouldIgnoreErrorOnSendEvents(int statusCode) {
+        clientAndServer
+                .when(
+                        request()
+                                .withMethod("POST")
+                                .withPath("/api/v1/events")
+                )
+                .respond(response().withStatusCode(statusCode));
+
+        WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoff(100L));
+
+        sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
+
+        Awaitility.await()
+                .atMost(Duration.ofMillis(500L))
+                .until(() -> sink.getLastSendMillis() > 0L);
+
+        assertThat(sink.getEvents(), hasSize(0));
+
+        clientAndServer
+                .verify(
+                        request()
+                                .withMethod("POST")
+                                .withPath("/api/v1/events")
+                                .withContentType(APPLICATION_JSON)
+                                .withHeader("X-SINK-CLUSTER-ID", CLUSTER_ID.toString())
+                                .withHeader("X-SINK-NODE-NAME", "default")
+                                .withBody(json("[{\"type\" : \"USER_AUTHENTICATION_SUCCESS\"}]", ONLY_MATCHING_FIELDS)),
+                        VerificationTimes.atLeast(1));
     }
 
     @BeforeAll
@@ -217,7 +255,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
     private WebhookSink createSink(Consumer<WebhookSinkChange> consumer) {
         mutateSinkConfiguration(cfg, consumer);
 
-        return (WebhookSink) new SinkFactoryFactoryImpl(new EventSerializerFactory().createEventSerializer(), () -> CLUSTER_ID, "default")
+        return (WebhookSink) new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(), () -> CLUSTER_ID, "default")
                 .createSink(cfg.sinks().get("webhookSink").value());
     }
 }

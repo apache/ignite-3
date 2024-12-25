@@ -28,14 +28,14 @@ import org.apache.ignite.internal.eventlog.ser.EventSerializer;
 /**
  * Factory for creating sink instances.
  */
-class SinkFactoryFactoryImpl implements SinkFactory {
+class SinkFactoryImpl implements SinkFactory {
     private final EventSerializer eventSerializer;
 
     private final  Supplier<UUID> clusterIdSupplier;
 
     private final String nodeName;
 
-    SinkFactoryFactoryImpl(EventSerializer eventSerializer, Supplier<UUID> clusterIdSupplier, String nodeName) {
+    SinkFactoryImpl(EventSerializer eventSerializer, Supplier<UUID> clusterIdSupplier, String nodeName) {
         this.eventSerializer = eventSerializer;
         this.clusterIdSupplier = clusterIdSupplier;
         this.nodeName = nodeName;

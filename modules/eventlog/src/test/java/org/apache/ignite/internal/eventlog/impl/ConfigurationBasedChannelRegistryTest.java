@@ -49,7 +49,7 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
     void setUp() {
         registry = new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(
                 cfg,
-                new SinkFactoryFactoryImpl(new EventSerializerFactory().createEventSerializer(), UUID::randomUUID, "default"))
+                new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(), UUID::randomUUID, "default"))
         );
     }
 
