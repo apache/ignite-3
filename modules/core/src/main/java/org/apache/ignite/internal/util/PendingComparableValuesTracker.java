@@ -203,11 +203,11 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
         return valueFutures.isEmpty();
     }
 
-    protected boolean enterBusy() {
+    protected final boolean enterBusy() {
         return !busyLock.isWriteLockedByCurrentThread() && busyLock.readLock().tryLock();
     }
 
-    protected void leaveBusy() {
+    protected final void leaveBusy() {
         busyLock.readLock().unlock();
     }
 

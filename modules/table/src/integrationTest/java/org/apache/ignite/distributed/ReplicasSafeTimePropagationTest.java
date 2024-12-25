@@ -29,6 +29,7 @@ import static org.mockito.Mockito.mock;
 
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -49,11 +50,13 @@ import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestLozaFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
@@ -194,6 +197,61 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         assertTrue(newLeader.safeTs.current().compareTo(nextTimestamp) > 0);
 
         assertTrue(newLeader.safeTs.current().compareTo(firstSafeTs) > 0);
+    }
+
+    /**
+     * Test verifies that a new leader will monotonically assign new safe timestamp.
+     * <ol>
+     *     <li>Start three nodes and a raft group with three peers.</li>
+     *     <li>Send safe ts sync command.</li>
+     *     <li>Reset a cluster to a single node.</li>
+     *     <li>Send next safe ts sync command and ensure no reordering happens.</li>
+     * </ol>
+     */
+    @Test
+    public void testSafeTimeReorderingOnClusterShrink() throws Exception {
+        // Start three nodes and a raft group with three peers.
+        {
+            cluster = Stream.of("node1", "node2", "node3").collect(toMap(identity(), PartialNode::new));
+
+            startCluster(cluster);
+        }
+
+        PartialNode someNode = cluster.values().iterator().next();
+
+        RaftGroupService raftClient = someNode.raftClient;
+
+        assertThat(raftClient.refreshLeader(), willCompleteSuccessfully());
+
+        // Assumes stable clock on test runner.
+        HybridClock initiatorClock = new TestHybridClock(() -> System.currentTimeMillis() - 100);
+
+        HybridTimestamp beginTs = initiatorClock.now();
+
+        sendSafeTimeSyncCommand(raftClient, beginTs);
+
+        LeaderWithTerm leader = raftClient.refreshAndGetLeaderWithTerm().join();
+        assertNotNull(raftClient.leader());
+        PartialNode leaderNode = cluster.get(raftClient.leader().consistentId());
+        HybridTimestamp firstSafeTs = leaderNode.safeTs.current();
+        assertTrue(firstSafeTs.compareTo(beginTs) > 0);
+
+        // Reset topology to a leader with lagging clock.
+        String resetToLeader = "node1";
+
+        PeersAndLearners cfg = fromConsistentIds(Set.of(resetToLeader));
+
+        leaderNode.raftClient.changePeersAndLearners(cfg, leader.term()).join();
+
+        PartialNode leaderNode2 = cluster.get(resetToLeader);
+
+        HybridTimestamp nextTimestamp = initiatorClock.now();
+
+        sendSafeTimeSyncCommand(leaderNode2.raftClient, nextTimestamp);
+
+        assertTrue(leaderNode2.safeTs.current().compareTo(nextTimestamp) > 0);
+
+        assertTrue(leaderNode2.safeTs.current().compareTo(firstSafeTs) > 0);
     }
 
     private void startCluster(Map<String, PartialNode> cluster) throws Exception {
