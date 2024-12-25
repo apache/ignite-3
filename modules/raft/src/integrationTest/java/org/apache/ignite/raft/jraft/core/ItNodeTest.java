@@ -214,7 +214,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
     private final List<FixedThreadsExecutorGroup> appendEntriesExecutors = new ArrayList<>();
 
-    private @Nullable DefaultLogStorageFactory persistentLogStorageFactory;
+    private PersistentLogStorageFactories persistentLogStorageFactories;
+
     /** Test info. */
     private TestInfo testInfo;
 
@@ -242,6 +243,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         testStartMs = Utils.monotonicMs();
         dumpThread.interrupt(); // reset dump timeout
+
+        persistentLogStorageFactories = new PersistentLogStorageFactories(dataPath);
     }
 
     @AfterEach
@@ -267,9 +270,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         TestUtils.assertAllJraftThreadsStopped();
 
-        if (persistentLogStorageFactory != null) {
-            assertThat(persistentLogStorageFactory.stopAsync(), willCompleteSuccessfully());
-        }
+        persistentLogStorageFactories.shutdown();
 
         log.info(">>>>>>>>>>>>>>> End test method: " + testInfo.getDisplayName() + ", cost:"
             + (Utils.monotonicMs() - testStartMs) + " ms.");
@@ -4097,9 +4098,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 testInfo
         );
 
-        persistentLogStorageFactory = startPersistentLogStorageFactory();
-
-        cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
+        cluster.setRaftServiceFactories(peerId -> new IgniteJraftServiceFactory(persistentLogStorageFactories.factoryFor(peerId)));
 
         for (TestPeer peer : peers) {
             assertTrue(cluster.start(peer));
@@ -4161,9 +4160,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 testInfo
         );
 
-        persistentLogStorageFactory = startPersistentLogStorageFactory();
-
-        cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
+        cluster.setRaftServiceFactories(peerId -> new IgniteJraftServiceFactory(persistentLogStorageFactories.factoryFor(peerId)));
 
         for (TestPeer peer : peers) {
             assertTrue(cluster.start(peer));
@@ -4201,8 +4198,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
     @Test
     public void applicationOfLongBatchInStateMachineDoesNotPreventFastShutdown() throws Exception {
-        persistentLogStorageFactory = startPersistentLogStorageFactory();
-
         CompletableFuture<Void> allowExecutionFuture = new CompletableFuture<>();
 
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 2);
@@ -4211,7 +4206,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // start being executed as a single long batch.
 
         TestCluster cluster = createClusterOf(peers);
-        cluster.setRaftServiceFactory(new IgniteJraftServiceFactory(persistentLogStorageFactory));
+        cluster.setRaftServiceFactories(peerId -> new IgniteJraftServiceFactory(persistentLogStorageFactories.factoryFor(peerId)));
         cluster.setStateMachineFactory(peerId -> new MockStateMachine(peerId) {
             @Override
             protected void executeCommand(Iterator iterator) {
