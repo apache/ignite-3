@@ -135,7 +135,7 @@ import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyn
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -840,7 +840,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
-                new HybridTimestampTrackerImpl(),
+                HybridTimestampTracker.atomicTracker(null),
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),

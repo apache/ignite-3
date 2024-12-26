@@ -106,7 +106,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -213,7 +213,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 false,
                 null,
                 schema,
-                new HybridTimestampTrackerImpl(),
+                HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
                 storageUpdateConfiguration,
                 txConfiguration,
@@ -241,7 +241,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             boolean crossTableUsage,
             @Nullable TransactionStateResolver transactionStateResolver,
             SchemaDescriptor schema,
-            HybridTimestampTrackerImpl tracker,
+            HybridTimestampTracker tracker,
             PlacementDriver placementDriver,
             StorageUpdateConfiguration storageUpdateConfiguration,
             TransactionConfiguration txConfiguration,

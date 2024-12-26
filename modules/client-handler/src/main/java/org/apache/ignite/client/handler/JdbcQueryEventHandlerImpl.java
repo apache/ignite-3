@@ -66,7 +66,6 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -88,7 +87,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
      * Observation timestamp tracker.
      * TODO: IGNITE-24053 Remove this after the issue will be fixed.
      * */
-    private final HybridTimestampTrackerImpl timestampTracker = new HybridTimestampTrackerImpl();
+    private final HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
 
     /** Sql query processor. */
     private final QueryProcessor processor;
@@ -185,7 +184,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 .exceptionally(t -> createErrorResult("Exception while executing query.", t, null));
     }
 
-    public HybridTimestampTrackerImpl getTimestampTracker() {
+    public HybridTimestampTracker getTimestampTracker() {
         return timestampTracker;
     }
 

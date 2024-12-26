@@ -55,7 +55,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.ListToInternalSqlRowAdapter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.SqlException;
@@ -83,7 +83,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
     void setUp() {
         clock.set(1L);
 
-        igniteSql = new IgniteSqlImpl(queryProcessor, mock(HybridTimestampTrackerImpl.class));
+        igniteSql = new IgniteSqlImpl(queryProcessor, mock(HybridTimestampTracker.class));
     }
 
     @Test

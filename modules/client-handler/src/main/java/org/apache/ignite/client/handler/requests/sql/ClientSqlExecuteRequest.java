@@ -28,7 +28,6 @@ import java.util.concurrent.CompletionStage;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.client.handler.requests.table.ClientHybridTimestampTracker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -84,7 +83,7 @@ public class ClientSqlExecuteRequest {
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
 
-        var tsUpdater = new ClientHybridTimestampTracker(clientTs, out::meta);
+        var tsUpdater = HybridTimestampTracker.clientTracker(clientTs, out::meta);
 
         return executeAsync(tx, sql, tsUpdater, statement, props.pageSize(), props.toSqlProps(), arguments)
                 .thenCompose(asyncResultSet -> {

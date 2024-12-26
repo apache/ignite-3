@@ -40,7 +40,6 @@ import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -278,7 +277,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         return queryCheckerFactory.create(
                 NODE_NAME,
                 new TestQueryProcessor(testNode, false),
-                new HybridTimestampTrackerImpl(),
+                HybridTimestampTracker.atomicTracker(null),
                 null,
                 qry
         );
@@ -290,7 +289,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         return queryCheckerFactory.create(
                 NODE_NAME,
                 new TestQueryProcessor(testNode, true),
-                new HybridTimestampTrackerImpl(),
+                HybridTimestampTracker.atomicTracker(null),
                 null,
                 qry
         );

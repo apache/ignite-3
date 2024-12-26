@@ -37,7 +37,7 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -369,10 +369,10 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
                 .build();
 
         private final QueryProcessor queryProcessor;
-        private final HybridTimestampTrackerImpl observableTimeTracker;
+        private final HybridTimestampTracker observableTimeTracker;
         private final int pageSize;
 
-        QueryRunner(QueryProcessor queryProcessor, HybridTimestampTrackerImpl observableTimeTracker, int pageSize) {
+        QueryRunner(QueryProcessor queryProcessor, HybridTimestampTracker observableTimeTracker, int pageSize) {
             this.queryProcessor = queryProcessor;
             this.observableTimeTracker = observableTimeTracker;
             this.pageSize = pageSize;

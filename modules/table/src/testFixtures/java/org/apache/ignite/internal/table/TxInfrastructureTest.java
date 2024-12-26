@@ -51,7 +51,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -103,7 +103,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     /** Customers table id -> name. */
     protected TableViewInternal customers;
 
-    protected HybridTimestampTrackerImpl timestampTracker = new HybridTimestampTrackerImpl();
+    protected HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
 
     protected IgniteTransactions igniteTransactions;
 

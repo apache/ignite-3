@@ -42,6 +42,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -436,6 +437,8 @@ public class ClientTableCommon {
         InternalTransaction tx = readTx(in, out, resources);
 
         if (tx == null) {
+            // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
+            // The direct transaction uses a current timestamp on the primary replica by definition.
             tx = startTx(out, txManager, null, true, readOnly);
         }
 
@@ -460,7 +463,7 @@ public class ClientTableCommon {
             boolean readOnly
     ) {
         return txManager.begin(
-                new ClientHybridTimestampTracker(currentTs, implicit ? out::meta : ts -> {}),
+                HybridTimestampTracker.clientTracker(currentTs, implicit ? out::meta : ts -> {}),
                 implicit,
                 readOnly
         );

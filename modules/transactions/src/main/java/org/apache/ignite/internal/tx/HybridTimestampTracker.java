@@ -17,15 +17,20 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
+
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Interface is used to provide a track timestamp into a transaction operation.
  */
-public interface HybridTimestampTracker {
+public abstract class HybridTimestampTracker {
     /** This tracker do nothing.*/
-    HybridTimestampTracker EMPTY_TS_PROVIDER = new HybridTimestampTracker() {
+    private static final HybridTimestampTracker EMPTY_TS_PROVIDER = new HybridTimestampTracker() {
         @Override
         public @Nullable HybridTimestamp get() {
             return null;
@@ -33,21 +38,81 @@ public interface HybridTimestampTracker {
 
         @Override
         public void update(@Nullable HybridTimestamp ts) {
-
         }
     };
+
+    /**
+     * Returns an empty HybridTimestampTracker instance that performs no operations.
+     *
+     * @return A HybridTimestampTracker instance that does nothing for both retrieval and update operations.
+     */
+    public static HybridTimestampTracker emptyTracker() {
+        return EMPTY_TS_PROVIDER;
+    }
+
+    /**
+     * Creates an atomic HybridTimestampTracker instance that uses an {@link AtomicLong} to track and update the timestamp.
+     *
+     * @param intTs The initial HybridTimestamp, or null if no initial timestamp is provided.
+     * @return A HybridTimestampTracker instance for tracking and updating a hybrid timestamp atomically.
+     */
+    public static HybridTimestampTracker atomicTracker(@Nullable HybridTimestamp intTs) {
+        return new HybridTimestampTracker() {
+            /** Timestamp. */
+            private final AtomicLong timestamp = new AtomicLong(hybridTimestampToLong(intTs));
+
+            @Override
+            public @Nullable HybridTimestamp get() {
+                return nullableHybridTimestamp(timestamp.get());
+            }
+
+            @Override
+            public void update(@Nullable HybridTimestamp ts) {
+                long tsVal = hybridTimestampToLong(ts);
+
+                timestamp.updateAndGet(x -> Math.max(x, tsVal));
+            }
+        };
+    }
+
+    /**
+     * Creates a client-managed HybridTimestampTracker based on a given initial timestamp and an update consumer.
+     *
+     * @param intTs The initial HybridTimestamp, or null if no initial timestamp is provided.
+     * @param updateTs A Consumer that accepts a HybridTimestamp for managing updates to the timestamp.
+     * @return A HybridTimestampTracker instance that uses the provided initial timestamp and update mechanism.
+     */
+    public static HybridTimestampTracker clientTracker(@Nullable HybridTimestamp intTs, Consumer<HybridTimestamp> updateTs) {
+        return new HybridTimestampTracker() {
+            @Override
+            public @Nullable HybridTimestamp get() {
+                return intTs;
+            }
+
+            @Override
+            public void update(@Nullable HybridTimestamp ts) {
+                updateTs.accept(ts);
+            }
+        };
+    }
+
+    /**
+     * The constructor is private. An instance can be created with static methods.
+     */
+    private HybridTimestampTracker() {
+    }
 
     /**
      * Get the observable timestamp.
      *
      * @return Hybrid timestamp.
      */
-    @Nullable HybridTimestamp get();
+    public abstract @Nullable HybridTimestamp get();
 
     /**
      * Updates the observable timestamp after an operation is executed.
      *
      * @param ts Hybrid timestamp.
      */
-    void update(@Nullable HybridTimestamp ts);
+    public abstract void update(@Nullable HybridTimestamp ts);
 }

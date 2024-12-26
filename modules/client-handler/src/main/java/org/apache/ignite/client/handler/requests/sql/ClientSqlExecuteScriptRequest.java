@@ -18,11 +18,11 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.handler.requests.table.ClientHybridTimestampTracker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
@@ -50,7 +50,7 @@ public class ClientSqlExecuteScriptRequest {
         }
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        var tsUpdater = new ClientHybridTimestampTracker(clientTs, ts -> {});
+        var tsUpdater = HybridTimestampTracker.clientTracker(clientTs, ts -> {});
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Pass cancellation token to the query processor.
         return IgniteSqlImpl.executeScriptCore(

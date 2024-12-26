@@ -45,7 +45,7 @@ import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -69,7 +69,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(ClockService.class),
-                new HybridTimestampTrackerImpl(),
+                HybridTimestampTracker.atomicTracker(null),
                 mock(PlacementDriver.class),
                 mock(TransactionInflights.class),
                 3_000,
@@ -119,7 +119,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(TxStateTableStorage.class),
                 mock(ReplicaService.class),
                 mock(ClockService.class),
-                new HybridTimestampTrackerImpl(),
+                HybridTimestampTracker.atomicTracker(null),
                 mock(PlacementDriver.class),
                 mock(TransactionInflights.class),
                 3_000,

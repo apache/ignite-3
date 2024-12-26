@@ -31,7 +31,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.junit.jupiter.api.Test;
@@ -50,7 +50,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
                 .set(ALLOWED_QUERY_TYPES, Set.of(SqlQueryType.QUERY))
                 .build();
 
-        HybridTimestampTrackerImpl hybridTimestampTrackerImpl = igniteImpl.observableTimeTracker();
+        HybridTimestampTracker hybridTimestampTracker = igniteImpl.observableTimeTracker();
 
         SqlQueryProcessor qryProc = queryProcessor();
 
@@ -72,7 +72,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
 
         AsyncSqlCursor<InternalSqlRow> query1 = await(qryProc.queryAsync(
                 properties,
-                hybridTimestampTrackerImpl,
+                hybridTimestampTracker,
                 null,
                 token,
                 query.toString()
@@ -100,7 +100,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
                 .set(ALLOWED_QUERY_TYPES, Set.of(SqlQueryType.QUERY))
                 .build();
 
-        HybridTimestampTrackerImpl hybridTimestampTrackerImpl = igniteImpl.observableTimeTracker();
+        HybridTimestampTracker hybridTimestampTracker = igniteImpl.observableTimeTracker();
 
         SqlQueryProcessor qryProc = queryProcessor();
 
@@ -122,7 +122,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
 
         AsyncSqlCursor<InternalSqlRow> query1 = await(qryProc.queryAsync(
                 properties,
-                hybridTimestampTrackerImpl,
+                hybridTimestampTracker,
                 null,
                 token,
                 query.toString()
@@ -130,7 +130,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
 
         AsyncSqlCursor<InternalSqlRow> query2 = await(qryProc.queryAsync(
                 properties,
-                hybridTimestampTrackerImpl,
+                hybridTimestampTracker,
                 null,
                 token,
                 query.toString()
@@ -159,7 +159,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
                 .set(ALLOWED_QUERY_TYPES, Set.of(SqlQueryType.QUERY))
                 .build();
 
-        HybridTimestampTrackerImpl hybridTimestampTrackerImpl = igniteImpl.observableTimeTracker();
+        HybridTimestampTracker hybridTimestampTracker = igniteImpl.observableTimeTracker();
 
         SqlQueryProcessor qryProc = queryProcessor();
 
@@ -170,7 +170,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
 
         Executable run = () -> await(qryProc.queryAsync(
                 properties,
-                hybridTimestampTrackerImpl,
+                hybridTimestampTracker,
                 null,
                 token,
                 "SELECT 1"
@@ -197,7 +197,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
                 .set(ALLOWED_QUERY_TYPES, Set.of(SqlQueryType.QUERY, SqlQueryType.DML))
                 .build();
 
-        HybridTimestampTrackerImpl hybridTimestampTrackerImpl = igniteImpl.observableTimeTracker();
+        HybridTimestampTracker hybridTimestampTracker = igniteImpl.observableTimeTracker();
 
         SqlQueryProcessor qryProc = queryProcessor();
 
@@ -206,7 +206,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
 
         Executable run = () -> await(qryProc.queryAsync(
                 properties,
-                hybridTimestampTrackerImpl,
+                hybridTimestampTracker,
                 null,
                 token,
                 query

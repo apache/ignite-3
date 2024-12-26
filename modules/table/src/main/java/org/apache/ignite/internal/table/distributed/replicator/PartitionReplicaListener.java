@@ -676,7 +676,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         // meaning that the state is changed to aborted and a corresponding cleanup request
         // is sent in a common durable manner to a partition that have initiated recovery.
         return txManager.finish(
-                        HybridTimestampTracker.EMPTY_TS_PROVIDER,
+                        HybridTimestampTracker.emptyTracker(),
                         // Tx recovery is executed on the commit partition.
                         replicationGroupId,
                         false,

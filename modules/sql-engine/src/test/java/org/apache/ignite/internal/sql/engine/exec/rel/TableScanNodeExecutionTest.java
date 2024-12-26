@@ -75,7 +75,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -132,7 +132,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         int i = 0;
 
-        HybridTimestampTrackerImpl timestampTracker = new HybridTimestampTrackerImpl();
+        HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
 
         String leaseholder = "local";
 
@@ -247,7 +247,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
         TestInternalTableImpl(
                 ReplicaService replicaSvc,
                 int dataAmount,
-                HybridTimestampTrackerImpl timestampTracker,
+                HybridTimestampTracker timestampTracker,
                 TxManager txManager,
                 ClockService clockService
         ) {

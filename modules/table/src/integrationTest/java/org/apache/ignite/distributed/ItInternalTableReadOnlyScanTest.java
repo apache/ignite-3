@@ -24,7 +24,7 @@ import static org.mockito.Mockito.mock;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -37,7 +37,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScanTest {
-    private static final HybridTimestampTrackerImpl HYBRID_TIMESTAMP_TRACKER = new HybridTimestampTrackerImpl();
+    private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = HybridTimestampTracker.atomicTracker(null);
 
     @Override
     protected Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx) {

@@ -21,13 +21,13 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.jetbrains.annotations.Nullable;
 
 /** Context that always returns explicit transaction. */
 public class ExplicitTxContext implements QueryTransactionContext {
-    private final HybridTimestampTrackerImpl observableTimeTracker = new HybridTimestampTrackerImpl();
+    private final HybridTimestampTracker observableTimeTracker = HybridTimestampTracker.atomicTracker(null);
     private final QueryTransactionWrapper txWrapper;
 
     public static QueryTransactionContext fromTx(InternalTransaction tx) {

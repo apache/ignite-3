@@ -722,7 +722,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             case ClientOp.JDBC_EXEC:
                 return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler).thenRun(() -> {
                     // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
-                    if (!(out.meta() instanceof HybridTimestamp)) {
+                    if (out.meta() == null) {
                         out.meta(clockService.current());
                     }
                 });
@@ -733,7 +733,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             case ClientOp.JDBC_EXEC_BATCH:
                 return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler).thenRun(() -> {
                     // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
-                    if (!(out.meta() instanceof HybridTimestamp)) {
+                    if (out.meta() == null) {
                         out.meta(clockService.current());
                     }
                 });
@@ -804,7 +804,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics).thenRun(() -> {
                     // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
-                    if (!(out.meta() instanceof HybridTimestamp)) {
+                    if (out.meta() == null) {
                         out.meta(clockService.current());
                     }
                 });
@@ -823,8 +823,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(in, queryProcessor).thenRun(() -> {
-                    // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
-                    if (!(out.meta() instanceof HybridTimestamp)) {
+                    if (out.meta() == null) {
                         out.meta(clockService.current());
                     }
                 });
@@ -835,7 +834,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources).thenRun(() -> {
                     // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
-                    if (!(out.meta() instanceof HybridTimestamp)) {
+                    if (out.meta() == null) {
                         out.meta(clockService.current());
                     }
                 });

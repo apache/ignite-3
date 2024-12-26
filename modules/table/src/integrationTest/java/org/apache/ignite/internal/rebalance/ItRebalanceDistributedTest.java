@@ -236,7 +236,7 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -1498,7 +1498,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
-                    new HybridTimestampTrackerImpl(),
+                    HybridTimestampTracker.atomicTracker(null),
                     placementDriver,
                     () -> mock(IgniteSql.class),
                     resourcesRegistry,

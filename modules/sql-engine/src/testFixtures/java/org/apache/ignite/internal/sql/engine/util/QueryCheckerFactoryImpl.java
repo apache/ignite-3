@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker.QueryTemplate;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
@@ -49,7 +49,7 @@ class QueryCheckerFactoryImpl implements QueryCheckerFactory {
     public QueryChecker create(
             String nodeName,
             QueryProcessor queryProcessor,
-            HybridTimestampTrackerImpl observableTimeTracker,
+            HybridTimestampTracker observableTimeTracker,
             InternalTransaction tx,
             String query
     ) {
@@ -60,7 +60,7 @@ class QueryCheckerFactoryImpl implements QueryCheckerFactory {
     public QueryChecker create(
             String nodeName,
             QueryProcessor queryProcessor,
-            HybridTimestampTrackerImpl observableTimeTracker,
+            HybridTimestampTracker observableTimeTracker,
             Consumer<ResultSetMetadata> metadataValidator,
             QueryTemplate queryTemplate
     ) {
@@ -70,7 +70,7 @@ class QueryCheckerFactoryImpl implements QueryCheckerFactory {
     private QueryChecker create(
             String nodeName,
             QueryProcessor queryProcessor,
-            HybridTimestampTrackerImpl observableTimeTracker,
+            HybridTimestampTracker observableTimeTracker,
             Consumer<ResultSetMetadata> metadataValidator,
             @Nullable InternalTransaction tx,
             QueryTemplate queryTemplate
@@ -82,7 +82,7 @@ class QueryCheckerFactoryImpl implements QueryCheckerFactory {
             }
 
             @Override
-            protected HybridTimestampTrackerImpl observableTimeTracker() {
+            protected HybridTimestampTracker observableTimeTracker() {
                 return observableTimeTracker;
             }
 

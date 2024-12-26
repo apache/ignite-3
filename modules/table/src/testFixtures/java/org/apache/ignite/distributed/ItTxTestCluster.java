@@ -153,7 +153,7 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -303,7 +303,7 @@ public class ItTxTestCluster {
     private final TestInfo testInfo;
 
     /** Observable timestamp tracker. */
-    private final HybridTimestampTrackerImpl timestampTracker;
+    private final HybridTimestampTracker timestampTracker;
 
     private final ReplicationConfiguration replicationConfiguration;
 
@@ -325,7 +325,7 @@ public class ItTxTestCluster {
             int nodes,
             int replicas,
             boolean startClient,
-            HybridTimestampTrackerImpl timestampTracker,
+            HybridTimestampTracker timestampTracker,
             ReplicationConfiguration replicationConfiguration
     ) {
         this.raftConfig = raftConfig;

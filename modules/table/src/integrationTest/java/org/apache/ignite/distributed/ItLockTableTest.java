@@ -40,7 +40,7 @@ import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.tx.HybridTimestampTrackerImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
@@ -103,7 +103,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
 
     private ItTxTestCluster txTestCluster;
 
-    private HybridTimestampTrackerImpl timestampTracker = new HybridTimestampTrackerImpl();
+    private HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
 
     /**
      * The constructor.
