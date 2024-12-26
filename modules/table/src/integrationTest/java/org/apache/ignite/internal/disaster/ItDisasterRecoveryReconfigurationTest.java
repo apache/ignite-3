@@ -1391,7 +1391,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockMessage((nodeName, msg) -> blockedLink2.get() && stableKeySwitchMessage(msg, partId, link2Assignments));
 
         logger().info("Stopping nodes [ids={}].", Arrays.toString(new int[]{3, 4, 5, 6}));
-        
+
         stopNodesInParallel(3, 4, 5, 6);
 
         Assignments link2FirstPhaseReset = Assignments.of(Set.of(
