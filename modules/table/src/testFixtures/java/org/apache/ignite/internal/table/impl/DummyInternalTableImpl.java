@@ -561,7 +561,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txConfiguration,
                 clusterService,
                 replicaSvc,
-                new HeapLockManager(1024, 1024),
+                HeapLockManager.smallInstqnce(),
                 CLOCK_SERVICE,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,

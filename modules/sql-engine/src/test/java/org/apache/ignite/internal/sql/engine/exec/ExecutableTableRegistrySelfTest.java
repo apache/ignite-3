@@ -167,7 +167,7 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
         }
 
         private LockManager lockManager() {
-            HeapLockManager lockManager = new HeapLockManager();
+            HeapLockManager lockManager = HeapLockManager.smallInstqnce();
             lockManager.start(new WaitDieDeadlockPreventionPolicy());
             return lockManager;
         }

@@ -143,6 +143,15 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     private final AtomicLong lastTsPintWarn = new AtomicLong();
 
     /**
+     * Creates an instance of {@link HeapLockManager} with a few slots eligible for tests which don't stress the lock manager too much.
+     * Such a small instance is started way faster than a full-blown production ready instance with a lot of slots.
+     */
+    @TestOnly
+    public static HeapLockManager smallInstqnce() {
+        return new HeapLockManager(1024, 1024);
+    }
+
+    /**
      * Constructor.
      */
     public HeapLockManager() {

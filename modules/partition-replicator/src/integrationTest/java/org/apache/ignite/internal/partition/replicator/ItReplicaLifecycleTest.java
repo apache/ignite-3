@@ -1034,7 +1034,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterIdHolder
             );
 
-            lockManager = new HeapLockManager();
+            lockManager = HeapLockManager.smallInstqnce();
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 

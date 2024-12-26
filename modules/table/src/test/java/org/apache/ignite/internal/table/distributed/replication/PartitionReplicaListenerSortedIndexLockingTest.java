@@ -288,7 +288,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
     }
 
     private static LockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager();
+        HeapLockManager lockManager = HeapLockManager.smallInstqnce();
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }
