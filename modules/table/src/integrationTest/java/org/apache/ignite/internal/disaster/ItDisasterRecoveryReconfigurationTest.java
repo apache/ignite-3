@@ -1437,6 +1437,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // Disable automatic reset since we want to check manual ones.
         setDistributionResetTimeout(node0, INFINITE_TIMER_VALUE);
+        // Disable scale down to avoid unwanted rebalance.
+        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
 
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
