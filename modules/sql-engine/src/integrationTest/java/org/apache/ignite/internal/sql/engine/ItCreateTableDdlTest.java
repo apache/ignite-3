@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.List;
 import java.util.Objects;
@@ -328,8 +329,13 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("reservedSchemaNames")
-    @SuppressWarnings("ThrowableNotThrown")
     public void testItIsNotPossibleToCreateTablesInSystemSchema(String schema) {
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
+        int catalogVer = node.catalogManager().activeCatalogVersion(node.clock().nowLong());
+        boolean schemaExists = node.catalogManager().schema(schema, catalogVer) != null;
+
+        assumeTrue(schemaExists, "Schema doesn't exist [name=" + schema + ']');
+
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Operations with system schemas are not allowed",
