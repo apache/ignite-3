@@ -194,6 +194,7 @@ public class TestNode implements LifecycleAware {
         });
 
         queryExecutor = registerService(new QueryExecutor(
+                nodeName,
                 EmptyCacheFactory.INSTANCE,
                 0,
                 parserService,
@@ -206,7 +207,8 @@ public class TestNode implements LifecycleAware {
                 executionService,
                 SqlQueryProcessor.DEFAULT_PROPERTIES,
                 NoOpTransactionTracker.INSTANCE,
-                new QueryIdGenerator(nodeName.hashCode())
+                new QueryIdGenerator(nodeName.hashCode()),
+                event -> {}
         ));
     }
 

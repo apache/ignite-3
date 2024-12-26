@@ -792,7 +792,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 txManager,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService())
+                new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService()),
+                event -> {}
         );
 
         sqlRef.set(new IgniteSqlImpl(qryEngine, new HybridTimestampTracker()));
