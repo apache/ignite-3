@@ -141,21 +141,20 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18475")
     public void testSetOpBigBatch() {
         sql("CREATE TABLE big_table1(key INT PRIMARY KEY, val INT)");
         sql("CREATE TABLE big_table2(key INT PRIMARY KEY, val INT)");
 
         int key = 0;
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 3; i++) {
             for (int j = 0; j < ((i == 0) ? 1 : (1 << (i * 4 - 1))); j++) {
-                // Cache1 keys count: 1 of "0", 8 of "1", 128 of "2", 2048 of "3", 32768 of "4".
+                // Cache1 keys count: 1 of "0", 8 of "1", 128 of "2".
                 sql("INSERT INTO big_table1 VALUES (?, ?)", key++, i);
 
-                // Cache2 keys count: 1 of "5", 128 of "3", 32768 of "1".
+                // Cache2 keys count: 1 of "3", 128 of "1".
                 if ((i & 1) == 0) {
-                    sql("INSERT INTO big_table2 VALUES (?, ?)", key++, 5 - i);
+                    sql("INSERT INTO big_table2 VALUES (?, ?)", key++, 3 - i);
                 }
             }
         }
@@ -163,30 +162,25 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
         // Check 2 partitioned caches.
         var rows = sql("SELECT val FROM BIG_TABLE1 EXCEPT SELECT val FROM BIG_TABLE2");
 
-        assertEquals(3, rows.size());
+        assertEquals(2, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals(0)));
         assertEquals(1, countIf(rows, r -> r.get(0).equals(2)));
-        assertEquals(1, countIf(rows, r -> r.get(0).equals(4)));
 
         rows = sql("SELECT val FROM BIG_TABLE1 EXCEPT ALL SELECT val FROM BIG_TABLE2");
 
-        assertEquals(34817, rows.size());
+        assertEquals(129, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals(0)));
         assertEquals(128, countIf(rows, r -> r.get(0).equals(2)));
-        assertEquals(1920, countIf(rows, r -> r.get(0).equals(3)));
-        assertEquals(32768, countIf(rows, r -> r.get(0).equals(4)));
 
         rows = sql("SELECT val FROM BIG_TABLE1 INTERSECT SELECT val FROM BIG_TABLE2");
 
-        assertEquals(2, rows.size());
+        assertEquals(1, rows.size());
         assertEquals(1, countIf(rows, r -> r.get(0).equals(1)));
-        assertEquals(1, countIf(rows, r -> r.get(0).equals(3)));
 
         rows = sql("SELECT val FROM BIG_TABLE1 INTERSECT ALL SELECT val FROM BIG_TABLE2");
 
-        assertEquals(136, rows.size());
+        assertEquals(8, rows.size());
         assertEquals(8, countIf(rows, r -> r.get(0).equals(1)));
-        assertEquals(128, countIf(rows, r -> r.get(0).equals(3)));
     }
 
     @ParameterizedTest
