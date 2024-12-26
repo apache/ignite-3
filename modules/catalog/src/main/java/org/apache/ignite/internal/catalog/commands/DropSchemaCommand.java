@@ -46,7 +46,7 @@ public class DropSchemaCommand implements CatalogCommand {
      * Constructor.
      *
      * @param schemaName Name of the schema.
-     * @param cascade forces dropping all its objects together with the schema at once.
+     * @param cascade Flag indicating forced deletion of a non-empty schema.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private DropSchemaCommand(String schemaName, boolean cascade) throws CatalogValidationException {
@@ -79,12 +79,12 @@ public class DropSchemaCommand implements CatalogCommand {
      * Implementation of {@link DropSchemaCommandBuilder}.
      */
     private static class Builder implements DropSchemaCommandBuilder {
-        private String zoneName;
+        private String schemaName;
         private boolean cascade;
 
         @Override
-        public DropSchemaCommandBuilder name(String zoneName) {
-            this.zoneName = zoneName;
+        public DropSchemaCommandBuilder name(String schemaName) {
+            this.schemaName = schemaName;
 
             return this;
         }
@@ -98,7 +98,7 @@ public class DropSchemaCommand implements CatalogCommand {
 
         @Override
         public CatalogCommand build() {
-            return new DropSchemaCommand(zoneName, cascade);
+            return new DropSchemaCommand(schemaName, cascade);
         }
     }
 }

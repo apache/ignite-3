@@ -24,9 +24,9 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
  */
 public interface DropSchemaCommandBuilder {
     /** Sets schema name. Should not be null or blank. */
-    DropSchemaCommandBuilder name(String zoneName);
+    DropSchemaCommandBuilder name(String schemaName);
 
-    /** Sets cascade flag. */
+    /** Sets flag indicating forced deletion of a non-empty schema. */
     DropSchemaCommandBuilder cascade(boolean cascade);
 
     /** Returns a command with specified parameters. */

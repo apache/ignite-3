@@ -101,6 +101,29 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
         }
     }
 
+    @Test
+    public void testDropReservedIsForbidden() {
+        // PUBLIC
+        {
+            CatalogCommand dropCmd = DropSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build();
+
+            assertThat(
+                    manager.execute(dropCmd),
+                    willThrowFast(CatalogValidationException.class, "Default schema can't be dropped [name=PUBLIC]")
+            );
+        }
+
+        // SYSTEM
+        {
+            CatalogCommand dropCmd = DropSchemaCommand.builder().name(CatalogService.SYSTEM_SCHEMA_NAME).build();
+
+            assertThat(
+                    manager.execute(dropCmd),
+                    willThrowFast(CatalogValidationException.class, "System schema can't be dropped [name=SYSTEM]")
+            );
+        }
+    }
+
     private Catalog latestCatalog() {
         Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
 
