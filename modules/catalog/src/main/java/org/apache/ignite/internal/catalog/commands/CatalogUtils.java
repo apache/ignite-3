@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFINITION_SCHEMA;
+import static org.apache.ignite.internal.catalog.CatalogService.INFORMATION_SCHEMA;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNCTION_CALL;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -145,7 +147,11 @@ public class CatalogUtils {
         FUNCTIONAL_DEFAULT_FUNCTIONS.put("RAND_UUID", ColumnType.UUID);
     }
 
-    public static final List<String> SYSTEM_SCHEMAS = List.of(SYSTEM_SCHEMA_NAME);
+    public static final List<String> SYSTEM_SCHEMAS = List.of(
+            SYSTEM_SCHEMA_NAME,
+            DEFINITION_SCHEMA,
+            INFORMATION_SCHEMA
+    );
 
     /** System schema names. */
     public static boolean isSystemSchema(String schemaName) {

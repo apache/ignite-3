@@ -19,15 +19,18 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropSchemaEntry;
+import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
-import org.apache.ignite.internal.sql.SqlCommon;
 
 /**
  * A command that drops a schema with specified name.
@@ -56,23 +59,31 @@ public class DropSchemaCommand implements CatalogCommand {
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
-        if (SqlCommon.DEFAULT_SCHEMA_NAME.equals(schemaName)) {
-            throw new CatalogValidationException("Default schema can't be dropped [name={}].", schemaName);
-        }
-
-        if (CatalogService.SYSTEM_SCHEMA_NAME.equals(schemaName)) {
+        if (CatalogUtils.isSystemSchema(schemaName)) {
             throw new CatalogValidationException("System schema can't be dropped [name={}].", schemaName);
         }
 
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        if (schema.indexes().length > 0 || schema.tables().length > 0 || schema.systemViews().length > 0) {
-            if (!cascade) {
-                throw new CatalogValidationException("Schema '{}' is not empty. Use CASCADE to drop it anyway.", schemaName);
-            }
+        if (!cascade && (schema.indexes().length > 0 || schema.tables().length > 0)) {
+            throw new CatalogValidationException("Schema '{}' is not empty. Use CASCADE to drop it anyway.", schemaName);
         }
 
-        return List.of(new DropSchemaEntry(schema.id()));
+        assert schema.systemViews().length == 0 : "name=" + schemaName + ", count=" + schema.systemViews().length;
+
+        List<UpdateEntry> updateEntries = new ArrayList<>();
+
+        for (CatalogIndexDescriptor idx : schema.indexes()) {
+            updateEntries.add(new DropIndexEntry(idx.id()));
+        }
+
+        for (CatalogTableDescriptor tbl : schema.tables()) {
+            updateEntries.add(new DropTableEntry(tbl.id()));
+        }
+
+        updateEntries.add(new DropSchemaEntry(schema.id()));
+
+        return updateEntries;
     }
 
     /**

@@ -17,24 +17,27 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
-import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropSchemaCommand;
-import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for schema related commands. */
 public class CatalogSchemaTest extends BaseCatalogManagerTest {
@@ -57,12 +60,17 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
 
     @Test
     public void testDropEmpty() {
+        int initialSchemasCount = latestCatalog().schemas().size();
+
         assertThat(manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()), willCompleteSuccessfully());
+
+        assertThat(latestCatalog().schemas(), hasSize(initialSchemasCount + 1));
 
         CatalogCommand cmd = DropSchemaCommand.builder().name(TEST_SCHEMA).build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
         assertThat(latestCatalog().schema(TEST_SCHEMA), nullValue());
+        assertThat(latestCatalog().schemas(), hasSize(initialSchemasCount));
 
         assertThat(
                 manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).build()),
@@ -71,11 +79,28 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    public void testDropDefaultSchemaIsAllowed() {
+        CatalogCommand cmd = DropSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build();
+
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        assertThat(latestCatalog().schema(SqlCommon.DEFAULT_SCHEMA_NAME), nullValue());
+
+        assertThat(
+                manager.execute(simpleTable("test")),
+                willThrowFast(CatalogValidationException.class, "Schema with name 'PUBLIC' not found")
+        );
+    }
+
+    @Test
     public void testDropNonEmpty() {
         CatalogCommand newSchemaCmd = CreateSchemaCommand.builder().name(TEST_SCHEMA).build();
-        CatalogCommand newTableCmd = newTableCmd();
+        CatalogCommand newTableCmd = newTableCommand("T1");
+        CatalogCommand idxCmd = newIndexCommand("T1", "I1");
 
-        assertThat(manager.execute(List.of(newSchemaCmd, newTableCmd)), willCompleteSuccessfully());
+        assertThat(
+                manager.execute(List.of(newSchemaCmd, newTableCmd, idxCmd)),
+                willCompleteSuccessfully()
+        );
 
         // RESTRICT
         {
@@ -84,8 +109,7 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
                     willThrowFast(CatalogValidationException.class, "Schema 'S1' is not empty. Use CASCADE to drop it anyway.")
             );
 
-            Catalog latestCatalog = latestCatalog();
-            CatalogSchemaDescriptor schemaDescriptor = latestCatalog.schema(TEST_SCHEMA);
+            CatalogSchemaDescriptor schemaDescriptor = latestCatalog().schema(TEST_SCHEMA);
 
             assertThat(schemaDescriptor, is(notNullValue()));
             assertThat(schemaDescriptor.tables().length, is(1));
@@ -93,35 +117,32 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
 
         // CASCADE
         {
+            assertThat(latestCatalog().tables(), hasSize(1));
+            assertThat(latestCatalog().indexes(), hasSize(2));
+
             CatalogCommand dropCmd = DropSchemaCommand.builder().name(TEST_SCHEMA).cascade(true).build();
 
             assertThat(manager.execute(dropCmd), willCompleteSuccessfully());
 
             assertThat(latestCatalog().schema(TEST_SCHEMA), nullValue());
+            assertThat(latestCatalog().tables(), hasSize(0));
+            assertThat(latestCatalog().indexes(), hasSize(0));
         }
     }
 
-    @Test
-    public void testDropReservedIsForbidden() {
-        // PUBLIC
-        {
-            CatalogCommand dropCmd = DropSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build();
+    @ParameterizedTest
+    @ValueSource(strings = {
+            CatalogService.SYSTEM_SCHEMA_NAME,
+            CatalogService.INFORMATION_SCHEMA,
+            CatalogService.DEFINITION_SCHEMA
+    })
+    public void testDropSystemSchemaIsForbidden(String schemaName) {
+        CatalogCommand dropCmd = DropSchemaCommand.builder().name(schemaName).build();
 
-            assertThat(
-                    manager.execute(dropCmd),
-                    willThrowFast(CatalogValidationException.class, "Default schema can't be dropped [name=PUBLIC]")
-            );
-        }
-
-        // SYSTEM
-        {
-            CatalogCommand dropCmd = DropSchemaCommand.builder().name(CatalogService.SYSTEM_SCHEMA_NAME).build();
-
-            assertThat(
-                    manager.execute(dropCmd),
-                    willThrowFast(CatalogValidationException.class, "System schema can't be dropped [name=SYSTEM]")
-            );
-        }
+        assertThat(
+                manager.execute(dropCmd),
+                willThrowFast(CatalogValidationException.class, format("System schema can't be dropped [name={}]", schemaName))
+        );
     }
 
     private Catalog latestCatalog() {
@@ -132,14 +153,24 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
         return latestCatalog;
     }
 
-    private static CatalogCommand newTableCmd() {
-        return CreateTableCommand.builder()
-                .schemaName(TEST_SCHEMA)
-                .tableName("T1")
-                .columns(List.of(ColumnParams.builder().name("ID").type(INT32).build()))
-                .primaryKey(TableHashPrimaryKey.builder()
-                        .columns(List.of("ID"))
-                        .build())
-                .build();
+    private static CatalogCommand newTableCommand(String tableName) {
+        return createTableCommand(
+                TEST_SCHEMA,
+                tableName,
+                List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)),
+                List.of("key1", "key2"),
+                List.of("key2")
+        );
+    }
+
+    private static CatalogCommand newIndexCommand(String tableName, String indexName) {
+        return createSortedIndexCommand(
+                TEST_SCHEMA,
+                tableName,
+                indexName,
+                false,
+                List.of("key1"),
+                List.of(ASC_NULLS_LAST)
+        );
     }
 }
