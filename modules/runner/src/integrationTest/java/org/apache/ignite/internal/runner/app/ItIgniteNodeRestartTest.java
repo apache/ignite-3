@@ -638,7 +638,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.topologyService(),
                 clusterSvc.messagingService(),
                 transactionInflights,
-                txManager
+                txManager,
+                lowWatermark
         );
 
         var registry = new MetaStorageRevisionListenerRegistry(metaStorageMgr);

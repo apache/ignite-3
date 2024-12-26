@@ -27,6 +27,8 @@ import org.apache.ignite.internal.replicator.message.TableAware;
  */
 @Transferable(PartitionReplicationMessageGroup.RO_SCAN_RETRIEVE_BATCH_REPLICA_REQUEST)
 public interface ReadOnlyScanRetrieveBatchReplicaRequest extends ScanRetrieveBatchReplicaRequest, ReadOnlyReplicaRequest, TableAware {
+    // TODO: remove override after @Nullable is removed from the super-interface method, see IGNITE-24120.
+    @Override
     UUID transactionId();
 
     /**

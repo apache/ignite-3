@@ -291,6 +291,9 @@ namespace Apache.Ignite
 
             /// <summary> TxStaleOperation error. </summary>
             public const int TxStaleOperation = (GroupCode << 16) | (14 & 0xFFFF);
+
+            /// <summary> TxStaleReadOnlyOperation error. </summary>
+            public const int TxStaleReadOnlyOperation = (GroupCode << 16) | (15 & 0xFFFF);
         }
 
         /// <summary> Replicator errors. </summary>

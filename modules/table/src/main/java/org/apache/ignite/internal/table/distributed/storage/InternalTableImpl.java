@@ -888,7 +888,7 @@ public class InternalTableImpl implements InternalTable {
 
         if (tx.isReadOnly()) {
             return evaluateReadOnlyRecipientNode(partitionId(keyRow), tx.readTimestamp())
-                    .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
+                    .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), tx.id(), recipientNode));
         }
 
         return enlistInTx(
@@ -915,6 +915,7 @@ public class InternalTableImpl implements InternalTable {
     public CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
             HybridTimestamp readTimestamp,
+            @Nullable UUID transactionId,
             ClusterNode recipientNode
     ) {
         int partId = partitionId(keyRow);
@@ -927,6 +928,7 @@ public class InternalTableImpl implements InternalTable {
                 .primaryKey(keyRow.tupleSlice())
                 .requestType(RO_GET)
                 .readTimestamp(readTimestamp)
+                .transactionId(transactionId)
                 .build()
         );
     }
@@ -999,6 +1001,7 @@ public class InternalTableImpl implements InternalTable {
     public CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
+            @Nullable UUID transactionId,
             ClusterNode recipientNode
     ) {
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
@@ -1013,6 +1016,7 @@ public class InternalTableImpl implements InternalTable {
                     .primaryKeys(serializeBinaryTuples(partitionRowBatch.getValue().requestedRows))
                     .requestType(RO_GET_ALL)
                     .readTimestamp(readTimestamp)
+                    .transactionId(transactionId)
                     .build();
 
             partitionRowBatch.getValue().resultFuture = replicaSvc.invoke(recipientNode, request);

@@ -1364,7 +1364,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 topologyService,
                 remotelyTriggeredResourceRegistry,
                 schemaManager.schemaRegistry(tableId),
-                indexMetaStorage
+                indexMetaStorage,
+                lowWatermark
         );
     }
 

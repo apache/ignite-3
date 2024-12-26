@@ -994,7 +994,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 messagingServiceReturningToStorageOperationsPool,
                 transactionInflights,
-                txManager
+                txManager,
+                lowWatermark
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
