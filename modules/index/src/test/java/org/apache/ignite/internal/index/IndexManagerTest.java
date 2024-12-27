@@ -114,7 +114,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
 
     private final Map<Integer, TableViewInternal> tableViewInternalByTableId = new ConcurrentHashMap<>();
 
-    private TestLowWatermark lowWatermark = new TestLowWatermark();
+    private final TestLowWatermark lowWatermark = new TestLowWatermark();
 
     @BeforeEach
     public void setUp() {
@@ -222,7 +222,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     private static LockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager();
+        HeapLockManager lockManager = HeapLockManager.smallInstance();
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }

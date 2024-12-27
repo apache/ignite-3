@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.message;
-
-import org.apache.ignite.internal.network.annotations.Transferable;
+package org.apache.ignite.internal.sql.engine.sql;
 
 /**
- * Request that initiates safe time synchronization.
+ * Drop schema behavior.
  */
-@Transferable(ReplicaMessageGroup.SAFE_TIME_SYNC_REQUEST)
-public interface ReplicaSafeTimeSyncRequest extends ReplicaRequest {
+public enum IgniteSqlDropSchemaBehavior {
+    /** Forces dropping all schema objects together at once. */
+    CASCADE,
+    /** Fails if the schema is not empty. */
+    RESTRICT,
+    /** If the user does not specify a reset behavior, the default behavior is set to {@link #RESTRICT}. */
+    IMPLICIT_RESTRICT
 }

@@ -325,9 +325,6 @@ namespace Apache.Ignite
 
             /// <summary> ReplicaStopping error. </summary>
             public const int ReplicaStopping = (GroupCode << 16) | (8 & 0xFFFF);
-
-            /// <summary> ReplicationSafeTimeReordering error. </summary>
-            public const int ReplicationSafeTimeReordering = (GroupCode << 16) | (9 & 0xFFFF);
         }
 
         /// <summary> Storage errors. </summary>
