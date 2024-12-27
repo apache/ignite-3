@@ -107,8 +107,12 @@ public class ResourceVacuumManager implements IgniteComponent {
                 messagingService,
                 transactionInflights
         );
-        this.finishedTransactionBatchRequestHandler =
-                new FinishedTransactionBatchRequestHandler(messagingService, resourceRegistry, lowWatermark, resourceVacuumExecutor);
+        this.finishedTransactionBatchRequestHandler = new FinishedTransactionBatchRequestHandler(
+                messagingService,
+                resourceRegistry,
+                lowWatermark,
+                resourceVacuumExecutor
+        );
 
         this.txManager = txManager;
     }
