@@ -1032,7 +1032,12 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @return A long representation of the observation timestamp.
      */
     private long observableTimestamp(@Nullable ClientMessagePacker out) {
-        if (out == null || out.meta() == null) {
+        // Handshake has to synchronize the observation timestamp with the server node.
+        if (out == null) {
+            return clockService.currentLong();
+        }
+
+        if (out.meta() == null) {
             return HybridTimestamp.MIN_VALUE.longValue();
         }
 
