@@ -464,7 +464,7 @@ public class TxManagerTest extends IgniteAbstractTest {
                 now.getLogical()
         );
 
-        hybridTimestampTracker = hybridTimestampTracker.atomicTracker(null);
+        hybridTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 
         hybridTimestampTracker.update(timestampInPast);
 
