@@ -123,7 +123,9 @@ class WebhookSink implements Sink<WebhookSinkView> {
 
     @Override
     public void write(Event event) {
-        events.add(event);
+        while (!events.offer(event)) {
+            events.poll();
+        }
 
         if (events.size() >= cfg.batchSize()) {
             executorService.execute(this::tryToSendBatch);
