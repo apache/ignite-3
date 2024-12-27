@@ -17,33 +17,37 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.Sink;
-import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
-import org.apache.ignite.internal.eventlog.config.schema.SinkView;
-import org.apache.ignite.internal.eventlog.ser.EventSerializer;
+import org.jetbrains.annotations.VisibleForTesting;
 
-/**
- * Factory for creating sink instances.
- */
-class LogSinkFactory implements SinkFactory {
-    private final EventSerializer eventSerializer;
+class InMemoryCollectionSink implements Sink {
+    private final CopyOnWriteArrayList<Event> events = new CopyOnWriteArrayList<>();
 
-    LogSinkFactory(EventSerializer eventSerializer) {
-        this.eventSerializer = eventSerializer;
+    private final AtomicInteger stopCounter = new AtomicInteger(0);
+
+    @Override
+    public void write(Event event) {
+        events.add(event);
     }
 
-    /**
-     * Creates a sink instance.
-     *
-     * @param sinkView Sink configuration view.
-     * @return Sink instance.
-     */
     @Override
-    public Sink createSink(SinkView sinkView) {
-        if (sinkView instanceof LogSinkView) {
-            return new LogSink((LogSinkView) sinkView, eventSerializer);
-        }
+    public void stop() {
+        stopCounter.incrementAndGet();
 
-        return SinkFactory.super.createSink(sinkView);
+        Sink.super.stop();
+    }
+
+    @VisibleForTesting
+    List<Event> events() {
+        return new ArrayList<>(events);
+    }
+
+    public int getStopCounter() {
+        return stopCounter.get();
     }
 }

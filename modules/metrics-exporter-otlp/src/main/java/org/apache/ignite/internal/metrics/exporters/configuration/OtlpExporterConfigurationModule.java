@@ -20,11 +20,8 @@ package org.apache.ignite.internal.metrics.exporters.configuration;
 import com.google.auto.service.AutoService;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.validation.Validator;
-import org.apache.ignite.internal.metrics.exporters.validator.EndpointValidatorImpl;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by metrics-exporter-otlp.
@@ -34,11 +31,6 @@ public class OtlpExporterConfigurationModule implements ConfigurationModule {
     @Override
     public ConfigurationType type() {
         return ConfigurationType.DISTRIBUTED;
-    }
-
-    @Override
-    public Set<Validator<?, ?>> validators() {
-        return Set.of(EndpointValidatorImpl.INSTANCE);
     }
 
     @Override

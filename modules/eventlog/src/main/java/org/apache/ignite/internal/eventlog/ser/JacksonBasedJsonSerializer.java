@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import java.io.IOException;
+import java.util.Collection;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -45,13 +46,21 @@ public class JacksonBasedJsonSerializer implements EventSerializer {
         return module;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String serialize(Event event) {
         try {
             return mapper.writeValueAsString(event);
         } catch (Exception e) {
             throw new IgniteInternalException(Common.INTERNAL_ERR, "Failed to serialize event", e);
+        }
+    }
+
+    @Override
+    public byte[] serialize(Collection<Event> event) {
+        try {
+            return mapper.writeValueAsBytes(event);
+        } catch (Exception e) {
+            throw new IgniteInternalException(Common.INTERNAL_ERR, "Failed to serialize events", e);
         }
     }
 

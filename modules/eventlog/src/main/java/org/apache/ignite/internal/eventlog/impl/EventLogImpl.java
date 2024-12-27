@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.eventlog.impl;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
@@ -36,7 +37,7 @@ public class EventLogImpl implements EventLog {
      *
      * @param channelRegistry the channel registry.
      */
-    public EventLogImpl(ChannelRegistry channelRegistry) {
+    EventLogImpl(ChannelRegistry channelRegistry) {
         this.channelRegistry = channelRegistry;
     }
 
@@ -45,11 +46,11 @@ public class EventLogImpl implements EventLog {
      *
      * @param cfg the configuration.
      */
-    public EventLogImpl(EventLogConfiguration cfg) {
-        this(cfg, new LogSinkFactory(new EventSerializerFactory().createEventSerializer()));
+    public EventLogImpl(EventLogConfiguration cfg, Supplier<UUID> clusterIdSupplier, String nodeName) {
+        this(cfg, new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(), clusterIdSupplier, nodeName));
     }
 
-    public EventLogImpl(EventLogConfiguration cfg, SinkFactory sinkFactory) {
+    EventLogImpl(EventLogConfiguration cfg, SinkFactory sinkFactory) {
         this(new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(cfg, sinkFactory)));
     }
 

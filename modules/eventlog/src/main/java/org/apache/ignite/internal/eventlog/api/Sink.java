@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.eventlog.api;
 
+import java.util.UUID;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.eventlog.config.schema.SinkView;
+
 /**
  * The endpoint for the event log framework. This is the last step in the event log pipeline. It can be a log file, a webhook, a Kafka
  * topic, or whatever we develop.
@@ -30,11 +34,27 @@ package org.apache.ignite.internal.eventlog.api;
  * <p>IT DOES GUARANTEE THAT THE EVENT IS SENT TO THE SINK.
  * For example, if the sink is a Kafka topic, the method guarantees that the event is sent to the topic.
  */
-public interface Sink {
+public interface Sink<CfgT extends SinkView> {
+    /**
+     * Start sink. Here all needed listeners, schedulers etc. should be started.
+     *
+     * @param configuration Sink's configuration view.
+     * @param clusterIdSupplier Cluster ID supplier.
+     * @param nodeName Node name.
+     */
+    default void start(CfgT configuration, Supplier<UUID> clusterIdSupplier, String nodeName) {
+    }
+
     /**
      * Writes the event to the sink.
      *
      * @param event The event to write.
      */
     void write(Event event);
+
+    /**
+     * Stop and cleanup work for current sink must be implemented here.
+     */
+    default void stop() {
+    }
 }

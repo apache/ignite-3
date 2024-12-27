@@ -15,23 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.impl;
+package org.apache.ignite.configuration.validation;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.api.Sink;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-class InMemoryCollectionSink implements Sink {
-    private final CopyOnWriteArrayList<Event> events = new CopyOnWriteArrayList<>();
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 
-    @Override
-    public void write(Event event) {
-        events.add(event);
-    }
-
-    List<Event> events() {
-        return new ArrayList<>(events);
-    }
+/**
+ * Annotation to validate endpoint.
+ */
+@Target(FIELD)
+@Retention(RUNTIME)
+public @interface Endpoint {
 }
