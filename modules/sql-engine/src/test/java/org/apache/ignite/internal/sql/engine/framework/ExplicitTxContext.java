@@ -27,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Context that always returns explicit transaction. */
 public class ExplicitTxContext implements QueryTransactionContext {
-    private final HybridTimestampTracker observableTimeTracker = new HybridTimestampTracker();
+    private final HybridTimestampTracker observableTimeTracker = HybridTimestampTracker.atomicTracker(null);
     private final QueryTransactionWrapper txWrapper;
 
     public static QueryTransactionContext fromTx(InternalTransaction tx) {

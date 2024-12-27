@@ -139,7 +139,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     /** Keys count to check. */
     private static final int KEYS = 100;
 
-    private static final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+    private static final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 
     /** Dummy internal table for tests. */
     private static InternalTable intTable;

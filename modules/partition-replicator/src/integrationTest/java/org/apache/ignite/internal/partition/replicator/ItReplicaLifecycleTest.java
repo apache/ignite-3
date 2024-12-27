@@ -982,7 +982,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         private final IndexMetaStorage indexMetaStorage;
 
-        private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+        private final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 
         private volatile MvTableStorage mvTableStorage;
 
