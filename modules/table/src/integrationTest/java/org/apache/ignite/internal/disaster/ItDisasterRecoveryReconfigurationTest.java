@@ -61,6 +61,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -965,6 +966,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertStableAssignments(node0, partId, allAssignments);
 
+        assertAssignmentsChain(node0, partId, null);
+
         // Write data(1) to all seven nodes.
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
@@ -1425,7 +1428,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
-    void testSecondResetRewritesFirst() throws Exception {
+    void testSecondResetRewritesUnfinishedFirstPhaseReset() throws Exception {
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
@@ -1517,6 +1520,89 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertStableAssignments(node0, partId, link3Assignments, 30_000);
 
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(List.of(allAssignments, link2Assignments, link3Assignments)));
+    }
+
+    @Test
+    @ZoneParams(nodes = 6, replicas = 3, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
+    void testGracefulRewritesChainAfterForceReset() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = igniteImpl(0);
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+        Table table = node0.tables().table(TABLE_NAME);
+
+        awaitPrimaryReplica(node0, partId);
+
+        // Disable automatic reset since we want to check manual ones.
+        setDistributionResetTimeout(node0, INFINITE_TIMER_VALUE);
+        // Disable scale down to avoid unwanted rebalance.
+        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+
+        assertRealAssignments(node0, partId, 2, 3, 5);
+
+        Assignments initialAssignments = Assignments.of(Set.of(
+                Assignment.forPeer(node(2).name()),
+                Assignment.forPeer(node(3).name()),
+                Assignment.forPeer(node(5).name())
+        ), timestamp);
+
+        assertStableAssignments(node0, partId, initialAssignments);
+
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(initialAssignments));
+
+        // Write data(1) to all nodes.
+        List<Throwable> errors = insertValues(table, partId, 0);
+        assertThat(errors, is(empty()));
+
+        logger().info("Stopping nodes [ids={}].", Arrays.toString(new int[]{2, 3}));
+
+        stopNodesInParallel(2, 3);
+
+        logger().info("Stopped nodes [ids={}].", Arrays.toString(new int[]{2, 3}));
+
+        CompletableFuture<?> updateFuture2 = node0.disasterRecoveryManager().resetAllPartitions(
+                zoneName,
+                QUALIFIED_TABLE_NAME,
+                true,
+                -1
+        );
+
+        assertThat(updateFuture2, willCompleteSuccessfully());
+
+        Assignments link2Assignments = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(5).name())
+        ), timestamp);
+
+        assertRealAssignments(node0, partId, 0, 1, 5);
+
+        assertStableAssignments(node0, partId, link2Assignments, 30_000);
+
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(List.of(initialAssignments, link2Assignments)));
+
+        // Return back scale down.
+        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, 1));
+
+        // Now stop one and check graceful rebalance.
+        logger().info("Stopping nodes [ids={}].", 1);
+
+        stopNode(1);
+
+        Assignments finalAssignments = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(4).name()),
+                Assignment.forPeer(node(5).name())
+        ), timestamp);
+
+        assertRealAssignments(node0, partId, 0, 4, 5);
+
+        assertStableAssignments(node0, partId, finalAssignments, 30_000);
+
+        // Graceful change should reinit the assignments chain, in other words there should be only one link
+        // in the chain - the current stable assignments.
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(List.of(finalAssignments)));
     }
 
     private void setDistributionResetTimeout(IgniteImpl node, long timeout) {
@@ -1711,9 +1797,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         );
     }
 
-    private void assertAssignmentsChain(IgniteImpl node0, int partId, AssignmentsChain expected) throws InterruptedException {
+    private void assertAssignmentsChain(IgniteImpl node0, int partId, @Nullable AssignmentsChain expected) throws InterruptedException {
         assertTrue(
-                waitForCondition(() -> expected.equals(getAssignmentsChain(node0, partId)), 2000),
+                waitForCondition(() -> Objects.equals(expected, getAssignmentsChain(node0, partId)), 2000),
                 () -> "Expected: " + expected + ", actual: " + getAssignmentsChain(node0, partId)
         );
     }

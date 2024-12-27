@@ -30,7 +30,6 @@ import org.jetbrains.annotations.Nullable;
  * Contains the chain of changed assignments.
  */
 public class AssignmentsChain {
-
     /** Chain of assignments. */
     @IgniteToStringInclude
     private final List<Assignments> chain;
