@@ -175,6 +175,11 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         return res;
     }
 
+    @Override
+    public List<String> assignPartition(Collection<String> nodes, List<String> currentDistribution, int partitionId, int replicaFactor) {
+        return assignPartition(partitionId, nodes, replicaFactor, null, false, null, ArrayList::new);
+    }
+
     /**
      * Creates assignment for REPLICATED table.
      *
@@ -283,6 +288,16 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         return assignments;
     }
 
+    @Override
+    public List<List<String>> assignPartitions(
+            Collection<String> nodes,
+            List<List<String>> currentDistribution,
+            int partitions,
+            int replicaFactor
+    ) {
+        return assignPartitions(nodes, partitions, replicaFactor, false, null);
+    }
+
     /**
      * Builds neighborhood map for all nodes in snapshot.
      *
@@ -315,21 +330,6 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         }
 
         return neighbors;
-    }
-
-    @Override
-    public List<List<String>> assignPartitions(
-            Collection<String> nodes,
-            List<List<String>> currentDistribution,
-            int partitions,
-            int replicaFactor
-    ) {
-        return assignPartitions(nodes, partitions, replicaFactor, false, null);
-    }
-
-    @Override
-    public List<String> assignPartition(Collection<String> nodes, List<String> currentDistribution, int partitionId, int replicaFactor) {
-        return assignPartition(partitionId, nodes, replicaFactor, null, false, null, ArrayList::new);
     }
 
     /**
