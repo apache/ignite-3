@@ -134,6 +134,7 @@ dependencies {
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(":ignite-network-api")
     integrationTestImplementation project(':ignite-sql-engine-api')
+    integrationTestImplementation project(':ignite-eventlog')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-schema'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
@@ -163,4 +164,6 @@ integrationTest {
             it.excludeTags "sqllogic"
         }
     }
+
+    systemProperty "buildDirPath", project.buildDir.path
 }

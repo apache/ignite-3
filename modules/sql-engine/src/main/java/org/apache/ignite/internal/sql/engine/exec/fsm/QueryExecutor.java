@@ -340,8 +340,9 @@ public class QueryExecutor implements LifecycleAware {
         CompletableFuture<Void> queryTerminationFut = query.onPhaseStarted(ExecutionPhase.TERMINATED);
 
         queryTerminationFut.whenComplete((ignored, ex) -> {
-            eventLog.log(() -> toFinishEvent(query.id, ex));
             runningQueries.remove(query.id);
+
+            eventLog.log(() -> toFinishEvent(query.id, ex));
         });
 
         if (cancellationToken != null) {
@@ -383,30 +384,28 @@ public class QueryExecutor implements LifecycleAware {
 
     private Event toStartEvent(Query query) {
         QueryInfo queryInfo = new QueryInfo(query);
-        Map<String, Object> fields = IgniteUtils.newHashMap(7);
+        Map<String, Object> fields = IgniteUtils.newLinkedHashMap(7);
 
         fields.put("initiator", nodeId);
         fields.put("id", queryInfo.id());
         fields.put("schema", queryInfo.schema());
         fields.put("sql", queryInfo.sql());
-        fields.put("start_time", queryInfo.startTime());
-        fields.put("parent_id", queryInfo.parentId());
-        fields.put("statement_num", queryInfo.statementNum());
+        fields.put("parentId", queryInfo.parentId());
+        fields.put("statementNum", queryInfo.statementNum());
+        fields.put("transactionId", queryInfo.transactionId());
 
         return IgniteEvents.QUERY_STARTED.builder()
                 .user(EventUser.system())
+                .timestamp(queryInfo.startTime().toEpochMilli())
                 .fields(fields)
                 .build();
     }
 
     private static Event toFinishEvent(UUID queryId, @Nullable Throwable ex) {
-        Map<String, Object> fields = IgniteUtils.newHashMap(1 + (ex == null ? 0 : 1));
+        Map<String, Object> fields = IgniteUtils.newLinkedHashMap(2);
 
         fields.put("id", queryId);
-
-        if (ex != null) {
-            fields.put("error", ex.toString());
-        }
+        fields.put("error", ex == null ? null : ex.toString());
 
         return IgniteEvents.QUERY_FINISHED.builder()
                 .user(EventUser.system())
