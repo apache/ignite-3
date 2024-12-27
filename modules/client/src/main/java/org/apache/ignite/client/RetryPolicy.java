@@ -26,6 +26,9 @@ package org.apache.ignite.client;
 public interface RetryPolicy {
     /**
      * Gets a value indicating whether a client operation that has failed due to a connection issue should be retried.
+     * <p>
+     * If an implementation of this method throws an exception, the operation will be failed with that exception.
+     * No more retries will be attempted.
      *
      * @param context Context.
      * @return {@code true} if the operation should be retried on another connection, {@code false} otherwise.
