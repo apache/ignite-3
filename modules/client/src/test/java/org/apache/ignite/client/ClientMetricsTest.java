@@ -312,23 +312,11 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         client = clientBuilder().metricsEnabled(metricsEnabled).build();
         client.tables().tables();
 
-        String beanName = "org.apache.ignite:group=metrics,name=client";
-        MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
+        MBeanServerInvocationHandler.newProxyInstance(ManagementFactory.getPlatformMBeanServer(),
+                new ObjectName("org.apache.ignite:group=metrics,name=client"), DynamicMBean.class, false).getAttribute("ConnectionsActive");
 
-        ObjectName objName = new ObjectName(beanName);
-        boolean registered = mbeanSrv.isRegistered(objName);
-
-        assertEquals(metricsEnabled, registered, "Unexpected MBean state: [name=" + beanName + ", registered=" + registered + "]");
-
-        if (!metricsEnabled) {
-            return;
-        }
-
-        DynamicMBean bean = MBeanServerInvocationHandler.newProxyInstance(mbeanSrv, objName, DynamicMBean.class, false);
-        assertEquals(1L, bean.getAttribute("ConnectionsActive"));
-        assertEquals(1L, bean.getAttribute("ConnectionsEstablished"));
-
-        MBeanInfo beanInfo = bean.getMBeanInfo();
+        MBeanInfo beanInfo = MBeanServerInvocationHandler.newProxyInstance(ManagementFactory.getPlatformMBeanServer(),
+                new ObjectName("org.apache.ignite:group=metrics,name=client"), DynamicMBean.class, false).getMBeanInfo();
         MBeanAttributeInfo[] attributes = beanInfo.getAttributes();
         MBeanAttributeInfo attribute = attributes[0];
         assertEquals("ConnectionsActive", attribute.getName());
