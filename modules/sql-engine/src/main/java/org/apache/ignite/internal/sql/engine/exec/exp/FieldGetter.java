@@ -17,9 +17,26 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
-/**
- * Scalar.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
- */
-public interface Scalar {
+import org.apache.calcite.linq4j.tree.BlockBuilder;
+import org.apache.calcite.linq4j.tree.Expression;
+import org.apache.calcite.linq4j.tree.Expressions;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.sql.engine.util.IgniteMethod;
+
+class FieldGetter extends CommonFieldGetter {
+    FieldGetter(Expression hnd, Expression row, RelDataType rowType) {
+        super(hnd, row, rowType);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected Expression fillExpressions(BlockBuilder list, int index) {
+        Expression row = list.append("row", this.row);
+
+        Expression field = Expressions.call(hnd,
+                IgniteMethod.ROW_HANDLER_GET.method(),
+                Expressions.constant(index), row);
+
+        return field;
+    }
 }

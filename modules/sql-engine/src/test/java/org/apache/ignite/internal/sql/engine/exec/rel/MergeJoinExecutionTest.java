@@ -29,7 +29,6 @@ import static org.hamcrest.core.IsEqual.equalTo;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -38,15 +37,16 @@ import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.ImmutableBitSet;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -484,11 +484,9 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
         RelDataType rightType = TypeUtils.createRowType(tf, TypeUtils.native2relationalTypes(tf, NativeTypes.INT32, NativeTypes.STRING));
         ScanNode<Object[]> rightNode = new ScanNode<>(ctx, Arrays.asList(right));
 
-        ExecutionContext<Object[]> ectx =
-                new ExecutionContext<>(null, null, null, null, null,
-                        ArrayRowHandler.INSTANCE, null, null, SqlQueryProcessor.DEFAULT_TIME_ZONE_ID, null);
-
-        ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(ectx, SqlConformanceEnum.DEFAULT);
+        ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(
+                Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
+        );
 
         RelFieldCollation colLeft = new RelFieldCollation(2, Direction.ASCENDING, NullDirection.FIRST);
         RelFieldCollation colRight = new RelFieldCollation(0, Direction.ASCENDING, NullDirection.FIRST);
@@ -499,9 +497,9 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
             nullComparison.set(0, left[0].length);
         }
 
-        Comparator<Object[]> comp = expFactory.comparator(List.of(colLeft), List.of(colRight), nullComparison.build());
+        SqlComparator<Object[]> comp = expFactory.comparator(List.of(colLeft), List.of(colRight), nullComparison.build());
 
-        MergeJoinNode<Object[]> join = MergeJoinNode.create(ctx, leftType, rightType, joinType, comp);
+        MergeJoinNode<Object[]> join = MergeJoinNode.create(ctx, leftType, rightType, joinType, (r1, r2) -> comp.compare(ctx, r1, r2));
 
         join.register(asList(leftNode, rightNode));
 

@@ -23,14 +23,12 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -70,7 +68,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
      */
     public HashAggregateNode(
             ExecutionContext<RowT> ctx, AggregateType type, List<ImmutableBitSet> grpSets,
-            Supplier<List<AccumulatorWrapper<RowT>>> accFactory, RowFactory<RowT> rowFactory) {
+            List<AccumulatorWrapper<RowT>> accumulators, RowFactory<RowT> rowFactory) {
         super(ctx);
 
         this.type = type;
@@ -81,7 +79,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         ImmutableBitSet.Builder b = ImmutableBitSet.builder();
 
         groupings = new ArrayList<>(grpSets.size());
-        accs = accFactory != null ? accFactory.get() : Collections.emptyList();
+        accs = accumulators;
 
         for (byte i = 0; i < grpSets.size(); i++) {
             ImmutableBitSet grpFields = grpSets.get(i);
