@@ -28,9 +28,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Interface is used to provide a track timestamp into a transaction operation.
  */
-public abstract class HybridTimestampTracker {
+public interface HybridTimestampTracker {
     /** This tracker do nothing.*/
-    private static final HybridTimestampTracker EMPTY_TS_PROVIDER = new HybridTimestampTracker() {
+    HybridTimestampTracker EMPTY_TS_PROVIDER = new HybridTimestampTracker() {
         @Override
         public @Nullable HybridTimestamp get() {
             return null;
@@ -46,7 +46,7 @@ public abstract class HybridTimestampTracker {
      *
      * @return A HybridTimestampTracker instance that does nothing for both retrieval and update operations.
      */
-    public static HybridTimestampTracker emptyTracker() {
+    static HybridTimestampTracker emptyTracker() {
         return EMPTY_TS_PROVIDER;
     }
 
@@ -56,7 +56,7 @@ public abstract class HybridTimestampTracker {
      * @param intTs The initial HybridTimestamp, or null if no initial timestamp is provided.
      * @return A HybridTimestampTracker instance for tracking and updating a hybrid timestamp atomically.
      */
-    public static HybridTimestampTracker atomicTracker(@Nullable HybridTimestamp intTs) {
+    static HybridTimestampTracker atomicTracker(@Nullable HybridTimestamp intTs) {
         return new HybridTimestampTracker() {
             /** Timestamp. */
             private final AtomicLong timestamp = new AtomicLong(hybridTimestampToLong(intTs));
@@ -82,7 +82,7 @@ public abstract class HybridTimestampTracker {
      * @param updateTs A Consumer that accepts a HybridTimestamp for managing updates to the timestamp.
      * @return A HybridTimestampTracker instance that uses the provided initial timestamp and update mechanism.
      */
-    public static HybridTimestampTracker clientTracker(@Nullable HybridTimestamp intTs, Consumer<HybridTimestamp> updateTs) {
+    static HybridTimestampTracker clientTracker(@Nullable HybridTimestamp intTs, Consumer<HybridTimestamp> updateTs) {
         return new HybridTimestampTracker() {
             @Override
             public @Nullable HybridTimestamp get() {
@@ -97,22 +97,16 @@ public abstract class HybridTimestampTracker {
     }
 
     /**
-     * The constructor is private. An instance can be created with static methods.
-     */
-    private HybridTimestampTracker() {
-    }
-
-    /**
      * Get the observable timestamp.
      *
      * @return Hybrid timestamp.
      */
-    public abstract @Nullable HybridTimestamp get();
+    @Nullable HybridTimestamp get();
 
     /**
      * Updates the observable timestamp after an operation is executed.
      *
      * @param ts Hybrid timestamp.
      */
-    public abstract void update(@Nullable HybridTimestamp ts);
+    void update(@Nullable HybridTimestamp ts);
 }

@@ -721,7 +721,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.JDBC_EXEC:
                 return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler).thenRun(() -> {
-                    // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    // TODO: IGNITE-24055 Observation timestamps have to be updated to only some types of SQL.
+                    //  But while we cannot distinguish SQL we have to pass the current timestamp for all cases
+                    //  where it has not gone through the meta.
                     if (out.meta() == null) {
                         out.meta(clockService.current());
                     }
@@ -732,7 +734,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.JDBC_EXEC_BATCH:
                 return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler).thenRun(() -> {
-                    // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    // TODO: IGNITE-24055 Observation timestamps have to be updated to only some types of SQL.
+                    //  But while we cannot distinguish SQL we have to pass the current timestamp for all cases
+                    //  where it has not gone through the meta.
                     if (out.meta() == null) {
                         out.meta(clockService.current());
                     }
@@ -803,7 +807,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics).thenRun(() -> {
-                    // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    // TODO: IGNITE-24055 Observation timestamps have to be updated to only some types of SQL.
+                    //  But while we cannot distinguish SQL we have to pass the current timestamp for all cases
+                    //  where it has not gone through the meta.
                     if (out.meta() == null) {
                         out.meta(clockService.current());
                     }
@@ -833,7 +839,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources).thenRun(() -> {
-                    // TODO: IGNITE-24055 Observation timestamp must be updated only for DDL "CREATE TABLE..."
+                    // TODO: IGNITE-24055 Observation timestamps have to be updated to only some types of SQL.
+                    //  But while we cannot distinguish SQL we have to pass the current timestamp for all cases
+                    //  where it has not gone through the meta.
                     if (out.meta() == null) {
                         out.meta(clockService.current());
                     }
@@ -1024,17 +1032,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @return A long representation of the observation timestamp.
      */
     private long observableTimestamp(@Nullable ClientMessagePacker out) {
-        if (out == null) {
-            return clockService.currentLong();
+        if (out == null || out.meta() == null) {
+            return HybridTimestamp.MIN_VALUE.longValue();
         }
 
-        Object meta = out.meta();
+        assert out.meta() instanceof HybridTimestamp : "Meta must contain a timestamp [metaCls=" + out.meta().getClass().getName() + ']';
 
-        if (meta instanceof HybridTimestamp) {
-            return ((HybridTimestamp) meta).longValue();
-        }
-
-        return HybridTimestamp.MIN_VALUE.longValue();
+        return ((HybridTimestamp) out.meta()).longValue();
     }
 
     private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {
