@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -48,6 +47,9 @@ import org.junit.jupiter.api.Test;
 
 /** For integration testing of disaster recovery system views. */
 public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
+    /** Table name. */
+    public static final String TABLE_NAME = "TEST_TABLE";
+
     private static final String ZONE_NAME = "ZONE_" + TABLE_NAME;
 
     @Override
@@ -149,7 +151,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
     /**
      * waiting a leader for all partitions because later we expect that partitions will be in AVAILABLE state. Without it there won't be
-     * log updating (see {@link LocalPartitionStateEnumWithLogIndex#of}) and then in SYSTEM.*_PARTITION_STATES we will get UNAVAILABLE state
+     * log updating (see {@code LocalPartitionStateEnumWithLogIndex#of}) and then in SYSTEM.*_PARTITION_STATES we will get UNAVAILABLE state
      * instead of the desired one. That's why in {@link #testGlobalPartitionStatesSystemView()} and
      * {@link #testLocalPartitionStatesSystemView()} we must manually trigger {@link RaftGroupService#refreshLeader()} that will lead
      * partitions to the proper states.
