@@ -495,11 +495,11 @@ public class RebalanceUtil {
     }
 
     /**
-     * Key that is needed for the rebalance algorithm.
+     * Key for the graceful restart in HA mode.
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
+     * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-131%3A+Partition+Majority+Unavailability+Handling">HA mode</a>
      */
     public static ByteArray assignmentsChainKey(TablePartitionId partId) {
         return new ByteArray(ASSIGNMENTS_CHAIN_PREFIX + partId);
