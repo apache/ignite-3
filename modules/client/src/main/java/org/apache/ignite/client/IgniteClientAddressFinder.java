@@ -19,11 +19,11 @@ package org.apache.ignite.client;
 
 /**
  * Provides a list of Ignite node addresses.
- * <p>
- * Unlike {@link IgniteClientConfiguration#addresses()}, this interface allows to provide addresses dynamically and handle
+ *
+ * <p>Unlike {@link IgniteClientConfiguration#addresses()}, this interface allows to provide addresses dynamically and handle
  * changes in the cluster topology.
- * <p>
- * Ignite client will periodically call {@link #getAddresses()} method to get the actual list of addresses.
+ *
+ * <p>Ignite client will periodically call {@link #getAddresses()} method to get the actual list of addresses.
  */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface IgniteClientAddressFinder {
