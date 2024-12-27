@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isA;
@@ -32,7 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -46,10 +50,13 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -98,7 +105,7 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
         Ignite coordinator = node(0);
         KeyValueView<Integer, String> kvView = kvView(coordinator);
 
-        insertOriginalValues(KEY_COUNT, kvView);
+        insertOriginalValuesToBothNodes(KEY_COUNT, kvView);
 
         Transaction roTx = coordinator.transactions().begin(new TransactionOptions().readOnly(true));
 
@@ -127,10 +134,27 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
         return coordinator.tables().table(TABLE_NAME).keyValueView(Integer.class, String.class);
     }
 
-    private static void insertOriginalValues(int keyCount, KeyValueView<Integer, String> kvView) {
+    private void insertOriginalValuesToBothNodes(int keyCount, KeyValueView<Integer, String> kvView) throws Exception {
+        PartitionManager partitionManager = node(0).tables().table(TABLE_NAME).partitionManager();
+        Set<String> primaryNames = new HashSet<>();
+
         for (int i = 0; i < keyCount; i++) {
             kvView.put(null, i, "original-" + i);
+
+            if (primaryNames.size() < 2) {
+                ClusterNode primaryReplica = primaryReplicaFor(i, partitionManager);
+                primaryNames.add(primaryReplica.name());
+            }
         }
+
+        assertThat("Expecting both nodes to host inserted keys", primaryNames, hasSize(2));
+    }
+
+    private static ClusterNode primaryReplicaFor(int key, PartitionManager partitionManager) throws Exception {
+        CompletableFuture<ClusterNode> primaryReplicaFuture = partitionManager.partitionAsync(key, Mapper.of(Integer.class))
+                .thenCompose(partitionManager::primaryReplicaAsync);
+
+        return primaryReplicaFuture.get(10, SECONDS);
     }
 
     private static void updateToNewValues(int keyCount, KeyValueView<Integer, String> kvView) {
@@ -155,7 +179,7 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
         Ignite coordinator = node(0);
         KeyValueView<Integer, String> kvView = kvView(coordinator);
 
-        insertOriginalValues(KEY_COUNT, kvView);
+        insertOriginalValuesToBothNodes(KEY_COUNT, kvView);
 
         Transaction roTx = coordinator.transactions().begin(new TransactionOptions().readOnly(true));
 
