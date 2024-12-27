@@ -33,5 +33,5 @@ public interface RetryPolicy {
      * @param context Context.
      * @return {@code true} if the operation should be retried on another connection, {@code false} otherwise.
      */
-    public boolean shouldRetry(RetryPolicyContext context);
+    boolean shouldRetry(RetryPolicyContext context);
 }
