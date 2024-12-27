@@ -148,6 +148,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             BinaryRowEx keyRow,
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
+            @Nullable UUID coordinatorId,
             ClusterNode recipientNode) {
         return null;
     }
@@ -181,6 +182,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
+            @Nullable UUID coordinatorId,
             ClusterNode recipientNode
     ) {
         return null;
