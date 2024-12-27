@@ -45,12 +45,12 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.jdbc.JdbcPreparedStatement;
 import org.apache.ignite.internal.jdbc.JdbcStatement;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
-import org.apache.ignite.internal.restart.RestartProofIgnite;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
@@ -122,8 +122,8 @@ public class ItJdbcBatchSelfTest extends AbstractJdbcSelfTest {
         assertTrue(pstmt.isClosed());
 
         long countOfPendingTransactions = CLUSTER.runningNodes()
-                .map(RestartProofIgnite.class::cast)
-                .map(rpi -> rpi.unwrap(IgniteImpl.class).txManager())
+                .map(TestWrappers::unwrapIgniteImpl)
+                .map(IgniteImpl::txManager)
                 .collect(Collectors.summarizingInt(TxManager::pending))
                 .getSum();
 
