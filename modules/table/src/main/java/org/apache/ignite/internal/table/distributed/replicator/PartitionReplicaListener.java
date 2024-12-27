@@ -4022,6 +4022,10 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
+    /**
+     * Generates a fake transaction ID that will only be used to identify one direct RO operation for purposes of locking and unlocking LWM.
+     * It should not be used as a replacement for a real transaction ID in other contexts.
+     */
     private static UUID newFakeTxId() {
         return UUID.randomUUID();
     }
