@@ -17,8 +17,26 @@
 
 package org.apache.ignite.internal.raft;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * A write command.
  */
 public interface WriteCommand extends Command {
+    /**
+     * Holds request's initiator timestamp.
+     *
+     * @return The timestamp.
+     */
+    default @Nullable HybridTimestamp initiatorTime() {
+        return null;
+    }
+
+    /**
+     * This is called before a command is submitted to replication pipeline.
+     *
+     * @param safeTs Safe timestamp.
+     */
+    default void patch(HybridTimestamp safeTs) {}
 }

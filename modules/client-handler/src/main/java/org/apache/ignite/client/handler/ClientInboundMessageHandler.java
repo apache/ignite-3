@@ -110,7 +110,6 @@ import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -131,7 +130,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
@@ -160,11 +159,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
 
-    /** Ignite transactions API. */
-    private final IgniteTransactionsImpl igniteTransactions;
+    /** Transaction manager. */
+    private final TxManager txManager;
 
     /** JDBC Handler. */
-    private final JdbcQueryEventHandler jdbcQueryEventHandler;
+    private final JdbcQueryEventHandlerImpl jdbcQueryEventHandler;
 
     /** Connection resources. */
     private final ClientResourceRegistry resources = new ClientResourceRegistry();
@@ -219,7 +218,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * Constructor.
      *
      * @param igniteTables Ignite tables API entry point.
-     * @param igniteTransactions Ignite transactions API.
      * @param processor Sql query processor.
      * @param configuration Configuration.
      * @param compute Compute.
@@ -231,7 +229,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
-            IgniteTransactionsImpl igniteTransactions,
+            TxManager txManager,
             QueryProcessor processor,
             ClientConnectorView configuration,
             IgniteComputeInternal compute,
@@ -247,7 +245,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             Executor partitionOperationsExecutor
     ) {
         assert igniteTables != null;
-        assert igniteTransactions != null;
+        assert txManager != null;
         assert processor != null;
         assert configuration != null;
         assert compute != null;
@@ -262,7 +260,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert partitionOperationsExecutor != null;
 
         this.igniteTables = igniteTables;
-        this.igniteTransactions = igniteTransactions;
+        this.txManager = txManager;
         this.configuration = configuration;
         this.compute = compute;
         this.clusterService = clusterService;
@@ -279,7 +277,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 processor,
                 new JdbcMetadataCatalog(clockService, schemaSyncService, catalogService),
                 resources,
-                igniteTransactions
+                txManager
         );
 
         schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clockService);
@@ -653,7 +651,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return null;
 
             case ClientOp.TABLES_GET:
-                return ClientTablesGetRequest.process(out, igniteTables);
+                return ClientTablesGetRequest.process(out, igniteTables).thenRun(() -> {
+                    out.meta(clockService.current());
+                });
 
             case ClientOp.SCHEMAS_GET:
                 return ClientSchemasGetRequest.process(in, out, igniteTables, schemaVersions);
@@ -662,67 +662,85 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTableGetRequest.process(in, out, igniteTables);
 
             case ClientOp.TUPLE_UPSERT:
-                return ClientTupleUpsertRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleUpsertRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_GET:
-                return ClientTupleGetRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleGetRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_UPSERT_ALL:
-                return ClientTupleUpsertAllRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleUpsertAllRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_GET_ALL:
-                return ClientTupleGetAllRequest.process(in, out, igniteTables, resources);
+                return ClientTupleGetAllRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_GET_AND_UPSERT:
-                return ClientTupleGetAndUpsertRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleGetAndUpsertRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_INSERT:
-                return ClientTupleInsertRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleInsertRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_INSERT_ALL:
-                return ClientTupleInsertAllRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleInsertAllRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_REPLACE:
-                return ClientTupleReplaceRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleReplaceRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_REPLACE_EXACT:
-                return ClientTupleReplaceExactRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleReplaceExactRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_GET_AND_REPLACE:
-                return ClientTupleGetAndReplaceRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleGetAndReplaceRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_DELETE:
-                return ClientTupleDeleteRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleDeleteRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_DELETE_ALL:
-                return ClientTupleDeleteAllRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleDeleteAllRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_DELETE_EXACT:
-                return ClientTupleDeleteExactRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleDeleteExactRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_DELETE_ALL_EXACT:
-                return ClientTupleDeleteAllExactRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleDeleteAllExactRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_GET_AND_DELETE:
-                return ClientTupleGetAndDeleteRequest.process(in, out, igniteTables, resources, igniteTransactions);
+                return ClientTupleGetAndDeleteRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_CONTAINS_KEY:
-                return ClientTupleContainsKeyRequest.process(in, out, igniteTables, resources);
+                return ClientTupleContainsKeyRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
-                return ClientTupleContainsAllKeysRequest.process(in, out, igniteTables, resources);
+                return ClientTupleContainsAllKeysRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.JDBC_CONNECT:
+                // TODO: IGNITE-24053 JDBC request ought to contain the client observation timestamp.
+                jdbcQueryEventHandler.getTimestampTracker().update(clockService.current());
+                out.meta(jdbcQueryEventHandler.getTimestampTracker().get());
+
                 return ClientJdbcConnectRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC:
-                return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler);
+                return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler).thenRun(() -> {
+                    // TODO: IGNITE-24055 Observation timestamps have to be updated to only some types of SQL.
+                    //  But while we cannot distinguish SQL we have to pass the current timestamp for all cases
+                    //  where it has not gone through the meta.
+                    if (out.meta() == null) {
+                        out.meta(clockService.current());
+                    }
+                });
 
             case ClientOp.JDBC_CANCEL:
                 return ClientJdbcCancelRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC_BATCH:
-                return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler).thenRun(() -> {
+                    // TODO: IGNITE-24055 Observation timestamps have to be updated to only some types of SQL.
+                    //  But while we cannot distinguish SQL we have to pass the current timestamp for all cases
+                    //  where it has not gone through the meta.
+                    if (out.meta() == null) {
+                        out.meta(clockService.current());
+                    }
+                });
 
             case ClientOp.JDBC_SQL_EXEC_PS_BATCH:
                 return ClientJdbcPreparedStmntBatchRequest.process(in, out, jdbcQueryEventHandler);
@@ -743,16 +761,18 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientJdbcColumnMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_SCHEMAS_META:
-                return ClientJdbcSchemasMetadataRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcSchemasMetadataRequest.process(in, out, jdbcQueryEventHandler).thenRun(() -> {
+                    out.meta(clockService.current());
+                });
 
             case ClientOp.JDBC_PK_META:
                 return ClientJdbcPrimaryKeyMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.TX_BEGIN:
-                return ClientTransactionBeginRequest.process(in, out, igniteTransactions, resources, metrics);
+                return ClientTransactionBeginRequest.process(in, out, txManager, resources, metrics);
 
             case ClientOp.TX_COMMIT:
-                return ClientTransactionCommitRequest.process(in, resources, metrics);
+                return ClientTransactionCommitRequest.process(in, out, resources, metrics, clockService);
 
             case ClientOp.TX_ROLLBACK:
                 return ClientTransactionRollbackRequest.process(in, resources, metrics);
@@ -786,13 +806,20 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientClusterGetNodesRequest.process(out, clusterService);
 
             case ClientOp.SQL_EXEC:
-                return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics, igniteTransactions);
+                return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics).thenRun(() -> {
+                    // TODO: IGNITE-24055 Observation timestamps have to be updated to only some types of SQL.
+                    //  But while we cannot distinguish SQL we have to pass the current timestamp for all cases
+                    //  where it has not gone through the meta.
+                    if (out.meta() == null) {
+                        out.meta(clockService.current());
+                    }
+                });
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
-                return ClientSqlCursorNextPageRequest.process(in, out, resources, igniteTransactions);
+                return ClientSqlCursorNextPageRequest.process(in, out, resources);
 
             case ClientOp.SQL_CURSOR_CLOSE:
-                return ClientSqlCursorCloseRequest.process(in, out, resources, igniteTransactions);
+                return ClientSqlCursorCloseRequest.process(in, out, resources);
 
             case ClientOp.PARTITION_ASSIGNMENT_GET:
                 return ClientTablePartitionPrimaryReplicasGetRequest.process(in, out, primaryReplicaTracker);
@@ -801,13 +828,24 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_EXEC_SCRIPT:
-                return ClientSqlExecuteScriptRequest.process(in, queryProcessor, igniteTransactions);
+                return ClientSqlExecuteScriptRequest.process(in, queryProcessor).thenRun(() -> {
+                    if (out.meta() == null) {
+                        out.meta(clockService.current());
+                    }
+                });
 
             case ClientOp.SQL_QUERY_META:
                 return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);
 
             case ClientOp.SQL_EXEC_BATCH:
-                return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources, igniteTransactions);
+                return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources).thenRun(() -> {
+                    // TODO: IGNITE-24055 Observation timestamps have to be updated to only some types of SQL.
+                    //  But while we cannot distinguish SQL we have to pass the current timestamp for all cases
+                    //  where it has not gone through the meta.
+                    if (out.meta() == null) {
+                        out.meta(clockService.current());
+                    }
+                });
 
             case ClientOp.STREAMER_BATCH_SEND:
                 return ClientStreamerBatchSendRequest.process(in, out, igniteTables);
@@ -985,17 +1023,27 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         return null;
     }
 
+    /**
+     * Gets an observation timestamp for the operation being processed or {@link HybridTimestamp#MIN_VALUE} if the timestamp was not defined
+     * by the operation.
+     * The method returns a current timestamp for the handshake operation.
+     *
+     * @param out Output message packer.
+     * @return A long representation of the observation timestamp.
+     */
     private long observableTimestamp(@Nullable ClientMessagePacker out) {
-        // Certain operations can override the timestamp and provide it in the meta object.
-        if (out != null) {
-            Object meta = out.meta();
-
-            if (meta instanceof HybridTimestamp) {
-                return ((HybridTimestamp) meta).longValue();
-            }
+        // Handshake has to synchronize the observation timestamp with the server node.
+        if (out == null) {
+            return clockService.currentLong();
         }
 
-        return clockService.currentLong();
+        if (out.meta() == null) {
+            return HybridTimestamp.MIN_VALUE.longValue();
+        }
+
+        assert out.meta() instanceof HybridTimestamp : "Meta must contain a timestamp [metaCls=" + out.meta().getClass().getName() + ']';
+
+        return ((HybridTimestamp) out.meta()).longValue();
     }
 
     private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {

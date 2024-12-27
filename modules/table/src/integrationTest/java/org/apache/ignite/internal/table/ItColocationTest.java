@@ -139,7 +139,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     /** Keys count to check. */
     private static final int KEYS = 100;
 
-    private static final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+    private static final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 
     /** Dummy internal table for tests. */
     private static InternalTable intTable;
@@ -268,6 +268,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                         .messageRowsToUpdate(rows)
                         .txId(UUID.randomUUID())
                         .txCoordinatorId(node.id())
+                        .initiatorTime(clock.now())
                         .build());
             } else {
                 assertThat(request, is(instanceOf(ReadWriteSingleRowReplicaRequest.class)));
@@ -282,6 +283,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                                 .build())
                         .txId(TestTransactionIds.newTransactionId())
                         .txCoordinatorId(node.id())
+                        .initiatorTime(clock.now())
                         .build());
             }
         };

@@ -15,16 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec.exp;
+package org.apache.ignite.internal.raft.service;
 
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowBuilder;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
- * Single scalar used for single input and single output.
+ * The marker interface for a write command closure.
  */
-@FunctionalInterface
-public interface SingleScalar extends Scalar {
-    /** Single input and single output. */
-    void execute(ExecutionContext ctx, Object in, RowBuilder out);
+public interface WriteCommandClosure extends CommandClosure<WriteCommand> {
 }

@@ -17,9 +17,27 @@
 
 package org.apache.ignite.internal.sql.engine.exec.exp;
 
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+
 /**
- * Scalar.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * A functional interface representing a scalar SQL expression.
+ *
+ * <p>This interface defines a single method, {@link #get(ExecutionContext)}, 
+ * which computes a value based on the given execution context.
+ *
+ * <p>For example, a scalar might compute a value based on the literal expression 
+ * or dynamic parameter value provided in the execution context.
+ *
+ * @param <RowT> The type of the execution row.
+ * @param <T> The type of the computed result.
  */
-public interface Scalar {
+@FunctionalInterface
+public interface SqlScalar<RowT, T> {
+    /**
+     * Computes a value based on the provided execution context.
+     *
+     * @param context The execution context, providing access to query-related data.
+     * @return The computed value.
+     */
+    T get(ExecutionContext<RowT> context);
 }

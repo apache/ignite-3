@@ -841,7 +841,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         raftGroupOptions.snapshotStorageFactory(snapshotFactory);
-
+        raftGroupOptions.maxClockSkew((int) clockService.maxClockSkewMillis());
         raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
 
         // TODO: The options will be used by Loza only. Consider rafactoring. see https://issues.apache.org/jira/browse/IGNITE-18273
@@ -1067,7 +1067,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     private NetworkMessage prepareReplicaResponse(boolean sendTimestamp, ReplicaResult result) {
         if (sendTimestamp) {
-            HybridTimestamp commitTs = result.applyResult().getCommitTimestamp();
+            HybridTimestamp commitTs = result.applyResult().commitTimestamp();
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result.result())
@@ -1110,13 +1110,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
-        HybridTimestamp proposedSafeTime = clockService.now();
-
-        lastIdleSafeTimeProposal = proposedSafeTime;
+        lastIdleSafeTimeProposal = clockService.now();
 
         for (Entry<ReplicationGroupId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
             try {
-                sendSafeTimeSyncIfReplicaReady(entry.getValue(), proposedSafeTime);
+                sendSafeTimeSyncIfReplicaReady(entry.getValue());
             } catch (Exception | AssertionError e) {
                 LOG.warn("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
             } catch (Error e) {
@@ -1127,7 +1125,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
     }
 
-    private void sendSafeTimeSyncIfReplicaReady(CompletableFuture<Replica> replicaFuture, HybridTimestamp proposedSafeTime) {
+    private void sendSafeTimeSyncIfReplicaReady(CompletableFuture<Replica> replicaFuture) {
         if (!isCompletedSuccessfully(replicaFuture)) {
             return;
         }
@@ -1136,12 +1134,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
                 .groupId(toReplicationGroupIdMessage(replica.groupId()))
-                .proposedSafeTime(proposedSafeTime)
                 .build();
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
             if (ex != null && !hasCauseOrSuppressed(ex, null, NodeStoppingException.class)) {
-                LOG.error("Could not advance safe time for {} to {}", ex, replica.groupId(), proposedSafeTime);
+                LOG.error("Could not advance safe time for {} to {}", ex, replica.groupId());
             }
         });
     }

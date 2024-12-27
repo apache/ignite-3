@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
@@ -25,6 +24,4 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  */
 @Transferable(ReplicaMessageGroup.SAFE_TIME_SYNC_REQUEST)
 public interface ReplicaSafeTimeSyncRequest extends ReplicaRequest {
-    /** Safe time this request proposes. */
-    HybridTimestamp proposedSafeTime();
 }

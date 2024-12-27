@@ -103,7 +103,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     /** Customers table id -> name. */
     protected TableViewInternal customers;
 
-    protected HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
+    protected HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
 
     protected IgniteTransactions igniteTransactions;
 
