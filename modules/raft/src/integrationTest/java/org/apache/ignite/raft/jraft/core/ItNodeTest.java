@@ -45,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -82,6 +83,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.BiConsumer;
@@ -118,6 +120,7 @@ import org.apache.ignite.raft.jraft.closure.ReadIndexClosure;
 import org.apache.ignite.raft.jraft.closure.SynchronizedClosure;
 import org.apache.ignite.raft.jraft.closure.TaskClosure;
 import org.apache.ignite.raft.jraft.conf.Configuration;
+import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
@@ -3353,7 +3356,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testOnReconfigurationErrorListener() throws Exception {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
-        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+        cluster = new TestCluster("testOnReconfigurationErrorListener", dataPath, Collections.singletonList(peer0), testInfo);
 
         var raftGrpEvtsLsnr = mock(JraftGroupEventsListener.class);
 
@@ -3363,7 +3366,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         Node leader = cluster.waitAndGetLeader();
         sendTestTaskAndWait(leader);
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
 
         PeerId newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1).getPeerId();
 
@@ -3383,7 +3386,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testNewPeersConfigurationAppliedListener() throws Exception {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
-        cluster = new TestCluster("testChangePeers", dataPath, Collections.singletonList(peer0), testInfo);
+        cluster = new TestCluster("testNewPeersConfigurationAppliedListener", dataPath, Collections.singletonList(peer0), testInfo);
 
         var raftGrpEvtsLsnr = mock(JraftGroupEventsListener.class);
 
@@ -3409,7 +3412,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             learners.add(learner);
         }
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any());
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
 
         // Wait until every node sees every other node, otherwise
         // changePeersAndLearnersAsync can fail.
@@ -3433,8 +3436,81 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 return false;
             }, 10_000));
 
-            verify(raftGrpEvtsLsnr, times(1)).onNewPeersConfigurationApplied(List.of(newPeer), List.of(newLearner));
+            verify(raftGrpEvtsLsnr, times(1)).onNewPeersConfigurationApplied(eq(List.of(newPeer)), eq(List.of(newLearner)), anyLong(), anyLong());
         }
+    }
+
+    @Test
+    public void testIndexAndTermArePropagatedToOnNewPeersConfigurationApplied() throws Exception {
+        TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
+        var raftGrpEvtsLsnr = mock(JraftGroupEventsListener.class);
+
+        AtomicLong term = new AtomicLong(-1);
+        AtomicLong index = new AtomicLong(-1);
+
+        cluster = new TestCluster(
+                "testIndexAndTermArePropagatedToOnNewPeersConfigurationApplied",
+                dataPath,
+                Collections.singletonList(peer0),
+                new LinkedHashSet<>(),
+                ELECTION_TIMEOUT_MILLIS,
+                (peerId, opts) -> {
+                    opts.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
+                    opts.setFsm(new MockStateMachine(peerId) {
+                        @Override
+                        public void onRawConfigurationCommitted(ConfigurationEntry conf) {
+                            term.set(conf.getId().getTerm());
+                            index.set(conf.getId().getIndex());
+                            super.onRawConfigurationCommitted(conf);
+                        }
+                    });
+                },
+                testInfo
+        );
+
+        assertTrue(cluster.start(peer0));
+
+        cluster.ensureLeader(cluster.waitAndGetLeader());
+
+        Node leader = cluster.waitAndGetLeader();
+
+        assertNotEquals(-1, term.get());
+        assertNotEquals(-1, index.get());
+
+        term.set(-1);
+        index.set(-1);
+
+        sendTestTaskAndWait(leader);
+
+        TestPeer newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
+        assertTrue(cluster.start(newPeer, false, 300));
+
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+
+        // Wait until new node node sees every other node, otherwise
+        // changePeersAndLearnersAsync can fail.
+        waitForTopologyOnEveryNode(1, cluster);
+
+        leader = cluster.getLeader();
+        assertNotNull(leader);
+        assertEquals(peer0.getPeerId(), leader.getNodeId().getPeerId());
+
+        SynchronizedClosure done = new SynchronizedClosure();
+        leader.changePeersAndLearnersAsync(new Configuration(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of()), leader.getCurrentTerm(), done);
+
+        assertEquals(done.await(), Status.OK());
+
+        assertTrue(waitForCondition(() -> {
+            if (cluster.getLeader() != null) {
+                return cluster.getLeader().listAlivePeers().contains(newPeer.getPeerId());
+            }
+            return false;
+        }, 10_000));
+
+        verify(
+                raftGrpEvtsLsnr,
+                times(1)).onNewPeersConfigurationApplied(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of(), term.get(), index.get()
+        );
     }
 
     @Test

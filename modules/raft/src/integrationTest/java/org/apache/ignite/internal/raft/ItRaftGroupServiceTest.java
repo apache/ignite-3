@@ -30,6 +30,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 
@@ -177,7 +178,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
             configurationComplete.countDown();
 
             return null;
-        }).when(eventsListener).onNewPeersConfigurationApplied(any());
+        }).when(eventsListener).onNewPeersConfigurationApplied(any(), anyLong(), anyLong());
 
         RaftGroupService service0 = nodes.get(0).raftGroupService;
 
