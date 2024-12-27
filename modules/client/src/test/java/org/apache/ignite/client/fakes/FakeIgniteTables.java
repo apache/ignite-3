@@ -246,7 +246,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     }
 
     private static LockManager lockManager() {
-        HeapLockManager lockManager = HeapLockManager.smallInstqnce();
+        HeapLockManager lockManager = HeapLockManager.smallInstance();
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }

@@ -163,7 +163,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     txConfiguration,
                     clusterService,
                     replicaSvc,
-                    HeapLockManager.smallInstqnce(),
+                    HeapLockManager.smallInstance(),
                     clockService,
                     new TransactionIdGenerator(0xdeadbeef),
                     placementDriver,

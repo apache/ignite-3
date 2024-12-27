@@ -147,7 +147,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * Such a small instance is started way faster than a full-blown production ready instance with a lot of slots.
      */
     @TestOnly
-    public static HeapLockManager smallInstqnce() {
+    public static HeapLockManager smallInstance() {
         return new HeapLockManager(1024, 1024);
     }
 

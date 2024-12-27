@@ -107,7 +107,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     private OrphanDetector orphanDetector;
 
     private static LockManager lockManager() {
-        HeapLockManager lockManager = HeapLockManager.smallInstqnce();
+        HeapLockManager lockManager = HeapLockManager.smallInstance();
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }
