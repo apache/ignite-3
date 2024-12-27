@@ -128,9 +128,10 @@ public class ItTransactionTestUtils {
         Set<Integer> partitionIds = new HashSet<>();
         Set<String> nodes = new HashSet<>();
 
-        int maxAttempts = 1000;
+        final int maxAttempts = 1000;
+        int attempts = 1000;
 
-        while (maxAttempts >= 0) {
+        while (attempts >= 0) {
             int partId = partitionIdForTuple(node, tableName, t, tx);
             partitionIds.add(partId);
 
@@ -156,7 +157,7 @@ public class ItTransactionTestUtils {
 
             t = nextTuple.apply(t);
 
-            maxAttempts--;
+            attempts--;
         }
 
         throw new AssertionError("Failed to find a suitable tuple, tried " + maxAttempts + " times with [partitionIds="
