@@ -547,7 +547,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         // Continue the COMMIT message flow.
         CompletableFuture<NetworkMessage> finishRequest =
-                IgniteTestUtils.bypassingThreadAssertions(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
+                bypassingThreadAssertions(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
 
         assertThat(finishRequest, willCompleteSuccessfully());
 
@@ -621,7 +621,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
 
         CompletableFuture<NetworkMessage> commitRequest =
-                IgniteTestUtils.bypassingThreadAssertions(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
+                bypassingThreadAssertions(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
 
         assertThat(commitRequest, willCompleteSuccessfully());
 
