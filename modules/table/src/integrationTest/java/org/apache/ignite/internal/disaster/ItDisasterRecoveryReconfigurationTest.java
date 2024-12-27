@@ -245,6 +245,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(TABLE_NAME);
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
 
         awaitPrimaryReplica(node0, partId);
 
@@ -269,6 +271,15 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
+
+        // No fromReset flag is set on stable.
+        Assignments assignmentsStable = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(2).name())
+        ), timestamp);
+
+        assertStableAssignments(node0, partId, assignmentsStable);
     }
 
     /**
@@ -555,6 +566,9 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         blockRebalanceStableSwitch(partId, assignment013);
 
+        // Reset produces
+        // pending = [1, force]
+        // planned = [0, 1, 3]
         CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true, -1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
@@ -568,6 +582,15 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         LocalPartitionStateByNode localPartitionStateByNode = localStates.get(new TablePartitionId(tableId, partId));
 
         assertEquals(LocalPartitionStateEnum.INSTALLING_SNAPSHOT, localPartitionStateByNode.values().iterator().next().state);
+
+        // fromReset == true, assert force == false.
+        Assignments assignmentsPending = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(3).name())
+        ), timestamp, true);
+
+        assertPendingAssignments(node0, partId, assignmentsPending);
 
         stopNode(1);
         waitForScale(node0, 3);
@@ -601,6 +624,130 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         });
     }
 
+    @Test
+    @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
+    public void testNewResetOverwritesFlags() throws Exception {
+        int partId = 0;
+
+        IgniteImpl node0 = igniteImpl(0);
+
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+
+        awaitPrimaryReplica(node0, partId);
+
+        assertRealAssignments(node0, partId, 0, 1, 4);
+
+        stopNodesInParallel(1, 4);
+        waitForScale(node0, 3);
+
+        assertRealAssignments(node0, partId, 0, 2, 3);
+
+        Assignments assignments = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(2).name()),
+                Assignment.forPeer(node(3).name())
+        );
+
+        blockRebalanceStableSwitch(partId, assignments);
+
+        // Reset produces
+        // pending = [0, force]
+        // planned = [0, 2, 3]
+        CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true, -1);
+        assertThat(resetFuture, willCompleteSuccessfully());
+
+        waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
+
+        // fromReset == true, assert force == false.
+        Assignments assignmentsPending = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(2).name()),
+                Assignment.forPeer(node(3).name())
+        ), timestamp, true);
+
+        assertPendingAssignments(node0, partId, assignmentsPending);
+
+        // Any of 3 can be chosen the node for the forced pending, so block them all.
+        Assignments blockedRebalance0 = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name())
+        );
+        blockRebalanceStableSwitch(partId, blockedRebalance0);
+
+        Assignments blockedRebalance2 = Assignments.of(timestamp,
+                Assignment.forPeer(node(2).name())
+        );
+        blockRebalanceStableSwitch(partId, blockedRebalance2);
+
+        Assignments blockedRebalance3 = Assignments.of(timestamp,
+                Assignment.forPeer(node(3).name())
+        );
+        blockRebalanceStableSwitch(partId, blockedRebalance3);
+
+        CompletableFuture<Void> resetFuture2 = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true, -1);
+        assertThat(resetFuture2, willCompleteSuccessfully());
+
+        Assignments pendingAssignments = getPendingAssignments(node0, partId);
+
+        assertTrue(pendingAssignments.force());
+        assertFalse(pendingAssignments.fromReset());
+    }
+
+    @Test
+    @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
+    public void testPlannedIsOverwritten() throws Exception {
+        // Disable scale down to avoid unwanted rebalance.
+        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        int partId = 0;
+
+        IgniteImpl node0 = igniteImpl(0);
+
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+
+        awaitPrimaryReplica(node0, partId);
+
+        assertRealAssignments(node0, partId, 0, 1, 2);
+
+        stopNodesInParallel(1, 2);
+
+        Assignments assignments = Assignments.of(timestamp,
+                Assignment.forPeer(node(0).name())
+        );
+
+        blockRebalanceStableSwitch(partId, assignments);
+
+        // Reset produces
+        // pending = [0, force]
+        // planned = [0, 3, 4]
+        CompletableFuture<Void> resetFuture = node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, true, -1);
+        assertThat(resetFuture, willCompleteSuccessfully());
+
+        Assignments assignmentsPending = Assignments.forced(Set.of(
+                Assignment.forPeer(node(0).name())
+        ), timestamp);
+
+        assertPendingAssignments(node0, partId, assignmentsPending);
+
+        Assignments assignmentsPlanned = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(3).name()),
+                Assignment.forPeer(node(4).name())
+        ), timestamp, true);
+
+        assertPlannedAssignments(node0, partId, assignmentsPlanned);
+
+        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, 2));
+
+        Assignments assignmentsPlannedReplaced = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(3).name()),
+                Assignment.forPeer(node(4).name())
+        ), timestamp);
+
+        assertPlannedAssignments(node0, partId, assignmentsPlannedReplaced, 10_000);
+    }
+
     /**
      * Tests that in a situation from the test {@link #testInsertFailsIfMajorityIsLost()} it is possible to recover partition using a
      * disaster recovery API, but with manual flag set to false. We expect that in this replica factor won't be restored.
@@ -614,6 +761,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         IgniteImpl node0 = igniteImpl(0);
         Table table = node0.tables().table(TABLE_NAME);
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
 
         awaitPrimaryReplica(node0, partId);
 
@@ -643,6 +792,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertNull(getPendingAssignments(node0, partId));
 
         assertRealAssignments(node0, partId, 1);
+
+        // No fromReset flag is set on stable.
+        Assignments assignmentsStable = Assignments.of(Set.of(
+                Assignment.forPeer(node(1).name())
+        ), timestamp);
+
+        assertStableAssignments(node0, partId, assignmentsStable);
     }
 
     /**
@@ -740,14 +896,16 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 node0.disasterRecoveryManager().resetAllPartitions(zoneName, QUALIFIED_TABLE_NAME, false, 1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
+        // force == true, fromReset == false.
         Assignments assignmentForced1 = Assignments.forced(Set.of(Assignment.forPeer(node(1).name())), timestamp);
 
         assertPendingAssignments(node0, partId, assignmentForced1);
 
+        // fromReset == true, force == false.
         Assignments assignments13 = Assignments.of(Set.of(
                 Assignment.forPeer(node(1).name()),
                 Assignment.forPeer(node(3).name())
-        ), timestamp);
+        ), timestamp, true);
 
         assertPlannedAssignments(node0, partId, assignments13);
     }
@@ -874,7 +1032,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 .map(Assignment::forPeer)
                 .collect(Collectors.toSet());
 
-        Assignments assignmentsPlanned = Assignments.of(peers, timestamp);
+        Assignments assignmentsPlanned = Assignments.of(peers, timestamp, true);
 
         assertPlannedAssignments(node0, partId, assignmentsPlanned);
 
@@ -1009,7 +1167,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 .map(Assignment::forPeer)
                 .collect(Collectors.toSet());
 
-        Assignments assignmentsPlanned = Assignments.of(peers, timestamp);
+        Assignments assignmentsPlanned = Assignments.of(peers, timestamp, true);
 
         assertPlannedAssignments(node0, partId, assignmentsPlanned);
 
@@ -1071,7 +1229,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 Assignment.forPeer(node(0).name()),
                 Assignment.forPeer(node(1).name()),
                 Assignment.forPeer(node(4).name())
-        ), timestamp);
+        ), timestamp, true);
 
         assertPlannedAssignments(node0, partId, assignments13);
     }
@@ -1234,8 +1392,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private void assertPlannedAssignments(IgniteImpl node0, int partId, Assignments expected) throws InterruptedException {
+        assertPlannedAssignments(node0, partId, expected, 2000);
+    }
+
+    private void assertPlannedAssignments(IgniteImpl node0, int partId, Assignments expected, long timeout) throws InterruptedException {
         assertTrue(
-                waitForCondition(() -> expected.equals(getPlannedAssignments(node0, partId)), 2000),
+                waitForCondition(() -> expected.equals(getPlannedAssignments(node0, partId)), timeout),
                 () -> "Expected: " + expected + ", actual: " + getPlannedAssignments(node0, partId)
         );
     }

@@ -50,20 +50,15 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
         this.txTracker = txTracker;
     }
 
-    /**
-     * Starts an implicit transaction if there is no external transaction.
-     *
-     * @param readOnly Query type.
-     * @return Transaction wrapper.
-     */
+
+    /** {@inheritDoc} */
     @Override
-    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
+    public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit) {
         InternalTransaction transaction;
         QueryTransactionWrapper result;
 
         if (tx == null) {
-            // TODO: IGNITE-23604 SQL implicit transaction support. Coordinate the transaction implicit flag with the SQL one.
-            transaction = txManager.begin(observableTimeTracker, false, readOnly);
+            transaction = txManager.begin(observableTimeTracker, implicit, readOnly);
             result = new QueryTransactionWrapperImpl(transaction, true, txTracker);
         } else {
             transaction = tx.unwrap();

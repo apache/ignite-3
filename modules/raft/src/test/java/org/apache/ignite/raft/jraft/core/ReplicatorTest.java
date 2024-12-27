@@ -578,9 +578,8 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         assertEquals(0, r.getTimeoutNowIndex());
         assertNull(r.getTimeoutNowInFly());
 
-        final RpcRequests.TimeoutNowRequest request = createTimeoutnowRequest();
         Mockito.when(
-            this.rpcService.timeoutNow(eq(this.opts.getPeerId()), eq(request), eq(-1),
+            this.rpcService.timeoutNow(eq(this.opts.getPeerId()), Mockito.any(), eq(-1),
                 Mockito.any())).thenReturn(new CompletableFuture<>());
 
         assertTrue(Replicator.transferLeadership(this.id, 10));
@@ -625,8 +624,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
         assertTrue(Replicator.sendTimeoutNowAndStop(this.id, 10));
         assertEquals(0, r.getTimeoutNowIndex());
         assertNull(r.getTimeoutNowInFly());
-        final RpcRequests.TimeoutNowRequest request = createTimeoutnowRequest();
-        Mockito.verify(this.rpcService).timeoutNow(eq(this.opts.getPeerId()), eq(request),
+        Mockito.verify(this.rpcService).timeoutNow(eq(this.opts.getPeerId()), Mockito.any(),
             eq(10), Mockito.any());
     }
 
@@ -637,6 +635,7 @@ public class ReplicatorTest extends BaseIgniteAbstractTest {
             .groupId(this.opts.getGroupId())
             .serverId(this.opts.getServerId().toString())
             .peerId(this.opts.getPeerId().toString())
+            .timestamp(this.node.getOptions().getClock().now())
             .build();
     }
 

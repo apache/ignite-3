@@ -71,7 +71,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Integration tests for Compute functionality in embedded Ignite mode.
  */
-@SuppressWarnings("resource")
+@SuppressWarnings({"NewClassNamingConvention"})
 class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Override
@@ -142,9 +142,9 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         JobExecution<String> execution3 = entryNode.compute().submit(
                 jobTarget,
                 JobDescriptor.builder(WaitLatchThrowExceptionOnFirstExecutionJob.class)
-                    .units(units())
-                    .options(options)
-                    .build(),
+                        .units(units())
+                        .options(options)
+                        .build(),
                 countDownLatch);
         await().until(execution3::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 

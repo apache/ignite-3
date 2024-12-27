@@ -39,6 +39,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
+import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
@@ -167,13 +168,21 @@ public class DistributionZoneRebalanceEngineV2 {
                 return nullCompletedFuture();
             }
 
+            long revision = evt.entryEvent().newEntry().revision();
+
+            Set<String> aliveNodes = distributionZoneManager.logicalTopology(revision)
+                    .stream()
+                    .map(NodeWithAttributes::nodeName)
+                    .collect(Collectors.toSet());
+
             return triggerZonePartitionsRebalance(
                     zoneDescriptor,
                     filteredDataNodes,
-                    evt.entryEvent().newEntry().revision(),
+                    revision,
                     metaStorageManager,
                     busyLock,
-                    assignmentsTimestamp
+                    assignmentsTimestamp,
+                    aliveNodes
             );
         });
     }
@@ -209,13 +218,19 @@ public class DistributionZoneRebalanceEngineV2 {
 
                     Catalog catalog = catalogService.catalog(catalogVersion);
 
+                    Set<String> aliveNodes = distributionZoneManager.logicalTopology(causalityToken)
+                            .stream()
+                            .map(NodeWithAttributes::nodeName)
+                            .collect(Collectors.toSet());
+
                     return triggerZonePartitionsRebalance(
                             zoneDescriptor,
                             dataNodes,
                             causalityToken,
                             metaStorageManager,
                             busyLock,
-                            catalog.time()
+                            catalog.time(),
+                            aliveNodes
                     );
                 }));
     }

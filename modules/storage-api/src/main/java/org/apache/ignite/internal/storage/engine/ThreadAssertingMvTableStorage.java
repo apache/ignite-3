@@ -31,6 +31,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.ThreadAssertingHashIndexStorage;
 import org.apache.ignite.internal.storage.index.ThreadAssertingSortedIndexStorage;
 import org.apache.ignite.internal.worker.ThreadAssertions;
+import org.apache.ignite.internal.wrapper.Wrapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see ThreadAssertions
  */
-public class ThreadAssertingMvTableStorage implements MvTableStorage {
+public class ThreadAssertingMvTableStorage implements MvTableStorage, Wrapper {
     private final MvTableStorage tableStorage;
 
     /** Constructor. */
@@ -144,5 +145,10 @@ public class ThreadAssertingMvTableStorage implements MvTableStorage {
     @Override
     public StorageTableDescriptor getTableDescriptor() {
         return tableStorage.getTableDescriptor();
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> classToUnwrap) {
+        return classToUnwrap.cast(tableStorage);
     }
 }

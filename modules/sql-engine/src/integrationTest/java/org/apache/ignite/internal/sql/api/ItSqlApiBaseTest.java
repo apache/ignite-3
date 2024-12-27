@@ -615,8 +615,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
 
         // Check that data are inserted OK
-        List<List<Object>> res = sql("SELECT ID FROM TEST ORDER BY ID");
-        IntStream.range(0, ROW_COUNT * 2).forEach(i -> assertEquals(i, res.get(i).get(0)));
+        List<SqlRow> res = execute(igniteSql(), "SELECT ID FROM TEST ORDER BY ID").result();
+        IntStream.range(0, ROW_COUNT * 2).forEach(i -> assertEquals(i, res.get(i).intValue((0))));
 
         BatchedArguments args = BatchedArguments.of(-1, -1);
 

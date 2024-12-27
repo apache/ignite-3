@@ -68,6 +68,7 @@ public class BinaryTupleTest {
         assertNull(reader.decimalValue(0, 0));
         assertNull(reader.stringValue(0));
         assertNull(reader.bytesValue(0));
+        assertNull(reader.bytesValueAsBuffer(0));
         assertNull(reader.uuidValue(0));
         assertNull(reader.dateValue(0));
         assertNull(reader.timeValue(0));
@@ -421,8 +422,19 @@ public class BinaryTupleTest {
                     assertEquals(length, e - b);
                 }
             });
+
             for (int i = 0; i < values.length; i++) {
                 assertArrayEquals(values[i], reader.bytesValue(i));
+
+                ByteBuffer valueAsBuffer = reader.bytesValueAsBuffer(i);
+
+                if (values[i] == null) {
+                    assertNull(valueAsBuffer);
+                } else {
+                    byte[] bufferBytes = new byte[valueAsBuffer.remaining()];
+                    valueAsBuffer.get(bufferBytes);
+                    assertArrayEquals(values[i], bufferBytes);
+                }
             }
         }
     }

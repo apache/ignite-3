@@ -17,7 +17,6 @@
 
 package org.apache.ignite;
 
-import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.SslConfiguration;
 
 /**
@@ -25,7 +24,6 @@ import org.apache.ignite.client.SslConfiguration;
  */
 public class SslConfigurationProperties implements SslConfiguration {
     private Boolean enabled;
-    private ClientAuthenticationMode clientAuth;
     private Iterable<String> ciphers;
     private String keyStorePath;
     private String keyStorePassword;
@@ -35,11 +33,6 @@ public class SslConfigurationProperties implements SslConfiguration {
     @Override
     public boolean enabled() {
         return enabled;
-    }
-
-    @Override
-    public ClientAuthenticationMode clientAuthenticationMode() {
-        return clientAuth;
     }
 
     @Override
@@ -69,10 +62,6 @@ public class SslConfigurationProperties implements SslConfiguration {
 
     public void setEnabled(Boolean enabled) {
         this.enabled = enabled;
-    }
-
-    public void setClientAuth(ClientAuthenticationMode clientAuth) {
-        this.clientAuth = clientAuth;
     }
 
     public void setCiphers(Iterable<String> ciphers) {

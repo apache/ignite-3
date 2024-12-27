@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.compute.ComputeJobDataType.MARSHALLED_C
 import static org.apache.ignite.internal.compute.ComputeJobDataType.NATIVE;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.POJO;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE;
+import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE_COLLECTION;
 import static org.apache.ignite.internal.compute.PojoConverter.fromTuple;
 import static org.apache.ignite.internal.compute.PojoConverter.toTuple;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -33,6 +34,9 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.MARSHALLING_TYPE_MISMAT
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -443,9 +447,10 @@ public class ComputeUtils {
             );
         }
         switch (type) {
-            case NATIVE:
+            case NATIVE: {
                 var reader = new BinaryTupleReader(3, argumentHolder.data());
                 return (T) ClientBinaryTupleUtils.readObject(reader, 0);
+            }
 
             case TUPLE: // Fallthrough TODO https://issues.apache.org/jira/browse/IGNITE-23320
             case POJO:
@@ -464,6 +469,27 @@ public class ComputeUtils {
                 } catch (Exception ex) {
                     throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller", ex);
                 }
+
+            case TUPLE_COLLECTION: {
+                // TODO: IGNITE-24059 Deduplicate with ClientComputeJobUnpacker.
+                ByteBuffer collectionBuf = ByteBuffer.wrap(argumentHolder.data()).order(ByteOrder.LITTLE_ENDIAN);
+                int count = collectionBuf.getInt();
+                BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf.slice().order(ByteOrder.LITTLE_ENDIAN));
+
+                List<Tuple> res = new ArrayList<>(count);
+                for (int i = 0; i < count; i++) {
+                    ByteBuffer elementBytes = reader.bytesValueAsBuffer(i);
+
+                    if (elementBytes == null) {
+                        res.add(null);
+                        continue;
+                    }
+
+                    res.add(TupleWithSchemaMarshalling.unmarshal(elementBytes));
+                }
+
+                return (T) res;
+            }
 
             default:
                 throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Unexpected job argument type: " + type);
@@ -519,6 +545,37 @@ public class ComputeUtils {
             Tuple tuple = (Tuple) result;
             return new ComputeJobDataHolder(TUPLE, TupleWithSchemaMarshalling.marshal(tuple));
         }
+
+        if (result instanceof Collection) {
+            // TODO: IGNITE-24059 Deduplicate with ClientComputeJobPacker.
+            Collection<?> col = (Collection<?>) result;
+
+            // Pack entire collection into a single binary blob.
+            BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(col.size());
+
+            for (Object el : col) {
+                if (el == null) {
+                    tupleBuilder.appendNull();
+                    continue;
+                }
+
+                if (!(el instanceof Tuple)) {
+                    throw new MarshallingException("Can't pack collection: expected Tuple, but got " + el.getClass(), null);
+                }
+
+                tupleBuilder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) el));
+            }
+
+            ByteBuffer binTupleBytes = tupleBuilder.build();
+
+            byte[] resArr = new byte[Integer.BYTES + binTupleBytes.remaining()];
+            ByteBuffer resBuf = ByteBuffer.wrap(resArr).order(ByteOrder.LITTLE_ENDIAN);
+            resBuf.putInt(col.size());
+            resBuf.put(binTupleBytes);
+
+            return new ComputeJobDataHolder(TUPLE_COLLECTION, resArr);
+        }
+
 
         if (isNativeType(result.getClass())) {
             // Builder with inline schema.
