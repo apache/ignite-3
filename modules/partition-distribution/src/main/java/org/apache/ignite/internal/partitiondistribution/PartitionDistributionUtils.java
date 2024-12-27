@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.partitiondistribution;
 
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -30,6 +29,9 @@ import java.util.Set;
  * Stateless distribution utils that produces helper methods for an assignments distribution calculation.
  */
 public class PartitionDistributionUtils {
+
+    private static final DistributionAlgorithm DISTRIBUTION_ALGORITHM = new RendezvousDistributionFunction();
+
     /**
      * Calculates assignments distribution.
      *
@@ -38,14 +40,16 @@ public class PartitionDistributionUtils {
      * @param replicas Replicas count.
      * @return List assignments by partition.
      */
-    public static List<Set<Assignment>> calculateAssignments(Collection<String> dataNodes, int partitions, int replicas) {
-        List<Set<String>> nodes = RendezvousDistributionFunction.assignPartitions(
+    public static List<Set<Assignment>> calculateAssignments(
+            Collection<String> dataNodes,
+            int partitions,
+            int replicas
+    ) {
+        List<List<String>> nodes = DISTRIBUTION_ALGORITHM.assignPartitions(
                 dataNodes,
+                emptyList(),
                 partitions,
-                replicas,
-                false,
-                null,
-                HashSet::new
+                replicas
         );
 
         return nodes.stream().map(PartitionDistributionUtils::dataNodesToAssignments).collect(toList());
@@ -59,15 +63,16 @@ public class PartitionDistributionUtils {
      * @param replicas Replicas count.
      * @return Set of assignments.
      */
-    public static Set<Assignment> calculateAssignmentForPartition(Collection<String> dataNodes, int partitionId, int replicas) {
-        Set<String> nodes = RendezvousDistributionFunction.assignPartition(
+    public static Set<Assignment> calculateAssignmentForPartition(
+            Collection<String> dataNodes,
+            int partitionId,
+            int replicas
+    ) {
+        List<String> nodes = DISTRIBUTION_ALGORITHM.assignPartition(
+                dataNodes,
+                emptyList(),
                 partitionId,
-                new ArrayList<>(dataNodes),
-                replicas,
-                null,
-                false,
-                null,
-                HashSet::new
+                replicas
         );
 
         return dataNodesToAssignments(nodes);

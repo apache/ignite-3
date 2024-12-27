@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -124,10 +125,14 @@ public class ItTransactionTestUtils {
         Tuple t = initialTuple;
         int tableId = tableId(node, tableName);
 
-        int maxAttempts = 100;
+        Set<Integer> partitionIds = new HashSet<>();
+        Set<String> nodes = new HashSet<>();
+
+        int maxAttempts = 1000;
 
         while (maxAttempts >= 0) {
             int partId = partitionIdForTuple(node, tableName, t, tx);
+            partitionIds.add(partId);
 
             TablePartitionId grpId = new TablePartitionId(tableId, partId);
 
@@ -137,12 +142,16 @@ public class ItTransactionTestUtils {
                 if (node.id().equals(replicaMeta.getLeaseholderId())) {
                     return t;
                 }
+
+                nodes.add(replicaMeta.getLeaseholder());
             } else {
                 Set<String> assignments = partitionAssignment(node, grpId);
 
                 if (assignments.contains(node.name())) {
                     return t;
                 }
+
+                nodes.addAll(assignments);
             }
 
             t = nextTuple.apply(t);
@@ -150,7 +159,8 @@ public class ItTransactionTestUtils {
             maxAttempts--;
         }
 
-        throw new AssertionError("Failed to find a suitable tuple.");
+        throw new AssertionError("Failed to find a suitable tuple, tried " + maxAttempts + " times with [partitionIds="
+                + partitionIds + ", nodes=" + nodes + "].");
     }
 
     /**
