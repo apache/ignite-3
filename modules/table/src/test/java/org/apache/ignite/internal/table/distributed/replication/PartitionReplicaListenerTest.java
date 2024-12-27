@@ -837,12 +837,13 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private ReadOnlySingleRowPkReplicaRequest readOnlySingleRowPkReplicaRequest(BinaryRow pk, HybridTimestamp readTimestamp) {
-        return readOnlySingleRowPkReplicaRequest(grpId, newTxId(), pk, readTimestamp);
+        return readOnlySingleRowPkReplicaRequest(grpId, newTxId(), localNode.id(), pk, readTimestamp);
     }
 
     private static ReadOnlySingleRowPkReplicaRequest readOnlySingleRowPkReplicaRequest(
             TablePartitionId grpId,
             UUID txId,
+            UUID coordinatorId,
             BinaryRow pk,
             HybridTimestamp readTimestamp
     ) {
@@ -853,6 +854,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .schemaVersion(pk.schemaVersion())
                 .primaryKey(pk.tupleSlice())
                 .transactionId(txId)
+                .coordinatorId(coordinatorId)
                 .requestType(RO_GET)
                 .build();
     }
@@ -2812,7 +2814,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<ReplicaResult> doReadOnlyMultiGet(Collection<BinaryRow> rows, HybridTimestamp readTimestamp) {
-        ReadOnlyMultiRowPkReplicaRequest request = readOnlyMultiRowPkReplicaRequest(grpId, newTxId(), rows, readTimestamp);
+        ReadOnlyMultiRowPkReplicaRequest request = readOnlyMultiRowPkReplicaRequest(grpId, newTxId(), localNode.id(), rows, readTimestamp);
 
         return invokeListener(request);
     }
@@ -2820,6 +2822,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private static ReadOnlyMultiRowPkReplicaRequest readOnlyMultiRowPkReplicaRequest(
             TablePartitionId grpId,
             UUID txId,
+            UUID coordinatorId,
             Collection<BinaryRow> rows,
             HybridTimestamp readTimestamp
     ) {
@@ -2831,6 +2834,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .primaryKeys(binaryRowsToBuffers(rows))
                 .transactionId(txId)
+                .coordinatorId(coordinatorId)
                 .build();
     }
 
@@ -3282,10 +3286,17 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private enum NonDirectReadOnlyRequestFactory {
-        SINGLE_GET(context -> readOnlySingleRowPkReplicaRequest(context.groupId, context.txId, context.key, context.clock.now())),
+        SINGLE_GET(context -> readOnlySingleRowPkReplicaRequest(
+                context.groupId,
+                context.txId,
+                context.coordinatorId,
+                context.key,
+                context.clock.now())
+        ),
         MULTI_GET(context -> readOnlyMultiRowPkReplicaRequest(
                 context.groupId,
                 context.txId,
+                context.coordinatorId,
                 singletonList(context.key),
                 context.clock.now()
         )),

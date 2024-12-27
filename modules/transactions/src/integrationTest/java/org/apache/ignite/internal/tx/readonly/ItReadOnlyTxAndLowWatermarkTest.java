@@ -82,6 +82,11 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
     }
 
     @Override
+    protected int[] cmgMetastoreNodes() {
+        return new int[] {0};
+    }
+
+    @Override
     protected void customizeInitParameters(InitParametersBuilder builder) {
         builder.clusterConfiguration("ignite.gc.lowWatermark: {\n"
                 // Update frequently.
@@ -212,6 +217,33 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
                 ),
                 "Did not see low watermark going up in time"
         );
+    }
+
+    @ParameterizedTest
+    @EnumSource(TransactionalReader.class)
+    @WithSystemProperty(key = ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "100")
+    void nonFinishedRoTransactionsOfCoordinatorsThatLeftDontHoldLwm(TransactionalReader reader) throws Exception {
+        // TODO: remove the assumption when IGNITE-24119 is fixed.
+        assumeFalse(reader == TransactionalReader.MULTI_GET);
+
+        Ignite coordinator = node(1);
+        KeyValueView<Integer, String> kvView = kvView(coordinator);
+
+        insertOriginalValuesToBothNodes(KEY_COUNT, kvView);
+
+        Transaction roTx = coordinator.transactions().begin(new TransactionOptions().readOnly(true));
+
+        // Do actual read(s) in the transaction.
+        reader.read(coordinator, roTx);
+
+        // Stop the coordinator.
+        stopNode(1);
+
+        updateDataAvailabilityTimeToShortPeriod();
+
+        HybridTimestamp readTimestamp = unwrapInternalTransaction(roTx).readTimestamp();
+
+        assertLwmGrowsAbove(readTimestamp, node(0));
     }
 
     private enum TransactionalReader {

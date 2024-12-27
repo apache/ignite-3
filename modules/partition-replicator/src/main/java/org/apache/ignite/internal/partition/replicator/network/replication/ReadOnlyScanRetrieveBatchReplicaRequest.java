@@ -31,10 +31,7 @@ public interface ReadOnlyScanRetrieveBatchReplicaRequest extends ScanRetrieveBat
     @Override
     UUID transactionId();
 
-    /**
-     * Get the transaction coordinator inconsistent ID.
-     *
-     * @return Transaction coordinator inconsistent ID.
-     */
+    // TODO: remove override after @Nullable is removed from the super-interface method, see IGNITE-24120.
+    @Override
     UUID coordinatorId();
 }

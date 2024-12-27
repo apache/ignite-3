@@ -4037,8 +4037,11 @@ public class PartitionReplicaListener implements ReplicaListener {
      * <p>If lock attempt fails, throws an exception with a specific error code ({@link Transactions#TX_STALE_READ_ONLY_OPERATION_ERR}).
      *
      * <p>For explicit RO transactions, the lock will be later released when cleaning up after the RO transaction had been finished.
+     *
      * <p>For direct RO operations (which happen in implicit RO transactions), LWM will be unlocked right after the read had been done
      * (see {@link #unlockLwmIfNeeded(UUID, ReplicaRequest)}).
+     *
+     * <p>Also, for explicit RO transactions, an automatic unlock is registered on coordinator leave.
      *
      * @param request Request that is being handled.
      * @param opStartTsIfDirectRo Timestamp of operation start if the operation is a direct RO operation, {@code null} otherwise.
@@ -4065,9 +4068,24 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (!lowWatermark.tryLock(txIdToLockLwm, tsToLockLwm)) {
                 throw new TransactionException(Transactions.TX_STALE_READ_ONLY_OPERATION_ERR, "Read timestamp is not available anymore.");
             }
+
+            registerAutoLwmUnlockOnCoordinatorLeaveIfNeeded(request, txIdToLockLwm);
         }
 
         return txIdToLockLwm;
+    }
+
+    private void registerAutoLwmUnlockOnCoordinatorLeaveIfNeeded(ReplicaRequest request, UUID txIdToLockLwm) {
+        if (request instanceof ReadOnlyReplicaRequest) {
+            ReadOnlyReplicaRequest readOnlyReplicaRequest = (ReadOnlyReplicaRequest) request;
+
+            UUID coordinatorId = readOnlyReplicaRequest.coordinatorId();
+            // TODO: remove null check after IGNITE-24120 is sorted out.
+            if (coordinatorId != null) {
+                FullyQualifiedResourceId resourceId = new FullyQualifiedResourceId(txIdToLockLwm, txIdToLockLwm);
+                remotelyTriggeredResourceRegistry.register(resourceId, coordinatorId, () -> () -> lowWatermark.unlock(txIdToLockLwm));
+            }
+        }
     }
 
     private void unlockLwmIfNeeded(@Nullable UUID txIdToUnlockLwm, ReplicaRequest request) {

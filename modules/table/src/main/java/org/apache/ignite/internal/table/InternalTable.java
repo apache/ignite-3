@@ -106,7 +106,7 @@ public interface InternalTable extends ManuallyCloseable {
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
-        return get(keyRow, readTimestamp, null, recipientNode);
+        return get(keyRow, readTimestamp, null, null, recipientNode);
     }
 
     /**
@@ -115,6 +115,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param keyRow        Row with key columns set.
      * @param readTimestamp Read timestamp.
      * @param transactionId Transaction ID (might be {@code null}).
+     * @param coordinatorId Ephemeral ID of the transaction coordinator.
      * @param recipientNode Cluster node that will handle given get request.
      * @return Future representing pending completion of the operation.
      */
@@ -122,6 +123,7 @@ public interface InternalTable extends ManuallyCloseable {
             BinaryRowEx keyRow,
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
+            @Nullable UUID coordinatorId,
             ClusterNode recipientNode
     );
 
@@ -152,7 +154,7 @@ public interface InternalTable extends ManuallyCloseable {
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
-        return getAll(keyRows, readTimestamp, null, recipientNode);
+        return getAll(keyRows, readTimestamp, null, null, recipientNode);
     }
 
     /**
@@ -161,6 +163,7 @@ public interface InternalTable extends ManuallyCloseable {
      * @param keyRows       Rows with key columns set.
      * @param readTimestamp Read timestamp.
      * @param transactionId Transaction ID (might be {@code null}).
+     * @param coordinatorId Ephemeral ID of the transaction coordinator.
      * @param recipientNode Cluster node that will handle given get request.
      * @return Future that will return rows with all columns filled from the table. The order of collection elements is
      *      guaranteed to be the same as the order of {@code keyRows}. If a record does not exist, the
@@ -170,6 +173,7 @@ public interface InternalTable extends ManuallyCloseable {
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
+            @Nullable UUID coordinatorId,
             ClusterNode recipientNode
     );
 

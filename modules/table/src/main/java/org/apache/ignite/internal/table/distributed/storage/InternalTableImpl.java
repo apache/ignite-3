@@ -888,7 +888,7 @@ public class InternalTableImpl implements InternalTable {
 
         if (tx.isReadOnly()) {
             return evaluateReadOnlyRecipientNode(partitionId(keyRow), tx.readTimestamp())
-                    .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), tx.id(), recipientNode));
+                    .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), tx.id(), tx.coordinatorId(), recipientNode));
         }
 
         return enlistInTx(
@@ -916,6 +916,7 @@ public class InternalTableImpl implements InternalTable {
             BinaryRowEx keyRow,
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
+            @Nullable UUID coordinatorId,
             ClusterNode recipientNode
     ) {
         int partId = partitionId(keyRow);
@@ -929,6 +930,7 @@ public class InternalTableImpl implements InternalTable {
                 .requestType(RO_GET)
                 .readTimestamp(readTimestamp)
                 .transactionId(transactionId)
+                .coordinatorId(coordinatorId)
                 .build()
         );
     }
@@ -983,7 +985,7 @@ public class InternalTableImpl implements InternalTable {
             BinaryRowEx firstRow = keyRows.iterator().next();
 
             return evaluateReadOnlyRecipientNode(partitionId(firstRow), tx.readTimestamp())
-                    .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), recipientNode));
+                    .thenCompose(recipientNode -> getAll(keyRows, tx.readTimestamp(), tx.id(), tx.coordinatorId(), recipientNode));
         }
 
         return enlistInTx(
@@ -1002,6 +1004,7 @@ public class InternalTableImpl implements InternalTable {
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
             @Nullable UUID transactionId,
+            @Nullable UUID coordinatorId,
             ClusterNode recipientNode
     ) {
         Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
@@ -1017,6 +1020,7 @@ public class InternalTableImpl implements InternalTable {
                     .requestType(RO_GET_ALL)
                     .readTimestamp(readTimestamp)
                     .transactionId(transactionId)
+                    .coordinatorId(coordinatorId)
                     .build();
 
             partitionRowBatch.getValue().resultFuture = replicaSvc.invoke(recipientNode, request);

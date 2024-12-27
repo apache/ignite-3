@@ -32,4 +32,9 @@ public interface ReadOnlyReplicaRequest extends ReplicaRequest {
     // TODO: remove @Nullable after IGNITE-24120 is sorted out.
     @Nullable
     UUID transactionId();
+
+    /** Inconsistent ID of transaction to which this operation belongs. */
+    // TODO: remove @Nullable after IGNITE-24120 is sorted out.
+    @Nullable
+    UUID coordinatorId();
 }
