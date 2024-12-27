@@ -4030,6 +4030,20 @@ public class PartitionReplicaListener implements ReplicaListener {
         return UUID.randomUUID();
     }
 
+    /**
+     * For an operation of an RO transaction (explicit or implicit), attempts to lock LWM on current node, and does nothing for other types
+     * of requests.
+     *
+     * <p>If lock attempt fails, throws an exception with a specific error code ({@link Transactions#TX_STALE_READ_ONLY_OPERATION_ERR}).
+     *
+     * <p>For explicit RO transactions, the lock will be later released when cleaning up after the RO transaction had been finished.
+     * <p>For direct RO operations (which happen in implicit RO transactions), LWM will be unlocked right after the read had been done
+     * (see {@link #unlockLwmIfNeeded(UUID, ReplicaRequest)}).
+     *
+     * @param request Request that is being handled.
+     * @param opStartTsIfDirectRo Timestamp of operation start if the operation is a direct RO operation, {@code null} otherwise.
+     * @return Transaction ID (real for explicit transaction, fake for direct RO operation).
+     */
     private @Nullable UUID tryToLockLwmIfNeeded(ReplicaRequest request, @Nullable HybridTimestamp opStartTsIfDirectRo) {
         UUID txIdToLockLwm;
         HybridTimestamp tsToLockLwm = null;
