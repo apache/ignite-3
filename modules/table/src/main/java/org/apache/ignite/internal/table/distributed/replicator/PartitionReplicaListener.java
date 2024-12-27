@@ -3976,6 +3976,33 @@ public class PartitionReplicaListener implements ReplicaListener {
             @Nullable HybridTimestamp opStartTsIfDirectRo,
             @Nullable Long leaseStartTime
     ) {
+        incrementRwOperationCountIfNeeded(request);
+
+        UUID txIdLockingLwm = tryToLockLwmIfNeeded(request, opStartTsIfDirectRo);
+
+        try {
+            return processOperationRequest(senderId, request, isPrimary, opStartTsIfDirectRo, leaseStartTime)
+                    .whenComplete((unused, throwable) -> {
+                        unlockLwmIfNeeded(txIdLockingLwm, request);
+                        decrementRwOperationCountIfNeeded(request);
+                    });
+        } catch (Throwable e) {
+            try {
+                unlockLwmIfNeeded(txIdLockingLwm, request);
+            } catch (Throwable unlockProblem) {
+                e.addSuppressed(unlockProblem);
+            }
+
+            try {
+                decrementRwOperationCountIfNeeded(request);
+            } catch (Throwable decrementProblem) {
+                e.addSuppressed(decrementProblem);
+            }
+            throw e;
+        }
+    }
+
+    private void incrementRwOperationCountIfNeeded(ReplicaRequest request) {
         if (request instanceof ReadWriteReplicaRequest) {
             int rwTxActiveCatalogVersion = rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request);
 
@@ -3985,27 +4012,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                 throw new StaleTransactionOperationException(((ReadWriteReplicaRequest) request).transactionId());
             }
         }
+    }
 
-        UUID txIdLockingLwm = tryToLockLwmIfNeeded(request, opStartTsIfDirectRo);
-
-        try {
-            return processOperationRequest(senderId, request, isPrimary, opStartTsIfDirectRo, leaseStartTime)
-                    .whenComplete((unused, throwable) -> {
-                        unlockLwmIfNeeded(txIdLockingLwm, request);
-
-                        if (request instanceof ReadWriteReplicaRequest) {
-                            txRwOperationTracker.decrementOperationCount(
-                                    rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request)
-                            );
-                        }
-                    });
-        } catch (Throwable e) {
-            try {
-                unlockLwmIfNeeded(txIdLockingLwm, request);
-            } catch (Throwable unlockProblem) {
-                e.addSuppressed(unlockProblem);
-            }
-            throw e;
+    private void decrementRwOperationCountIfNeeded(ReplicaRequest request) {
+        if (request instanceof ReadWriteReplicaRequest) {
+            txRwOperationTracker.decrementOperationCount(
+                    rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request)
+            );
         }
     }
 
