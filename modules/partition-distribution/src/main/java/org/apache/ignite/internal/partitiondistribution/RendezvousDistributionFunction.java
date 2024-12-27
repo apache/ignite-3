@@ -30,6 +30,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -82,7 +83,7 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
      * @param aggregator        Function that creates a collection for the partition assignments.
      * @return Assignment.
      */
-    public static <T extends Collection<String>> T assignPartition(
+    public static <T extends Collection<Assignment>> T assignPartition(
             int part,
             Collection<String> nodes,
             int replicas,
@@ -94,7 +95,7 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         if (nodes.size() <= 1) {
             T res = aggregator.apply(1);
 
-            res.addAll(nodes);
+            nodes.stream().map(Assignment::forPeer).forEach(res::add);
 
             return res;
         }
@@ -125,7 +126,7 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
 
         String first = it.next();
 
-        res.add(first);
+        res.add(Assignment.forPeer(first));
 
         if (exclNeighbors) {
             allNeighbors.addAll(neighborhoodCache.get(first));
@@ -138,12 +139,12 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
 
                 if (exclNeighbors) {
                     if (!allNeighbors.contains(node)) {
-                        res.add(node);
+                        res.add(Assignment.forPeer(node));
 
                         allNeighbors.addAll(neighborhoodCache.get(node));
                     }
                 } else if (nodeFilter == null || nodeFilter.test(node, res)) {
-                    res.add(node);
+                    res.add(Assignment.forPeer(node));
                 }
             }
         }
@@ -158,7 +159,7 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
                 String node = it.next();
 
                 if (!res.contains(node)) {
-                    res.add(node);
+                    res.add(Assignment.forPeer(node));
                 }
             }
 
@@ -175,6 +176,17 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         return res;
     }
 
+    @Override
+    public Set<Assignment> assignPartition(
+            Collection<String> nodes,
+            List<String> currentDistribution,
+            int partitionId,
+            int replicaFactor,
+            int consensusGroupSize
+    ) {
+        return assignPartition(partitionId, nodes, replicaFactor, null, false, null, HashSet::new);
+    }
+
     /**
      * Creates assignment for REPLICATED table.
      *
@@ -183,17 +195,20 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
      * @param aggregator  Function that creates a collection for the partition assignments.
      * @return Assignment.
      */
-    private static <T extends Collection<String>> T replicatedAssign(Collection<String> nodes,
-            Iterable<String> sortedNodes, IntFunction<T> aggregator) {
+    private static <T extends Collection<Assignment>> T replicatedAssign(
+            Collection<String> nodes,
+            Iterable<String> sortedNodes,
+            IntFunction<T> aggregator
+    ) {
         String first = sortedNodes.iterator().next();
 
         T res = aggregator.apply(nodes.size());
 
-        res.add(first);
+        res.add(Assignment.forPeer(first));
 
         for (String n : nodes) {
             if (!n.equals(first)) {
-                res.add(n);
+                res.add(Assignment.forPeer(first));
             }
         }
 
@@ -233,16 +248,16 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
      * @param replicas                Number partition replicas.
      * @param exclNeighbors           If true neighbors are excluded from the one partition assignment, false otherwise.
      * @param nodeFilter              Filter for nodes.
-     * @return List nodes by partition.
+     * @return List of assignments by partition.
      */
-    public static List<List<String>> assignPartitions(
+    public static List<Set<Assignment>> assignPartitions(
             Collection<String> currentTopologySnapshot,
             int partitions,
             int replicas,
             boolean exclNeighbors,
-            @Nullable BiPredicate<String, List<String>> nodeFilter
+            @Nullable BiPredicate<String, Set<Assignment>> nodeFilter
     ) {
-        return assignPartitions(currentTopologySnapshot, partitions, replicas, exclNeighbors, nodeFilter, ArrayList::new);
+        return assignPartitions(currentTopologySnapshot, partitions, replicas, exclNeighbors, nodeFilter, HashSet::new);
     }
 
     /**
@@ -256,7 +271,7 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
      * @param aggregator              Function that creates a collection for the partition assignments.
      * @return List nodes by partition.
      */
-    public static <T extends Collection<String>> List<T> assignPartitions(
+    public static <T extends Collection<Assignment>> List<T> assignPartitions(
             Collection<String> currentTopologySnapshot,
             int partitions,
             int replicas,
@@ -281,6 +296,17 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         }
 
         return assignments;
+    }
+
+    @Override
+    public List<Set<Assignment>> assignPartitions(
+            Collection<String> nodes,
+            List<List<String>> currentDistribution,
+            int partitions,
+            int replicaFactor,
+            int consensusGroupSize
+    ) {
+        return assignPartitions(nodes, partitions, replicaFactor, false, null);
     }
 
     /**
@@ -315,21 +341,6 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         }
 
         return neighbors;
-    }
-
-    @Override
-    public List<List<String>> assignPartitions(
-            Collection<String> nodes,
-            List<List<String>> currentDistribution,
-            int partitions,
-            int replicaFactor
-    ) {
-        return assignPartitions(nodes, partitions, replicaFactor, false, null);
-    }
-
-    @Override
-    public List<String> assignPartition(Collection<String> nodes, List<String> currentDistribution, int partitionId, int replicaFactor) {
-        return assignPartition(partitionId, nodes, replicaFactor, null, false, null, ArrayList::new);
     }
 
     /**

@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.partitiondistribution;
 
 import static java.util.Collections.emptyList;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
 import java.util.Collection;
 import java.util.List;
@@ -45,14 +43,13 @@ public class PartitionDistributionUtils {
             int partitions,
             int replicas
     ) {
-        List<List<String>> nodes = DISTRIBUTION_ALGORITHM.assignPartitions(
+        return DISTRIBUTION_ALGORITHM.assignPartitions(
                 dataNodes,
                 emptyList(),
                 partitions,
+                replicas,
                 replicas
         );
-
-        return nodes.stream().map(PartitionDistributionUtils::dataNodesToAssignments).collect(toList());
     }
 
     /**
@@ -68,17 +65,13 @@ public class PartitionDistributionUtils {
             int partitionId,
             int replicas
     ) {
-        List<String> nodes = DISTRIBUTION_ALGORITHM.assignPartition(
+        return DISTRIBUTION_ALGORITHM.assignPartition(
                 dataNodes,
                 emptyList(),
                 partitionId,
+                replicas,
                 replicas
         );
-
-        return dataNodesToAssignments(nodes);
     }
 
-    private static Set<Assignment> dataNodesToAssignments(Collection<String> nodes) {
-        return nodes.stream().map(Assignment::forPeer).collect(toSet());
-    }
 }
