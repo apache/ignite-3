@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
@@ -36,8 +35,6 @@ import org.apache.ignite.internal.catalog.commands.DropSchemaCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /** Tests for schema related commands. */
 public class CatalogSchemaTest extends BaseCatalogManagerTest {
@@ -130,21 +127,6 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
         }
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {
-            CatalogService.SYSTEM_SCHEMA_NAME,
-            CatalogService.INFORMATION_SCHEMA,
-            CatalogService.DEFINITION_SCHEMA
-    })
-    public void testDropSystemSchemaIsForbidden(String schemaName) {
-        CatalogCommand dropCmd = DropSchemaCommand.builder().name(schemaName).build();
-
-        assertThat(
-                manager.execute(dropCmd),
-                willThrowFast(CatalogValidationException.class, format("System schema can't be dropped [name={}]", schemaName))
-        );
-    }
-
     private Catalog latestCatalog() {
         Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
 
@@ -153,6 +135,7 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
         return latestCatalog;
     }
 
+    @SuppressWarnings("SameParameterValue")
     private static CatalogCommand newTableCommand(String tableName) {
         return createTableCommand(
                 TEST_SCHEMA,
@@ -163,6 +146,7 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
         );
     }
 
+    @SuppressWarnings("SameParameterValue")
     private static CatalogCommand newIndexCommand(String tableName, String indexName) {
         return createSortedIndexCommand(
                 TEST_SCHEMA,

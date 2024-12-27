@@ -100,6 +100,11 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
         return systemViewsMap.get(name);
     }
 
+    /** Returns {@code true} if the schema contains doesn't contain any indexes or tables, otherwise {@code false}. */
+    public boolean isEmpty() {
+        return tables.length == 0 && indexes.length == 0;
+    }
+
     private void rebuildMaps() {
         tablesMap = Arrays.stream(tables).collect(toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
         indexesMap = Arrays.stream(indexes)

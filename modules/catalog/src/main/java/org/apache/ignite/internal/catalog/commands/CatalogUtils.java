@@ -147,7 +147,7 @@ public class CatalogUtils {
         FUNCTIONAL_DEFAULT_FUNCTIONS.put("RAND_UUID", ColumnType.UUID);
     }
 
-    public static final List<String> SYSTEM_SCHEMAS = List.of(
+    public static final Set<String> SYSTEM_SCHEMAS = Set.of(
             SYSTEM_SCHEMA_NAME,
             DEFINITION_SCHEMA,
             INFORMATION_SCHEMA
