@@ -320,9 +320,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 return v;
             });
 
-            return completedFuture(new UpdateCommandResult(true, true));
+            return completedFuture(new UpdateCommandResult(true, true, 100));
         } else if (cmd instanceof UpdateAllCommand) {
-            return completedFuture(new UpdateCommandResult(true, true));
+            return completedFuture(new UpdateCommandResult(true, true, 100));
         } else if (cmd instanceof FinishTxCommand) {
             FinishTxCommand command = (FinishTxCommand) cmd;
 
@@ -664,7 +664,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private static LockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager();
+        HeapLockManager lockManager = HeapLockManager.smallInstance();
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }
@@ -1584,7 +1584,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             assertFalse(replicaCleanupFut.isDone());
 
-            writeFut.complete(new UpdateCommandResult(true, true));
+            writeFut.complete(new UpdateCommandResult(true, true, 0));
 
             assertThat(replicaCleanupFut, willSucceedFast());
         } finally {

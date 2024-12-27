@@ -58,11 +58,11 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -734,14 +734,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 break;
             }
 
-            case EREORDER:
-                assert resp.maxObservableSafeTimeViolatedValue() != null :
-                        "Unexpected combination of EREORDER error type and null in maxObservableSafeTimeViolatedValue.";
-
-                fut.completeExceptionally(new SafeTimeReorderException(resp.maxObservableSafeTimeViolatedValue()));
-
-                break;
-
             default:
                 fut.completeExceptionally(new RaftException(error, resp.errorMsg()));
 
@@ -799,7 +791,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private static boolean recoverable(Throwable t) {
         t = unwrapCause(t);
 
-        return t instanceof TimeoutException || t instanceof IOException || t instanceof PeerUnavailableException;
+        return t instanceof TimeoutException
+                || t instanceof IOException
+                || t instanceof PeerUnavailableException
+                || t instanceof RecipientLeftException;
     }
 
     private Peer randomNode() {

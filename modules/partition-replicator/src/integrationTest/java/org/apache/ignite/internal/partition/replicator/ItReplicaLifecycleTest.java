@@ -102,6 +102,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -1033,7 +1034,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterIdHolder
             );
 
-            lockManager = new HeapLockManager();
+            lockManager = HeapLockManager.smallInstance();
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
@@ -1278,6 +1279,9 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                     NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
 
+            SystemDistributedConfiguration systemDistributedConfiguration =
+                    clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
+
             distributionZoneManager = new DistributionZoneManager(
                     name,
                     registry,
@@ -1285,7 +1289,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     logicalTopologyService,
                     catalogManager,
                     rebalanceScheduler,
-                    clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
+                    systemDistributedConfiguration
             );
 
             partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
@@ -1300,7 +1304,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.partitionOperationsExecutor(),
                     clockService,
                     placementDriver,
-                    schemaSyncService);
+                    schemaSyncService,
+                    systemDistributedConfiguration);
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                     .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
@@ -1342,7 +1347,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     indexMetaStorage,
                     partitionsLogStorageFactory,
                     partitionReplicaLifecycleManager,
-                    minTimeCollectorService
+                    minTimeCollectorService,
+                    systemDistributedConfiguration
             ) {
 
                 @Override
