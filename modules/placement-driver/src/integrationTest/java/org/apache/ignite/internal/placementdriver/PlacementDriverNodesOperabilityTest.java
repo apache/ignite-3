@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.restart.RestartProofIgnite;
 import org.apache.ignite.internal.table.TableImpl;
 import org.junit.jupiter.api.Test;
 
@@ -57,11 +57,9 @@ public class PlacementDriverNodesOperabilityTest extends ClusterPerClassIntegrat
 
         Set<Integer> cmgMetastoreNodesIndices = Arrays.stream(cmgMetastoreNodes()).boxed().collect(toSet());
 
-        RestartProofIgnite igniteMs = (RestartProofIgnite) findAliveNode(ni -> cmgMetastoreNodesIndices.contains(ni.getKey()));
-        IgniteImpl metaStorageNode = igniteMs.unwrap(IgniteImpl.class);
+        IgniteImpl metaStorageNode = unwrapIgniteImpl(findAliveNode(ni -> cmgMetastoreNodesIndices.contains(ni.getKey())));
 
-        RestartProofIgnite igniteNms = (RestartProofIgnite) findAliveNode(ni -> !cmgMetastoreNodesIndices.contains(ni.getKey()));
-        IgniteImpl nonMetaStorageNode = igniteNms.unwrap(IgniteImpl.class);
+        IgniteImpl nonMetaStorageNode = unwrapIgniteImpl(findAliveNode(ni -> !cmgMetastoreNodesIndices.contains(ni.getKey())));
 
         TableImpl table = unwrapTableImpl(metaStorageNode.tables().table("TABLE_TEST"));
         ReplicationGroupId groupId = new TablePartitionId(table.tableId(), 0);

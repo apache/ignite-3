@@ -62,7 +62,7 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -82,8 +82,8 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
 
-    /** Ignite transactions API. */
-    private final IgniteTransactionsImpl igniteTransactions;
+    /** Transaction manager. */
+    private final TxManager txManager;
 
     /** Cluster ID supplier. */
     private final Supplier<ClusterInfo> clusterInfoSupplier;
@@ -137,7 +137,7 @@ public class ClientHandlerModule implements IgniteComponent {
      *
      * @param queryProcessor Sql query processor.
      * @param igniteTables Ignite.
-     * @param igniteTransactions Transactions.
+     * @param txManager Transaction manager.
      * @param igniteCompute Compute.
      * @param clusterService Cluster.
      * @param bootstrapFactory Bootstrap factory.
@@ -152,7 +152,7 @@ public class ClientHandlerModule implements IgniteComponent {
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
             IgniteTablesInternal igniteTables,
-            IgniteTransactionsImpl igniteTransactions,
+            TxManager txManager,
             IgniteComputeInternal igniteCompute,
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
@@ -170,6 +170,7 @@ public class ClientHandlerModule implements IgniteComponent {
     ) {
         assert igniteTables != null;
         assert queryProcessor != null;
+        assert txManager != null;
         assert igniteCompute != null;
         assert clusterService != null;
         assert bootstrapFactory != null;
@@ -187,7 +188,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
-        this.igniteTransactions = igniteTransactions;
+        this.txManager = txManager;
         this.igniteCompute = igniteCompute;
         this.clusterService = clusterService;
         this.bootstrapFactory = bootstrapFactory;
@@ -379,7 +380,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration, long connectionId) {
         return new ClientInboundMessageHandler(
                 igniteTables,
-                igniteTransactions,
+                txManager,
                 queryProcessor,
                 configuration,
                 igniteCompute,

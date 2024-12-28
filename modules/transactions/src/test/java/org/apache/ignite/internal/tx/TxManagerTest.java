@@ -115,7 +115,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     private static final ClusterNode REMOTE_NODE =
             new ClusterNodeImpl(randomUUID(), "remote", new NetworkAddress("127.1.1.1", 2024), null);
 
-    private HybridTimestampTracker hybridTimestampTracker = new HybridTimestampTracker();
+    private HybridTimestampTracker hybridTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 
     private final LongSupplier idleSafeTimePropagationPeriodMsSupplier = () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 
@@ -464,7 +464,7 @@ public class TxManagerTest extends IgniteAbstractTest {
                 now.getLogical()
         );
 
-        hybridTimestampTracker = new HybridTimestampTracker();
+        hybridTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 
         hybridTimestampTracker.update(timestampInPast);
 

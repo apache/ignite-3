@@ -41,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
@@ -156,7 +157,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
                 .build();
 
         RelDataType resultType = selectCountNode.getRowType();
-        Function<RowT, RowT> projection = ctx.expressionFactory().project(expressions, getCountType);
+        SqlProjection<RowT> projection = ctx.expressionFactory().project(expressions, getCountType);
 
         RowHandler<RowT> rowHandler = ctx.rowHandler();
         BiFunction<Integer, Object, Object> internalTypeConverter = TypeUtils.resultTypeConverter(ctx, resultType);
@@ -171,7 +172,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
                     .addField(rowCount)
                     .build();
 
-            RowT projectRow = projection.apply(rowCountRow);
+            RowT projectRow = projection.project(ctx, rowCountRow);
 
             return List.<InternalSqlRow>of(
                     new InternalSqlRowImpl<>(projectRow, rowHandler, internalTypeConverter)

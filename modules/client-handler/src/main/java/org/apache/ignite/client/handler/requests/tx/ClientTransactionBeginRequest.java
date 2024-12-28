@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.tx;
 
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.startTx;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
@@ -25,8 +27,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.tx.TransactionOptions;
+import org.apache.ignite.internal.tx.TxManager;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,7 +39,7 @@ public class ClientTransactionBeginRequest {
      *
      * @param in           Unpacker.
      * @param out          Packer.
-     * @param transactions Transactions.
+     * @param txManager Transactions.
      * @param resources    Resources.
      * @param metrics      Metrics.
      * @return Future.
@@ -46,22 +47,17 @@ public class ClientTransactionBeginRequest {
     public static @Nullable CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteTransactionsImpl transactions,
+            TxManager txManager,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics) throws IgniteInternalCheckedException {
-        TransactionOptions options = null;
-        HybridTimestamp observableTs = null;
-
+            ClientHandlerMetricSource metrics
+    ) throws IgniteInternalCheckedException {
         boolean readOnly = in.unpackBoolean();
-        if (readOnly) {
-            options = new TransactionOptions().readOnly(true);
 
-            // Timestamp makes sense only for read-only transactions.
-            observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        }
+        // Timestamp makes sense only for read-only transactions.
+        HybridTimestamp observableTs = readOnly ? HybridTimestamp.nullableHybridTimestamp(in.unpackLong()) : null;
 
         // NOTE: we don't use beginAsync here because it is synchronous anyway.
-        var tx = transactions.begin(options, observableTs);
+        var tx = startTx(out, txManager, observableTs, false, readOnly);
 
         if (readOnly) {
             // For read-only tx, override observable timestamp that we send to the client:

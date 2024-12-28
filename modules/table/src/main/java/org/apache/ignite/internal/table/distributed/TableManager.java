@@ -1530,33 +1530,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         var futures = new ArrayList<CompletableFuture<Void>>(tables.size());
 
         for (TableImpl table : tables.values()) {
-            futures.add(runAsync(() -> {
-                Stream.Builder<ManuallyCloseable> stopping = Stream.builder();
-
-                InternalTable internalTable = table.internalTable();
-
-                stopping.add(() -> {
-                    var stopReplicaFutures = new CompletableFuture<?>[internalTable.partitions()];
-
-                    for (int p = 0; p < internalTable.partitions(); p++) {
-                        TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
-
-                        stopReplicaFutures[p] = stopPartition(replicationGroupId, table);
-                    }
-
-                    allOf(stopReplicaFutures).get(10, TimeUnit.SECONDS);
-                });
-
-                stopping.add(internalTable.storage());
-                stopping.add(internalTable.txStateStorage());
-                stopping.add(internalTable);
-
-                try {
-                    IgniteUtils.closeAllManually(stopping.build());
-                } catch (Throwable t) {
-                    LOG.error("Unable to stop table [name={}, tableId={}]", t, table.name(), table.tableId());
-                }
-            }, ioExecutor));
+            futures.add(
+                    supplyAsync(() -> tableStopFuture(table), ioExecutor).thenCompose(identity())
+            );
         }
 
         try {
@@ -1564,6 +1540,40 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             LOG.error("Unable to clean table resources", e);
         }
+    }
+
+    private CompletableFuture<Void> tableStopFuture(TableImpl table) {
+        InternalTable internalTable = table.internalTable();
+
+        var stopReplicaFutures = new CompletableFuture<?>[internalTable.partitions()];
+
+        for (int p = 0; p < internalTable.partitions(); p++) {
+            TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
+
+            stopReplicaFutures[p] = stopPartition(replicationGroupId, table);
+        }
+
+        CompletableFuture<Void> stopPartitionReplicasFuture = allOf(stopReplicaFutures).orTimeout(10, TimeUnit.SECONDS);
+
+        return stopPartitionReplicasFuture
+                .whenCompleteAsync((res, ex) -> {
+                    Stream.Builder<ManuallyCloseable> stopping = Stream.builder();
+
+                    stopping.add(internalTable.storage());
+                    stopping.add(internalTable.txStateStorage());
+                    stopping.add(internalTable);
+
+                    try {
+                        IgniteUtils.closeAllManually(stopping.build());
+                    } catch (Throwable e) {
+                        throw new CompletionException(e);
+                    }
+                }, ioExecutor)
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        LOG.error("Unable to stop table [name={}, tableId={}]", ex, table.name(), table.tableId());
+                    }
+                });
     }
 
     /**

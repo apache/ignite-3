@@ -277,7 +277,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         return queryCheckerFactory.create(
                 NODE_NAME,
                 new TestQueryProcessor(testNode, false),
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 null,
                 qry
         );
@@ -289,7 +289,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         return queryCheckerFactory.create(
                 NODE_NAME,
                 new TestQueryProcessor(testNode, true),
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 null,
                 qry
         );

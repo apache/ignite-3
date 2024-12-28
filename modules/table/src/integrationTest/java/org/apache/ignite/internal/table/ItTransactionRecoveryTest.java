@@ -737,7 +737,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         IgniteImpl txCrdNode2 = unwrapIgniteImpl(node(0));
 
         CompletableFuture<Void> finish2 = txCrdNode2.txManager().finish(
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 ((InternalTransaction) rwTx1).commitPartition(),
                 false,
                 Map.of(((InternalTransaction) rwTx1).commitPartition(), new IgniteBiTuple<>(txCrdNode2.node(), 0L)),

@@ -122,7 +122,7 @@ public class IgniteUtils {
     /**
      * Root package for JMX MBeans.
      */
-    private static final String JMX_MBEAN_PACKAGE = "org.apache";
+    private static final String JMX_MBEAN_PACKAGE = "org.apache.ignite";
 
     /**
      * Get JDK version.
