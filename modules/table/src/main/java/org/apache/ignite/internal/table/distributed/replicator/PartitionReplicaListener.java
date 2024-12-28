@@ -540,7 +540,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         // Don't need to validate schema.
         if (opTs == null) {
             assert opTsIfDirectRo == null;
-            return processOperationRequestWithWrappingLogic(senderId, request, isPrimary, null, leaseStartTime);
+            return processOperationRequestWithTxOperationManagementLogic(senderId, request, isPrimary, null, leaseStartTime);
         }
 
         assert txTs != null && opTs.compareTo(txTs) >= 0 : "Invalid request timestamps";
@@ -561,7 +561,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         };
 
         return schemaSyncService.waitForMetadataCompleteness(opTs).thenRun(validateClo).thenCompose(ignored ->
-                processOperationRequestWithWrappingLogic(senderId, request, isPrimary, opTsIfDirectRo, leaseStartTime));
+                processOperationRequestWithTxOperationManagementLogic(senderId, request, isPrimary, opTsIfDirectRo, leaseStartTime));
     }
 
     private CompletableFuture<Long> processGetEstimatedSizeRequest() {
@@ -3969,7 +3969,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private CompletableFuture<?> processOperationRequestWithWrappingLogic(
+    private CompletableFuture<?> processOperationRequestWithTxOperationManagementLogic(
             UUID senderId,
             ReplicaRequest request,
             @Nullable Boolean isPrimary,
