@@ -52,8 +52,8 @@ class AssignmentsChainSerializerTest {
 
     @CartesianTest
     void serializationAndDeserialization(
-            @Values(booleans = {false}) boolean force,
-            @Values(booleans = {false}) boolean fromReset
+            @Values(booleans = {false, true}) boolean force,
+            @Values(booleans = {false, true}) boolean fromReset
     ) {
         AssignmentsChain originalAssignmentsChain =
                 AssignmentsChain.of(List.of(testAssignments1(force, fromReset), testAssignments2(force, fromReset)));
@@ -102,7 +102,6 @@ class AssignmentsChainSerializerTest {
         Assignment assignment1 = orderedNodes.get(0);
         assertThat(assignment1.consistentId(), is("def"));
         assertThat(assignment1.isPeer(), is(false));
-
     }
 
     private static Assignments testAssignments1(boolean force, boolean fromReset) {
