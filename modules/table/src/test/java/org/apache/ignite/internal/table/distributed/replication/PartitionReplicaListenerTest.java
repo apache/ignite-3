@@ -3236,11 +3236,27 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         verify(lowWatermark, never()).unlock(any());
     }
 
-    @ParameterizedTest
-    @EnumSource(DirectReadOnlyRequestFactory.class)
-    void directReadOnlyRequestsLockAndUnlockLwm(DirectReadOnlyRequestFactory requestFactory) {
-        RequestContext context = new RequestContext(grpId, newTxId(), clock, nextBinaryKey(), localNode.id());
-        ReadOnlyDirectReplicaRequest request = requestFactory.create(context);
+    @Test
+    void directReadOnlySingleRowRequestDoesNotLockLwm() {
+        ReadOnlyDirectReplicaRequest request = readOnlyDirectSingleRowReplicaRequest(grpId, nextBinaryKey());
+
+        assertThat(invokeListener(request), willCompleteSuccessfully());
+
+        verify(lowWatermark, never()).tryLock(any(), any());
+    }
+
+    @Test
+    void directReadOnlyMultiRowRequestWithOneKeyDoesNotLockLwm() {
+        ReadOnlyDirectReplicaRequest request = readOnlyDirectMultiRowReplicaRequest(grpId, List.of(nextBinaryKey()));
+
+        assertThat(invokeListener(request), willCompleteSuccessfully());
+
+        verify(lowWatermark, never()).tryLock(any(), any());
+    }
+
+    @Test
+    void directReadOnlyMultiRowRequestWithMultipleKeysLockAndUnlockLwm() {
+        ReadOnlyDirectReplicaRequest request = readOnlyDirectMultiRowReplicaRequest(grpId, List.of(nextBinaryKey(), nextBinaryKey()));
 
         assertThat(invokeListener(request), willCompleteSuccessfully());
 
@@ -3256,13 +3272,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertThat(unlockTxIdCaptor.getValue(), is(lockTxIdCaptor.getValue()));
     }
 
-    @ParameterizedTest
-    @EnumSource(DirectReadOnlyRequestFactory.class)
-    void directReadOnlyRequestsUnlockLwmEvenWhenExceptionHappens(DirectReadOnlyRequestFactory requestFactory) {
+    @Test
+    void directReadOnlyMultiRowRequestWithMultipleKeysUnlockLwmEvenWhenExceptionHappens() {
         doThrow(new RuntimeException("Oops")).when(pkIndexStorage).get(any());
 
-        RequestContext context = new RequestContext(grpId, newTxId(), clock, nextBinaryKey(), localNode.id());
-        ReadOnlyDirectReplicaRequest request = requestFactory.create(context);
+        ReadOnlyDirectReplicaRequest request = readOnlyDirectMultiRowReplicaRequest(grpId, List.of(nextBinaryKey(), nextBinaryKey()));
 
         assertThat(invokeListener(request), willThrowFast(RuntimeException.class, "Oops"));
 
@@ -3309,21 +3323,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         }
 
         ReadOnlyReplicaRequest create(RequestContext context) {
-            return requestFactory.apply(context);
-        }
-    }
-
-    private enum DirectReadOnlyRequestFactory {
-        SINGLE_GET(context -> readOnlyDirectSingleRowReplicaRequest(context.groupId, context.key)),
-        MULTI_GET(context -> readOnlyDirectMultiRowReplicaRequest(context.groupId, singletonList(context.key)));
-
-        private final Function<RequestContext, ReadOnlyDirectReplicaRequest> requestFactory;
-
-        DirectReadOnlyRequestFactory(Function<RequestContext, ReadOnlyDirectReplicaRequest> requestFactory) {
-            this.requestFactory = requestFactory;
-        }
-
-        ReadOnlyDirectReplicaRequest create(RequestContext context) {
             return requestFactory.apply(context);
         }
     }

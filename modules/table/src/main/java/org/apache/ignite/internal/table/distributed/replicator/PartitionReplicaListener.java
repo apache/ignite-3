@@ -4031,8 +4031,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * For an operation of an RO transaction (explicit or implicit), attempts to lock LWM on current node, and does nothing for other types
-     * of requests.
+     * For an operation of an RO transaction, attempts to lock LWM on current node (either if the operation is not direct,
+     * or if it's direct and concerns more than one key), and does nothing for other types of requests.
      *
      * <p>If lock attempt fails, throws an exception with a specific error code ({@link Transactions#TX_STALE_READ_ONLY_OPERATION_ERR}).
      *
@@ -4045,21 +4045,23 @@ public class PartitionReplicaListener implements ReplicaListener {
      *
      * @param request Request that is being handled.
      * @param opStartTsIfDirectRo Timestamp of operation start if the operation is a direct RO operation, {@code null} otherwise.
-     * @return Transaction ID (real for explicit transaction, fake for direct RO operation).
+     * @return Transaction ID (real for explicit transaction, fake for direct RO operation) that shoiuld be used to lock LWM,
+     *     or {@code null} if LWM doesn't need to be locked..
      */
     private @Nullable UUID tryToLockLwmIfNeeded(ReplicaRequest request, @Nullable HybridTimestamp opStartTsIfDirectRo) {
         UUID txIdToLockLwm;
         HybridTimestamp tsToLockLwm = null;
 
-        if (request instanceof ReadOnlyDirectReplicaRequest) {
+        if (request instanceof ReadOnlyDirectMultiRowReplicaRequest
+                && ((ReadOnlyDirectMultiRowReplicaRequest) request).primaryKeys().size() > 1) {
             assert opStartTsIfDirectRo != null;
 
             txIdToLockLwm = newFakeTxId();
             tsToLockLwm = opStartTsIfDirectRo;
         } else if (request instanceof ReadOnlyReplicaRequest) {
-            ReadOnlyReplicaRequest readOnlyReplicaRequest = (ReadOnlyReplicaRequest) request;
-            txIdToLockLwm = readOnlyReplicaRequest.transactionId();
-            tsToLockLwm = readOnlyReplicaRequest.readTimestamp();
+            ReadOnlyReplicaRequest readOnlyRequest = (ReadOnlyReplicaRequest) request;
+            txIdToLockLwm = readOnlyRequest.transactionId();
+            tsToLockLwm = readOnlyRequest.readTimestamp();
         } else {
             txIdToLockLwm = null;
         }
@@ -4089,9 +4091,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private void unlockLwmIfNeeded(@Nullable UUID txIdToUnlockLwm, ReplicaRequest request) {
-        if (request instanceof ReadOnlyDirectReplicaRequest) {
-            assert txIdToUnlockLwm != null : request;
-
+        if (txIdToUnlockLwm != null && request instanceof ReadOnlyDirectReplicaRequest) {
             lowWatermark.unlock(txIdToUnlockLwm);
         }
     }
