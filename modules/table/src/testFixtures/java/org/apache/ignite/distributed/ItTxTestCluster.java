@@ -177,6 +177,7 @@ import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.raft.jraft.storage.impl.NoopDestroyStorageIntentStorage;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
@@ -420,6 +421,7 @@ public class ItTxTestCluster {
                     "test",
                     clusterService.nodeName(),
                     partitionsWorkDir.resolve("log"),
+                    new NoopDestroyStorageIntentStorage(),
                     raftConfig.fsync().value()
             );
 
