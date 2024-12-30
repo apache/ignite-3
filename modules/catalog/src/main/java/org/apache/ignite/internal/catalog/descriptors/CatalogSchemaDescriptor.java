@@ -100,9 +100,9 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
         return systemViewsMap.get(name);
     }
 
-    /** Returns {@code true} if the schema contains doesn't contain any indexes or tables, otherwise {@code false}. */
+    /** Returns {@code true} if the schema doesn't contain any objects, otherwise {@code false}. */
     public boolean isEmpty() {
-        return tables.length == 0 && indexes.length == 0;
+        return tables.length == 0 && indexes.length == 0 && systemViews.length == 0;
     }
 
     private void rebuildMaps() {

@@ -72,8 +72,6 @@ public class DropSchemaCommand implements CatalogCommand {
             throw new CatalogValidationException("Schema '{}' is not empty. Use CASCADE to drop it anyway.", schemaName);
         }
 
-        assert schema.systemViews().length == 0 : "name=" + schemaName + ", count=" + schema.systemViews().length;
-
         List<UpdateEntry> updateEntries = new ArrayList<>();
 
         for (CatalogIndexDescriptor idx : schema.indexes()) {
