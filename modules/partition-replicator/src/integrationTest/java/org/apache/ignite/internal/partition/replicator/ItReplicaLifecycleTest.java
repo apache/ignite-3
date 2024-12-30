@@ -155,6 +155,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.PersistentLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.Replica;
@@ -974,7 +975,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         private AtomicReference<Function<ReplicaRequest, ReplicationGroupId>> converter =
                 new AtomicReference<>(request -> request.groupId().asReplicationGroupId());
 
-        private final LogStorageFactory partitionsLogStorageFactory;
+        private final PersistentLogStorageFactory partitionsLogStorageFactory;
 
         private final LogStorageFactory msLogStorageFactory;
 

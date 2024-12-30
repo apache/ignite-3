@@ -39,11 +39,11 @@ public class SharedLogStorageFactoryUtils {
     private static final boolean LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT = false;
 
     /**
-     * Creates a LogStorageFactory with {@link DefaultLogStorageFactory} or {@link LogitLogStorageFactory} implementation depending on
-     * LOGIT_STORAGE_ENABLED_PROPERTY and fsync set to true.
+     * Creates a {@link PersistentLogStorageFactory} with {@link DefaultLogStorageFactory} or {@link LogitLogStorageFactory} implementation
+     * depending on LOGIT_STORAGE_ENABLED_PROPERTY and fsync set to true.
      */
     @TestOnly
-    public static LogStorageFactory create(String nodeName, Path logStoragePath) {
+    public static PersistentLogStorageFactory create(String nodeName, Path logStoragePath) {
         return create("test", nodeName, logStoragePath, new NoopDestroyStorageIntentStorage(), true);
     }
 
