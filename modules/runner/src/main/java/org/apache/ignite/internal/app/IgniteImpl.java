@@ -282,6 +282,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.storage.DestroyStorageIntentStorage;
+import org.apache.ignite.raft.jraft.storage.impl.NoopDestroyStorageIntentStorage;
 import org.apache.ignite.raft.jraft.storage.impl.VaultDestroyStorageIntentStorage;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.IgniteTables;
@@ -613,7 +614,8 @@ public class IgniteImpl implements Ignite {
                 raftConfiguration,
                 clock,
                 raftGroupEventsClientListener,
-                failureManager
+                failureManager,
+                destroyStorageIntentStorage
         );
 
         MessagingService messagingServiceReturningToStorageOperationsPool = new JumpToExecutorByConsistentIdAfterSend(

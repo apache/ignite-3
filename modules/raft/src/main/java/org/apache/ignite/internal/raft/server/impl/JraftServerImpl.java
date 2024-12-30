@@ -98,6 +98,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.NullActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.NullAppendEntriesRequestInterceptor;
+import org.apache.ignite.raft.jraft.storage.DestroyStorageIntentStorage;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.StableClosureEvent;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
@@ -112,6 +113,9 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class JraftServerImpl implements RaftServer {
     private static final IgniteLogger LOG = Loggers.forClass(JraftServerImpl.class);
+
+    /** Prefix to save destroy storage intents in {@link DestroyStorageIntentStorage}. */
+    private static final String DESTROY_PREFIX = "jraftServer";
 
     /** Cluster service. */
     private final ClusterService service;
@@ -152,22 +156,27 @@ public class JraftServerImpl implements RaftServer {
     /** The number of parallel raft groups starts. */
     private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
 
+    private final DestroyStorageIntentStorage destroyStorageIntentStorage;
+
     /**
      * The constructor.
      *
      * @param service Cluster service.
      * @param opts Default node options.
      * @param raftGroupEventsClientListener Raft events listener.
+     * @param destroyStorageIntentStorage Storage to persist and retrieve storage destroy intents.
      * @param failureManager Failure processor that is used to handle critical errors.
      */
     public JraftServerImpl(
             ClusterService service,
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
-            FailureManager failureManager
+            FailureManager failureManager,
+            DestroyStorageIntentStorage destroyStorageIntentStorage
     ) {
         this.service = service;
         this.nodeManager = new NodeManager();
+        this.destroyStorageIntentStorage = destroyStorageIntentStorage;
 
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
@@ -339,6 +348,8 @@ public class JraftServerImpl implements RaftServer {
         }
 
         rpcServer.init(null);
+
+        completeStoragesDestroy();
 
         return nullCompletedFuture();
     }
@@ -573,15 +584,18 @@ public class JraftServerImpl implements RaftServer {
 
     @Override
     public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
-        // TODO: IGNITE-23079 - improve on what we do if it was not possible to destroy any of the storages.
         try {
             String logUri = nodeId.nodeIdStringForStorage();
             groupOptions.getLogStorageFactory().destroyLogStorage(logUri);
         } finally {
             Path serverDataPath = serverDataPathForNodeId(nodeId, groupOptions);
 
+            destroyStorageIntentStorage.saveDestroyStorageIntent(DESTROY_PREFIX, serverDataPath.toString());
+
             // This destroys both meta storage and snapshots storage as they are stored under serverDataPath.
-            IgniteUtils.deleteIfExists(serverDataPath);
+            if (IgniteUtils.deleteIfExists(serverDataPath)) {
+                destroyStorageIntentStorage.removeDestroyStorageIntent(DESTROY_PREFIX, serverDataPath.toString());
+            }
         }
     }
 
@@ -883,5 +897,15 @@ public class JraftServerImpl implements RaftServer {
 
             listener.onLeaderStop();
         }
+    }
+
+    private void completeStoragesDestroy() {
+        destroyStorageIntentStorage.storagesToDestroy(DESTROY_PREFIX).forEach(serverDataPath -> {
+            if (IgniteUtils.deleteIfExists(Path.of(serverDataPath))) {
+                destroyStorageIntentStorage.removeDestroyStorageIntent(DESTROY_PREFIX, serverDataPath);
+            } else {
+                LOG.error("Failed to delete storage: " + serverDataPath);
+            }
+        });
     }
 }

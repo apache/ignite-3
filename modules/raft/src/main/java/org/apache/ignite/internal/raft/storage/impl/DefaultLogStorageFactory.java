@@ -242,7 +242,7 @@ public class DefaultLogStorageFactory implements PersistentLogStorageFactory {
     @Override
     public void destroyLogStorage(String uri) {
         try {
-            destroyStorageIntentStorage.saveDestroyIntent(factoryName, uri);
+            destroyStorageIntentStorage.saveDestroyStorageIntent(factoryName, uri);
 
             RocksDbSharedLogStorage.destroyAllEntriesBetween(
                     db,
@@ -252,7 +252,7 @@ public class DefaultLogStorageFactory implements PersistentLogStorageFactory {
                     raftNodeStorageEndPrefix(uri)
             );
 
-            destroyStorageIntentStorage.removeDestroyIntent(factoryName, uri);
+            destroyStorageIntentStorage.removeDestroyStorageIntent(factoryName, uri);
         } catch (RocksDBException e) {
             throw new LogStorageException("Fail to destroy the log storage for " + uri, e);
         }

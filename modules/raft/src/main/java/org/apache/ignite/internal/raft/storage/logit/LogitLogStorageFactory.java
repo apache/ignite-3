@@ -123,7 +123,7 @@ public class LogitLogStorageFactory implements PersistentLogStorageFactory {
 
     @Override
     public void destroyLogStorage(String uri) {
-        destroyStorageIntentStorage.saveDestroyIntent(factoryName, uri);
+        destroyStorageIntentStorage.saveDestroyStorageIntent(factoryName, uri);
 
         Requires.requireTrue(StringUtils.isNotBlank(uri), "Blank log storage uri.");
 
@@ -133,7 +133,7 @@ public class LogitLogStorageFactory implements PersistentLogStorageFactory {
             throw new LogStorageException("Cannot delete directory " + storagePath);
         }
 
-        destroyStorageIntentStorage.removeDestroyIntent(factoryName, uri);
+        destroyStorageIntentStorage.removeDestroyStorageIntent(factoryName, uri);
     }
 
     @Override
