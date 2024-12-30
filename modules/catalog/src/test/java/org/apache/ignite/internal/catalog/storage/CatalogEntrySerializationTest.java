@@ -173,6 +173,10 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                         0, "S", new CatalogTableDescriptor[0], new CatalogIndexDescriptor[0], new CatalogSystemViewDescriptor[0], 0)));
                 break;
 
+            case DROP_SCHEMA:
+                checkSerialization(new DropSchemaEntry(1));
+                break;
+
             default:
                 throw new UnsupportedOperationException("Test not implemented " + type);
         }
