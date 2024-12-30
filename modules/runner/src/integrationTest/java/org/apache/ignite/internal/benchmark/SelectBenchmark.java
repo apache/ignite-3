@@ -43,6 +43,10 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -81,6 +85,10 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
     private KeyValueView<Tuple, Tuple> keyValueView;
 
+    private IgniteTransactions transactions;
+
+    private final TransactionOptions readOnlyTransactionOptions = new TransactionOptions().readOnly(true);
+
     @Param({"1", "2", "3"})
     private int clusterSize;
 
@@ -101,6 +109,8 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
 
             keyValueView.put(null, Tuple.create().set("ycsb_key", id++), t);
         }
+
+        transactions = publicIgnite.transactions();
     }
 
     /**
@@ -172,7 +182,21 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void kvGet(Blackhole bh) {
-        Tuple val = keyValueView.get(null, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
+        doKvGet(null, bh);
+    }
+
+    /**
+     * Benchmark for KV get in RO transaction via embedded client.
+     */
+    @Benchmark
+    public void kvGetInRoTransaction(Blackhole bh) {
+        transactions.runInTransaction(tx -> {
+            doKvGet(tx, bh);
+        }, readOnlyTransactionOptions);
+    }
+
+    private void doKvGet(@Nullable Transaction tx, Blackhole bh) {
+        Tuple val = keyValueView.get(tx, Tuple.create().set("ycsb_key", random.nextInt(TABLE_SIZE)));
         bh.consume(val);
     }
 

@@ -68,6 +68,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
@@ -245,7 +246,8 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 mock(ClusterNodeResolver.class),
                 new RemotelyTriggeredResourceRegistry(),
                 schemaManager,
-                mock(IndexMetaStorage.class)
+                mock(IndexMetaStorage.class),
+                new TestLowWatermark()
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

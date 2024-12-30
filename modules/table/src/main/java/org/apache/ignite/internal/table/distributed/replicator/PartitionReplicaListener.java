@@ -103,6 +103,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
@@ -221,6 +222,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
+import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.TransactionException;
@@ -344,6 +346,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final IndexMetaStorage indexMetaStorage;
 
+    private final LowWatermark lowWatermark;
+
     private static final boolean SKIP_UPDATES =
             IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
 
@@ -395,7 +399,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             ClusterNodeResolver clusterNodeResolver,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             SchemaRegistry schemaRegistry,
-            IndexMetaStorage indexMetaStorage
+            IndexMetaStorage indexMetaStorage,
+            LowWatermark lowWatermark
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftCommandRunner = raftCommandRunner;
@@ -418,6 +423,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.schemaRegistry = schemaRegistry;
         this.indexMetaStorage = indexMetaStorage;
+        this.lowWatermark = lowWatermark;
 
         this.replicationGroupId = new TablePartitionId(tableId, partId);
 
@@ -534,7 +540,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         // Don't need to validate schema.
         if (opTs == null) {
             assert opTsIfDirectRo == null;
-            return processOperationRequestWithTxRwCounter(senderId, request, isPrimary, null, leaseStartTime);
+            return processOperationRequestWithTxOperationManagementLogic(senderId, request, isPrimary, null, leaseStartTime);
         }
 
         assert txTs != null && opTs.compareTo(txTs) >= 0 : "Invalid request timestamps";
@@ -555,7 +561,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         };
 
         return schemaSyncService.waitForMetadataCompleteness(opTs).thenRun(validateClo).thenCompose(ignored ->
-                processOperationRequestWithTxRwCounter(senderId, request, isPrimary, opTsIfDirectRo, leaseStartTime));
+                processOperationRequestWithTxOperationManagementLogic(senderId, request, isPrimary, opTsIfDirectRo, leaseStartTime));
     }
 
     private CompletableFuture<Long> processGetEstimatedSizeRequest() {
@@ -2196,9 +2202,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         }))
                 );
             }
-        } catch (Exception e) {
-            throw new IgniteInternalException(Replicator.REPLICA_COMMON_ERR,
-                    format("Unable to close cursor [tableId={}]", tableId()), e);
         }
     }
 
@@ -3966,13 +3969,40 @@ public class PartitionReplicaListener implements ReplicaListener {
         }
     }
 
-    private CompletableFuture<?> processOperationRequestWithTxRwCounter(
+    private CompletableFuture<?> processOperationRequestWithTxOperationManagementLogic(
             UUID senderId,
             ReplicaRequest request,
             @Nullable Boolean isPrimary,
             @Nullable HybridTimestamp opStartTsIfDirectRo,
             @Nullable Long leaseStartTime
     ) {
+        incrementRwOperationCountIfNeeded(request);
+
+        UUID txIdLockingLwm = tryToLockLwmIfNeeded(request, opStartTsIfDirectRo);
+
+        try {
+            return processOperationRequest(senderId, request, isPrimary, opStartTsIfDirectRo, leaseStartTime)
+                    .whenComplete((unused, throwable) -> {
+                        unlockLwmIfNeeded(txIdLockingLwm, request);
+                        decrementRwOperationCountIfNeeded(request);
+                    });
+        } catch (Throwable e) {
+            try {
+                unlockLwmIfNeeded(txIdLockingLwm, request);
+            } catch (Throwable unlockProblem) {
+                e.addSuppressed(unlockProblem);
+            }
+
+            try {
+                decrementRwOperationCountIfNeeded(request);
+            } catch (Throwable decrementProblem) {
+                e.addSuppressed(decrementProblem);
+            }
+            throw e;
+        }
+    }
+
+    private void incrementRwOperationCountIfNeeded(ReplicaRequest request) {
         if (request instanceof ReadWriteReplicaRequest) {
             int rwTxActiveCatalogVersion = rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request);
 
@@ -3982,15 +4012,88 @@ public class PartitionReplicaListener implements ReplicaListener {
                 throw new StaleTransactionOperationException(((ReadWriteReplicaRequest) request).transactionId());
             }
         }
+    }
 
-        return processOperationRequest(senderId, request, isPrimary, opStartTsIfDirectRo, leaseStartTime)
-                .whenComplete((unused, throwable) -> {
-                    if (request instanceof ReadWriteReplicaRequest) {
-                        txRwOperationTracker.decrementOperationCount(
-                                rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request)
-                        );
-                    }
-                });
+    private void decrementRwOperationCountIfNeeded(ReplicaRequest request) {
+        if (request instanceof ReadWriteReplicaRequest) {
+            txRwOperationTracker.decrementOperationCount(
+                    rwTxActiveCatalogVersion(catalogService, (ReadWriteReplicaRequest) request)
+            );
+        }
+    }
+
+    /**
+     * Generates a fake transaction ID that will only be used to identify one direct RO operation for purposes of locking and unlocking LWM.
+     * It should not be used as a replacement for a real transaction ID in other contexts.
+     */
+    private static UUID newFakeTxId() {
+        return UUID.randomUUID();
+    }
+
+    /**
+     * For an operation of an RO transaction, attempts to lock LWM on current node (either if the operation is not direct,
+     * or if it's direct and concerns more than one key), and does nothing for other types of requests.
+     *
+     * <p>If lock attempt fails, throws an exception with a specific error code ({@link Transactions#TX_STALE_READ_ONLY_OPERATION_ERR}).
+     *
+     * <p>For explicit RO transactions, the lock will be later released when cleaning up after the RO transaction had been finished.
+     *
+     * <p>For direct RO operations (which happen in implicit RO transactions), LWM will be unlocked right after the read had been done
+     * (see {@link #unlockLwmIfNeeded(UUID, ReplicaRequest)}).
+     *
+     * <p>Also, for explicit RO transactions, an automatic unlock is registered on coordinator leave.
+     *
+     * @param request Request that is being handled.
+     * @param opStartTsIfDirectRo Timestamp of operation start if the operation is a direct RO operation, {@code null} otherwise.
+     * @return Transaction ID (real for explicit transaction, fake for direct RO operation) that shoiuld be used to lock LWM,
+     *     or {@code null} if LWM doesn't need to be locked..
+     */
+    private @Nullable UUID tryToLockLwmIfNeeded(ReplicaRequest request, @Nullable HybridTimestamp opStartTsIfDirectRo) {
+        UUID txIdToLockLwm;
+        HybridTimestamp tsToLockLwm = null;
+
+        if (request instanceof ReadOnlyDirectMultiRowReplicaRequest
+                && ((ReadOnlyDirectMultiRowReplicaRequest) request).primaryKeys().size() > 1) {
+            assert opStartTsIfDirectRo != null;
+
+            txIdToLockLwm = newFakeTxId();
+            tsToLockLwm = opStartTsIfDirectRo;
+        } else if (request instanceof ReadOnlyReplicaRequest) {
+            ReadOnlyReplicaRequest readOnlyRequest = (ReadOnlyReplicaRequest) request;
+            txIdToLockLwm = readOnlyRequest.transactionId();
+            tsToLockLwm = readOnlyRequest.readTimestamp();
+        } else {
+            txIdToLockLwm = null;
+        }
+
+        if (txIdToLockLwm != null) {
+            if (!lowWatermark.tryLock(txIdToLockLwm, tsToLockLwm)) {
+                throw new TransactionException(Transactions.TX_STALE_READ_ONLY_OPERATION_ERR, "Read timestamp is not available anymore.");
+            }
+
+            registerAutoLwmUnlockOnCoordinatorLeaveIfNeeded(request, txIdToLockLwm);
+        }
+
+        return txIdToLockLwm;
+    }
+
+    private void registerAutoLwmUnlockOnCoordinatorLeaveIfNeeded(ReplicaRequest request, UUID txIdToLockLwm) {
+        if (request instanceof ReadOnlyReplicaRequest) {
+            ReadOnlyReplicaRequest readOnlyReplicaRequest = (ReadOnlyReplicaRequest) request;
+
+            UUID coordinatorId = readOnlyReplicaRequest.coordinatorId();
+            // TODO: remove null check after IGNITE-24120 is sorted out.
+            if (coordinatorId != null) {
+                FullyQualifiedResourceId resourceId = new FullyQualifiedResourceId(txIdToLockLwm, txIdToLockLwm);
+                remotelyTriggeredResourceRegistry.register(resourceId, coordinatorId, () -> () -> lowWatermark.unlock(txIdToLockLwm));
+            }
+        }
+    }
+
+    private void unlockLwmIfNeeded(@Nullable UUID txIdToUnlockLwm, ReplicaRequest request) {
+        if (txIdToUnlockLwm != null && request instanceof ReadOnlyDirectReplicaRequest) {
+            lowWatermark.unlock(txIdToUnlockLwm);
+        }
     }
 
     private void prepareIndexBuilderTxRwOperationTracker() {
