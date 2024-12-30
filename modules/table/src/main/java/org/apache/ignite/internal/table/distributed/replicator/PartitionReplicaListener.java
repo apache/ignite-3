@@ -537,6 +537,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             txTs = opTsIfDirectRo;
         }
 
+        assert opTs == null || txTs == null || opTs.compareTo(txTs) >= 0 : "Tx started at " + txTs + ", but opTs precedes it: " + opTs
+                + "; request " + request;
+
         // Don't need to validate schema.
         if (opTs == null) {
             assert opTsIfDirectRo == null;
