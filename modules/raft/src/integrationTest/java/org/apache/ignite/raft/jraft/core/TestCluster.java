@@ -299,7 +299,7 @@ public class TestCluster {
 
             Node node = server.start();
 
-            this.fsms.put(peer.getPeerId(), fsm);
+            this.fsms.put(peer.getPeerId(), (MockStateMachine) nodeOptions.getFsm());
             this.nodes.add((NodeImpl) node);
             return true;
         }
