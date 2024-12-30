@@ -38,7 +38,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.restart.RestartProofIgnite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TableImpl;
@@ -159,7 +158,7 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
      * @param partitionsCount Expected the table partitions count for iterating over them.
      */
     private static void waitLeaderOnAllPartitions(String tableName, int partitionsCount) {
-        IgniteImpl node = ((RestartProofIgnite) CLUSTER.node(0)).unwrap(IgniteImpl.class);
+        IgniteImpl node = unwrapIgniteImpl(CLUSTER.node(0));
 
         TableImpl table = ((PublicApiThreadingTable) node.tables().table(tableName)).unwrap(TableImpl.class);
 

@@ -78,8 +78,12 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -120,6 +124,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.MessagingService;
@@ -139,6 +144,8 @@ import org.apache.ignite.internal.partition.replicator.network.replication.Build
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectMultiRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyDirectSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlySingleRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowPkReplicaRequest;
@@ -155,7 +162,9 @@ import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -172,6 +181,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.TestStorageUtils;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -244,6 +254,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.ArgumentSets;
@@ -251,6 +262,7 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.junitpioneer.jupiter.cartesian.CartesianTest.Values;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.Spy;
@@ -388,6 +400,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @Mock
     private MessagingService messagingService;
 
+    @Mock
+    private LowWatermark lowWatermark;
+
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
 
@@ -424,6 +439,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     /** Partition replication listener to test. */
     private PartitionReplicaListener partitionReplicaListener;
+
+    private HashIndexStorage pkIndexStorage;
 
     /** Primary index. */
     private Lazy<TableSchemaAwareIndexStorage> pkStorageSupplier;
@@ -513,14 +530,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         ColumnsExtractor row2Tuple = BinaryRowConverter.keyExtractor(schemaDescriptor);
 
-        pkStorageSupplier = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
-                pkIndexId,
-                new TestHashIndexStorage(
-                        PART_ID,
-                        new StorageHashIndexDescriptor(pkIndexId, List.of(), false)
-                ),
-                row2Tuple
+        pkIndexStorage = spy(new TestHashIndexStorage(
+                PART_ID,
+                new StorageHashIndexDescriptor(pkIndexId, List.of(), false)
         ));
+        pkStorageSupplier = new Lazy<>(() -> new TableSchemaAwareIndexStorage(pkIndexId, pkIndexStorage, row2Tuple));
 
         SortedIndexStorage indexStorage = new TestSortedIndexStorage(
                 PART_ID,
@@ -649,11 +663,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new SingleClusterNodeResolver(localNode),
                 new RemotelyTriggeredResourceRegistry(),
                 new DummySchemaManagerImpl(schemaDescriptor, schemaDescriptorVersion2),
-                indexMetaStorage
+                indexMetaStorage,
+                lowWatermark
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
         kvMarshallerVersion2 = marshallerFor(schemaDescriptorVersion2);
+
+        when(lowWatermark.tryLock(any(), any())).thenReturn(true);
 
         reset();
     }
@@ -810,20 +827,46 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<ReplicaResult> doReadOnlySingleGet(BinaryRow pk, HybridTimestamp readTimestamp) {
-        ReadOnlySingleRowPkReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlySingleRowPkReplicaRequest()
+        ReadOnlySingleRowPkReplicaRequest request = readOnlySingleRowPkReplicaRequest(pk, readTimestamp);
+
+        return invokeListener(request);
+    }
+
+    private CompletableFuture<ReplicaResult> invokeListener(ReplicaRequest request) {
+        return partitionReplicaListener.invoke(request, localNode.id());
+    }
+
+    private ReadOnlySingleRowPkReplicaRequest readOnlySingleRowPkReplicaRequest(BinaryRow pk, HybridTimestamp readTimestamp) {
+        return readOnlySingleRowPkReplicaRequest(grpId, newTxId(), localNode.id(), pk, readTimestamp);
+    }
+
+    private static ReadOnlySingleRowPkReplicaRequest readOnlySingleRowPkReplicaRequest(
+            TablePartitionId grpId,
+            UUID txId,
+            UUID coordinatorId,
+            BinaryRow pk,
+            HybridTimestamp readTimestamp
+    ) {
+        return TABLE_MESSAGES_FACTORY.readOnlySingleRowPkReplicaRequest()
                 .groupId(tablePartitionIdMessage(grpId))
                 .tableId(TABLE_ID)
                 .readTimestamp(readTimestamp)
                 .schemaVersion(pk.schemaVersion())
                 .primaryKey(pk.tupleSlice())
+                .transactionId(txId)
+                .coordinatorId(coordinatorId)
                 .requestType(RO_GET)
                 .build();
-
-        return partitionReplicaListener.invoke(request, localNode.id());
     }
 
     private CompletableFuture<ReplicaResult> doReadOnlyDirectSingleGet(BinaryRow pk) {
-        ReadOnlyDirectSingleRowReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyDirectSingleRowReplicaRequest()
+        ReadOnlyDirectSingleRowReplicaRequest request = readOnlyDirectSingleRowReplicaRequest(grpId, pk);
+
+        return invokeListener(request);
+    }
+
+    private static ReadOnlyDirectSingleRowReplicaRequest readOnlyDirectSingleRowReplicaRequest(TablePartitionId grpId, BinaryRow pk) {
+        return TABLE_MESSAGES_FACTORY.readOnlyDirectSingleRowReplicaRequest()
                 .groupId(tablePartitionIdMessage(grpId))
                 .tableId(TABLE_ID)
                 .schemaVersion(pk.schemaVersion())
@@ -831,8 +874,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .requestType(RO_GET)
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                 .build();
-
-        return partitionReplicaListener.invoke(request, localNode.id());
     }
 
     @Test
@@ -2083,17 +2124,26 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private CompletableFuture<?> doRoScanRetrieveBatchRequest(UUID targetTxId, HybridTimestamp readTimestamp) {
         return partitionReplicaListener.invoke(
-                TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
-                        .groupId(tablePartitionIdMessage(grpId))
-                        .tableId(TABLE_ID)
-                        .transactionId(targetTxId)
-                        .scanId(1)
-                        .batchSize(100)
-                        .readTimestamp(readTimestamp)
-                        .coordinatorId(localNode.id())
-                        .build(),
+                readOnlyScanRetrieveBatchReplicaRequest(grpId, targetTxId, readTimestamp, localNode.id()),
                 localNode.id()
         );
+    }
+
+    private static ReadOnlyScanRetrieveBatchReplicaRequest readOnlyScanRetrieveBatchReplicaRequest(
+            TablePartitionId grpId,
+            UUID txId,
+            HybridTimestamp readTimestamp,
+            UUID coordinatorId
+    ) {
+        return TABLE_MESSAGES_FACTORY.readOnlyScanRetrieveBatchReplicaRequest()
+                .groupId(tablePartitionIdMessage(grpId))
+                .tableId(TABLE_ID)
+                .transactionId(txId)
+                .scanId(1)
+                .batchSize(100)
+                .readTimestamp(readTimestamp)
+                .coordinatorId(coordinatorId)
+                .build();
     }
 
     @ParameterizedTest
@@ -2750,14 +2800,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<BinaryRow> roGetAsync(BinaryRow row, HybridTimestamp readTimestamp) {
-        ReadOnlySingleRowPkReplicaRequest message = TABLE_MESSAGES_FACTORY.readOnlySingleRowPkReplicaRequest()
-                .groupId(tablePartitionIdMessage(grpId))
-                .tableId(TABLE_ID)
-                .requestType(RO_GET)
-                .readTimestamp(readTimestamp)
-                .schemaVersion(row.schemaVersion())
-                .primaryKey(row.tupleSlice())
-                .build();
+        ReadOnlySingleRowPkReplicaRequest message = readOnlySingleRowPkReplicaRequest(row, readTimestamp);
 
         return partitionReplicaListener.invoke(message, localNode.id()).thenApply(replicaResult -> (BinaryRow) replicaResult.result());
     }
@@ -2771,20 +2814,41 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private CompletableFuture<ReplicaResult> doReadOnlyMultiGet(Collection<BinaryRow> rows, HybridTimestamp readTimestamp) {
-        ReadOnlyMultiRowPkReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyMultiRowPkReplicaRequest()
+        ReadOnlyMultiRowPkReplicaRequest request = readOnlyMultiRowPkReplicaRequest(grpId, newTxId(), localNode.id(), rows, readTimestamp);
+
+        return invokeListener(request);
+    }
+
+    private static ReadOnlyMultiRowPkReplicaRequest readOnlyMultiRowPkReplicaRequest(
+            TablePartitionId grpId,
+            UUID txId,
+            UUID coordinatorId,
+            Collection<BinaryRow> rows,
+            HybridTimestamp readTimestamp
+    ) {
+        return TABLE_MESSAGES_FACTORY.readOnlyMultiRowPkReplicaRequest()
                 .groupId(tablePartitionIdMessage(grpId))
                 .tableId(TABLE_ID)
                 .requestType(RO_GET_ALL)
                 .readTimestamp(readTimestamp)
                 .schemaVersion(rows.iterator().next().schemaVersion())
                 .primaryKeys(binaryRowsToBuffers(rows))
+                .transactionId(txId)
+                .coordinatorId(coordinatorId)
                 .build();
-
-        return partitionReplicaListener.invoke(request, localNode.id());
     }
 
     private CompletableFuture<ReplicaResult> doReadOnlyDirectMultiGet(Collection<BinaryRow> rows) {
-        ReadOnlyDirectMultiRowReplicaRequest request = TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
+        ReadOnlyDirectMultiRowReplicaRequest request = readOnlyDirectMultiRowReplicaRequest(grpId, rows);
+
+        return invokeListener(request);
+    }
+
+    private static ReadOnlyDirectMultiRowReplicaRequest readOnlyDirectMultiRowReplicaRequest(
+            TablePartitionId grpId,
+            Collection<BinaryRow> rows
+    ) {
+        return TABLE_MESSAGES_FACTORY.readOnlyDirectMultiRowReplicaRequest()
                 .groupId(tablePartitionIdMessage(grpId))
                 .tableId(TABLE_ID)
                 .requestType(RO_GET_ALL)
@@ -2792,8 +2856,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .primaryKeys(binaryRowsToBuffers(rows))
                 .enlistmentConsistencyToken(ANY_ENLISTMENT_CONSISTENCY_TOKEN)
                 .build();
-
-        return partitionReplicaListener.invoke(request, localNode.id());
     }
 
     private void cleanup(UUID txId) {
@@ -3113,7 +3175,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 .rowIds(List.of())
                 .build();
 
-        return partitionReplicaListener.invoke(request, localNode.id());
+        return invokeListener(request);
     }
 
     private void completeBuiltIndexes(IndexStorage... indexStorages) {
@@ -3160,5 +3222,108 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         return TX_MESSAGES_FACTORY.txStateResponse()
                 .txStateMeta(transactionMetaMessage)
                 .build();
+    }
+
+    @ParameterizedTest
+    @EnumSource(NonDirectReadOnlyRequestFactory.class)
+    void nonDirectReadOnlyRequestsLockLwmAndDoNotUnlockIt(NonDirectReadOnlyRequestFactory requestFactory) {
+        RequestContext context = new RequestContext(grpId, newTxId(), clock, nextBinaryKey(), localNode.id());
+        ReadOnlyReplicaRequest request = requestFactory.create(context);
+
+        assertThat(invokeListener(request), willCompleteSuccessfully());
+
+        verify(lowWatermark).tryLock(any(), eq(request.readTimestamp()));
+        verify(lowWatermark, never()).unlock(any());
+    }
+
+    @Test
+    void directReadOnlySingleRowRequestDoesNotLockLwm() {
+        ReadOnlyDirectReplicaRequest request = readOnlyDirectSingleRowReplicaRequest(grpId, nextBinaryKey());
+
+        assertThat(invokeListener(request), willCompleteSuccessfully());
+
+        verify(lowWatermark, never()).tryLock(any(), any());
+    }
+
+    @Test
+    void directReadOnlyMultiRowRequestWithOneKeyDoesNotLockLwm() {
+        ReadOnlyDirectReplicaRequest request = readOnlyDirectMultiRowReplicaRequest(grpId, List.of(nextBinaryKey()));
+
+        assertThat(invokeListener(request), willCompleteSuccessfully());
+
+        verify(lowWatermark, never()).tryLock(any(), any());
+    }
+
+    @Test
+    void directReadOnlyMultiRowRequestWithMultipleKeysLockAndUnlockLwm() {
+        ReadOnlyDirectReplicaRequest request = readOnlyDirectMultiRowReplicaRequest(grpId, List.of(nextBinaryKey(), nextBinaryKey()));
+
+        assertThat(invokeListener(request), willCompleteSuccessfully());
+
+        InOrder orderVerifier = inOrder(lowWatermark, pkIndexStorage);
+
+        ArgumentCaptor<UUID> lockTxIdCaptor = ArgumentCaptor.forClass(UUID.class);
+        ArgumentCaptor<UUID> unlockTxIdCaptor = ArgumentCaptor.forClass(UUID.class);
+
+        orderVerifier.verify(lowWatermark).tryLock(lockTxIdCaptor.capture(), any());
+        orderVerifier.verify(pkIndexStorage).get(any());
+        orderVerifier.verify(lowWatermark).unlock(unlockTxIdCaptor.capture());
+
+        assertThat(unlockTxIdCaptor.getValue(), is(lockTxIdCaptor.getValue()));
+    }
+
+    @Test
+    void directReadOnlyMultiRowRequestWithMultipleKeysUnlockLwmEvenWhenExceptionHappens() {
+        doThrow(new RuntimeException("Oops")).when(pkIndexStorage).get(any());
+
+        ReadOnlyDirectReplicaRequest request = readOnlyDirectMultiRowReplicaRequest(grpId, List.of(nextBinaryKey(), nextBinaryKey()));
+
+        assertThat(invokeListener(request), willThrowFast(RuntimeException.class, "Oops"));
+
+        verify(lowWatermark).unlock(any());
+    }
+
+    private static class RequestContext {
+        private final TablePartitionId groupId;
+        private final UUID txId;
+        private final HybridClock clock;
+        private final BinaryRow key;
+        private final UUID coordinatorId;
+
+        private RequestContext(TablePartitionId groupId, UUID txId, HybridClock clock, BinaryRow key, UUID coordinatorId) {
+            this.groupId = groupId;
+            this.txId = txId;
+            this.clock = clock;
+            this.key = key;
+            this.coordinatorId = coordinatorId;
+        }
+    }
+
+    private enum NonDirectReadOnlyRequestFactory {
+        SINGLE_GET(context -> readOnlySingleRowPkReplicaRequest(
+                context.groupId,
+                context.txId,
+                context.coordinatorId,
+                context.key,
+                context.clock.now())
+        ),
+        MULTI_GET(context -> readOnlyMultiRowPkReplicaRequest(
+                context.groupId,
+                context.txId,
+                context.coordinatorId,
+                singletonList(context.key),
+                context.clock.now()
+        )),
+        SCAN(context -> readOnlyScanRetrieveBatchReplicaRequest(context.groupId, context.txId, context.clock.now(), context.coordinatorId));
+
+        private final Function<RequestContext, ReadOnlyReplicaRequest> requestFactory;
+
+        NonDirectReadOnlyRequestFactory(Function<RequestContext, ReadOnlyReplicaRequest> requestFactory) {
+            this.requestFactory = requestFactory;
+        }
+
+        ReadOnlyReplicaRequest create(RequestContext context) {
+            return requestFactory.apply(context);
+        }
     }
 }

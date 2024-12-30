@@ -23,6 +23,7 @@ import org.apache.ignite.internal.catalog.storage.AlterColumnEntry;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.DropColumnsEntry;
 import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
+import org.apache.ignite.internal.catalog.storage.DropSchemaEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.MakeIndexAvailableEntry;
@@ -81,6 +82,7 @@ public interface CatalogEntrySerializerProvider {
             serializers[MarshallableEntryType.RENAME_INDEX.id()] = RenameIndexEntry.SERIALIZER;
             serializers[MarshallableEntryType.SET_DEFAULT_ZONE.id()] = SetDefaultZoneEntry.SERIALIZER;
             serializers[MarshallableEntryType.NEW_SCHEMA.id()] = NewSchemaEntry.SERIALIZER;
+            serializers[MarshallableEntryType.DROP_SCHEMA.id()] = DropSchemaEntry.SERIALIZER;
             //noinspection ThisEscapedInObjectConstruction
             serializers[MarshallableEntryType.VERSIONED_UPDATE.id()] = new VersionedUpdateSerializer(this);
 

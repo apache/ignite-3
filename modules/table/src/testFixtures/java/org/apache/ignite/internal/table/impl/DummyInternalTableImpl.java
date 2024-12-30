@@ -461,7 +461,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(ClusterNodeResolver.class),
                 resourcesRegistry,
                 schemaManager,
-                mock(IndexMetaStorage.class)
+                mock(IndexMetaStorage.class),
+                new TestLowWatermark()
         );
 
         partitionListener = new PartitionListener(

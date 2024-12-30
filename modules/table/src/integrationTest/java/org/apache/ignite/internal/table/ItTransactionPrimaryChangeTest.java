@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransaction;
+import static org.apache.ignite.internal.TestWrappers.unwrapInternalTransaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -37,7 +37,6 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -125,7 +124,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
         // Put some value into the table.
         Transaction txPreload = txCrdNode.transactions().begin();
-        log.info("Test: Preloading the data [tx={}].", ((ReadWriteTransactionImpl) unwrapIgniteTransaction(txPreload)).id());
+        log.info("Test: Preloading the data [tx={}].", unwrapInternalTransaction(txPreload).id());
         view.upsert(txPreload, Tuple.create().set("key", 1).set("val", "1"));
         txPreload.commit();
 
@@ -171,7 +170,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             // Start a regular transaction that increments the value. It should see the initially inserted value and its commit should
             // succeed.
             Transaction tx = txCrdNode.transactions().begin();
-            log.info("Test: Started the regular transaction [txId={}].", ((ReadWriteTransactionImpl) unwrapIgniteTransaction(tx)).id());
+            log.info("Test: Started the regular transaction [txId={}].", unwrapInternalTransaction(tx).id());
 
             Tuple t = view.get(tx, Tuple.create().set("key", 1));
             assertEquals("1", t.value(1));
@@ -179,7 +178,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
             tx.commit();
 
-            log.info("Test: Completed the regular transaction [txId={}].", ((ReadWriteTransactionImpl) unwrapIgniteTransaction(tx)).id());
+            log.info("Test: Completed the regular transaction [txId={}].", unwrapInternalTransaction(tx).id());
         } finally {
             regularTxComplete.complete(null);
         }

@@ -15,25 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.datatypes;
+package org.apache.ignite.internal.catalog.commands;
 
-import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 
 /**
- * Set of tests to ensure correctness of CAST expression to INTEGER
- * without fast query optimization.
- *
- * @see ItCastToIntTest
- * @see Commons#fastQueryOptimizationEnabled()
+ * Builder of a command that drop specified schema.
  */
-@WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
-public class ItCastToIntWithoutFastQueryOptimizationTest extends ItCastToIntTest {
-    @BeforeAll
-    @AfterAll
-    public static void resetFlag() {
-        Commons.resetFastQueryOptimizationFlag();
-    }
+public interface DropSchemaCommandBuilder {
+    /** Sets schema name. Should not be null or blank. */
+    DropSchemaCommandBuilder name(String schemaName);
+
+    /** Sets flag indicating forced deletion of a non-empty schema. */
+    DropSchemaCommandBuilder cascade(boolean cascade);
+
+    /** Returns a command with specified parameters. */
+    CatalogCommand build();
 }

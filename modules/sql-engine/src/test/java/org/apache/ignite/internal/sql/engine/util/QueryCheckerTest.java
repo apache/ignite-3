@@ -67,6 +67,12 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             .build();
 
     @BeforeAll
+    @AfterAll
+    public static void resetFlag() {
+        Commons.resetFastQueryOptimizationFlag();
+    }
+
+    @BeforeAll
     static void startCluster() {
         CLUSTER.start();
 

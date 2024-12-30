@@ -202,6 +202,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TX_PRIMARY_REPLICA_EXPIRED:
         case error::code::TX_ALREADY_FINISHED:
         case error::code::TX_STALE_OPERATION:
+        case error::code::TX_STALE_READ_ONLY_OPERATION:
             return sql_state::S25000_INVALID_TRANSACTION_STATE;
 
         // Replicator group. Group code: 8
