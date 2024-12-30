@@ -20,8 +20,11 @@ package org.apache.ignite.internal.raft.util;
 import java.nio.file.Path;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.PersistentLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
+import org.apache.ignite.raft.jraft.storage.DestroyStorageIntentStorage;
+import org.apache.ignite.raft.jraft.storage.impl.NoopDestroyStorageIntentStorage;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
 import org.jetbrains.annotations.TestOnly;
 
@@ -41,16 +44,21 @@ public class SharedLogStorageFactoryUtils {
      */
     @TestOnly
     public static LogStorageFactory create(String nodeName, Path logStoragePath) {
-        return create("test", nodeName, logStoragePath, true);
+        return create("test", nodeName, logStoragePath, new NoopDestroyStorageIntentStorage(), true);
     }
 
     /**
      * Creates a LogStorageFactory with {@link DefaultLogStorageFactory} or {@link LogitLogStorageFactory} implementation depending on
      * LOGIT_STORAGE_ENABLED_PROPERTY.
      */
-    public static LogStorageFactory create(String factoryName, String nodeName, Path logStoragePath, boolean fsync) {
+    public static PersistentLogStorageFactory create(String factoryName,
+            String nodeName,
+            Path logStoragePath,
+            DestroyStorageIntentStorage destroyStorageIntentStorage,
+            boolean fsync
+    ) {
         return IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, LOGIT_STORAGE_ENABLED_PROPERTY_DEFAULT)
-                ? new LogitLogStorageFactory(nodeName, new StoreOptions(), logStoragePath)
-                : new DefaultLogStorageFactory(factoryName, nodeName, logStoragePath, fsync);
+                ? new LogitLogStorageFactory(factoryName, nodeName, new StoreOptions(), logStoragePath, destroyStorageIntentStorage)
+                : new DefaultLogStorageFactory(factoryName, nodeName, logStoragePath, destroyStorageIntentStorage, fsync);
     }
 }

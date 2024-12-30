@@ -27,12 +27,13 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.PersistentLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageException;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.FeatureChecker;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.storage.DestroyStorageIntentStorage;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.LogitLogStorage;
@@ -44,7 +45,7 @@ import sun.nio.ch.DirectBuffer;
 /**
  * Log storage factory for {@link LogitLogStorage} instances.
  */
-public class LogitLogStorageFactory implements LogStorageFactory {
+public class LogitLogStorageFactory implements PersistentLogStorageFactory {
     private static final IgniteLogger LOG = Loggers.forClass(LogitLogStorageFactory.class);
 
     private static final String LOG_DIR_PREFIX = "log-";
@@ -57,15 +58,30 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     /** Base location of all log storages. */
     private final Path logPath;
 
+    private final String factoryName;
+
+    private final DestroyStorageIntentStorage destroyStorageIntentStorage;
+
     /**
      * Constructor.
      *
+     * @param factoryName Factory name.
+     * @param nodeName Node name.
      * @param logPath Function to get base path of all log storages, created by this factory.
+     * @param destroyStorageIntentStorage Storage to persist and retrieve log storage destroy intents.
      * @param storeOptions Logit log storage options.
      */
-    public LogitLogStorageFactory(String nodeName, StoreOptions storeOptions, Path logPath) {
+    public LogitLogStorageFactory(
+            String factoryName,
+            String nodeName,
+            StoreOptions storeOptions,
+            Path logPath,
+            DestroyStorageIntentStorage destroyStorageIntentStorage
+    ) {
         this.logPath = logPath;
+        this.factoryName = factoryName;
         this.storeOptions = storeOptions;
+        this.destroyStorageIntentStorage = destroyStorageIntentStorage;
         checkpointExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "logit-checkpoint-executor", LOG)
         );
@@ -83,6 +99,10 @@ public class LogitLogStorageFactory implements LogStorageFactory {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        // This is effectively a sync implementation.
+
+        completeLogStoragesDestruction();
+
         return nullCompletedFuture();
     }
 
@@ -103,6 +123,8 @@ public class LogitLogStorageFactory implements LogStorageFactory {
 
     @Override
     public void destroyLogStorage(String uri) {
+        destroyStorageIntentStorage.saveDestroyIntent(factoryName, uri);
+
         Requires.requireTrue(StringUtils.isNotBlank(uri), "Blank log storage uri.");
 
         Path storagePath = resolveLogStoragePath(uri);
@@ -110,6 +132,8 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         if (!IgniteUtils.deleteIfExists(storagePath)) {
             throw new LogStorageException("Cannot delete directory " + storagePath);
         }
+
+        destroyStorageIntentStorage.removeDestroyIntent(factoryName, uri);
     }
 
     @Override
@@ -120,5 +144,10 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     /** Returns path to log storage by group ID. */
     public Path resolveLogStoragePath(String groupId) {
         return logPath.resolve(LOG_DIR_PREFIX + groupId);
+    }
+
+    @Override
+    public void completeLogStoragesDestruction() {
+        destroyStorageIntentStorage.storagesToDestroy(factoryName).forEach(this::destroyLogStorage);
     }
 }
