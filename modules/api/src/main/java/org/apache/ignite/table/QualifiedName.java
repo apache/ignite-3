@@ -28,11 +28,22 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Class represents a catalog object name (table, index and etc.) and provides factory methods.
  *
- * <p>Qualified name is a pair of schema name and object name. Schema name is optional, when not set, then
- * {@link QualifiedName#DEFAULT_SCHEMA_NAME} will be used.
+ * <p>Qualified name is a pair of schema name and object name.
  *
- * <p>Both schema name and object name can be case sensitive or insensitive respecting SQL-parser style quotation.
- * Unquoted name will be cast to upper case. E.g. "tbl0" - is equivalent to "TBL0", "\"Tbl0\"" - "Tbl0", etc.
+ * <p>Factory methods expects that given names (both: schema name and object name) respect SQL syntax rules for identifiers.
+ * <ul>
+ * <li>Identifier must starts from any character in the Unicode General Category classes “Lu”, “Ll”, “Lt”, “Lm”, “Lo”, or “Nl”.
+ * <li>Identifier character (expect the first one) may be U+00B7 (middle dot), or any character in the Unicode General Category classes “Mn”, “Mc”, “Nd”, “Pc”, or “Cf”.
+ * <li>Identifier that contains any other characters must be quoted with double-quotes.
+ * <li>Double-quote inside the identifier must be encoded as 2 consequent double-quote chars.
+ * </ul>
+ *
+ * <p>{@link QualifiedName#parse(String)} method also accepts a qualified name in canonical form: {@code [<schema_name>.]<object_name>}.
+ * Schema name is optional, when not set, then {@link QualifiedName#DEFAULT_SCHEMA_NAME} will be used.
+ *
+ * <p>The object contains normalized names, which are case sensitive. That means, an unquoted name will be cast to upper case;
+ * for quoted names - the unnecessary quotes will be removed preserving escaped double-quote symbols.
+ * E.g. "tbl0" - is equivalent to "TBL0", "\"Tbl0\"" - "Tbl0", etc.
  */
 public class QualifiedName {
     /** Default schema name. */
@@ -45,7 +56,10 @@ public class QualifiedName {
     private final String objectIdentifier;
 
     /**
-     * Parses given simple or canonical name, and returns the object qualified name.
+     * Factory method that creates qualified name object by parsing given simple or canonical object name.
+     *
+     * @param simpleOrCanonicalName Object simple name or qualified name in canonical form.
+     * @return Qualified name.
      */
     public static QualifiedName parse(String simpleOrCanonicalName) {
         verifyObjectIdentifier(simpleOrCanonicalName);
@@ -72,17 +86,21 @@ public class QualifiedName {
     }
 
     /**
-     * Resolves given simple name against default schema.
+     * Factory method that creates qualified name from given simple name by resolving it against the default schema.
+     *
+     * @param simpleName Object name.
+     * @return Qualified name.
      */
     public static QualifiedName fromSimple(String simpleName) {
         return of(null, simpleName);
     }
 
     /**
-     * Normalize schemaName and objectName, and returns the object qualified name.
+     * Factory method that creates qualified name from given schema and object name.
      *
      * @param schemaName Schema name or {@code null} for default schema.
      * @param objectName Object name.
+     * @return Qualified name.
      */
     public static QualifiedName of(@Nullable String schemaName, String objectName) {
         String schemaIdentifier = schemaName == null ? DEFAULT_SCHEMA_NAME : parseIdentifier(schemaName);
@@ -164,14 +182,14 @@ public class QualifiedName {
     }
 
     /**
-     * Parse simple name: unquote name or cast to upper case not-quoted name.
+     * Parse simple identifier.
      *
-     * @param name String to parse object name.
-     * @return Unquoted name or name is cast to upper case. "tbl0" -&gt; "TBL0", "\"Tbl0\"" -&gt; "Tbl0".
+     * @param name Object name to parse.
+     * @return Unquoted case-sensitive name name or uppercased case-insensitive name.
+     * @see QualifiedName javadoc with syntax rules.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: Use QualifiedName instead.
-    //  This method should be called from QualifiedName class only. Rename to parseIdentifier.
-    static String parseIdentifier(String name) {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: Move to IgniteNameUtils and replace parseSimple(String).
+    private static String parseIdentifier(String name) {
         if (name == null || name.isEmpty()) {
             return name;
         }
@@ -194,7 +212,8 @@ public class QualifiedName {
      * @param identifier Object identifier.
      * @return Quoted object name.
      */
-    public static String quoteIfNeeded(String identifier) {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: Move to IgniteNameUtils and replace current one.
+    private static String quoteIfNeeded(String identifier) {
         if (identifier.isEmpty()) {
             return identifier;
         }
@@ -219,7 +238,8 @@ public class QualifiedName {
      *
      * <p>Splits provided identifier chain (complex identifier like PUBLIC.MY_TABLE) into its component parts.
      */
-    public static class Tokenizer {
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: Move to IgniteNameUtils and replace parseSimple(String).
+    static class Tokenizer {
         private final String source;
         private int currentPosition;
         private boolean foundDot;

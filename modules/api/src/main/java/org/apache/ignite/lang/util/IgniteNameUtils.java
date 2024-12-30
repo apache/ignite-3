@@ -39,7 +39,7 @@ public final class IgniteNameUtils {
      * @return Unquoted name or name is cast to upper case. "tbl0" -&gt; "TBL0", "\"Tbl0\"" -&gt; "Tbl0".
      */
     // TODO https://issues.apache.org/jira/browse/IGNITE-24021: Use QualifiedName instead.
-    //  This method should be called from QualifiedName class only. Rename to parseIdentifier.
+    @Deprecated(forRemoval = true)
     public static String parseSimpleName(String name) {
         if (name == null || name.isEmpty()) {
             return name;
@@ -64,7 +64,7 @@ public final class IgniteNameUtils {
      * @return Returns fully qualified name in canonical form.
      */
     // TODO https://issues.apache.org/jira/browse/IGNITE-24021: replace `quote` call with `quoteIfNeeded`
-    @Deprecated
+    @Deprecated(forRemoval = true)
     public static String canonicalName(String schemaName, String objectName) {
         return quote(schemaName) + '.' + quote(objectName);
     }
@@ -76,7 +76,7 @@ public final class IgniteNameUtils {
      * @return {@code True} if given string is fully qualified name in canonical form or simple name.
      */
     // TODO https://issues.apache.org/jira/browse/IGNITE-24021: drop this method.
-    @Deprecated
+    @Deprecated(forRemoval = true)
     public static boolean canonicalOrSimpleName(String s) {
         return NAME_PATTER.matcher(s).matches();
     }
@@ -118,6 +118,8 @@ public final class IgniteNameUtils {
      * @param name Object name.
      * @return Quoted object name.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24021 drop this method..
+    @Deprecated(forRemoval = true)
     public static String quoteIfNeeded(String name) {
         if (name == null || name.isEmpty()) {
             return null;
