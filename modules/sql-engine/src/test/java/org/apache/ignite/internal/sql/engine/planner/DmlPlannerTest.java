@@ -43,6 +43,8 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -52,6 +54,12 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
 public class DmlPlannerTest extends AbstractPlannerTest {
+    @BeforeAll
+    @AfterAll
+    public static void resetFlag() {
+        Commons.resetFastQueryOptimizationFlag();
+    }
+
     /**
      * Test for INSERT .. VALUES when table has a single distribution.
      */
