@@ -17,15 +17,21 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.impl.HeapLockManager.DEFAULT_SLOTS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
+import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -42,6 +48,71 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
     @Override
     protected LockKey lockKey() {
         return new LockKey(0, "test");
+    }
+
+    @Test
+    public void testLockTableOverflow() throws Exception {
+        int maxSlots = 16;
+
+        HeapLockManager lockManager = new HeapLockManager(maxSlots, maxSlots);
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+
+        UUID[] txs = new UUID[maxSlots];
+
+        for (int i = 0; i < maxSlots; i++) {
+            txs[i] = TestTransactionIds.newTransactionId();
+            lockManager.acquire(txs[i], new LockKey(txs[i], txs[i]), LockMode.S).get();
+        }
+
+        UUID overflowTx = TestTransactionIds.newTransactionId();
+
+        CompletableFuture<Lock> overflowLockFut = lockManager.acquire(overflowTx, new LockKey(overflowTx, overflowTx), LockMode.S);
+
+        assertThat(overflowLockFut, willThrowWithCauseOrSuppressed(
+                LockException.class,
+                "Failed to acquire a lock due to lock table overflow"
+        ));
+
+        for (int i = 0; i < maxSlots; i++) {
+            lockManager.releaseAll(txs[i]);
+        }
+
+        overflowLockFut = lockManager.acquire(overflowTx, new LockKey(overflowTx, overflowTx), LockMode.S);
+
+        assertThat(overflowLockFut, willCompleteSuccessfully());
+
+        lockManager.releaseAll(overflowTx);
+
+        assertTrue(lockManager.isEmpty());
+    }
+
+    @Test
+    public void testLockTooManyKeysInTx() throws Exception {
+        int maxSlots = 16;
+
+        HeapLockManager lockManager = new HeapLockManager(maxSlots, maxSlots);
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
+
+        UUID txId = TestTransactionIds.newTransactionId();
+
+        for (int i = 0; i < maxSlots; i++) {
+            lockManager.acquire(txId, new LockKey(i, i), LockMode.S).get();
+        }
+
+        int moreKeys = 2 * maxSlots;
+
+        for (int i = maxSlots; i < moreKeys; i++) {
+            CompletableFuture<Lock> overflowLockFut = lockManager.acquire(txId, new LockKey(i, i), LockMode.S);
+
+            assertThat(overflowLockFut, willThrowWithCauseOrSuppressed(
+                    LockException.class,
+                    "Failed to acquire a lock due to lock table overflow"
+            ));
+        }
+
+        lockManager.releaseAll(txId);
+
+        assertTrue(lockManager.isEmpty());
     }
 
     @Test

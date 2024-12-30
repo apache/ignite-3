@@ -29,6 +29,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateMetaMessage;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -108,7 +109,7 @@ public class TxStateMeta implements TransactionMeta {
         this.txCoordinatorId = txCoordinatorId;
         this.commitPartitionId = commitPartitionId;
         this.commitTimestamp = commitTimestamp;
-        this.initialVacuumObservationTimestamp = initialVacuumObservationTimestamp;
+        this.initialVacuumObservationTimestamp = TxState.isFinalState(txState) ? FastTimestamps.coarseCurrentTimeMillis() : null;
         this.cleanupCompletionTimestamp = cleanupCompletionTimestamp;
     }
 

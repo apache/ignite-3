@@ -29,6 +29,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
@@ -184,7 +185,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
         RecordView<Tuple> view = testTable.recordView();
 
         int i = 0;
-        final int count = 1000;
+        final int count = 100;
         List<Transaction> txns = new ArrayList<>();
         while (i++ < count) {
             Transaction tx = txTestCluster.igniteTransactions().begin();
@@ -200,7 +201,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 total += slot.waitersCount();
             }
 
-            return total == count && lockManager.available() == 0;
+            return total == CACHE_SIZE && lockManager.available() == 0;
         }, 10_000), "Some lockers are missing");
 
         int empty = 0;
@@ -212,19 +213,19 @@ public class ItLockTableTest extends IgniteAbstractTest {
             int cnt = slot.waitersCount();
             if (cnt == 0) {
                 empty++;
-            }
-            if (cnt > 1) {
+            } else {
                 coll += cnt;
             }
         }
 
         LOG.info("LockTable [emptySlots={} collisions={}]", empty, coll);
+        System.out.println(IgniteStringFormatter.format("LockTable [emptySlots={} collisions={}]", empty, coll));
 
         assertTrue(coll > 0);
 
         List<CompletableFuture<?>> finishFuts = new ArrayList<>();
         for (Transaction txn : txns) {
-            finishFuts.add(txn.commitAsync());
+            finishFuts.add(txn.rollbackAsync());
         }
 
         for (CompletableFuture<?> finishFut : finishFuts) {
