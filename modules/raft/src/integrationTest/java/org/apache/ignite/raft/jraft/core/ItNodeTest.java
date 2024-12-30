@@ -3470,17 +3470,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         assertTrue(cluster.start(peer0));
 
-        cluster.ensureLeader(cluster.waitAndGetLeader());
-
         Node leader = cluster.waitAndGetLeader();
 
-        assertNotEquals(-1, term.get());
-        assertNotEquals(-1, index.get());
-
-        term.set(-1);
-        index.set(-1);
-
-        sendTestTaskAndWait(leader);
+        assertEquals(1, term.get());
+        assertEquals(1, index.get());
 
         TestPeer newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
         assertTrue(cluster.start(newPeer, false, 300));
@@ -3491,26 +3484,70 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         // changePeersAndLearnersAsync can fail.
         waitForTopologyOnEveryNode(1, cluster);
 
-        leader = cluster.getLeader();
-        assertNotNull(leader);
-        assertEquals(peer0.getPeerId(), leader.getNodeId().getPeerId());
-
         SynchronizedClosure done = new SynchronizedClosure();
-        leader.changePeersAndLearnersAsync(new Configuration(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of()), leader.getCurrentTerm(), done);
+        leader.changePeersAndLearnersAsync(
+                new Configuration(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of()), leader.getCurrentTerm(),
+                done
+        );
 
         assertEquals(done.await(), Status.OK());
 
-        assertTrue(waitForCondition(() -> {
-            if (cluster.getLeader() != null) {
-                return cluster.getLeader().listAlivePeers().contains(newPeer.getPeerId());
-            }
-            return false;
-        }, 10_000));
+        assertTrue(waitForCondition(() -> cluster.getLeader().listAlivePeers().contains(newPeer.getPeerId()), 10_000));
+
+        // Leader hasn't been changed, term must stay the same
+        assertEquals(1, term.get());
+        // idx_2 == joint consensus, idx_3 is expected final cfg
+        assertEquals(3, index.get());
 
         verify(
                 raftGrpEvtsLsnr,
                 times(1)).onNewPeersConfigurationApplied(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of(), term.get(), index.get()
         );
+    }
+
+    @Test
+    public void testOnNewPeersConfigurationAppliedIsNotCalledAfterResetPeers() throws Exception {
+        TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
+        var raftGrpEvtsLsnr = mock(JraftGroupEventsListener.class);
+
+        cluster = new TestCluster(
+                "testOnNewPeersConfigurationAppliedIsNotCalledAfterResetPeers",
+                dataPath,
+                Collections.singletonList(peer0),
+                new LinkedHashSet<>(),
+                ELECTION_TIMEOUT_MILLIS,
+                (peerId, opts) -> {
+                    opts.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
+                },
+                testInfo
+        );
+
+        assertTrue(cluster.start(peer0));
+
+        Node leader = cluster.waitAndGetLeader();
+
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+
+        assertEquals(1, leader.getCurrentTerm());
+
+        TestPeer fakePeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
+
+        leader.resetPeers(new Configuration(List.of(fakePeer.getPeerId())));
+
+        leader.resetPeers(new Configuration(List.of(peer0.getPeerId())));
+
+        // Term was changed twice because of two reset peers
+        assertTrue(waitForCondition(() -> leader.getCurrentTerm() == 3, 10_000));
+
+        assertTrue(waitForCondition(() -> {
+            if (cluster.getLeader() != null) {
+                return peer0.getPeerId().equals(cluster.getLeader().getLeaderId());
+            }
+            return false;
+
+        }, 10_000));
+
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
     }
 
     @Test
