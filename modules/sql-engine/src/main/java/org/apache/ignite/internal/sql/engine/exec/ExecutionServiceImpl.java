@@ -355,7 +355,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 txWrapper,
                 dataCursor,
                 firstPageReady0,
-                queryManager::close
+                queryManager::close,
+                operationContext::notifyError
         ));
 
         return f.whenComplete((r, t) -> {
@@ -463,7 +464,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 txWrapper,
                 dataCursor,
                 prefetchCallback.prefetchFuture(),
-                reason -> nullCompletedFuture()
+                reason -> nullCompletedFuture(),
+                operationContext::notifyError
         );
     }
 

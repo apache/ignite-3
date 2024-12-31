@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine;
 
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.jetbrains.annotations.Nullable;
@@ -33,17 +32,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     private final SqlQueryType queryType;
     private final ResultSetMetadata meta;
     private final AsyncDataCursor<T> dataCursor;
-    private final Consumer<Throwable> errorHandler;
     private final @Nullable CompletableFuture<AsyncSqlCursor<T>> nextStatement;
-
-    public AsyncSqlCursorImpl(
-            SqlQueryType queryType,
-            ResultSetMetadata meta,
-            AsyncDataCursor<T> dataCursor,
-            @Nullable CompletableFuture<AsyncSqlCursor<T>> nextStatement
-    ) {
-        this(queryType, meta, dataCursor, null, nextStatement);
-    }
 
     /**
      * Constructor.
@@ -51,7 +40,6 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
      * @param queryType Type of the query.
      * @param meta The meta of the result set.
      * @param dataCursor The result set.
-     * @param errorHandler Error handler.
      * @param nextStatement Next statement future, non-null in the case of a
      *         multi-statement query and if current statement is not the last.
      */
@@ -59,13 +47,11 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
             SqlQueryType queryType,
             ResultSetMetadata meta,
             AsyncDataCursor<T> dataCursor,
-            Consumer<Throwable> errorHandler,
             @Nullable CompletableFuture<AsyncSqlCursor<T>> nextStatement
     ) {
         this.queryType = queryType;
         this.meta = meta;
         this.dataCursor = dataCursor;
-        this.errorHandler = errorHandler;
         this.nextStatement = nextStatement;
     }
 
@@ -84,15 +70,7 @@ public class AsyncSqlCursorImpl<T> implements AsyncSqlCursor<T> {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BatchedResult<T>> requestNextAsync(int rows) {
-        CompletableFuture<BatchedResult<T>> fut = dataCursor.requestNextAsync(rows);
-
-        fut.whenComplete((ignore, e) -> {
-            if (e != null) {
-                errorHandler.accept(e);
-            }
-        });
-
-        return fut;
+        return dataCursor.requestNextAsync(rows);
     }
 
     /** {@inheritDoc} */

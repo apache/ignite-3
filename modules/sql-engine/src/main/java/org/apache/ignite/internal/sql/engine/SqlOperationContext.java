@@ -49,6 +49,7 @@ public final class SqlOperationContext {
     private final @Nullable QueryCancel cancel;
     private final @Nullable String defaultSchemaName;
     private final @Nullable Consumer<QueryTransactionWrapper> txUsedListener;
+    private final @Nullable Consumer<Throwable> errorListener;
 
     /**
      * Private constructor, used by a builder.
@@ -61,7 +62,8 @@ public final class SqlOperationContext {
             @Nullable QueryTransactionContext txContext,
             @Nullable QueryCancel cancel,
             @Nullable String defaultSchemaName,
-            @Nullable Consumer<QueryTransactionWrapper> txUsedListener
+            @Nullable Consumer<QueryTransactionWrapper> txUsedListener,
+            @Nullable Consumer<Throwable> errorListener
     ) {
         this.queryId = queryId;
         this.timeZoneId = timeZoneId;
@@ -71,6 +73,7 @@ public final class SqlOperationContext {
         this.cancel = cancel;
         this.defaultSchemaName = defaultSchemaName;
         this.txUsedListener = txUsedListener;
+        this.errorListener = errorListener;
     }
 
     public static Builder builder() {
@@ -129,6 +132,15 @@ public final class SqlOperationContext {
     }
 
     /**
+     * Notifies context that error happened.
+     */
+    public void notifyError(Throwable th) {
+        if (errorListener != null) {
+            errorListener.accept(th);;
+        }
+    }
+
+    /**
      * Returns the operation time.
      *
      * <p>The time the operation started is the logical time it runs, and all the time readings during the execution time as well as all
@@ -162,6 +174,7 @@ public final class SqlOperationContext {
         private @Nullable QueryTransactionContext txContext;
 
         private @Nullable Consumer<QueryTransactionWrapper> txUsedListener;
+        private @Nullable Consumer<Throwable> errorListener;
         private @Nullable QueryCancel cancel;
         private @Nullable String defaultSchemaName;
 
@@ -205,6 +218,11 @@ public final class SqlOperationContext {
             return this;
         }
 
+        public Builder errorHandler(Consumer<Throwable> errorListener) {
+            this.errorListener = errorListener;
+            return this;
+        }
+
         /** Creates new context. */
         public SqlOperationContext build() {
             return new SqlOperationContext(
@@ -215,7 +233,8 @@ public final class SqlOperationContext {
                     txContext,
                     cancel,
                     defaultSchemaName,
-                    txUsedListener
+                    txUsedListener,
+                    errorListener
             );
         }
     }
