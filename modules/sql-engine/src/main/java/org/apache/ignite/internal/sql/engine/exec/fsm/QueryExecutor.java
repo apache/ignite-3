@@ -345,10 +345,6 @@ public class QueryExecutor implements LifecycleAware {
             runningQueries.remove(query.id);
 
             eventLog.log(() -> makeFinishEvent(query.id, query.error));
-
-//            query.resultHolder.whenComplete((ignored, ex) -> {
-//                eventLog.log(() -> makeFinishEvent(query.id, ex));
-//            });
         });
 
         if (cancellationToken != null) {

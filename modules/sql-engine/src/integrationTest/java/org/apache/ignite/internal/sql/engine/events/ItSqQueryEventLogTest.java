@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.events;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -29,8 +31,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,6 +48,7 @@ import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -124,9 +130,56 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
         UUID selectQueryId = verifyQueryStartedFields(events.get(3), "SELECT 1", null, scriptId, 1);
 
         // The order in which the last `SELECT` statement finish and script statement finish events are sent is undefined.
-        String eventCompositeEvent = events.get(4) + events.get(5);
-        verifyQueryFinishFields(eventCompositeEvent, selectQueryId, null);
-        verifyQueryFinishFields(eventCompositeEvent, scriptId, null);
+        String selectFinishEvent;
+        String scriptFinishEvent;
+
+        if (events.get(4).contains(selectQueryId.toString())) {
+            selectFinishEvent = events.get(4);
+            scriptFinishEvent = events.get(5);
+        } else {
+            selectFinishEvent = events.get(5);
+            scriptFinishEvent = events.get(4);
+        }
+
+        verifyQueryFinishFields(selectFinishEvent, selectQueryId, null);
+        verifyQueryFinishFields(scriptFinishEvent, scriptId, null);
+    }
+
+    @Test
+    void testErrorResetOnTxRetry() throws IOException {
+        sql("CREATE TABLE my (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO my VALUES (1, 0), (2, 0), (3, 0), (4, 0)");
+
+        readEvents(4);
+        resetLog();
+
+        int parties = 2;
+        Phaser phaser = new Phaser(parties);
+
+        List<CompletableFuture<?>> results = new ArrayList<>(parties);
+        for (int i = 0; i < parties; i++) {
+            int newValue = i + 1;
+            results.add(runAsync(() -> {
+                phaser.awaitAdvanceInterruptibly(phaser.arrive());
+
+                sql("UPDATE my SET val = ?", newValue);
+            }));
+        }
+
+        // all queries are expected to complete successfully
+        await(CompletableFutures.allOf(results));
+
+        List<String> events = readEvents(4);
+
+        {
+            FieldsChecker fieldsChecker = EventValidator.parseQueryFinish(events.get(2));
+            fieldsChecker.verify("error", null);
+        }
+
+        {
+            FieldsChecker fieldsChecker = EventValidator.parseQueryFinish(events.get(3));
+            fieldsChecker.verify("error", null);
+        }
     }
 
     @Test
