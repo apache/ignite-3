@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -333,16 +335,20 @@ public class QueryExecutor implements LifecycleAware {
     private void trackQuery(Query query, @Nullable CancellationToken cancellationToken) {
         Query old = runningQueries.put(query.id, query);
 
-        eventLog.log(() -> toStartEvent(query));
+        eventLog.log(() -> makeStartEvent(query));
 
         assert old == null : "Query with the same id already registered";
 
         CompletableFuture<Void> queryTerminationFut = query.onPhaseStarted(ExecutionPhase.TERMINATED);
 
-        queryTerminationFut.whenComplete((ignored, ex) -> {
+        queryTerminationFut.whenComplete((none, ignoredEx) -> {
             runningQueries.remove(query.id);
 
-            eventLog.log(() -> toFinishEvent(query.id, ex));
+            eventLog.log(() -> makeFinishEvent(query.id, query.error));
+
+//            query.resultHolder.whenComplete((ignored, ex) -> {
+//                eventLog.log(() -> makeFinishEvent(query.id, ex));
+//            });
         });
 
         if (cancellationToken != null) {
@@ -382,7 +388,7 @@ public class QueryExecutor implements LifecycleAware {
         runningQueries.values().forEach(query -> query.onError(ex));
     }
 
-    private Event toStartEvent(Query query) {
+    private Event makeStartEvent(Query query) {
         QueryInfo queryInfo = new QueryInfo(query);
         Map<String, Object> fields = IgniteUtils.newLinkedHashMap(7);
 
@@ -401,11 +407,11 @@ public class QueryExecutor implements LifecycleAware {
                 .build();
     }
 
-    private static Event toFinishEvent(UUID queryId, @Nullable Throwable ex) {
+    private static Event makeFinishEvent(UUID queryId, @Nullable Throwable ex) {
         Map<String, Object> fields = IgniteUtils.newLinkedHashMap(2);
 
         fields.put("id", queryId);
-        fields.put("error", ex == null ? null : ex.toString());
+        fields.put("error", ex == null ? null : unwrapCause(ex).getMessage());
 
         return IgniteEvents.QUERY_FINISHED.builder()
                 .user(EventUser.system())

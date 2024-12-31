@@ -57,6 +57,12 @@ public class QueryInfo {
     }
 
     private static @Nullable UUID deriveTxId(Query query) {
+        QueryTransactionWrapper explicit = query.txContext.explicitTx();
+
+        if (explicit != null) {
+            return explicit.unwrap().id();
+        }
+
         QueryTransactionWrapper tx = query.usedTransaction;
 
         return tx != null ? tx.unwrap().id() : null;

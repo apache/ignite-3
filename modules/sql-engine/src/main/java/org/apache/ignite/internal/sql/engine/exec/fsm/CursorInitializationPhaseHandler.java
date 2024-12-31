@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursorExt.CancellationReason;
@@ -50,14 +51,21 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
                             queryType,
                             plan.metadata(),
                             dataCursor,
+                            (th) -> query.error = th,
                             query.nextCursorFuture
                     );
 
                     query.cursor = cursor;
 
-                    query.cancel.add(timeout -> dataCursor.cancelAsync(
-                            timeout ? CancellationReason.TIMEOUT : CancellationReason.CANCEL
-                    ));
+                    query.cancel.add(timeout -> {
+                        String message = timeout
+                                ? QueryCancelledException.TIMEOUT_MSG
+                                : QueryCancelledException.CANCEL_MSG;
+
+                        query.error = new QueryCancelledException(message);
+
+                        dataCursor.cancelAsync(timeout ? CancellationReason.TIMEOUT : CancellationReason.CANCEL);
+                    });
 
                     QueryTransactionContext txContext = query.txContext;
 
@@ -72,6 +80,12 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
                     // close of the cursor won't cancel an entire operation
                     return cursor.onFirstPageReady();
                 });
+
+        awaitFuture.whenComplete((r, e) -> {
+            if (e != null) {
+                query.error = e;
+            }
+        });
 
         return Result.proceedAfter(awaitFuture);
     }
