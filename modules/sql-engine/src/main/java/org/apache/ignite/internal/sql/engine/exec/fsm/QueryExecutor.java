@@ -110,6 +110,7 @@ public class QueryExecutor implements LifecycleAware {
      * @param defaultProperties Set of properties to use as defaults.
      * @param transactionTracker Tracker to track usage of transactions by query.
      * @param idGenerator Id generator used to provide cluster-wide unique query id.
+     * @param eventLog Event log.
      */
     public QueryExecutor(
             String nodeId,
