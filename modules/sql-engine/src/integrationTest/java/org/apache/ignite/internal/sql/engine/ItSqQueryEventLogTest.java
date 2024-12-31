@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.events;
+package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
@@ -46,7 +45,6 @@ import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.CancelHandle;
@@ -70,15 +68,15 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
     private static Path eventlogPath;
 
     @BeforeAll
-    static void captureEventLogPath() {
-        String buildDirPath = System.getProperty("user.dir") + "/build/";
+    static void setUp() {
+        String buildDirPath = System.getProperty("buildDirPath");
         eventlogPath = Path.of(buildDirPath).resolve("event.log");
 
         sql("CREATE TABLE test(id INT PRIMARY KEY)");
     }
 
     @BeforeEach
-    void tearDown() throws IOException {
+    void cleanup() throws IOException {
         List<String> events = readEventLog();
 
         sql("DELETE FROM test");
@@ -105,7 +103,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    void testSimpleQuery() {
+    void testQuery() {
         String query = "SELECT 1";
         sql(query);
 
@@ -206,7 +204,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
 
         String expErr = "Values passed to VALUES operator must have compatible types";
 
-        assertThrowsSqlException(STMT_VALIDATION_ERR, expErr, () -> sql(query, "1", 2));
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expErr, () -> sql(query, "1", 2));
 
         List<String> events = readEvents(2);
 
@@ -302,6 +300,19 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
 
         UUID queryId = verifyQueryStartedFields(events.get(0), query, null);
         verifyQueryFinishFields(events.get(1), queryId, QueryCancelledException.TIMEOUT_MSG);
+    }
+
+    @Test
+    void testDdlError() {
+        String query = "CREATE TABLE test (id INT PRIMARY KEY, val INT)";
+        String expErr = "Table with name 'PUBLIC.TEST' already exists";
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expErr, () -> sql(query));
+
+        List<String> events = readEvents(2);
+
+        UUID queryId = verifyQueryStartedFields(events.get(0), query, null);
+        verifyQueryFinishFields(events.get(1), queryId, expErr);
     }
 
     private static List<String> readEvents(int expectedCount) {

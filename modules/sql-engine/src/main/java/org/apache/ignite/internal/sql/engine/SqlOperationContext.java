@@ -132,11 +132,11 @@ public final class SqlOperationContext {
     }
 
     /**
-     * Notifies context that error happened.
+     * Notifies the context that an error has occurred.
      */
     public void notifyError(Throwable th) {
         if (errorListener != null) {
-            errorListener.accept(th);;
+            errorListener.accept(th);
         }
     }
 
