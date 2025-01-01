@@ -164,6 +164,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -2706,12 +2707,12 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21792")
+    @Timeout(value = 10_000, unit = TimeUnit.MILLISECONDS)  //todo change to at least 20_000 to get the added timeout from before!
     public void testFollowerStartStopFollowing() throws Exception {
         // start five nodes
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 5);
 
-        cluster = new TestCluster("unitest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
+        cluster = new TestCluster("unittest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
 
         for (TestPeer peer : peers)
             assertTrue(cluster.start(peer));
@@ -2726,8 +2727,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         List<Node> firstFollowers = cluster.getFollowers();
         assertEquals(4, firstFollowers.size());
         for (Node node : firstFollowers) {
-            assertTrue(
-                waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 1, 5_000));
+            assertEquals(1, ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes());
             assertEquals(0, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -2742,8 +2742,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         List<Node> secondFollowers = cluster.getFollowers();
         assertEquals(3, secondFollowers.size());
         for (Node node : secondFollowers) {
-            assertTrue(
-                waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 2, 5_000));
+            assertEquals(2, ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes());
             assertEquals(1, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -2760,14 +2759,12 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < 3; i++) {
             Node follower = thirdFollowers.get(i);
             if (follower.getNodeId().getPeerId().equals(secondLeader.getNodeId().getPeerId())) {
-                assertTrue(
-                    waitForCondition(() -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes() == 2, 5_000));
-                assertEquals(1,
-                    ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
+                assertEquals(2, ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes());
+                assertEquals(1, ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
                 continue;
             }
 
-            assertTrue(waitForCondition(() -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes() == 3, 5_000));
+            assertEquals(3, ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes());
             assertEquals(2, ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
