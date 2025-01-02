@@ -2707,7 +2707,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Timeout(value = 10_000, unit = TimeUnit.MILLISECONDS)  //todo change to at least 20_000 to get the added timeout from before!
+    @Timeout(value = 25_000, unit = TimeUnit.MILLISECONDS)
     public void testFollowerStartStopFollowing() throws Exception {
         // start five nodes
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 5);
