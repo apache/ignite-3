@@ -17,16 +17,33 @@
 
 package org.apache.ignite.lang;
 
+import static java.util.regex.Pattern.DOTALL;
+
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.ignite.error.code.annotations.ErrorCodeGroup;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Defines error groups and its errors.
  */
 @SuppressWarnings("PublicInnerClass")
 public class ErrorGroups {
+    /** Additional prefix that is used in a human-readable format of ignite errors. */
+    public static final String IGNITE_ERR_PREFIX = "IGN";
+    private static final String PLACEHOLDER = "${ERROR_PREFIX}";
+    private static final String EXCEPTION_MESSAGE_STRING_PATTERN =
+            "(.*)(" + PLACEHOLDER + ")-([A-Z]+)-(\\d+)\\s(TraceId:)([a-f0-9]{8}(?:-[a-f0-9]{4}){4}[a-f0-9]{8})(\\s?)(.*)";
+
+    /** Error message pattern. */
+    private static Pattern EXCEPTION_MESSAGE_PATTERN;
+
+    private static final HashSet<String> REGISTERED_ERROR_PREFIXES = new HashSet<>();
+
     /** List of all registered error groups. */
     private static final Map<Short, ErrorGroup> registeredGroups = new HashMap<>();
 
@@ -44,7 +61,7 @@ public class ErrorGroups {
     }
 
     /**
-     * Creates a new error group with the given {@code groupName} and {@code groupCode}.
+     * Creates a new error group with the given {@code groupName} and {@code groupCode} and default error prefix.
      *
      * @param groupName Group name to be created.
      * @param groupCode Group code to be created.
@@ -53,6 +70,20 @@ public class ErrorGroups {
      *         the given {@code groupName} is {@code null} or empty.
      */
     public static synchronized ErrorGroup registerGroup(String groupName, short groupCode) {
+        return registerGroup(IGNITE_ERR_PREFIX, groupName, groupCode);
+    }
+
+    /**
+     * Creates a new error group with the given {@code groupName} and {@code groupCode}.
+     *
+     * @param errorPrefix Error prefix which should be used for the created error group.
+     * @param groupName Group name to be created.
+     * @param groupCode Group code to be created.
+     * @return New error group.
+     * @throws IllegalArgumentException If the specified name or group code already registered. Also, this exception is thrown if
+     *         the given {@code groupName} is {@code null} or empty.
+     */
+    public static synchronized ErrorGroup registerGroup(String errorPrefix, String groupName, short groupCode) {
         if (groupName == null || groupName.isEmpty()) {
             throw new IllegalArgumentException("Group name is null or empty");
         }
@@ -73,11 +104,34 @@ public class ErrorGroups {
             }
         }
 
-        ErrorGroup newGroup = new ErrorGroup(grpName, groupCode);
+        if (REGISTERED_ERROR_PREFIXES.add(errorPrefix)) {
+            String errorPrefixes = String.join("|", REGISTERED_ERROR_PREFIXES);
+            String pattern = EXCEPTION_MESSAGE_STRING_PATTERN.replace(PLACEHOLDER, errorPrefixes);
+            EXCEPTION_MESSAGE_PATTERN = Pattern.compile(pattern, DOTALL);
+        }
+
+        ErrorGroup newGroup = new ErrorGroup(errorPrefix, grpName, groupCode);
 
         registeredGroups.put(groupCode, newGroup);
 
         return newGroup;
+    }
+
+    /**
+     * Returns a message extracted from the given {@code errorMessage} if this {@code errorMessage} matches
+     * {@link #EXCEPTION_MESSAGE_PATTERN}. If {@code errorMessage} does not match the pattern or {@code null} then returns the original
+     * {@code errorMessage}.
+     *
+     * @param errorMessage Message that is returned by {@link Throwable#getMessage()}
+     * @return Extracted message.
+     */
+    public static @Nullable String extractCauseMessage(String errorMessage) {
+        if (errorMessage == null) {
+            return null;
+        }
+
+        Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(errorMessage);
+        return (m.matches()) ? m.group(8) : errorMessage;
     }
 
     /**

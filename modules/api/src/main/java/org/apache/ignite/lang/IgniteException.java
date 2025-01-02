@@ -17,7 +17,6 @@
 
 package org.apache.ignite.lang;
 
-import static org.apache.ignite.lang.ErrorGroup.ERR_PREFIX;
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -34,6 +33,9 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteException extends RuntimeException implements TraceableException {
     /** Serial version UID. */
     private static final long serialVersionUID = 0L;
+
+    /** Prefix for error message. */
+    private final String errorPrefix;
 
     /** Name of the error group. */
     private final String groupName;
@@ -113,7 +115,9 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      */
     public IgniteException(UUID traceId, int code) {
         this.traceId = traceId;
-        this.groupName = errorGroupByCode(code).name();
+        ErrorGroup errorGroup = errorGroupByCode(code);
+        this.groupName = errorGroup.name();
+        this.errorPrefix = errorGroup.errorPrefix();
         this.code = code;
     }
 
@@ -170,7 +174,9 @@ public class IgniteException extends RuntimeException implements TraceableExcept
         super((cause != null) ? cause.getLocalizedMessage() : null, cause);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode(code).name();
+        ErrorGroup errorGroup = errorGroupByCode(code);
+        this.groupName = errorGroup.name();
+        this.errorPrefix = errorGroup.errorPrefix();
         this.code = code;
     }
 
@@ -218,7 +224,9 @@ public class IgniteException extends RuntimeException implements TraceableExcept
         super(message, cause, enableSuppression, writableStackTrace);
 
         this.traceId = traceId;
-        this.groupName = errorGroupByCode(code).name();
+        ErrorGroup errorGroup = errorGroupByCode(code);
+        this.groupName = errorGroup.name();
+        this.errorPrefix = errorGroup.errorPrefix();
         this.code = code;
     }
 
@@ -251,7 +259,7 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      * @return Full error code in a human-readable format.
      */
     public String codeAsString() {
-        return ERR_PREFIX + groupName() + '-' + errorCode();
+        return errorPrefix + "-" + groupName() + '-' + errorCode();
     }
 
     /**
@@ -290,6 +298,6 @@ public class IgniteException extends RuntimeException implements TraceableExcept
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return getClass().getName() + ": " + errorMessage(traceId, groupName, code, getLocalizedMessage());
+        return getClass().getName() + ": " + errorMessage(errorPrefix, traceId, groupName, code, getLocalizedMessage());
     }
 }
