@@ -23,6 +23,7 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.raft.jraft.storage.impl.NoopDestroyStorageIntentStorage;
 
 /** Utilities for creating {@link Loza} instances. */
 public class TestLozaFactory {
@@ -64,7 +65,8 @@ public class TestLozaFactory {
                 raftConfig,
                 clock,
                 raftGroupEventsClientListener,
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                new NoopDestroyStorageIntentStorage()
         );
     }
 }

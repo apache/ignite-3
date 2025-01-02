@@ -154,7 +154,13 @@ public class LogStorageBenchmark {
         int totalLogs = 100 * 1024;
 
 //        LogStorageFactory logStorageFactory = new DefaultLogStorageFactory(testPath);
-        LogStorageFactory logStorageFactory = new LogitLogStorageFactory("test", new StoreOptions(), testPath);
+        LogStorageFactory logStorageFactory = new LogitLogStorageFactory(
+                "test-log-storage",
+                "test",
+                new StoreOptions(),
+                testPath,
+                new NoopDestroyStorageIntentStorage()
+        );
         assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         try {

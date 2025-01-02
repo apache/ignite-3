@@ -176,6 +176,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.PersistentLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -407,7 +408,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         ComponentWorkingDir partitionsWorkDir = partitionsPath(systemConfiguration, dir);
 
-        LogStorageFactory partitionsLogStorageFactory =
+        PersistentLogStorageFactory partitionsLogStorageFactory =
                 SharedLogStorageFactoryUtils.create(clusterSvc.nodeName(), partitionsWorkDir.raftLogPath());
 
         RaftGroupOptionsConfigurer partitionRaftConfigurer =

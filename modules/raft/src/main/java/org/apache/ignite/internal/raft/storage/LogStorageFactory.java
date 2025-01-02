@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.raft.storage;
 
-import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 
 /** Log storage factory interface. */
-// TODO https://issues.apache.org/jira/browse/IGNITE-22766
-public interface LogStorageFactory extends LogSyncer, IgniteComponent {
+public interface LogStorageFactory extends IgniteComponent {
     /**
      * Creates a log storage.
      *

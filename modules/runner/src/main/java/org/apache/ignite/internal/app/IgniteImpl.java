@@ -194,6 +194,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
+import org.apache.ignite.internal.raft.storage.PersistentLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -280,6 +281,9 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.raft.jraft.storage.DestroyStorageIntentStorage;
+import org.apache.ignite.raft.jraft.storage.impl.NoopDestroyStorageIntentStorage;
+import org.apache.ignite.raft.jraft.storage.impl.VaultDestroyStorageIntentStorage;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -457,7 +461,7 @@ public class IgniteImpl implements Ignite {
     private final IgniteCatalog publicCatalog;
 
     /** Partitions log storage factory for raft. */
-    private final LogStorageFactory partitionsLogStorageFactory;
+    private final PersistentLogStorageFactory partitionsLogStorageFactory;
 
     private final LogStorageFactory msLogStorageFactory;
 
@@ -594,10 +598,13 @@ public class IgniteImpl implements Ignite {
 
         partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
 
+        DestroyStorageIntentStorage destroyStorageIntentStorage = new VaultDestroyStorageIntentStorage(vaultMgr);
+
         partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 "table data log",
                 clusterSvc.nodeName(),
                 partitionsWorkDir.raftLogPath(),
+                destroyStorageIntentStorage,
                 raftConfiguration.fsync().value()
         );
 
@@ -607,7 +614,8 @@ public class IgniteImpl implements Ignite {
                 raftConfiguration,
                 clock,
                 raftGroupEventsClientListener,
-                failureManager
+                failureManager,
+                destroyStorageIntentStorage
         );
 
         MessagingService messagingServiceReturningToStorageOperationsPool = new JumpToExecutorByConsistentIdAfterSend(
@@ -620,6 +628,7 @@ public class IgniteImpl implements Ignite {
                 "cluster-management-group log",
                 clusterSvc.nodeName(),
                 cmgWorkDir.raftLogPath(),
+                destroyStorageIntentStorage,
                 true
         );
 
@@ -690,6 +699,7 @@ public class IgniteImpl implements Ignite {
                 "meta-storage log",
                 clusterSvc.nodeName(),
                 metastorageWorkDir.raftLogPath(),
+                destroyStorageIntentStorage,
                 // If it changes, then it will be necessary to set LogSyncer to RocksDbKeyValueStorage.
                 true
         );
