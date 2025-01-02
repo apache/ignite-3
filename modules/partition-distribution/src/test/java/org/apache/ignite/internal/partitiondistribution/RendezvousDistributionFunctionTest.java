@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.partitiondistribution;
 
+import static java.util.Collections.emptyList;
 import static java.util.Objects.nonNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -30,7 +32,11 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Test for Rendezvous distribution function.
@@ -56,6 +62,7 @@ public class RendezvousDistributionFunctionTest {
         List<Set<Assignment>> assignment = RendezvousDistributionFunction.assignPartitions(
                 nodes,
                 parts,
+                replicas,
                 replicas,
                 false,
                 null
@@ -91,6 +98,47 @@ public class RendezvousDistributionFunctionTest {
                             + ", idealSize=" + ideal
                             + ", parts=" + compact(nodeParts) + ']');
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("distributionWithLearnersArguments")
+    public void testDistributionWithLearners(int nodeCount, int partitions, int replicas, int consensusReplicas) {
+        List<String> nodes = prepareNetworkTopology(nodeCount);
+
+        DistributionAlgorithm distributionAlgorithm = new RendezvousDistributionFunction();
+
+        List<Set<Assignment>> assignments = distributionAlgorithm
+                .assignPartitions(nodes, emptyList(), partitions, replicas, consensusReplicas);
+
+        for (int p = 0; p < partitions; p++) {
+            Set<Assignment> a = assignments.get(p);
+            assertEquals(replicas, a.size());
+            assertEquals(consensusReplicas, a.stream().filter(Assignment::isPeer).count());
+        }
+
+        Set<Assignment> partitionAssignments = distributionAlgorithm
+                .assignPartition(nodes, emptyList(), 0, replicas, consensusReplicas);
+
+        assertEquals(replicas, partitionAssignments.size());
+        assertEquals(consensusReplicas, partitionAssignments.stream().filter(Assignment::isPeer).count());
+    }
+
+    private static Stream<Arguments> distributionWithLearnersArguments() {
+        List<Arguments> arg = new ArrayList<>();
+
+        for (Integer nodes : List.of(1, 2, 3, 4, 5, 7, 10, 20, 50, 100)) {
+            for (Integer partitions : List.of(1, 10, 25, 50, 100)) {
+                for (Integer replicas : List.of(1, 2, 3, 4, 5, 7, 10, 50, 100)) {
+                    for (Integer consensusReplicas : List.of(1, 2, 3, 5, 7, 100)) {
+                        if (replicas <= nodes && consensusReplicas <= replicas) {
+                            arg.add(Arguments.of(nodes, partitions, replicas, consensusReplicas));
+                        }
+                    }
+                }
+            }
+        }
+
+        return arg.stream();
     }
 
     private List<String> prepareNetworkTopology(int nodes) {
