@@ -30,7 +30,7 @@ import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.constants.HttpCode;
 import org.apache.ignite.internal.rest.problem.HttpProblemResponse;
-import org.apache.ignite.lang.ErrorGroup;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Table;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -76,7 +76,7 @@ public class IgniteExceptionHandler implements ExceptionHandler<IgniteException,
 
     @Nullable
     private static String extractDetailMessageOrNull(IgniteException exception) {
-        String detail = ErrorGroup.extractCauseMessage(exception.getMessage());
+        String detail = ErrorGroups.extractCauseMessage(exception.getMessage());
         if (detail != null && detail.isBlank()) {
             detail = null;
         }

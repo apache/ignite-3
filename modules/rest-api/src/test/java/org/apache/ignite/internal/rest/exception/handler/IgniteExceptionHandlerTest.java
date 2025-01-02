@@ -34,7 +34,7 @@ import org.apache.ignite.internal.rest.api.InvalidParam;
 import org.apache.ignite.internal.rest.api.Problem;
 import org.apache.ignite.internal.rest.api.Problem.ProblemBuilder;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.lang.ErrorGroup;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -48,7 +48,7 @@ class IgniteExceptionHandlerTest extends BaseIgniteAbstractTest {
 
     static Stream<Arguments> igniteExceptions() {
         UUID traceId = UUID.randomUUID();
-        String humanReadableCode = ErrorGroup.ERR_PREFIX + COMMON_ERR_GROUP.name() + '-' + extractErrorCode(INTERNAL_ERR);
+        String humanReadableCode = ErrorGroups.IGNITE_ERR_PREFIX + "-" + COMMON_ERR_GROUP.name() + '-' + extractErrorCode(INTERNAL_ERR);
 
         var invalidParams = List.of(
                 new InvalidParam("key1", "Some issue1"),
