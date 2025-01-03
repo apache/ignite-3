@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -52,7 +53,7 @@ public class RendezvousDistributionFunctionTest {
 
         int ideal = (parts * replicas) / nodeCount;
 
-        List<List<String>> assignment = RendezvousDistributionFunction.assignPartitions(
+        List<Set<Assignment>> assignment = RendezvousDistributionFunction.assignPartitions(
                 nodes,
                 parts,
                 replicas,
@@ -64,12 +65,12 @@ public class RendezvousDistributionFunctionTest {
 
         int part = 0;
 
-        for (List<String> partNodes : assignment) {
-            for (String node : partNodes) {
-                ArrayList<Integer> nodeParts = assignmentByNode.get(node);
+        for (Set<Assignment> partNodes : assignment) {
+            for (Assignment node : partNodes) {
+                ArrayList<Integer> nodeParts = assignmentByNode.get(node.consistentId());
 
                 if (nodeParts == null) {
-                    assignmentByNode.put(node, nodeParts = new ArrayList<>());
+                    assignmentByNode.put(node.consistentId(), nodeParts = new ArrayList<>());
                 }
 
                 nodeParts.add(part);

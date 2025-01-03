@@ -543,6 +543,11 @@ public class LeaseUpdater {
                 );
             }
 
+            // This condition allows to skip the meta storage invoke when there are no leases to update (renewedLeases.isEmpty()).
+            // However there is the case when we need to save empty leases collection: when the assignments are empty and
+            // leasesCurrent (those that reflect the meta storage state) is not empty. The negation of this condition gives us
+            // the condition to skip the update and the result is:
+            // !(emptyAssignments && !leasesCurrent.isEmpty()) == (!emptyAssignments || leasesCurrent.isEmpty())
             boolean emptyAssignments = aggregatedStableAndPendingAssignmentsByGroups.isEmpty();
             if (renewedLeases.isEmpty() && (!emptyAssignments || leasesCurrent.leaseByGroupId().isEmpty())) {
                 LOG.debug("No leases to update found.");
