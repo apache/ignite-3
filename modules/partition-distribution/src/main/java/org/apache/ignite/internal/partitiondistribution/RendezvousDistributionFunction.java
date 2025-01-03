@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partitiondistribution;
 
+import static org.apache.ignite.internal.util.IgniteUtils.forEachIndexed;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,6 +35,7 @@ import java.util.function.IntFunction;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Partition distribution function for partitioned table based on Highest Random Weight algorithm. This function supports the following
@@ -54,7 +57,7 @@ import org.apache.ignite.internal.logger.Loggers;
  * </li>
  * </ul>
  */
-public class RendezvousDistributionFunction {
+public class RendezvousDistributionFunction implements DistributionAlgorithm {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RendezvousDistributionFunction.class);
 
@@ -81,11 +84,11 @@ public class RendezvousDistributionFunction {
      */
     public static <T extends Collection<String>> T assignPartition(
             int part,
-            List<String> nodes,
+            Collection<String> nodes,
             int replicas,
             Map<String, Collection<String>> neighborhoodCache,
             boolean exclNeighbors,
-            BiPredicate<String, T> nodeFilter,
+            @Nullable BiPredicate<String, T> nodeFilter,
             IntFunction<T> aggregator
     ) {
         if (nodes.size() <= 1) {
@@ -99,13 +102,11 @@ public class RendezvousDistributionFunction {
         IgniteBiTuple<Long, String>[] hashArr =
                 (IgniteBiTuple<Long, String>[]) new IgniteBiTuple[nodes.size()];
 
-        for (int i = 0; i < nodes.size(); i++) {
-            String node = nodes.get(i);
-
+        forEachIndexed(nodes, (node, i) -> {
             long hash = hash(node.hashCode(), part);
 
             hashArr[i] = new IgniteBiTuple<>(hash, node);
-        }
+        });
 
         final int effectiveReplicas = replicas == Integer.MAX_VALUE ? nodes.size() : Math.min(replicas, nodes.size());
 
@@ -182,7 +183,7 @@ public class RendezvousDistributionFunction {
      * @param aggregator  Function that creates a collection for the partition assignments.
      * @return Assignment.
      */
-    private static <T extends Collection<String>> T replicatedAssign(List<String> nodes,
+    private static <T extends Collection<String>> T replicatedAssign(Collection<String> nodes,
             Iterable<String> sortedNodes, IntFunction<T> aggregator) {
         String first = sortedNodes.iterator().next();
 
@@ -239,7 +240,7 @@ public class RendezvousDistributionFunction {
             int partitions,
             int replicas,
             boolean exclNeighbors,
-            BiPredicate<String, List<String>> nodeFilter
+            @Nullable BiPredicate<String, List<String>> nodeFilter
     ) {
         return assignPartitions(currentTopologySnapshot, partitions, replicas, exclNeighbors, nodeFilter, ArrayList::new);
     }
@@ -260,7 +261,7 @@ public class RendezvousDistributionFunction {
             int partitions,
             int replicas,
             boolean exclNeighbors,
-            BiPredicate<String, T> nodeFilter,
+            @Nullable BiPredicate<String, T> nodeFilter,
             IntFunction<T> aggregator
     ) {
         assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
@@ -280,6 +281,16 @@ public class RendezvousDistributionFunction {
         }
 
         return assignments;
+    }
+
+    @Override
+    public List<List<String>> assignPartitions(
+            Collection<String> nodes,
+            List<List<String>> currentDistribution,
+            int partitions,
+            int replicaFactor
+    ) {
+        return assignPartitions(nodes, partitions, replicaFactor, false, null);
     }
 
     /**

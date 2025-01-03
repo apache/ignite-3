@@ -389,7 +389,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         }, 10_000));
 
-        assignments = calculateAssignmentForPartition(Collections.singleton(nodeName), 1, 1);
+        assignments = calculateAssignmentForPartition(Collections.singleton(nodeName), 2, 1, 1);
 
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
 
@@ -428,7 +428,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
             return falseCompletedFuture();
         });
 
-        Set<Assignment> assignments = calculateAssignmentForPartition(Collections.singleton(anotherNodeName), 1, 1);
+        Set<Assignment> assignments = calculateAssignmentForPartition(Collections.singleton(anotherNodeName), 2, 1, 1);
 
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
 

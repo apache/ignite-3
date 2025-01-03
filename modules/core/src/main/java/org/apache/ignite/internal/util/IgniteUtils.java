@@ -57,6 +57,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -1009,6 +1010,21 @@ public class IgniteUtils {
         }
 
         return Optional.empty();
+    }
+
+    /**
+     * Iterates over the given collection and applies the given closure to each element using the collection element and its index.
+     *
+     * @param collection Collection.
+     * @param closure Closure to apply.
+     * @param <T> Type of collection element.
+     */
+    public static <T> void forEachIndexed(Collection<T> collection, BiConsumer<T, Integer> closure) {
+        int i = 0;
+
+        for (T t : collection) {
+            closure.accept(t, i++);
+        }
     }
 
     /**
