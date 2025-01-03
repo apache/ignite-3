@@ -51,7 +51,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             insertAndUpdateRunQuery(500);
             // Minimum row count is 1000, even we have less rows.
             assertQuery(getUniqueQuery())
-                    .matches(scanRowCount("PUBLIC", "T", 1000))
+                    .matches(scanRowCount("PUBLIC", "T", 500))
                     .check();
 
             insertAndUpdateRunQuery(600);

@@ -19,38 +19,30 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlannerTest.TpcSuiteInfo;
 
-import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
-import org.apache.ignite.internal.sql.engine.util.tpch.TpchTables;
+import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsHelper;
+import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Tests ensures a planner generates optimal plan for TPC-H queries.
- *
- * @see org.apache.ignite.internal.sql.engine.benchmarks.TpchParseBenchmark
+ * Tests ensures a planner generates optimal plan for TPC-DS queries.
  */
 // TODO https://issues.apache.org/jira/browse/IGNITE-21986 validate other query plans and make test parameterized.
 @TpcSuiteInfo(
-        tables = TpchTables.class,
+        tables = TpcdsTables.class,
         queryLoader = "getQueryString",
         planLoader = "getQueryPlan"
 )
-public class TpchQueryPlannerTest extends AbstractTpcQueryPlannerTest {
+public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
     @ParameterizedTest
-    // Query #7 contains disjunctive predicate that switches its part from run to run, making
-    // the test unstable.
-    // 
-    //    HashJoin(condition=[... OR(=($10, _UTF-8'GERMANY'), =($14, _UTF-8'GERMANY')), OR(=($14, _UTF-8'FRANCE'), =($10, _UTF-8'FRANCE')))]
-    //                     vs
-    //    HashJoin(condition=[... OR(=($14, _UTF-8'FRANCE'), =($10, _UTF-8'FRANCE')), OR(=($10, _UTF-8'GERMANY'), =($14, _UTF-8'GERMANY')))]
-    @ValueSource(strings = {"1", "5", /* "7", */ "8", "9"})
+    @ValueSource(strings = "64")
     public void test(String queryId) {
         validateQueryPlan(queryId);
     }
 
     @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
     static String getQueryString(String queryId) {
-        return TpchHelper.getQuery(queryId);
+        return TpcdsHelper.getQuery(queryId);
     }
 
     @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
@@ -67,10 +59,10 @@ public class TpchQueryPlannerTest extends AbstractTpcQueryPlannerTest {
         }
 
         if (variant) {
-            var variantQueryFile = String.format("tpch/plan/variant_q%d.plan", numericId);
+            var variantQueryFile = String.format("tpcds/plan/variant_q%d.plan", numericId);
             return loadFromResource(variantQueryFile);
         } else {
-            var queryFile = String.format("tpch/plan/q%s.plan", numericId);
+            var queryFile = String.format("tpcds/plan/q%s.plan", numericId);
             return loadFromResource(queryFile);
         }
     }
