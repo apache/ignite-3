@@ -130,7 +130,7 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerI
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
-import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -466,6 +466,8 @@ public class IgniteImpl implements Ignite {
     private final RaftGroupOptionsConfigurer partitionRaftConfigurer;
 
     private final IndexMetaStorage indexMetaStorage;
+
+    private final EventLog eventLog;
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
@@ -1076,6 +1078,8 @@ public class IgniteImpl implements Ignite {
                 clockService
         );
 
+        eventLog = new EventLogImpl(clusterConfigRegistry.getConfiguration(EventLogExtensionConfiguration.KEY).eventlog());
+
         qryEngine = new SqlQueryProcessor(
                 clusterSvc,
                 logicalTopologyService,
@@ -1097,7 +1101,8 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                killCommandHandler
+                killCommandHandler,
+                eventLog
         );
 
         systemViewManager.register(qryEngine);
@@ -1217,10 +1222,8 @@ public class IgniteImpl implements Ignite {
     private AuthenticationManager createAuthenticationManager() {
         SecurityConfiguration securityConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(SecurityExtensionConfiguration.KEY).security();
-        EventLogConfiguration eventLogConfiguration = clusterCfgMgr.configurationRegistry()
-                .getConfiguration(EventLogExtensionConfiguration.KEY).eventlog();
 
-        return new AuthenticationManagerImpl(securityConfiguration, new EventLogImpl(eventLogConfiguration));
+        return new AuthenticationManagerImpl(securityConfiguration, eventLog);
     }
 
     private RestComponent createRestComponent(String name) {

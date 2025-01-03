@@ -60,6 +60,7 @@ class Query {
     volatile @Nullable SqlOperationContext operationContext = null;
     volatile @Nullable QueryPlan plan = null;
     volatile @Nullable QueryTransactionWrapper usedTransaction = null;
+    volatile @Nullable Throwable error = null;
     volatile @Nullable AsyncSqlCursor<InternalSqlRow> cursor = null;
 
     // Below is volatile state for script processing
@@ -133,6 +134,8 @@ class Query {
     }
 
     void onError(Throwable th) {
+        error = th;
+
         moveTo(ExecutionPhase.TERMINATED);
 
         resultHolder.completeExceptionally(th);

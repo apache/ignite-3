@@ -64,6 +64,7 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
                 .operationTime(operationTime)
                 .txContext(query.txContext)
                 .txUsedListener(tx -> query.usedTransaction = tx)
+                .errorHandler(throwable -> query.error = throwable)
                 .build();
 
         query.operationContext = operationContext;

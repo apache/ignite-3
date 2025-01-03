@@ -28,6 +28,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.QueryEventsFactory;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursorExt;
@@ -81,9 +83,14 @@ public class QueryExecutor implements LifecycleAware {
 
     private final ConcurrentMap<UUID, Query> runningQueries = new ConcurrentHashMap<>();
 
+    private final EventLog eventLog;
+
+    private final QueryEventsFactory eventsFactory;
+
     /**
      * Creates executor.
      *
+     * @param nodeId Local node consistent ID.
      * @param cacheFactory Factory to create cache for parsed AST.
      * @param parsedResultsCacheSize Size of the cache for parsed AST.
      * @param parserService Service to parse query string.
@@ -97,8 +104,10 @@ public class QueryExecutor implements LifecycleAware {
      * @param defaultProperties Set of properties to use as defaults.
      * @param transactionTracker Tracker to track usage of transactions by query.
      * @param idGenerator Id generator used to provide cluster-wide unique query id.
+     * @param eventLog Event log.
      */
     public QueryExecutor(
+            String nodeId,
             CacheFactory cacheFactory,
             int parsedResultsCacheSize,
             ParserService parserService,
@@ -111,7 +120,8 @@ public class QueryExecutor implements LifecycleAware {
             ExecutionService executionService,
             SqlProperties defaultProperties,
             TransactionTracker transactionTracker,
-            QueryIdGenerator idGenerator
+            QueryIdGenerator idGenerator,
+            EventLog eventLog
     ) {
         this.queryToParsedResultCache = cacheFactory.create(parsedResultsCacheSize);
         this.parserService = parserService;
@@ -125,6 +135,8 @@ public class QueryExecutor implements LifecycleAware {
         this.defaultProperties = defaultProperties;
         this.transactionTracker = transactionTracker;
         this.idGenerator = idGenerator;
+        this.eventLog = eventLog;
+        this.eventsFactory = new QueryEventsFactory(nodeId);
     }
 
     /**
@@ -318,11 +330,19 @@ public class QueryExecutor implements LifecycleAware {
     private void trackQuery(Query query, @Nullable CancellationToken cancellationToken) {
         Query old = runningQueries.put(query.id, query);
 
+        eventLog.log(() -> eventsFactory.makeStartEvent(new QueryInfo(query)));
+
         assert old == null : "Query with the same id already registered";
 
         CompletableFuture<Void> queryTerminationFut = query.onPhaseStarted(ExecutionPhase.TERMINATED);
 
-        queryTerminationFut.whenComplete((ignored, ex) -> runningQueries.remove(query.id));
+        queryTerminationFut.whenComplete((none, ignoredEx) -> {
+            runningQueries.remove(query.id);
+
+            long finishTime = clockService.current().getPhysical();
+
+            eventLog.log(() -> eventsFactory.makeFinishEvent(new QueryInfo(query), finishTime));
+        });
 
         if (cancellationToken != null) {
             CancelHandleHelper.addCancelAction(cancellationToken, query::cancel, queryTerminationFut);

@@ -28,7 +28,9 @@ public enum IgniteEventType {
     USER_AUTHENTICATION_SUCCESS,
     USER_AUTHENTICATION_FAILURE,
     CLIENT_CONNECTION_ESTABLISHED,
-    CLIENT_CONNECTION_CLOSED;
+    CLIENT_CONNECTION_CLOSED,
+    QUERY_STARTED,
+    QUERY_FINISHED;
 
     static {
         // Without the following line, the IgniteEventType enum will not be registered in the EventTypeRegistry

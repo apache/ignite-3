@@ -175,6 +175,7 @@ dependencies {
     integrationTestImplementation project(':ignite-configuration-root')
     integrationTestImplementation project(':ignite-configuration-system')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
+    integrationTestImplementation project(':ignite-eventlog')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))

@@ -362,7 +362,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 txWrapper,
                 dataCursor,
                 firstPageReady0,
-                queryManager::close
+                queryManager::close,
+                operationContext::notifyError
         ));
 
         return f.whenComplete((r, t) -> {
@@ -453,6 +454,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         if (txWrapper == null) {
             // Underlying table will drive transaction by itself.
             txWrapper = txContext.getOrStartSqlManaged(((ExplainablePlan) plan).type() != SqlQueryType.DML, true);
+            operationContext.notifyTxUsed(txWrapper);
         }
 
         PrefetchCallback prefetchCallback = new PrefetchCallback();
@@ -471,7 +473,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 txWrapper,
                 dataCursor,
                 prefetchCallback.prefetchFuture(),
-                reason -> nullCompletedFuture()
+                reason -> nullCompletedFuture(),
+                operationContext::notifyError
         );
     }
 

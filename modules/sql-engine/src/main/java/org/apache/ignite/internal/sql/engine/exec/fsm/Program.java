@@ -76,6 +76,8 @@ class Program<ResultT> {
 
                 try {
                     if (errorHandler.test(query, th)) {
+                        query.error = null;
+
                         continue;
                     }
                 } catch (AssertionError | Exception ex) {
@@ -102,6 +104,8 @@ class Program<ResultT> {
                                     // handles exception from asynchronous part of phase evaluation
                                     try {
                                         if (errorHandler.test(query, ex)) {
+                                            query.error = null;
+
                                             query.executor.execute(() -> run(query));
                                         }
                                     } catch (AssertionError | Exception ex0) {
