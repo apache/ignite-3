@@ -96,7 +96,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
                     success,
                     failure,
                     kvContext(HybridTimestamp.MIN_VALUE),
-                    new CommandIdGenerator(UUID::randomUUID).newId()
+                    new CommandIdGenerator(UUID.randomUUID()).newId()
             );
 
             return CompletableFuture.completedFuture(invokeResult);

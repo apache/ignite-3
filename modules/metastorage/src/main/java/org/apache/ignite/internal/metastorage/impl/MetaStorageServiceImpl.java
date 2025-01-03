@@ -29,7 +29,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -91,7 +90,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
             RaftGroupService metaStorageRaftGrpSvc,
             IgniteSpinBusyLock busyLock,
             HybridClock clock,
-            Supplier<UUID> nodeIdSupplier
+            UUID localNodeId
     ) {
         this.context = new MetaStorageServiceContext(
                 metaStorageRaftGrpSvc,
@@ -102,7 +101,7 @@ public class MetaStorageServiceImpl implements MetaStorageService {
         );
 
         this.clock = clock;
-        this.commandIdGenerator = new CommandIdGenerator(nodeIdSupplier);
+        this.commandIdGenerator = new CommandIdGenerator(localNodeId);
     }
 
     public RaftGroupService raftGroupService() {

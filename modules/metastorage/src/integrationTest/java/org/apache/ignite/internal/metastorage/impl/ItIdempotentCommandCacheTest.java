@@ -513,7 +513,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             byte[] anotherValue
     ) {
         HybridClock clock = new HybridClockImpl();
-        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID::randomUUID);
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID.randomUUID());
 
         return CMD_FACTORY.invokeCommand()
                 .condition(notExists(testKey))
@@ -532,7 +532,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
             int anotherYieldResult
     ) {
         HybridClock clock = new HybridClockImpl();
-        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID::randomUUID);
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID.randomUUID());
 
         Iif iif = iif(
                 notExists(testKey),

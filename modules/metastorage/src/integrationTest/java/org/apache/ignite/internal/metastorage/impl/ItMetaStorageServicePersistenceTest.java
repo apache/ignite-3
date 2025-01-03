@@ -94,7 +94,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
                 service,
                 new IgniteSpinBusyLock(),
                 new HybridClockImpl(),
-                followerNode::id
+                followerNode.id()
         );
 
         // Put some data in the metastorage

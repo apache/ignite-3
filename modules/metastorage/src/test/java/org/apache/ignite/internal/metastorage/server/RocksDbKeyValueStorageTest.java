@@ -278,7 +278,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
     public void singleInvokeChecksum() {
         byte[] key = key(1);
         byte[] val = keyValue(1, 1);
-        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> new UUID(1, 2));
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(new UUID(1, 2));
 
         ExistenceCondition condition = new ExistenceCondition(NOT_EXISTS, key);
         List<Operation> successfulBranch = List.of(put(new ByteArray(key), val));
@@ -333,7 +333,7 @@ public class RocksDbKeyValueStorageTest extends BasicOperationsKeyValueStorageTe
     public void multiInvokeChecksum() {
         byte[] key = key(1);
         byte[] val = keyValue(1, 1);
-        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(() -> new UUID(1, 2));
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(new UUID(1, 2));
 
         If iif = new If(
                 new ExistenceCondition(NOT_EXISTS, key),

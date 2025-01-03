@@ -292,7 +292,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 raftGroupServiceOfLiveServer,
                 new IgniteSpinBusyLock(),
                 new HybridClockImpl(),
-                () -> liveServer.clusterService().topologyService().localMember().id());
+                liveServer.clusterService().topologyService().localMember().id());
 
         var resultFuture = new CompletableFuture<Void>();
 

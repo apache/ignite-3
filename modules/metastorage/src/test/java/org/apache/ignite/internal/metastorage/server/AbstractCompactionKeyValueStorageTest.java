@@ -114,7 +114,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
                 new Statement(ops(noop()).yield())
         );
 
-        storage.invoke(iif, kvContext(clock.now()), new CommandIdGenerator(UUID::randomUUID).newId());
+        storage.invoke(iif, kvContext(clock.now()), new CommandIdGenerator(UUID.randomUUID()).newId());
 
         // Revision = 6.
         storage.remove(SOME_KEY, kvContext(clock.now()));
