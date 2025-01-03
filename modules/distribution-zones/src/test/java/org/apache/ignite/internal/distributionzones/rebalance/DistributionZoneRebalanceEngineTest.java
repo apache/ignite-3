@@ -515,7 +515,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
                 if (expectedNodes != null) {
                     Set<String> expectedAssignments =
-                            calculateAssignmentForPartition(expectedNodes, j, zoneDescriptor.replicas())
+                            calculateAssignmentForPartition(expectedNodes, zoneDescriptor.partitions(), j, zoneDescriptor.replicas())
                                     .stream().map(Assignment::consistentId).collect(toSet());
 
                     assertNotNull(actualAssignmentsBytes);

@@ -59,23 +59,21 @@ public class PartitionDistributionUtils {
      * Calculates assignments distribution for a single partition.
      *
      * @param dataNodes Data nodes.
+     * @param partitions Partitions count.
      * @param partitionId Partition id.
      * @param replicas Replicas count.
      * @return Set of assignments.
      */
     public static Set<Assignment> calculateAssignmentForPartition(
             Collection<String> dataNodes,
+            int partitions,
             int partitionId,
             int replicas
     ) {
-        List<String> nodes = DISTRIBUTION_ALGORITHM.assignPartition(
-                dataNodes,
-                emptyList(),
-                partitionId,
-                replicas
-        );
+        List<List<String>> nodes = DISTRIBUTION_ALGORITHM.assignPartitions(dataNodes, emptyList(), partitions, replicas);
+        List<String> affinityNodes = nodes.get(partitionId);
 
-        return dataNodesToAssignments(nodes);
+        return dataNodesToAssignments(affinityNodes);
     }
 
     private static Set<Assignment> dataNodesToAssignments(Collection<String> nodes) {

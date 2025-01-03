@@ -110,6 +110,7 @@ public class RebalanceUtilEx {
      *
      * @param metaStorageMgr MetaStorage manager.
      * @param dataNodes Data nodes.
+     * @param partitions Number of partitions.
      * @param replicas Replicas count.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
@@ -118,6 +119,7 @@ public class RebalanceUtilEx {
     public static CompletableFuture<Void> handleReduceChanged(
             MetaStorageManager metaStorageMgr,
             Collection<String> dataNodes,
+            int partitions,
             int replicas,
             TablePartitionId partId,
             WatchEvent event,
@@ -134,7 +136,7 @@ public class RebalanceUtilEx {
             return nullCompletedFuture();
         }
 
-        Set<Assignment> assignments = calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
+        Set<Assignment> assignments = calculateAssignmentForPartition(dataNodes, partitions, partId.partitionId(), replicas);
 
         ByteArray pendingKey = pendingPartAssignmentsKey(partId);
 

@@ -533,6 +533,7 @@ public class PartitionReplicaLifecycleManager extends
                     zoneId
             ).thenApply(dataNodes -> calculateAssignmentForPartition(
                             dataNodes,
+                            zoneDescriptor.partitions(),
                             zonePartitionId.partitionId(),
                             zoneDescriptor.replicas()
                     )
@@ -778,6 +779,7 @@ public class PartitionReplicaLifecycleManager extends
                         .thenCompose(dataNodes -> handleReduceChanged(
                                 metaStorageMgr,
                                 dataNodes,
+                                zoneDescriptor.partitions(),
                                 zoneDescriptor.replicas(),
                                 replicaGrpId,
                                 evt,

@@ -276,6 +276,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     replicaGrpId,
                     aliveDataNodes,
                     aliveNodesConsistentIds,
+                    zoneDescriptor.partitions(),
                     zoneDescriptor.replicas(),
                     revision,
                     metaStorageManager,
@@ -297,6 +298,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             TablePartitionId partId,
             Collection<String> aliveDataNodes,
             Set<String> aliveNodesConsistentIds,
+            int partitions,
             int replicas,
             long revision,
             MetaStorageManager metaStorageMgr,
@@ -317,7 +319,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         }
 
         if (manualUpdate) {
-            enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
+            enrichAssignments(partId, aliveDataNodes, partitions, replicas, partAssignments);
         }
 
         Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
@@ -468,10 +470,11 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
     private static void enrichAssignments(
             TablePartitionId partId,
             Collection<String> aliveDataNodes,
+            int partitions,
             int replicas,
             Set<Assignment> partAssignments
     ) {
-        Set<Assignment> calcAssignments = calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), replicas);
+        Set<Assignment> calcAssignments = calculateAssignmentForPartition(aliveDataNodes, partitions, partId.partitionId(), replicas);
 
         for (Assignment calcAssignment : calcAssignments) {
             if (partAssignments.size() == replicas) {

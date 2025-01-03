@@ -40,20 +40,4 @@ public interface DistributionAlgorithm {
             int partitions,
             int replicaFactor
     );
-
-    /**
-     * Generates an assignment by the given parameters for the given partition.
-     *
-     * @param nodes List of topology nodes.
-     * @param currentDistribution Previous assignments or empty list.
-     * @param partitionId Id of the partition.
-     * @param replicaFactor Number partition replicas.
-     * @return List of nodes for partition.
-     */
-    List<String> assignPartition(
-            Collection<String> nodes,
-            List<List<String>> currentDistribution,
-            int partitionId,
-            int replicaFactor
-    );
 }
