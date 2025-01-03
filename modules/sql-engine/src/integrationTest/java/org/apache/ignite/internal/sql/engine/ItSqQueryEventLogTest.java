@@ -345,7 +345,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
             int statementNum) {
         FieldsChecker fieldsChecker = EventValidator.parseQueryStart(event);
 
-        fieldsChecker.verify("initiator", CLUSTER.aliveNode().name());
+        fieldsChecker.verify("initiatorNode", CLUSTER.aliveNode().name());
         fieldsChecker.verify("sql", expectedQueryText);
         fieldsChecker.verify("schema", "PUBLIC");
         fieldsChecker.verify("parentId", parentId);

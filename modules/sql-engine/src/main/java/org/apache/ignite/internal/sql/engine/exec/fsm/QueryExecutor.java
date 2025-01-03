@@ -389,7 +389,7 @@ public class QueryExecutor implements LifecycleAware {
         QueryInfo queryInfo = new QueryInfo(query);
         Map<String, Object> fields = IgniteUtils.newLinkedHashMap(7);
 
-        fields.put("initiator", nodeId);
+        fields.put("initiatorNode", nodeId);
         fields.put("id", queryInfo.id());
         fields.put("schema", queryInfo.schema());
         fields.put("sql", queryInfo.sql());
@@ -404,7 +404,7 @@ public class QueryExecutor implements LifecycleAware {
                 .build();
     }
 
-    private static Event makeFinishEvent(UUID queryId, @Nullable Throwable ex) {
+    private Event makeFinishEvent(UUID queryId, @Nullable Throwable ex) {
         Map<String, Object> fields = IgniteUtils.newLinkedHashMap(2);
 
         fields.put("id", queryId);
@@ -412,6 +412,7 @@ public class QueryExecutor implements LifecycleAware {
 
         return IgniteEvents.QUERY_FINISHED.builder()
                 .user(EventUser.system())
+                .timestamp(clockService.current().getPhysical())
                 .fields(fields)
                 .build();
     }
