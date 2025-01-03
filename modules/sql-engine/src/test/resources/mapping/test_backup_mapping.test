@@ -60,7 +60,7 @@ Fragment#1
 ---
 # although root is colocated with one of the partitions, algorithm prefers to colocate join stage
 N0
-SELECT * FROM t2_n0n1n2 as t1, t3_n1n2 as t2 WHERE t1.id = t2.id
+SELECT * FROM t2_n0n1n2 as t1, t3_n1n2 as t2 WHERE t1.id = t2.id AND t1.c1 = 5
 ---
 Fragment#0 root
   executionNodes: [N0]
@@ -94,7 +94,7 @@ Fragment#3
 ---
 # everything is colocated
 N1
-SELECT * FROM t2_n0n1n2 as t1, t3_n1n2 as t2 WHERE t1.id = t2.id
+SELECT * FROM t2_n0n1n2 as t1, t3_n1n2 as t2 WHERE t1.id = t2.id AND t1.c1 = 5
 ---
 Fragment#0 root
   executionNodes: [N1]
@@ -128,7 +128,7 @@ Fragment#3
 ---
 # everything is colocated, but from different root
 N2
-SELECT * FROM t2_n0n1n2 as t1, t3_n1n2 as t2 WHERE t1.id = t2.id
+SELECT * FROM t2_n0n1n2 as t1, t3_n1n2 as t2 WHERE t1.id = t2.id AND t1.c1 = 5
 ---
 Fragment#0 root
   executionNodes: [N2]

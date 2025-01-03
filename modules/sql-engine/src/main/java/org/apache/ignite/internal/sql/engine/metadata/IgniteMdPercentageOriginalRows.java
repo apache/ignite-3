@@ -158,7 +158,7 @@ public class IgniteMdPercentageOriginalRows implements MetadataHandler<BuiltInMe
      * GetPercentageOriginalRows.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    private static Double quotientForPercentage(
+    public static Double quotientForPercentage(
             Double numerator,
             Double denominator) {
         if ((numerator == null) || (denominator == null)) {

@@ -332,7 +332,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery(sql)
                 .disableRules("HashJoinConverter", "MergeJoinConverter")
-                .matches(QueryChecker.matches(".*Exchange.*Join.*Colocated.*Aggregate.*"))
+                .matches(QueryChecker.matches(".*Join.*Exchange.*Scan.*Exchange.*Colocated.*Aggregate.*"))
                 .returns("val0", 50L)
                 .returns("val1", 50L)
                 .check();

@@ -30,7 +30,9 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.hamcrest.BaseMatcher;
 import org.hamcrest.CoreMatchers;
+import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.core.SubstringMatcher;
 
@@ -67,9 +69,47 @@ public interface QueryChecker {
      * @param rowCount expected row count.
      * @return Matcher.
      */
-    static Matcher<String> containsRowCount(String schema, String sourceName, long rowCount) {
+    static Matcher<String> scanRowCount(String schema, String sourceName, long rowCount) {
         return matchesOnce(".*(Table|Index)Scan\\(table=\\[\\[" + schema + ", " + sourceName
                 + "\\]\\].*\\]\\)\\:.*cumulative cost = IgniteCost \\[rowCount=" + rowCount + ".0");
+    }
+
+    /**
+     * Matcher which ensures that node matching the pattern has row count matching provided matcher.
+     *
+     * @param nodePattern A pattern describing a node of interest.
+     * @param rowCountMatcher Matcher for the estimated row count.
+     * @return Matcher.
+     */
+    static Matcher<String> nodeRowCount(String nodePattern, Matcher<Double> rowCountMatcher) {
+        Pattern pattern = Pattern.compile(".*" + nodePattern 
+                + ".*?: rowcount = (?<rowcount>\\d+(?:\\.\\d+)?(?:E\\d+)?).*");
+
+        return new BaseMatcher<>() {
+            @Override
+            public boolean matches(Object o) {
+                if (!(o instanceof String)) {
+                    return false;
+                }
+
+                String sanitized = ((String) o).replace("\n", "");
+                java.util.regex.Matcher matcher = pattern.matcher(sanitized);
+
+                if (!matcher.matches()) {
+                    return false;
+                }
+
+                String rowCountString = matcher.group("rowcount");
+
+                return rowCountMatcher.matches(Double.parseDouble(rowCountString));
+            }
+
+            @Override
+            public void describeTo(Description description) {
+                description.appendText("node that matches pattern \"" + nodePattern + "\" should have \"rowcount\" that ");
+                description.appendDescriptionOf(rowCountMatcher);
+            }
+        };
     }
 
     /**

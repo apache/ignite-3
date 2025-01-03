@@ -75,6 +75,7 @@ import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -674,9 +675,8 @@ public class TestBuilders {
 
             var parserService = new ParserServiceImpl();
 
-            SqlStatisticManager sqlStatisticManager = tableId -> 10_000L;
-
-            var schemaManager = new SqlSchemaManagerImpl(catalogManager, sqlStatisticManager, CaffeineCacheFactory.INSTANCE, 0);
+            ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
+            var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
                     new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
                     new NoOpMetricManager(), schemaManager);
@@ -785,6 +785,7 @@ public class TestBuilders {
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
             return new TestCluster(
+                    tablesSize,
                     dataProvidersByTableName,
                     assignmentsProviderByTableName,
                     nodes,
@@ -871,6 +872,21 @@ public class TestBuilders {
             // Wait until all indices become available.
             await(indicesReadyFut);
         }
+    }
+
+    private static SqlSchemaManagerImpl createSqlSchemaManager(CatalogManager catalogManager, ConcurrentMap<String, Long> tablesSize) {
+        SqlStatisticManager sqlStatisticManager = tableId -> {
+            CatalogTableDescriptor descriptor = catalogManager.table(tableId, Long.MAX_VALUE);
+            long fallbackSize = 10_000;
+
+            if (descriptor == null) {
+                return fallbackSize;
+            }
+
+            return tablesSize.getOrDefault(descriptor.name(), 10_000L);
+        };
+
+        return new SqlSchemaManagerImpl(catalogManager, sqlStatisticManager, CaffeineCacheFactory.INSTANCE, 0);
     }
 
     private static class TableBuilderImpl implements TableBuilder {

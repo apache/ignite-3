@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.statistic;
 
-import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsRowCount;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.scanRowCount;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -51,13 +51,13 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
             insertAndUpdateRunQuery(500);
             // Minimum row count is 1000, even we have less rows.
             assertQuery(getUniqueQuery())
-                    .matches(containsRowCount("PUBLIC", "T", 1000))
+                    .matches(scanRowCount("PUBLIC", "T", 1000))
                     .check();
 
             insertAndUpdateRunQuery(600);
             // Should return actual number of rows in the table.
             assertQuery(getUniqueQuery())
-                    .matches(containsRowCount("PUBLIC", "T", 1100))
+                    .matches(scanRowCount("PUBLIC", "T", 1100))
                     .check();
 
             sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(Long.MAX_VALUE);
@@ -65,7 +65,7 @@ public class ItStatisticTest extends BaseSqlIntegrationTest {
 
             // Statistics shouldn't be updated despite we inserted new rows.
             assertQuery(getUniqueQuery())
-                    .matches(containsRowCount("PUBLIC", "T", 1100))
+                    .matches(scanRowCount("PUBLIC", "T", 1100))
                     .check();
         } finally {
             sqlStatisticManager.setThresholdTimeToPostponeUpdateMs(prevValueOfThreshold);

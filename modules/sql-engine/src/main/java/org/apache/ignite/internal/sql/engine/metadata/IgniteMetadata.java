@@ -39,7 +39,10 @@ public class IgniteMetadata {
                             IgniteMdCollation.SOURCE,
                             IgniteMdSelectivity.SOURCE,
                             IgniteMdDistinctRowCount.SOURCE,
+                            IgniteMdColumnOrigins.SOURCE,
 
                             // Basic providers
-                            DefaultRelMetadataProvider.INSTANCE));
+                            DefaultRelMetadataProvider.INSTANCE
+                    )
+            );
 }
