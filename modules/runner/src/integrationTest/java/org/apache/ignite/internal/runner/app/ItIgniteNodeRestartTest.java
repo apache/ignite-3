@@ -424,6 +424,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var clusterInitializer = new ClusterInitializer(
                 clusterSvc,
+                logicalTopology,
                 hocon -> hocon,
                 new TestConfigurationValidator()
         );

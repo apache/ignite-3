@@ -1059,6 +1059,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
+                    logicalTopology,
                     hocon -> hocon,
                     new TestConfigurationValidator()
             );
