@@ -73,8 +73,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
 
     @BeforeAll
     static void setUp() {
-        // String buildDirPath = System.getProperty("buildDirPath");
-        String buildDirPath = System.getProperty("user.dir") + "/build/";
+        String buildDirPath = System.getProperty("buildDirPath");
         eventlogPath = Path.of(buildDirPath).resolve("event.log");
 
         sql("CREATE TABLE test(id INT PRIMARY KEY)");
