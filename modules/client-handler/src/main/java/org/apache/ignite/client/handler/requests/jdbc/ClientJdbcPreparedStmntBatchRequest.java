@@ -18,9 +18,9 @@
 package org.apache.ignite.client.handler.requests.jdbc;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 
 /**
@@ -38,7 +38,7 @@ public class ClientJdbcPreparedStmntBatchRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            JdbcQueryEventHandler handler
+            JdbcQueryEventHandlerImpl handler
     ) {
         var req = new JdbcBatchPreparedStmntRequest();
 
@@ -46,6 +46,12 @@ public class ClientJdbcPreparedStmntBatchRequest {
 
         req.readBinary(in);
 
-        return handler.batchPrepStatementAsync(connectionId, req).thenAccept(res -> res.writeBinary(out));
+        return handler.batchPrepStatementAsync(connectionId, req).thenAccept(res -> {
+            if (req.autoCommit()) {
+                out.meta(handler.getTimestampTracker().get());
+            }
+
+            res.writeBinary(out);
+        });
     }
 }

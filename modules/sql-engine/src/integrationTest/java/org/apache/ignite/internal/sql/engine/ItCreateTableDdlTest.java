@@ -20,6 +20,8 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFINITION_SCHEMA;
+import static org.apache.ignite.internal.catalog.CatalogService.INFORMATION_SCHEMA;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
@@ -41,11 +43,13 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.table.partition.HashPartition;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.Table;
@@ -328,8 +332,13 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("reservedSchemaNames")
-    @SuppressWarnings("ThrowableNotThrown")
     public void testItIsNotPossibleToCreateTablesInSystemSchema(String schema) {
+        if (DEFINITION_SCHEMA.equals(schema) || INFORMATION_SCHEMA.equals(schema)) {
+            IgniteImpl igniteImpl = unwrapIgniteImpl(CLUSTER.aliveNode());
+
+            IgniteTestUtils.await(igniteImpl.catalogManager().execute(CreateSchemaCommand.builder().name(schema).build()));
+        }
+
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Operations with system schemas are not allowed",

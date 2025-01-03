@@ -132,7 +132,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         int i = 0;
 
-        HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
+        HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
 
         String leaseholder = "local";
 

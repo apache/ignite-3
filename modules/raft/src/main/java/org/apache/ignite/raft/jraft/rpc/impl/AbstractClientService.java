@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.PeerUnavailableException;
@@ -233,13 +234,12 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
                         }
                     }
                     else {
-                        if (ExceptionUtils.hasCauseOrSuppressed(err, null, PeerUnavailableException.class, ConnectException.class))
+                        if (ExceptionUtils.hasCauseOrSuppressed(err, PeerUnavailableException.class, ConnectException.class))
                             readyConsistentIds.remove(peerId.getConsistentId()); // Force logical reconnect.
 
                         if (done != null) {
                             try {
-                                done.run(new Status(err instanceof InvokeTimeoutException ? RaftError.ETIMEDOUT
-                                    : RaftError.EINTERNAL, "RPC exception:" + err.getMessage()));
+                                done.run(new Status(errorCodeByException(err), "RPC exception:" + err.getMessage()));
                             }
                             catch (final Throwable t) {
                                 LOG.error("Fail to run RpcResponseClosure, the request is {}.", t, request);
@@ -272,6 +272,14 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
         }
 
         return future;
+    }
+
+    private static RaftError errorCodeByException(Throwable err) {
+        if (ExceptionUtils.hasCauseOrSuppressed(err, NodeStoppingException.class)) {
+            return RaftError.ESHUTDOWN;
+        }
+
+        return err instanceof InvokeTimeoutException ? RaftError.ETIMEDOUT : RaftError.EINTERNAL;
     }
 
     private static Status handleErrorResponse(final ErrorResponse eResp) {

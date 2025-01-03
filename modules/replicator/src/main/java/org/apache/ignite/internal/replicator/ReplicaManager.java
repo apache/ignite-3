@@ -50,6 +50,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -1137,7 +1138,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .build();
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
-            if (ex != null && !hasCauseOrSuppressed(ex, null, NodeStoppingException.class)) {
+            if (ex != null && !hasCauseOrSuppressed(ex, NodeStoppingException.class)
+                    && !hasCauseOrSuppressed(ex, CancellationException.class)) {
                 LOG.error("Could not advance safe time for {} to {}", ex, replica.groupId());
             }
         });

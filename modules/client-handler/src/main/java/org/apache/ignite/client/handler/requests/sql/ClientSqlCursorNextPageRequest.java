@@ -25,7 +25,6 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 
 /**
  * Client SQL cursor next page request.
@@ -36,14 +35,12 @@ public class ClientSqlCursorNextPageRequest {
      *
      * @param in  Unpacker.
      * @param out Packer.
-     * @param transactions Transactional facade. Used to acquire last observed time to propagate to client in response.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            ClientResourceRegistry resources,
-            IgniteTransactionsImpl transactions
+            ClientResourceRegistry resources
     ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
@@ -53,7 +50,6 @@ public class ClientSqlCursorNextPageRequest {
                 .thenCompose(r -> {
                     packCurrentPage(out, r);
                     out.packBoolean(r.hasMorePages());
-                    out.meta(transactions.observableTimestamp());
 
                     if (!r.hasMorePages()) {
                         try {
