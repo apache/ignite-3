@@ -446,6 +446,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         if (txWrapper == null) {
             // Underlying table will drive transaction by itself.
             txWrapper = txContext.getOrStartSqlManaged(((ExplainablePlan) plan).type() != SqlQueryType.DML, true);
+            operationContext.notifyTxUsed(txWrapper);
         }
 
         PrefetchCallback prefetchCallback = new PrefetchCallback();

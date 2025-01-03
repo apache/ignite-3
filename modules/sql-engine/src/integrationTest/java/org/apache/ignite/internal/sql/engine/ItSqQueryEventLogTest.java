@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.QueryEventsFactory.FieldNames;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.CancelHandle;
@@ -65,11 +67,14 @@ import org.junit.jupiter.api.Test;
  * Integration tests to check the {@link IgniteEvents#QUERY_STARTED} and {@link IgniteEvents#QUERY_FINISHED} events.
  */
 public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
+    private static final String UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+
     private static Path eventlogPath;
 
     @BeforeAll
     static void setUp() {
-        String buildDirPath = System.getProperty("buildDirPath");
+        // String buildDirPath = System.getProperty("buildDirPath");
+        String buildDirPath = System.getProperty("user.dir") + "/build/";
         eventlogPath = Path.of(buildDirPath).resolve("event.log");
 
         sql("CREATE TABLE test(id INT PRIMARY KEY)");
@@ -110,7 +115,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
         List<String> events = readEvents(2);
 
         UUID queryId = verifyQueryStartedFields(events.get(0), query, null);
-        verifyQueryFinishFields(events.get(1), queryId, null);
+        verifyQueryFinishFields(events.get(1), queryId, SqlQueryType.QUERY, query, true, null);
     }
 
     @Test
@@ -122,10 +127,26 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
 
         UUID scriptId = verifyQueryStartedFields(events.get(0), scriptText, null);
 
-        UUID insertQueryId = verifyQueryStartedFields(events.get(1), "INSERT INTO `TEST`\\nVALUES ROW(0)", null, scriptId, 0);
-        verifyQueryFinishFields(events.get(2), insertQueryId, null);
+        String insertStatementText = "INSERT INTO `TEST`\\nVALUES ROW(0)";
+        String selectStatementText = "SELECT 1";
 
-        UUID selectQueryId = verifyQueryStartedFields(events.get(3), "SELECT 1", null, scriptId, 1);
+        UUID insertQueryId = verifyQueryStartedFields(events.get(1), insertStatementText, null, scriptId, 0);
+
+        String selectStartEvent;
+        String insertFinishEvent;
+
+        if (events.get(2).startsWith("{\"type\":\"QUERY_STARTED\"")) {
+            selectStartEvent = events.get(2);
+            insertFinishEvent = events.get(3);
+        } else {
+            selectStartEvent = events.get(3);
+            insertFinishEvent = events.get(2);
+        }
+
+        verifyQueryFinishFields(insertFinishEvent, insertQueryId, SqlQueryType.DML, insertStatementText, null, true,
+                null, scriptId, 0);
+
+        UUID selectQueryId = verifyQueryStartedFields(selectStartEvent, selectStatementText, null, scriptId, 1);
 
         // The order in which the last `SELECT` statement finish and script statement finish events are sent is undefined.
         String selectFinishEvent;
@@ -139,8 +160,11 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
             scriptFinishEvent = events.get(4);
         }
 
-        verifyQueryFinishFields(selectFinishEvent, selectQueryId, null);
-        verifyQueryFinishFields(scriptFinishEvent, scriptId, null);
+        verifyQueryFinishFields(selectFinishEvent, selectQueryId, SqlQueryType.QUERY,
+                selectStatementText, null, true, null, scriptId, 1);
+
+        verifyQueryFinishFields(scriptFinishEvent, scriptId, null,
+                scriptText, null, false, null, null, -1);
     }
 
     @Test
@@ -171,12 +195,12 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
 
         {
             FieldsChecker fieldsChecker = EventValidator.parseQueryFinish(events.get(2));
-            fieldsChecker.verify("error", null);
+            fieldsChecker.verify(FieldNames.ERROR, null);
         }
 
         {
             FieldsChecker fieldsChecker = EventValidator.parseQueryFinish(events.get(3));
-            fieldsChecker.verify("error", null);
+            fieldsChecker.verify(FieldNames.ERROR, null);
         }
     }
 
@@ -195,7 +219,8 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
         // QUERY_STARTED
         UUID queryId = verifyQueryStartedFields(events.get(0), query, null);
 
-        verifyQueryFinishFields(events.get(1), queryId, "Failed to parse query: Encountered \\\"*\\\" at line 1, column 8");
+        verifyQueryFinishFields(events.get(1), queryId, null, query, false,
+                "Failed to parse query: Encountered \\\"*\\\" at line 1, column 8");
     }
 
     @Test
@@ -209,8 +234,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
         List<String> events = readEvents(2);
 
         UUID queryId = verifyQueryStartedFields(events.get(0), query, null);
-
-        verifyQueryFinishFields(events.get(1), queryId, expErr);
+        verifyQueryFinishFields(events.get(1), queryId, SqlQueryType.DML, query, false, expErr);
     }
 
     @Test
@@ -223,7 +247,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
         List<String> events = readEvents(2);
 
         UUID queryId = verifyQueryStartedFields(events.get(0), query, null);
-        verifyQueryFinishFields(events.get(1), queryId, expErr);
+        verifyQueryFinishFields(events.get(1), queryId, SqlQueryType.QUERY, query, true, expErr);
     }
 
     @Test
@@ -236,7 +260,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
         List<String> events = readEvents(2);
 
         UUID queryId = verifyQueryStartedFields(events.get(0), query, null);
-        verifyQueryFinishFields(events.get(1), queryId, expErr);
+        verifyQueryFinishFields(events.get(1), queryId, SqlQueryType.QUERY, query, true, expErr);
     }
 
     @Test
@@ -256,7 +280,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
         List<String> events = readEvents(2);
 
         UUID queryId = verifyQueryStartedFields(events.get(0), query, tx);
-        verifyQueryFinishFields(events.get(1), queryId, expErr);
+        verifyQueryFinishFields(events.get(1), queryId, SqlQueryType.DML, query, tx, false, expErr, null, -1);
     }
 
     @Test
@@ -277,7 +301,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
 
             events = readEvents(2);
 
-            verifyQueryFinishFields(events.get(1), queryId, QueryCancelledException.CANCEL_MSG);
+            verifyQueryFinishFields(events.get(1), queryId, SqlQueryType.QUERY, query, true, QueryCancelledException.CANCEL_MSG);
         }
     }
 
@@ -299,7 +323,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
         List<String> events = readEvents(2);
 
         UUID queryId = verifyQueryStartedFields(events.get(0), query, null);
-        verifyQueryFinishFields(events.get(1), queryId, QueryCancelledException.TIMEOUT_MSG);
+        verifyQueryFinishFields(events.get(1), queryId, SqlQueryType.QUERY, query, false, QueryCancelledException.TIMEOUT_MSG);
     }
 
     @Test
@@ -312,7 +336,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
         List<String> events = readEvents(2);
 
         UUID queryId = verifyQueryStartedFields(events.get(0), query, null);
-        verifyQueryFinishFields(events.get(1), queryId, expErr);
+        verifyQueryFinishFields(events.get(1), queryId, SqlQueryType.DDL, query, false, expErr);
     }
 
     private static List<String> readEvents(int expectedCount) {
@@ -324,6 +348,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
     }
 
     interface FieldsChecker {
+        /** Checks that the specified field has expected value. */
         void verify(String field, @Nullable Object val);
 
         /**
@@ -345,27 +370,48 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
             int statementNum) {
         FieldsChecker fieldsChecker = EventValidator.parseQueryStart(event);
 
-        fieldsChecker.verify("initiatorNode", CLUSTER.aliveNode().name());
-        fieldsChecker.verify("sql", expectedQueryText);
-        fieldsChecker.verify("schema", "PUBLIC");
-        fieldsChecker.verify("parentId", parentId);
-        fieldsChecker.verify("statementNum", statementNum);
-        fieldsChecker.verify("transactionId", tx == null ? null : ((InternalTransaction) tx).id());
+        fieldsChecker.verify(FieldNames.INITIATOR, CLUSTER.aliveNode().name());
+        fieldsChecker.verify(FieldNames.SQL, expectedQueryText);
+        fieldsChecker.verify(FieldNames.SCHEMA, "PUBLIC");
+        fieldsChecker.verify(FieldNames.PARENT_ID, parentId);
+        fieldsChecker.verify(FieldNames.STATEMENT_NUMBER, statementNum);
+        fieldsChecker.verify(FieldNames.TX_ID, tx == null ? null : ((InternalTransaction) tx).id());
 
-        String queryIdString = fieldsChecker.matches("id", "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        String queryIdString = fieldsChecker.matches(FieldNames.ID, UUID_PATTERN);
 
         return UUID.fromString(queryIdString);
     }
 
-    private static void verifyQueryFinishFields(String event, UUID queryId, @Nullable String errMessage) {
+    private static void verifyQueryFinishFields(String event, UUID queryId, @Nullable SqlQueryType queryType, String expectedQueryText,
+            boolean checkImplicitTx, @Nullable String errMessage) {
+        verifyQueryFinishFields(event, queryId, queryType, expectedQueryText, null, checkImplicitTx, errMessage, null, -1);
+    }
+
+    private static void verifyQueryFinishFields(String event, UUID queryId, SqlQueryType queryType, String expectedQueryText,
+            @Nullable Transaction tx, boolean checkImplicitTx, @Nullable String errMessage, @Nullable UUID parentId, int statementNum) {
         FieldsChecker fieldsChecker = EventValidator.parseQueryFinish(event);
 
         fieldsChecker.verify("id", queryId);
+        fieldsChecker.verify(FieldNames.INITIATOR, CLUSTER.aliveNode().name());
+        fieldsChecker.verify(FieldNames.SQL, expectedQueryText);
+        fieldsChecker.verify(FieldNames.SCHEMA, "PUBLIC");
+        fieldsChecker.verify(FieldNames.PARENT_ID, parentId);
+        fieldsChecker.verify(FieldNames.STATEMENT_NUMBER, statementNum);
+        fieldsChecker.verify(FieldNames.TYPE, queryType == null ? null : queryType.name());
+        fieldsChecker.matches(FieldNames.START_TIME, "\\d+");
+
+        if (checkImplicitTx) {
+            assertThat(tx, is(nullValue()));
+
+            fieldsChecker.matches(FieldNames.TX_ID, UUID_PATTERN);
+        } else {
+            fieldsChecker.verify(FieldNames.TX_ID, tx == null ? null : ((InternalTransaction) tx).id());
+        }
 
         if (errMessage == null) {
-            fieldsChecker.verify("error", null);
+            fieldsChecker.verify(FieldNames.ERROR, null);
         } else {
-            fieldsChecker.matches("error", ".*" + Pattern.quote(errMessage) + ".*");
+            fieldsChecker.matches(FieldNames.ERROR, ".*" + Pattern.quote(errMessage) + ".*");
         }
     }
 
@@ -380,7 +426,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
 
         private static final Pattern QUERY_START_PATTERN = Pattern.compile("\\{"
                 + "\"type\":\"QUERY_STARTED\","
-                + "\"timestamp\":\\d*,"
+                + "\"timestamp\":\\d+,"
                 + "\"productVersion\":\"" + IgniteProductVersion.VERSION_PATTERN.pattern() + "\","
                 + "\"user\":\\{\"username\":\"" + USER + "\",\"authenticationProvider\":\"" + PROVIDER + "\"},"
                 + "\"fields\":\\{(?<fields>.+)}"
@@ -388,7 +434,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
 
         private static final Pattern QUERY_FINISH_PATTERN = Pattern.compile("\\{"
                 + "\"type\":\"QUERY_FINISHED\","
-                + "\"timestamp\":\\d*,"
+                + "\"timestamp\":\\d+,"
                 + "\"productVersion\":\"" + IgniteProductVersion.VERSION_PATTERN.pattern() + "\","
                 + "\"user\":\\{\"username\":\"" + USER + "\",\"authenticationProvider\":\"" + PROVIDER + "\"},"
                 + "\"fields\":\\{(?<fields>.+)}"
@@ -405,7 +451,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
         static FieldsChecker parseQueryFinish(String jsonString) {
             Matcher matcher = QUERY_FINISH_PATTERN.matcher(jsonString);
 
-            assertThat(matcher.matches(), is(true));
+            assertThat("input=" + jsonString, matcher.matches(), is(true));
 
             return new FieldsCheckerImpl(matcher.group("fields"));
         }
@@ -438,7 +484,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
             public String matches(String field, String regex) {
                 IgniteStringBuilder fullRegexp = new IgniteStringBuilder()
                         .app('"').app(field).app('"')
-                        .app(":\"(").app(regex).app(")\"");
+                        .app(":\"?(").app(regex).app(")\"?");
 
                 Pattern pattern = Pattern.compile(fullRegexp.toString());
 

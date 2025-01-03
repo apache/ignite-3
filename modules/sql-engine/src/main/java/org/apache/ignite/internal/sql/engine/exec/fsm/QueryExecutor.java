@@ -17,11 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -31,10 +28,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventLog;
-import org.apache.ignite.internal.eventlog.api.IgniteEvents;
-import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -42,6 +36,7 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
+import org.apache.ignite.internal.sql.engine.QueryEventsFactory;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursorExt;
@@ -63,7 +58,6 @@ import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
@@ -91,7 +85,7 @@ public class QueryExecutor implements LifecycleAware {
 
     private final EventLog eventLog;
 
-    private final String nodeId;
+    private final QueryEventsFactory eventsFactory;
 
     /**
      * Creates executor.
@@ -129,7 +123,6 @@ public class QueryExecutor implements LifecycleAware {
             QueryIdGenerator idGenerator,
             EventLog eventLog
     ) {
-        this.nodeId = nodeId;
         this.queryToParsedResultCache = cacheFactory.create(parsedResultsCacheSize);
         this.parserService = parserService;
         this.executor = executor;
@@ -143,6 +136,7 @@ public class QueryExecutor implements LifecycleAware {
         this.transactionTracker = transactionTracker;
         this.idGenerator = idGenerator;
         this.eventLog = eventLog;
+        this.eventsFactory = new QueryEventsFactory(nodeId);
     }
 
     /**
@@ -336,7 +330,7 @@ public class QueryExecutor implements LifecycleAware {
     private void trackQuery(Query query, @Nullable CancellationToken cancellationToken) {
         Query old = runningQueries.put(query.id, query);
 
-        eventLog.log(() -> makeStartEvent(query));
+        eventLog.log(() -> eventsFactory.makeStartEvent(new QueryInfo(query)));
 
         assert old == null : "Query with the same id already registered";
 
@@ -345,7 +339,9 @@ public class QueryExecutor implements LifecycleAware {
         queryTerminationFut.whenComplete((none, ignoredEx) -> {
             runningQueries.remove(query.id);
 
-            eventLog.log(() -> makeFinishEvent(query.id, query.error));
+            long finishTime = clockService.current().getPhysical();
+
+            eventLog.log(() -> eventsFactory.makeFinishEvent(new QueryInfo(query), finishTime));
         });
 
         if (cancellationToken != null) {
@@ -383,37 +379,5 @@ public class QueryExecutor implements LifecycleAware {
         Exception ex = new NodeStoppingException();
 
         runningQueries.values().forEach(query -> query.onError(ex));
-    }
-
-    private Event makeStartEvent(Query query) {
-        QueryInfo queryInfo = new QueryInfo(query);
-        Map<String, Object> fields = IgniteUtils.newLinkedHashMap(7);
-
-        fields.put("initiatorNode", nodeId);
-        fields.put("id", queryInfo.id());
-        fields.put("schema", queryInfo.schema());
-        fields.put("sql", queryInfo.sql());
-        fields.put("parentId", queryInfo.parentId());
-        fields.put("statementNum", queryInfo.statementNum());
-        fields.put("transactionId", queryInfo.transactionId());
-
-        return IgniteEvents.QUERY_STARTED.builder()
-                .user(EventUser.system())
-                .timestamp(queryInfo.startTime().toEpochMilli())
-                .fields(fields)
-                .build();
-    }
-
-    private Event makeFinishEvent(UUID queryId, @Nullable Throwable ex) {
-        Map<String, Object> fields = IgniteUtils.newLinkedHashMap(2);
-
-        fields.put("id", queryId);
-        fields.put("error", ex == null ? null : unwrapCause(ex).getMessage());
-
-        return IgniteEvents.QUERY_FINISHED.builder()
-                .user(EventUser.system())
-                .timestamp(clockService.current().getPhysical())
-                .fields(fields)
-                .build();
     }
 }

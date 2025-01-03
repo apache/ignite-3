@@ -467,6 +467,8 @@ public class IgniteImpl implements Ignite {
 
     private final IndexMetaStorage indexMetaStorage;
 
+    private final EventLog eventLog;
+
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
@@ -1075,8 +1077,7 @@ public class IgniteImpl implements Ignite {
                 clockService
         );
 
-        EventLog eventLog = new EventLogImpl(clusterCfgMgr.configurationRegistry()
-                .getConfiguration(EventLogExtensionConfiguration.KEY).eventlog());
+        eventLog = new EventLogImpl(clusterConfigRegistry.getConfiguration(EventLogExtensionConfiguration.KEY).eventlog());
 
         qryEngine = new SqlQueryProcessor(
                 clusterSvc,
@@ -1142,7 +1143,7 @@ public class IgniteImpl implements Ignite {
 
         killCommandHandler.register(((IgniteComputeImpl) compute).killHandler());
 
-        authenticationManager = createAuthenticationManager(eventLog);
+        authenticationManager = createAuthenticationManager();
 
         ClientConnectorConfiguration clientConnectorConfiguration = nodeConfigRegistry
                 .getConfiguration(ClientConnectorExtensionConfiguration.KEY).clientConnector();
@@ -1218,7 +1219,7 @@ public class IgniteImpl implements Ignite {
         return () -> replicationConfig.idleSafeTimePropagationDuration().value();
     }
 
-    private AuthenticationManager createAuthenticationManager(EventLog eventLog) {
+    private AuthenticationManager createAuthenticationManager() {
         SecurityConfiguration securityConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(SecurityExtensionConfiguration.KEY).security();
 
