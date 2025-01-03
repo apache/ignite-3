@@ -52,7 +52,7 @@ public interface DistributionAlgorithm {
      */
     List<String> assignPartition(
             Collection<String> nodes,
-            List<String> currentDistribution,
+            List<List<String>> currentDistribution,
             int partitionId,
             int replicaFactor
     );
