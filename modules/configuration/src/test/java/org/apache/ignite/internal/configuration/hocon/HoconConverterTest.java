@@ -731,7 +731,7 @@ public class HoconConverterTest {
         // Let's check that the NamedConfigValue#syntheticKeyName key will not work.
         assertThrowsIllegalArgException(
                 () -> change("rootInjectedName.nestedNamed = [{superName = foo}]"),
-                "'rootInjectedName.nestedNamed[0].someName' configuration value is mandatory and must be a String"
+                "'rootInjectedName.nestedNamed' configuration doesn't have the 'superName' sub-configuration"
         );
     }
 

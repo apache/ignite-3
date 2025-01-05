@@ -60,8 +60,7 @@ public class SystemDistributedConfigurationPropertyHolderTest extends BaseIgnite
 
     @Test
     void testValidSystemPropertiesOnStart(
-            @InjectConfiguration("mock.properties = {"
-                    + PROPERTY_NAME + ".propertyValue = \"newValue\"}")
+            @InjectConfiguration("mock.properties = {" + PROPERTY_NAME + " = \"newValue\"}")
             SystemDistributedConfiguration systemConfig
     ) {
         var config = noopConfigHolder(systemConfig);

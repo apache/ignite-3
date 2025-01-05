@@ -59,10 +59,12 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.co
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.hasDefault;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isConfigValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInjectedName;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isInjectedValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isNamedConfigValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicConfig;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicConfigInstance;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isReadOnly;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicInstanceId;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
@@ -176,6 +178,9 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
     /** {@link ConstructableTreeNode#construct(String, ConfigurationSource, boolean)} method name. */
     private static final String CONSTRUCT_MTD_NAME = "construct";
+
+    /** {@link ConstructableTreeNode#injectedValueFieldName}. */
+    private static final String INJECTED_VALUE_FIELD_NAME_MTD_NAME = "injectedValueFieldName";
 
     /** Mapping for each configuration {@link Field} to a static constant with this {@link Field} as value. */
     private final Map<Field, FieldDefinition> fieldToFieldDefinitionMap = new HashMap<>();
@@ -309,6 +314,9 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         // Field with @InjectedName.
         FieldDefinition injectedNameFieldDef = null;
 
+        // Field with @InjectedValue.
+        FieldDefinition injectedValueFieldDef = null;
+
         for (Field schemaField : concat(schemaFields, publicExtensionFields, internalExtensionFields, polymorphicFields)) {
             FieldDefinition fieldDef = addInnerNodeField(schemaField);
 
@@ -318,6 +326,8 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 polymorphicTypeIdFieldDef = fieldDef;
             } else if (isInjectedName(schemaField)) {
                 injectedNameFieldDef = fieldDef;
+            } else if (isInjectedValue(schemaField)) {
+                injectedValueFieldDef = fieldDef;
             }
         }
 
@@ -442,6 +452,10 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         if (injectedNameFieldDef != null) {
             addInjectedNameFieldMethods(injectedNameFieldDef);
+        }
+
+        if (injectedValueFieldDef != null) {
+            implementInjectedValueFieldNameMethod(injectedValueFieldDef);
         }
 
         if (polymorphicTypeIdFieldDef != null) {
@@ -1578,6 +1592,16 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 )).ret();
     }
 
+    private void implementInjectedValueFieldNameMethod(FieldDefinition injectedValueFieldDef) {
+        MethodDefinition method = innerNodeClassDef.declareMethod(
+                EnumSet.of(PUBLIC),
+                INJECTED_VALUE_FIELD_NAME_MTD_NAME,
+                type(String.class)
+        );
+
+        method.getBody().append(constantString(injectedValueFieldDef.getName())).retObject();
+    }
+
     /**
      * Adds an override for the {@link InnerNode#isPolymorphic} method that returns {@code true}.
      */
@@ -1698,7 +1722,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             );
 
             // Read only.
-            if (isPolymorphicId(schemaField) || isInjectedName(schemaField)) {
+            if (isReadOnly(schemaField)) {
                 continue;
             }
 

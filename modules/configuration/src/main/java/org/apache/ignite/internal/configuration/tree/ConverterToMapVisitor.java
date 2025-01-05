@@ -82,7 +82,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
         if (val instanceof Character || val instanceof UUID) {
             valObj = val.toString();
         } else if (val != null && val.getClass().isArray()) {
-            valObj = toListOfObjects(field, val);
+            valObj = toListOfObjects(val);
         } else if (val instanceof String) {
             valObj = maskIfNeeded(field, (String) val);
         }
@@ -92,7 +92,6 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
         return valObj;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Object visitInnerNode(Field field, String key, InnerNode node) {
         if (skipEmptyValues && node == null) {
@@ -107,15 +106,22 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
 
         deque.pop();
 
+        String injectedValueFieldName = node.injectedValueFieldName();
+
+        // If configuration contains an injected value, we need to take the value of the synthetic key and use it as the key for
+        // the injected value. For example, instead of ["syntheticKey": "foo", "injectedValue": "bar"], we will have ["foo": "bar"].
+        if (injectedValueFieldName != null) {
+            innerMap.put(key, innerMap.remove(injectedValueFieldName));
+        }
+
         addToParent(key, innerMap);
 
         return innerMap;
     }
 
-    /** {@inheritDoc} */
     @Override
     public Object visitNamedListNode(Field field, String key, NamedListNode<?> node) {
-        if (skipEmptyValues && node.size() == 0) {
+        if (skipEmptyValues && node.isEmpty()) {
             return null;
         }
 
@@ -124,9 +130,13 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
         deque.push(list);
 
         for (String subkey : node.namedListKeys()) {
-            node.getInnerNode(subkey).accept(field, subkey, this);
+            InnerNode innerNode = node.getInnerNode(subkey);
 
-            ((Map<String, Object>) list.get(list.size() - 1)).put(node.syntheticKeyName(), subkey);
+            innerNode.accept(field, subkey, this);
+
+            if (innerNode.injectedValueFieldName() == null) {
+                ((Map<String, Object>) list.get(list.size() - 1)).put(node.syntheticKeyName(), subkey);
+            }
         }
 
         deque.pop();
@@ -173,11 +183,10 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /**
      * Converts array into a list of objects. Boxes array elements if they are primitive values.
      *
-     * @param field Field of the array
      * @param val Array of primitives or array of {@link String}s
      * @return List of objects corresponding to the passed array.
      */
-    private List<?> toListOfObjects(Field field, Serializable val) {
+    private static List<?> toListOfObjects(Serializable val) {
         Stream<?> stream = IntStream.range(0, Array.getLength(val)).mapToObj(i -> Array.get(val, i));
 
         if (val.getClass().getComponentType() == char.class || val.getClass().getComponentType() == UUID.class) {
