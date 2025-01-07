@@ -147,6 +147,8 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
             HybridTimestamp readTimestamp,
+            @Nullable UUID transactionId,
+            @Nullable UUID coordinatorId,
             ClusterNode recipientNode) {
         return null;
     }
@@ -179,6 +181,8 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
+            @Nullable UUID transactionId,
+            @Nullable UUID coordinatorId,
             ClusterNode recipientNode
     ) {
         return null;

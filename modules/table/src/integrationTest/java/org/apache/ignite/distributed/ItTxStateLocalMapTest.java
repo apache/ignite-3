@@ -107,7 +107,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 NODES,
                 NODES,
                 false,
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 replicationConfiguration
         );
 

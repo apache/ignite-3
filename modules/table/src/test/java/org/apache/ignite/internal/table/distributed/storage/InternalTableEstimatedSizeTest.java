@@ -60,6 +60,7 @@ import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -205,7 +206,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 txStateTableStorage,
                 new ReplicaService(clusterService.messagingService(), clock, replicationConfiguration),
                 clockService,
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
                 new TransactionInflights(placementDriver, clockService),
                 0,
@@ -315,7 +316,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 clusterNodeResolver,
                 remotelyTriggeredResourceRegistry,
                 schemaRegistry,
-                indexMetaStorage
+                indexMetaStorage,
+                new TestLowWatermark()
         );
     }
 

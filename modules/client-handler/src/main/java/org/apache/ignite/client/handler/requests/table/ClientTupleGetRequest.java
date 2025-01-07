@@ -26,7 +26,7 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -47,16 +47,14 @@ public class ClientTupleGetRequest {
             ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            IgniteTransactionsImpl transactions
+            TxManager txManager
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, transactions, true);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, true);
             return readTuple(in, table, true).thenCompose(keyTuple -> {
-                return table.recordView().getAsync(tx, keyTuple)
-                        .thenAccept(t -> {
-                            ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView());
-                            out.meta(transactions.observableTimestamp());
-                        });
+                return table.recordView().getAsync(tx, keyTuple).thenAccept(t -> {
+                    ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView());
+                });
             });
         });
     }

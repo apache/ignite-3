@@ -176,17 +176,6 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         return res;
     }
 
-    @Override
-    public Set<Assignment> assignPartition(
-            Collection<String> nodes,
-            List<String> currentDistribution,
-            int partitionId,
-            int replicaFactor,
-            int consensusGroupSize
-    ) {
-        return assignPartition(partitionId, nodes, replicaFactor, null, false, null, HashSet::new);
-    }
-
     /**
      * Creates assignment for REPLICATED table.
      *

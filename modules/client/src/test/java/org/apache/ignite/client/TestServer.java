@@ -73,7 +73,6 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManagerI
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -248,7 +247,7 @@ public class TestServer implements AutoCloseable {
                 : new ClientHandlerModule(
                         ignite.queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
-                        (IgniteTransactionsImpl) ignite.transactions(),
+                        ignite.txManager(),
                         (IgniteComputeInternal) ignite.compute(),
                         clusterService,
                         bootstrapFactory,
