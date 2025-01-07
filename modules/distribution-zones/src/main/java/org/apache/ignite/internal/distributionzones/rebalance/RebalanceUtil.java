@@ -446,6 +446,10 @@ public class RebalanceUtil {
 
     public static final byte[] PENDING_CHANGE_TRIGGER_PREFIX_BYTES = PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
 
+    public static final String ASSIGNMENTS_CHAIN_PREFIX = "assignments.chain.";
+
+    public static final byte[] ASSIGNMENTS_CHAIN_PREFIX_BYTES = ASSIGNMENTS_CHAIN_PREFIX.getBytes(UTF_8);
+
     /**
      * Key that is needed for skipping stale events of pending key change.
      *
@@ -488,6 +492,17 @@ public class RebalanceUtil {
      */
     public static ByteArray stablePartAssignmentsKey(TablePartitionId partId) {
         return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
+    }
+
+    /**
+     * Key for the graceful restart in HA mode.
+     *
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
+     * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-131%3A+Partition+Majority+Unavailability+Handling">HA mode</a>
+     */
+    public static ByteArray assignmentsChainKey(TablePartitionId partId) {
+        return new ByteArray(ASSIGNMENTS_CHAIN_PREFIX + partId);
     }
 
     /**

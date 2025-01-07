@@ -28,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -37,6 +36,7 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.junit.jupiter.api.Test;
@@ -144,10 +144,10 @@ public abstract class AbstractSetOpExecutionTest extends AbstractExecutionTest<O
         }
 
         RelCollation collation = RelCollations.of(ImmutableIntList.of(IntStream.range(0, COLUMN_NUN).toArray()));
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+        SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
         // Create sort node on the top to check sorted results.
-        SortNode<Object[]> sortNode = new SortNode<>(ctx, cmp);
+        SortNode<Object[]> sortNode = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));
         sortNode.register(setOpNode);
 
         RootNode<Object[]> root = new RootNode<>(ctx);

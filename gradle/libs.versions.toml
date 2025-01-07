@@ -16,7 +16,7 @@
 #
 
 [versions]
-assertj = "3.27.0"
+assertj = "3.27.2"
 asm = "9.7.1"
 bouncycastle = "1.79"
 compileTesting = "0.21.0"
@@ -43,7 +43,7 @@ micronautPicocli = "4.4.0"
 micronautJunit5 = "3.9.2"
 micronautSecurity="3.11.1"
 micronautReactor="2.6.0"
-mockito = "5.14.2"
+mockito = "5.15.2"
 picocli = "4.7.5"
 slf4j = "2.0.16"
 log4j = "2.24.3"

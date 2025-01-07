@@ -22,7 +22,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
@@ -38,8 +38,7 @@ public class ClientSqlExecuteScriptRequest {
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
-            QueryProcessor sql,
-            IgniteTransactionsImpl transactions
+            QueryProcessor sql
     ) {
         ClientSqlProperties props = new ClientSqlProperties(in);
         String script = in.unpackString();
@@ -51,11 +50,11 @@ public class ClientSqlExecuteScriptRequest {
         }
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        transactions.updateObservableTimestamp(clientTs);
+        var tsUpdater = HybridTimestampTracker.clientTracker(clientTs, ts -> {});
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Pass cancellation token to the query processor.
         return IgniteSqlImpl.executeScriptCore(
-                sql, transactions.observableTimestampTracker(), () -> true, () -> {}, script, null, arguments, props.toSqlProps()
+                sql, tsUpdater, () -> true, () -> {}, script, null, arguments, props.toSqlProps()
         );
     }
 }

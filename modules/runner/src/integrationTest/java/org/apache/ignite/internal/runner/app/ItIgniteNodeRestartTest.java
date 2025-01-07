@@ -638,7 +638,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.topologyService(),
                 clusterSvc.messagingService(),
                 transactionInflights,
-                txManager
+                txManager,
+                lowWatermark
         );
 
         var registry = new MetaStorageRevisionListenerRegistry(metaStorageMgr);
@@ -735,7 +736,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
                 resourcesRegistry,
@@ -796,7 +797,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 event -> {}
         );
 
-        sqlRef.set(new IgniteSqlImpl(qryEngine, new HybridTimestampTracker()));
+        sqlRef.set(new IgniteSqlImpl(qryEngine, HybridTimestampTracker.atomicTracker(null)));
 
         // Preparing the result map.
 

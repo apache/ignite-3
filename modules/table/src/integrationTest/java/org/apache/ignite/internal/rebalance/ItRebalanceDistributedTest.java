@@ -1498,7 +1498,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
-                    new HybridTimestampTracker(),
+                    HybridTimestampTracker.atomicTracker(null),
                     placementDriver,
                     () -> mock(IgniteSql.class),
                     resourcesRegistry,

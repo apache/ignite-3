@@ -67,6 +67,12 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             .build();
 
     @BeforeAll
+    @AfterAll
+    public static void resetFlag() {
+        Commons.resetFastQueryOptimizationFlag();
+    }
+
+    @BeforeAll
     static void startCluster() {
         CLUSTER.start();
 
@@ -277,7 +283,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         return queryCheckerFactory.create(
                 NODE_NAME,
                 new TestQueryProcessor(testNode, false),
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 null,
                 qry
         );
@@ -289,7 +295,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         return queryCheckerFactory.create(
                 NODE_NAME,
                 new TestQueryProcessor(testNode, true),
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 null,
                 qry
         );

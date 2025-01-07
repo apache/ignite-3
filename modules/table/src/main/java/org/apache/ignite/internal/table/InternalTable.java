@@ -92,6 +92,7 @@ public interface InternalTable extends ManuallyCloseable {
      */
     CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx);
 
+    // TODO: remove get() methods which do not accept InternalTransaction, see IGNITE-24120.
     /**
      * Asynchronously gets a row with same key columns values as given one from the table on a specific node for the proposed readTimestamp.
      *
@@ -100,9 +101,29 @@ public interface InternalTable extends ManuallyCloseable {
      * @param recipientNode Cluster node that will handle given get request.
      * @return Future representing pending completion of the operation.
      */
+    default CompletableFuture<BinaryRow> get(
+            BinaryRowEx keyRow,
+            HybridTimestamp readTimestamp,
+            ClusterNode recipientNode
+    ) {
+        return get(keyRow, readTimestamp, null, null, recipientNode);
+    }
+
+    /**
+     * Asynchronously gets a row with same key columns values as given one from the table on a specific node for the proposed readTimestamp.
+     *
+     * @param keyRow        Row with key columns set.
+     * @param readTimestamp Read timestamp.
+     * @param transactionId Transaction ID (might be {@code null}).
+     * @param coordinatorId Ephemeral ID of the transaction coordinator.
+     * @param recipientNode Cluster node that will handle given get request.
+     * @return Future representing pending completion of the operation.
+     */
     CompletableFuture<BinaryRow> get(
             BinaryRowEx keyRow,
             HybridTimestamp readTimestamp,
+            @Nullable UUID transactionId,
+            @Nullable UUID coordinatorId,
             ClusterNode recipientNode
     );
 
@@ -117,6 +138,7 @@ public interface InternalTable extends ManuallyCloseable {
      */
     CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, @Nullable InternalTransaction tx);
 
+    // TODO: remove getAll() methods which do not accept InternalTransaction, see IGNITE-24120.
     /**
      * Asynchronously get rows from the table for the proposed read timestamp.
      *
@@ -127,12 +149,33 @@ public interface InternalTable extends ManuallyCloseable {
      *      guaranteed to be the same as the order of {@code keyRows}. If a record does not exist, the
      *      element at the corresponding index of the resulting collection is {@code null}.
      */
-    CompletableFuture<List<BinaryRow>> getAll(
+    default CompletableFuture<List<BinaryRow>> getAll(
             Collection<BinaryRowEx> keyRows,
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
-    );
+    ) {
+        return getAll(keyRows, readTimestamp, null, null, recipientNode);
+    }
 
+    /**
+     * Asynchronously get rows from the table for the proposed read timestamp.
+     *
+     * @param keyRows       Rows with key columns set.
+     * @param readTimestamp Read timestamp.
+     * @param transactionId Transaction ID (might be {@code null}).
+     * @param coordinatorId Ephemeral ID of the transaction coordinator.
+     * @param recipientNode Cluster node that will handle given get request.
+     * @return Future that will return rows with all columns filled from the table. The order of collection elements is
+     *      guaranteed to be the same as the order of {@code keyRows}. If a record does not exist, the
+     *      element at the corresponding index of the resulting collection is {@code null}.
+     */
+    CompletableFuture<List<BinaryRow>> getAll(
+            Collection<BinaryRowEx> keyRows,
+            HybridTimestamp readTimestamp,
+            @Nullable UUID transactionId,
+            @Nullable UUID coordinatorId,
+            ClusterNode recipientNode
+    );
 
     /**
      * Asynchronously inserts a row into the table if does not exist or replaces the existed one.

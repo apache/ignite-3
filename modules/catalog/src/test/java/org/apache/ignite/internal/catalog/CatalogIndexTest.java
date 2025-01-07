@@ -848,10 +848,10 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     }
 
     private void createSomeSortedIndex(String tableName, String indexName) {
-        assertThat(
-                manager.execute(createSortedIndexCommand(tableName, indexName, false, List.of("key1"), List.of(ASC_NULLS_LAST))),
-                willCompleteSuccessfully()
-        );
+        CatalogCommand newSortedIndexCommand = createSortedIndexCommand(
+                SqlCommon.DEFAULT_SCHEMA_NAME, tableName, indexName, false, List.of("key1"), List.of(ASC_NULLS_LAST));
+
+        assertThat(manager.execute(newSortedIndexCommand), willCompleteSuccessfully());
     }
 
     private void renameIndex(String indexName, String newIndexName) {

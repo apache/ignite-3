@@ -431,7 +431,7 @@ public class IgniteImpl implements Ignite {
     private final AuthenticationManager authenticationManager;
 
     /** Timestamp tracker for embedded transactions. */
-    private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+    private final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 
     /** System views manager. */
     private final SystemViewManagerImpl systemViewManager;
@@ -996,7 +996,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 messagingServiceReturningToStorageOperationsPool,
                 transactionInflights,
-                txManager
+                txManager,
+                lowWatermark
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
@@ -1151,8 +1152,7 @@ public class IgniteImpl implements Ignite {
         clientHandlerModule = new ClientHandlerModule(
                 qryEngine,
                 distributedTblMgr,
-                // TODO: IGNITE-20232 The observable timestamp should be different for each client.
-                new IgniteTransactionsImpl(txManager, new HybridTimestampTracker()),
+                txManager,
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,

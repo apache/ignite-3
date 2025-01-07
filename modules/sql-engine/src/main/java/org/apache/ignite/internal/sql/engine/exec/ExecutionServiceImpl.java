@@ -82,6 +82,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursorExt.CancellationReason;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommand;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
@@ -179,6 +180,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final KillCommandHandler killCommandHandler;
 
+    private final ExpressionFactory<RowT> expressionFactory;
+
     /**
      * Constructor.
      *
@@ -207,6 +210,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ImplementorFactory<RowT> implementorFactory,
             ClockService clockService,
             KillCommandHandler killCommandHandler,
+            ExpressionFactory<RowT> expressionFactory,
             long shutdownTimeout
     ) {
         this.localNode = topSrvc.localMember();
@@ -222,6 +226,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.implementorFactory = implementorFactory;
         this.clockService = clockService;
         this.killCommandHandler = killCommandHandler;
+        this.expressionFactory = expressionFactory;
         this.shutdownTimeout = shutdownTimeout;
     }
 
@@ -261,6 +266,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             TableFunctionRegistry tableFunctionRegistry,
             ClockService clockService,
             KillCommandHandler killCommandHandler,
+            ExpressionFactory<RowT> expressionFactory,
             long shutdownTimeout
     ) {
         return new ExecutionServiceImpl<>(
@@ -282,6 +288,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 ),
                 clockService,
                 killCommandHandler,
+                expressionFactory,
                 shutdownTimeout
         );
     }
@@ -425,6 +432,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         ExecutionId executionId = nextExecutionId(operationContext.queryId());
         ExecutionContext<RowT> ectx = new ExecutionContext<>(
+                expressionFactory,
                 taskExecutor,
                 executionId,
                 localNode,
@@ -954,6 +962,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private ExecutionContext<RowT> createContext(String initiatorNodeName, FragmentDescription desc, TxAttributes txAttributes) {
             return new ExecutionContext<>(
+                    expressionFactory,
                     taskExecutor,
                     executionId,
                     localNode,

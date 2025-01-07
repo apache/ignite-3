@@ -20,7 +20,9 @@ package org.apache.ignite.client.handler.requests.tx;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.tx.Transaction;
 
@@ -31,20 +33,30 @@ public class ClientTransactionCommitRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
+     * @param in Unpacker.
+     * @param out Packer.
      * @param resources Resources.
-     * @param metrics   Metrics.
+     * @param metrics Metrics.
+     * @param clockService Clock service.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
+            ClientMessagePacker out,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics)
-            throws IgniteInternalCheckedException {
+            ClientHandlerMetricSource metrics,
+            ClockService clockService
+    ) throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
-        Transaction t = resources.remove(resourceId).get(Transaction.class);
+        Transaction tx = resources.remove(resourceId).get(Transaction.class);
 
-        return t.commitAsync().whenComplete((res, err) -> metrics.transactionsActiveDecrement());
+        return tx.commitAsync().whenComplete((res, err) -> {
+            if (!tx.isReadOnly()) {
+                out.meta(clockService.current());
+            }
+
+            metrics.transactionsActiveDecrement();
+        });
     }
 }

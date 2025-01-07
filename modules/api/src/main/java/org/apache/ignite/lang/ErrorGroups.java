@@ -358,6 +358,12 @@ public class ErrorGroups {
 
         /** Failure due to a stale operation of a completed transaction is detected. */
         public static final int TX_STALE_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 14);
+
+        /**
+         * Error occurred when trying to execute an operation in a read-only transaction on a node that has already destroyed data for
+         * read timestamp of the transaction.
+         */
+        public static final int TX_STALE_READ_ONLY_OPERATION_ERR = TX_ERR_GROUP.registerErrorCode((short) 15);
     }
 
     /** Replicator error group. */

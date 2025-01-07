@@ -18,10 +18,13 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
+import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -29,11 +32,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.junit.jupiter.api.Test;
 
 /** Test for the HA zones recovery. */
@@ -308,5 +317,44 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
         startNode(3);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
+    }
+
+    @Test
+    void testScaleDownTimerIsWorkingForHaZone() throws InterruptedException {
+        IgniteImpl node = igniteImpl(0);
+
+        DistributionZonesTestUtil.createZone(
+                node.catalogManager(),
+                HA_ZONE_NAME,
+                1,
+                initialNodes(),
+                IMMEDIATE_TIMER_VALUE,
+                IMMEDIATE_TIMER_VALUE,
+                ConsistencyMode.HIGH_AVAILABILITY
+        );
+
+        int zoneId = zoneIdByName(node.catalogManager(), HA_ZONE_NAME);
+
+        KeyValueStorage keyValueStorage = ((MetaStorageManagerImpl) node.metaStorageManager()).storage();
+
+        Supplier<Long> getScaleDownRevision = () ->
+                bytesToLongKeepingOrder(keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value());
+
+        long revisionOfScaleDown = getScaleDownRevision.get();
+
+        stopNode(2);
+
+        assertTrue(waitForCondition(() -> getScaleDownRevision.get() > revisionOfScaleDown, 5_000));
+
+        Set<LogicalNode> expectedNodes = runningNodes()
+                .map(n -> unwrapIgniteImpl(n).clusterService().topologyService().localMember())
+                .map(LogicalNode::new)
+                .collect(Collectors.toUnmodifiableSet());
+
+        DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage(
+                zoneId,
+                expectedNodes,
+                keyValueStorage
+        );
     }
 }

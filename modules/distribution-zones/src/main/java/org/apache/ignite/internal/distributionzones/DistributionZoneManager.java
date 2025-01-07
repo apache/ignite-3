@@ -982,18 +982,18 @@ public class DistributionZoneManager extends
                                 zoneId
                         );
                     }
-                } else {
-                    if (autoAdjustScaleDown == IMMEDIATE_TIMER_VALUE) {
-                        futures.add(saveDataNodesToMetaStorageOnScaleDown(zoneId, revision));
-                    }
+                }
 
-                    if (autoAdjustScaleDown != INFINITE_TIMER_VALUE) {
-                        zonesState.get(zoneId).rescheduleScaleDown(
-                                autoAdjustScaleDown,
-                                () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, revision),
-                                zoneId
-                        );
-                    }
+                if (autoAdjustScaleDown == IMMEDIATE_TIMER_VALUE) {
+                    futures.add(saveDataNodesToMetaStorageOnScaleDown(zoneId, revision));
+                }
+
+                if (autoAdjustScaleDown != INFINITE_TIMER_VALUE) {
+                    zonesState.get(zoneId).rescheduleScaleDown(
+                            autoAdjustScaleDown,
+                            () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, revision),
+                            zoneId
+                    );
                 }
             }
         }
