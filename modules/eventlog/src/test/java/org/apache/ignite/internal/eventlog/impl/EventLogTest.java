@@ -21,6 +21,7 @@ import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -62,7 +63,7 @@ class EventLogTest {
         // Given no channels and sinks.
 
         // Then nothing thrown.
-        assertDoesNotThrow(() -> eventLog.log(() -> TEST_EVENT));
+        assertDoesNotThrow(() -> eventLog.log(TEST_EVENT));
 
         // When add a channel but there is no sink.
         channelRegistry.register(TEST_CHANNEL_NAME, () -> channelFactory.createChannel(
@@ -70,14 +71,14 @@ class EventLogTest {
         );
 
         // Then nothing thrown.
-        assertDoesNotThrow(() -> eventLog.log(() -> TEST_EVENT));
+        assertDoesNotThrow(() -> eventLog.log(TEST_EVENT));
 
         // When add a sink for the channel.
         List<Event> container = new ArrayList<>();
         sinkRegistry.register(TEST_CHANNEL_NAME, container::add);
 
         // And log event.
-        eventLog.log(() -> TEST_EVENT);
+        eventLog.log(TEST_EVENT);
 
         // Then event is logged.
         assertThat(container, hasItem(TEST_EVENT));
@@ -86,9 +87,63 @@ class EventLogTest {
         Event event = IgniteEvents.CLIENT_CONNECTION_CLOSED.create(TEST_USER);
 
         // Then nothing thrown.
-        assertDoesNotThrow(() -> eventLog.log(() -> event));
+        assertDoesNotThrow(() -> eventLog.log(event));
         // And the event is not logged.
         assertThat(container, not(hasItem(event)));
+    }
+
+    @Test
+    void lazyLog() {
+        // Given no channels and sinks.
+
+        // Then nothing thrown.
+        assertDoesNotThrow(() -> eventLog.log(TEST_EVENT.getType(), () -> TEST_EVENT));
+
+        // When add a channel but there is no sink.
+        channelRegistry.register(
+                TEST_CHANNEL_NAME,
+                () -> channelFactory.createChannel(TEST_CHANNEL_NAME, Set.of(TEST_EVENT.getType()))
+        );
+
+        // Then nothing thrown.
+        assertDoesNotThrow(() -> eventLog.log(TEST_EVENT.getType(), () -> TEST_EVENT));
+
+        // When add a sink for the channel.
+        List<Event> container = new ArrayList<>();
+        sinkRegistry.register(TEST_CHANNEL_NAME, container::add);
+
+        // And log event.
+        eventLog.log(TEST_EVENT.getType(), () -> TEST_EVENT);
+
+        // Then event is logged.
+        assertThat(container, hasItem(TEST_EVENT));
+
+        // When log event with a type that is not supported by the channel.
+        Event event = IgniteEvents.CLIENT_CONNECTION_CLOSED.create(TEST_USER);
+
+        // Then nothing thrown.
+        assertDoesNotThrow(() -> eventLog.log(event.getType(), () -> event));
+        // And the event is not logged.
+        assertThat(container, not(hasItem(event)));
+
+    }
+
+    @Test
+    void lazyLogInvariant() {
+        // Given channel is added to the registry.
+        channelRegistry.register(
+                TEST_CHANNEL_NAME,
+                () -> channelFactory.createChannel(TEST_CHANNEL_NAME, Set.of(TEST_EVENT.getType()))
+        );
+
+        // Expect exception if the type does not match the provided event.
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> eventLog.log(
+                        TEST_EVENT.getType(),
+                        () -> IgniteEvents.CLIENT_CONNECTION_CLOSED.create(TEST_USER)
+                )
+        );
     }
 
     private static class TestChannelRegistry implements ChannelRegistry {
