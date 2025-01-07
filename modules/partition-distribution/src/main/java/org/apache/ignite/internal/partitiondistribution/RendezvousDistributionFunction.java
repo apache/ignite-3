@@ -74,19 +74,21 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
     /**
      * Returns collection of nodes for specified partition.
      *
-     * @param part              Partition.
-     * @param nodes             Nodes.
-     * @param replicas          Number partition replicas.
-     * @param neighborhoodCache Neighborhood.
-     * @param exclNeighbors     If true neighbors are excluded, false otherwise.
-     * @param nodeFilter        Filter for nodes.
-     * @param aggregator        Function that creates a collection for the partition assignments.
+     * @param part                Partition.
+     * @param nodes               Nodes.
+     * @param replicas            Number partition replicas.
+     * @param consensusGroupSize  Number of consensus replicas.
+     * @param neighborhoodCache   Neighborhood.
+     * @param exclNeighbors       If true neighbors are excluded, false otherwise.
+     * @param nodeFilter          Filter for nodes.
+     * @param aggregator          Function that creates a collection for the partition assignments.
      * @return Assignment.
      */
     public static <T extends Collection<Assignment>> T assignPartition(
             int part,
             Collection<String> nodes,
             int replicas,
+            int consensusGroupSize,
             Map<String, Collection<String>> neighborhoodCache,
             boolean exclNeighbors,
             @Nullable BiPredicate<String, T> nodeFilter,
@@ -113,11 +115,6 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
 
         Iterable<String> sortedNodes = new LazyLinearSortedContainer(hashArr, effectiveReplicas);
 
-        // REPLICATED cache case
-        if (replicas == Integer.MAX_VALUE) {
-            return replicatedAssign(nodes, sortedNodes, aggregator);
-        }
-
         Iterator<String> it = sortedNodes.iterator();
 
         T res = aggregator.apply(effectiveReplicas);
@@ -132,19 +129,29 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
             allNeighbors.addAll(neighborhoodCache.get(first));
         }
 
-        // Select another replicas.
+        // Select other replicas.
         if (replicas > 1) {
+            int assignedConsensusReplicas = 1;
+
             while (it.hasNext() && res.size() < effectiveReplicas) {
                 String node = it.next();
 
                 if (exclNeighbors) {
                     if (!allNeighbors.contains(node)) {
-                        res.add(Assignment.forPeer(node));
+                        res.add(
+                                assignedConsensusReplicas++ < consensusGroupSize
+                                        ? Assignment.forPeer(node)
+                                        : Assignment.forLearner(node)
+                        );
 
                         allNeighbors.addAll(neighborhoodCache.get(node));
                     }
                 } else if (nodeFilter == null || nodeFilter.test(node, res)) {
-                    res.add(Assignment.forPeer(node));
+                    res.add(
+                            assignedConsensusReplicas++ < consensusGroupSize
+                                    ? Assignment.forPeer(node)
+                                    : Assignment.forLearner(node)
+                    );
                 }
             }
         }
@@ -172,36 +179,6 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         }
 
         assert res.size() <= effectiveReplicas;
-
-        return res;
-    }
-
-    /**
-     * Creates assignment for REPLICATED table.
-     *
-     * @param nodes       Topology.
-     * @param sortedNodes Sorted for specified partitions nodes.
-     * @param aggregator  Function that creates a collection for the partition assignments.
-     * @return Assignment.
-     */
-    private static <T extends Collection<Assignment>> T replicatedAssign(
-            Collection<String> nodes,
-            Iterable<String> sortedNodes,
-            IntFunction<T> aggregator
-    ) {
-        String first = sortedNodes.iterator().next();
-
-        T res = aggregator.apply(nodes.size());
-
-        res.add(Assignment.forPeer(first));
-
-        for (String n : nodes) {
-            if (!n.equals(first)) {
-                res.add(Assignment.forPeer(first));
-            }
-        }
-
-        assert res.size() == nodes.size() : "Not enough replicas: " + res.size();
 
         return res;
     }
@@ -235,6 +212,7 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
      * @param currentTopologySnapshot List of topology nodes.
      * @param partitions              Number of table partitions.
      * @param replicas                Number partition replicas.
+     * @param consensusGroupSize      Number of consensus replicas.
      * @param exclNeighbors           If true neighbors are excluded from the one partition assignment, false otherwise.
      * @param nodeFilter              Filter for nodes.
      * @return List of assignments by partition.
@@ -243,10 +221,11 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
             Collection<String> currentTopologySnapshot,
             int partitions,
             int replicas,
+            int consensusGroupSize,
             boolean exclNeighbors,
             @Nullable BiPredicate<String, Set<Assignment>> nodeFilter
     ) {
-        return assignPartitions(currentTopologySnapshot, partitions, replicas, exclNeighbors, nodeFilter, HashSet::new);
+        return assignPartitions(currentTopologySnapshot, partitions, replicas, consensusGroupSize, exclNeighbors, nodeFilter, HashSet::new);
     }
 
     /**
@@ -255,6 +234,7 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
      * @param currentTopologySnapshot List of topology nodes.
      * @param partitions              Number of table partitions.
      * @param replicas                Number partition replicas.
+     * @param consensusGroupSize      Number of consensus replicas.
      * @param exclNeighbors           If true neighbors are excluded from the one partition assignment, false otherwise.
      * @param nodeFilter              Filter for nodes.
      * @param aggregator              Function that creates a collection for the partition assignments.
@@ -264,6 +244,7 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
             Collection<String> currentTopologySnapshot,
             int partitions,
             int replicas,
+            int consensusGroupSize,
             boolean exclNeighbors,
             @Nullable BiPredicate<String, T> nodeFilter,
             IntFunction<T> aggregator
@@ -271,6 +252,7 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
         assert partitions > 0 : "parts > 0";
         assert replicas > 0 : "replicas > 0";
+        assert consensusGroupSize <= replicas : "consensusGroupSize should be less or equal to replicaFactor";
 
         List<T> assignments = new ArrayList<>(partitions);
 
@@ -279,7 +261,8 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         List<String> nodes = new ArrayList<>(currentTopologySnapshot);
 
         for (int i = 0; i < partitions; i++) {
-            T partAssignment = assignPartition(i, nodes, replicas, neighborhoodCache, exclNeighbors, nodeFilter, aggregator);
+            T partAssignment =
+                    assignPartition(i, nodes, replicas, consensusGroupSize, neighborhoodCache, exclNeighbors, nodeFilter, aggregator);
 
             assignments.add(partAssignment);
         }
@@ -295,7 +278,7 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
             int replicaFactor,
             int consensusGroupSize
     ) {
-        return assignPartitions(nodes, partitions, replicaFactor, false, null);
+        return assignPartitions(nodes, partitions, replicaFactor, consensusGroupSize, false, null);
     }
 
     /**
