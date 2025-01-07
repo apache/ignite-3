@@ -533,8 +533,8 @@ public class PartitionReplicaLifecycleManager extends
                     zoneId
             ).thenApply(dataNodes -> calculateAssignmentForPartition(
                             dataNodes,
-                            zoneDescriptor.partitions(),
                             zonePartitionId.partitionId(),
+                            zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()
                     )
             );

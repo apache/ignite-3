@@ -160,7 +160,7 @@ public class ZoneRebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(zonePartitionId);
 
-        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partitions, partNum, replicas);
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, partitions, replicas);
 
         Set<Assignment> partAssignments;
 

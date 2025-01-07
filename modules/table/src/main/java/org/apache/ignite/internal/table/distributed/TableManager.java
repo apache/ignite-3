@@ -1402,8 +1402,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ).thenApply(dataNodes ->
                     calculateAssignmentForPartition(
                             dataNodes,
-                            zoneDescriptor.partitions(),
                             tablePartitionId.partitionId(),
+                            zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()
                     )
             );

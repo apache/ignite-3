@@ -943,8 +943,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             dataNodes.add(getNode(i).name);
         }
 
-        Set<Assignment> pendingAssignments = calculateAssignmentForPartition(dataNodes, 1, 0, 2);
-        Set<Assignment> plannedAssignments = calculateAssignmentForPartition(dataNodes, 1, 0, 3);
+        Set<Assignment> pendingAssignments = calculateAssignmentForPartition(dataNodes, 0, 1, 2);
+        Set<Assignment> plannedAssignments = calculateAssignmentForPartition(dataNodes, 0, 1, 3);
 
         Node node0 = getNode(0);
 

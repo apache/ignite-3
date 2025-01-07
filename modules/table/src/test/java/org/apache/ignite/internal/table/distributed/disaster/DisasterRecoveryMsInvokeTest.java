@@ -59,8 +59,8 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
     private static final Set<String> nodes1 = IntStream.of(5).mapToObj(i -> "nodes1_" + i).collect(toSet());
     private static final Set<String> nodes2 = IntStream.of(5).mapToObj(i -> "nodes2_" + i).collect(toSet());
 
-    private static final Set<Assignment> assignments1 = calculateAssignmentForPartition(nodes1, partNum + 1, partNum, replicas);
-    private static final Set<Assignment> assignments2 = calculateAssignmentForPartition(nodes2, partNum + 1, partNum, replicas);
+    private static final Set<Assignment> assignments1 = calculateAssignmentForPartition(nodes1, partNum, partNum + 1, replicas);
+    private static final Set<Assignment> assignments2 = calculateAssignmentForPartition(nodes2, partNum, partNum + 1, replicas);
 
     private static final TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
 
