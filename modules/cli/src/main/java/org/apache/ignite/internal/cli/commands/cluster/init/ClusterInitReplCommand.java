@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.init;
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_CONFIG_OPTION;
 import static org.apache.ignite.internal.cli.core.style.component.QuestionUiComponent.fromYesNoQuestion;
 import static picocli.CommandLine.Command;
 
@@ -67,9 +66,8 @@ public class ClusterInitReplCommand extends BaseCommand implements Runnable {
             return Flows.from(this::buildCallInput);
         } catch (ConfigAsPathException e) {
             QuestionUiComponent questionUiComponent = fromYesNoQuestion(
-                    "It seems that you have passed the path to the configuration file in the configuration content "
-                            + CLUSTER_CONFIG_OPTION + " option. "
-                            + "Do you want to read cluster configuration from this file?"
+                    "It seems that you passed the path to the config file to the config content option. "
+                            + "Do you want this file to be read as a config?"
             );
 
             return Flows.acceptQuestion(questionUiComponent,
