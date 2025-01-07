@@ -49,7 +49,7 @@ public class QueryInfo {
         phase = query.currentPhase();
         queryType = deriveQueryType(query.parsedResult);
         transactionId = deriveTxId(query);
-        error = query.error;
+        error = query.error.get();
 
         script = query.parsedScript != null;
     }

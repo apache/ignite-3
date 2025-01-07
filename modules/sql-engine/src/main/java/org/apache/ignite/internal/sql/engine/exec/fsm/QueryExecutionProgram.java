@@ -70,6 +70,8 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
 
     static boolean errorHandler(Query query, Throwable th) {
         if (canRecover(query, th)) {
+            query.error.set(null);
+
             if (nodeLeft(th)) {
                 SqlOperationContext context = query.operationContext;
 

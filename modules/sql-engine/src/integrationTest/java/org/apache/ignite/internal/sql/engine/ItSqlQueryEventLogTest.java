@@ -66,7 +66,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests to check the {@link IgniteEvents#QUERY_STARTED} and {@link IgniteEvents#QUERY_FINISHED} events.
  */
-public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
+public class ItSqlQueryEventLogTest extends BaseSqlIntegrationTest {
     private static final String UUID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
     private static Path eventlogPath;
@@ -339,7 +339,7 @@ public class ItSqQueryEventLogTest extends BaseSqlIntegrationTest {
     }
 
     private static List<String> readEvents(int expectedCount) {
-        return Awaitility.await().timeout(5, TimeUnit.SECONDS).until(ItSqQueryEventLogTest::readEventLog, hasSize(expectedCount));
+        return Awaitility.await().timeout(5, TimeUnit.SECONDS).until(ItSqlQueryEventLogTest::readEventLog, hasSize(expectedCount));
     }
 
     private static List<String> readEventLog() throws IOException {
