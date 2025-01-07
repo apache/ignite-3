@@ -43,22 +43,4 @@ public interface DistributionAlgorithm {
             int replicaFactor,
             int consensusGroupSize
     );
-
-    /**
-     * Generates an assignment by the given parameters for the given partition.
-     *
-     * @param nodes List of topology nodes.
-     * @param currentDistribution Previous assignments or empty list.
-     * @param partitionId Id of the partition.
-     * @param replicaFactor Number partition replicas.
-     * @param consensusGroupSize Number of nodes in a consensus group (peers).
-     * @return List of nodes for partition.
-     */
-    Set<Assignment> assignPartition(
-            Collection<String> nodes,
-            List<String> currentDistribution,
-            int partitionId,
-            int replicaFactor,
-            int consensusGroupSize
-    );
 }

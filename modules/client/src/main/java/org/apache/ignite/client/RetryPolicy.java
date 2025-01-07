@@ -19,13 +19,19 @@ package org.apache.ignite.client;
 
 /**
  * Client retry policy determines whether client operations that have failed due to a connection issue should be retried.
+ *
+ * <p>Predefined policies: {@link RetryLimitPolicy}, {@link RetryReadPolicy}.
  */
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface RetryPolicy {
     /**
      * Gets a value indicating whether a client operation that has failed due to a connection issue should be retried.
      *
+     * <p>If an implementation of this method throws an exception, the operation will be failed with that exception.
+     * No more retries will be attempted.
+     *
      * @param context Context.
      * @return {@code true} if the operation should be retried on another connection, {@code false} otherwise.
      */
-    public boolean shouldRetry(RetryPolicyContext context);
+    boolean shouldRetry(RetryPolicyContext context);
 }

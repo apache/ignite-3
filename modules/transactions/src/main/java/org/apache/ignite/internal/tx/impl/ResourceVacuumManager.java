@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
@@ -84,6 +85,7 @@ public class ResourceVacuumManager implements IgniteComponent {
      * @param messagingService Messaging service.
      * @param transactionInflights Transaction inflights.
      * @param txManager Transactional manager.
+     * @param lowWatermark Low watermark.
      */
     public ResourceVacuumManager(
             String nodeName,
@@ -91,7 +93,8 @@ public class ResourceVacuumManager implements IgniteComponent {
             TopologyService topologyService,
             MessagingService messagingService,
             TransactionInflights transactionInflights,
-            TxManager txManager
+            TxManager txManager,
+            LowWatermark lowWatermark
     ) {
         this.resourceRegistry = resourceRegistry;
         this.clusterNodeResolver = topologyService;
@@ -104,8 +107,12 @@ public class ResourceVacuumManager implements IgniteComponent {
                 messagingService,
                 transactionInflights
         );
-        this.finishedTransactionBatchRequestHandler =
-                new FinishedTransactionBatchRequestHandler(messagingService, resourceRegistry, resourceVacuumExecutor);
+        this.finishedTransactionBatchRequestHandler = new FinishedTransactionBatchRequestHandler(
+                messagingService,
+                resourceRegistry,
+                lowWatermark,
+                resourceVacuumExecutor
+        );
 
         this.txManager = txManager;
     }

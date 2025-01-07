@@ -39,8 +39,8 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
@@ -62,7 +62,6 @@ public class ClientSqlExecuteRequest {
      * @param sql SQL API.
      * @param resources Resources.
      * @param metrics Metrics.
-     * @param transactions Transactional facade. Used to acquire last observed time to propagate to client in response.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
@@ -70,8 +69,7 @@ public class ClientSqlExecuteRequest {
             ClientMessagePacker out,
             QueryProcessor sql,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics,
-            IgniteTransactionsImpl transactions
+            ClientHandlerMetricSource metrics
     ) {
         InternalTransaction tx = readTx(in, out, resources);
         ClientSqlProperties props = new ClientSqlProperties(in);
@@ -84,12 +82,11 @@ public class ClientSqlExecuteRequest {
         }
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        transactions.updateObservableTimestamp(clientTs);
 
-        return executeAsync(tx, sql, transactions, statement, props.pageSize(), props.toSqlProps(), arguments)
+        var tsUpdater = HybridTimestampTracker.clientTracker(clientTs, out::meta);
+
+        return executeAsync(tx, sql, tsUpdater, statement, props.pageSize(), props.toSqlProps(), arguments)
                 .thenCompose(asyncResultSet -> {
-                    out.meta(transactions.observableTimestamp());
-
                     return writeResultSetAsync(out, resources, asyncResultSet, metrics);
                 });
     }
@@ -155,7 +152,7 @@ public class ClientSqlExecuteRequest {
     private static CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
             @Nullable Transaction transaction,
             QueryProcessor qryProc,
-            IgniteTransactionsImpl transactions,
+            HybridTimestampTracker timestampTracker,
             String query,
             int pageSize,
             SqlProperties props,
@@ -167,21 +164,21 @@ public class ClientSqlExecuteRequest {
                     .build();
 
             CompletableFuture<AsyncResultSet<SqlRow>> fut = qryProc.queryAsync(
-                            properties,
-                            transactions.observableTimestampTracker(),
-                            (InternalTransaction) transaction,
-                            null,
-                            query,
-                            arguments
-                    ).thenCompose(cur -> cur.requestNextAsync(pageSize)
-                            .thenApply(
-                                    batchRes -> new AsyncResultSetImpl<>(
-                                            cur,
-                                            batchRes,
-                                            pageSize
-                                    )
+                    properties,
+                    timestampTracker,
+                    (InternalTransaction) transaction,
+                    null,
+                    query,
+                    arguments
+            ).thenCompose(cur -> cur.requestNextAsync(pageSize)
+                    .thenApply(
+                            batchRes -> new AsyncResultSetImpl<>(
+                                    cur,
+                                    batchRes,
+                                    pageSize
                             )
-                    );
+                    )
+            );
 
             return fut.exceptionally((th) -> {
                 Throwable cause = ExceptionUtils.unwrapCause(th);

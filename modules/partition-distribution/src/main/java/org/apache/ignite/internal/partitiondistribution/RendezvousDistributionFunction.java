@@ -183,17 +183,6 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         return res;
     }
 
-    @Override
-    public Set<Assignment> assignPartition(
-            Collection<String> nodes,
-            List<String> currentDistribution,
-            int partitionId,
-            int replicaFactor,
-            int consensusGroupSize
-    ) {
-        return assignPartition(partitionId, nodes, replicaFactor, consensusGroupSize, null, false, null, HashSet::new);
-    }
-
     /**
      * The pack partition number and nodeHash.hashCode to long and mix it by hash function based on the Wang/Jenkins hash.
      *

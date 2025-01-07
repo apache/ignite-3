@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -40,7 +40,7 @@ public class ClientTupleReplaceExactRequest {
      * @param out Packer.
      * @param tables Ignite tables.
      * @param resources Resource registry.
-     * @param transactions Ignite transactions.
+     * @param txManager Ignite transactions.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
@@ -48,10 +48,10 @@ public class ClientTupleReplaceExactRequest {
             ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            IgniteTransactionsImpl transactions
+            TxManager txManager
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, transactions, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
 
             return readSchema(in, table).thenCompose(schema -> {
                 var oldTuple = readTuple(in, false, schema);
@@ -60,7 +60,6 @@ public class ClientTupleReplaceExactRequest {
                 return table.recordView().replaceAsync(tx, oldTuple, newTuple).thenAccept(res -> {
                     out.packInt(table.schemaView().lastKnownSchemaVersion());
                     out.packBoolean(res);
-                    out.meta(transactions.observableTimestamp());
                 });
             });
         });

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.tx.distributed;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
@@ -74,6 +74,9 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -737,7 +740,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         IgniteImpl txCrdNode2 = unwrapIgniteImpl(node(0));
 
         CompletableFuture<Void> finish2 = txCrdNode2.txManager().finish(
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 ((InternalTransaction) rwTx1).commitPartition(),
                 false,
                 Map.of(((InternalTransaction) rwTx1).commitPartition(), new IgniteBiTuple<>(txCrdNode2.node(), 0L)),
@@ -1063,7 +1066,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         assertFalse(scanned.isDone());
 
-        assertEquals(initialCursorsCount + 1, targetNode.resourcesRegistry().resources().size());
+        // One for the cursor; for RO, there is also the transaction LWM lock.
+        int delta = tx.isReadOnly() ? 2 : 1;
+        assertEquals(initialCursorsCount + delta, targetNode.resourcesRegistry().resources().size());
     }
 
     @Test
@@ -1110,8 +1115,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         scanSingleEntryAndLeaveCursorOpen(txExecNode, unwrapTableImpl(txCrdNode.tables().table(TABLE_NAME)), roTx);
 
-        // After the RO scan there should be one open cursor.
-        assertEquals(1, txExecNode.resourcesRegistry().resources().size());
+        // After the RO scan there should be one open cursor plus transaction LWM lock resource.
+        assertEquals(2, txExecNode.resourcesRegistry().resources().size());
 
         roTx.commit();
 

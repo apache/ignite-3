@@ -34,6 +34,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.schema.SchemaAware;
@@ -41,8 +42,9 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -420,7 +422,7 @@ public class ClientTableCommon {
      * @param in Unpacker.
      * @param out Packer.
      * @param resources Resource registry.
-     * @param igniteTransactions Ignite transactions.
+     * @param txManager Ignite transactions.
      * @param readOnly Read only flag.
      * @return Transaction.
      */
@@ -428,17 +430,43 @@ public class ClientTableCommon {
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             ClientResourceRegistry resources,
-            IgniteTransactionsImpl igniteTransactions,
+            TxManager txManager,
             boolean readOnly
     ) {
 
-        var tx = readTx(in, out, resources);
+        InternalTransaction tx = readTx(in, out, resources);
 
         if (tx == null) {
-            tx = igniteTransactions.beginImplicit(readOnly);
+            // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
+            // The direct transaction uses a current timestamp on the primary replica by definition.
+            tx = startTx(out, txManager, null, true, readOnly);
         }
 
         return tx;
+    }
+
+    /**
+     * Start a transaction.
+     *
+     * @param out Packer.
+     * @param txManager Ignite transactions.
+     * @param currentTs Current observation timestamp or {@code null} if it is not defined.
+     * @param implicit Implicit transaction flag.
+     * @param readOnly Read only flag.
+     * @return Transaction.
+     */
+    public static InternalTransaction startTx(
+            ClientMessagePacker out,
+            TxManager txManager,
+            @Nullable HybridTimestamp currentTs,
+            boolean implicit,
+            boolean readOnly
+    ) {
+        return txManager.begin(
+                HybridTimestampTracker.clientTracker(currentTs, implicit ? out::meta : ts -> {}),
+                implicit,
+                readOnly
+        );
     }
 
     /**

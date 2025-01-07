@@ -40,8 +40,11 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -109,6 +112,12 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
             .addColumn("C2", NativeTypes.BOOLEAN, false)
             .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
             .build());
+
+    @BeforeAll
+    @AfterAll
+    public static void resetFlag() {
+        Commons.resetFastQueryOptimizationFlag();
+    }
 
     /** Basic test cases for partition pruning metadata extractor, select case. */
     @ParameterizedTest(name = "SELECT: {0}")

@@ -116,8 +116,10 @@ public class RendezvousDistributionFunctionTest {
             assertEquals(consensusReplicas, a.stream().filter(Assignment::isPeer).count());
         }
 
-        Set<Assignment> partitionAssignments = distributionAlgorithm
-                .assignPartition(nodes, emptyList(), 0, replicas, consensusReplicas);
+        List<Set<Assignment>> allAssignments = distributionAlgorithm
+                .assignPartitions(nodes, emptyList(), 1, replicas, consensusReplicas);
+
+        Set<Assignment> partitionAssignments = allAssignments.get(0);
 
         assertEquals(replicas, partitionAssignments.size());
         assertEquals(consensusReplicas, partitionAssignments.stream().filter(Assignment::isPeer).count());

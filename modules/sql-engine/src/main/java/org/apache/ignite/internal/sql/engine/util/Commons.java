@@ -122,6 +122,7 @@ import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Utility methods.
@@ -190,6 +191,8 @@ public final class Commons {
             .typeSystem(IgniteTypeSystem.INSTANCE)
             .traitDefs(DISTRIBUTED_TRAITS_SET)
             .build();
+
+    private static volatile @Nullable Boolean fastOptimizationsEnabled = null;
 
     private Commons() {
     }
@@ -771,8 +774,21 @@ public final class Commons {
      * @return A {@code true} if fast path optimizations are enabled, {@code false} otherwise.
      */
     public static boolean fastQueryOptimizationEnabled() {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
-        return IgniteSystemProperties.getBoolean("FAST_QUERY_OPTIMIZATION_ENABLED", true);
+        Boolean enabled = fastOptimizationsEnabled;
+
+        if (enabled == null) {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
+            enabled = IgniteSystemProperties.getBoolean("FAST_QUERY_OPTIMIZATION_ENABLED", true);
+
+            fastOptimizationsEnabled = enabled;
+        }
+
+        return enabled;
+    }
+
+    @TestOnly
+    public static void resetFastQueryOptimizationFlag() {
+        fastOptimizationsEnabled = null;
     }
 
     /**

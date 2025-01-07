@@ -129,7 +129,7 @@ public class ItTransactionTestUtils {
         Set<String> nodes = new HashSet<>();
 
         final int maxAttempts = 1000;
-        int attempts = 1000;
+        int attempts = maxAttempts;
 
         while (attempts >= 0) {
             int partId = partitionIdForTuple(node, tableName, t, tx);

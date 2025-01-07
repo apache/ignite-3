@@ -50,9 +50,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     /** Enlisted partitions: partition id -> (primary replica node, enlistment consistency token). */
     private final Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlisted = new ConcurrentHashMap<>();
 
-    /** The tracker is used to track an observable timestamp. */
-    private final HybridTimestampTracker observableTsTracker;
-
     /** A partition which stores the transaction state. */
     private volatile TablePartitionId commitPart;
 
@@ -78,9 +75,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             UUID txCoordinatorId,
             boolean implicit
     ) {
-        super(txManager, id, txCoordinatorId, implicit);
-
-        this.observableTsTracker = observableTsTracker;
+        super(txManager, observableTsTracker, id, txCoordinatorId, implicit);
     }
 
     /** {@inheritDoc} */

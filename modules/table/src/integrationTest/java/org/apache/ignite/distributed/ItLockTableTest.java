@@ -103,7 +103,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
 
     private ItTxTestCluster txTestCluster;
 
-    private HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
+    private HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
 
     /**
      * The constructor.

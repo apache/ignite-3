@@ -82,7 +82,7 @@ public class RemotelyTriggeredResourceRegistry {
 
                 resources.remove(resourceId);
 
-                remoteRemoteHostResource(remotelyTriggeredResource.remoteHostId(), resourceId);
+                removeRemoteHostResource(remotelyTriggeredResource.remoteHostId(), resourceId);
             } catch (Exception e) {
                 throw new ResourceCloseException(resourceId, remotelyTriggeredResource.remoteHostId(), e);
             }
@@ -131,7 +131,7 @@ public class RemotelyTriggeredResourceRegistry {
             for (FullyQualifiedResourceId resourceId : closedResources) {
                 resourcesWithContext.remove(resourceId);
 
-                remoteRemoteHostResource(remoteHostId, resourceId);
+                removeRemoteHostResource(remoteHostId, resourceId);
             }
         }
 
@@ -169,7 +169,7 @@ public class RemotelyTriggeredResourceRegistry {
         });
     }
 
-    private void remoteRemoteHostResource(UUID remoteHostId, FullyQualifiedResourceId resourceId) {
+    private void removeRemoteHostResource(UUID remoteHostId, FullyQualifiedResourceId resourceId) {
         remoteHostsToResources.computeIfPresent(remoteHostId, (k, v) -> {
             v.remove(resourceId);
 

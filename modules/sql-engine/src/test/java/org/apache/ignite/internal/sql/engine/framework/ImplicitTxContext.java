@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 public class ImplicitTxContext implements QueryTransactionContext {
     public static final QueryTransactionContext INSTANCE = new ImplicitTxContext();
 
-    private final HybridTimestampTracker observableTimeTracker = new HybridTimestampTracker();
+    private final HybridTimestampTracker observableTimeTracker = HybridTimestampTracker.atomicTracker(null);
 
     private ImplicitTxContext() { }
 
