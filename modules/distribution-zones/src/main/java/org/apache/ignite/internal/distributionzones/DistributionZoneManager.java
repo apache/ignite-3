@@ -413,7 +413,7 @@ public class DistributionZoneManager extends
             ZoneState zoneState = zoneStateEntry.getValue();
 
             if (partitionDistributionResetTimeoutSeconds != INFINITE_TIMER_VALUE) {
-                Optional<Long> highestRevision = zoneState.highestRevision(true);
+                Optional<Long> highestRevision = zoneState.highestRevision();
 
                 assert highestRevision.isEmpty() || causalityToken >= highestRevision.get() : IgniteStringFormatter.format(
                         "Expected causalityToken that is greater or equal to already seen meta storage events: highestRevision={}, "
@@ -1502,6 +1502,18 @@ public class DistributionZoneManager extends
             return topologyAugmentationMap().entrySet()
                     .stream()
                     .filter(e -> e.getValue().addition == addition)
+                    .max(Map.Entry.comparingByKey())
+                    .map(Map.Entry::getKey);
+        }
+
+        /**
+         * Returns the highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()}.
+         *
+         * @return The highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()}.
+         */
+        Optional<Long> highestRevision() {
+            return topologyAugmentationMap().entrySet()
+                    .stream()
                     .max(Map.Entry.comparingByKey())
                     .map(Map.Entry::getKey);
         }
