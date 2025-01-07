@@ -85,7 +85,7 @@ namespace Apache.Ignite.Sql
             Schema = schema ?? DefaultSchema;
             PageSize = pageSize ?? DefaultPageSize;
             Properties = properties == null || ReferenceEquals(properties, EmptyProperties) ? EmptyProperties : new(properties);
-            TimeZoneId = timeZoneId ?? TimeZoneInfo.Local.Id;
+            TimeZoneId = timeZoneId ?? DateTimeZoneProviders.Tzdb.GetSystemDefault().Id;
         }
 
         /// <summary>
