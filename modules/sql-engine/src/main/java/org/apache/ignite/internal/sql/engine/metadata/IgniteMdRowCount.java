@@ -110,9 +110,9 @@ public class IgniteMdRowCount extends RelMdRowCount {
      *
      * <p>This method calculates an estimated row count for a join by analyzing the join type,
      * join keys, and the cardinality of the left and right inputs. It provides specialized
-     * handling for primary key and foreign key relationships. When certain metadata is unavailable
-     * or when specific conditions are not met, it falls back to Calcite's default implementation
-     * for estimating the row count.
+     * handling for primary key and foreign key relationships (see {@link JoiningRelationType for details}).
+     * When certain metadata is unavailable or when specific conditions are not met, it falls back to
+     * Calcite's default implementation for estimating the row count.
      *
      * <p>Implementation details:</p>
      * <ul>
@@ -146,6 +146,7 @@ public class IgniteMdRowCount extends RelMdRowCount {
      *
      * @see RelMetadataQuery#getRowCount
      * @see RelMdUtil#getJoinRowCount
+     * @see JoiningRelationType
      */
     public static @Nullable Double joinRowCount(RelMetadataQuery mq, Join rel) {
         if (rel.getJoinType() != JoinRelType.INNER) {
@@ -231,7 +232,7 @@ public class IgniteMdRowCount extends RelMdRowCount {
         }
 
         double postFiltrationAdjustment = joinContexts.size() == 1 && joinInfo.isEqui() ? 1.0
-                // Extra join keys as well as non-equi conditions serves azs post-filtration,
+                // Extra join keys as well as non-equi conditions serves as post-filtration,
                 // therefore we need to adjust final result with a little factor.
                 : 0.7;
 
@@ -410,14 +411,14 @@ public class IgniteMdRowCount extends RelMdRowCount {
         /**
          * Join by primary keys on non-primary keys.
          *
-         * <p>Currently we don't support Foreign Keys, thus will assume such types of joins
+         * <p>Currently we don't support Foreign Keys, thus we will assume such types of joins
          * as joins by foreign key.
          */
         PK_ON_FK(UNKNOWN.strength + 1),
         /**
          * Join by non-primary keys on primary keys.
          * 
-         * <p>Currently we don't support Foreign Keys, thus will assume such types of joins
+         * <p>Currently we don't support Foreign Keys, thus we will assume such types of joins
          * as joins by foreign key.
          */
         FK_ON_PK(PK_ON_FK.strength + 1),
