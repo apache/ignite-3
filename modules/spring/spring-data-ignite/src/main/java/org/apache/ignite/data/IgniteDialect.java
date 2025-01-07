@@ -43,7 +43,6 @@ public class IgniteDialect extends AbstractDialect {
     private IgniteDialect() {}
 
     private static final LimitClause LIMIT_CLAUSE = new LimitClause() {
-
         @Override
         public String getLimit(long limit) {
             return "LIMIT " + limit;
@@ -66,7 +65,6 @@ public class IgniteDialect extends AbstractDialect {
     };
 
     static class IgniteArrayColumns implements ArrayColumns {
-
         @Override
         public boolean isSupported() {
             return true;
@@ -74,7 +72,6 @@ public class IgniteDialect extends AbstractDialect {
 
         @Override
         public Class<?> getArrayType(Class<?> userType) {
-
             Assert.notNull(userType, "Array component type must not be null");
 
             return ClassUtils.resolvePrimitiveIfNecessary(userType);
@@ -118,7 +115,6 @@ public class IgniteDialect extends AbstractDialect {
 
     @Override
     public Set<Class<?>> simpleTypes() {
-
         return Collections.emptySet();
     }
 
