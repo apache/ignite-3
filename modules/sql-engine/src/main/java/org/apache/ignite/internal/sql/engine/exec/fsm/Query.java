@@ -143,9 +143,9 @@ class Query {
     }
 
     void setError(Throwable err) {
-        Throwable firstErr = error.compareAndExchange(null, err);
+        Throwable prevErr = error.compareAndExchange(null, err);
 
-        if (firstErr != null && firstErr != err) {
+        if (prevErr != null && prevErr != err) {
             error.get().addSuppressed(err);
         }
     }
