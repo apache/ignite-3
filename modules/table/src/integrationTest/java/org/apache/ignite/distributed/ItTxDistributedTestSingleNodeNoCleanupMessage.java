@@ -197,7 +197,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         clusterNodeResolver,
                         resourcesRegistry,
                         schemaRegistry,
-                        mock(IndexMetaStorage.class)
+                        mock(IndexMetaStorage.class),
+                        lowWatermark
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {

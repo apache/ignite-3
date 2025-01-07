@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.R
 import static org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType.SINGLE;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -36,6 +35,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.MapReduceAgg;
@@ -77,10 +77,10 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
         if (group) {
             RelCollation collation = createOutCollation(grpSets);
 
-            Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+            SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
             // Create sort node on the top to check sorted results
-            SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
+            SortNode<Object[]> sort = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));
 
             sort.register(agg);
 
@@ -162,11 +162,11 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         RelCollation collation = createOutCollation(grpSets);
 
-        Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+        SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
         if (group) {
             // Create sort node on the top to check sorted results
-            SortNode<Object[]> sort = new SortNode<>(ctx, cmp);
+            SortNode<Object[]> sort = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));
 
             sort.register(aggRdc);
 

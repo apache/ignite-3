@@ -122,6 +122,7 @@ import org.codehaus.commons.compiler.CompilerFactoryFactory;
 import org.codehaus.commons.compiler.IClassBodyEvaluator;
 import org.codehaus.commons.compiler.ICompilerFactory;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Utility methods.
@@ -190,6 +191,8 @@ public final class Commons {
             .typeSystem(IgniteTypeSystem.INSTANCE)
             .traitDefs(DISTRIBUTED_TRAITS_SET)
             .build();
+
+    private static volatile @Nullable Boolean fastOptimizationsEnabled = null;
 
     private Commons() {
     }
@@ -343,10 +346,28 @@ public final class Commons {
     }
 
     /**
-     * Flat.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Flattens a list of lists into a single list containing all elements from the nested lists.
+     *
+     * <p>This method takes a source list where each element is itself a list and combines 
+     * all the nested lists into a single list containing all their elements in order.
+     *
+     * <p>For example:
+     * <pre>
+     * List&lt;List&lt;Integer&gt;&gt; nestedList = List.of(
+     *     List.of(1, 2, 3),
+     *     List.of(4, 5),
+     *     List.of(6)
+     * );
+     * List&lt;Integer&gt flattenedList = flat(nestedList);
+     * // Result: [1, 2, 3, 4, 5, 6]
+     * </pre>
+     *
+     * @param <T> The type of elements in the lists.
+     * @param src The source list of lists to be flattened.
+     * @return A single list containing all elements from the nested lists.
+     * @throws NullPointerException if {@code src} or any nested list within {@code src} is {@code null}.
      */
-    public static <T> List<T> flat(List<List<? extends T>> src) {
+    public static <T> List<T> flat(List<List<T>> src) {
         return src.stream().flatMap(List::stream).collect(Collectors.toList());
     }
 
@@ -753,8 +774,21 @@ public final class Commons {
      * @return A {@code true} if fast path optimizations are enabled, {@code false} otherwise.
      */
     public static boolean fastQueryOptimizationEnabled() {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
-        return IgniteSystemProperties.getBoolean("FAST_QUERY_OPTIMIZATION_ENABLED", true);
+        Boolean enabled = fastOptimizationsEnabled;
+
+        if (enabled == null) {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-22821 replace with feature toggle
+            enabled = IgniteSystemProperties.getBoolean("FAST_QUERY_OPTIMIZATION_ENABLED", true);
+
+            fastOptimizationsEnabled = enabled;
+        }
+
+        return enabled;
+    }
+
+    @TestOnly
+    public static void resetFastQueryOptimizationFlag() {
+        fastOptimizationsEnabled = null;
     }
 
     /**

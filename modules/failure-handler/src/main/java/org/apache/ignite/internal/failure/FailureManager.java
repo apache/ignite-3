@@ -164,7 +164,7 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             LOG.error(FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx.type());
         }
 
-        if (reserveBuf != null && hasCauseOrSuppressed(failureCtx.error(), null, OutOfMemoryError.class)) {
+        if (reserveBuf != null && hasCauseOrSuppressed(failureCtx.error(), OutOfMemoryError.class)) {
             reserveBuf = null;
         }
 

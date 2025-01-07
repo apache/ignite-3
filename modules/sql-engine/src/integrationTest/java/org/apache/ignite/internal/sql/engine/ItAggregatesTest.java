@@ -556,6 +556,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    @SuppressWarnings("BigDecimalMethodWithoutRoundingCalled")
     @ParameterizedTest
     @MethodSource("provideRules")
     public void testAvg(String[] rules) {
@@ -572,6 +573,13 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 + "FROM numbers")
                 .disableRules(rules)
                 .returns(avgDec, avgDec, avgDec, avgDec, avgDouble, avgDouble, avgDec, avgDec, avgDecBigScale)
+                .check();
+
+        assertQuery("SELECT AVG(int_col) FILTER (WHERE smallint_col % 2 = 0)" 
+                + "           , AVG(int_col) FILTER (WHERE smallint_col % 2 = 1)" 
+                + "        FROM numbers")
+                .disableRules(rules)
+                .returns(new BigDecimal(2).setScale(16), new BigDecimal(1).setScale(16))
                 .check();
 
         sql("DELETE FROM numbers");
