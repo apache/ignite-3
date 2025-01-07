@@ -252,6 +252,7 @@ public class RendezvousDistributionFunction implements DistributionAlgorithm {
         assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
         assert partitions > 0 : "parts > 0";
         assert replicas > 0 : "replicas > 0";
+        assert consensusGroupSize <= replicas : "consensusGroupSize should be less or equal to replicaFactor";
 
         List<T> assignments = new ArrayList<>(partitions);
 

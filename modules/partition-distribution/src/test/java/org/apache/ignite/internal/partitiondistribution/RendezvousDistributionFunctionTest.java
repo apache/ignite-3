@@ -21,6 +21,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.nonNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -141,6 +142,13 @@ public class RendezvousDistributionFunctionTest {
         }
 
         return arg.stream();
+    }
+
+    @Test
+    public void testConsensusGroupSizeValidation() {
+        DistributionAlgorithm distributionAlgorithm = new RendezvousDistributionFunction();
+
+        assertThrows(AssertionError.class, () -> distributionAlgorithm.assignPartitions(prepareNetworkTopology(3), emptyList(), 1, 3, 4));
     }
 
     private List<String> prepareNetworkTopology(int nodes) {
