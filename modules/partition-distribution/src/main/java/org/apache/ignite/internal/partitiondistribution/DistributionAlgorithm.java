@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partitiondistribution;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Partition distribution algorithm.
@@ -32,12 +33,14 @@ public interface DistributionAlgorithm {
      * @param currentDistribution Previous assignments or empty list.
      * @param partitions Number of table partitions.
      * @param replicaFactor Number partition replicas.
+     * @param consensusGroupSize Number of nodes in a consensus group (peers).
      * @return List of nodes by partition.
      */
-    List<List<String>> assignPartitions(
+    List<Set<Assignment>> assignPartitions(
             Collection<String> nodes,
             List<List<String>> currentDistribution,
             int partitions,
-            int replicaFactor
+            int replicaFactor,
+            int consensusGroupSize
     );
 }

@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.partitiondistribution;
 
 import static java.util.Collections.emptyList;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
 import java.util.Collection;
 import java.util.List;
@@ -40,19 +38,19 @@ public class PartitionDistributionUtils {
      * @param replicas Replicas count.
      * @return List assignments by partition.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24071 pass the consensus group size as the parameter here
     public static List<Set<Assignment>> calculateAssignments(
             Collection<String> dataNodes,
             int partitions,
             int replicas
     ) {
-        List<List<String>> nodes = DISTRIBUTION_ALGORITHM.assignPartitions(
+        return DISTRIBUTION_ALGORITHM.assignPartitions(
                 dataNodes,
                 emptyList(),
                 partitions,
+                replicas,
                 replicas
         );
-
-        return nodes.stream().map(PartitionDistributionUtils::dataNodesToAssignments).collect(toList());
     }
 
     /**
@@ -64,19 +62,16 @@ public class PartitionDistributionUtils {
      * @param replicas Replicas count.
      * @return Set of assignments.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24071 pass the consensus group size as the parameter here
     public static Set<Assignment> calculateAssignmentForPartition(
             Collection<String> dataNodes,
             int partitionId,
             int partitions,
             int replicas
     ) {
-        List<List<String>> nodes = DISTRIBUTION_ALGORITHM.assignPartitions(dataNodes, emptyList(), partitions, replicas);
-        List<String> affinityNodes = nodes.get(partitionId);
+        List<Set<Assignment>> assignments = DISTRIBUTION_ALGORITHM.assignPartitions(dataNodes, emptyList(), partitions, replicas, replicas);
 
-        return dataNodesToAssignments(affinityNodes);
+        return assignments.get(partitionId);
     }
 
-    private static Set<Assignment> dataNodesToAssignments(Collection<String> nodes) {
-        return nodes.stream().map(Assignment::forPeer).collect(toSet());
-    }
 }
