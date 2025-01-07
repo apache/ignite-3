@@ -78,6 +78,7 @@ dependencies {
     integrationTestImplementation project(':ignite-configuration-root')
     integrationTestImplementation project(':ignite-schema')
     integrationTestImplementation project(':ignite-low-watermark')
+    integrationTestImplementation project(':ignite-configuration-system')
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
