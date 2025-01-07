@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.lang;
 
-import static org.apache.ignite.lang.ErrorGroup.errorMessage;
+import static org.apache.ignite.internal.lang.ErrorGroupHelper.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.errorGroupByCode;

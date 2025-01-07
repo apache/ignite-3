@@ -123,13 +123,14 @@ public class ErrorGroup {
     /**
      * Creates a new error message with predefined prefix.
      *
+     * @param errorPrefix Prefix for the error.
      * @param traceId Unique identifier of this exception.
      * @param groupName Group name.
      * @param code Full error code.
      * @param message Original message.
      * @return New error message with predefined prefix.
      */
-    public static String errorMessage(String errorPrefix, UUID traceId, String groupName, int code, String message) {
+    static String errorMessage(String errorPrefix, UUID traceId, String groupName, int code, String message) {
         return errorPrefix + "-" + groupName + '-' + Short.toUnsignedInt(extractErrorCode(code)) + " TraceId:" + traceId
                 + ((message != null && !message.isEmpty()) ? ' ' + message : "");
     }
