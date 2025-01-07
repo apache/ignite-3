@@ -20,8 +20,6 @@ package org.apache.ignite.internal.disaster;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter.JMX_METRIC_GROUP;
-import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
-import static org.apache.ignite.internal.table.TableTestUtils.getTableStrict;
 import static org.apache.ignite.internal.util.IgniteUtils.makeMbeanName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
@@ -44,6 +42,9 @@ import org.junit.jupiter.api.Test;
 
 /** For integration testing of disaster recovery metrics. */
 public class ItDisasterRecoveryMetricTest extends BaseSqlIntegrationTest {
+    /** Table name. */
+    public static final String TABLE_NAME = "TEST_TABLE";
+
     private static final String ZONE_NAME = "ZONE_" + TABLE_NAME;
 
     private final MBeanServer mbeanSrv = ManagementFactory.getPlatformMBeanServer();
@@ -109,7 +110,7 @@ public class ItDisasterRecoveryMetricTest extends BaseSqlIntegrationTest {
     }
 
     private static String partitionStatesMetricSourceName(IgniteImpl node, String tableName) {
-        CatalogTableDescriptor tableDescriptor = getTableStrict(node.catalogManager(), tableName, node.clock().nowLong());
+        CatalogTableDescriptor tableDescriptor = node.catalogManager().table(tableName, node.clock().nowLong());
 
         return String.format("partition.states.zone.%s.table.%s", tableDescriptor.zoneId(), tableDescriptor.id());
     }

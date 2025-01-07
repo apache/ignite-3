@@ -129,6 +129,7 @@ public class ZoneRebalanceUtil {
      * @param zoneDescriptor Zone descriptor.
      * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
      * @param dataNodes Data nodes.
+     * @param partitions Number of partitions in a zone.
      * @param replicas Number of replicas for a zone.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
@@ -141,6 +142,7 @@ public class ZoneRebalanceUtil {
             CatalogZoneDescriptor zoneDescriptor,
             ZonePartitionId zonePartitionId,
             Collection<String> dataNodes,
+            int partitions,
             int replicas,
             long revision,
             MetaStorageManager metaStorageMgr,
@@ -158,7 +160,7 @@ public class ZoneRebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(zonePartitionId);
 
-        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, replicas);
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, partitions, replicas);
 
         Set<Assignment> partAssignments;
 
@@ -351,6 +353,7 @@ public class ZoneRebalanceUtil {
                         zoneDescriptor,
                         replicaGrpId,
                         dataNodes,
+                        zoneDescriptor.partitions(),
                         zoneDescriptor.replicas(),
                         storageRevision,
                         metaStorageManager,

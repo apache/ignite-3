@@ -1403,6 +1403,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     calculateAssignmentForPartition(
                             dataNodes,
                             tablePartitionId.partitionId(),
+                            zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()
                     )
             );
@@ -2490,6 +2491,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                             .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
                                                     metaStorageMgr,
                                                     dataNodes,
+                                                    zoneDescriptor.partitions(),
                                                     zoneDescriptor.replicas(),
                                                     replicaGrpId,
                                                     evt,

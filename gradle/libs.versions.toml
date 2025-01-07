@@ -16,7 +16,7 @@
 #
 
 [versions]
-assertj = "3.27.0"
+assertj = "3.27.2"
 asm = "9.7.1"
 bouncycastle = "1.79"
 compileTesting = "0.21.0"
@@ -43,7 +43,7 @@ micronautPicocli = "4.4.0"
 micronautJunit5 = "3.9.2"
 micronautSecurity="3.11.1"
 micronautReactor="2.6.0"
-mockito = "5.14.2"
+mockito = "5.15.2"
 picocli = "4.7.5"
 slf4j = "2.0.16"
 log4j = "2.24.3"
@@ -85,6 +85,7 @@ tree-sitter-sql = "gh-pages-a"
 tree-sitter-hocon = "master-a"
 otel = "1.45.0"
 spring-boot = "3.4.1"
+spring-data = "3.4.0"
 
 #Tools
 pmdTool = "6.55.0"
@@ -275,3 +276,4 @@ opentelemetry-exporter-otlp = { module = "io.opentelemetry:opentelemetry-exporte
 spring-boot = { module = "org.springframework.boot:spring-boot", version.ref = "spring-boot" }
 spring-boot-autoconfigure = { module = "org.springframework.boot:spring-boot-autoconfigure", version.ref = "spring-boot" }
 spring-boot-test = { module = "org.springframework.boot:spring-boot-test", version.ref = "spring-boot" }
+spring-data-jdbc = { module = "org.springframework.data:spring-data-jdbc", version.ref = "spring-data"}
