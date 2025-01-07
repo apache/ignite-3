@@ -85,7 +85,7 @@ tree-sitter-sql = "gh-pages-a"
 tree-sitter-hocon = "master-a"
 otel = "1.45.0"
 spring-boot = "3.4.1"
-spring-data = "3.4.0"
+spring-data = "3.4.1"
 
 #Tools
 pmdTool = "6.55.0"
