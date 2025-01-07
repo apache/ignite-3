@@ -1346,6 +1346,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(List.of(link2Assignments, resetAssignments)));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24160")
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
     void testAssignmentsChainUpdatedOnAutomaticReset() throws Exception {
