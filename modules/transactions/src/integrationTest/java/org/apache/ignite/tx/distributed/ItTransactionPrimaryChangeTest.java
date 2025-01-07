@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.tx.distributed;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
@@ -37,6 +37,8 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.NodeUtils;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
