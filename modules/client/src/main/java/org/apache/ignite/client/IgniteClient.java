@@ -241,6 +241,11 @@ public interface IgniteClient extends Ignite, AutoCloseable {
          * @return This instance.
          */
         public Builder heartbeatInterval(long heartbeatInterval) {
+            if (heartbeatInterval < 0) {
+                throw new IllegalArgumentException("Heartbeat interval [" + heartbeatInterval + "] "
+                        + "must be a non-negative integer value.");
+            }
+
             this.heartbeatInterval = heartbeatInterval;
 
             return this;
@@ -255,6 +260,11 @@ public interface IgniteClient extends Ignite, AutoCloseable {
          * @return This instance.
          */
         public Builder heartbeatTimeout(long heartbeatTimeout) {
+            if (heartbeatTimeout < 0) {
+                throw new IllegalArgumentException("Heartbeat timeout [" + heartbeatTimeout + "] "
+                        + "must be a non-negative integer value.");
+            }
+
             this.heartbeatTimeout = heartbeatTimeout;
 
             return this;
