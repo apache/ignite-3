@@ -71,6 +71,12 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
                 newCacheByChannel.computeIfAbsent(sinkView.channel(), k -> new HashSet<>()).add(sink);
             }
 
+            for(String type : cache.keySet()) {
+                if (!newCache.containsKey(type)) {
+                    cache.get(type).stop();
+                }
+            }
+
             cache = newCache;
             cacheByChannel = newCacheByChannel;
 
