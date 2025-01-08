@@ -134,9 +134,8 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
      */
     @Test
     public void testSchema() throws Exception {
-        JdbcTestUtils.assertThrowsSqlException(
-                "Invalid URL format (only schema name is allowed in URL path parameter 'host:port[/schemaName]')",
-                () -> DriverManager.getConnection(URL + "/qwe/qwe"));
+        assertInvalid(URL + "/qwe/qwe",
+                "Invalid URL format (only schema name is allowed in URL path parameter 'host:port[/schemaName]')");
 
         try (Connection conn = DriverManager.getConnection(URL + "/public")) {
             assertEquals("PUBLIC", conn.getSchema(), "Invalid schema");
@@ -183,7 +182,7 @@ public class ItJdbcConnectionSelfTest extends AbstractJdbcSelfTest {
      * @param errMsg Error message.
      */
     private void assertInvalid(String url, String errMsg) {
-        assertThrows(IllegalArgumentException.class, () -> DriverManager.getConnection(url), errMsg);
+        JdbcTestUtils.assertThrowsSqlException(errMsg, () -> DriverManager.getConnection(url));
     }
 
     @Test

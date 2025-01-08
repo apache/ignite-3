@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client;
 import java.io.Serializable;
 import java.net.Inet6Address;
 import java.net.UnknownHostException;
+import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -130,7 +131,7 @@ public class HostAndPort implements Serializable {
      * @return Exception.
      */
     private static RuntimeException createParseError(String addrStr, String errMsgPrefix, String errMsg) {
-        return new IllegalArgumentException(errMsgPrefix + " (" + errMsg + "): " + addrStr);
+        return new IgniteException(Client.CONFIGURATION_ERR, errMsgPrefix + " (" + errMsg + "): " + addrStr);
     }
 
     /**
@@ -143,7 +144,7 @@ public class HostAndPort implements Serializable {
      * @return Exception.
      */
     private static RuntimeException createParseError(String addrStr, String errMsgPrefix, String errMsg, Throwable cause) {
-        return new IllegalArgumentException(errMsgPrefix + " (" + errMsg + "): " + addrStr, cause);
+        return new IgniteException(Client.CONFIGURATION_ERR, errMsgPrefix + " (" + errMsg + "): " + addrStr, cause);
     }
 
     /**
