@@ -183,6 +183,8 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
         busyLock.block();
 
+        assert locks.isEmpty() : "LWM locks are still held: " + locks;
+
         ScheduledFuture<?> lastScheduledTaskFuture = this.lastScheduledTaskFuture.get();
 
         if (lastScheduledTaskFuture != null) {
