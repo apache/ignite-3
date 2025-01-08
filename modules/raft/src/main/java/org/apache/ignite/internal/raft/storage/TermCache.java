@@ -122,6 +122,8 @@ public class TermCache {
      */
     public void truncateTail(long idx) {
         if (isEmpty() || idx < indexes[head]) {
+            reset();
+
             return;
         }
 
