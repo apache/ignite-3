@@ -21,18 +21,20 @@ import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.config.schema.SinkView;
 
 class TestSinkFactory implements SinkFactory {
+    private final SinkFactory delegate;
     private final InMemoryCollectionSink inMemoryCollectionSink;
 
-    TestSinkFactory(InMemoryCollectionSink inMemoryCollectionSink) {
+    TestSinkFactory(SinkFactory delegate, InMemoryCollectionSink inMemoryCollectionSink) {
+        this.delegate = delegate;
         this.inMemoryCollectionSink = inMemoryCollectionSink;
     }
 
     @Override
     public Sink createSink(SinkView sinkView) {
-        if (sinkView.type().equals("inMemory")) {
+        if (sinkView instanceof InMemoryCollectionSinkView) {
             return inMemoryCollectionSink;
         }
 
-        return SinkFactory.super.createSink(sinkView);
+        return delegate.createSink(sinkView);
     }
 }

@@ -15,23 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.exporters.validator;
+package org.apache.ignite.internal.configuration.validation;
 
 import static org.apache.ignite.internal.configuration.validation.TestValidationUtil.mockValidationContext;
 import static org.mockito.Mockito.mock;
 
+import org.apache.ignite.configuration.validation.Endpoint;
 import org.apache.ignite.configuration.validation.ValidationContext;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.validation.TestValidationUtil;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-/** Tests for {@link  EndpointValidatorImpl}. */
+/** Tests for {@link Endpoint}. */
 @ExtendWith(ConfigurationExtension.class)
-class EndpointValidatorImplTest extends BaseIgniteAbstractTest {
+class EndpointValidatorTest extends BaseIgniteAbstractTest {
+    private static final EndpointValidator VALIDATOR = new EndpointValidator();
+
     @ParameterizedTest
     @ValueSource(strings = {
             "http://127.0.0.1:8080",
@@ -94,8 +96,8 @@ class EndpointValidatorImplTest extends BaseIgniteAbstractTest {
         );
 
         TestValidationUtil.validate(
-                EndpointValidatorImpl.INSTANCE,
-                mock(EndpointValidator.class),
+                VALIDATOR,
+                mock(Endpoint.class),
                 ctx,
                 errorMessagePrefixes
         );
