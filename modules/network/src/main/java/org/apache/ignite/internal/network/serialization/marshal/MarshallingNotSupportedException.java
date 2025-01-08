@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.serialization.marshal;
 
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 
 /**
@@ -24,6 +25,6 @@ import org.apache.ignite.lang.IgniteException;
  */
 class MarshallingNotSupportedException extends IgniteException {
     public MarshallingNotSupportedException(String msg) {
-        super(msg);
+        super(Common.USER_OBJECT_SERIALIZATION_ERR, msg);
     }
 }
