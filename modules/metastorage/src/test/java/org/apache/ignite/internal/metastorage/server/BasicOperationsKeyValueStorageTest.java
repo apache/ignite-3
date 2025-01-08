@@ -2405,6 +2405,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
     }
 
     static CommandId createCommandId() {
-        return new CommandIdGenerator(UUID::randomUUID).newId();
+        return new CommandIdGenerator(UUID.randomUUID()).newId();
     }
 }
