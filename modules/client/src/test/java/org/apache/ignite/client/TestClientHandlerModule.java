@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -153,7 +154,7 @@ public class TestClientHandlerModule implements IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         if (channel != null) {
-            throw new IgniteException("ClientHandlerModule is already started.");
+            throw new IgniteException(INTERNAL_ERR, "ClientHandlerModule is already started.");
         }
 
         try {
@@ -256,7 +257,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         if (ch == null) {
             String msg = "Cannot start thin client connector endpoint. Port " + port + " is in use.";
 
-            throw new IgniteException(msg);
+            throw new IgniteException(INTERNAL_ERR, msg);
         }
 
         return ch.closeFuture();

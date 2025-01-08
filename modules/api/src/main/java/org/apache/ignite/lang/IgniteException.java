@@ -58,14 +58,6 @@ public class IgniteException extends RuntimeException implements TraceableExcept
     private UUID traceId;
 
     /**
-     * Creates an empty exception.
-     */
-    @Deprecated
-    public IgniteException() {
-        this(INTERNAL_ERR);
-    }
-
-    /**
      * Creates an exception with the given error message.
      *
      * @param msg Error message.

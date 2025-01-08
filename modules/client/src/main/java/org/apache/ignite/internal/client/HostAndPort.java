@@ -107,7 +107,7 @@ public class HostAndPort implements Serializable {
      * @return Parsed port.
      * @throws IgniteException If failed.
      */
-    private static int parsePort(String portStr, String addrStr, String errMsgPrefix) throws IgniteException {
+    private static int parsePort(String portStr, String addrStr, String errMsgPrefix) {
         try {
             int port = Integer.parseInt(portStr);
 
@@ -129,8 +129,8 @@ public class HostAndPort implements Serializable {
      * @param errMsg       Error message.
      * @return Exception.
      */
-    private static IgniteException createParseError(String addrStr, String errMsgPrefix, String errMsg) {
-        return new IgniteException(errMsgPrefix + " (" + errMsg + "): " + addrStr);
+    private static RuntimeException createParseError(String addrStr, String errMsgPrefix, String errMsg) {
+        return new IllegalArgumentException(errMsgPrefix + " (" + errMsg + "): " + addrStr);
     }
 
     /**
@@ -142,8 +142,8 @@ public class HostAndPort implements Serializable {
      * @param cause        Cause exception.
      * @return Exception.
      */
-    private static IgniteException createParseError(String addrStr, String errMsgPrefix, String errMsg, Throwable cause) {
-        return new IgniteException(errMsgPrefix + " (" + errMsg + "): " + addrStr, cause);
+    private static RuntimeException createParseError(String addrStr, String errMsgPrefix, String errMsg, Throwable cause) {
+        return new IllegalArgumentException(errMsgPrefix + " (" + errMsg + "): " + addrStr, cause);
     }
 
     /**
