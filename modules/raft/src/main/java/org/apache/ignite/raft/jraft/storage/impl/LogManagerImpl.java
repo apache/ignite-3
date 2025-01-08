@@ -917,10 +917,12 @@ public class LogManagerImpl implements LogManager {
         if (index > this.lastLogIndex || index < this.firstLogIndex) {
             return 0;
         }
-        final LogEntry entry = getEntryFromMemory(index);
-        if (entry != null) {
-            return entry.getId().getTerm();
+
+        long term = termCache.lookup(index);
+        if (term != -1) {
+            return term;
         }
+
         return getTermFromLogStorage(index);
     }
 
