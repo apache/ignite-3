@@ -17,7 +17,6 @@
 package org.apache.ignite.raft.jraft.storage.impl;
 
 import com.lmax.disruptor.EventHandler;
-import com.lmax.disruptor.EventTranslator;
 import com.lmax.disruptor.RingBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -30,13 +29,13 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.raft.storage.TermCache;import org.apache.ignite.raft.jraft.FSMCaller;
+import org.apache.ignite.internal.raft.storage.TermCache;
+import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.conf.ConfigurationManager;
 import org.apache.ignite.raft.jraft.core.NodeMetrics;
-import org.apache.ignite.raft.jraft.disruptor.DisruptorEventType;
 import org.apache.ignite.raft.jraft.disruptor.NodeIdAware;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter.EntryType;
@@ -59,7 +58,6 @@ import org.apache.ignite.raft.jraft.util.ArrayDeque;
 import org.apache.ignite.raft.jraft.util.DisruptorMetricSet;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.SegmentList;
-import org.apache.ignite.raft.jraft.util.ThreadHelper;
 import org.apache.ignite.raft.jraft.util.Utils;
 
 /**
@@ -829,6 +827,10 @@ public class LogManagerImpl implements LogManager {
 
             long term = termCache.lookup(index);
             if (term != -1) {
+                long storageTerm = getTermFromLogStorage(index);
+                if (storageTerm != 0) {
+                    assert term == storageTerm;
+                }
                 return term;
             }
         }
