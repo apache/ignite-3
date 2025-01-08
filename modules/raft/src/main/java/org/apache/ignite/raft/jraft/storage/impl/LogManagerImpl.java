@@ -827,10 +827,6 @@ public class LogManagerImpl implements LogManager {
 
             long term = termCache.lookup(index);
             if (term != -1) {
-                long storageTerm = getTermFromLogStorage(index);
-                if (storageTerm != 0) {
-                    assert term == storageTerm;
-                }
                 return term;
             }
         }
