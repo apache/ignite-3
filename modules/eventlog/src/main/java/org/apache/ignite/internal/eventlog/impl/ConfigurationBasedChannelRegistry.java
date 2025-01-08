@@ -34,14 +34,14 @@ import org.apache.ignite.internal.eventlog.config.schema.ChannelView;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.jetbrains.annotations.Nullable;
 
-public class ConfigurationBasedChannelRegistry implements ChannelRegistry {
+class ConfigurationBasedChannelRegistry implements ChannelRegistry {
     private volatile Map<String, EventChannel> cache;
 
     private volatile Map<String, Set<EventChannel>> typeCache;
 
     private final SinkRegistry sinkRegistry;
 
-    public ConfigurationBasedChannelRegistry(EventLogConfiguration cfg, SinkRegistry sinkRegistry) {
+    ConfigurationBasedChannelRegistry(EventLogConfiguration cfg, SinkRegistry sinkRegistry) {
         this.cache = new HashMap<>();
         this.typeCache = new HashMap<>();
         this.sinkRegistry = sinkRegistry;

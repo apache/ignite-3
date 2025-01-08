@@ -172,23 +172,23 @@ class EventLogTest {
     }
 
     private static class TestSinkRegistry implements SinkRegistry {
-        private final Map<String, Sink> sinks;
+        private final Map<String, Sink<?>> sinks;
 
         private TestSinkRegistry() {
             sinks = new HashMap<>();
         }
 
-        void register(String name, Sink sink) {
+        void register(String name, Sink<?> sink) {
             sinks.put(name, sink);
         }
 
         @Override
-        public Sink getByName(String name) {
+        public Sink<?> getByName(String name) {
             return sinks.get(name);
         }
 
         @Override
-        public Set<Sink> findAllByChannel(String channel) {
+        public Set<Sink<?>> findAllByChannel(String channel) {
             if (!sinks.containsKey(channel)) {
                 return Set.of();
             }

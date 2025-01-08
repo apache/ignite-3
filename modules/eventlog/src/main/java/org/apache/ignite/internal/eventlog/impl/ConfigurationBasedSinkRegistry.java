@@ -32,9 +32,9 @@ import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.SinkView;
 
 class ConfigurationBasedSinkRegistry implements SinkRegistry {
-    private volatile Map<String, Sink> cache;
+    private volatile Map<String, Sink<?>> cache;
 
-    private volatile Map<String, Set<Sink>> cacheByChannel;
+    private volatile Map<String, Set<Sink<?>>> cacheByChannel;
 
     private final SinkFactory sinkFactory;
 
@@ -47,13 +47,13 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
     }
 
     @Override
-    public Sink getByName(String name) {
+    public Sink<?> getByName(String name) {
         return cache.get(name);
     }
 
     @Override
-    public Set<Sink> findAllByChannel(String channel) {
-        Set<Sink> sinks = cacheByChannel.get(channel);
+    public Set<Sink<?>> findAllByChannel(String channel) {
+        Set<Sink<?>> sinks = cacheByChannel.get(channel);
         return sinks == null ? Set.of() : new HashSet<>(sinks);
     }
 
@@ -62,11 +62,11 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<NamedListView<SinkView>> ctx) {
             NamedListView<SinkView> newListValue = ctx.newValue();
 
-            Map<String, Sink> newCache = new HashMap<>();
-            Map<String, Set<Sink>> newCacheByChannel = new HashMap<>();
+            Map<String, Sink<?>> newCache = new HashMap<>();
+            Map<String, Set<Sink<?>>> newCacheByChannel = new HashMap<>();
 
             for (SinkView sinkView : newListValue) {
-                Sink sink = sinkFactory.createSink(sinkView);
+                Sink<?> sink = sinkFactory.createSink(sinkView);
                 newCache.put(sinkView.name(), sink);
                 newCacheByChannel.computeIfAbsent(sinkView.channel(), k -> new HashSet<>()).add(sink);
             }

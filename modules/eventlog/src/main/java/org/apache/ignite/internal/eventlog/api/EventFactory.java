@@ -35,7 +35,7 @@ public interface EventFactory {
 
     /**
      * Creates an event builder with the event type defined. The type is set by the factory. For example,
-     * {@link IgniteEvents.USER_AUTHENTICATION_SUCCESS.builder()} will return a builder with
+     * {@link IgniteEvents.USER_AUTHENTICATION_SUCCESS.builder} will return a builder with
      * {@link IgniteEventType.USER_AUTHENTICATION_SUCCESS} type set.
      */
     EventBuilder builder();

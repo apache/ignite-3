@@ -49,8 +49,8 @@ public interface EventLog {
     void log(Event event);
 
     /**
-     * Lazy version of {@link #log(Event)}. It first checks if the events of the given type are enabled and then logs the event.
-     * INVARIANT: type must be a valid event type and eventProvider must provide an event of the same type.
+     * Lazy version of {@link #log(Event)}. It first checks if the events of the given type are enabled and then logs the event. INVARIANT:
+     * type must be a valid event type and eventProvider must provide an event of the same type.
      *
      * @param type the type of the event.
      * @param eventProvider the event provider.

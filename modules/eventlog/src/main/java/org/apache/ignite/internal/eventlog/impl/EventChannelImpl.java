@@ -43,7 +43,7 @@ class EventChannelImpl implements EventChannel {
 
     @Override
     public void log(Event event) {
-        Set<Sink> sinks = sinkRegistry.findAllByChannel(channelName);
+        Set<Sink<?>> sinks = sinkRegistry.findAllByChannel(channelName);
         if (sinks == null) {
             return;
         }
