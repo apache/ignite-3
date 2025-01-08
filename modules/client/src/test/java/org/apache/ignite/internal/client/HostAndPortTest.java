@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -97,7 +96,7 @@ public class HostAndPortTest {
         String errMsgPrefix = "";
         int dfltPortFrom = 18360;
 
-        var ex = assertThrows(IgniteException.class,
+        var ex = assertThrows(IllegalArgumentException.class,
                 () -> HostAndPort.parse(addrStr, dfltPortFrom, errMsgPrefix));
 
         assertTrue(ex.getMessage().contains("IPv6 is incorrect"), ex.getMessage());
@@ -112,7 +111,7 @@ public class HostAndPortTest {
         String errMsgPrefix = "";
         int dfltPortFrom = 18360;
 
-        var ex = assertThrows(IgniteException.class,
+        var ex = assertThrows(IllegalArgumentException.class,
                 () -> HostAndPort.parse(addrStr, dfltPortFrom, errMsgPrefix));
 
         assertTrue(ex.getMessage().contains("Host name is empty"), ex.getMessage());
@@ -127,7 +126,7 @@ public class HostAndPortTest {
         String errMsgPrefix = "";
         int dfltPortFrom = 18360;
 
-        var ex = assertThrows(IgniteException.class,
+        var ex = assertThrows(IllegalArgumentException.class,
                 () -> HostAndPort.parse(addrStr, dfltPortFrom, errMsgPrefix));
 
         assertTrue(ex.getMessage().contains("Address is empty"), ex.getMessage());
