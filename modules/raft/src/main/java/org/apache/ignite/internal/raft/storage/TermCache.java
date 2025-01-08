@@ -52,8 +52,7 @@ public class TermCache {
      * Should be called when appending a new log entry.
      */
     public void append(LogId id) {
-        // Cache is empty.
-        if (head == -1) {
+        if (isEmpty()) {
             head = 0;
             indexes[tail] = id.getIndex();
             terms[tail] = id.getTerm();
@@ -61,25 +60,37 @@ public class TermCache {
             return;
         }
 
-        // Terms has not changed, nothing to update.
+        // Term has not changed, nothing to update.
         if (terms[tail] == id.getTerm()) {
             return;
         }
 
-        tail = (tail + 1) & mask;
+        tail = next(tail);
         indexes[tail] = id.getIndex();
         terms[tail] = id.getTerm();
 
         // Handle buffer overflow by moving head to the next position.
         if (tail == head) {
-            head = (head + 1) & mask;
+            head = next(head);
         }
     }
 
-    private int findIndex(long index) {
+    private int prev(int i) {
+        return (i - 1) & mask;
+    }
+
+    private int next(int i) {
+        return (i + 1) & mask;
+    }
+
+    private boolean isEmpty() {
+        return head == -1;
+    }
+
+    private int findIndex(long idx) {
         // Could be replaced with a binary search, but why bother for such a small cache.
-        for (int i = tail; i != head; i = (i - 1) & mask) {
-            if (index >= indexes[i]) {
+        for (int i = tail; i != head; i = prev(i)) {
+            if (idx >= indexes[i]) {
                 return i;
             }
         }
@@ -91,7 +102,7 @@ public class TermCache {
      * Lookup term for the given index. Returns {@code -1} if the index is not found in the cache.
      */
     public long lookup(long idx) {
-        if (head == -1 || idx < indexes[head]) {
+        if (isEmpty() || idx < indexes[head]) {
             return -1;
         }
 
@@ -109,8 +120,8 @@ public class TermCache {
     /**
      * Truncates the cache to the given index, deleting all information for indexes greater than or equal to the given one.
      */
-    public void truncate(long idx) {
-        if (head == -1 || idx < indexes[head]) {
+    public void truncateTail(long idx) {
+        if (isEmpty() || idx < indexes[head]) {
             return;
         }
 
@@ -120,7 +131,7 @@ public class TermCache {
             if (head == tail) {
                 reset();
             } else {
-                tail = (tail - 1) & mask;
+                tail = prev(tail);
             }
         }
     }

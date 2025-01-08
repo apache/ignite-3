@@ -1055,7 +1055,7 @@ public class LogManagerImpl implements LogManager {
         }
 
         this.logsInMemory.removeFromLastWhen(entry -> entry.getId().getIndex() > lastIndexKept);
-        termCache.truncate(lastIndexKept + 1);
+        termCache.truncateTail(lastIndexKept + 1);
 
         this.lastLogIndex = lastIndexKept;
         final long lastTermKept = unsafeGetTerm(lastIndexKept);

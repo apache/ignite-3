@@ -63,12 +63,12 @@ class TermCacheTest {
     }
 
     @Test
-    void testTruncate() {
+    void testTruncateTail() {
         termCache.append(new LogId(1, 1));
         termCache.append(new LogId(2, 1));
         termCache.append(new LogId(3, 2));
 
-        termCache.truncate(2);
+        termCache.truncateTail(2);
 
         assertEquals(1, termCache.lookup(1));
         assertEquals(1, termCache.lookup(2));
@@ -76,12 +76,12 @@ class TermCacheTest {
     }
 
     @Test
-    void testTruncateExactMatch() {
+    void testTruncateTailExactMatch() {
         termCache.append(new LogId(1, 1));
         termCache.append(new LogId(2, 2));
         termCache.append(new LogId(3, 2));
 
-        termCache.truncate(2);
+        termCache.truncateTail(2);
 
         assertEquals(1, termCache.lookup(1));
         assertEquals(1, termCache.lookup(2));
