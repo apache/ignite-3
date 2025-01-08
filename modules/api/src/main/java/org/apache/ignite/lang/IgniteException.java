@@ -58,16 +58,6 @@ public class IgniteException extends RuntimeException implements TraceableExcept
     private UUID traceId;
 
     /**
-     * Creates a grid exception with the given throwable as a cause and source of the error message.
-     *
-     * @param cause Non-null throwable cause.
-     */
-    @Deprecated
-    public IgniteException(Throwable cause) {
-        this(INTERNAL_ERR, cause);
-    }
-
-    /**
      * Creates an exception with the given error message and optional nested exception.
      *
      * @param msg Error message.

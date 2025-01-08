@@ -1807,7 +1807,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         }
 
         if (firstErr.get() != null) {
-            throw new IgniteException(firstErr.get());
+            throw new IgniteException(INTERNAL_ERR, firstErr.get());
         }
 
         log.info("After test ops={} fails={}", ops.sum(), fails.sum());
