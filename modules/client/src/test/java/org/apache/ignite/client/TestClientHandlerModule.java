@@ -160,7 +160,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         try {
             channel = startEndpoint().channel();
         } catch (InterruptedException e) {
-            throw new IgniteException(e);
+            throw new IgniteException(INTERNAL_ERR, e);
         }
 
         return nullCompletedFuture();
@@ -251,7 +251,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         if (bindRes.isSuccess()) {
             ch = bindRes.channel();
         } else if (!(bindRes.cause() instanceof BindException)) {
-            throw new IgniteException(bindRes.cause());
+            throw new IgniteException(INTERNAL_ERR, bindRes.cause());
         }
 
         if (ch == null) {

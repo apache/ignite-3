@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.rest.cluster;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
 import java.util.concurrent.CompletableFuture;
@@ -103,7 +105,7 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
         } else if (cause instanceof IgniteException) {
             return (RuntimeException) cause;
         } else {
-            return new IgniteException(cause);
+            return new IgniteException(INTERNAL_ERR, cause);
         }
     }
 
