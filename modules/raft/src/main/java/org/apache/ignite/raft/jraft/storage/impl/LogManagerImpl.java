@@ -30,7 +30,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.raft.jraft.FSMCaller;
+import org.apache.ignite.internal.raft.storage.TermCache;import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.conf.Configuration;
 import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
@@ -83,6 +83,7 @@ public class LogManagerImpl implements LogManager {
     private LogId diskId = new LogId(0, 0); // Last log entry written to disk.
     private LogId appliedId = new LogId(0, 0);
     private final SegmentList<LogEntry> logsInMemory = new SegmentList<>(true);
+    private final TermCache termCache = new TermCache(8);
     private volatile long firstLogIndex;
     private volatile long lastLogIndex;
     private volatile LogId lastSnapshotId = new LogId(0, 0);
@@ -321,6 +322,10 @@ public class LogManagerImpl implements LogManager {
             if (!entries.isEmpty()) {
                 done.setFirstLogIndex(entries.get(0).getId().getIndex());
                 this.logsInMemory.addAll(entries);
+
+                for (LogEntry entry : entries) {
+                    this.termCache.append(entry.getId());
+                }
             }
             done.setEntries(entries);
 
@@ -821,9 +826,10 @@ public class LogManagerImpl implements LogManager {
             if (index > this.lastLogIndex || index < this.firstLogIndex) {
                 return 0;
             }
-            final LogEntry entry = getEntryFromMemory(index);
-            if (entry != null) {
-                return entry.getId().getTerm();
+
+            long term = termCache.lookup(index);
+            if (term != -1) {
+                return term;
             }
         }
         finally {
@@ -1029,6 +1035,7 @@ public class LogManagerImpl implements LogManager {
         this.writeLock.lock();
         try {
             this.logsInMemory.clear();
+            this.termCache.reset();
             this.firstLogIndex = nextLogIndex;
             this.lastLogIndex = nextLogIndex - 1;
             this.configManager.truncatePrefix(this.firstLogIndex);
@@ -1050,6 +1057,7 @@ public class LogManagerImpl implements LogManager {
         }
 
         this.logsInMemory.removeFromLastWhen(entry -> entry.getId().getIndex() > lastIndexKept);
+        termCache.truncate(lastIndexKept + 1);
 
         this.lastLogIndex = lastIndexKept;
         final long lastTermKept = unsafeGetTerm(lastIndexKept);
