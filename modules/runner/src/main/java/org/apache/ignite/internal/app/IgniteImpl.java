@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -1513,7 +1514,7 @@ public class IgniteImpl implements Ignite {
 
         LOG.error(errMsg, e);
 
-        IgniteException igniteException = new IgniteException(errMsg, e);
+        IgniteException igniteException = new IgniteException(INTERNAL_ERR, errMsg, e);
 
         ExecutorService lifecycleExecutor = stopExecutor();
 
