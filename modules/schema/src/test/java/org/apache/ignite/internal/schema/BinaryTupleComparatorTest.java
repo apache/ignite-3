@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.schema;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
+import it.unimi.dsi.fastutil.ints.IntList;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.time.Instant;
@@ -34,11 +36,12 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
-import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -46,249 +49,141 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class BinaryTupleComparatorTest {
 
-    @ParameterizedTest
-    @MethodSource("allTypes")
-    public void testCompareSingleColumnTuples(NativeType type) {
-        var comparator = new BinaryTupleComparator(
-                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST},
-                i -> i,
-                new NativeType[]{type}
-        );
-
-        IgniteBiTuple<ByteBuffer, ByteBuffer> tuples = createTestValues(type);
-
-        assertThat(comparator.compare(tuples.get1(), tuples.get2()), is(lessThanOrEqualTo(-1)));
-        assertThat(comparator.compare(tuples.get1(), tuples.get1()), is(0));
-        assertThat(comparator.compare(tuples.get2(), tuples.get2()), is(0));
-        assertThat(comparator.compare(tuples.get2(), tuples.get1()), is(greaterThanOrEqualTo(1)));
-    }
-
-    private static List<NativeType> allTypes() {
+    private static List<Arguments> singleColumnTuples() {
         return List.of(
-                NativeTypes.BOOLEAN,
-                NativeTypes.INT8,
-                NativeTypes.INT16,
-                NativeTypes.INT32,
-                NativeTypes.INT64,
-                NativeTypes.FLOAT,
-                NativeTypes.DOUBLE,
-                NativeTypes.BYTES,
-                NativeTypes.decimalOf(20, 3),
-                NativeTypes.UUID,
-                NativeTypes.STRING,
-                NativeTypes.timestamp(6),
-                NativeTypes.DATE,
-                NativeTypes.time(6),
-                NativeTypes.datetime(6)
+                Arguments.of(NativeTypes.BOOLEAN,
+                        new BinaryTupleBuilder(1).appendBoolean(false).build(),
+                        new BinaryTupleBuilder(1).appendBoolean(true).build()),
+                Arguments.of(NativeTypes.INT8,
+                        new BinaryTupleBuilder(1).appendByte((byte) -1).build(),
+                        new BinaryTupleBuilder(1).appendByte(Byte.MAX_VALUE).build()),
+                Arguments.of(NativeTypes.INT16,
+                        new BinaryTupleBuilder(1).appendShort((short) -1).build(),
+                        new BinaryTupleBuilder(1).appendShort(Short.MAX_VALUE).build()),
+                Arguments.of(NativeTypes.INT32,
+                        new BinaryTupleBuilder(1).appendInt(-1).build(),
+                        new BinaryTupleBuilder(1).appendInt(Integer.MAX_VALUE).build()),
+                Arguments.of(NativeTypes.INT64,
+                        new BinaryTupleBuilder(1).appendLong(-1).build(),
+                        new BinaryTupleBuilder(1).appendLong(Long.MAX_VALUE).build()),
+                Arguments.of(NativeTypes.FLOAT,
+                        new BinaryTupleBuilder(1).appendFloat(-1.69f).build(),
+                        new BinaryTupleBuilder(1).appendFloat(Float.MAX_VALUE).build()),
+                Arguments.of(NativeTypes.DOUBLE,
+                        new BinaryTupleBuilder(1).appendDouble(-1.69).build(),
+                        new BinaryTupleBuilder(1).appendDouble(Double.MAX_VALUE).build()),
+
+                Arguments.of(NativeTypes.BYTES,
+                        new BinaryTupleBuilder(1).appendBytes(new byte[]{1, 2, 3}).build(),
+                        new BinaryTupleBuilder(1).appendBytes(new byte[]{1, 5, 1}).build()),
+                Arguments.of(NativeTypes.BYTES,
+                        new BinaryTupleBuilder(1).appendBytes(new byte[]{1, 2, 3}).build(),
+                        new BinaryTupleBuilder(1).appendBytes(new byte[]{1, 2, 3, 4}).build()),
+                Arguments.of(NativeTypes.BYTES,
+                        new BinaryTupleBuilder(1).appendBytes(new byte[]{1, 2, 3, 4}).build(),
+                        new BinaryTupleBuilder(1).appendBytes(new byte[]{1, 2, 4}).build()),
+                Arguments.of(NativeTypes.BYTES,
+                        new BinaryTupleBuilder(1).appendBytes(new byte[]{}).build(),
+                        new BinaryTupleBuilder(1).appendBytes(new byte[]{1}).build()),
+                Arguments.of(NativeTypes.BYTES,
+                        new BinaryTupleBuilder(1).appendBytes(new byte[]{1, 2, 127}).build(),
+                        new BinaryTupleBuilder(1).appendBytes(new byte[]{1, 2, (byte) 128}).build()),
+                Arguments.of(NativeTypes.BYTES,
+                        new BinaryTupleBuilder(1).appendBytes(new byte[]{1, (byte) 200, 2}).build(),
+                        new BinaryTupleBuilder(1).appendBytes(new byte[]{1, (byte) 255, 1}).build()),
+
+                Arguments.of(NativeTypes.decimalOf(20, 3),
+                        new BinaryTupleBuilder(1).appendDecimal(BigDecimal.valueOf(-1), 0).build(),
+                        new BinaryTupleBuilder(1).appendDecimal(BigDecimal.valueOf(123456789.12), 2).build()),
+
+                Arguments.of(NativeTypes.UUID,
+                        new BinaryTupleBuilder(1).appendUuid(UUID.fromString("00000000-0000-0000-0000-000000000001")).build(),
+                        new BinaryTupleBuilder(1).appendUuid(UUID.fromString("00000000-0000-0000-0000-000000000002")).build()),
+                Arguments.of(NativeTypes.UUID,
+                        new BinaryTupleBuilder(1).appendUuid(UUID.fromString("00000000-0000-0000-0000-000000000001")).build(),
+                        new BinaryTupleBuilder(1).appendUuid(UUID.fromString("0FFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF")).build()),
+                Arguments.of(NativeTypes.UUID,
+                        new BinaryTupleBuilder(1).appendUuid(UUID.fromString("F0000000-0000-0000-0000-000000000000")).build(),
+                        new BinaryTupleBuilder(1).appendUuid(UUID.fromString("00000000-0000-0000-0000-000000000001")).build()),
+
+                Arguments.of(NativeTypes.STRING,
+                        new BinaryTupleBuilder(1).appendString("foobar").build(),
+                        new BinaryTupleBuilder(1).appendString("foobaz").build()),
+                Arguments.of(NativeTypes.STRING,
+                        new BinaryTupleBuilder(1).appendString("foo").build(),
+                        new BinaryTupleBuilder(1).appendString("foobar").build()),
+                Arguments.of(NativeTypes.STRING,
+                        new BinaryTupleBuilder(1).appendString("barbaz").build(),
+                        new BinaryTupleBuilder(1).appendString("foo").build()),
+
+                Arguments.of(NativeTypes.timestamp(6),
+                        new BinaryTupleBuilder(1).appendTimestamp(Instant.ofEpochMilli(1)).build(),
+                        new BinaryTupleBuilder(1).appendTimestamp(Instant.ofEpochMilli(2)).build()),
+
+                Arguments.of(NativeTypes.DATE,
+                        new BinaryTupleBuilder(1).appendDate(LocalDate.of(2021, 1, 1)).build(),
+                        new BinaryTupleBuilder(1).appendDate(LocalDate.of(2021, 1, 2)).build()),
+                Arguments.of(NativeTypes.DATE,
+                        new BinaryTupleBuilder(1).appendDate(LocalDate.of(2020, 12, 31)).build(),
+                        new BinaryTupleBuilder(1).appendDate(LocalDate.of(2021, 1, 1)).build()),
+
+                Arguments.of(NativeTypes.time(6),
+                        new BinaryTupleBuilder(1).appendTime(LocalTime.of(1, 2, 3)).build(),
+                        new BinaryTupleBuilder(1).appendTime(LocalTime.of(3, 2, 1)).build()),
+                Arguments.of(NativeTypes.time(6),
+                        new BinaryTupleBuilder(1).appendTime(LocalTime.of(11, 12, 13)).build(),
+                        new BinaryTupleBuilder(1).appendTime(LocalTime.of(13, 12, 11)).build()),
+
+                Arguments.of(NativeTypes.datetime(6),
+                        new BinaryTupleBuilder(1).appendDateTime(LocalDateTime.of(2021, 1, 1, 1, 2, 3)).build(),
+                        new BinaryTupleBuilder(1).appendDateTime(LocalDateTime.of(2021, 1, 1, 4, 5, 6)).build()),
+                Arguments.of(NativeTypes.datetime(6),
+                        new BinaryTupleBuilder(1).appendDateTime(LocalDateTime.of(2020, 12, 31, 4, 5, 6)).build(),
+                        new BinaryTupleBuilder(1).appendDateTime(LocalDateTime.of(2021, 1, 1, 1, 2, 3)).build())
         );
     }
 
-    private static IgniteBiTuple<ByteBuffer, ByteBuffer> createTestValues(NativeType type) {
-        ByteBuffer tuple1;
-        ByteBuffer tuple2;
+    private static void validate(BinaryTupleComparator comparator, ByteBuffer lesserOne, ByteBuffer greaterOne) {
+        assertThat(comparator.compare(lesserOne, greaterOne), is(lessThanOrEqualTo(-1)));
+        assertThat(comparator.compare(lesserOne, lesserOne), is(0));
+        assertThat(comparator.compare(greaterOne, greaterOne), is(0));
+        assertThat(comparator.compare(greaterOne, lesserOne), is(greaterThanOrEqualTo(1)));
+    }
 
-        switch (type.spec()) {
-            case BOOLEAN: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendBoolean(false)
-                        .build();
+    @ParameterizedTest
+    @MethodSource("singleColumnTuples")
+    public void compareSingleColumnTuples(NativeType type, ByteBuffer lesserOne, ByteBuffer greaterOne) {
+        var comparator = createSingleColumnComparator(type, CatalogColumnCollation.ASC_NULLS_LAST);
+        var reversedComparator = createSingleColumnComparator(type, CatalogColumnCollation.DESC_NULLS_FIRST);
 
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendBoolean(true)
-                        .build();
+        validate(comparator, lesserOne, greaterOne);
+        validate(reversedComparator, greaterOne, lesserOne);
+    }
 
-                break;
-            }
+    @Test
+    public void compareSingleColumnTuplesWithNulls() {
+        var ascNullFirstComparator = createSingleColumnComparator(NativeTypes.INT32, CatalogColumnCollation.ASC_NULLS_FIRST);
+        var ascNullLastComparator = createSingleColumnComparator(NativeTypes.INT32, CatalogColumnCollation.ASC_NULLS_LAST);
+        var descNullFirstComparator = createSingleColumnComparator(NativeTypes.INT32, CatalogColumnCollation.DESC_NULLS_FIRST);
+        var descNullLastComparator = createSingleColumnComparator(NativeTypes.INT32, CatalogColumnCollation.DESC_NULLS_LAST);
 
-            case INT8: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendByte((byte) -1)
-                        .build();
+        ByteBuffer tuple1 = new BinaryTupleBuilder(1)
+                .appendNull()
+                .build();
+        ByteBuffer tuple2 = new BinaryTupleBuilder(1)
+                .appendInt(0)
+                .build();
 
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendByte(Byte.MAX_VALUE)
-                        .build();
-
-                break;
-            }
-
-            case INT16: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendShort((short) -1)
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendShort(Short.MAX_VALUE)
-                        .build();
-
-                break;
-            }
-
-            case INT32: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendInt(-1)
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendInt(Integer.MAX_VALUE)
-                        .build();
-
-                break;
-            }
-
-            case INT64: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendLong(-1)
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendLong(Long.MAX_VALUE)
-                        .build();
-
-                break;
-            }
-
-            case FLOAT: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendFloat(-1.69f)
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendFloat(Float.MAX_VALUE)
-                        .build();
-
-                break;
-            }
-
-            case DOUBLE: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendDouble(-1.69)
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendDouble(Double.MAX_VALUE)
-                        .build();
-
-                break;
-            }
-
-            case BYTES: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendBytes(new byte[]{1, 2, 3})
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendBytes(new byte[]{1, 2, 6})
-                        .build();
-
-                break;
-            }
-
-            case DECIMAL: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendDecimal(BigDecimal.valueOf(-1), 0)
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendDecimal(BigDecimal.valueOf(123456789.12), 2)
-                        .build();
-
-                break;
-            }
-
-            case UUID: {
-                UUID uuid1 = UUID.randomUUID();
-                UUID uuid2 = UUID.randomUUID();
-
-                if (uuid1.compareTo(uuid2) > 0) {
-                    UUID t = uuid1;
-                    uuid1 = uuid2;
-                    uuid2 = t;
-                }
-
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendUuid(uuid1)
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendUuid(uuid2)
-                        .build();
-
-                break;
-            }
-
-            case STRING: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendString("foobar")
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendString("foobaz")
-                        .build();
-
-                break;
-            }
-
-            case TIMESTAMP: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendTimestamp(Instant.ofEpochSecond(1))
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendTimestamp(Instant.ofEpochSecond(42))
-                        .build();
-
-                break;
-            }
-
-            case DATE: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendDate(LocalDate.of(2000, 4, 10))
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendDate(LocalDate.of(2000, 4, 15))
-                        .build();
-
-                break;
-            }
-
-            case TIME: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendTime(LocalTime.of(10, 0, 0))
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendTime(LocalTime.of(10, 0, 1))
-                        .build();
-
-                break;
-            }
-
-            case DATETIME: {
-                tuple1 = new BinaryTupleBuilder(1)
-                        .appendDateTime(LocalDateTime.of(2000, 4, 10, 10, 0, 0))
-                        .build();
-
-                tuple2 = new BinaryTupleBuilder(1)
-                        .appendDateTime(LocalDateTime.of(2000, 4, 10, 10, 0, 1))
-                        .build();
-
-                break;
-            }
-
-            default:
-                throw new AssertionError(type.toString());
-        }
-
-        return new IgniteBiTuple<>(tuple1, tuple2);
+        validate(ascNullFirstComparator, tuple1, tuple2);
+        validate(descNullFirstComparator, tuple1, tuple2);
+        validate(ascNullLastComparator, tuple2, tuple1);
+        validate(descNullLastComparator, tuple2, tuple1);
     }
 
     @Test
     public void testCompareMultipleColumnTuples() {
         var comparator = new BinaryTupleComparator(
                 new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
-                i -> i,
                 new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
         );
 
@@ -302,24 +197,68 @@ public class BinaryTupleComparatorTest {
                 .appendString("foobar")
                 .build();
 
-        assertThat(comparator.compare(tuple1, tuple2), is(lessThanOrEqualTo(-1)));
-        assertThat(comparator.compare(tuple1, tuple1), is(0));
-        assertThat(comparator.compare(tuple2, tuple1), is(greaterThanOrEqualTo(1)));
-
-        tuple2 = new BinaryTupleBuilder(2)
+        ByteBuffer tuple3 = new BinaryTupleBuilder(2)
                 .appendInt(0)
                 .appendString("foobaa")
                 .build();
 
-        assertThat(comparator.compare(tuple1, tuple2), is(lessThanOrEqualTo(-1)));
-        assertThat(comparator.compare(tuple2, tuple1), is(greaterThanOrEqualTo(1)));
+        validate(comparator, tuple1, tuple2);
+        validate(comparator, tuple1, tuple3);
+        validate(comparator, tuple3, tuple2);
+
+        var reversedComparator = new BinaryTupleComparator(
+                new CatalogColumnCollation[]{CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST},
+                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+        );
+
+        validate(reversedComparator, tuple2, tuple1);
+        validate(reversedComparator, tuple3, tuple1);
+        validate(reversedComparator, tuple2, tuple3);
     }
+
+    @Test
+    public void testCompareMultipleColumnTuplesWithMapping() {
+        ByteBuffer tuple1 = new BinaryTupleBuilder(2)
+                .appendInt(0)
+                .appendString("foobar")
+                .build();
+
+        ByteBuffer tuple2 = new BinaryTupleBuilder(2)
+                .appendInt(1)
+                .appendString("foobar")
+                .build();
+
+        ByteBuffer tuple3 = new BinaryTupleBuilder(2)
+                .appendInt(0)
+                .appendString("foobaa")
+                .build();
+
+        var comparator = new BinaryTupleComparator(
+                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
+                IntList.of(1, 0)::getInt,
+                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+        );
+
+        validate(comparator, tuple2, tuple1);
+        validate(comparator, tuple3, tuple1);
+        validate(comparator, tuple3, tuple2);
+
+        var reversedComparator = new BinaryTupleComparator(
+                new CatalogColumnCollation[]{CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST},
+                IntList.of(1, 0)::getInt,
+                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+        );
+
+        validate(reversedComparator, tuple1, tuple2);
+        validate(reversedComparator, tuple1, tuple3);
+        validate(reversedComparator, tuple2, tuple3);
+    }
+
 
     @Test
     public void testCompareMultipleColumnTuplesWithNulls() {
         var comparator = new BinaryTupleComparator(
                 new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
-                i -> i,
                 new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
         );
 
@@ -333,57 +272,112 @@ public class BinaryTupleComparatorTest {
                 .appendString("foobar")
                 .build();
 
-        assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(1)));
-        assertThat(comparator.compare(tuple1, tuple1), is(0));
-        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
-
-        tuple2 = new BinaryTupleBuilder(2)
+        ByteBuffer tuple3 = new BinaryTupleBuilder(2)
                 .appendInt(null)
                 .appendString("foobaa")
                 .build();
 
-        assertThat(comparator.compare(tuple1, tuple2), is(lessThanOrEqualTo(-1)));
-        assertThat(comparator.compare(tuple2, tuple1), is(greaterThanOrEqualTo(1)));
-
-        tuple2 = new BinaryTupleBuilder(2)
+        ByteBuffer tuple4 = new BinaryTupleBuilder(2)
                 .appendInt(null)
                 .appendString(null)
                 .build();
 
-        assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(1)));
-        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
-        assertThat(comparator.compare(tuple2, tuple2), is(0));
+        validate(comparator, tuple2, tuple1);
+        validate(comparator, tuple1, tuple3);
+        validate(comparator, tuple4, tuple1);
     }
 
     @Test
     public void testCompareWithPrefix() {
         var comparator = new BinaryTupleComparator(
-                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
-                i -> i,
+                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST},
                 new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
         );
 
-        ByteBuffer tuple1 = new BinaryTupleBuilder(2)
+        ByteBuffer tuple = new BinaryTupleBuilder(2)
                 .appendInt(1)
                 .appendString("foobar")
                 .build();
 
-        ByteBuffer tuple2 = new BinaryTuplePrefixBuilder(1, 2)
+        ByteBuffer prefix1 = new BinaryTuplePrefixBuilder(1, 2)
                 .appendInt(2)
                 .build();
 
-        assertThat(comparator.compare(tuple1, tuple2), is(lessThanOrEqualTo(-1)));
-        assertThat(comparator.compare(tuple2, tuple1), is(greaterThanOrEqualTo(1)));
-
-        tuple2 = new BinaryTuplePrefixBuilder(1, 2)
+        ByteBuffer prefix2 = new BinaryTuplePrefixBuilder(1, 2)
                 .appendInt(0)
                 .build();
 
-        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
+        ByteBuffer prefix3 = new BinaryTuplePrefixBuilder(1, 2)
+                .appendInt(1)
+                .build();
+
+        assertThat(comparator.compare(tuple, prefix1), is(lessThanOrEqualTo(-1)));
+        assertThat(comparator.compare(prefix1, tuple), is(greaterThanOrEqualTo(1)));
+
+        assertThat(comparator.compare(prefix2, tuple), is(lessThanOrEqualTo(-1)));
+        assertThat(comparator.compare(tuple, prefix2), is(greaterThanOrEqualTo(1)));
+
+        assertThat(comparator.compare(prefix3, tuple), is(lessThanOrEqualTo(-1)));
+        assertThat(comparator.compare(tuple, prefix3), is(greaterThanOrEqualTo(1)));
+
+        setEqualityFlag(prefix3);
+
+        assertThat(comparator.compare(prefix3, tuple), is(lessThanOrEqualTo(1)));
+        assertThat(comparator.compare(tuple, prefix3), is(greaterThanOrEqualTo(-1)));
+    }
+
+    @Test
+    public void compareWithPrefixNotSupportMapping() {
+        var comparator = new BinaryTupleComparator(
+                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST},
+                IntList.of(1)::getInt,
+                new NativeType[]{NativeTypes.STRING, NativeTypes.INT32}
+        );
+
+        ByteBuffer tuple = new BinaryTupleBuilder(2)
+                .appendString("foobar")
+                .appendInt(1)
+                .build();
+
+        ByteBuffer prefix = new BinaryTuplePrefixBuilder(1, 2)
+                .appendInt(2)
+                .build();
+
+        String errorMessage = "prefix comparison doesn't support mapping";
+
+        assertThrows(AssertionError.class, () -> comparator.compare(tuple, prefix), errorMessage);
+        assertThrows(AssertionError.class, () -> comparator.compare(prefix, tuple), errorMessage);
+        assertThrows(AssertionError.class, () -> comparator.compare(prefix, prefix), errorMessage);
+
+        // Ensure equality flag has no effect.
+        setEqualityFlag(prefix);
+
+        assertThrows(AssertionError.class, () -> comparator.compare(tuple, prefix), errorMessage);
+        assertThrows(AssertionError.class, () -> comparator.compare(prefix, tuple), errorMessage);
+        assertThrows(AssertionError.class, () -> comparator.compare(prefix, prefix), errorMessage);
+    }
+
+    @Test
+    public void testCompareWithPrefixWithNulls() {
+        var comparator = new BinaryTupleComparator(
+                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST},
+                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+        );
+
+        ByteBuffer tuple1 = new BinaryTupleBuilder(2)
+                .appendInt(null)
+                .appendString("foobar")
+                .build();
+
+        ByteBuffer tuple2 = new BinaryTuplePrefixBuilder(1, 2)
+                .appendInt(0)
+                .build();
+
         assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(1)));
+        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
 
         tuple2 = new BinaryTuplePrefixBuilder(1, 2)
-                .appendInt(1)
+                .appendInt(null)
                 .build();
 
         assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
@@ -395,37 +389,8 @@ public class BinaryTupleComparatorTest {
         assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(-1)));
     }
 
-    @Test
-    public void testCompareWithPrefixWithNulls() {
-        var comparator = new BinaryTupleComparator(
-                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
-                i -> i,
-                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
-        );
-
-        ByteBuffer tuple1 = new BinaryTupleBuilder(2)
-                .appendInt(null)
-                .appendString("foobar")
-                .build();
-
-        ByteBuffer tuple2 = new BinaryTuplePrefixBuilder(1, 2)
-                .appendInt(0)
-                .build();
-
-        assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(1)));
-        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
-
-        tuple2 = new BinaryTuplePrefixBuilder(1, 2)
-                .appendInt(null)
-                .build();
-
-        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(-1)));
-        assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(1)));
-
-        setEqualityFlag(tuple2);
-
-        assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(1)));
-        assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(-1)));
+    private static @NotNull BinaryTupleComparator createSingleColumnComparator(NativeType type, CatalogColumnCollation collation) {
+        return new BinaryTupleComparator(new CatalogColumnCollation[]{collation}, new NativeType[]{type});
     }
 
     private static void setEqualityFlag(ByteBuffer buffer) {

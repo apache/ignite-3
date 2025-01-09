@@ -41,9 +41,24 @@ import org.apache.ignite.internal.type.NativeTypeSpec;
  */
 @SuppressWarnings("ComparatorNotSerializable")
 public class BinaryTupleComparator implements Comparator<ByteBuffer> {
+    private static final IntUnaryOperator IDENTITY_MAPPING = IntUnaryOperator.identity();
+
     private final NativeType[] columnTypes;
     private final IntUnaryOperator columnMapping;
     private final CatalogColumnCollation[] columnCollations;
+
+    /**
+     * Creates BinaryTuple comparator.
+     *
+     * @param columnCollations Columns collations.
+     * @param columnTypes Column types in order, which is defined in BinaryTuple schema.
+     */
+    public BinaryTupleComparator(
+            CatalogColumnCollation[] columnCollations,
+            NativeType[] columnTypes
+    ) {
+        this(columnCollations, IDENTITY_MAPPING, columnTypes);
+    }
 
     /**
      * Creates BinaryTuple comparator.
@@ -74,6 +89,8 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
 
         BinaryTupleReader tuple1 = isBuffer1Prefix ? new BinaryTuplePrefix(numElements, buffer1) : new BinaryTuple(numElements, buffer1);
         BinaryTupleReader tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(numElements, buffer2) : new BinaryTuple(numElements, buffer2);
+
+        assert columnMapping == IDENTITY_MAPPING || (!isBuffer1Prefix && !isBuffer2Prefix) : "prefix comparison doesn't support mapping";
 
         int columnsToCompare = Math.min(tuple1.elementCount(), tuple2.elementCount());
 

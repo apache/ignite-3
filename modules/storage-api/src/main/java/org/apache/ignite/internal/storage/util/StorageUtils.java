@@ -269,6 +269,6 @@ public class StorageUtils {
 
         NativeType[] columnTypes = columns.stream().map(StorageSortedIndexColumnDescriptor::type).toArray(NativeType[]::new);
 
-        return new BinaryTupleComparator(collations, i -> i, columnTypes);
+        return new BinaryTupleComparator(collations, columnTypes);
     }
 }
