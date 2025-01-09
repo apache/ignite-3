@@ -1,7 +1,6 @@
 package phillippko.org.optimiser;
 
 import static java.lang.System.currentTimeMillis;
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -14,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
@@ -37,9 +37,12 @@ import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbPr
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class OptimiserManager implements IgniteComponent {
     private static final String RESULT_PREFIX = "optimiser.result.";
+    private static final Logger log = LoggerFactory.getLogger(OptimiserManager.class);
     private final ExecutorService threadPool;
     private final MessagingService messagingService;
     private final MetaStorageManager metastorageManager;
@@ -70,6 +73,8 @@ public class OptimiserManager implements IgniteComponent {
     }
 
     public CompletableFuture<UUID> optimise(@Nullable String nodeName, boolean writeIntensive) {
+        log.info("Running optimisation");
+
         UUID id = UUID.randomUUID();
 
         ClusterNode targetNode = getNode(nodeName);
@@ -79,12 +84,13 @@ public class OptimiserManager implements IgniteComponent {
                 .id(id)
                 .build();
 
-        messagingService.invoke(targetNode, message, 10_000);
-
-        return completedFuture(id);
+        return messagingService.send(targetNode, message)
+                .thenApply(ignored -> id);
     }
 
     public CompletableFuture<UUID> runBenchmark(@Nullable String nodeName, String benchmarkFilePath) {
+        log.info("Running a benchmark");
+
         UUID id = UUID.randomUUID();
 
         ClusterNode targetNode = getNode(nodeName);
@@ -94,14 +100,27 @@ public class OptimiserManager implements IgniteComponent {
                 .id(id)
                 .build();
 
-        messagingService.invoke(targetNode, message, 10_000);
-
-        return completedFuture(id);
+        return messagingService.send(targetNode, message)
+                .thenApply(ignored -> id);
     }
 
     public CompletableFuture<String> optimisationResult(UUID id) {
         return metastorageManager.get(ByteArray.fromString(RESULT_PREFIX + id))
-                .thenApply(it -> ByteUtils.stringFromBytes(it.value()));
+                .handle((res, e) ->  {
+                    log.info("Getting info about " + id);
+
+                    if (e != null) {
+                        log.error("Couldn't get result: ", e);
+
+                        throw new CompletionException(e);
+                    }
+
+                    if (res.empty() || res.tombstone()) {
+                        throw new CompletionException(new IllegalArgumentException("Incorrect ID"));
+                    }
+
+                    return "Result: " + ByteUtils.stringFromBytes(res.value());
+                });
     }
 
     @Override
@@ -123,7 +142,9 @@ public class OptimiserManager implements IgniteComponent {
                 .thenApplyAsync((v) -> getIssues(writeIntensive), threadPool)
                 .thenAccept((issues) -> metastorageManager.put(key, stringToBytes(issues)))
                 .exceptionally(e -> {
-                    metastorageManager.put(key, e.getMessage().getBytes());
+                    log.error("Error while optimising: ", e);
+
+                    metastorageManager.put(key, stringToBytes("FAILED. " + e.getMessage()));
 
                     return null;
                 });
@@ -211,6 +232,8 @@ public class OptimiserManager implements IgniteComponent {
         try (var ignored = sql.execute(null, readFromFile(benchmarkFilePath))) {
             return String.valueOf(currentTimeMillis() - atStart);
         } catch (Throwable e) {
+            log.info("Error while running a benchmark: ", e);
+
             return "FAILED: " + e.getMessage();
         }
     }
