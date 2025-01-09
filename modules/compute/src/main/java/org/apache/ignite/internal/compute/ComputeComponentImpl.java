@@ -122,12 +122,12 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     /** {@inheritDoc} */
     @Override
-    public <I, R> JobExecution<R> executeLocally(
+    public JobExecution<ComputeJobDataHolder> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
             @Nullable CancellationToken cancellationToken,
-            I arg
+            @Nullable ComputeJobDataHolder arg
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(
@@ -138,10 +138,10 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         try {
             CompletableFuture<JobContext> classLoaderFut = jobContextManager.acquireClassLoader(units);
 
-            CompletableFuture<JobExecutionInternal<R>> future =
+            CompletableFuture<JobExecutionInternal<ComputeJobDataHolder>> future =
                     mapClassLoaderExceptions(classLoaderFut, jobClassName)
                             .thenApply(context -> {
-                                JobExecutionInternal<R> execution = execJob(context, options, jobClassName, arg);
+                                JobExecutionInternal<ComputeJobDataHolder> execution = execJob(context, options, jobClassName, arg);
                                 execution.resultAsync().whenComplete((result, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -150,7 +150,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             inFlightFutures.registerFuture(future);
             inFlightFutures.registerFuture(classLoaderFut);
 
-            JobExecution<R> result = new DelegatingJobExecution<>(future);
+            JobExecution<ComputeJobDataHolder> result = new DelegatingJobExecution<>(future);
 
             if (cancellationToken != null) {
                 CancelHandleHelper.addCancelAction(cancellationToken, classLoaderFut);
@@ -295,7 +295,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         executor.start();
-        messaging.start(this::executeLocally);
+        messaging.start((options, units, jobClassName, arg) ->
+                executeLocally(options, units, jobClassName, null, arg));
         executionManager.start();
         computeViewProvider.init(executionManager);
 

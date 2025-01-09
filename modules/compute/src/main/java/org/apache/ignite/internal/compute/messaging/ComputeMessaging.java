@@ -200,7 +200,7 @@ public class ComputeMessaging {
     private void processExecuteRequest(JobStarter starter, ExecuteRequest request, ClusterNode sender, long correlationId) {
         List<DeploymentUnit> units = toDeploymentUnit(request.deploymentUnits());
 
-        JobExecution<Object> execution = starter.start(
+        JobExecution<ComputeJobDataHolder> execution = starter.start(
                 request.executeOptions(), units, request.jobClassName(), request.input()
         );
         execution.idAsync().whenComplete((jobId, err) -> sendExecuteResponse(jobId, err, sender, correlationId));
