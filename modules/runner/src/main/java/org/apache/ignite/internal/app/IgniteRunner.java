@@ -20,7 +20,10 @@ package org.apache.ignite.internal.app;
 import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.IgniteServer;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -32,6 +35,8 @@ import picocli.CommandLine.Option;
  */
 @Command(name = "runner")
 public class IgniteRunner implements Callable<IgniteServer> {
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteRunner.class);
+
     @Option(names = "--config-path", description = "Path to node configuration file in HOCON format.", required = true)
     private Path configPath;
 
@@ -68,14 +73,27 @@ public class IgniteRunner implements Callable<IgniteServer> {
      * @param args CLI args to start a new node.
      */
     public static void main(String[] args) {
+        IgniteServer server = start(args);
+        AtomicBoolean shutdown = new AtomicBoolean(false);
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                LOG.info("Ignite node shutting down...");
+                shutdown.set(true);
+                server.shutdown();
+            } catch (Throwable t) {
+                LOG.error("Failed to shutdown", t);
+            }
+        }));
         try {
-            start(args).waitForInitAsync().get();
+            server.waitForInitAsync().get();
         } catch (ExecutionException | InterruptedException e) {
-            System.out.println("Error when starting the node: " + e.getMessage());
+            if (!shutdown.get()) {
+                System.out.println("Error when starting the node: " + e.getMessage());
 
-            e.printStackTrace(System.out);
+                e.printStackTrace(System.out);
 
-            System.exit(1);
+                System.exit(1);
+            }
         }
     }
 }
