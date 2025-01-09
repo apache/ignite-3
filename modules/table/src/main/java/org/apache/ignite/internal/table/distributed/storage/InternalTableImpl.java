@@ -120,6 +120,7 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -543,7 +544,7 @@ public class InternalTableImpl implements InternalTable {
                 (enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                         .groupId(serializeTablePartitionId(partGroupId))
                         .tableId(tableId)
-                        .timestamp(clockService.current())
+                        .timestamp(tx.startTimestamp())
                         .transactionId(tx.id())
                         .scanId(scanId)
                         .indexToUse(indexId)
@@ -903,7 +904,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET)
-                        .timestamp(clockService.current())
+                        .timestamp(txo.startTimestamp())
                         .full(false)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1750,7 +1751,7 @@ public class InternalTableImpl implements InternalTable {
                 ReadWriteScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                         .groupId(serializeTablePartitionId(tablePartitionId))
                         .tableId(tableId)
-                        .timestamp(clockService.current())
+                        .timestamp(TransactionIds.beginTimestamp(txId))
                         .transactionId(txId)
                         .scanId(scanId)
                         .indexToUse(indexId)
