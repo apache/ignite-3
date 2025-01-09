@@ -340,6 +340,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
         Marshaller<T, byte[]> argumentMarshaller = descriptor.argumentMarshaller();
         Marshaller<R, byte[]> resultMarshaller = descriptor.resultMarshaller();
+        ComputeJobDataHolder argHolder = SharedComputeUtils.marshalArgOrResult(args, argumentMarshaller);
 
         return nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
@@ -349,6 +350,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                             if (topologyService.getByConsistentId(node.name()) == null) {
                                 return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
                             }
+
                             return new ResultUnmarshallingJobExecution<>(
                                     new JobExecutionWrapper<>(
                                             executeOnOneNodeWithFailover(
@@ -358,7 +360,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                                     descriptor.jobClassName(),
                                                     descriptor.options(),
                                                     null,
-                                                    SharedComputeUtils.marshalArgOrResult(args, argumentMarshaller))),
+                                                    argHolder)),
                                     resultMarshaller,
                                     descriptor.resultClass());
                         }));
