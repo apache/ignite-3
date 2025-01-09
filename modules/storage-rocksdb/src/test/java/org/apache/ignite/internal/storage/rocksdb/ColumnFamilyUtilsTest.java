@@ -17,17 +17,17 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.comparatorFromCfName;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
@@ -68,23 +68,15 @@ public class ColumnFamilyUtilsTest {
     void testComparatorFromCfName() {
         RocksDbBinaryTupleComparator comparator = comparatorFromCfName(name(3, 0, 2, 1, 1, 2, 0, 3));
 
+        NativeType[] expectedTypes = {NativeTypes.INT64, NativeTypes.INT32, NativeTypes.INT16, NativeTypes.INT8};
+        CatalogColumnCollation[] expectedCollations = {DESC_NULLS_FIRST, DESC_NULLS_FIRST, ASC_NULLS_LAST, ASC_NULLS_LAST};
+
         // I am sorry, this is for a single test only.
-        List<StorageSortedIndexColumnDescriptor> columns = getFieldValue(comparator, "comparator", "columns");
+        NativeType[] columnTypes = getFieldValue(comparator, "comparator", "columnTypes");
+        CatalogColumnCollation[] columnCollations = getFieldValue(comparator, "comparator", "columnCollations");
 
-        assertEquals(NativeTypes.INT64, columns.get(0).type());
-        assertEquals(NativeTypes.INT32, columns.get(1).type());
-        assertEquals(NativeTypes.INT16, columns.get(2).type());
-        assertEquals(NativeTypes.INT8, columns.get(3).type());
-
-        assertFalse(columns.get(0).nullable());
-        assertTrue(columns.get(1).nullable());
-        assertFalse(columns.get(2).nullable());
-        assertTrue(columns.get(3).nullable());
-
-        assertFalse(columns.get(0).asc());
-        assertFalse(columns.get(1).asc());
-        assertTrue(columns.get(2).asc());
-        assertTrue(columns.get(3).asc());
+        assertArrayEquals(expectedTypes, columnTypes);
+        assertArrayEquals(expectedCollations, columnCollations);
     }
 
     private static byte[] name(int... bytes) {
