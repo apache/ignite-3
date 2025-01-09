@@ -43,10 +43,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>If you want to execute a job on node1 and use node2 and node3 as failover candidates,
  * then you should create an instance of this class with workerNode = node1, failoverCandidates = [node2, node3] as arguments and call
  * {@link #failSafeExecute()}.
- *
- * @param <R> the type of the result of the job.
  */
-class ComputeJobFailover<R> {
+class ComputeJobFailover {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeJobFailover.class);
 
     /**
@@ -84,7 +82,7 @@ class ComputeJobFailover<R> {
     /**
      * Context of the called job. Captures deployment units, jobClassName and arguments.
      */
-    private final RemoteExecutionContext<?, R> jobContext;
+    private final RemoteExecutionContext<ComputeJobDataHolder, ComputeJobDataHolder> jobContext;
 
     /** Cancellation token. */
     @Nullable private final CancellationToken cancellationToken;
@@ -132,8 +130,8 @@ class ComputeJobFailover<R> {
      *
      * @return JobExecution with the result of the job and the status of the job.
      */
-    JobExecution<R> failSafeExecute() {
-        JobExecution<R> jobExecution = launchJobOn(runningWorkerNode.get());
+    JobExecution<ComputeJobDataHolder> failSafeExecute() {
+        JobExecution<ComputeJobDataHolder> jobExecution = launchJobOn(runningWorkerNode.get());
         jobContext.initJobExecution(new FailSafeJobExecution<>(jobExecution));
 
         LogicalTopologyEventListener nodeLeftEventListener = new OnNodeLeft();
@@ -143,7 +141,7 @@ class ComputeJobFailover<R> {
         return jobContext.failSafeJobExecution();
     }
 
-    private JobExecution<R> launchJobOn(ClusterNode runningWorkerNode) {
+    private JobExecution<ComputeJobDataHolder> launchJobOn(ClusterNode runningWorkerNode) {
         if (runningWorkerNode.name().equals(topologyService.localMember().name())) {
             return computeComponent.executeLocally(
                     jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), cancellationToken,
@@ -191,7 +189,7 @@ class ComputeJobFailover<R> {
                         LOG.info("Restarting the job {} on node {}.", jobContext.jobClassName(), nextWorker.name());
 
                         runningWorkerNode.set(nextWorker);
-                        JobExecution<R> jobExecution = launchJobOn(runningWorkerNode.get());
+                        JobExecution<ComputeJobDataHolder> jobExecution = launchJobOn(runningWorkerNode.get());
                         jobContext.updateJobExecution(jobExecution);
                     });
         }

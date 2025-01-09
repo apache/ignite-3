@@ -84,10 +84,9 @@ public interface ComputeComponent extends IgniteComponent {
      * @param jobClassName Name of the job class.
      * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Job args.
-     * @param <R> Job result type.
      * @return Job execution object.
      */
-    <R> JobExecution<R> executeRemotely(
+    JobExecution<ComputeJobDataHolder> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
@@ -107,10 +106,9 @@ public interface ComputeComponent extends IgniteComponent {
      * @param jobClassName Name of the job class.
      * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Job args.
-     * @param <R> Job result type.
      * @return Job execution object.
      */
-    <T, R> JobExecution<R> executeRemotelyWithFailover(
+    JobExecution<ComputeJobDataHolder> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,

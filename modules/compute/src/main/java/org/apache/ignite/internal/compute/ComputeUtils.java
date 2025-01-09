@@ -230,16 +230,15 @@ public class ComputeUtils {
      * Extract Compute job result from execute response.
      *
      * @param jobResultResponse Job execution result message response.
-     * @param <R> Compute job return type.
      * @return Completable future with result.
      */
-    public static <R> CompletableFuture<R> resultFromJobResultResponse(JobResultResponse jobResultResponse) {
+    public static  CompletableFuture<ComputeJobDataHolder> resultFromJobResultResponse(JobResultResponse jobResultResponse) {
         Throwable throwable = jobResultResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
         }
 
-        return completedFuture((R) jobResultResponse.result());
+        return completedFuture(jobResultResponse.result());
     }
 
     /**

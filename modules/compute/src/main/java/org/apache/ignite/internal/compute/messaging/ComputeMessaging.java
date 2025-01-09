@@ -220,10 +220,9 @@ public class ComputeMessaging {
      *
      * @param remoteNode The job will be executed on this node.
      * @param jobId Job id.
-     * @param <R> Job result type
      * @return Job result.
      */
-    public <R> CompletableFuture<R> remoteJobResultRequestAsync(ClusterNode remoteNode, UUID jobId) {
+    public CompletableFuture<ComputeJobDataHolder> remoteJobResultRequestAsync(ClusterNode remoteNode, UUID jobId) {
         JobResultRequest jobResultRequest = messagesFactory.jobResultRequest()
                 .jobId(jobId)
                 .build();
@@ -237,7 +236,11 @@ public class ComputeMessaging {
                 .whenComplete((result, err) -> sendJobResultResponse(result, err, sender, correlationId));
     }
 
-    private void sendJobResultResponse(@Nullable ComputeJobDataHolder result, @Nullable Throwable ex, ClusterNode sender, long correlationId) {
+    private void sendJobResultResponse(
+            @Nullable ComputeJobDataHolder result,
+            @Nullable Throwable ex,
+            ClusterNode sender,
+            long correlationId) {
         JobResultResponse jobResultResponse = messagesFactory.jobResultResponse()
                 .result(result)
                 .throwable(ex)

@@ -234,7 +234,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return iterator.next();
     }
 
-    private <T, R> JobExecution<R> executeOnOneNodeWithFailover(
+    private JobExecution<ComputeJobDataHolder> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,

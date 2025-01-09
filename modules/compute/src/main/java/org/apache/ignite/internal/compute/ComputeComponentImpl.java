@@ -200,7 +200,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeRemotely(
+    public JobExecution<ComputeJobDataHolder> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
@@ -216,12 +216,14 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
         try {
             CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(options, remoteNode, units, jobClassName, arg);
-            CompletableFuture<R> resultFuture = jobIdFuture.thenCompose(jobId -> messaging.remoteJobResultRequestAsync(remoteNode, jobId));
+            CompletableFuture<ComputeJobDataHolder> resultFuture = jobIdFuture.thenCompose(
+                    jobId -> messaging.remoteJobResultRequestAsync(remoteNode, jobId));
 
             inFlightFutures.registerFuture(jobIdFuture);
             inFlightFutures.registerFuture(resultFuture);
 
-            JobExecution<R> result = new RemoteJobExecution<>(remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging);
+            JobExecution<ComputeJobDataHolder> result = new RemoteJobExecution<>(
+                    remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging);
 
             if (cancellationToken != null) {
                 CancelHandleHelper.addCancelAction(cancellationToken, result::cancelAsync, result.resultAsync());
@@ -235,7 +237,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     }
 
     @Override
-    public <T, R> JobExecution<R> executeRemotelyWithFailover(
+    public JobExecution<ComputeJobDataHolder> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
@@ -244,7 +246,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             @Nullable CancellationToken cancellationToken,
             @Nullable ComputeJobDataHolder arg
     ) {
-        JobExecution<R> result = (JobExecution<R>) new ComputeJobFailover<>(
+        JobExecution<ComputeJobDataHolder> result = new ComputeJobFailover(
                 this, logicalTopologyService, topologyService,
                 remoteNode, nextWorkerSelector, failoverExecutor, units,
                 jobClassName, options, cancellationToken, arg
