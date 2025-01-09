@@ -81,7 +81,7 @@ public class LogManagerImpl implements LogManager {
     private LogId diskId = new LogId(0, 0); // Last log entry written to disk.
     private LogId appliedId = new LogId(0, 0);
     private final SegmentList<LogEntry> logsInMemory = new SegmentList<>(true);
-    private final TermCache termCache = new TermCache(2);
+    private final TermCache termCache = new TermCache(8);
     private volatile long firstLogIndex;
     private volatile long lastLogIndex;
     private volatile LogId lastSnapshotId = new LogId(0, 0);
