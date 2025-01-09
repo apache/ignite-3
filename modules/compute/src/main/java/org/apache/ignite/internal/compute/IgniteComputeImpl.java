@@ -141,14 +141,14 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             if (mapper != null) {
                 jobFut = requiredTable(tableName)
                         .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, mapper)
-                                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                                .thenApply(primaryNode -> new ResultUnmarshallingJobExecution<>(executeOnOneNodeWithFailover(
                                         primaryNode,
                                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, mapper),
                                         descriptor.units(),
                                         descriptor.jobClassName(),
                                         descriptor.options(), cancellationToken,
                                         SharedComputeUtils.marshalArgOrResult(args, argumentMarshaller)
-                                )));
+                                ), resultMarshaller, descriptor.resultClass())));
 
             } else {
                 jobFut = requiredTable(tableName)
@@ -163,7 +163,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         .thenApply(job -> (JobExecution<R>) job);
             }
 
-            return new ResultUnmarshallingJobExecution<>(new JobExecutionFutureWrapper<>(jobFut), resultMarshaller);
+            return new ResultUnmarshallingJobExecution<>(new JobExecutionFutureWrapper<>(jobFut), resultMarshaller, descriptor.resultClass());
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
