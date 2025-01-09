@@ -143,62 +143,60 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @Test
     void retryJobFail() {
-        AtomicInteger runTimes = new AtomicInteger();
-
         int maxRetries = 5;
+        RetryJobFail.runTimes.set(0);
 
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobFail.class,
                 null,
-                new Object[]{runTimes}
+                null
         );
 
         await().until(execution::state, jobStateWithStatus(FAILED));
 
-        assertThat(runTimes.get(), is(maxRetries + 1));
+        assertThat(RetryJobFail.runTimes.get(), is(maxRetries + 1));
     }
 
-    private static class RetryJobFail implements ComputeJob<Object[], Integer> {
+    private static class RetryJobFail implements ComputeJob<Object, Integer> {
+        static final AtomicInteger runTimes = new AtomicInteger();
 
         @Override
-        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
-            AtomicInteger runTimes = (AtomicInteger) args[0];
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object args) {
             runTimes.incrementAndGet();
+
             throw new RuntimeException();
         }
     }
 
     @Test
     void retryJobSuccess() {
-        AtomicInteger runTimes = new AtomicInteger();
-
         int maxRetries = 5;
+        RetryJobSuccess.runTimes.set(0);
 
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobSuccess.class,
                 null,
-                new Object[]{
-                        runTimes,
-                        maxRetries
-                }
+                null
         );
 
         await().until(execution::state, jobStateWithStatus(COMPLETED));
 
-        assertThat(runTimes.get(), is(maxRetries + 1));
+        assertThat(RetryJobSuccess.runTimes.get(), is(maxRetries + 1));
     }
 
-    private static class RetryJobSuccess implements ComputeJob<Object[], Integer> {
+    private static class RetryJobSuccess implements ComputeJob<Integer, Integer> {
+        static final AtomicInteger runTimes = new AtomicInteger();
 
         @Override
-        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object... args) {
-            AtomicInteger runTimes = (AtomicInteger) args[0];
-            int maxRetries = (int) args[1];
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Integer args) {
+            int maxRetries = args;
+
             if (runTimes.incrementAndGet() <= maxRetries) {
                 throw new RuntimeException();
             }
+
             return completedFuture(0);
         }
 
@@ -206,27 +204,27 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @Test
     void runJobOnce() {
-        AtomicInteger runTimes = new AtomicInteger();
-
         int maxRetries = 5;
+        JobSuccess.runTimes.set(0);
 
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 JobSuccess.class,
                 null,
-                runTimes
+                null
         );
 
         await().until(execution::state, jobStateWithStatus(COMPLETED));
 
         assertThat(execution.resultAsync(), willBe(1));
-        assertThat(runTimes.get(), is(1));
+        assertThat(JobSuccess.runTimes.get(), is(1));
     }
 
-    private static class JobSuccess implements ComputeJob<AtomicInteger, Integer> {
+    private static class JobSuccess implements ComputeJob<Object, Integer> {
+        static final AtomicInteger runTimes = new AtomicInteger();
 
         @Override
-        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, AtomicInteger runTimes) {
+        public CompletableFuture<Integer> executeAsync(JobExecutionContext context, Object arg) {
             return completedFuture(runTimes.incrementAndGet());
         }
     }

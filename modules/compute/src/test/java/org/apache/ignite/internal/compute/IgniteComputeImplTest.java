@@ -123,7 +123,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, null, "a");
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, null, null);
     }
 
     @Test
@@ -161,7 +161,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, null, "a");
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, null, null);
     }
 
     @Test
@@ -193,7 +193,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, null, "a");
+        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, null, null);
     }
 
     @Test
@@ -268,24 +268,24 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
-        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, null, "a"))
-                .thenReturn(completedExecution("jobResponse"));
+        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, null, null))
+                .thenReturn(completedExecution(SharedComputeUtils.marshalArgOrResult("jobResponse", null)));
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions, CancellationToken token) {
-        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, token, "a"))
-                .thenReturn(completedExecution("jobResponse"));
+        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, token, null))
+                .thenReturn(completedExecution(SharedComputeUtils.marshalArgOrResult("jobResponse", null)));
     }
 
     private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
         when(computeComponent.executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), isNull(), eq("a")
-        )).thenReturn(completedExecution("remoteResponse"));
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), isNull(), eq(null)
+        )).thenReturn(completedExecution(SharedComputeUtils.marshalArgOrResult("jobResponse", null)));
     }
 
     private void verifyExecuteRemotelyWithFailover(ExecutionOptions options) {
         verify(computeComponent).executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), isNull(), eq("a")
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), isNull(), eq(null)
         );
     }
 
