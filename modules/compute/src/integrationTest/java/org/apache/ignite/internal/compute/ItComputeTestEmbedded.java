@@ -73,7 +73,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 @SuppressWarnings({"NewClassNamingConvention"})
 class ItComputeTestEmbedded extends ItComputeBaseTest {
-
     @Override
     protected List<DeploymentUnit> units() {
         return List.of();
@@ -180,30 +179,34 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         assertThat(execution2.cancelAsync(), willBe(true));
     }
 
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     @Test
     void shouldNotConvertIgniteException() {
         Ignite entryNode = node(0);
 
         IgniteException exception = new IgniteException(INTERNAL_ERR, "Test exception");
+        CustomFailingJob.th = exception;
 
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
                 JobTarget.node(clusterNode(entryNode)),
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
-                exception));
+                null));
 
         assertPublicException(ex, exception.code(), exception.getMessage());
     }
 
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     @Test
     void shouldNotConvertIgniteCheckedException() {
         Ignite entryNode = node(0);
 
         IgniteCheckedException exception = new IgniteCheckedException(INTERNAL_ERR, "Test exception");
+        CustomFailingJob.th = exception;
 
         IgniteCheckedException ex = assertThrows(IgniteCheckedException.class, () -> entryNode.compute().execute(
                 JobTarget.node(clusterNode(entryNode)),
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
-                exception));
+                null));
 
         assertPublicCheckedException(ex, exception.code(), exception.getMessage());
     }
@@ -217,15 +220,18 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         );
     }
 
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     @ParameterizedTest
     @MethodSource("privateExceptions")
     void shouldConvertToComputeException(Throwable throwable) {
         Ignite entryNode = node(0);
 
+        CustomFailingJob.th = throwable;
+
         IgniteException ex = assertThrows(IgniteException.class, () -> entryNode.compute().execute(
                 JobTarget.node(clusterNode(entryNode)),
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
-                throwable));
+                null));
 
         assertComputeException(ex, throwable);
     }
@@ -292,9 +298,11 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         return IntStream.range(0, initialNodes()).mapToObj(Arguments::of);
     }
 
-    private static class CustomFailingJob implements ComputeJob<Throwable, String> {
+    private static class CustomFailingJob implements ComputeJob<Integer, String> {
+        static Throwable th;
+
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Throwable th) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Integer arg) {
             throw ExceptionUtils.sneakyThrow(th);
         }
     }
