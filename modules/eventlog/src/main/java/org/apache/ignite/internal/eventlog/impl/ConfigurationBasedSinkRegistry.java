@@ -53,8 +53,7 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
 
     @Override
     public Set<Sink<?>> findAllByChannel(String channel) {
-        Set<Sink<?>> sinks = cacheByChannel.get(channel);
-        return sinks == null ? Set.of() : new HashSet<>(sinks);
+        return cacheByChannel.get(channel);
     }
 
     private class CacheUpdater implements ConfigurationListener<NamedListView<SinkView>> {

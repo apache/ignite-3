@@ -57,12 +57,7 @@ class ConfigurationBasedChannelRegistry implements ChannelRegistry {
     @Override
     @Nullable
     public Set<EventChannel> findAllChannelsByEventType(String igniteEventType) {
-        Set<EventChannel> result = typeCache.get(igniteEventType);
-        if (result == null) {
-            return null;
-        }
-
-        return new HashSet<>(result);
+        return typeCache.get(igniteEventType);
     }
 
     private class CacheUpdater implements ConfigurationListener<NamedListView<ChannelView>> {
