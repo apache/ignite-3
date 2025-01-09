@@ -64,7 +64,7 @@ public class ClientComputeExecuteColocatedRequest {
 
             out.packInt(table.schemaView().lastKnownSchemaVersion());
 
-            CompletableFuture<JobExecution<Object>> jobExecutionFut = compute.submitColocatedInternal(
+            CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
                     table,
                     keyTuple,
                     deploymentUnits,
