@@ -94,17 +94,13 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         Marshaller<T, byte[]> inputMarshaller = jobInstance.inputMarshaller();
         Marshaller<R, byte[]> resultMarshaller = jobInstance.resultMarshaller();
 
-        // If input is of this type, this means that the request came from the thin client and packing the result to the byte array will be
-        // needed in any case. In order to minimize conversion, marshal the result here.
-        boolean marshalResult = input instanceof ComputeJobDataHolder;
-
         QueueExecution<R> execution = executorService.submit(
                 unmarshalExecMarshal(input, jobClass, jobInstance, context, inputMarshaller),
                 options.priority(),
                 options.maxRetries()
         );
 
-        return new JobExecutionInternal<>(execution, isInterrupted, resultMarshaller, marshalResult);
+        return new JobExecutionInternal<>(execution, isInterrupted, resultMarshaller, true);
     }
 
     private static <T, R> Callable<CompletableFuture<R>> unmarshalExecMarshal(
