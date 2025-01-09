@@ -73,7 +73,7 @@ public class ClientComputeExecuteColocatedRequest {
                     null,
                     args);
 
-            var jobExecution = compute.wrapJobExecutionFuture(jobExecutionFut);
+            JobExecution<ComputeJobDataHolder> jobExecution = compute.wrapJobExecutionFuture(jobExecutionFut);
 
             sendResultAndState(jobExecution, notificationSender);
 
