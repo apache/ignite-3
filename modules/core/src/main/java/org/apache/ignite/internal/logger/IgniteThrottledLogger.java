@@ -20,17 +20,22 @@ package org.apache.ignite.internal.logger;
 import java.lang.System.Logger.Level;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * {@link IgniteLogger} throttle.
  *
- * <p>Messages are logged only if they were not logged for the last {@link #THROTTLE_TIMEOUT_MILLIS} milliseconds. Note that not only error
- * messages are checked for duplicates, but also exception classes if present.</p>
+ * <p>Messages are logged only if they were not logged recently. The interval of message appears is {@link this#DEFAULT_THROTTLE_TIMEOUT}
+ * by default or can be configured through the JVM property {@link this#THROTTLE_TIMEOUT_MILLIS}.
+ * Note that not only error messages are checked for duplicates, but also exception classes if present.</p>
  */
 public interface IgniteThrottledLogger extends IgniteLogger {
-    /** Throttle timeout in milliseconds (value is 5 min). */
-    long THROTTLE_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(5);
+    /** JVM property to configure a throttle interval. */
+    String THROTTLE_TIMEOUT_MILLIS = "IGNITE_THROTTLE_TIMEOUT_MILLIS";
+
+    /** Default throttle timeout in milliseconds (value is 5 min). */
+    long DEFAULT_THROTTLE_TIMEOUT = TimeUnit.MINUTES.toMillis(5);
 
     /**
      * Logs a message on {@link Level#INFO} level composed from args with given format.
