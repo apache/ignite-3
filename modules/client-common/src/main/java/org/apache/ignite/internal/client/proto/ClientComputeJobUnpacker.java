@@ -21,18 +21,14 @@ import static org.apache.ignite.internal.compute.PojoConverter.fromTuple;
 import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
 
 import java.lang.reflect.InvocationTargetException;
-import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.internal.compute.PojoConversionException;
+import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnmarshallingException;
-import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /** Unpacks job results. */
@@ -93,26 +89,8 @@ public final class ClientComputeJobUnpacker {
                 }
                 return unpackPojo(unpacker, resultClass);
 
-            case TUPLE_COLLECTION: {
-                // TODO: IGNITE-24059 Deduplicate with ComputeUtils.
-                ByteBuffer collectionBuf = unpacker.readBinaryUnsafe().order(ByteOrder.LITTLE_ENDIAN);
-                int count = collectionBuf.getInt();
-                BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf.slice().order(ByteOrder.LITTLE_ENDIAN));
-
-                List<Tuple> res = new ArrayList<>(count);
-                for (int i = 0; i < count; i++) {
-                    ByteBuffer elementBytes = reader.bytesValueAsBuffer(i);
-
-                    if (elementBytes == null) {
-                        res.add(null);
-                        continue;
-                    }
-
-                    res.add(TupleWithSchemaMarshalling.unmarshal(elementBytes));
-                }
-
-                return res;
-            }
+            case TUPLE_COLLECTION:
+                return SharedComputeUtils.readTupleCollection(unpacker.readBinaryUnsafe().order(ByteOrder.LITTLE_ENDIAN));
 
             default:
                 throw new UnmarshallingException("Unsupported compute job type: " + type);

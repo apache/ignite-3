@@ -36,7 +36,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -470,26 +469,8 @@ public class ComputeUtils {
                     throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller", ex);
                 }
 
-            case TUPLE_COLLECTION: {
-                // TODO: IGNITE-24059 Deduplicate with ClientComputeJobUnpacker.
-                ByteBuffer collectionBuf = ByteBuffer.wrap(argumentHolder.data()).order(ByteOrder.LITTLE_ENDIAN);
-                int count = collectionBuf.getInt();
-                BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf.slice().order(ByteOrder.LITTLE_ENDIAN));
-
-                List<Tuple> res = new ArrayList<>(count);
-                for (int i = 0; i < count; i++) {
-                    ByteBuffer elementBytes = reader.bytesValueAsBuffer(i);
-
-                    if (elementBytes == null) {
-                        res.add(null);
-                        continue;
-                    }
-
-                    res.add(TupleWithSchemaMarshalling.unmarshal(elementBytes));
-                }
-
-                return (T) res;
-            }
+            case TUPLE_COLLECTION:
+                return (T) SharedComputeUtils.readTupleCollection(ByteBuffer.wrap(argumentHolder.data()).order(ByteOrder.LITTLE_ENDIAN));
 
             default:
                 throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Unexpected job argument type: " + type);
@@ -550,7 +531,7 @@ public class ComputeUtils {
             Collection<?> col = (Collection<?>) result;
 
             // Pack entire collection into a single binary blob, starting with the number of elements (4 bytes, little-endian).
-            BinaryTupleBuilder tupleBuilder = SharedComputeUtils.packCollectionToBinaryTuple(col);
+            BinaryTupleBuilder tupleBuilder = SharedComputeUtils.writeTupleCollection(col);
 
             ByteBuffer binTupleBytes = tupleBuilder.build();
 

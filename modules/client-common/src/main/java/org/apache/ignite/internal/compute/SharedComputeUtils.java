@@ -17,14 +17,19 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.marshalling.MarshallingException;
 import org.apache.ignite.table.Tuple;
 
 public class SharedComputeUtils {
-    public static BinaryTupleBuilder packCollectionToBinaryTuple(Collection<?> col) {
+    public static BinaryTupleBuilder writeTupleCollection(Collection<?> col) {
         BinaryTupleBuilder builder = new BinaryTupleBuilder(col.size());
 
         for (Object el : col) {
@@ -41,5 +46,24 @@ public class SharedComputeUtils {
         }
 
         return builder;
+    }
+
+    public static List<Tuple> readTupleCollection(ByteBuffer collectionBuf) {
+        int count = collectionBuf.getInt();
+        BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf.slice().order(ByteOrder.LITTLE_ENDIAN));
+
+        List<Tuple> res = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            ByteBuffer elementBytes = reader.bytesValueAsBuffer(i);
+
+            if (elementBytes == null) {
+                res.add(null);
+                continue;
+            }
+
+            res.add(TupleWithSchemaMarshalling.unmarshal(elementBytes));
+        }
+
+        return res;
     }
 }
