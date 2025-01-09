@@ -242,7 +242,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             String jobClassName,
             ExecutionOptions options,
             @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable ComputeJobDataHolder arg
     ) {
         JobExecution<R> result = (JobExecution<R>) new ComputeJobFailover<>(
                 this, logicalTopologyService, topologyService,

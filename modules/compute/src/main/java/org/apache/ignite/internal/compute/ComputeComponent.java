@@ -117,7 +117,7 @@ public interface ComputeComponent extends IgniteComponent {
             String jobClassName,
             ExecutionOptions options,
             @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable ComputeJobDataHolder arg
     );
 
     /**

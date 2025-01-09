@@ -57,7 +57,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
             String jobClassName,
             JobExecutionOptions options,
             @Nullable CancellationToken cancellationToken,
-            @Nullable Object payload
+            @Nullable ComputeJobDataHolder payload
     );
 
     /**
@@ -81,7 +81,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
             String jobClassName,
             JobExecutionOptions options,
             @Nullable CancellationToken cancellationToken,
-            Object payload);
+            ComputeJobDataHolder payload);
 
     /**
      * Wraps the given future into a job execution object.

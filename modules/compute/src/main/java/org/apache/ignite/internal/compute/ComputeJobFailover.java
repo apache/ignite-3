@@ -115,7 +115,7 @@ class ComputeJobFailover<R> {
             String jobClassName,
             ExecutionOptions executionOptions,
             @Nullable CancellationToken cancellationToken,
-            Object args
+            ComputeJobDataHolder args
     ) {
         this.computeComponent = computeComponent;
         this.runningWorkerNode = new AtomicReference<>(workerNode);
