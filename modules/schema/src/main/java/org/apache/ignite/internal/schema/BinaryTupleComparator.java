@@ -29,7 +29,6 @@ import java.util.Comparator;
 import java.util.function.IntUnaryOperator;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
-import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 
@@ -45,7 +44,6 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
     private final NativeType[] columnTypes;
     private final IntUnaryOperator columnMapping;
     private final CatalogColumnCollation[] columnCollations;
-    private final boolean reversed;
 
     /**
      * Creates BinaryTuple comparator.
@@ -59,26 +57,9 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
             IntUnaryOperator columnMapping,
             NativeType[] columnTypes
     ) {
-        this(columnCollations, columnMapping, columnTypes, false);
-    }
-
-    private BinaryTupleComparator(
-            CatalogColumnCollation[] columnCollations,
-            IntUnaryOperator columnMapping,
-            NativeType[] columnTypes,
-            boolean reversed
-    ) {
         this.columnMapping = columnMapping;
         this.columnCollations = columnCollations;
         this.columnTypes = columnTypes;
-        this.reversed = reversed;
-    }
-
-    /**
-     * Returns a comparator that imposes the reverse ordering of this comparator.
-     */
-    public BinaryTupleComparator reverse() {
-        return new BinaryTupleComparator(columnCollations, columnMapping, columnTypes, !reversed);
     }
 
     @Override
@@ -109,16 +90,21 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
             if (tuple1HasNull && tuple2HasNull) {
                 continue;
             } else if (tuple1HasNull || tuple2HasNull) {
-                int nullComparison = (collation.nullsFirst() ^ reversed) ? -1 : 1;
-
-                return tuple1HasNull ? nullComparison : -nullComparison;
+                assert tuple1HasNull ^ tuple2HasNull;
+                // The next statement equals to:
+                // if (collation.nullsFirst())
+                //    return tuple1HasNull ? -1 : 1;
+                // else // NULLS_LAST
+                //    return tuple1HasNull ? 1 : -1;
+                //
+                return (collation.nullsFirst() ^ tuple1HasNull) ? 1 : -1;
             }
 
             NativeType nativeType = columnTypes[colIdx];
             int res = compareField(tuple1, tuple2, nativeType, colIdx);
 
             if (res != 0) {
-                return (collation.asc() ^ reversed) ? res : -res;
+                return collation.asc() ? res : -res;
             }
         }
 
@@ -203,6 +189,6 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
     }
 
     private int equalityFlag(ByteBuffer tuple) {
-        return isFlagSet(tuple, EQUALITY_FLAG) ^ reversed ? 1 : -1;
+        return isFlagSet(tuple, EQUALITY_FLAG) ? 1 : -1;
     }
 }
