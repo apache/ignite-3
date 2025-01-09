@@ -15,21 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.task;
+package org.apache.ignite.compute;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.task.MapReduceJob;
+import java.util.Objects;
+import java.util.Set;
+import org.apache.ignite.network.ClusterNode;
 
 /**
- * Compute job submitter.
+ * Any node execution target. Indicates any node from the provided set.
  */
-@FunctionalInterface
-public interface JobSubmitter<T, R> {
-    /**
-     * Submits compute job for an execution.
-     *
-     * @param computeJobRunner Computer job start parameters.
-     */
-    CompletableFuture<JobExecution<R>> submit(MapReduceJob<T, R> computeJobRunner);
+public class AllNodesBroadcastJobTarget implements BroadcastJobTarget {
+    private final Set<ClusterNode> nodes;
+
+    AllNodesBroadcastJobTarget(Set<ClusterNode> nodes) {
+        Objects.requireNonNull(nodes);
+
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("Nodes collection must not be empty.");
+        }
+
+        this.nodes = nodes;
+    }
+
+    public Set<ClusterNode> nodes() {
+        return nodes;
+    }
 }

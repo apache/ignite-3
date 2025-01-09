@@ -42,6 +42,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.AnyNodeJobTarget;
+import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
@@ -112,8 +113,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         tables.setStreamerReceiverRunner(this);
     }
 
-    <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T args) {
+    @Override
+    public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T args
+    ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
@@ -123,13 +129,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
-            return new ResultUnmarshallingJobExecution<>(
+            return completedFuture(new ResultUnmarshallingJobExecution<>(
                     executeAsyncWithFailover(
                             nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), cancellationToken,
                             tryMarshalOrCast(argumentMarshaller, args)
                     ),
                     resultMarshaller
-            );
+            ));
         }
 
         if (target instanceof ColocatedJobTarget) {
@@ -164,21 +170,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         .thenApply(job -> (JobExecution<R>) job);
             }
 
-            return new ResultUnmarshallingJobExecution<>(new JobExecutionFutureWrapper<>(jobFut), resultMarshaller);
+            return completedFuture(new ResultUnmarshallingJobExecution<>(new JobExecutionFutureWrapper<>(jobFut), resultMarshaller));
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
-    }
-
-    @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
-        return submit(target, descriptor, null, arg);
-    }
-
-    @Override
-    public <T, R> CompletableFuture<R> executeAsync(JobTarget target, JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submit(target, descriptor, cancellationToken, arg).resultAsync();
     }
 
     @Override
@@ -330,10 +325,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+    public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
-            T args
+            @Nullable CancellationToken cancellationToken,
+            T arg
     ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
@@ -341,7 +337,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         Marshaller<T, byte[]> argumentMarshaller = descriptor.argumentMarshaller();
         Marshaller<R, byte[]> resultMarshaller = descriptor.resultMarshaller();
 
-        return nodes.stream()
+        return completedFuture(new BroadcastJobExecutionImpl<>(nodes.stream()
                 .collect(toUnmodifiableMap(identity(),
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
                         // if worker node has left the cluster.
@@ -354,9 +350,22 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                             executeOnOneNodeWithFailover(
                                                     node, CompletableFutures::nullCompletedFuture,
                                                     descriptor.units(), descriptor.jobClassName(),
-                                                    descriptor.options(), null, tryMarshalOrCast(argumentMarshaller, args))),
-                                    resultMarshaller);
-                        }));
+                                                    descriptor.options(), cancellationToken, tryMarshalOrCast(argumentMarshaller, arg)
+                                            )
+                                    ),
+                                    resultMarshaller
+                            );
+                        }))));
+    }
+
+    @Override
+    public <T, R> Map<ClusterNode, R> executeBroadcast(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return sync(executeBroadcastAsync(nodes, descriptor, cancellationToken, arg));
     }
 
     @Override
@@ -389,8 +398,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
     }
 
-    private <M, T> JobExecution<T> submitJob(MapReduceJob<M, T> runner) {
-        return submit(JobTarget.anyNode(runner.nodes()), runner.jobDescriptor(), runner.arg());
+    private <M, T> CompletableFuture<JobExecution<T>> submitJob(MapReduceJob<M, T> runner) {
+        return submitAsync(JobTarget.anyNode(runner.nodes()), runner.jobDescriptor(), runner.arg());
     }
 
     @Override

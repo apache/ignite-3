@@ -122,7 +122,7 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
                 0
         );
 
-        executionsFuture = splitExecution.resultAsync().thenApply(splitResult -> {
+        executionsFuture = splitExecution.resultAsync().thenCompose(splitResult -> {
             List<MapReduceJob<M, T>> runners = splitResult.runners();
             LOG.debug("Submitting {} jobs for {}", runners.size(), taskClass.getName());
             return submit(runners, jobSubmitter);
@@ -303,10 +303,12 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
         });
     }
 
-    private static <M, T> List<JobExecution<T>> submit(List<MapReduceJob<M, T>> runners, JobSubmitter<M, T> jobSubmitter) {
-        return runners.stream()
-                .map(jobSubmitter::submit)
-                .collect(toList());
+    private static <M, T> CompletableFuture<List<JobExecution<T>>> submit(List<MapReduceJob<M, T>> runners, JobSubmitter<M, T> jobSubmitter) {
+        return allOfToList(
+                runners.stream()
+                        .map(jobSubmitter::submit)
+                        .toArray(CompletableFuture[]::new)
+        );
     }
 
     @Override

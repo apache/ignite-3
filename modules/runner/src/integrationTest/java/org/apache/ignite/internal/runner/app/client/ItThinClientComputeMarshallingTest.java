@@ -26,15 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.JobDescriptor;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.internal.runner.app.Jobs.ArgMarshallingJob;
@@ -235,16 +232,14 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     @Test
     void submitBroadcast() {
         // When.
-        Map<ClusterNode, String> result = client().compute().submitBroadcast(
+        Map<ClusterNode, String> result = client().compute().submitAsync(
                 Set.of(node(0), node(1)),
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
                 "Input"
-        ).entrySet().stream().collect(
-                Collectors.toMap(Entry::getKey, ItThinClientComputeMarshallingTest::extractResult, (v, i) -> v)
-        );
+        ).thenCompose(BroadcastExecution::resultsAsync).join();
 
         // Then.
         Map<ClusterNode, String> resultExpected = Map.of(
@@ -253,14 +248,6 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         );
 
         assertEquals(resultExpected, result);
-    }
-
-    private static String extractResult(Entry<ClusterNode, JobExecution<String>> e) {
-        try {
-            return e.getValue().resultAsync().get();
-        } catch (InterruptedException | ExecutionException ex) {
-            throw new RuntimeException(ex);
-        }
     }
 
     @Test

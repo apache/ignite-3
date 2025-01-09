@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.cancel
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.completed;
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.executing;
 import static org.apache.ignite.internal.rest.matcher.RestJobStateMatcher.queued;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -309,7 +310,10 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static JobExecution<String> runBlockingJob(Ignite entryNode, Set<ClusterNode> nodes) {
-        return entryNode.compute().submit(JobTarget.anyNode(nodes), JobDescriptor.builder(BlockingJob.class).build(), null);
+        CompletableFuture<JobExecution<String>> executionFut = entryNode.compute()
+                .submitAsync(JobTarget.anyNode(nodes), JobDescriptor.builder(BlockingJob.class).build(), null);
+        assertThat(executionFut, willCompleteSuccessfully());
+        return executionFut.join();
     }
 
     private static void unblockJob() {

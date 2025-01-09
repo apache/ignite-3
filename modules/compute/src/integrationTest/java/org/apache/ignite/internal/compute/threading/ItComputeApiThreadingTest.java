@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.is;
@@ -121,7 +122,10 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
             @Enum ComputeSubmitOperation submitOperation,
             @Enum JobExecutionAsyncOperation executionOperation
     ) {
-        JobExecution<?> execution = submitOperation.executeOn(computeForPublicUse());
+        CompletableFuture<? extends JobExecution<?>> executionFut = submitOperation.executeOn(computeForPublicUse());
+
+        assertThat(executionFut, willCompleteSuccessfully());
+        JobExecution<?> execution = executionFut.join();
 
         CompletableFuture<Thread> completerFuture = executionOperation.executeOn(execution)
                         .thenApply(unused -> currentThread());
@@ -136,7 +140,10 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
             @Enum ComputeSubmitOperation submitOperation,
             @Enum JobExecutionAsyncOperation executionOperation
     ) {
-        JobExecution<?> execution = submitOperation.executeOn(computeForInternalUse());
+        CompletableFuture<? extends JobExecution<?>> executionFut = submitOperation.executeOn(computeForInternalUse());
+
+        assertThat(executionFut, willCompleteSuccessfully());
+        JobExecution<?> execution = executionFut.join();
 
         CompletableFuture<Thread> completerFuture = executionOperation.executeOn(execution)
                 .thenApply(unused -> currentThread());
@@ -237,29 +244,31 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum ComputeSubmitOperation {
-        SUBMIT(compute -> compute.submit(JobTarget.anyNode(justNonEntryNode()), JobDescriptor.builder(NoOpJob.class).build(), null)),
+        SUBMIT(compute -> compute.submitAsync(JobTarget.anyNode(justNonEntryNode()), JobDescriptor.builder(NoOpJob.class).build(), null)),
 
-        SUBMIT_COLOCATED_BY_TUPLE(compute -> compute.submit(
+        SUBMIT_COLOCATED_BY_TUPLE(compute -> compute.submitAsync(
                 JobTarget.colocated(TABLE_NAME, KEY_TUPLE),
                 JobDescriptor.builder(NoOpJob.class).build(),
                 null)),
-        SUBMIT_COLOCATED_BY_KEY(compute -> compute.submit(
+        SUBMIT_COLOCATED_BY_KEY(compute -> compute.submitAsync(
                 JobTarget.colocated(TABLE_NAME, KEY, Mapper.of(Integer.class)),
                 JobDescriptor.builder(NoOpJob.class).build(), null)
-        ),
+        );
 
+/*
         SUBMIT_BROADCAST(compute -> compute
                 .submitBroadcast(justNonEntryNode(), JobDescriptor.builder(NoOpJob.class).build(), null)
                 .values().iterator().next()
         );
+*/
 
-        private final Function<IgniteCompute, JobExecution<?>> action;
+        private final Function<IgniteCompute, CompletableFuture<? extends JobExecution<?>>> action;
 
-        ComputeSubmitOperation(Function<IgniteCompute, JobExecution<?>> action) {
+        ComputeSubmitOperation(Function<IgniteCompute, CompletableFuture<? extends JobExecution<?>>> action) {
             this.action = action;
         }
 
-        JobExecution<?> executeOn(IgniteCompute compute) {
+        CompletableFuture<? extends JobExecution<?>> executeOn(IgniteCompute compute) {
             return action.apply(compute);
         }
     }

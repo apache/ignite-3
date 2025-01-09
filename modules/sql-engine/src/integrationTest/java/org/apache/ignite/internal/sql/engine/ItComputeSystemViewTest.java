@@ -23,6 +23,7 @@ import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.sql.engine.util.Commons.closeQuiet;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.internal.testframework.matchers.TaskStateMatcher.taskStateWithStatus;
 import static org.awaitility.Awaitility.await;
@@ -32,6 +33,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasLength;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
 import java.time.Instant;
@@ -42,6 +44,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
@@ -57,7 +60,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
@@ -110,7 +113,11 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
             long tsBefore = clockService.now().getPhysical();
 
             JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-            JobExecution<Void> execution = entryNode.compute().submit(JobTarget.node(clusterNode(targetNode)), job, null);
+            CompletableFuture<JobExecution<Void>> executionFut = entryNode.compute().submitAsync(
+                    JobTarget.node(clusterNode(targetNode)), job, null
+            );
+            assertThat(executionFut, willCompleteSuccessfully());
+            JobExecution<Void> execution = executionFut.join();
 
             await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
@@ -135,7 +142,9 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
 
             targetNode = CLUSTER.node(1);
 
-            execution = entryNode.compute().submit(JobTarget.node(clusterNode(targetNode)), job, null);
+            executionFut = entryNode.compute().submitAsync(JobTarget.node(clusterNode(targetNode)), job, null);
+            assertThat(executionFut, willCompleteSuccessfully());
+            execution = executionFut.join();
 
             await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
@@ -165,15 +174,21 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
 
             long tsBefore = clockService.now().getPhysical();
 
-            JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-            Map<ClusterNode, JobExecution<Void>> execution = entryNode.compute().submitBroadcast(
-                    Set.of(clusterNode(CLUSTER.node(0)), clusterNode(CLUSTER.node(1))), job, null);
+            CancelHandle cancelHandle = CancelHandle.create();
+            CompletableFuture<BroadcastExecution<Void>> executionFut = entryNode.compute().submitAsync(
+                    Set.of(clusterNode(CLUSTER.node(0)), clusterNode(CLUSTER.node(1))),
+                    JobDescriptor.builder(InfiniteJob.class).build(),
+                    cancelHandle.token(),
+                    null
+            );
 
-            execution.forEach((k, exec) -> await().until(exec::stateAsync, willBe(jobStateWithStatus(EXECUTING))));
-
-            long tsAfter = clockService.now().getPhysical();
+            assertThat(executionFut, willCompleteSuccessfully());
 
             String query = "SELECT * FROM SYSTEM.COMPUTE_TASKS WHERE STATUS = ?";
+
+            await().until(() -> sql(0, query, EXECUTING.name()), hasSize(2));
+
+            long tsAfter = clockService.now().getPhysical();
 
             List<List<Object>> res = sql(0, query, EXECUTING.name());
 
@@ -183,7 +198,7 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
             verifyComputeJobState(res.get(0), execNodes, EXECUTING.name(), tsBefore, tsAfter);
             verifyComputeJobState(res.get(1), execNodes, EXECUTING.name(), tsBefore, tsAfter);
 
-            execution.forEach((k, exec) -> IgniteTestUtils.await(exec.cancelAsync()));
+            cancelHandle.cancel();
         } finally {
             closeQuiet(entryNode);
         }

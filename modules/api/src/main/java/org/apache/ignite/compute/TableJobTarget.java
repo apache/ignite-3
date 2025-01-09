@@ -15,21 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.task;
+package org.apache.ignite.compute;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.task.MapReduceJob;
+import java.util.Objects;
 
 /**
- * Compute job submitter.
+ * Colocated job execution target. Indicates a node that hosts the data for the specified key in the provided table.
  */
-@FunctionalInterface
-public interface JobSubmitter<T, R> {
-    /**
-     * Submits compute job for an execution.
-     *
-     * @param computeJobRunner Computer job start parameters.
-     */
-    CompletableFuture<JobExecution<R>> submit(MapReduceJob<T, R> computeJobRunner);
+public class TableJobTarget implements BroadcastJobTarget {
+    private final String tableName;
+
+    TableJobTarget(String tableName) {
+        Objects.requireNonNull(tableName);
+
+        this.tableName = tableName;
+    }
+
+    public String tableName() {
+        return tableName;
+    }
 }

@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicCheckedException;
@@ -32,13 +29,13 @@ import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
@@ -81,22 +79,21 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void changeJobPriorityLocally() {
-        Ignite entryNode = node(0);
-        JobTarget jobTarget = JobTarget.node(clusterNode(entryNode));
+        JobTarget jobTarget = JobTarget.node(clusterNode(node(0)));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
         JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, countDownLatch);
+        JobExecution<String> execution1 = submit(jobTarget, job, countDownLatch);
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start one more task
-        JobExecution<String> execution2 = entryNode.compute().submit(jobTarget, job, new CountDownLatch(1));
+        JobExecution<String> execution2 = submit(jobTarget, job, new CountDownLatch(1));
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Start third task
-        JobExecution<String> execution3 = entryNode.compute().submit(jobTarget, job, countDownLatch);
+        JobExecution<String> execution3 = submit(jobTarget, job, countDownLatch);
         await().until(execution3::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Task 2 and 3 are not completed, in queued state
@@ -122,30 +119,30 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesJobLocallyWithOptions() {
-        Ignite entryNode = node(0);
-        JobTarget jobTarget = JobTarget.node(clusterNode(entryNode));
+        JobTarget jobTarget = JobTarget.node(clusterNode(node(0)));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
         JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, countDownLatch);
+        JobExecution<String> execution1 = submit(jobTarget, job, countDownLatch);
 
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start one more task
-        JobExecution<String> execution2 = entryNode.compute().submit(jobTarget, job, new CountDownLatch(1));
+        JobExecution<String> execution2 = submit(jobTarget, job, new CountDownLatch(1));
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Start third task it should be before task2 in the queue due to higher priority in options
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
-        JobExecution<String> execution3 = entryNode.compute().submit(
+        JobExecution<String> execution3 = submit(
                 jobTarget,
                 JobDescriptor.builder(WaitLatchThrowExceptionOnFirstExecutionJob.class)
                         .units(units())
                         .options(options)
                         .build(),
-                countDownLatch);
+                countDownLatch
+        );
         await().until(execution3::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Task 1 and 2 are not competed, in queue state
@@ -266,18 +263,16 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void executesNullReturningJobViaSubmitBroadcast() {
         Ignite entryNode = node(0);
 
-        Map<ClusterNode, JobExecution<Object>> executionsMap = entryNode.compute().submitBroadcast(
+        CompletableFuture<BroadcastExecution<Object>> executionFut = entryNode.compute().submitAsync(
                 new HashSet<>(entryNode.clusterNodes()),
-                JobDescriptor.builder(NullReturningJob.class.getName()).build(), null);
-        assertThat(executionsMap.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
+                JobDescriptor.builder(NullReturningJob.class.getName()).build(),
+                null
+        );
+        assertThat(executionFut, willCompleteSuccessfully());
+        BroadcastExecution<Object> execution = executionFut.join();
 
-        List<JobExecution<Object>> executions = new ArrayList<>(executionsMap.values());
-        List<CompletableFuture<Object>> futures = executions.stream()
-                .map(JobExecution::resultAsync)
-                .collect(toList());
-        assertThat(allOf(futures.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
-
-        assertThat(futures.stream().map(CompletableFuture::join).collect(toSet()), contains(nullValue()));
+        assertThat(execution.resultsAsync(), willCompleteSuccessfully());
+        assertThat(execution.resultsAsync().join().values(), everyItem(nullValue()));
     }
 
     private Stream<Arguments> targetNodeIndexes() {

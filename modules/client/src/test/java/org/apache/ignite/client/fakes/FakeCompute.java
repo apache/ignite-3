@@ -41,6 +41,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.AnyNodeJobTarget;
+import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
@@ -100,7 +101,7 @@ public class FakeCompute implements IgniteComputeInternal {
             String jobClassName,
             JobExecutionOptions options,
             @Nullable CancellationToken cancellationToken,
-            Object args) {
+            @Nullable Object arg) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
             return completedExecution((R) unitString);
@@ -122,7 +123,7 @@ public class FakeCompute implements IgniteComputeInternal {
             Class<ComputeJob<Object, R>> jobClass = ComputeUtils.jobClass(jobClassLoader, jobClassName);
             ComputeJob<Object, R> job = ComputeUtils.instantiateJob(jobClass);
             CompletableFuture<R> jobFut = job.executeAsync(
-                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()), args);
+                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()), arg);
 
             return jobExecution(jobFut != null ? jobFut : nullCompletedFuture());
         }
@@ -145,29 +146,23 @@ public class FakeCompute implements IgniteComputeInternal {
         return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
     }
 
-    private <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T args) {
+    @Override
+    public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
-            return executeAsyncWithFailover(
-                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), cancellationToken, args
-            );
+            return completedFuture(executeAsyncWithFailover(
+                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), cancellationToken, arg
+            ));
         } else if (target instanceof ColocatedJobTarget) {
-            return jobExecution(future != null ? future : completedFuture((R) nodeName));
+            return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
         } else {
             throw new IllegalArgumentException("Unsupported job target: " + target);
         }
-    }
-
-    @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
-        return submit(target, descriptor, null, arg);
-    }
-
-    @Override
-    public <T, R> CompletableFuture<R> executeAsync(JobTarget target, JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submit(target, descriptor, cancellationToken, arg).resultAsync();
     }
 
     @Override
@@ -177,12 +172,23 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+    public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
-            T args
+            @Nullable CancellationToken cancellationToken,
+            T arg
     ) {
-        return null;
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public <T, R> Map<ClusterNode, R> executeBroadcast(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return sync(executeBroadcastAsync(nodes, descriptor, cancellationToken, arg));
     }
 
     @Override

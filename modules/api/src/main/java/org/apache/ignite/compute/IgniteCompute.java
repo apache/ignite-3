@@ -17,13 +17,7 @@
 
 package org.apache.ignite.compute;
 
-import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
-
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.task.MapReduceTask;
@@ -49,9 +43,29 @@ public interface IgniteCompute {
      * @param arg Argument of the job.
      * @return Job execution object.
      */
-    <T, R> JobExecution<R> submit(
+    default <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return submitAsync(target, descriptor, null, arg);
+    }
+
+    /**
+     * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes.
+     *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param target Execution target.
+     * @param descriptor Job descriptor.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param arg Argument of the job.
+     * @return Job execution object.
+     */
+    <T, R> CompletableFuture<JobExecution<R>> submitAsync(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     );
 
@@ -86,12 +100,14 @@ public interface IgniteCompute {
      * @param arg Argument of the job.
      * @return Job result future.
      */
-    <T, R> CompletableFuture<R> executeAsync(
+    default <T, R> CompletableFuture<R> executeAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
-    );
+    ) {
+        return submitAsync(target, descriptor, cancellationToken, arg).thenCompose(JobExecution::resultAsync);
+    }
 
     /**
      * Executes a {@link ComputeJob} of the given class on a single node from a set of candidate nodes.
@@ -141,9 +157,29 @@ public interface IgniteCompute {
      * @param arg Argument of the job.
      * @return Map from node to job execution object.
      */
-    <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+    default <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return submitAsync(nodes, descriptor, null, arg);
+    }
+
+    /**
+     * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set.
+     *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param nodes Nodes to execute the job on.
+     * @param descriptor Job descriptor.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param arg Argument of the job.
+     * @return Map from node to job execution object.
+     */
+    <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     );
 
@@ -182,20 +218,8 @@ public interface IgniteCompute {
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
-        Map<ClusterNode, CompletableFuture<R>> futures = nodes.stream()
-                .collect(toMap(identity(), node -> executeAsync(JobTarget.node(node), descriptor, cancellationToken, arg)));
-
-        return allOf(futures.values().toArray(CompletableFuture[]::new))
-                .thenApply(ignored -> {
-                            Map<ClusterNode, R> map = new HashMap<>();
-
-                            for (Entry<ClusterNode, CompletableFuture<R>> entry : futures.entrySet()) {
-                                map.put(entry.getKey(), entry.getValue().join());
-                            }
-
-                            return map;
-                        }
-                );
+        return submitAsync(nodes, descriptor, cancellationToken, arg)
+                .thenCompose(BroadcastExecution::resultsAsync);
     }
 
     /**
@@ -229,20 +253,12 @@ public interface IgniteCompute {
      * @return Map from node to job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    default <T, R> Map<ClusterNode, R> executeBroadcast(
+    <T, R> Map<ClusterNode, R> executeBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
-    ) {
-        Map<ClusterNode, R> map = new HashMap<>();
-
-        for (ClusterNode node : nodes) {
-            map.put(node, execute(JobTarget.node(node), descriptor, cancellationToken, arg));
-        }
-
-        return map;
-    }
+    );
 
     /**
      * Submits a {@link MapReduceTask} of the given class for an execution.

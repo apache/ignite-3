@@ -18,16 +18,27 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.compute.JobStatus.EXECUTING;
+import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
+import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,11 +47,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
@@ -217,30 +230,39 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         InteractiveJobs.initChannels(allNodeNames());
 
         // When start broadcast job.
-        Map<ClusterNode, JobExecution<Object>> executions = compute(entryNode).submitBroadcast(
+        CompletableFuture<BroadcastExecution<Object>> executionFut = compute(entryNode).submitAsync(
                 clusterNodesByNames(workerCandidates(node(0), node(1), node(2))),
-                JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(), null);
+                JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(),
+                null
+        );
+
+        assertThat(executionFut, willCompleteSuccessfully());
+        BroadcastExecution<Object> execution = executionFut.join();
 
         // Then all three jobs are alive.
-        assertThat(executions.size(), is(3));
-        executions.forEach((node, execution) -> {
+        assertThat(execution.statesAsync(), will(aMapWithSize(3)));
+        await().untilAsserted(() -> execution.statesAsync().join().forEach((node, state) -> {
             InteractiveJobs.byNode(node).assertAlive();
-            new TestingJobExecution<>(execution).assertExecuting();
-        });
+
+            assertThat(state, jobStateWithStatus(EXECUTING));
+
+            assertThat(execution.resultsAsync().isDone(), equalTo(false));
+
+            assertThat(state.id(), is(notNullValue()));
+        }));
 
         // When stop one of workers.
-        String stoppedNodeName = node(1).name();
         stopNode(node(1));
 
         // Then two jobs are alive.
-        executions.forEach((node, execution) -> {
-            if (node.name().equals(stoppedNodeName)) {
-                new TestingJobExecution<>(execution).assertFailed();
-            } else {
-                InteractiveJobs.byNode(node).assertAlive();
-                new TestingJobExecution<>(execution).assertExecuting();
-            }
-        });
+        await().until(execution::statesAsync, will(allOf(
+                aMapWithSize(3),
+                hasEntry(clusterNode(0), jobStateWithStatus(EXECUTING)),
+                hasEntry(clusterNode(1), jobStateWithStatus(FAILED)),
+                hasEntry(clusterNode(2), jobStateWithStatus(EXECUTING))
+        )));
+
+        assertThat(execution.resultsAsync(), willThrow(ComputeException.class));
 
         // When.
         InteractiveJobs.all().finish();
@@ -294,7 +316,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         // When start colocated job on node that is not primary replica.
         Ignite entryNode = anyNodeExcept(primaryReplica);
         TestingJobExecution<Object> execution = new TestingJobExecution<>(
-                compute(entryNode).submit(
+                compute(entryNode).submitAsync(
                         JobTarget.colocated(TABLE_NAME, Tuple.create(1).set("K", 1)),
                         JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(),
                         null));
@@ -367,11 +389,11 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     }
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(Ignite entryNode, Set<String> nodes) {
-        return new TestingJobExecution<>(
-                compute(entryNode).submit(
-                        JobTarget.anyNode(clusterNodesByNames(nodes)),
-                        JobDescriptor.builder(InteractiveJobs.globalJob().jobClass()).build(), null)
-        );
+        return new TestingJobExecution<>(compute(entryNode).submitAsync(
+                JobTarget.anyNode(clusterNodesByNames(nodes)),
+                JobDescriptor.builder(InteractiveJobs.globalJob().jobClass()).build(),
+                null
+        ));
     }
 
     abstract IgniteCompute compute(Ignite entryNode);

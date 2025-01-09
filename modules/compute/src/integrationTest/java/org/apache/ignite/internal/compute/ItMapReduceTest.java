@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.compute.TaskStatus.CANCELED;
 import static org.apache.ignite.compute.TaskStatus.COMPLETED;
@@ -73,7 +74,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteCompute igniteCompute = entryNode.compute();
         TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
                 TaskDescriptor.<Object, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), null);
-        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
+        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(completedFuture(new TaskToJobExecutionWrapper<>(taskExecution)));
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
 
@@ -186,7 +187,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteCompute igniteCompute = entryNode.compute();
         TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
                 TaskDescriptor.<Object, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), null);
-        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
+        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(completedFuture(new TaskToJobExecutionWrapper<>(taskExecution)));
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
 
@@ -245,7 +246,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteCompute igniteCompute = entryNode.compute();
         TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
                 TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), arg);
-        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
+        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(completedFuture(new TaskToJobExecutionWrapper<>(taskExecution)));
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
 
@@ -278,7 +279,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteCompute igniteCompute = entryNode.compute();
         TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
                 TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), args);
-        new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution)).assertExecuting();
+        new TestingJobExecution<>(completedFuture(new TaskToJobExecutionWrapper<>(taskExecution))).assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
         return taskExecution;
     }

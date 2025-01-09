@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -37,13 +38,13 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
@@ -58,7 +59,6 @@ import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlException;
@@ -155,7 +155,9 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     public void killComputeJobFromLocal() {
         Ignite node = CLUSTER.aliveNode();
         JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-        JobExecution<Void> execution = node.compute().submit(JobTarget.node(clusterNode(node)), job, null);
+        CompletableFuture<JobExecution<Void>> executionFut = node.compute().submitAsync(JobTarget.node(clusterNode(node)), job, null);
+        assertThat(executionFut, willCompleteSuccessfully());
+        JobExecution<Void> execution = executionFut.join();
 
         UUID jobId = await(execution.idAsync());
         assertThat(jobId, not(nullValue()));
@@ -243,7 +245,11 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         // Single execution.
         {
             JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-            JobExecution<Void> execution = local.compute().submit(JobTarget.node(clusterNode(local)), job, null);
+            CompletableFuture<JobExecution<Void>> executionFut = local.compute().submitAsync(
+                    JobTarget.node(clusterNode(local)), job, null
+            );
+            assertThat(executionFut, willCompleteSuccessfully());
+            JobExecution<Void> execution = executionFut.join();
 
             UUID jobId = await(execution.idAsync());
             assertThat(jobId, not(nullValue()));
@@ -257,8 +263,13 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
         // Single execution with nowait.
         {
-            JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-            JobExecution<Void> execution = local.compute().submit(JobTarget.node(clusterNode(local)), job, null);
+            CompletableFuture<JobExecution<Void>> executionFut = local.compute().submitAsync(
+                    JobTarget.node(clusterNode(local)),
+                    JobDescriptor.builder(InfiniteJob.class).build(),
+                    null
+            );
+            assertThat(executionFut, willCompleteSuccessfully());
+            JobExecution<Void> execution = executionFut.join();
 
             UUID jobId = await(execution.idAsync());
             assertThat(jobId, not(nullValue()));
@@ -271,17 +282,28 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
         // Multiple executions.
         {
-            JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-            Map<ClusterNode, JobExecution<Void>> executions = local.compute().submitBroadcast(
-                    Set.of(clusterNode(CLUSTER.node(0)), clusterNode(CLUSTER.node(1))), job, null);
+            CompletableFuture<BroadcastExecution<Void>> executionFut = local.compute().submitAsync(
+                    Set.of(clusterNode(CLUSTER.node(0)), clusterNode(CLUSTER.node(1))),
+                    JobDescriptor.builder(InfiniteJob.class).build(),
+                    null
+            );
+            assertThat(executionFut, willCompleteSuccessfully());
+            BroadcastExecution<Void> execution = executionFut.join();
 
-            executions.forEach((node, execution) -> {
-                UUID jobId = await(execution.idAsync());
+            assertThat(execution.statesAsync(), willCompleteSuccessfully());
+            execution.statesAsync().join().forEach((node, state) -> {
+                UUID jobId = state.id();
                 assertThat(jobId, not(nullValue()));
                 assertThat("Node=" + node.name(), executeKillJob(remote, jobId), is(true));
+            });
 
-                Awaitility.await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+            Awaitility.await().untilAsserted(() -> {
+                assertThat(execution.statesAsync(), willCompleteSuccessfully());
+                execution.statesAsync().join().values().forEach(state -> assertThat(state, jobStateWithStatus(CANCELED)));
+            });
 
+            execution.statesAsync().join().forEach((node, state) -> {
+                UUID jobId = state.id();
                 assertThat("Node=" + node.name(), executeKillJob(remote, jobId), is(false));
                 assertThat("Node=" + node.name(), executeKillJob(local, jobId), is(false));
             });

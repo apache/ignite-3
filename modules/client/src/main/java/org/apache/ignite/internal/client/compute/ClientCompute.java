@@ -36,6 +36,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.compute.AnyNodeJobTarget;
+import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
@@ -92,8 +93,13 @@ public class ClientCompute implements IgniteCompute {
         this.tables = tables;
     }
 
-    private <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T arg) {
+    @Override
+    public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
@@ -104,12 +110,7 @@ public class ClientCompute implements IgniteCompute {
             CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
         }
 
-        return execution;
-    }
-
-    @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
-        return submit(target, descriptor, null, arg);
+        return completedFuture(execution);
     }
 
     private <T, R> CompletableFuture<SubmitResult> submit0(JobTarget target, JobDescriptor<T, R> descriptor, T arg) {
@@ -131,12 +132,6 @@ public class ClientCompute implements IgniteCompute {
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
-    }
-
-    @Override
-    public <T, R> CompletableFuture<R> executeAsync(JobTarget target, JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submit(target, descriptor, cancellationToken, arg).resultAsync();
     }
 
     @Override
@@ -181,26 +176,43 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(Set<ClusterNode> nodes, JobDescriptor<T, R> descriptor,
-            @Nullable T arg) {
+    public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
         Objects.requireNonNull(nodes);
         Objects.requireNonNull(descriptor);
 
         Map<ClusterNode, JobExecution<R>> map = new HashMap<>(nodes.size());
 
         for (ClusterNode node : nodes) {
-            JobExecution<R> execution = new ClientJobExecution<>(
+            ClientJobExecution<R> execution = new ClientJobExecution<>(
                     ch,
                     executeOnAnyNodeAsync(Set.of(node), descriptor, arg),
                     descriptor.resultMarshaller(),
                     descriptor.resultClass()
             );
+            if (cancellationToken != null) {
+                CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+            }
             if (map.put(node, execution) != null) {
                 throw new IllegalStateException("Node can't be specified more than once: " + node);
             }
         }
 
-        return map;
+        return completedFuture(new ClientBroadcastExecution<>(map));
+    }
+
+    @Override
+    public <T, R> Map<ClusterNode, R> executeBroadcast(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return sync(executeBroadcastAsync(nodes, descriptor, cancellationToken, arg));
     }
 
     @Override

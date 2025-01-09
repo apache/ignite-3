@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
@@ -49,8 +50,13 @@ class RestartProofIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
-        return attachmentLock.attached(ignite -> ignite.compute().submit(target, descriptor, arg));
+    public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return attachmentLock.attached(ignite -> ignite.compute().submitAsync(target, descriptor, cancellationToken, arg));
     }
 
     @Override
@@ -66,12 +72,23 @@ class RestartProofIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
+    public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
-        return attachmentLock.attached(ignite -> ignite.compute().submitBroadcast(nodes, descriptor, arg));
+        return attachmentLock.attached(ignite -> ignite.compute().submitAsync(nodes, descriptor, cancellationToken, arg));
+    }
+
+    @Override
+    public <T, R> Map<ClusterNode, R> executeBroadcast(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return attachmentLock.attached(ignite -> ignite.compute().executeBroadcast(nodes, descriptor, cancellationToken, arg));
     }
 
     @Override

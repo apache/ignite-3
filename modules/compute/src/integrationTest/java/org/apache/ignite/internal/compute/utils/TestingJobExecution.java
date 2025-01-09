@@ -44,27 +44,27 @@ import org.apache.ignite.lang.IgniteException;
  * @param <R> Job result type.
  */
 public class TestingJobExecution<R> implements JobExecution<R> {
-    private final JobExecution<R> jobExecution;
+    private final CompletableFuture<JobExecution<R>> jobExecution;
 
     /**
      * Constructor.
      *
      * @param jobExecution job execution to wrap.
      */
-    public TestingJobExecution(JobExecution<R> jobExecution) {
+    public TestingJobExecution(CompletableFuture<JobExecution<R>> jobExecution) {
         this.jobExecution = jobExecution;
     }
 
     private JobState stateSync() throws InterruptedException, ExecutionException, TimeoutException {
-        return jobExecution.stateAsync().get(10, TimeUnit.SECONDS);
+        return jobExecution.thenCompose(JobExecution::stateAsync).get(10, TimeUnit.SECONDS);
     }
 
     public UUID idSync() throws InterruptedException, ExecutionException, TimeoutException {
-        return jobExecution.idAsync().get(10, TimeUnit.SECONDS);
+        return jobExecution.thenCompose(JobExecution::idAsync).get(10, TimeUnit.SECONDS);
     }
 
     private R resultSync() throws ExecutionException, InterruptedException, TimeoutException {
-        return jobExecution.resultAsync().get(10, TimeUnit.SECONDS);
+        return jobExecution.thenCompose(JobExecution::resultAsync).get(10, TimeUnit.SECONDS);
     }
 
     public long createTimeMillis() throws ExecutionException, InterruptedException, TimeoutException {
@@ -80,34 +80,34 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     }
 
     public void cancelSync() throws ExecutionException, InterruptedException, TimeoutException {
-        jobExecution.cancelAsync().get(10, TimeUnit.SECONDS);
+        jobExecution.thenCompose(JobExecution::cancelAsync).get(10, TimeUnit.SECONDS);
     }
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return jobExecution.resultAsync();
+        return jobExecution.thenCompose(JobExecution::resultAsync);
     }
 
     @Override
     public CompletableFuture<JobState> stateAsync() {
-        return jobExecution.stateAsync();
+        return jobExecution.thenCompose(JobExecution::stateAsync);
     }
 
     @Override
     public CompletableFuture<Boolean> cancelAsync() {
-        return jobExecution.cancelAsync();
+        return jobExecution.thenCompose(JobExecution::cancelAsync);
     }
 
     @Override
     public CompletableFuture<Boolean> changePriorityAsync(int newPriority) {
-        return jobExecution.changePriorityAsync(newPriority);
+        return jobExecution.thenCompose(execution -> execution.changePriorityAsync(newPriority));
     }
 
     /**
      * Checks that the job execution object has EXECUTING state.
      */
     public void assertQueued() {
-        await().until(jobExecution::stateAsync, willBe(jobStateWithStatus(QUEUED)));
+        await().until(this::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         assertThat(resultAsync().isDone(), equalTo(false));
 
@@ -118,7 +118,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
      * Checks that the job execution object has EXECUTING state.
      */
     public void assertExecuting() {
-        await().until(jobExecution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+        await().until(this::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         assertThat(resultAsync().isDone(), equalTo(false));
 
@@ -129,7 +129,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
      * Checks that the job execution object is cancelled.
      */
     public void assertCancelled() {
-        await().until(jobExecution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(this::stateAsync, willBe(jobStateWithStatus(CANCELED)));
 
         assertThat(resultAsync(), willThrow(IgniteException.class));
     }
@@ -138,7 +138,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
      * Checks that the job execution object is completed successfully.
      */
     public void assertCompleted() {
-        await().until(jobExecution::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
+        await().until(this::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
 
         assertThat(resultAsync(), willBe("Done"));
     }
@@ -147,11 +147,7 @@ public class TestingJobExecution<R> implements JobExecution<R> {
      * Checks that the job execution has failed.
      */
     public void assertFailed() {
-        await().untilAsserted(() -> {
-            assertThat(jobExecution.resultAsync(), willThrow(IgniteException.class));
-        });
-        await().untilAsserted(() -> {
-            assertThat(jobExecution.stateAsync(), willThrow(IgniteException.class));
-        });
+        await().until(this::resultAsync, willThrow(IgniteException.class));
+        await().until(this::stateAsync, willThrow(IgniteException.class));
     }
 }
