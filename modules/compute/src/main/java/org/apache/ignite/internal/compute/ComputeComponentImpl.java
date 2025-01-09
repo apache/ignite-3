@@ -200,13 +200,13 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     /** {@inheritDoc} */
     @Override
-    public <T, R> JobExecution<R> executeRemotely(
+    public <R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
             @Nullable CancellationToken cancellationToken,
-            T arg
+            ComputeJobDataHolder arg
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution<>(

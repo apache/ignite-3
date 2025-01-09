@@ -43,6 +43,7 @@ import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.compute.ComputeMessagesFactory;
 import org.apache.ignite.internal.compute.ComputeUtils;
@@ -174,18 +175,17 @@ public class ComputeMessaging {
      * @param input Arguments of the job.
      * @return Job id future that will be completed when the job is submitted on the remote node.
      */
-    public <T> CompletableFuture<UUID> remoteExecuteRequestAsync(
+    public CompletableFuture<UUID> remoteExecuteRequestAsync(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            T input
+            ComputeJobDataHolder input
     ) {
         List<DeploymentUnitMsg> deploymentUnitMsgs = units.stream()
                 .map(ComputeUtils::toDeploymentUnitMsg)
                 .collect(toList());
 
-        // TODO: Input must be converted to ComputeJobDataHolder
         ExecuteRequest executeRequest = messagesFactory.executeRequest()
                 .executeOptions(options)
                 .deploymentUnits(deploymentUnitMsgs)
@@ -237,8 +237,7 @@ public class ComputeMessaging {
                 .whenComplete((result, err) -> sendJobResultResponse(result, err, sender, correlationId));
     }
 
-    private void sendJobResultResponse(@Nullable Object result, @Nullable Throwable ex, ClusterNode sender, long correlationId) {
-        // TODO: Result must have ComputeJobDataHolder type
+    private void sendJobResultResponse(@Nullable ComputeJobDataHolder result, @Nullable Throwable ex, ClusterNode sender, long correlationId) {
         JobResultResponse jobResultResponse = messagesFactory.jobResultResponse()
                 .result(result)
                 .throwable(ex)

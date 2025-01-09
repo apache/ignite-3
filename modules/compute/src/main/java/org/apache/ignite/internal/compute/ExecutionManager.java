@@ -90,7 +90,7 @@ public class ExecutionManager {
      * @param jobId Job id.
      * @return Job's execution result future.
      */
-    public CompletableFuture<?> resultAsync(UUID jobId) {
+    public CompletableFuture<ComputeJobDataHolder> resultAsync(UUID jobId) {
         JobExecution<?> execution = executions.get(jobId);
         if (execution != null) {
             if (execution instanceof MarshallerProvider) {
@@ -104,11 +104,13 @@ public class ExecutionManager {
                 }
 
                 if (marshaller != null) {
-                    return execution.resultAsync().thenApply(marshaller::marshal);
+                    return execution.resultAsync().thenApply(r -> SharedComputeUtils.marshalArgOrResult(r, marshaller));
                 }
             }
-            return execution.resultAsync();
+
+            return execution.resultAsync().thenApply(r -> SharedComputeUtils.marshalArgOrResult(r, null));
         }
+
         return failedFuture(new ComputeException(RESULT_NOT_FOUND_ERR, "Job result not found for the job with ID: " + jobId));
     }
 

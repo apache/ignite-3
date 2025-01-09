@@ -87,13 +87,13 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Job result type.
      * @return Job execution object.
      */
-    <T, R> JobExecution<R> executeRemotely(
+    <R> JobExecution<R> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
             @Nullable CancellationToken cancellationToken,
-            T arg
+            ComputeJobDataHolder arg
     );
 
     /**
