@@ -125,7 +125,8 @@ public class FakeCompute implements IgniteComputeInternal {
             Class<ComputeJob<Object, Object>> jobClass = ComputeUtils.jobClass(jobClassLoader, jobClassName);
             ComputeJob<Object, Object> job = ComputeUtils.instantiateJob(jobClass);
             CompletableFuture<Object> jobFut = job.executeAsync(
-                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()), args);
+                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()),
+                    SharedComputeUtils.unmarshalArgOrResult(args, null, null));
 
             return jobExecution(jobFut != null ? jobFut : nullCompletedFuture());
         }
@@ -158,7 +159,7 @@ public class FakeCompute implements IgniteComputeInternal {
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
-            return (JobExecution<R>) executeAsyncWithFailover(
+            JobExecution<ComputeJobDataHolder> internalExecution = executeAsyncWithFailover(
                     nodes,
                     descriptor.units(),
                     descriptor.jobClassName(),
@@ -166,6 +167,30 @@ public class FakeCompute implements IgniteComputeInternal {
                     cancellationToken,
                     SharedComputeUtils.marshalArgOrResult(args, null)
             );
+
+            return new JobExecution<>() {
+                @Override
+                public CompletableFuture<R> resultAsync() {
+                    return internalExecution.resultAsync()
+                            .thenApply(r -> SharedComputeUtils.unmarshalArgOrResult(
+                                    r, descriptor.resultMarshaller(), descriptor.resultClass()));
+                }
+
+                @Override
+                public CompletableFuture<@Nullable JobState> stateAsync() {
+                    return internalExecution.stateAsync();
+                }
+
+                @Override
+                public CompletableFuture<@Nullable Boolean> cancelAsync() {
+                    return internalExecution.cancelAsync();
+                }
+
+                @Override
+                public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+                    return internalExecution.cancelAsync();
+                }
+            };
         } else if (target instanceof ColocatedJobTarget) {
             return jobExecution(future != null ? future : completedFuture((R) nodeName));
         } else {
