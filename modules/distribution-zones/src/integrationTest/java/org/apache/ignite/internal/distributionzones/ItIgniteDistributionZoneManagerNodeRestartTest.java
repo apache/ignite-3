@@ -82,6 +82,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -136,6 +137,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -395,14 +398,18 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertEquals(nodeAttributesBeforeRestart, nodeAttributesAfterRestart);
     }
 
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    public void testTopologyAugmentationMapRestoredAfterRestart(boolean defaultZone) throws Exception {
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    public void testTopologyAugmentationMapRestoredAfterRestart(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
         PartialNode node = startPartialNode(0);
 
         node.logicalTopology().putNode(A);
 
-        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, consistencyMode);
 
         node.logicalTopology().putNode(B);
         node.logicalTopology().putNode(C);
@@ -604,8 +611,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
     }
 
-    @Test
-    public void testCreationZoneWhenDataNodesAreDeletedIsNotSuccessful() throws Exception {
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    public void testCreationZoneWhenDataNodesAreDeletedIsNotSuccessful(ConsistencyMode consistencyMode) throws Exception {
         PartialNode node = startPartialNode(0);
 
         node.logicalTopology().putNode(A);
@@ -662,7 +670,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             return dataNodeKeyOptional.isPresent();
         }));
 
-        createZone(getCatalogManager(node), "zone1", INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null, DEFAULT_STORAGE_PROFILE);
+        createZone(getCatalogManager(node), "zone1", INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null, consistencyMode, DEFAULT_STORAGE_PROFILE);
 
         // Assert that after creation of a zone, data nodes are still tombstone, but not the logical topology, as for default zone.
         assertThat(metastore.get(new ByteArray(dataNodeKey[0])).thenApply(Entry::tombstone), willBe(true));
@@ -672,12 +680,16 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         return DistributionZonesUtil.deserializeLogicalTopologySet(bytes);
     }
 
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    public void testLocalDataNodesAreRestoredAfterRestart(boolean defaultZone) throws Exception {
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    public void testLocalDataNodesAreRestoredAfterRestart(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
         PartialNode node = startPartialNode(0);
 
-        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, consistencyMode);
 
         node.logicalTopology().putNode(A);
         node.logicalTopology().putNode(B);
@@ -709,9 +721,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 Set.of(A), TIMEOUT_MILLIS);
     }
 
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    public void testScaleUpTimerIsRestoredAfterRestart(boolean defaultZone) throws Exception {
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    public void testScaleUpTimerIsRestoredAfterRestart(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
         PartialNode node = startPartialNode(0);
 
         node.logicalTopology().putNode(A);
@@ -719,7 +735,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertLogicalTopologyInMetastorage(Set.of(A, B), metastore);
 
-        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 1, 1);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 1, 1, consistencyMode);
 
         int zoneId = getZoneId(node, zoneName);
 
@@ -779,9 +795,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
     }
 
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    public void testScaleDownTimerIsRestoredAfterRestart(boolean defaultZone) throws Exception {
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    public void testScaleDownTimerIsRestoredAfterRestart(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
         PartialNode node = startPartialNode(0);
 
         node.logicalTopology().putNode(A);
@@ -792,7 +812,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
         CatalogManager catalogManager = getCatalogManager(node);
 
-        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 1, 1);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 1, 1, consistencyMode);
 
         int zoneId = getZoneId(node, zoneName);
 
@@ -844,7 +864,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             PartialNode node,
             boolean useDefaultZone,
             int scaleUp,
-            int scaleDown
+            int scaleDown,
+            ConsistencyMode consistencyMode
     ) throws Exception {
         String zoneName;
 
@@ -869,7 +890,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         } else {
             zoneName = ZONE_NAME;
 
-            createZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, null, DEFAULT_STORAGE_PROFILE);
+            createZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, null, consistencyMode, DEFAULT_STORAGE_PROFILE);
         }
 
         return zoneName;
