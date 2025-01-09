@@ -173,10 +173,8 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
                 return tuple1.stringValue(index).compareTo(tuple2.stringValue(index));
 
             case DECIMAL:
-                BigDecimal numeric1 = tuple1.decimalValue(index,
-                        ((DecimalNativeType) nativeType).scale());
-                BigDecimal numeric2 = tuple2.decimalValue(index,
-                        ((DecimalNativeType) nativeType).scale());
+                BigDecimal numeric1 = tuple1.decimalValue(index, Integer.MIN_VALUE);
+                BigDecimal numeric2 = tuple2.decimalValue(index, Integer.MIN_VALUE);
 
                 return numeric1.compareTo(numeric2);
 
