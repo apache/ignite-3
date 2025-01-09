@@ -19,18 +19,20 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.SchemaNotFoundException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.storage.DropIndexEntry;
 import org.apache.ignite.internal.catalog.storage.DropSchemaEntry;
 import org.apache.ignite.internal.catalog.storage.DropTableEntry;
+import org.apache.ignite.internal.catalog.storage.RemoveIndexEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
@@ -46,18 +48,26 @@ public class DropSchemaCommand implements CatalogCommand {
 
     private final boolean cascade;
 
+    private final boolean ifExists;
+
     /**
      * Constructor.
      *
      * @param schemaName Name of the schema.
      * @param cascade Flag indicating forced deletion of a non-empty schema.
+     * @param ifExists Flag indicating
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
-    private DropSchemaCommand(String schemaName, boolean cascade) throws CatalogValidationException {
+    private DropSchemaCommand(String schemaName, boolean cascade, boolean ifExists) throws CatalogValidationException {
         validateIdentifier(schemaName, "Name of the schema");
 
         this.schemaName = schemaName;
         this.cascade = cascade;
+        this.ifExists = ifExists;
+    }
+
+    public boolean ifExists() {
+        return ifExists;
     }
 
     @Override
@@ -66,17 +76,30 @@ public class DropSchemaCommand implements CatalogCommand {
             throw new CatalogValidationException("System schema can't be dropped [name={}].", schemaName);
         }
 
-        CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
+        CatalogSchemaDescriptor schema;
+
+        if (ifExists) {
+            schema = catalog.schema(schemaName);
+            if (schema == null) {
+                return List.of();
+            }
+        } else {
+            schema = schemaOrThrow(catalog, schemaName);
+        }
 
         if (!cascade && !schema.isEmpty()) {
-            throw new CatalogValidationException("Schema '{}' is not empty. Use CASCADE to drop it anyway.", schemaName);
+            throw new SchemaNotFoundException(format("Schema '{}' is not empty. Use CASCADE to drop it anyway.", schemaName));
         }
 
         List<UpdateEntry> updateEntries = new ArrayList<>();
 
-        for (CatalogIndexDescriptor idx : schema.indexes()) {
-            updateEntries.add(new DropIndexEntry(idx.id()));
-        }
+        Arrays.stream(schema.indexes())
+                .forEach(index -> {
+                    // We can remove AVAILABLE/STOPPED index right away as the only reason to have an index in the STOPPING state is to
+                    // allow RW transactions started before the index drop to write to it, but as the table is already dropped,
+                    // the writes are not possible in any case.
+                    updateEntries.add(new RemoveIndexEntry(index.id()));
+                });
 
         for (CatalogTableDescriptor tbl : schema.tables()) {
             updateEntries.add(new DropTableEntry(tbl.id()));
@@ -93,6 +116,7 @@ public class DropSchemaCommand implements CatalogCommand {
     private static class Builder implements DropSchemaCommandBuilder {
         private String schemaName;
         private boolean cascade;
+        private boolean ifExists;
 
         @Override
         public DropSchemaCommandBuilder name(String schemaName) {
@@ -109,8 +133,15 @@ public class DropSchemaCommand implements CatalogCommand {
         }
 
         @Override
+        public DropSchemaCommandBuilder ifExists(boolean ifExists) {
+            this.ifExists = ifExists;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
-            return new DropSchemaCommand(schemaName, cascade);
+            return new DropSchemaCommand(schemaName, cascade, ifExists);
         }
     }
 }

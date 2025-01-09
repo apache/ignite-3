@@ -23,6 +23,7 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 
 class ClientSqlProperties {
@@ -37,7 +38,9 @@ class ClientSqlProperties {
     private final @Nullable String timeZoneId;
 
     ClientSqlProperties(ClientMessageUnpacker in) {
-        schema = in.tryUnpackNil() ? null : in.unpackString();
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-24021
+        // Converts schema name to its canonical form.
+        schema = in.tryUnpackNil() ? null : QualifiedName.fromSimple(in.unpackString()).objectName();
         pageSize = in.tryUnpackNil() ? SqlCommon.DEFAULT_PAGE_SIZE : in.unpackInt();
         queryTimeout = in.tryUnpackNil() ? 0 : in.unpackLong();
         idleTimeout = in.tryUnpackNil() ? 0 : in.unpackLong();

@@ -15,23 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.commands;
-
-import org.apache.ignite.internal.catalog.CatalogCommand;
+package org.apache.ignite.internal.catalog;
 
 /**
- * Builder of a command that drop specified schema.
+ * This exception is thrown when a schema is not found in a catalog.
+ *
+ * <p>This exception is used to properly handle IF EXISTS flag in ddl command handler.
  */
-public interface DropSchemaCommandBuilder {
-    /** Sets schema name. Should not be null or blank. */
-    DropSchemaCommandBuilder name(String schemaName);
+public class SchemaNotFoundException extends CatalogValidationException {
+    private static final long serialVersionUID = 6017288060655861875L;
 
-    /** Sets flag indicating forced deletion of a non-empty schema. */
-    DropSchemaCommandBuilder cascade(boolean cascade);
-
-    /** Sets a flag indicating whether {@code IF EXISTS} option was specified. */
-    DropSchemaCommandBuilder ifExists(boolean ifExists);
-
-    /** Returns a command with specified parameters. */
-    CatalogCommand build();
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     */
+    public SchemaNotFoundException(String message) {
+        super(message);
+    }
 }

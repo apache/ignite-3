@@ -73,6 +73,7 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -370,8 +371,13 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-24021
+            // Converts schema name to its canonical form.
+            String schemaNameInCanonicalForm = QualifiedName.fromSimple(statement.defaultSchema()).objectName();
+
             SqlProperties properties = toPropertiesBuilder(statement)
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                    .set(QueryProperty.DEFAULT_SCHEMA, schemaNameInCanonicalForm)
                     .build();
 
             result = queryProcessor.queryAsync(

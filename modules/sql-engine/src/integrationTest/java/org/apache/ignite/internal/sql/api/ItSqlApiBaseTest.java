@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
@@ -75,7 +76,6 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matcher;
@@ -97,9 +97,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @AfterEach
     public void dropTables() {
-        for (Table t : CLUSTER.aliveNode().tables().tables()) {
-            sql("DROP TABLE " + t.name());
-        }
+        dropAllTables();
     }
 
     @Test
@@ -1108,6 +1106,55 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             try (ResultSet<SqlRow> killResultset = sql.execute(null, killQuery)) {
                 assertThat(killResultset.hasRowSet(), is(false));
                 assertThat(killResultset.wasApplied(), is(false));
+            }
+        }
+    }
+
+    @Test
+    public void useNonDefaultSchema() {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE SCHEMA schema1");
+        sql("CREATE TABLE schema1.t1 (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO schema1.t1 VALUES (1, 1), (2, 2)");
+
+        // Schema 2 have t2 as well
+
+        sql("CREATE SCHEMA schema2");
+        sql("CREATE TABLE schema2.t1 (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO schema2.t1 VALUES (1, 1), (2, 2), (3, 3)");
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .query("SELECT COUNT(*) FROM schema1.t1")
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(2, rs.next().longValue(0));
+            }
+        }
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .defaultSchema("schema1")
+                    .query("SELECT COUNT(*) FROM t1")
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(2, rs.next().longValue(0));
+            }
+        }
+
+        // Check schema 2
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .defaultSchema("schema2")
+                    .query(format("SELECT COUNT(*) FROM t1"))
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(3, rs.next().longValue(0));
             }
         }
     }

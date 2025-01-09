@@ -71,6 +71,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
+import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -163,11 +164,12 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction(timestampTracker);
 
         JdbcStatementType reqStmtType = req.getStmtType();
+        String defaultSchemaName = req.schemaName();
         boolean multiStatement = req.multiStatement();
         ZoneId timeZoneId = connectionContext.timeZoneId();
         long timeoutMillis = req.queryTimeoutMillis();
 
-        SqlProperties properties = createProperties(reqStmtType, multiStatement, timeZoneId, timeoutMillis);
+        SqlProperties properties = createProperties(reqStmtType, defaultSchemaName, multiStatement, timeZoneId, timeoutMillis);
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
@@ -189,8 +191,9 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
     }
 
     private static SqlProperties createProperties(
-            JdbcStatementType stmtType, 
-            boolean multiStatement, 
+            JdbcStatementType stmtType,
+            String defaultSchemaName,
+            boolean multiStatement,
             ZoneId timeZoneId,
             long queryTimeoutMillis
     ) {
@@ -210,9 +213,14 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
                 throw new AssertionError("Unexpected jdbc statement type: " + stmtType);
         }
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-24021
+        // Converts schema name to its canonical form.
+        String schemaNameInCanonicalForm = QualifiedName.fromSimple(defaultSchemaName).objectName();
+
         return SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, allowedTypes)
                 .set(QueryProperty.TIME_ZONE_ID, timeZoneId)
+                .set(QueryProperty.DEFAULT_SCHEMA, schemaNameInCanonicalForm)
                 .set(QueryProperty.QUERY_TIMEOUT, queryTimeoutMillis)
                 .build();
     }
@@ -230,6 +238,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction(timestampTracker);
         long correlationToken = req.correlationToken();
         CancellationToken token = connectionContext.registerExecution(correlationToken);
+        String defaultSchemaName = req.schemaName();
         var queries = req.queries();
         var counters = new IntArrayList(req.queries().size());
         var tail = CompletableFuture.completedFuture(counters);
@@ -238,6 +247,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         for (String query : queries) {
             tail = tail.thenCompose(list -> executeAndCollectUpdateCount(
                     connectionContext,
+                    defaultSchemaName,
                     tx,
                     token,
                     query,
@@ -272,13 +282,14 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         long correlationToken = req.correlationToken();
         CancellationToken token = connectionContext.registerExecution(correlationToken);
         var argList = req.getArgs();
+        String defaultSchemaName = req.schemaName();
         var counters = new IntArrayList(req.getArgs().size());
         var tail = CompletableFuture.completedFuture(counters);
         long timeoutMillis = req.queryTimeoutMillis();
 
         for (Object[] args : argList) {
             tail = tail.thenCompose(list -> executeAndCollectUpdateCount(
-                    connectionContext, tx, token, req.getQuery(), args, timeoutMillis, list
+                    connectionContext, defaultSchemaName,  tx, token, req.getQuery(), args, timeoutMillis, list
             ));
         }
 
@@ -295,6 +306,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
     private CompletableFuture<IntArrayList> executeAndCollectUpdateCount(
             JdbcConnectionContext context,
+            String defaultSchemaName,
             @Nullable InternalTransaction tx,
             CancellationToken token,
             String sql,
@@ -306,7 +318,12 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             return CompletableFuture.failedFuture(new IgniteInternalException(CONNECTION_ERR, "Connection is closed"));
         }
 
-        SqlProperties properties = createProperties(JdbcStatementType.UPDATE_STATEMENT_TYPE, false, context.timeZoneId(), timeoutMillis);
+        SqlProperties properties = createProperties(JdbcStatementType.UPDATE_STATEMENT_TYPE,
+                defaultSchemaName,
+                false,
+                context.timeZoneId(),
+                timeoutMillis
+        );
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
