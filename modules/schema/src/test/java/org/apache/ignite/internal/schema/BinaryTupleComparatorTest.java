@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.index;
+package org.apache.ignite.internal.schema;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -33,8 +33,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
@@ -49,9 +49,11 @@ public class BinaryTupleComparatorTest {
     @ParameterizedTest
     @MethodSource("allTypes")
     public void testCompareSingleColumnTuples(NativeType type) {
-        var comparator = new BinaryTupleComparator(List.of(
-                new StorageSortedIndexColumnDescriptor("column", type, false, true)
-        ));
+        var comparator = new BinaryTupleComparator(
+                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST},
+                i -> i,
+                new NativeType[]{type}
+        );
 
         IgniteBiTuple<ByteBuffer, ByteBuffer> tuples = createTestValues(type);
 
@@ -76,6 +78,7 @@ public class BinaryTupleComparatorTest {
                 NativeTypes.STRING,
                 NativeTypes.timestamp(6),
                 NativeTypes.DATE,
+                NativeTypes.time(6),
                 NativeTypes.datetime(6)
         );
     }
@@ -171,11 +174,11 @@ public class BinaryTupleComparatorTest {
 
             case BYTES: {
                 tuple1 = new BinaryTupleBuilder(1)
-                        .appendBytes(new byte[] {1, 2, 3})
+                        .appendBytes(new byte[]{1, 2, 3})
                         .build();
 
                 tuple2 = new BinaryTupleBuilder(1)
-                        .appendBytes(new byte[] {1, 2, 6})
+                        .appendBytes(new byte[]{1, 2, 6})
                         .build();
 
                 break;
@@ -283,10 +286,11 @@ public class BinaryTupleComparatorTest {
 
     @Test
     public void testCompareMultipleColumnTuples() {
-        var comparator = new BinaryTupleComparator(List.of(
-                new StorageSortedIndexColumnDescriptor("column", NativeTypes.INT32, false, true),
-                new StorageSortedIndexColumnDescriptor("column", NativeTypes.STRING, false,  false)
-        ));
+        var comparator = new BinaryTupleComparator(
+                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
+                i -> i,
+                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+        );
 
         ByteBuffer tuple1 = new BinaryTupleBuilder(2)
                 .appendInt(0)
@@ -313,10 +317,11 @@ public class BinaryTupleComparatorTest {
 
     @Test
     public void testCompareMultipleColumnTuplesWithNulls() {
-        var comparator = new BinaryTupleComparator(List.of(
-                new StorageSortedIndexColumnDescriptor("column", NativeTypes.INT32, true, true),
-                new StorageSortedIndexColumnDescriptor("column", NativeTypes.STRING, true,  false)
-        ));
+        var comparator = new BinaryTupleComparator(
+                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
+                i -> i,
+                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+        );
 
         ByteBuffer tuple1 = new BinaryTupleBuilder(2)
                 .appendInt(null)
@@ -352,10 +357,11 @@ public class BinaryTupleComparatorTest {
 
     @Test
     public void testCompareWithPrefix() {
-        var comparator = new BinaryTupleComparator(List.of(
-                new StorageSortedIndexColumnDescriptor("column", NativeTypes.INT32, false, true),
-                new StorageSortedIndexColumnDescriptor("column", NativeTypes.STRING, false,  false)
-        ));
+        var comparator = new BinaryTupleComparator(
+                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
+                i -> i,
+                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+        );
 
         ByteBuffer tuple1 = new BinaryTupleBuilder(2)
                 .appendInt(1)
@@ -391,10 +397,11 @@ public class BinaryTupleComparatorTest {
 
     @Test
     public void testCompareWithPrefixWithNulls() {
-        var comparator = new BinaryTupleComparator(List.of(
-                new StorageSortedIndexColumnDescriptor("column", NativeTypes.INT32, true, true),
-                new StorageSortedIndexColumnDescriptor("column", NativeTypes.STRING, false,  false)
-        ));
+        var comparator = new BinaryTupleComparator(
+                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
+                i -> i,
+                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+        );
 
         ByteBuffer tuple1 = new BinaryTupleBuilder(2)
                 .appendInt(null)

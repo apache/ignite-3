@@ -17,16 +17,21 @@
 
 package org.apache.ignite.internal.storage.util;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.schema.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexNotBuiltException;
+import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
+import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -252,5 +257,18 @@ public class StorageUtils {
         if (nextRowIdToBuild != null) {
             throw new IndexNotBuiltException("Index not built yet: [{}]", storageInfoSupplier.get());
         }
+    }
+
+    /**
+     * Creates a comparator for a Sorted Index identified by the given columns descriptors.
+     */
+    public static BinaryTupleComparator binaryTupleComparator(List<StorageSortedIndexColumnDescriptor> columns) {
+        CatalogColumnCollation[] collations = columns.stream()
+                .map(c -> CatalogColumnCollation.get(c.asc(), !c.asc()))
+                .toArray(CatalogColumnCollation[]::new);
+
+        NativeType[] columnTypes = columns.stream().map(StorageSortedIndexColumnDescriptor::type).toArray(NativeType[]::new);
+
+        return new BinaryTupleComparator(collations, i -> i, columnTypes);
     }
 }

@@ -171,11 +171,11 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.table.RowIdGenerator;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
@@ -1367,7 +1367,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         int flags = request.flags();
 
-        var comparator = new BinaryTupleComparator(indexStorage.indexDescriptor().columns());
+        var comparator = StorageUtils.binaryTupleComparator(indexStorage.indexDescriptor().columns());
 
         Predicate<IndexRow> isUpperBoundAchieved = indexRow -> {
             if (indexRow == null) {
