@@ -125,8 +125,8 @@ public class SharedComputeUtils {
      * @param holder Data holder.
      * @param marshaller Optional marshaller.
      * @param resultClass Optional result class.
-     * @return Unmarshalled object.
      * @param <T> Type of the object.
+     * @return Unmarshalled object.
      */
     public static <T> @Nullable T unmarshalArgOrResult(
             @Nullable ComputeJobDataHolder holder,
