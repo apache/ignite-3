@@ -236,7 +236,9 @@ public class FakeCompute implements IgniteComputeInternal {
             jobStates.put(jobId, newState);
         });
 
-        return new FakeJobExecution<>(result.thenApply(r -> SharedComputeUtils.marshalArgOrResult(r, null)), jobId);
+        return new FakeJobExecution<>(result.thenApply(r -> r instanceof ComputeJobDataHolder
+                ? (ComputeJobDataHolder) r
+                : SharedComputeUtils.marshalArgOrResult(r, null)), jobId);
     }
 
     private class FakeJobExecution<R> implements JobExecution<R>, MarshallerProvider<R> {
