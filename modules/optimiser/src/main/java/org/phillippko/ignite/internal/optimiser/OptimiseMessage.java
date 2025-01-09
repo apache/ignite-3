@@ -1,4 +1,4 @@
-package phillippko.org.optimiser;
+package org.phillippko.ignite.internal.optimiser;
 
 import java.util.UUID;
 import org.apache.ignite.internal.network.NetworkMessage;

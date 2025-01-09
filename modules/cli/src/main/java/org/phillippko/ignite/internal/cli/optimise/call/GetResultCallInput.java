@@ -1,4 +1,4 @@
-package org.apache.ignite.internal.cli.call.optimise;
+package org.phillippko.ignite.internal.cli.optimise.call;
 
 import java.util.UUID;
 import org.apache.ignite.internal.cli.core.call.CallInput;

@@ -323,8 +323,6 @@ public enum Options {
 
         public static final String WRITE_INTENSIVE_OPTION = "--write-intensive";
 
-        public static final String BENCHMARK_FILE_PATH_OPTION = "--benchmark-file-path";
-
-        public static final String ID_OPTION = "--id";
+        public static final String ID_OPTION_DESC = "ID of the target optimisation or benchmark";
     }
 }

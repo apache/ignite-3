@@ -4,7 +4,7 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.RestFactory;
-import phillippko.org.optimiser.OptimiserManager;
+import org.phillippko.ignite.internal.optimiser.OptimiserManager;
 
 /**
  * Factory that defines beans required for the rest module.

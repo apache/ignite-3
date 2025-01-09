@@ -1,34 +1,30 @@
-package org.apache.ignite.internal.rest.api.cluster;
+package org.apache.ignite.internal.rest.api.optimise;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.micronaut.context.annotation.Any;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
-/** Disaster recovery request to restart partitions. */
-@Schema(description = "restart partitions configuration.")
-public class RunOptimisationRequest {
-    @Schema(description = "If target configuration should be optimised for write-intensive use-cases.")
-    private final boolean writeIntensive;
-    @Schema(description = "Name of the node to run optimisation on.")
+@Schema(description = "Run benchmark.")
+public class RunBenchmarkRequest {
+    private final String benchmarkFilePath;
     private final @Nullable String nodeName;
 
     /** Constructor. */
     @JsonCreator
-    public RunOptimisationRequest(
+    public RunBenchmarkRequest(
             @JsonProperty("nodeName") @Nullable String nodeName,
-            @JsonProperty("writeIntensive") boolean writeIntensive
+            @JsonProperty("benchmarkFilePath") String benchmarkFilePath
     ) {
-        this.writeIntensive = writeIntensive;
+        this.benchmarkFilePath = benchmarkFilePath;
         this.nodeName = nodeName;
     }
 
     @JsonGetter
-    public boolean writeIntensive() {
-        return writeIntensive;
+    public String benchmarkFilePath() {
+        return benchmarkFilePath;
     }
 
     @JsonGetter

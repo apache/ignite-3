@@ -26,7 +26,7 @@ import org.apache.ignite.internal.cli.commands.cliconfig.CliCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterCommand;
 import org.apache.ignite.internal.cli.commands.connect.ConnectCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeCommand;
-import org.apache.ignite.internal.cli.commands.optimise.OptimiseCommand;
+import org.phillippko.ignite.internal.cli.optimise.command.OptimiseCommand;
 import org.apache.ignite.internal.cli.commands.recovery.RecoveryCommand;
 import org.apache.ignite.internal.cli.commands.sql.SqlCommand;
 import picocli.CommandLine;

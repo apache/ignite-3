@@ -281,8 +281,10 @@ import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
-import phillippko.org.optimiser.OptimiserManager;
-import phillippko.org.optimiser.OptimiserMessageFactory;
+import org.phillippko.ignite.internal.optimiser.BenchmarkRunnerImpl;
+import org.phillippko.ignite.internal.optimiser.OptimiseRunnerImpl;
+import org.phillippko.ignite.internal.optimiser.OptimiserManager;
+import org.phillippko.ignite.internal.optimiser.OptimiserMessageFactory;
 
 /**
  * Ignite internal implementation.
@@ -1090,14 +1092,13 @@ public class IgniteImpl implements Ignite {
         sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
 
         optimiserManager = new OptimiserManager(
-                sql,
-                nodeConfigRegistry,
-                clusterConfigRegistry,
                 metaStorageMgr,
                 threadPoolsManager.tableIoExecutor(),
                 messagingServiceReturningToStorageOperationsPool,
                 new OptimiserMessageFactory(),
-                clusterSvc.topologyService()
+                clusterSvc.topologyService(),
+                new OptimiseRunnerImpl(clusterConfigRegistry, nodeConfigRegistry),
+                new BenchmarkRunnerImpl(sql)
         );
 
         var deploymentManagerImpl = new DeploymentManagerImpl(

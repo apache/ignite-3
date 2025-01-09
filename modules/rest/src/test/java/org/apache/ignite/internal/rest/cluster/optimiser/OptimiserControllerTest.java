@@ -18,13 +18,13 @@ import io.micronaut.http.client.annotation.Client;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.UUID;
-import org.apache.ignite.internal.rest.api.cluster.RunOptimisationRequest;
+import org.apache.ignite.internal.rest.api.optimise.RunOptimisationRequest;
 import org.apache.ignite.internal.rest.optimiser.OptimiserFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import phillippko.org.optimiser.OptimiserManager;
+import org.phillippko.ignite.internal.optimiser.OptimiserManager;
 
 @MicronautTest
 @Property(name = "ignite.endpoints.filter-non-initialized", value = "false")

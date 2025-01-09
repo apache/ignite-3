@@ -1,5 +1,5 @@
 
-package org.apache.ignite.internal.cli.commands.optimise;
+package org.phillippko.ignite.internal.cli.optimise.command;
 
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;

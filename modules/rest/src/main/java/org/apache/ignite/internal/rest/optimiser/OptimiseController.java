@@ -4,10 +4,10 @@ import io.micronaut.http.annotation.Controller;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.ResourceHolder;
-import org.apache.ignite.internal.rest.api.cluster.OptimiseApi;
-import org.apache.ignite.internal.rest.api.cluster.RunOptimisationRequest;
-import org.apache.ignite.internal.rest.api.cluster.RunBenchmarkRequest;
-import phillippko.org.optimiser.OptimiserManager;
+import org.apache.ignite.internal.rest.api.optimise.OptimiseApi;
+import org.apache.ignite.internal.rest.api.optimise.RunOptimisationRequest;
+import org.apache.ignite.internal.rest.api.optimise.RunBenchmarkRequest;
+import org.phillippko.ignite.internal.optimiser.OptimiserManager;
 
 @Controller("/management/v1/optimise")
 public class OptimiseController implements OptimiseApi, ResourceHolder {

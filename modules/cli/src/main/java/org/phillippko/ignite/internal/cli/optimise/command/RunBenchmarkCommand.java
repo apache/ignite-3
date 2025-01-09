@@ -1,32 +1,39 @@
-package org.apache.ignite.internal.cli.commands.optimise;
+package org.phillippko.ignite.internal.cli.optimise.command;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_NAME_OPTION_DESC;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.NODE_NAME_OPTION_SHORT;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.WRITE_INTENSIVE_OPTION;
 
 import jakarta.inject.Inject;
 import java.util.concurrent.Callable;
-import org.apache.ignite.internal.cli.call.optimise.RunOptimiseCall;
-import org.apache.ignite.internal.cli.call.optimise.RunOptimiseCallInput;
+import org.phillippko.ignite.internal.cli.optimise.call.RunBenchmarkCall;
+import org.phillippko.ignite.internal.cli.optimise.call.RunBenchmarkCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.cluster.ClusterUrlMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
-@Command(name = "runOptimise", description = "Optimise cluster configuration.")
-public class RunOptimiseCommand extends BaseCommand implements Callable<Integer> {
+/**
+ * Command that shows configuration from the cluster.
+ */
+@Command(name = "runBenchmark", description = "Shows node configuration")
+public class RunBenchmarkCommand extends BaseCommand implements Callable<Integer> {
     /** Node URL option. */
     @Mixin
     private ClusterUrlMixin clusterUrlMixin;
 
     @Inject
-    private RunOptimiseCall call;
+    private RunBenchmarkCall call;
 
-    @Option(names = WRITE_INTENSIVE_OPTION, description = "If target configuration should be prepared for write-intensive use-cases")
-    private boolean writeIntensive;
+    @Parameters(
+            defaultValue = "defaultBenchmark",
+            index = "0",
+            description = "Path to the file containing SQL queries to run during benchmark."
+    )
+    private String benchmarkFilePath;
 
     @Option(names = {NODE_NAME_OPTION, NODE_NAME_OPTION_SHORT}, description = NODE_NAME_OPTION_DESC)
     private String nodeName;
@@ -39,10 +46,10 @@ public class RunOptimiseCommand extends BaseCommand implements Callable<Integer>
         );
     }
 
-    private RunOptimiseCallInput buildCallInput() {
-        return RunOptimiseCallInput.builder()
+    private RunBenchmarkCallInput buildCallInput() {
+        return RunBenchmarkCallInput.builder()
                 .setClusterUrl(clusterUrlMixin.getClusterUrl())
-                .setWriteIntensive(writeIntensive)
+                .setBenchmarkFilePath(benchmarkFilePath)
                 .setNodeName(nodeName)
                 .build();
     }

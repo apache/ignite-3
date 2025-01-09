@@ -1,4 +1,4 @@
-package org.apache.ignite.internal.rest.api.cluster;
+package org.apache.ignite.internal.rest.api.optimise;
 
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;

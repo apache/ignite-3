@@ -1,6 +1,6 @@
-package phillippko.org.optimiser;
+package org.phillippko.ignite.internal.optimiser;
 
-import static phillippko.org.optimiser.OptimiserMessageGroup.GROUP_TYPE;
+import static org.phillippko.ignite.internal.optimiser.OptimiserMessageGroup.GROUP_TYPE;
 
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 

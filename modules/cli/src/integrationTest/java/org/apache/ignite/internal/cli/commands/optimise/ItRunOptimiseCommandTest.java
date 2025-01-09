@@ -1,7 +1,6 @@
 package org.apache.ignite.internal.cli.commands.optimise;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.ID_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.WRITE_INTENSIVE_OPTION;
 
 import org.apache.ignite.internal.cli.CliIntegrationTest;
