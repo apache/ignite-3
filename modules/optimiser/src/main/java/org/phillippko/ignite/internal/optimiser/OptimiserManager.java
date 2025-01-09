@@ -14,7 +14,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -22,8 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class OptimiserManager implements IgniteComponent {
+    public static final String RESULT_PREFIX = "optimiser.result.";
     private static final Logger LOG = LoggerFactory.getLogger(OptimiserManager.class);
-    private static final String RESULT_PREFIX = "optimiser.result.";
     private final ExecutorService threadPool;
     private final MessagingService messagingService;
     private final MetaStorageManager metastorageManager;
