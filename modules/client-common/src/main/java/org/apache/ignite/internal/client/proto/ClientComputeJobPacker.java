@@ -33,6 +33,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.PojoConversionException;
+import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.MarshallingException;
 import org.apache.ignite.sql.ColumnType;
@@ -110,20 +111,7 @@ public final class ClientComputeJobPacker {
             packer.packInt(TUPLE_COLLECTION.id());
 
             // Pack entire collection into a single binary blob.
-            BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(col.size());
-
-            for (Object el : col) {
-                if (el == null) {
-                    tupleBuilder.appendNull();
-                    continue;
-                }
-
-                if (!(el instanceof Tuple)) {
-                    throw new MarshallingException("Can't pack collection: expected Tuple, but got " + el.getClass(), null);
-                }
-
-                tupleBuilder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) el));
-            }
+            BinaryTupleBuilder tupleBuilder = SharedComputeUtils.packCollectionToBinaryTuple(col);
 
             ByteBuffer binTupleBytes = tupleBuilder.build();
             packer.packBinaryHeader(Integer.BYTES + binTupleBytes.remaining());

@@ -551,20 +551,7 @@ public class ComputeUtils {
             Collection<?> col = (Collection<?>) result;
 
             // Pack entire collection into a single binary blob.
-            BinaryTupleBuilder tupleBuilder = new BinaryTupleBuilder(col.size());
-
-            for (Object el : col) {
-                if (el == null) {
-                    tupleBuilder.appendNull();
-                    continue;
-                }
-
-                if (!(el instanceof Tuple)) {
-                    throw new MarshallingException("Can't pack collection: expected Tuple, but got " + el.getClass(), null);
-                }
-
-                tupleBuilder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) el));
-            }
+            BinaryTupleBuilder tupleBuilder = SharedComputeUtils.packCollectionToBinaryTuple(col);
 
             ByteBuffer binTupleBytes = tupleBuilder.build();
 
