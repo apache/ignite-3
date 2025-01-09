@@ -410,7 +410,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         ExecuteRequest capturedRequest = invokeAndCaptureRequest(ExecuteRequest.class);
 
         assertThat(capturedRequest.jobClassName(), is(jobClassName));
-        assertThat(capturedRequest.input(), is(equalTo(args)));
+        assertThat(SharedComputeUtils.unmarshalArgOrResult(capturedRequest.input(), null, null), is(equalTo(args)));
     }
 
     private void assertThatJobResultRequestWasSent(UUID jobId) {
@@ -478,7 +478,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 .build();
         JobResultResponse jobResultResponse = sendRequestAndCaptureResponse(jobResultRequest, testNode, 456L);
 
-        assertThat(jobResultResponse.result(), is("jobResponse"));
+        assertThat(SharedComputeUtils.unmarshalArgOrResult(jobResultResponse.result(), null, null), is("jobResponse"));
         assertThat(jobResultResponse.throwable(), is(nullValue()));
     }
 
