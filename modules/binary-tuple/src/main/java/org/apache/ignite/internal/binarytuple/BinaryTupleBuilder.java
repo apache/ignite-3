@@ -21,7 +21,6 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.CharacterCodingException;
-import java.nio.charset.CharsetEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -56,10 +55,7 @@ public class BinaryTupleBuilder {
     private final int valueBase;
 
     /** Buffer for tuple content. */
-    private ByteBuffer buffer;
-
-    /** Charset encoder for strings. Initialized lazily. */
-    private CharsetEncoder cachedEncoder;
+    private ExpandableByteBuffer buffer;
 
     /**
      * Creates a builder.
@@ -625,65 +621,55 @@ public class BinaryTupleBuilder {
 
         buffer.put(offset, flags);
 
-        return buffer.flip().position(offset);
+        return buffer.flip().position(offset).unwrap();
     }
 
     /** Put a byte value to the buffer extending it if needed. */
     private void putByte(byte value) {
-        ensure(Byte.BYTES);
         buffer.put(value);
     }
 
     /** Put a short value to the buffer extending it if needed. */
     private void putShort(short value) {
-        ensure(Short.BYTES);
         buffer.putShort(value);
     }
 
     /** Put an int value to the buffer extending it if needed. */
     private void putInt(int value) {
-        ensure(Integer.BYTES);
         buffer.putInt(value);
     }
 
     /** Put a long value to the buffer extending it if needed. */
     private void putLong(long value) {
-        ensure(Long.BYTES);
         buffer.putLong(value);
     }
 
     /** Put a float value to the buffer extending it if needed. */
     private void putFloat(float value) {
-        ensure(Float.BYTES);
         buffer.putFloat(value);
     }
 
     /** Put a double value to the buffer extending it if needed. */
     private void putDouble(double value) {
-        ensure(Double.BYTES);
         buffer.putDouble(value);
     }
 
     /** Put bytes to the buffer extending it if needed. */
     private void putBytes(byte[] bytes) {
-        ensure(bytes.length);
         buffer.put(bytes);
     }
 
     private void putBytesWithEmptyCheck(byte[] bytes) {
         if (bytes.length == 0 || bytes[0] == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
-            ensure(bytes.length + 1);
             buffer.put(BinaryTupleCommon.VARLEN_EMPTY_BYTE);
-        } else {
-            ensure(bytes.length);
         }
+
         buffer.put(bytes);
     }
 
     /** Put a string to the buffer extending it if needed. */
     private void putString(String value) throws CharacterCodingException {
         if (value.isEmpty()) {
-            ensure(1);
             buffer.put(BinaryTupleCommon.VARLEN_EMPTY_BYTE);
             return;
         }
@@ -736,8 +722,7 @@ public class BinaryTupleBuilder {
     /** Put element bytes to the buffer extending it if needed. */
     private void putElement(ByteBuffer bytes, int offset, int length) {
         assert bytes.limit() >= (offset + length);
-        ensure(length);
-        buffer.put(bytes.asReadOnlyBuffer().position(offset).limit(offset + length));
+        buffer.put(bytes.asReadOnlyBuffer().position(offset).limit(offset + length), length);
     }
 
     /** Proceed to the next tuple element. */
@@ -765,7 +750,7 @@ public class BinaryTupleBuilder {
 
     /** Allocate a non-direct buffer for tuple. */
     private void allocate(int totalValueSize) {
-        buffer = ByteBuffer.allocate(estimateBufferCapacity(totalValueSize));
+        buffer = new ExpandableByteBuffer(estimateBufferCapacity(totalValueSize));
         buffer.order(ByteOrder.LITTLE_ENDIAN);
         buffer.position(valueBase);
     }
@@ -776,39 +761,5 @@ public class BinaryTupleBuilder {
             totalValueSize = Integer.max(numElements * 8, DEFAULT_BUFFER_SIZE);
         }
         return valueBase + totalValueSize;
-    }
-
-    /** Ensure that the buffer can fit the required size. */
-    private void ensure(int size) {
-        if (buffer.remaining() < size) {
-            grow(size);
-        }
-    }
-
-    /** Reallocate the buffer increasing its capacity to fit the required size. */
-    private void grow(int size) {
-        int capacity = buffer.capacity();
-        do {
-            capacity *= 2;
-            if (capacity < 0) {
-                throw new BinaryTupleFormatException("Buffer overflow in binary tuple builder");
-            }
-        } while ((capacity - buffer.position()) < size);
-
-        ByteBuffer newBuffer = ByteBuffer.allocate(capacity);
-        newBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        newBuffer.put(buffer.flip());
-
-        buffer = newBuffer;
-    }
-
-    /**
-     * Get UTF-8 string encoder.
-     */
-    private CharsetEncoder encoder() {
-        if (cachedEncoder == null) {
-            cachedEncoder = StandardCharsets.UTF_8.newEncoder();
-        }
-        return cachedEncoder;
     }
 }
