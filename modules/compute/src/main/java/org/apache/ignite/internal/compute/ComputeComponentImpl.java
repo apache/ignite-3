@@ -130,7 +130,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             @Nullable ComputeJobDataHolder arg
     ) {
         if (!busyLock.enterBusy()) {
-            return new DelegatingJobExecution<>(
+            return new DelegatingJobExecution(
                     failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
             );
         }
@@ -150,7 +150,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             inFlightFutures.registerFuture(future);
             inFlightFutures.registerFuture(classLoaderFut);
 
-            JobExecution<ComputeJobDataHolder> result = new DelegatingJobExecution<>(future);
+            JobExecution<ComputeJobDataHolder> result = new DelegatingJobExecution(future);
 
             if (cancellationToken != null) {
                 CancelHandleHelper.addCancelAction(cancellationToken, classLoaderFut);
@@ -209,7 +209,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             ComputeJobDataHolder arg
     ) {
         if (!busyLock.enterBusy()) {
-            return new DelegatingJobExecution<>(
+            return new DelegatingJobExecution(
                     failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
            );
         }
@@ -323,7 +323,11 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     }
 
 
-    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, @Nullable T arg) {
+    private <T, R> JobExecutionInternal<ComputeJobDataHolder> execJob(
+            JobContext context,
+            ExecutionOptions options,
+            String jobClassName,
+            @Nullable ComputeJobDataHolder arg) {
         try {
             return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), arg);
         } catch (Throwable e) {
