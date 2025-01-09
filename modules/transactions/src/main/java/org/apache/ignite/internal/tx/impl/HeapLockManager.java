@@ -78,7 +78,7 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Additionally limits the lock map size.
  */
 public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventParameters> implements LockManager {
-    /** Throttled logger */
+    /** Throttled logger. */
     private static final IgniteLogger THROTTLED_LOG = Loggers.toThrottledLogger(
             Loggers.forClass(HeapLockManager.class),
             // TODO: IGNITE-24181 Get rid of Common thread pool.
