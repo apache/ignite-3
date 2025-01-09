@@ -79,24 +79,27 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         return List.of();
     }
 
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     @Test
     void changeJobPriorityLocally() {
         Ignite entryNode = node(0);
         JobTarget jobTarget = JobTarget.node(clusterNode(entryNode));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
-        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        WaitLatchJob.latches = new CountDownLatch[]{countDownLatch, new CountDownLatch(1)};
+
+        JobDescriptor<Integer, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, countDownLatch);
+        JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, 0);
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start one more task
-        JobExecution<String> execution2 = entryNode.compute().submit(jobTarget, job, new CountDownLatch(1));
+        JobExecution<String> execution2 = entryNode.compute().submit(jobTarget, job, 1);
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Start third task
-        JobExecution<String> execution3 = entryNode.compute().submit(jobTarget, job, countDownLatch);
+        JobExecution<String> execution3 = entryNode.compute().submit(jobTarget, job, 0);
         await().until(execution3::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Task 2 and 3 are not completed, in queued state
@@ -120,32 +123,37 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         assertThat(execution2.cancelAsync(), willBe(true));
     }
 
+    @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
     @Test
     void executesJobLocallyWithOptions() {
         Ignite entryNode = node(0);
         JobTarget jobTarget = JobTarget.node(clusterNode(entryNode));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
-        JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
+        WaitLatchJob.latches = new CountDownLatch[]{countDownLatch, new CountDownLatch(1)};
+
+        JobDescriptor<Integer, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
 
         // Start 1 task in executor with 1 thread
-        JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, countDownLatch);
+        JobExecution<String> execution1 = entryNode.compute().submit(jobTarget, job, 0);
 
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start one more task
-        JobExecution<String> execution2 = entryNode.compute().submit(jobTarget, job, new CountDownLatch(1));
+        JobExecution<String> execution2 = entryNode.compute().submit(jobTarget, job, 1);
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Start third task it should be before task2 in the queue due to higher priority in options
         JobExecutionOptions options = JobExecutionOptions.builder().priority(1).maxRetries(2).build();
+        WaitLatchThrowExceptionOnFirstExecutionJob.latch = countDownLatch;
+
         JobExecution<String> execution3 = entryNode.compute().submit(
                 jobTarget,
                 JobDescriptor.builder(WaitLatchThrowExceptionOnFirstExecutionJob.class)
                         .units(units())
                         .options(options)
                         .build(),
-                countDownLatch);
+                null);
         await().until(execution3::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Task 1 and 2 are not competed, in queue state
@@ -291,11 +299,13 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class WaitLatchJob implements ComputeJob<CountDownLatch, String> {
+    private static class WaitLatchJob implements ComputeJob<Integer, String> {
+        private static CountDownLatch[] latches;
+
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, CountDownLatch latch) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Integer latchId) {
             try {
-                latch.await();
+                latches[latchId].await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -303,11 +313,12 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         }
     }
 
-    private static class WaitLatchThrowExceptionOnFirstExecutionJob implements ComputeJob<CountDownLatch, String> {
+    private static class WaitLatchThrowExceptionOnFirstExecutionJob implements ComputeJob<Object, String> {
+        private static CountDownLatch latch;
         static final AtomicInteger counter = new AtomicInteger(0);
 
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, CountDownLatch latch) {
+        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object arg) {
             try {
                 latch.await();
                 if (counter.incrementAndGet() == 1) {
