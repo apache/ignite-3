@@ -547,10 +547,9 @@ public class ComputeUtils {
         }
 
         if (result instanceof Collection) {
-            // TODO: IGNITE-24059 Deduplicate with ClientComputeJobPacker.
             Collection<?> col = (Collection<?>) result;
 
-            // Pack entire collection into a single binary blob.
+            // Pack entire collection into a single binary blob, starting with the number of elements (4 bytes, little-endian).
             BinaryTupleBuilder tupleBuilder = SharedComputeUtils.packCollectionToBinaryTuple(col);
 
             ByteBuffer binTupleBytes = tupleBuilder.build();

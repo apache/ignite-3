@@ -108,12 +108,12 @@ public final class ClientComputeJobPacker {
         if (obj instanceof Collection) {
             Collection<?> col = (Collection<?>) obj;
 
-            packer.packInt(TUPLE_COLLECTION.id());
-
-            // Pack entire collection into a single binary blob.
+            // Pack entire collection into a single binary blob, starting with the number of elements (4 bytes, little-endian).
             BinaryTupleBuilder tupleBuilder = SharedComputeUtils.packCollectionToBinaryTuple(col);
 
             ByteBuffer binTupleBytes = tupleBuilder.build();
+
+            packer.packInt(TUPLE_COLLECTION.id());
             packer.packBinaryHeader(Integer.BYTES + binTupleBytes.remaining());
             packer.writeIntRawLittleEndian(col.size());
             packer.writePayload(binTupleBytes);
