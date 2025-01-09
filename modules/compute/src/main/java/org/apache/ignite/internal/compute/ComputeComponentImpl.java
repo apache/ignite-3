@@ -192,8 +192,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
             DelegatingTaskExecution<I, M, T, R> result = new DelegatingTaskExecution<>(taskFuture);
 
-            // TODO: How do we handle task results? Need actual generics here?
-            result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, new TaskToJobExecutionWrapper(result)));
+            result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, new TaskToJobExecutionWrapper<>(result)));
             return result;
         } finally {
             busyLock.leaveBusy();

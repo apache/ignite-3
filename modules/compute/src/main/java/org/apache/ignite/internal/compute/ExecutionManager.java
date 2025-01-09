@@ -47,9 +47,9 @@ public class ExecutionManager {
 
     private final TopologyService topologyService;
 
-    private final Cleaner<JobExecution<ComputeJobDataHolder>> cleaner = new Cleaner<>();
+    private final Cleaner<JobExecution<?>> cleaner = new Cleaner<>();
 
-    private final Map<UUID, JobExecution<ComputeJobDataHolder>> executions = new ConcurrentHashMap<>();
+    private final Map<UUID, JobExecution<?>> executions = new ConcurrentHashMap<>();
 
     ExecutionManager(ComputeConfiguration computeConfiguration, TopologyService topologyService) {
         this.computeConfiguration = computeConfiguration;
@@ -62,7 +62,7 @@ public class ExecutionManager {
      * @param jobId Job id.
      * @param execution Job execution.
      */
-    void addExecution(UUID jobId, JobExecution<ComputeJobDataHolder> execution) {
+    void addExecution(UUID jobId, JobExecution<?> execution) {
         executions.put(jobId, execution);
         execution.resultAsync().whenComplete((r, throwable) -> cleaner.scheduleRemove(jobId));
     }
@@ -89,9 +89,8 @@ public class ExecutionManager {
      * @param jobId Job id.
      * @return Job's execution result future.
      */
-    public CompletableFuture<ComputeJobDataHolder> resultAsync(UUID jobId) {
-        JobExecution<ComputeJobDataHolder> execution = executions.get(jobId);
-
+    public CompletableFuture<?> resultAsync(UUID jobId) {
+        JobExecution<?> execution = executions.get(jobId);
         if (execution != null) {
             return execution.resultAsync();
         }
