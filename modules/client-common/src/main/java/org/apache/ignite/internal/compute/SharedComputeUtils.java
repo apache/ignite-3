@@ -48,48 +48,13 @@ import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Compute serialization utils shared between client and embedded APIs.
+ */
 public class SharedComputeUtils {
     private static final Set<Class<?>> NATIVE_TYPES = Arrays.stream(ColumnType.values())
             .map(ColumnType::javaClass)
             .collect(Collectors.toUnmodifiableSet());
-
-    public static BinaryTupleBuilder writeTupleCollection(Collection<?> col) {
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(col.size());
-
-        for (Object el : col) {
-            if (el == null) {
-                builder.appendNull();
-                continue;
-            }
-
-            if (!(el instanceof Tuple)) {
-                throw new MarshallingException("Can't pack collection: expected Tuple, but got " + el.getClass(), null);
-            }
-
-            builder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) el));
-        }
-
-        return builder;
-    }
-
-    public static List<Tuple> readTupleCollection(ByteBuffer collectionBuf) {
-        int count = collectionBuf.getInt();
-        BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf.slice().order(ByteOrder.LITTLE_ENDIAN));
-
-        List<Tuple> res = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) {
-            ByteBuffer elementBytes = reader.bytesValueAsBuffer(i);
-
-            if (elementBytes == null) {
-                res.add(null);
-                continue;
-            }
-
-            res.add(TupleWithSchemaMarshalling.unmarshal(elementBytes));
-        }
-
-        return res;
-    }
 
     /**
      * Marshals the job result using either provided marshaller if not {@code null} or depending on the type of the result either as a
@@ -229,5 +194,43 @@ public class SharedComputeUtils {
 
     private static boolean isNativeType(Class<?> clazz) {
         return NATIVE_TYPES.contains(clazz);
+    }
+
+    private static BinaryTupleBuilder writeTupleCollection(Collection<?> col) {
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(col.size());
+
+        for (Object el : col) {
+            if (el == null) {
+                builder.appendNull();
+                continue;
+            }
+
+            if (!(el instanceof Tuple)) {
+                throw new MarshallingException("Can't pack collection: expected Tuple, but got " + el.getClass(), null);
+            }
+
+            builder.appendBytes(TupleWithSchemaMarshalling.marshal((Tuple) el));
+        }
+
+        return builder;
+    }
+
+    private static List<Tuple> readTupleCollection(ByteBuffer collectionBuf) {
+        int count = collectionBuf.getInt();
+        BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf.slice().order(ByteOrder.LITTLE_ENDIAN));
+
+        List<Tuple> res = new ArrayList<>(count);
+        for (int i = 0; i < count; i++) {
+            ByteBuffer elementBytes = reader.bytesValueAsBuffer(i);
+
+            if (elementBytes == null) {
+                res.add(null);
+                continue;
+            }
+
+            res.add(TupleWithSchemaMarshalling.unmarshal(elementBytes));
+        }
+
+        return res;
     }
 }
