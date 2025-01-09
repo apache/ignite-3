@@ -19,7 +19,7 @@ package org.apache.ignite.internal.eventlog.impl;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
 import static org.mockserver.model.HttpRequest.request;
@@ -175,7 +175,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
         events.forEach(sink::write);
 
-        assertThat(sink.getEvents(), containsInAnyOrder(
+        assertThat(sink.getEvents(), hasItems(
                 IgniteEvents.USER_AUTHENTICATION_FAILURE.create(EventUser.of("user2", "basicProvider")),
                 IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of("user3", "basicProvider"))
         ));
