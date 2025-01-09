@@ -75,11 +75,6 @@ public class ItComputeTestClient extends ItComputeTestEmbedded {
     }
 
     @Override
-    void executesJobOnRemoteNodes() {
-        super.executesJobOnRemoteNodes();
-    }
-
-    @Override
     @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
     void executesJobOnRemoteNodesAsync() {
         super.executesJobOnRemoteNodesAsync();
