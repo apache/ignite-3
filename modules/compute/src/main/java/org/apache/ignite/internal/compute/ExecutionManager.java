@@ -100,7 +100,7 @@ public class ExecutionManager {
                 // If result needs to be marshalled, then job execution request came from the client and we need to marshal the result and
                 // return the wrapper object back to the client handler node so it can pass the binary data directly back to client.
                 if (provider.marshalResult()) {
-                    return execution.resultAsync().thenApply(result -> ComputeUtils.marshalAndWrapResult(result, marshaller));
+                    return execution.resultAsync().thenApply(result -> SharedComputeUtils.marshalAndWrapArgOrResult(result, marshaller));
                 }
 
                 if (marshaller != null) {

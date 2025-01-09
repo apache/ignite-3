@@ -20,12 +20,7 @@ package org.apache.ignite.internal.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.MARSHALLED_CUSTOM;
-import static org.apache.ignite.internal.compute.ComputeJobDataType.NATIVE;
-import static org.apache.ignite.internal.compute.ComputeJobDataType.POJO;
-import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE;
-import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE_COLLECTION;
 import static org.apache.ignite.internal.compute.PojoConverter.fromTuple;
-import static org.apache.ignite.internal.compute.PojoConverter.toTuple;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
@@ -36,10 +31,8 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -52,7 +45,6 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.deployment.version.Version;
-import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
@@ -64,13 +56,10 @@ import org.apache.ignite.internal.compute.message.JobChangePriorityResponse;
 import org.apache.ignite.internal.compute.message.JobResultResponse;
 import org.apache.ignite.internal.compute.message.JobStateResponse;
 import org.apache.ignite.internal.compute.message.JobStatesResponse;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
-import org.apache.ignite.marshalling.MarshallingException;
 import org.apache.ignite.marshalling.UnmarshallingException;
-import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -80,10 +69,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ComputeUtils {
     private static final ComputeMessagesFactory MESSAGES_FACTORY = new ComputeMessagesFactory();
-
-    private static final Set<Class<?>> NATIVE_TYPES = Arrays.stream(ColumnType.values())
-            .map(ColumnType::javaClass)
-            .collect(Collectors.toUnmodifiableSet());
 
     /**
      * Instantiate compute job via provided class loader by provided job class.
@@ -496,73 +481,6 @@ public class ComputeUtils {
         } catch (PojoConversionException e) {
             throw new UnmarshallingException("Can't unpack object", e);
         }
-    }
-
-    /**
-     * Marshals the job result using either provided marshaller if not {@code null} or depending on the type of the result either as a
-     * {@link Tuple}, a native type (see {@link ColumnType}) or a POJO. Wraps the marshalled data with the data type in the
-     * {@link ComputeJobDataHolder} to be unmarshalled on the client.
-     *
-     * @param result Compute job result.
-     * @param marshaller Optional result marshaller.
-     *
-     * @return Data holder.
-     */
-    @Nullable
-    static ComputeJobDataHolder marshalAndWrapResult(Object result, @Nullable Marshaller<Object, byte[]> marshaller) {
-        if (result == null) {
-            return null;
-        }
-
-        if (marshaller != null) {
-            byte[] data = marshaller.marshal(result);
-            if (data == null) {
-                return null;
-            }
-            return new ComputeJobDataHolder(MARSHALLED_CUSTOM, data);
-        }
-
-        if (result instanceof Tuple) {
-            Tuple tuple = (Tuple) result;
-            return new ComputeJobDataHolder(TUPLE, TupleWithSchemaMarshalling.marshal(tuple));
-        }
-
-        if (result instanceof Collection) {
-            Collection<?> col = (Collection<?>) result;
-
-            // Pack entire collection into a single binary blob, starting with the number of elements (4 bytes, little-endian).
-            BinaryTupleBuilder tupleBuilder = SharedComputeUtils.writeTupleCollection(col);
-
-            ByteBuffer binTupleBytes = tupleBuilder.build();
-
-            byte[] resArr = new byte[Integer.BYTES + binTupleBytes.remaining()];
-            ByteBuffer resBuf = ByteBuffer.wrap(resArr).order(ByteOrder.LITTLE_ENDIAN);
-            resBuf.putInt(col.size());
-            resBuf.put(binTupleBytes);
-
-            return new ComputeJobDataHolder(TUPLE_COLLECTION, resArr);
-        }
-
-
-        if (isNativeType(result.getClass())) {
-            // Builder with inline schema.
-            // Value is represented by 3 tuple elements: type, scale, value.
-            var builder = new BinaryTupleBuilder(3, 3, false);
-            ClientBinaryTupleUtils.appendObject(builder, result);
-            return new ComputeJobDataHolder(NATIVE, IgniteUtils.byteBufferToByteArray(builder.build()));
-        }
-
-        try {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-23320
-            Tuple tuple = toTuple(result);
-            return new ComputeJobDataHolder(POJO, TupleWithSchemaMarshalling.marshal(tuple));
-        } catch (PojoConversionException e) {
-            throw new MarshallingException("Can't pack object", e);
-        }
-    }
-
-    private static boolean isNativeType(Class<?> clazz) {
-        return NATIVE_TYPES.contains(clazz);
     }
 
     /**
