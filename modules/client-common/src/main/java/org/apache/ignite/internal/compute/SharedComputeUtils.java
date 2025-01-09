@@ -119,6 +119,15 @@ public class SharedComputeUtils {
         }
     }
 
+    /**
+     * Unmarshals the job argument or result.
+     *
+     * @param holder Data holder.
+     * @param marshaller Optional marshaller.
+     * @param resultClass Optional result class.
+     * @return Unmarshalled object.
+     * @param <T> Type of the object.
+     */
     public static <T> @Nullable T unmarshalArgOrResult(
             @Nullable ComputeJobDataHolder holder,
             @Nullable Marshaller<?, byte[]> marshaller,
@@ -171,6 +180,13 @@ public class SharedComputeUtils {
         }
     }
 
+    /**
+     * Unmarshals a POJO from the tuple.
+     *
+     * @param pojoType POJO type.
+     * @param input Tuple.
+     * @return Unmarshalled POJO.
+     */
     public static Object unmarshalPojo(Class<?> pojoType, Tuple input) {
         try {
             Object obj = pojoType.getConstructor().newInstance();
