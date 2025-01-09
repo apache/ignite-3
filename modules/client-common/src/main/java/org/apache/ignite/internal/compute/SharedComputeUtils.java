@@ -72,6 +72,11 @@ public class SharedComputeUtils {
             return null;
         }
 
+        if (obj instanceof ComputeJobDataHolder) {
+            // TODO: Why does this happen?
+            return (ComputeJobDataHolder) obj;
+        }
+
         if (marshaller != null) {
             byte[] data = marshaller.marshal(obj);
             if (data == null) {
