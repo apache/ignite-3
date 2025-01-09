@@ -185,6 +185,7 @@ public class ComputeMessaging {
                 .map(ComputeUtils::toDeploymentUnitMsg)
                 .collect(toList());
 
+        // TODO: Input must be converted to ComputeJobDataHolder
         ExecuteRequest executeRequest = messagesFactory.executeRequest()
                 .executeOptions(options)
                 .deploymentUnits(deploymentUnitMsgs)
@@ -237,6 +238,7 @@ public class ComputeMessaging {
     }
 
     private void sendJobResultResponse(@Nullable Object result, @Nullable Throwable ex, ClusterNode sender, long correlationId) {
+        // TODO: Result must have ComputeJobDataHolder type
         JobResultResponse jobResultResponse = messagesFactory.jobResultResponse()
                 .result(result)
                 .throwable(ex)
