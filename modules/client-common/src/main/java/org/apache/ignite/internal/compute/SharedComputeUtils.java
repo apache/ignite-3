@@ -22,8 +22,11 @@ import static org.apache.ignite.internal.compute.ComputeJobDataType.NATIVE;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.POJO;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE;
 import static org.apache.ignite.internal.compute.ComputeJobDataType.TUPLE_COLLECTION;
+import static org.apache.ignite.internal.compute.PojoConverter.fromTuple;
 import static org.apache.ignite.internal.compute.PojoConverter.toTuple;
+import static org.apache.ignite.lang.ErrorGroups.Compute.MARSHALLING_TYPE_MISMATCH_ERR;
 
+import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -32,6 +35,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
@@ -39,6 +43,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.MarshallingException;
+import org.apache.ignite.marshalling.UnmarshallingException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -97,7 +102,7 @@ public class SharedComputeUtils {
      * @return Data holder.
      */
     @Nullable
-    public static <T> ComputeJobDataHolder marshalAndWrapArgOrResult(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller) {
+    public static <T> ComputeJobDataHolder marshalArgOrResult(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller) {
         if (obj == null) {
             return null;
         }
@@ -146,6 +151,79 @@ public class SharedComputeUtils {
             return new ComputeJobDataHolder(POJO, TupleWithSchemaMarshalling.marshal(tuple));
         } catch (PojoConversionException e) {
             throw new MarshallingException("Can't pack object: " + obj, e);
+        }
+    }
+
+    public static <T> @Nullable T unmarshalArgOrResult(
+            @Nullable ComputeJobDataHolder holder,
+            @Nullable Marshaller<?, byte[]> marshaller,
+            @Nullable Class<?> resultClass) {
+        if (holder == null) {
+            return null;
+        }
+
+        ComputeJobDataType type = holder.type();
+        if (type != MARSHALLED_CUSTOM && marshaller != null) {
+            throw new ComputeException(
+                    MARSHALLING_TYPE_MISMATCH_ERR,
+                    "Marshaller is defined on the server, but the argument was not marshalled on the client. "
+                            + "If you want to use default marshalling strategy, "
+                            + "then you should not define your marshaller in the job. "
+                            + "If you would like to use your own marshaller, then double-check "
+                            + "that both of them are defined in the client and in the server."
+            );
+        }
+
+        switch (type) {
+            case NATIVE: {
+                var reader = new BinaryTupleReader(3, holder.data());
+                return (T) ClientBinaryTupleUtils.readObject(reader, 0);
+            }
+
+            case TUPLE: // Fallthrough TODO https://issues.apache.org/jira/browse/IGNITE-23320
+            case POJO:
+                Tuple tuple = TupleWithSchemaMarshalling.unmarshal(holder.data());
+                if (resultClass != null && resultClass != Tuple.class) {
+                    return (T) unmarshalPojo(resultClass, tuple);
+                }
+                return (T) tuple;
+
+            case MARSHALLED_CUSTOM:
+                if (marshaller == null) {
+                    throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Marshaller should be defined on the client");
+                }
+                try {
+                    return (T) marshaller.unmarshal(holder.data());
+                } catch (Exception ex) {
+                    throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller", ex);
+                }
+
+            case TUPLE_COLLECTION:
+                return (T) readTupleCollection(ByteBuffer.wrap(holder.data()).order(ByteOrder.LITTLE_ENDIAN));
+
+            default:
+                throw new ComputeException(MARSHALLING_TYPE_MISMATCH_ERR, "Unexpected job argument type: " + type);
+        }
+    }
+
+    public static Object unmarshalPojo(Class<?> pojoType, Tuple input) {
+        try {
+            Object obj = pojoType.getConstructor().newInstance();
+
+            fromTuple(obj, input);
+
+            return obj;
+        } catch (NoSuchMethodException e) {
+            throw new UnmarshallingException("Class " + pojoType.getName() + " doesn't have public default constructor. "
+                    + "Add the constructor or define argument marshaller in the compute job.", e);
+        } catch (InvocationTargetException e) {
+            throw new UnmarshallingException("Constructor has thrown an exception", e);
+        } catch (InstantiationException e) {
+            throw new UnmarshallingException("Can't instantiate an object of class " + pojoType.getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new UnmarshallingException("Constructor is inaccessible", e);
+        } catch (PojoConversionException e) {
+            throw new UnmarshallingException("Can't unpack object", e);
         }
     }
 

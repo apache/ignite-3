@@ -54,7 +54,7 @@ public final class ClientComputeJobPacker {
     private static <T> void pack(@Nullable T obj, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
         ComputeJobDataHolder holder = obj instanceof ComputeJobDataHolder
                 ? (ComputeJobDataHolder) obj
-                : SharedComputeUtils.marshalAndWrapArgOrResult(obj, marshaller);
+                : SharedComputeUtils.marshalArgOrResult(obj, marshaller);
 
         if (holder == null) {
             packer.packNil();
