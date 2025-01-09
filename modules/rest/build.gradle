@@ -33,6 +33,7 @@ dependencies {
     implementation project(':ignite-configuration-presentation')
     implementation project(':ignite-rest-api')
     implementation project(':ignite-core')
+    implementation project(':ignite-optimiser')
     implementation project(':ignite-network')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-metrics')

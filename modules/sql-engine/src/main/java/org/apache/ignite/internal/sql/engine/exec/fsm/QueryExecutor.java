@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -78,6 +79,8 @@ public class QueryExecutor implements LifecycleAware {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final ConcurrentMap<UUID, Query> runningQueries = new ConcurrentHashMap<>();
+
+    private final ConcurrentMap<Long, String> queryHistory = new ConcurrentHashMap<>();
 
     /**
      * Creates executor.
@@ -318,6 +321,7 @@ public class QueryExecutor implements LifecycleAware {
         CompletableFuture<Void> queryTerminationFut = query.onPhaseStarted(ExecutionPhase.TERMINATED);
         CompletableFuture<Void> queryTerminationDoneFut = queryTerminationFut.whenComplete((ignored, ex) -> {
             runningQueries.remove(query.id);
+            queryHistory.put(clockNow().subtractPhysicalTime(query.createdAt.toEpochMilli()).getPhysical(), query.sql);
         });
 
         if (cancellationToken != null) {
@@ -330,6 +334,11 @@ public class QueryExecutor implements LifecycleAware {
         return runningQueries.values().stream()
                 .map(QueryInfo::new)
                 .collect(Collectors.toList());
+    }
+
+    /** Returns queries history. */
+    public Map<Long, String> queryHistory() {
+        return Map.copyOf(queryHistory);
     }
 
     @Override

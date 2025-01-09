@@ -39,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Encapsulates intermediate state populated throughout query lifecycle.
  */
-class Query {
+public class Query {
     final CompletableFuture<Object> resultHolder = new CompletableFuture<>();
 
     // Below are attributes the query was initialized with

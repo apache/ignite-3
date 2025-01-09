@@ -320,5 +320,11 @@ public enum Options {
         public static final String CONFIG_FORMAT_OPTION = "--format";
 
         public static final String CONFIG_FORMAT_OPTION_DESC = "Output format. Valid values: ${COMPLETION-CANDIDATES}";
+
+        public static final String WRITE_INTENSIVE_OPTION = "--write-intensive";
+
+        public static final String BENCHMARK_FILE_PATH_OPTION = "--benchmark-file-path";
+
+        public static final String ID_OPTION = "--id";
     }
 }

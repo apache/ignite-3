@@ -210,6 +210,7 @@ import org.apache.ignite.internal.rest.configuration.RestExtensionConfiguration;
 import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
 import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
+import org.apache.ignite.internal.rest.optimiser.OptimiserFactory;
 import org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.recovery.system.SystemDisasterRecoveryFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -280,6 +281,8 @@ import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import phillippko.org.optimiser.OptimiserManager;
+import phillippko.org.optimiser.OptimiserMessageFactory;
 
 /**
  * Ignite internal implementation.
@@ -357,6 +360,8 @@ public class IgniteImpl implements Ignite {
 
     /** Disaster recovery manager. */
     private final DisasterRecoveryManager disasterRecoveryManager;
+
+    private final OptimiserManager optimiserManager;
 
     private final IndexManager indexManager;
 
@@ -1084,6 +1089,17 @@ public class IgniteImpl implements Ignite {
 
         sql = new IgniteSqlImpl(qryEngine, observableTimestampTracker);
 
+        optimiserManager = new OptimiserManager(
+                sql,
+                nodeConfigRegistry,
+                clusterConfigRegistry,
+                metaStorageMgr,
+                threadPoolsManager.tableIoExecutor(),
+                messagingServiceReturningToStorageOperationsPool,
+                new OptimiserMessageFactory(),
+                clusterSvc.topologyService()
+        );
+
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
                 new DeploymentUnitStoreImpl(metaStorageMgr),
@@ -1214,6 +1230,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> restManagerFactory = () -> new RestManagerFactory(restManager);
         Supplier<RestFactory> computeRestFactory = () -> new ComputeRestFactory(compute);
         Supplier<RestFactory> disasterRecoveryFactory = () -> new DisasterRecoveryFactory(disasterRecoveryManager);
+        Supplier<RestFactory> optimiserFactory = () -> new OptimiserFactory(optimiserManager);
         Supplier<RestFactory> systemDisasterRecoveryFactory = () -> new SystemDisasterRecoveryFactory(systemDisasterRecoveryManager);
 
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestExtensionConfiguration.KEY).rest();
@@ -1228,7 +1245,8 @@ public class IgniteImpl implements Ignite {
                         restManagerFactory,
                         computeRestFactory,
                         disasterRecoveryFactory,
-                        systemDisasterRecoveryFactory
+                        systemDisasterRecoveryFactory,
+                        optimiserFactory
                 ),
                 restManager,
                 restConfiguration
@@ -1400,7 +1418,8 @@ public class IgniteImpl implements Ignite {
                                 deploymentManager,
                                 sql,
                                 resourceVacuumManager,
-                                metaStorageCompactionTrigger
+                                metaStorageCompactionTrigger,
+                                optimiserManager
                         );
 
                         // The system view manager comes last because other components

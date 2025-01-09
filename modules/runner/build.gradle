@@ -59,6 +59,7 @@ dependencies {
     implementation project(':ignite-raft')
     implementation project(':ignite-metastorage')
     implementation project(':ignite-metastorage-cache')
+    implementation project(':ignite-optimiser')
     implementation project(':ignite-partition-distribution')
     implementation project(':ignite-table')
     implementation project(':ignite-index')
