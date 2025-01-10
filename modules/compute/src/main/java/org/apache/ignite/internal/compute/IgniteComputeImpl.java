@@ -170,10 +170,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         .thenApply(job -> (JobExecution<R>) job);
             }
 
-            return jobFut.thenApply(execution -> new ResultUnmarshallingJobExecution<>(
-                    new JobExecutionWrapper<>(execution),
-                    resultMarshaller
-            ));
+            return jobFut.thenApply(execution -> new ResultUnmarshallingJobExecution<>(execution, resultMarshaller));
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
@@ -217,12 +214,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
         }
         return new ResultUnmarshallingJobExecution<>(
-                new JobExecutionWrapper<>(
-                        executeOnOneNodeWithFailover(
-                                node, CompletableFutures::nullCompletedFuture,
-                                descriptor.units(), descriptor.jobClassName(),
-                                descriptor.options(), cancellationToken, tryMarshalOrCast(argumentMarshaller, arg)
-                        )
+                executeOnOneNodeWithFailover(
+                        node, CompletableFutures::nullCompletedFuture,
+                        descriptor.units(), descriptor.jobClassName(),
+                        descriptor.options(), cancellationToken, tryMarshalOrCast(argumentMarshaller, arg)
                 ),
                 resultMarshaller
         );
@@ -273,16 +268,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
         NextWorkerSelector selector = new DeqNextWorkerSelector(new ConcurrentLinkedDeque<>(candidates));
 
-        return new JobExecutionWrapper<>(
-                executeOnOneNodeWithFailover(
-                        targetNode,
-                        selector,
-                        units,
-                        jobClassName,
-                        options,
-                        cancellationToken,
-                        arg
-                ));
+        return executeOnOneNodeWithFailover(
+                targetNode,
+                selector,
+                units,
+                jobClassName,
+                options,
+                cancellationToken,
+                arg
+        );
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -308,10 +302,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
 
         if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(options, units, jobClassName, cancellationToken, arg);
+            return new JobExecutionWrapper<>(computeComponent.executeLocally(options, units, jobClassName, cancellationToken, arg));
         } else {
-            return computeComponent.executeRemotelyWithFailover(
-                    targetNode, nextWorkerSelector, units, jobClassName, options, cancellationToken, arg);
+            return new JobExecutionWrapper<>(computeComponent.executeRemotelyWithFailover(
+                    targetNode, nextWorkerSelector, units, jobClassName, options, cancellationToken, arg));
         }
     }
 

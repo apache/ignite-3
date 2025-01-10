@@ -18,12 +18,14 @@
 package org.apache.ignite.client.handler.requests.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest.packClusterNode;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
 import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.JobExecution;
@@ -75,7 +77,7 @@ public class ClientComputeExecuteRequest {
         sendResultAndState(completedFuture(execution), notificationSender);
 
         //noinspection DataFlowIssue
-        return execution.idAsync().thenAccept(out::packUuid);
+        return execution.idAsync().thenAccept(jobId -> packSubmitResult(out, jobId, execution.node()));
     }
 
     private static Set<ClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
@@ -116,6 +118,11 @@ public class ClientComputeExecuteRequest {
                                     ClientComputeJobPacker.packJobResult(val, marshaller, w);
                                     packJobState(w, state);
                                 }, err))));
+    }
+
+    static void packSubmitResult(ClientMessagePacker out, UUID jobId, ClusterNode node) {
+        out.packUuid(jobId);
+        packClusterNode(node, out);
     }
 
     private static <T> @Nullable Marshaller<T, byte[]> extractMarshaller(JobExecution<T> e) {

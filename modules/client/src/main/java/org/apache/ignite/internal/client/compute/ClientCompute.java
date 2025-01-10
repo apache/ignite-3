@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.compute;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.client.TcpIgniteClient.unpackClusterNode;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
@@ -448,7 +449,7 @@ public class ClientCompute implements IgniteCompute {
         //noinspection DataFlowIssue (reviewed)
         return new SubmitResult(
                 ch.in().unpackUuid(),
-                ch.clientChannel().protocolContext().clusterNode(),
+                unpackClusterNode(ch),
                 ch.notificationFuture()
         );
     }
@@ -474,7 +475,7 @@ public class ClientCompute implements IgniteCompute {
         return new SubmitTaskResult(
                 jobId,
                 jobIds,
-                ch.clientChannel().protocolContext().clusterNode(),
+                ch.clientChannel().protocolContext().clusterNode(), // Task is always executed on a client handler node
                 ch.notificationFuture()
         );
     }

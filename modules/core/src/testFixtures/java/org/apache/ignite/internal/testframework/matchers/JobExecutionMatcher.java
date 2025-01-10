@@ -38,16 +38,16 @@ import org.jetbrains.annotations.Nullable;
 public class JobExecutionMatcher<R> extends TypeSafeMatcher<JobExecution<R>> {
     private final Matcher<? super CompletableFuture<R>> resultMatcher;
     private final Matcher<? super CompletableFuture<JobState>> stateMatcher;
-    private final Matcher<? super ClusterNode> nodeMatcher;
+    private final Matcher<? super String> nodeNameMatcher;
 
     private JobExecutionMatcher(
             @Nullable Matcher<? super CompletableFuture<R>> resultMatcher,
             @Nullable Matcher<? super CompletableFuture<JobState>> stateMatcher,
-            @Nullable Matcher<? super ClusterNode> nodeMatcher
+            @Nullable Matcher<? super String> nodeNameMatcher
     ) {
         this.resultMatcher = resultMatcher;
         this.stateMatcher = stateMatcher;
-        this.nodeMatcher = nodeMatcher;
+        this.nodeNameMatcher = nodeNameMatcher;
     }
 
     public static <R> JobExecutionMatcher<R> jobExecutionWithStatus(JobStatus status) {
@@ -70,7 +70,7 @@ public class JobExecutionMatcher<R> extends TypeSafeMatcher<JobExecution<R>> {
     }
 
     public static <R> JobExecutionMatcher<R> jobExecutionWithResultStatusAndNode(R result, JobStatus status, ClusterNode node) {
-        return new JobExecutionMatcher<>(willBe(result), will(jobStateWithStatus(status)), is(node));
+        return new JobExecutionMatcher<>(willBe(result), will(jobStateWithStatus(status)), is(node.name()));
     }
 
     public static <R> JobExecutionMatcher<R> jobExecutionWithResultAndStateFuture(
@@ -88,7 +88,7 @@ public class JobExecutionMatcher<R> extends TypeSafeMatcher<JobExecution<R>> {
         if (stateMatcher != null && !stateMatcher.matches(execution.stateAsync())) {
             return false;
         }
-        return nodeMatcher != null && nodeMatcher.matches(execution.node());
+        return nodeNameMatcher == null || nodeNameMatcher.matches(execution.node().name());
     }
 
     @Override
@@ -104,12 +104,12 @@ public class JobExecutionMatcher<R> extends TypeSafeMatcher<JobExecution<R>> {
             mismatchDescription.appendText("state ");
             stateMatcher.describeMismatch(execution.stateAsync(), mismatchDescription);
         }
-        if (nodeMatcher != null) {
+        if (nodeNameMatcher != null) {
             if (resultMatcher != null || stateMatcher != null) {
                 mismatchDescription.appendText(", ");
             }
             mismatchDescription.appendText("node ");
-            nodeMatcher.describeMismatch(execution.node(), mismatchDescription);
+            nodeNameMatcher.describeMismatch(execution.node().name(), mismatchDescription);
         }
     }
 
@@ -125,11 +125,11 @@ public class JobExecutionMatcher<R> extends TypeSafeMatcher<JobExecution<R>> {
             }
             description.appendText("state ").appendDescriptionOf(stateMatcher);
         }
-        if (nodeMatcher != null) {
+        if (nodeNameMatcher != null) {
             if (resultMatcher != null || stateMatcher != null) {
                 description.appendText(" and ");
             }
-            description.appendText("node ").appendDescriptionOf(nodeMatcher);
+            description.appendText("node ").appendDescriptionOf(nodeNameMatcher);
         }
     }
 }

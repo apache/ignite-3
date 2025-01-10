@@ -494,13 +494,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 null
         );
 
-        Map<ClusterNode, JobExecution<String>> executions = broadcastExecution.executions().stream()
-                .collect(Collectors.toMap(JobExecution::node, Function.identity()));
+        Map<String, JobExecution<String>> executions = broadcastExecution.executions().stream()
+                .collect(Collectors.toMap(execution -> execution.node().name(), Function.identity()));
 
-        assertComputeExceptionWithClassAndMessage(getExceptionInJobExecutionAsync(executions.get(node(0))));
+        assertComputeExceptionWithClassAndMessage(getExceptionInJobExecutionAsync(executions.get(node(0).name())));
 
         // Second node has sendServerExceptionStackTraceToClient enabled.
-        assertComputeExceptionWithStackTrace(getExceptionInJobExecutionAsync(executions.get(node(1))));
+        assertComputeExceptionWithStackTrace(getExceptionInJobExecutionAsync(executions.get(node(1).name())));
     }
 
     @Test
@@ -846,7 +846,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         IgniteCompute igniteCompute = client().compute();
         TaskDescriptor<I, String> taskDescriptor = TaskDescriptor.builder(taskClass).build();
         IgniteException cause = getExceptionInJobExecutionAsync(new TaskToJobExecutionWrapper<>(
-                igniteCompute.submitMapReduce(taskDescriptor, null), node(0))
+                igniteCompute.submitMapReduce(taskDescriptor, null), null)
         );
 
         assertThat(cause.getMessage(), containsString("Custom job error"));

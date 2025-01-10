@@ -42,7 +42,6 @@ import org.apache.ignite.internal.runner.app.Jobs.PojoJobWithCustomMarshallers;
 import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
 import org.apache.ignite.internal.runner.app.Jobs.ResultStringUnMarshaller;
 import org.apache.ignite.internal.runner.app.client.ItAbstractThinClientTest;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.Test;
 
@@ -179,22 +178,22 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         var node = server(0);
 
         // When.
-        Map<ClusterNode, String> result = node.compute().submitAsync(
+        Map<String, String> result = node.compute().submitAsync(
                 BroadcastJobTarget.nodes(node(0), node(1)),
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
                 "Input"
-        ).thenApply(execution -> execution.executions().stream().collect(
-                Collectors.toMap(JobExecution::node, ItEmbeddedMarshallingTest::extractResult, (v, i) -> v)
+        ).thenApply(broadcastExecution -> broadcastExecution.executions().stream().collect(
+                Collectors.toMap(execution -> execution.node().name(), ItEmbeddedMarshallingTest::extractResult, (v, i) -> v)
         )).join();
 
         // Then.
-        Map<ClusterNode, String> resultExpected = Map.of(
+        Map<String, String> resultExpected = Map.of(
                 // todo: "https://issues.apache.org/jira/browse/IGNITE-23024"
-                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer",
-                node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
+                node(0).name(), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer",
+                node(1).name(), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
         );
 
         assertEquals(resultExpected, result);

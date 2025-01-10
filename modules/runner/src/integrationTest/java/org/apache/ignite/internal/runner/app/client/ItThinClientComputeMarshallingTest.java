@@ -235,21 +235,21 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     @Test
     void submitBroadcast() {
         // When.
-        Map<ClusterNode, String> result = client().compute().submitAsync(
+        Map<String, String> result = client().compute().submitAsync(
                 BroadcastJobTarget.nodes(node(0), node(1)),
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
                 "Input"
-        ).thenApply(execution -> execution.executions().stream().collect(
-                Collectors.toMap(JobExecution::node, ItThinClientComputeMarshallingTest::extractResult, (v, i) -> v)
+        ).thenApply(broadcastExecution -> broadcastExecution.executions().stream().collect(
+                Collectors.toMap(execution -> execution.node().name(), ItThinClientComputeMarshallingTest::extractResult, (v, i) -> v)
         )).join();
 
         // Then.
-        Map<ClusterNode, String> resultExpected = Map.of(
-                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
-                node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
+        Map<String, String> resultExpected = Map.of(
+                node(0).name(), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
+                node(1).name(), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
         );
 
         assertEquals(resultExpected, result);
