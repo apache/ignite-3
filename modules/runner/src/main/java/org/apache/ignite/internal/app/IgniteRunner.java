@@ -27,6 +27,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
+import sun.misc.Signal;
 
 /**
  * The main entry point for running new Ignite node. Command-line arguments can be provided using environment variables
@@ -75,15 +76,17 @@ public class IgniteRunner implements Callable<IgniteServer> {
     public static void main(String[] args) {
         IgniteServer server = start(args);
         AtomicBoolean shutdown = new AtomicBoolean(false);
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        Signal.handle(new Signal("INT"), sig -> {
             try {
-                LOG.info("Ignite node shutting down...");
+                System.out.println("Ignite node shutting down...");
                 shutdown.set(true);
                 server.shutdown();
             } catch (Throwable t) {
-                LOG.error("Failed to shutdown", t);
+                System.out.println("Failed to shutdown: " + t.getMessage());
+
+                t.printStackTrace(System.out);
             }
-        }));
+        });
         try {
             server.waitForInitAsync().get();
         } catch (ExecutionException | InterruptedException e) {
