@@ -909,8 +909,8 @@ namespace Apache.Ignite.Tests.Compute
 
         private static Instant GetCurrentInstant()
         {
-            // Use millis precision because of OS-specific time resolution.
-            return Instant.FromUnixTimeMilliseconds(SystemClock.Instance.GetCurrentInstant().ToUnixTimeMilliseconds());
+            // Subtract 1 milli to account for OS-specific time resolution differences in .NET and Java.
+            return SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromMilliseconds(1));
         }
 
         private async Task<IJobTarget<IClusterNode>> GetNodeAsync(int index) =>
