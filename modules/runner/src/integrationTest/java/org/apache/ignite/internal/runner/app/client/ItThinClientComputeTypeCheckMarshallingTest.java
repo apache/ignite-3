@@ -78,7 +78,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         );
 
         await().until(result::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
-        assertThat(result.resultAsync(), willThrow(UnmarshallingException.class));
+        assertThat(result.resultAsync(), willThrow(ComputeException.class));
     }
 
     @Test
