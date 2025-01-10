@@ -103,7 +103,7 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         var embeddedCompute = node.compute();
         PojoResult result = embeddedCompute.execute(
                 JobTarget.node(targetNode),
-                JobDescriptor.builder(PojoJob.class).build(),
+                JobDescriptor.builder(PojoJob.class).resultClass(PojoResult.class).build(),
                 new PojoArg().setIntValue(2).setStrValue("1")
         );
 
@@ -122,7 +122,7 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         var embeddedCompute = node.compute();
         PojoResult result = embeddedCompute.execute(
                 JobTarget.node(targetNode),
-                JobDescriptor.builder(PojoJob.class).build(),
+                JobDescriptor.builder(PojoJob.class).resultClass(PojoResult.class).build(),
                 new PojoArg().setIntValue(2).setStrValue("1")
         );
 
