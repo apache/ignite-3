@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.internal.client.proto.pojo.Pojo;
 import org.apache.ignite.internal.client.proto.pojo.StaticFieldPojo;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
@@ -207,9 +208,9 @@ class ClientComputeJobPackerUnpackerTest {
         try (var messageUnpacker = messageUnpacker(data)) {
             // Then the exception is thrown because it is not allowed unpack the marshalled object without marshaller.
             assertThrows(
-                    UnmarshallingException.class,
+                    ComputeException.class,
                     () -> unpackJobResult(messageUnpacker, null, null),
-                    "Can not unpack object because the marshaller is not provided but the object was packed with marshaller."
+                    "Marshaller should be defined on the client"
             );
         }
     }
@@ -228,9 +229,9 @@ class ClientComputeJobPackerUnpackerTest {
         try (var messageUnpacker = messageUnpacker(data)) {
             // Then the exception is thrown because it is not allowed to define the marshaller only for the result.
             assertThrows(
-                    UnmarshallingException.class,
+                    ComputeException.class,
                     () -> unpackJobResult(messageUnpacker, new TestStringMarshaller(), null),
-                    "Can not unpack object because the marshaller is provided but the object was packed without marshaller."
+                    "Marshaller is defined on the server, but the argument was not marshalled on the client"
             );
         }
     }
