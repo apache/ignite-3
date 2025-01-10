@@ -133,6 +133,7 @@ public class RebalanceUtil {
      * @param tableDescriptor Table descriptor.
      * @param partId Unique identifier of a partition.
      * @param dataNodes Data nodes.
+     * @param partitions Number of partitions.
      * @param replicas Number of replicas for a table.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
@@ -144,6 +145,7 @@ public class RebalanceUtil {
             CatalogTableDescriptor tableDescriptor,
             TablePartitionId partId,
             Collection<String> dataNodes,
+            int partitions,
             int replicas,
             long revision,
             MetaStorageManager metaStorageMgr,
@@ -161,7 +163,7 @@ public class RebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
-        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, replicas);
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, partitions, replicas);
 
         Set<Assignment> partAssignments;
 
@@ -375,6 +377,7 @@ public class RebalanceUtil {
                     tableDescriptor,
                     replicaGrpId,
                     dataNodes,
+                    zoneDescriptor.partitions(),
                     zoneDescriptor.replicas(),
                     storageRevision,
                     metaStorageManager,

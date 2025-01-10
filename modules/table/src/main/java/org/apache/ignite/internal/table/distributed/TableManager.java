@@ -62,6 +62,8 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.nio.file.Path;
@@ -231,7 +233,6 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.internal.worker.ThreadAssertions;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -1403,6 +1404,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     calculateAssignmentForPartition(
                             dataNodes,
                             tablePartitionId.partitionId(),
+                            zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()
                     )
             );
@@ -2004,7 +2006,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     public CompletableFuture<PartitionSet> localPartitionSetAsync(long causalityToken, int tableId) {
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
+            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
@@ -2114,7 +2116,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return (RuntimeException) th;
         }
 
-        return new IgniteException(th);
+        return new IgniteException(INTERNAL_ERR, th);
     }
 
     /**
@@ -2490,6 +2492,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                             .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
                                                     metaStorageMgr,
                                                     dataNodes,
+                                                    zoneDescriptor.partitions(),
                                                     zoneDescriptor.replicas(),
                                                     replicaGrpId,
                                                     evt,
@@ -2767,7 +2770,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         try {
             replicaMgr.destroyReplicationProtocolStorages(tablePartitionId, internalTbl.storage().isVolatile());
         } catch (NodeStoppingException e) {
-            throw new IgniteInternalException(Common.NODE_STOPPING_ERR, e);
+            throw new IgniteInternalException(NODE_STOPPING_ERR, e);
         }
     }
 
@@ -2950,7 +2953,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private synchronized ScheduledExecutorService streamerFlushExecutor() {
         if (!busyLock.enterBusy()) {
-            throw new IgniteException(new NodeStoppingException());
+            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
