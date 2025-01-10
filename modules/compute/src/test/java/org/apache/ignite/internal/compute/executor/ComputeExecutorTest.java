@@ -44,6 +44,7 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.ExecutionOptions;
+import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -178,7 +179,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobSuccess.class,
                 null,
-                null
+                SharedComputeUtils.marshalArgOrResult(maxRetries, null)
         );
 
         await().until(execution::state, jobStateWithStatus(COMPLETED));
