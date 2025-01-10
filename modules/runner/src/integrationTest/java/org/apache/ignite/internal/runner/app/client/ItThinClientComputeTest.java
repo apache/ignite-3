@@ -75,6 +75,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.IgniteClientConnectionException;
 import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
@@ -173,13 +174,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void computeExecuteBroadcastAsyncWithCancelHandle() {
-        IgniteClient entryNode = client();
-        Set<ClusterNode> executeNodes = Set.of(node(0), node(1));
-
         CancelHandle cancelHandle = CancelHandle.create();
 
-        CompletableFuture<Collection<Void>> results = entryNode.compute().executeBroadcastAsync(
-                executeNodes,
+        CompletableFuture<Collection<Void>> results = client().compute().executeAsync(
+                BroadcastJobTarget.nodes(node(0), node(1)),
                 JobDescriptor.builder(InfiniteJob.class).build(),
                 cancelHandle.token(),
                 100L
@@ -192,13 +190,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void computeExecuteBroadcastWithCancelHandle() {
-        IgniteClient entryNode = client();
-        Set<ClusterNode> executeNodes = Set.of(node(0), node(1));
-
         CancelHandle cancelHandle = CancelHandle.create();
 
-        CompletableFuture<Collection<Void>> runFut = IgniteTestUtils.runAsync(() -> entryNode.compute().executeBroadcast(
-                executeNodes,
+        CompletableFuture<Collection<Void>> runFut = IgniteTestUtils.runAsync(() -> client().compute().execute(
+                BroadcastJobTarget.nodes(node(0), node(1)),
                 JobDescriptor.builder(InfiniteJob.class).build(),
                 cancelHandle.token(),
                 100L

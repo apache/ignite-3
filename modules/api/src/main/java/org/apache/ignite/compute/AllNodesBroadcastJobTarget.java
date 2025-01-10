@@ -22,7 +22,7 @@ import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * Any node execution target. Indicates any node from the provided set.
+ * All nodes broadcast execution target. Indicates that the job will be executed on all nodes from the provided set.
  */
 public class AllNodesBroadcastJobTarget implements BroadcastJobTarget {
     private final Set<ClusterNode> nodes;

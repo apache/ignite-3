@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.Collection;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
@@ -31,7 +31,6 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.compute.task.AntiHijackTaskExecution;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -60,29 +59,29 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
+    public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return compute.submitAsync(target, descriptor, cancellationToken, arg).thenApply(this::preventThreadHijack);
+    }
+
+    @Override
     public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
             @Nullable T arg) {
         return compute.execute(target, descriptor, cancellationToken, arg);
     }
 
     @Override
-    public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
-            Set<ClusterNode> nodes,
+    public <T, R> Collection<R> execute(
+            BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
-        return compute.submitAsync(nodes, descriptor, cancellationToken, arg).thenApply(this::preventThreadHijack);
-    }
-
-    @Override
-    public <T, R> Collection<R> executeBroadcast(
-            Set<ClusterNode> nodes,
-            JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
-    ) {
-        return compute.executeBroadcast(nodes, descriptor, cancellationToken, arg);
+        return compute.execute(target, descriptor, cancellationToken, arg);
     }
 
     private <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken,

@@ -23,16 +23,15 @@ import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * Job execution target.
+ * Broadcast job execution target.
  *
  * <p>Determines the rules for selecting nodes to execute a job.
  */
 public interface BroadcastJobTarget {
     /**
-     * Creates a job target for any node from the provided collection.
+     * Creates a job target for all nodes from the provided collection.
      *
-     * <p>This target determines that a job can be executed on any node in a given collection, but only one of them.
-     * Which node is chosen is implementation defined.
+     * <p>This target determines that a job will be executed on all nodes from a given nodes.
      *
      * @param nodes Collection of nodes.
      * @return Job target.
@@ -42,10 +41,9 @@ public interface BroadcastJobTarget {
     }
 
     /**
-     * Creates a job target for any node from the provided collection.
+     * Creates a job target for all nodes from the provided collection.
      *
-     * <p>This target determines that a job can be executed on any node in a given collection, but only one of them.
-     * Which node is chosen is implementation defined.
+     * <p>This target determines that a job will be executed on all nodes from a given collection.
      *
      * @param nodes Collection of nodes.
      * @return Job target.
@@ -55,27 +53,14 @@ public interface BroadcastJobTarget {
     }
 
     /**
-     * Creates a job target for any node from the provided collection.
+     * Creates a job target for all nodes from the provided collection.
      *
-     * <p>This target determines that a job can be executed on any node in a given collection, but only one of them.
-     * Which node is chosen is implementation defined.
+     * <p>This target determines that a job will be executed on all nodes from a given set.
      *
      * @param nodes Collection of nodes.
      * @return Job target.
      */
     static BroadcastJobTarget nodes(Set<ClusterNode> nodes) {
         return new AllNodesBroadcastJobTarget(nodes);
-    }
-
-    /**
-     * Creates a colocated job target for a specific table and key.
-     *
-     * <p>This target determines that a job should be executed on the same node that hosts the data for a given key of provided table.
-     *
-     * @param tableName Table name.
-     * @return Job target.
-     */
-    static BroadcastJobTarget partitioned(String tableName) {
-        return new TableJobTarget(tableName);
     }
 }

@@ -39,12 +39,12 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
@@ -176,7 +176,7 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
 
             CancelHandle cancelHandle = CancelHandle.create();
             CompletableFuture<BroadcastExecution<Void>> executionFut = entryNode.compute().submitAsync(
-                    Set.of(clusterNode(CLUSTER.node(0)), clusterNode(CLUSTER.node(1))),
+                    BroadcastJobTarget.nodes(clusterNode(0), clusterNode(1)),
                     JobDescriptor.builder(InfiniteJob.class).build(),
                     cancelHandle.token(),
                     null

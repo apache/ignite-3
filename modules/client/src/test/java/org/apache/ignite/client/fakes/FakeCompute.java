@@ -42,6 +42,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.AnyNodeJobTarget;
 import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
@@ -173,7 +174,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
     @Override
     public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
-            Set<ClusterNode> nodes,
+            BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
             T arg
@@ -182,13 +183,13 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <T, R> Collection<R> executeBroadcast(
-            Set<ClusterNode> nodes,
+    public <T, R> Collection<R> execute(
+            BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
-        return sync(executeBroadcastAsync(nodes, descriptor, cancellationToken, arg));
+        return sync(executeAsync(target, descriptor, cancellationToken, arg));
     }
 
     @Override

@@ -40,8 +40,10 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.AllNodesBroadcastJobTarget;
 import org.apache.ignite.compute.AnyNodeJobTarget;
 import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
@@ -176,9 +178,63 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T args) {
-        return sync(executeAsync(target, descriptor, cancellationToken, args));
+    public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            T arg
+    ) {
+        Objects.requireNonNull(target);
+        Objects.requireNonNull(descriptor);
+
+        if (target instanceof AllNodesBroadcastJobTarget) {
+            AllNodesBroadcastJobTarget allNodesBroadcastTarget = (AllNodesBroadcastJobTarget) target;
+            Set<ClusterNode> nodes = allNodesBroadcastTarget.nodes();
+            Marshaller<T, byte[]> argumentMarshaller = descriptor.argumentMarshaller();
+            Marshaller<R, byte[]> resultMarshaller = descriptor.resultMarshaller();
+
+            return completedFuture(new BroadcastJobExecutionImpl<>(nodes.stream()
+                    .collect(toUnmodifiableMap(identity(),
+                            // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
+                            // if worker node has left the cluster.
+                            node -> {
+                                if (topologyService.getByConsistentId(node.name()) == null) {
+                                    return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
+                                }
+                                return new ResultUnmarshallingJobExecution<>(
+                                        new JobExecutionWrapper<>(
+                                                executeOnOneNodeWithFailover(
+                                                        node, CompletableFutures::nullCompletedFuture,
+                                                        descriptor.units(), descriptor.jobClassName(),
+                                                        descriptor.options(), cancellationToken, tryMarshalOrCast(argumentMarshaller, arg)
+                                                )
+                                        ),
+                                        resultMarshaller
+                                );
+                            }))));
+        }
+
+        throw new IllegalArgumentException("Unsupported job target: " + target);
+    }
+
+    @Override
+    public <T, R> R execute(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return sync(executeAsync(target, descriptor, cancellationToken, arg));
+    }
+
+    @Override
+    public <T, R> Collection<R> execute(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return sync(executeAsync(target, descriptor, cancellationToken, arg));
     }
 
     @Override
@@ -321,50 +377,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                             "Can not find primary replica for [table=" + table.name() + ", partition=" + partitionIndex + "]."
                     );
                 });
-    }
-
-    @Override
-    public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
-            Set<ClusterNode> nodes,
-            JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            T arg
-    ) {
-        Objects.requireNonNull(nodes);
-        Objects.requireNonNull(descriptor);
-
-        Marshaller<T, byte[]> argumentMarshaller = descriptor.argumentMarshaller();
-        Marshaller<R, byte[]> resultMarshaller = descriptor.resultMarshaller();
-
-        return completedFuture(new BroadcastJobExecutionImpl<>(nodes.stream()
-                .collect(toUnmodifiableMap(identity(),
-                        // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
-                        // if worker node has left the cluster.
-                        node -> {
-                            if (topologyService.getByConsistentId(node.name()) == null) {
-                                return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
-                            }
-                            return new ResultUnmarshallingJobExecution<>(
-                                    new JobExecutionWrapper<>(
-                                            executeOnOneNodeWithFailover(
-                                                    node, CompletableFutures::nullCompletedFuture,
-                                                    descriptor.units(), descriptor.jobClassName(),
-                                                    descriptor.options(), cancellationToken, tryMarshalOrCast(argumentMarshaller, arg)
-                                            )
-                                    ),
-                                    resultMarshaller
-                            );
-                        }))));
-    }
-
-    @Override
-    public <T, R> Collection<R> executeBroadcast(
-            Set<ClusterNode> nodes,
-            JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
-    ) {
-        return sync(executeBroadcastAsync(nodes, descriptor, cancellationToken, arg));
     }
 
     @Override

@@ -46,6 +46,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
@@ -271,9 +272,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         // Multiple executions.
         {
             JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-            Map<ClusterNode, JobExecution<Void>> executions = submit(
-                    local, Set.of(clusterNode(CLUSTER.node(0)), clusterNode(CLUSTER.node(1))), job
-            );
+            Map<ClusterNode, JobExecution<Void>> executions = submit(local, Set.of(clusterNode(0), clusterNode(1)), job);
 
             executions.forEach((node, execution) -> {
                 UUID jobId = await(execution.idAsync());
@@ -339,7 +338,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     }
 
     private static Map<ClusterNode, JobExecution<Void>> submit(Ignite node, Set<ClusterNode> nodes, JobDescriptor<Void, Void> job) {
-        CompletableFuture<BroadcastExecution<Void>> executionFut = node.compute().submitAsync(nodes, job, null);
+        CompletableFuture<BroadcastExecution<Void>> executionFut = node.compute().submitAsync(BroadcastJobTarget.nodes(nodes), job, null);
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join().executions();
     }

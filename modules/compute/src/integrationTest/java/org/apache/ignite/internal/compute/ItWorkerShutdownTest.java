@@ -42,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
@@ -223,7 +224,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
         // When start broadcast job.
         CompletableFuture<BroadcastExecution<Object>> executionFut = compute(entryNode).submitAsync(
-                clusterNodesByNames(workerCandidates(node(0), node(1), node(2))),
+                BroadcastJobTarget.nodes(clusterNode(0), clusterNode(1), clusterNode(2)),
                 JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(),
                 null
         );

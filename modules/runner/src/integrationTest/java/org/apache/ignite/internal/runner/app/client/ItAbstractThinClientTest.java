@@ -39,6 +39,7 @@ import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
@@ -249,7 +250,12 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
             @Nullable T arg
     ) {
         //noinspection resource (closed in afterAll)
-        CompletableFuture<BroadcastExecution<R>> executionFut = client().compute().submitAsync(nodes, descriptor, cancellationToken, arg);
+        CompletableFuture<BroadcastExecution<R>> executionFut = client().compute().submitAsync(
+                BroadcastJobTarget.nodes(nodes),
+                descriptor,
+                cancellationToken,
+                arg
+        );
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
     }

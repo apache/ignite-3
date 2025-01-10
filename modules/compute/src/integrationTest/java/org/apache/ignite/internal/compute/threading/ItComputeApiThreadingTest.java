@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
@@ -224,10 +225,12 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
                 compute.executeAsync(
                         JobTarget.colocated(TABLE_NAME, KEY, Mapper.of(Integer.class)),
                         JobDescriptor.builder(NoOpJob.class).build(),
-
                         null)),
-        EXECUTE_BROADCAST_ASYNC(compute -> compute.executeBroadcastAsync(justNonEntryNode(), JobDescriptor.builder(NoOpJob.class).build(),
-                null)),
+        EXECUTE_BROADCAST_ASYNC(compute ->
+                compute.executeAsync(
+                        BroadcastJobTarget.nodes(justNonEntryNode()),
+                        JobDescriptor.builder(NoOpJob.class).build(),
+                        null)),
         EXECUTE_MAP_REDUCE_ASYNC(compute -> compute
                 .executeMapReduceAsync(TaskDescriptor.builder(NoOpMapReduceTask.class).build(), null)
         );

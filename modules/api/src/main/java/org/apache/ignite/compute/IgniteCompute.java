@@ -18,12 +18,10 @@
 package org.apache.ignite.compute;
 
 import java.util.Collection;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,6 +68,42 @@ public interface IgniteCompute {
     );
 
     /**
+     * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set.
+     *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param target Execution target.
+     * @param descriptor Job descriptor.
+     * @param arg Argument of the job.
+     * @return Map from node to job execution object.
+     */
+    default <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return submitAsync(target, descriptor, null, arg);
+    }
+
+    /**
+     * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set.
+     *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param target Execution target.
+     * @param descriptor Job descriptor.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param arg Argument of the job.
+     * @return Map from node to job execution object.
+     */
+    <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    );
+
+    /**
      * Submits a {@link ComputeJob} of the given class for an execution on a single node from a set of candidate nodes. A shortcut for
      * {@code submit(...).resultAsync()}.
      *
@@ -107,6 +141,45 @@ public interface IgniteCompute {
             @Nullable T arg
     ) {
         return submitAsync(target, descriptor, cancellationToken, arg).thenCompose(JobExecution::resultAsync);
+    }
+
+    /**
+     * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
+     *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param target Execution target.
+     * @param descriptor Job descriptor.
+     * @param arg Argument of the job.
+     * @return Map from node to job result.
+     */
+    default <T, R> CompletableFuture<Collection<R>> executeAsync(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return executeAsync(target, descriptor, null, arg);
+    }
+
+    /**
+     * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
+     *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param target Execution target.
+     * @param descriptor Job descriptor.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param arg Argument of the job.
+     * @return Map from node to job result.
+     */
+    default <T, R> CompletableFuture<Collection<R>> executeAsync(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return submitAsync(target, descriptor, cancellationToken, arg)
+                .thenCompose(BroadcastExecution::resultsAsync);
     }
 
     /**
@@ -148,97 +221,22 @@ public interface IgniteCompute {
     );
 
     /**
-     * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set.
-     *
-     * @param <T> Job argument (T)ype.
-     * @param <R> Job (R)esult type.
-     * @param nodes Nodes to execute the job on.
-     * @param descriptor Job descriptor.
-     * @param arg Argument of the job.
-     * @return Map from node to job execution object.
-     */
-    default <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
-            Set<ClusterNode> nodes,
-            JobDescriptor<T, R> descriptor,
-            @Nullable T arg
-    ) {
-        return submitAsync(nodes, descriptor, null, arg);
-    }
-
-    /**
-     * Submits a {@link ComputeJob} of the given class for an execution on all nodes in the given node set.
-     *
-     * @param <T> Job argument (T)ype.
-     * @param <R> Job (R)esult type.
-     * @param nodes Nodes to execute the job on.
-     * @param descriptor Job descriptor.
-     * @param cancellationToken Cancellation token or {@code null}.
-     * @param arg Argument of the job.
-     * @return Map from node to job execution object.
-     */
-    <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
-            Set<ClusterNode> nodes,
-            JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
-    );
-
-    /**
      * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param nodes Nodes to execute the job on.
-     * @param descriptor Job descriptor.
-     * @param arg Argument of the job.
-     * @return Map from node to job result.
-     */
-    default <T, R> CompletableFuture<Collection<R>> executeBroadcastAsync(
-            Set<ClusterNode> nodes,
-            JobDescriptor<T, R> descriptor,
-            @Nullable T arg
-    ) {
-        return executeBroadcastAsync(nodes, descriptor, null, arg);
-    }
-
-    /**
-     * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
-     *
-     * @param <T> Job argument (T)ype.
-     * @param <R> Job (R)esult type.
-     * @param nodes Nodes to execute the job on.
-     * @param descriptor Job descriptor.
-     * @param cancellationToken Cancellation token or {@code null}.
-     * @param arg Argument of the job.
-     * @return Map from node to job result.
-     */
-    default <T, R> CompletableFuture<Collection<R>> executeBroadcastAsync(
-            Set<ClusterNode> nodes,
-            JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
-    ) {
-        return submitAsync(nodes, descriptor, cancellationToken, arg)
-                .thenCompose(BroadcastExecution::resultsAsync);
-    }
-
-    /**
-     * Executes a {@link ComputeJob} of the given class on all nodes in the given node set.
-     *
-     * @param <T> Job argument (T)ype.
-     * @param <R> Job (R)esult type.
-     * @param nodes Nodes to execute the job on.
+     * @param target Execution target.
      * @param descriptor Job descriptor.
      * @param arg Argument of the job.
      * @return Map from node to job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    default <T, R> Collection<R> executeBroadcast(
-            Set<ClusterNode> nodes,
+    default <T, R> Collection<R> execute(
+            BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        return executeBroadcast(nodes, descriptor, null, arg);
+        return execute(target, descriptor, null, arg);
     }
 
     /**
@@ -246,15 +244,15 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param nodes Nodes to execute the job on.
+     * @param target
      * @param descriptor Job descriptor.
      * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
      * @return Map from node to job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    <T, R> Collection<R> executeBroadcast(
-            Set<ClusterNode> nodes,
+    <T, R> Collection<R> execute(
+            BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg

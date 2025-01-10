@@ -18,17 +18,18 @@
 package org.apache.ignite.internal.runner.app.compute;
 
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
@@ -156,8 +157,8 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         var node = server(0);
 
         // When.
-        Collection<String> result = node.compute().executeBroadcast(
-                Set.of(node(0), node(1)),
+        Collection<String> result = node.compute().execute(
+                BroadcastJobTarget.nodes(node(0), node(1)),
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
@@ -166,13 +167,11 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         );
 
         // Then.
-        List<String> resultExpected = List.of(
+        assertThat(result, containsInAnyOrder(
                 // todo: "https://issues.apache.org/jira/browse/IGNITE-23024"
                 "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer",
                 "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
-        );
-
-        assertEquals(resultExpected, result);
+        ));
     }
 
     @Test
@@ -182,7 +181,7 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
 
         // When.
         Map<ClusterNode, String> result = node.compute().submitAsync(
-                Set.of(node(0), node(1)),
+                BroadcastJobTarget.nodes(node(0), node(1)),
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())

@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobDescriptor.Builder;
@@ -126,7 +127,7 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
 
         // When broadcast a job
         Builder<Object[], String> builder = JobDescriptor.builder(InteractiveJobs.interactiveJobName());
-        CompletableFuture<BroadcastExecution<String>> executionFut = compute().submitAsync(nodes, builder.build(), null);
+        CompletableFuture<BroadcastExecution<String>> executionFut = compute().submitAsync(BroadcastJobTarget.nodes(nodes), builder.build(), null);
 
         assertThat(executionFut, willCompleteSuccessfully());
         BroadcastExecution<String> execution = executionFut.join();

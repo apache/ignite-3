@@ -28,12 +28,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
@@ -214,8 +214,8 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     @Test
     void executeBroadcast() {
         // When.
-        Collection<String> result = client().compute().executeBroadcast(
-                Set.of(node(0), node(1)),
+        Collection<String> result = client().compute().execute(
+                BroadcastJobTarget.nodes(node(0), node(1)),
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())
@@ -237,7 +237,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     void submitBroadcast() {
         // When.
         Map<ClusterNode, String> result = client().compute().submitAsync(
-                Set.of(node(0), node(1)),
+                BroadcastJobTarget.nodes(node(0), node(1)),
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
                         .resultMarshaller(new ResultStringUnMarshaller())

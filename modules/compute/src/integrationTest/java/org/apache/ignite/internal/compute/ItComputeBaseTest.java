@@ -62,6 +62,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
@@ -124,7 +125,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        CompletableFuture<BroadcastExecution<R>> executionFut = compute().submitAsync(nodes, descriptor, arg);
+        CompletableFuture<BroadcastExecution<R>> executionFut = compute().submitAsync(BroadcastJobTarget.nodes(nodes), descriptor, arg);
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
     }
@@ -489,8 +490,8 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         CancelHandle cancelHandle = CancelHandle.create();
 
-        CompletableFuture<Collection<Void>> resultsFut = compute().executeBroadcastAsync(
-                executeNodes,
+        CompletableFuture<Collection<Void>> resultsFut = compute().executeAsync(
+                BroadcastJobTarget.nodes(executeNodes),
                 JobDescriptor.builder(SilentSleepJob.class).units(units()).build(), cancelHandle.token(), 100L
         );
 
@@ -508,8 +509,8 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         CancelHandle cancelHandle = CancelHandle.create();
 
-        CompletableFuture<Collection<Void>> runFut = IgniteTestUtils.runAsync(() -> compute().executeBroadcast(
-                executeNodes,
+        CompletableFuture<Collection<Void>> runFut = IgniteTestUtils.runAsync(() -> compute().execute(
+                BroadcastJobTarget.nodes(executeNodes),
                 JobDescriptor.builder(SilentSleepJob.class).units(units()).build(), cancelHandle.token(), 100L
         ));
 

@@ -36,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -45,6 +44,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
@@ -237,7 +237,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         Ignite entryNode = node(0);
 
         Collection<Object> results = entryNode.compute()
-                .executeBroadcast(new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null);
+                .execute(BroadcastJobTarget.nodes(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null);
 
         assertThat(results, everyItem(nullValue()));
     }
@@ -246,8 +246,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void executesNullReturningJobViaAsyncBroadcast() {
         Ignite entryNode = node(0);
 
-        CompletableFuture<Collection<Object>> resultsFuture = entryNode.compute().executeBroadcastAsync(
-                new HashSet<>(entryNode.clusterNodes()),
+        CompletableFuture<Collection<Object>> resultsFuture = entryNode.compute().executeAsync(
+                BroadcastJobTarget.nodes(entryNode.clusterNodes()),
                 JobDescriptor.builder(NullReturningJob.class).build(),
                 null
         );
@@ -259,7 +259,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         Ignite entryNode = node(0);
 
         CompletableFuture<BroadcastExecution<Object>> executionFut = entryNode.compute().submitAsync(
-                new HashSet<>(entryNode.clusterNodes()),
+                BroadcastJobTarget.nodes(entryNode.clusterNodes()),
                 JobDescriptor.builder(NullReturningJob.class).build(),
                 null
         );
