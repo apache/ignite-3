@@ -79,14 +79,14 @@ public class IgniteRunner implements Callable<IgniteServer> {
                 System.out.println("Ignite node shutting down...");
                 shutdown.set(true);
                 server.shutdown();
-
-                //Copy-paste from default JVM signal handler java.lang.Terminator#setup
-                System.exit(sig.getNumber() + 0200);
             } catch (Throwable t) {
                 System.out.println("Failed to shutdown: " + t.getMessage());
 
                 t.printStackTrace(System.out);
             }
+
+            //Copy-paste from default JVM signal handler java.lang.Terminator#setup
+            System.exit(sig.getNumber() + 0200);
         };
 
         Signal.handle(new Signal("INT"), handler);
