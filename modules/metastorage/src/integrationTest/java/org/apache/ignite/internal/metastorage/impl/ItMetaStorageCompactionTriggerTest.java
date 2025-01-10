@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.FOO_KEY;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.VALUE;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.allNodesContainSingleRevisionForKeyLocally;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.collectCompactionRevisionForAllNodesLocally;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.collectRevisionForKeyForAllNodesLocally;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.createClusterConfigWithCompactionProperties;
-import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.latestKeyRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -35,11 +36,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -77,8 +78,8 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
     void testMetastorageCompactionOccursOnAllNodes(boolean changeMetastorageLeader) throws Exception {
         MetaStorageManager metaStorageManager = aliveNode().metaStorageManager();
 
-        var updateFooKeyLatch = new CountDownLatch(2);
-        watchExact(metaStorageManager, FOO_KEY, updateFooKeyLatch);
+        var updateFooKeyFutures = List.of(new CompletableFuture<Long>(), new CompletableFuture<Long>());
+        watchExact(metaStorageManager, FOO_KEY, updateFooKeyFutures);
 
         assertThat(metaStorageManager.put(FOO_KEY, VALUE), willCompleteSuccessfully());
 
@@ -88,12 +89,22 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
 
         assertThat(metaStorageManager.put(FOO_KEY, VALUE), willCompleteSuccessfully());
 
-        assertTrue(updateFooKeyLatch.await(1, SECONDS));
+        assertThat(allOf(updateFooKeyFutures), willCompleteSuccessfully());
 
-        long latestFooEntryRevision = latestKeyRevision(metaStorageManager, FOO_KEY);
+        long latestFooEntryRevision = updateFooKeyFutures.stream().mapToLong(CompletableFuture::join).max().getAsLong();
 
         assertTrue(
-                waitForCondition(() -> allNodesContainSingleRevisionForKeyLocally(CLUSTER, FOO_KEY, latestFooEntryRevision), 10, 1_000)
+                waitForCondition(() -> allNodesContainSingleRevisionForKeyLocally(CLUSTER, FOO_KEY, latestFooEntryRevision), 10, 1_000),
+                () -> String.format(
+                        "Failed to compact revisions for key: ["
+                                + "revisionsByNodeName=%s, "
+                                + "latestFooEntryRevision=%s, "
+                                + "localCompactionRevisionByNodeName=%s"
+                                + "]",
+                        collectRevisionForKeyForAllNodesLocally(CLUSTER, FOO_KEY),
+                        latestFooEntryRevision,
+                        collectCompactionRevisionForAllNodesLocally(CLUSTER)
+                )
         );
     }
 
@@ -149,9 +160,19 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
         return unwrapIgniteImpl(CLUSTER.aliveNode());
     }
 
-    private static void watchExact(MetaStorageManager metaStorageManager, ByteArray key, CountDownLatch latch) {
+    private static void watchExact(
+            MetaStorageManager metaStorageManager,
+            ByteArray key,
+            Collection<CompletableFuture<Long>> updateKeyFutures
+    ) {
+        var queue = new ConcurrentLinkedQueue<>(updateKeyFutures);
+
         metaStorageManager.registerExactWatch(key, event -> {
-            latch.countDown();
+            CompletableFuture<Long> updateKeyFuture = queue.poll();
+
+            if (updateKeyFuture != null) {
+                updateKeyFuture.complete(event.revision());
+            }
 
             return nullCompletedFuture();
         });
