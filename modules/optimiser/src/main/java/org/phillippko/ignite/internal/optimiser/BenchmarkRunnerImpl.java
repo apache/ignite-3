@@ -11,6 +11,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 
 public class BenchmarkRunnerImpl implements BenchmarkRunner {
@@ -30,14 +31,16 @@ public class BenchmarkRunnerImpl implements BenchmarkRunner {
         Path path = Path.of(benchmarkFilePath);
 
         if (!Files.exists(path)) {
-            throw new IllegalArgumentException("File not found: " + path.toAbsolutePath());
+            return "File not found: " + path.toAbsolutePath();
         }
 
         List<String> statements = readFromFile(path);
 
         for (String statement : statements) {
-            ResultSet<SqlRow> execute = sql.execute(null, statement);
-            execute.close();
+            try (ResultSet<SqlRow> ignored = sql.execute(null, statement)) {
+            } catch (SqlException e) {
+                return "Benchmark " + benchmarkFilePath + " failed with SQL error: " + e.getMessage();
+            }
         }
 
         String result = "Benchmark " + benchmarkFilePath + " finished in " + (currentTimeMillis() - atStart) + "MS";

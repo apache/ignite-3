@@ -10,13 +10,16 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfiguration;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 
 public class OptimiseRunnerImpl implements OptimiseRunner {
     private static final IgniteLogger LOG = Loggers.forClass(OptimiseRunnerImpl.class);
@@ -76,20 +79,21 @@ public class OptimiseRunnerImpl implements OptimiseRunner {
         }
 
         long volatileDataRegionsSize = profiles.stream()
-                .filter(VolatilePageMemoryProfileConfiguration.class::isInstance)
-                .map(VolatilePageMemoryProfileConfiguration.class::cast)
-                .mapToLong(it -> it.maxSize().value())
+                .filter(VolatilePageMemoryProfileView.class::isInstance)
+                .map(VolatilePageMemoryProfileView.class::cast)
+                .mapToLong(VolatilePageMemoryProfileView::maxSize)
                 .sum();
 
         if (volatileDataRegionsSize > heapMemoryUsage.getMax()) {
-            issues.add("Sum of volatile data regions exceeds max heap size: " + volatileDataRegionsSize);
+            issues.add("Sum of volatile data regions exceeds max heap size in bytes ("
+                    + heapMemoryUsage.getMax() + "): " + volatileDataRegionsSize);
         } else {
             issues.add("Volatile data regions size OK");
         }
 
         if (writeIntensive) {
             String persistentProfiles = profiles.stream()
-                    .filter(PersistentPageMemoryProfileConfiguration.class::isInstance)
+                    .filter(PersistentPageMemoryProfileView.class::isInstance)
                     .map(StorageProfileView::name).collect(Collectors.joining());
 
             if (!persistentProfiles.isEmpty()) {
@@ -98,7 +102,7 @@ public class OptimiseRunnerImpl implements OptimiseRunner {
             }
         } else {
             String rocksDbProfiles = profiles.stream()
-                    .filter(RocksDbProfileConfiguration.class::isInstance)
+                    .filter(RocksDbProfileView.class::isInstance)
                     .map(StorageProfileView::name).collect(Collectors.joining());
 
             if (!rocksDbProfiles.isEmpty()) {
@@ -108,6 +112,10 @@ public class OptimiseRunnerImpl implements OptimiseRunner {
             }
         }
 
-        return String.join("; ", issues);
+        String result = String.join("; ", issues);
+
+        LOG.info(result);
+
+        return result;
     }
 }

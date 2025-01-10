@@ -702,17 +702,19 @@ public class LeaseUpdater {
         }
 
         private boolean shouldLogLeaseStatistics() {
-            if (LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS < 0) {
-                return false;
-            }
-
-            boolean result = ++statisticsLogCounter > LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS;
-
-            if (result) {
-                statisticsLogCounter = 0;
-            }
-
-            return result;
+            return false;
+//
+//            if (LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS < 0) {
+//                return false;
+//            }
+//
+//            boolean result = ++statisticsLogCounter > LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS;
+//
+//            if (result) {
+//                statisticsLogCounter = 0;
+//            }
+//
+//            return result;
         }
 
         private Set<Assignment> getAssignmentsFromTokenizedAssignmentsMap(
