@@ -37,20 +37,20 @@ public class QueryEventsFactory {
     }
 
     /** Creates new {@link IgniteEvents#QUERY_STARTED} event. */
-    public Event makeStartEvent(QueryInfo queryInfo) {
+    public Event makeStartEvent(QueryInfo queryInfo, EventUser user) {
         Map<String, Object> fields = IgniteUtils.newLinkedHashMap(7);
 
         fillCommonFields(fields, queryInfo);
 
         return IgniteEvents.QUERY_STARTED.builder()
-                .user(EventUser.system())
+                .user(user)
                 .timestamp(queryInfo.startTime().toEpochMilli())
                 .fields(fields)
                 .build();
     }
 
     /** Creates new {@link IgniteEvents#QUERY_FINISHED} event. */
-    public Event makeFinishEvent(QueryInfo queryInfo, long finishTime) {
+    public Event makeFinishEvent(QueryInfo queryInfo, EventUser user, long finishTime) {
         Map<String, Object> fields = IgniteUtils.newLinkedHashMap(10);
 
         fillCommonFields(fields, queryInfo);
@@ -66,7 +66,7 @@ public class QueryEventsFactory {
         fields.put(FieldNames.ERROR, error == null ? null : unwrapCause(error).getMessage());
 
         return IgniteEvents.QUERY_FINISHED.builder()
-                .user(EventUser.system())
+                .user(user)
                 .timestamp(finishTime)
                 .fields(fields)
                 .build();
