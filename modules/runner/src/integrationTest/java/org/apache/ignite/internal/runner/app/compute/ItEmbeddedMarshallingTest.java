@@ -166,7 +166,7 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         // Then.
         Map<ClusterNode, String> resultExpected = Map.of(
                 // todo: "https://issues.apache.org/jira/browse/IGNITE-23024"
-                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer",
+                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
                 node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
         );
 
