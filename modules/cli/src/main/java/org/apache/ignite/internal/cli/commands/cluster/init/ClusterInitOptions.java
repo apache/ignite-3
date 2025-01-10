@@ -201,8 +201,8 @@ public class ClusterInitOptions {
 
     private static boolean checkConfigAsPath(String config) {
         try {
-            Paths.get(config);
-            return true;
+            Path path = Paths.get(config);
+            return Files.exists(path);
         } catch (InvalidPathException e) {
             return false;
         }
