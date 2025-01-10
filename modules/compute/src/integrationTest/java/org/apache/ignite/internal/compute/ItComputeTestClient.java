@@ -23,7 +23,6 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 
 /**
  * Integration tests for Compute functionality using thin client API.
@@ -54,29 +53,5 @@ public class ItComputeTestClient extends ItComputeTestEmbedded {
     @Override
     void cancelsNotCancellableJob(boolean local) {
         // No-op. Embedded-specific.
-    }
-
-    @Override
-    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
-    void executesJobLocally() {
-        super.executesJobLocally();
-    }
-
-    @Override
-    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
-    void executesJobLocallyAsync() {
-        super.executesJobLocallyAsync();
-    }
-
-    @Override
-    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
-    void broadcastsJobWithArgumentsAsync() {
-        super.broadcastsJobWithArgumentsAsync();
-    }
-
-    @Override
-    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
-    void executesJobOnRemoteNodesAsync() {
-        super.executesJobOnRemoteNodesAsync();
     }
 }
