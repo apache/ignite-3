@@ -21,13 +21,11 @@ import java.nio.file.Path;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import jdk.internal.misc.Signal;
 import org.apache.ignite.IgniteServer;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
-import sun.misc.Signal;
 
 /**
  * The main entry point for running new Ignite node. Command-line arguments can be provided using environment variables
@@ -36,8 +34,6 @@ import sun.misc.Signal;
  */
 @Command(name = "runner")
 public class IgniteRunner implements Callable<IgniteServer> {
-    private static final IgniteLogger LOG = Loggers.forClass(IgniteRunner.class);
-
     @Option(names = "--config-path", description = "Path to node configuration file in HOCON format.", required = true)
     private Path configPath;
 
