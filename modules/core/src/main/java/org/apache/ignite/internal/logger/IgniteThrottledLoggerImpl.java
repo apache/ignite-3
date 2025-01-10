@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 
 class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
     /** Throttle timeout in milliseconds (value is 5 min). */
-    private final long throttleTimeoutMillis = IgniteSystemProperties.getLong(THROTTLE_TIMEOUT_MILLIS, DEFAULT_THROTTLE_TIMEOUT);
+    private final long throttleIntervalMs = IgniteSystemProperties.getLong(LOG_THROTTLE_INTERVAL_MS, DEFAULT_LOG_THROTTLE_INTERVAL_MS);
 
     /** Logger delegate. */
     private final System.Logger delegate;
@@ -45,7 +45,7 @@ class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
 
         messagesMap = Caffeine.newBuilder()
                 .executor(executor)
-                .expireAfterWrite(throttleTimeoutMillis, TimeUnit.MILLISECONDS)
+                .expireAfterWrite(throttleIntervalMs, TimeUnit.MILLISECONDS)
                 .<LogThrottleKey, Long>build()
                 .asMap();
     }
@@ -289,7 +289,7 @@ class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
 
             long curTs = FastTimestamps.coarseCurrentTimeMillis();
 
-            if (loggedTs == null || curTs - loggedTs >= throttleTimeoutMillis) {
+            if (loggedTs == null || curTs - loggedTs >= throttleIntervalMs) {
                 if (replace(msgKey, loggedTs, curTs)) {
                     if (throwable == null) {
                         delegate.log(level, message);

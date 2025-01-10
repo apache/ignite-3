@@ -25,16 +25,17 @@ import org.jetbrains.annotations.Nullable;
 /**
  * {@link IgniteLogger} throttle.
  *
- * <p>Messages are logged only if they were not logged recently. The interval of message appears is {@link this#DEFAULT_THROTTLE_TIMEOUT}
- * by default or can be configured through the JVM property {@link this#THROTTLE_TIMEOUT_MILLIS}.
- * Note that not only error messages are checked for duplicates, but also exception classes if present.</p>
+ * <p>Messages are logged only if they were not logged recently. The interval of message appears is
+ * {@link this#DEFAULT_LOG_THROTTLE_INTERVAL_MS} by default or can be configured through the JVM property
+ * {@link this#LOG_THROTTLE_INTERVAL_MS}. Note that not only error messages are checked for duplicates, but also exception classes if
+ * present.</p>
  */
 public interface IgniteThrottledLogger extends IgniteLogger {
     /** JVM property to configure a throttle interval. */
-    String THROTTLE_TIMEOUT_MILLIS = "IGNITE_THROTTLE_TIMEOUT_MILLIS";
+    String LOG_THROTTLE_INTERVAL_MS = "IGNITE_LOG_THROTTLE_INTERVAL_MS";
 
-    /** Default throttle timeout in milliseconds (value is 5 min). */
-    long DEFAULT_THROTTLE_TIMEOUT = TimeUnit.MINUTES.toMillis(5);
+    /** Default log throttle interval in milliseconds (value is 5 min). */
+    long DEFAULT_LOG_THROTTLE_INTERVAL_MS = TimeUnit.MINUTES.toMillis(5);
 
     /**
      * Logs a message on {@link Level#INFO} level composed from args with given format.
