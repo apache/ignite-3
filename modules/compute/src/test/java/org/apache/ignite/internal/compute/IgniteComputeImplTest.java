@@ -119,7 +119,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.node(localNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        "a"),
+                        null),
                 willBe("jobResponse")
         );
 
@@ -137,7 +137,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                         JobTarget.node(localNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
                         cancelHandle.token(),
-                        "a"),
+                        null),
                 willBe("jobResponse")
         );
 
@@ -157,7 +157,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.node(newNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        "a"),
+                        null),
                 willBe("jobResponse")
         );
 
@@ -189,7 +189,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.node(localNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).options(options).build(),
-                        "a"),
+                        null),
                 willBe("jobResponse")
         );
 
@@ -250,7 +250,7 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Map<ClusterNode, String>> future = compute.executeBroadcastAsync(
                 Set.of(localNode, remoteNode), JobDescriptor.<String, String>builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                "a"
+                null
         );
 
         assertThat(future, willBe(aMapWithSize(2)));
