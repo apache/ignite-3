@@ -15,26 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cluster.management.configuration;
+package org.apache.ignite.internal.configuration.processor.injectedvalue;
 
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InjectedValue;
 
-/**
- * Node's attribute configuration schema. User can specify any number of pairs (key, attribute) for a node through the local configuration
- * of a node, and also can specify a filter through the SQL syntax of distribution zones. Any time data nodes will be recalculated,
- * corresponding filter will be applied to set of nodes with pre-defined attributes.
- *
- * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
- */
 @Config
-public class NodeAttributeConfigurationSchema {
-    /** Name of the node attribute. */
-    @InjectedName
-    public String name;
-
-    /** Node attribute field. */
-    @InjectedValue(hasDefault = true)
-    public String attribute = "";
+public class UnsupportedFieldTypeConfigurationSchema {
+    @InjectedValue
+    public Object firstValue;
 }

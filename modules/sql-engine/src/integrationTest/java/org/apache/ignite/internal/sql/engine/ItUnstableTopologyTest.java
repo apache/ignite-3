@@ -37,7 +37,7 @@ public class ItUnstableTopologyTest extends BaseSqlIntegrationTest {
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  nodeAttributes: {\n"
-            + "    nodeAttributes: {role: {attribute: \"data\"}}\n"
+            + "    nodeAttributes: { role: data }\n"
             + "  },\n"
             + "  rest.port: {},\n"
             + "  failureHandler.dumpThreadsOnFailure: false\n"
