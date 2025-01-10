@@ -20,11 +20,13 @@ package org.apache.ignite.internal.binarytuple;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -650,6 +652,42 @@ public class BinaryTupleTest {
         periodTest(Period.of(Integer.MIN_VALUE, Integer.MIN_VALUE, Integer.MIN_VALUE));
         periodTest(Period.of(Short.MAX_VALUE, Short.MAX_VALUE, Short.MAX_VALUE));
         periodTest(Period.of(Short.MIN_VALUE, Short.MIN_VALUE, Short.MIN_VALUE));
+    }
+
+    @Test
+    public void reuseTupleBuffer() {
+        ExpandableByteBuffer buffer = new ExpandableByteBuffer(16);
+
+        ByteBuffer initBuffer = buffer.unwrap();
+
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(3, -1, false, buffer);
+
+        builder.appendBoolean(false);
+        builder.appendDate(LocalDate.now());
+        builder.appendBytes(new byte[16]);
+
+        ByteBuffer buf1 = buffer.unwrap();
+
+        buffer.clear();
+
+//        buffer.position(0);
+
+        System.out.println("remain " + buffer.remaining());
+
+        System.out.println(buffer.unwrap());
+
+        builder = new BinaryTupleBuilder(3, -1, false, buffer);
+
+        builder.appendBoolean(false);
+        builder.appendDate(LocalDate.now());
+        builder.appendString("test1");
+
+        byte[] array2 = builder.build().array();
+        ByteBuffer buf2 = buffer.unwrap();
+
+//        assertSame(array, array2);
+        assertSame(buf1, buf2);
+//        assertSame(buf0, buf1);
     }
 
     /** Test period value roundtrip. */

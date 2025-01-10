@@ -55,7 +55,7 @@ public class BinaryTupleBuilder {
     private final int valueBase;
 
     /** Buffer for tuple content. */
-    private ExpandableByteBuffer buffer;
+    private final ExpandableByteBuffer buffer;
 
     /**
      * Creates a builder.
@@ -86,6 +86,20 @@ public class BinaryTupleBuilder {
      *      approximate estimate some excess allocation is possible.
      */
     public BinaryTupleBuilder(int numElements, int totalValueSize, boolean exactEstimate) {
+        this(numElements, totalValueSize, exactEstimate, null);
+    }
+
+    /**
+     * Creates a builder.
+     *
+     * @param numElements Number of tuple elements.
+     * @param totalValueSize Total estimated length of non-NULL values, -1 if not known.
+     * @param exactEstimate Whether the total size is exact estimate or approximate. The
+     *      difference here is with exact estimate allocation will be optimal, while with
+     *      approximate estimate some excess allocation is possible.
+     * @param buffer Buffer that will be used to write the binary tuple.
+     */
+    public BinaryTupleBuilder(int numElements, int totalValueSize, boolean exactEstimate, @Nullable ExpandableByteBuffer buffer) {
         this.numElements = numElements;
 
         entryBase = BinaryTupleCommon.HEADER_SIZE;
@@ -98,7 +112,15 @@ public class BinaryTupleBuilder {
 
         valueBase = entryBase + entrySize * numElements;
 
-        allocate(totalValueSize);
+        if (buffer == null) {
+            buffer = allocate(totalValueSize);
+        } else {
+            buffer.ensure(0, totalValueSize);
+        }
+
+        buffer.position(valueBase);
+
+        this.buffer = buffer;
     }
 
     /**
@@ -749,10 +771,9 @@ public class BinaryTupleBuilder {
     }
 
     /** Allocate a non-direct buffer for tuple. */
-    private void allocate(int totalValueSize) {
-        buffer = new ExpandableByteBuffer(estimateBufferCapacity(totalValueSize));
-        buffer.order(ByteOrder.LITTLE_ENDIAN);
-        buffer.position(valueBase);
+    private ExpandableByteBuffer allocate(int totalValueSize) {
+        return new ExpandableByteBuffer(estimateBufferCapacity(totalValueSize))
+                .order(ByteOrder.LITTLE_ENDIAN);
     }
 
     /** Do our best to find initial buffer capacity. */

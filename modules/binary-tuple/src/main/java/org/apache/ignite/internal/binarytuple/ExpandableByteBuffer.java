@@ -20,7 +20,9 @@ package org.apache.ignite.internal.binarytuple;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-/** A simple expandable wrapper over {@link ByteBuffer}. */
+/**
+ * Expandable wrapper over {@link ByteBuffer}.
+ */
 public class ExpandableByteBuffer {
     /** Wrapped array. */
     private ByteBuffer buffer;
@@ -32,26 +34,10 @@ public class ExpandableByteBuffer {
      */
     public ExpandableByteBuffer(int size) {
         if (size <= 0) {
-            size = 32;
+            size = 16;
         }
 
         buffer = ByteBuffer.allocate(size);
-    }
-
-    private void grow(int size) {
-        int capacity = buffer.capacity();
-        do {
-            capacity *= 2;
-            if (capacity < 0) {
-                throw new BinaryTupleFormatException("Buffer overflow in binary tuple builder");
-            }
-        } while ((capacity - buffer.position()) < size);
-
-        ByteBuffer newBuffer = ByteBuffer.allocate(capacity);
-        newBuffer.order(ByteOrder.LITTLE_ENDIAN);
-        newBuffer.put(buffer.flip());
-
-        buffer = newBuffer;
     }
 
     /**
@@ -98,24 +84,6 @@ public class ExpandableByteBuffer {
         ensure(off, Byte.BYTES);
 
         buffer.put(off, val);
-    }
-
-    /**
-     * Writes {@code byte[]} value to the buffer.
-     *
-     * @param off Buffer offset.
-     * @param val Value.
-     */
-    public void putBytes(int off, byte[] val) {
-        ensure(off, val.length);
-
-        buffer.position(off);
-
-        try {
-            buffer.put(val);
-        } finally {
-            buffer.position(0);
-        }
     }
 
     /**
@@ -217,37 +185,34 @@ public class ExpandableByteBuffer {
         return buffer.getShort(off);
     }
 
-    /** Ensure that the buffer can fit the required size. */
-    private void ensure(int size) {
-        if (buffer.remaining() < size) {
-            grow(size);
-        }
+    /**
+     * Absolute <i>get</i> method for reading an int value.
+     *
+     * <p>Reads four bytes at the given index, composing them into a
+     * int value according to the current byte order.
+     *
+     * @param index The index from which the bytes will be read
+     * @return The int value at the given index
+     */
+    public int getInt(int index) {
+        return buffer.getInt(index);
     }
 
-    private void ensure(int off, int size) {
-        int required = off + size;
-
-        if (buffer.capacity() < required) {
-            grow(required - buffer.capacity());
-        }
-    }
-
+    /**
+     * Returns this buffer's position.
+     *
+     * @return The position of this buffer
+     */
     public int position() {
         return buffer.position();
     }
 
     /**
-     * Sets this buffer's position.  If the mark is defined and larger than the
-     * new position then it is discarded.
+     * Sets this buffer's position. If the mark is defined and larger than the new position then it is discarded.
      *
-     * @param  newPosition
-     *         The new position value; must be non-negative
-     *         and no larger than the current limit
-     *
-     * @return  This buffer
-     *
-     * @throws  IllegalArgumentException
-     *          If the preconditions on {@code newPosition} do not hold
+     * @param newPosition The new position value.
+     * @return This buffer
+     * @throws IllegalArgumentException If the preconditions on {@code newPosition} do not hold.
      */
     public ExpandableByteBuffer position(int newPosition) {
         buffer.position(newPosition);
@@ -255,33 +220,35 @@ public class ExpandableByteBuffer {
         return this;
     }
 
+    /**
+     * Returns the number of elements between the current position and the
+     * limit.
+     *
+     * @return The number of elements remaining in this buffer
+     */
     public int remaining() {
         return buffer.remaining();
     }
 
+    /**
+     * Returns this buffer's capacity.
+     *
+     * @return The capacity of this buffer
+     */
     public int capacity() {
         return buffer.capacity();
     }
 
     /**
-     * Flips this buffer.  The limit is set to the current position and then
-     * the position is set to zero.  If the mark is defined then it is
-     * discarded.
+     * Flips this buffer. The limit is set to the current position and then
+     * the position is set to zero. If the mark is defined then it is discarded.
      *
-     * @return  This buffer
+     * @return This buffer
      */
     public ExpandableByteBuffer flip() {
         buffer.flip();
 
         return this;
-    }
-
-    public ByteBuffer unwrap() {
-        return buffer;
-    }
-
-    public int getInt(int index) {
-        return buffer.getInt(index);
     }
 
     /**
@@ -298,5 +265,77 @@ public class ExpandableByteBuffer {
         buffer.order(bo);
 
         return this;
+    }
+
+    /**
+     * Rewinds this buffer. The position is set to zero and the mark is discarded.
+     *
+     * @return This buffer.
+     */
+    public ExpandableByteBuffer rewind() {
+        buffer.rewind();
+
+        return this;
+    }
+
+    /**
+     * Clears this buffer. The position is set to zero, the limit is set to the capacity, and the mark is discarded.
+     *
+     * @return This buffer.
+     */
+    public ExpandableByteBuffer clear() {
+        buffer.clear();
+
+        return this;
+    }
+
+    /**
+     * Returns wrapped {@link ByteBuffer}.
+     *
+     * @return Wrapped buffer.
+     */
+    public ByteBuffer unwrap() {
+        return buffer;
+    }
+
+    /**
+     * Ensure that the buffer can fit the required size.
+     *
+     * @param size Required size.
+     */
+    private void ensure(int size) {
+        if (buffer.remaining() < size) {
+            grow(size);
+        }
+    }
+
+    /**
+     * Ensure that the buffer can fit the required size.
+     *
+     * @param size Required size.
+     * @param off Offset.
+     */
+    void ensure(int off, int size) {
+        int required = off + size;
+
+        if (buffer.capacity() < required) {
+            grow(required - buffer.capacity());
+        }
+    }
+
+    private void grow(int size) {
+        int capacity = buffer.capacity();
+        do {
+            capacity *= 2;
+            if (capacity < 0) {
+                throw new BinaryTupleFormatException("Buffer overflow in binary tuple builder");
+            }
+        } while ((capacity - buffer.position()) < size);
+
+        ByteBuffer newBuffer = ByteBuffer.allocate(capacity);
+        newBuffer.order(ByteOrder.LITTLE_ENDIAN);
+        newBuffer.put(buffer.flip());
+
+        buffer = newBuffer;
     }
 }
