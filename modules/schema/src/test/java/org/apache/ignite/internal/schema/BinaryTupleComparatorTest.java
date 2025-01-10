@@ -36,7 +36,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTuplePrefixBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -317,7 +316,7 @@ public class BinaryTupleComparatorTest {
         assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(-1)));
     }
 
-    private static @NotNull BinaryTupleComparator createSingleColumnComparator(NativeType type, CatalogColumnCollation collation) {
+    private static BinaryTupleComparator createSingleColumnComparator(NativeType type, CatalogColumnCollation collation) {
         return new BinaryTupleComparator(new CatalogColumnCollation[]{collation}, new NativeType[]{type});
     }
 
