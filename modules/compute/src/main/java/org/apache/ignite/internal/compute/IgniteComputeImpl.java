@@ -30,7 +30,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
@@ -359,7 +358,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public <T, R> Map<ClusterNode, R> executeBroadcast(
+    public <T, R> Collection<R> executeBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,

@@ -32,11 +32,13 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
@@ -46,6 +48,7 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
@@ -227,6 +230,26 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
     ) {
         //noinspection resource (closed in afterAll)
         CompletableFuture<JobExecution<R>> executionFut = client().compute().submitAsync(target, descriptor, arg);
+        assertThat(executionFut, willCompleteSuccessfully());
+        return executionFut.join();
+    }
+
+    protected <T, R> BroadcastExecution<R> submit(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return submit(nodes, descriptor, null, arg);
+    }
+
+    protected <T, R> BroadcastExecution<R> submit(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        //noinspection resource (closed in afterAll)
+        CompletableFuture<BroadcastExecution<R>> executionFut = client().compute().submitAsync(nodes, descriptor, cancellationToken, arg);
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
     }

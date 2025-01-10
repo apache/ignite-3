@@ -17,13 +17,10 @@
 
 package org.apache.ignite.compute;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Job control object, provides information about the job execution process and result, allows cancelling the job.
@@ -31,18 +28,12 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Job result type.
  */
 public interface BroadcastExecution<R> {
+    Map<ClusterNode, JobExecution<R>> executions();
+
     /**
      * Returns job's execution result.
      *
      * @return Job's execution result future.
      */
-    CompletableFuture<Map<ClusterNode, R>> resultsAsync();
-
-    CompletableFuture<Map<ClusterNode, JobState>> statesAsync();
-
-    default CompletableFuture<List<@Nullable UUID>> idsAsync() {
-        return statesAsync().thenApply(states -> states.values().stream()
-                .map(state -> state != null ? state.id() : null)
-                .collect(Collectors.toList()));
-    }
+    CompletableFuture<Collection<R>> resultsAsync();
 }

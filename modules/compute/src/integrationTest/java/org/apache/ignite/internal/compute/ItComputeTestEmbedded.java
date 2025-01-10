@@ -21,14 +21,13 @@ import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicCheckedException;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicException;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -36,9 +35,9 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -58,7 +57,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
@@ -79,7 +77,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void changeJobPriorityLocally() {
-        JobTarget jobTarget = JobTarget.node(clusterNode(node(0)));
+        JobTarget jobTarget = JobTarget.node(clusterNode(0));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
         JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
@@ -119,7 +117,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesJobLocallyWithOptions() {
-        JobTarget jobTarget = JobTarget.node(clusterNode(node(0)));
+        JobTarget jobTarget = JobTarget.node(clusterNode(0));
 
         CountDownLatch countDownLatch = new CountDownLatch(1);
         JobDescriptor<CountDownLatch, String> job = JobDescriptor.builder(WaitLatchJob.class).units(units()).build();
@@ -238,25 +236,22 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void executesNullReturningJobViaSyncBroadcast() {
         Ignite entryNode = node(0);
 
-        Map<ClusterNode, Object> results = entryNode.compute()
+        Collection<Object> results = entryNode.compute()
                 .executeBroadcast(new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null);
 
-        assertThat(results.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
-        assertThat(new HashSet<>(results.values()), contains(nullValue()));
+        assertThat(results, everyItem(nullValue()));
     }
 
     @Test
     void executesNullReturningJobViaAsyncBroadcast() {
         Ignite entryNode = node(0);
 
-        CompletableFuture<Map<ClusterNode, Object>> resultsFuture = entryNode.compute().executeBroadcastAsync(
-                new HashSet<>(entryNode.clusterNodes()), JobDescriptor.builder(NullReturningJob.class).build(), null
+        CompletableFuture<Collection<Object>> resultsFuture = entryNode.compute().executeBroadcastAsync(
+                new HashSet<>(entryNode.clusterNodes()),
+                JobDescriptor.builder(NullReturningJob.class).build(),
+                null
         );
-        assertThat(resultsFuture, willCompleteSuccessfully());
-        Map<ClusterNode, Object> results = resultsFuture.join();
-
-        assertThat(results.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
-        assertThat(new HashSet<>(results.values()), contains(nullValue()));
+        assertThat(resultsFuture, will(everyItem(nullValue())));
     }
 
     @Test
@@ -265,14 +260,13 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         CompletableFuture<BroadcastExecution<Object>> executionFut = entryNode.compute().submitAsync(
                 new HashSet<>(entryNode.clusterNodes()),
-                JobDescriptor.builder(NullReturningJob.class.getName()).build(),
+                JobDescriptor.builder(NullReturningJob.class).build(),
                 null
         );
         assertThat(executionFut, willCompleteSuccessfully());
         BroadcastExecution<Object> execution = executionFut.join();
 
-        assertThat(execution.resultsAsync(), willCompleteSuccessfully());
-        assertThat(execution.resultsAsync().join().values(), everyItem(nullValue()));
+        assertThat(execution.resultsAsync(), will(everyItem(nullValue())));
     }
 
     private Stream<Arguments> targetNodeIndexes() {

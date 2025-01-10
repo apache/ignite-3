@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
-import java.util.Map;
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -76,7 +76,7 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <T, R> Map<ClusterNode, R> executeBroadcast(
+    public <T, R> Collection<R> executeBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,

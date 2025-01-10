@@ -182,7 +182,7 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <T, R> Map<ClusterNode, R> executeBroadcast(
+    public <T, R> Collection<R> executeBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,

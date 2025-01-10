@@ -85,4 +85,16 @@ public class ItComputeTestClient extends ItComputeTestEmbedded {
     void executesJobOnRemoteNodesAsync() {
         super.executesJobOnRemoteNodesAsync();
     }
+
+    @Override
+    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
+    void changeJobPriorityLocally() {
+        super.changeJobPriorityLocally();
+    }
+
+    @Override
+    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
+    void executesJobLocallyWithOptions() {
+        super.executesJobLocallyWithOptions();
+    }
 }

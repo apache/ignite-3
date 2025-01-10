@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.restart;
 
-import java.util.Map;
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
@@ -82,7 +82,7 @@ class RestartProofIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <T, R> Map<ClusterNode, R> executeBroadcast(
+    public <T, R> Collection<R> executeBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,

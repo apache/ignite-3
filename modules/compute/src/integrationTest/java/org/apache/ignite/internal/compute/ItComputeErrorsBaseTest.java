@@ -131,11 +131,11 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(executionFut, willCompleteSuccessfully());
         BroadcastExecution<String> execution = executionFut.join();
 
+        // Finish running job so that the results could be retrieved.
+        InteractiveJobs.all().finish();
+
         String errorMessageFragment = "None of the specified nodes are present in the cluster: [" + nonExistingNode.name() + "]";
         assertThat(execution.resultsAsync(), willThrow(NodeNotFoundException.class, errorMessageFragment));
-
-        // Cleanup
-        InteractiveJobs.all().finish();
     }
 
     protected abstract IgniteCompute compute();

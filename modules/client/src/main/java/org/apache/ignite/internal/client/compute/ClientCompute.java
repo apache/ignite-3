@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -206,7 +207,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> Map<ClusterNode, R> executeBroadcast(
+    public <T, R> Collection<R> executeBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,

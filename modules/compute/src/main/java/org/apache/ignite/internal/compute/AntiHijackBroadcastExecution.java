@@ -17,38 +17,38 @@
 
 package org.apache.ignite.internal.compute;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.network.ClusterNode;
 
 /**
  * Wrapper around {@link JobExecution} that adds protection against thread hijacking by users.
  */
-public class AntiHijackBroadcastExecution<R> implements BroadcastExecution<R> {
+class AntiHijackBroadcastExecution<R> implements BroadcastExecution<R> {
     private final BroadcastExecution<R> execution;
     private final Executor asyncContinuationExecutor;
 
     /**
      * Constructor.
      */
-    public AntiHijackBroadcastExecution(BroadcastExecution<R> execution, Executor asyncContinuationExecutor) {
+    AntiHijackBroadcastExecution(BroadcastExecution<R> execution, Executor asyncContinuationExecutor) {
         this.execution = execution;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
 
     @Override
-    public CompletableFuture<Map<ClusterNode, R>> resultsAsync() {
-        return preventThreadHijack(execution.resultsAsync());
+    public Map<ClusterNode, JobExecution<R>> executions() {
+        return execution.executions();
     }
 
     @Override
-    public CompletableFuture<Map<ClusterNode, JobState>> statesAsync() {
-        return preventThreadHijack(execution.statesAsync());
+    public CompletableFuture<Collection<R>> resultsAsync() {
+        return preventThreadHijack(execution.resultsAsync());
     }
 
     private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {

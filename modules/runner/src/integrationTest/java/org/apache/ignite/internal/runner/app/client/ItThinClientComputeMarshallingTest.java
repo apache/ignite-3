@@ -24,14 +24,18 @@ import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.internal.runner.app.Jobs.ArgMarshallingJob;
@@ -210,7 +214,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
     @Test
     void executeBroadcast() {
         // When.
-        Map<ClusterNode, String> result = client().compute().executeBroadcast(
+        Collection<String> result = client().compute().executeBroadcast(
                 Set.of(node(0), node(1)),
                 JobDescriptor.builder(ArgumentAndResultMarshallingJob.class)
                         .argumentMarshaller(new ArgumentStringMarshaller())
@@ -220,9 +224,9 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         );
 
         // Then.
-        Map<ClusterNode, String> resultExpected = Map.of(
-                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
-                node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
+        List<String> resultExpected = List.of(
+                "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
+                "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
         );
 
         assertEquals(resultExpected, result);
@@ -239,7 +243,9 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
                 "Input"
-        ).thenCompose(BroadcastExecution::resultsAsync).join();
+        ).thenApply(execution -> execution.executions().entrySet().stream().collect(
+                Collectors.toMap(Entry::getKey, ItThinClientComputeMarshallingTest::extractResult, (v, i) -> v)
+        )).join();
 
         // Then.
         Map<ClusterNode, String> resultExpected = Map.of(
@@ -248,6 +254,14 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
         );
 
         assertEquals(resultExpected, result);
+    }
+
+    private static String extractResult(Entry<ClusterNode, JobExecution<String>> e) {
+        try {
+            return e.getValue().resultAsync().get();
+        } catch (InterruptedException | ExecutionException ex) {
+            throw new RuntimeException(ex);
+        }
     }
 
     @Test

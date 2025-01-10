@@ -25,12 +25,10 @@ import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
-import static org.apache.ignite.internal.testframework.matchers.BroadcastExecutionMatcher.broadcastExecutionWithResults;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.internal.testframework.matchers.TaskStateMatcher.taskStateWithStatus;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -39,12 +37,10 @@ import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.hasValue;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.oneOf;
@@ -62,12 +58,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
@@ -85,7 +81,6 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskStatus;
@@ -183,13 +178,16 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         CancelHandle cancelHandle = CancelHandle.create();
 
-        CompletableFuture<Map<ClusterNode, Object>> executions = entryNode.compute().executeBroadcastAsync(
+        CompletableFuture<Collection<Void>> results = entryNode.compute().executeBroadcastAsync(
                 executeNodes,
-                JobDescriptor.builder(InfiniteJob.class.getName()).build(), cancelHandle.token(), 100L);
+                JobDescriptor.builder(InfiniteJob.class).build(),
+                cancelHandle.token(),
+                100L
+        );
 
         cancelHandle.cancel();
 
-        assertThrows(ExecutionException.class, () -> executions.get(10, TimeUnit.SECONDS));
+        assertThat(results, willThrow(ComputeException.class));
     }
 
     @Test
@@ -199,14 +197,16 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         CancelHandle cancelHandle = CancelHandle.create();
 
-        CompletableFuture<Map<ClusterNode, Object>> runFut = IgniteTestUtils.runAsync(() -> entryNode.compute().executeBroadcast(
+        CompletableFuture<Collection<Void>> runFut = IgniteTestUtils.runAsync(() -> entryNode.compute().executeBroadcast(
                 executeNodes,
-                JobDescriptor.builder(InfiniteJob.class.getName()).build(), cancelHandle.token(), 100L)
-        );
+                JobDescriptor.builder(InfiniteJob.class).build(),
+                cancelHandle.token(),
+                100L
+        ));
 
         cancelHandle.cancel();
 
-        assertThrows(ExecutionException.class, () -> runFut.get(10, TimeUnit.SECONDS));
+        assertThat(runFut, willThrow(ComputeException.class));
     }
 
     @Test
@@ -347,33 +347,40 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testBroadcastOneNode() {
-        CompletableFuture<BroadcastExecution<String>> executionFut = client().compute().submitAsync(
+        BroadcastExecution<String> broadcastExecution = submit(
                 Set.of(node(1)),
                 JobDescriptor.builder(NodeNameJob.class).build(),
-                null);
+                null
+        );
 
-        assertThat(executionFut, willBe(broadcastExecutionWithResults("itcct_n_3345")));
+        Map<ClusterNode, JobExecution<String>> executionsPerNode = broadcastExecution.executions();
+        assertEquals(1, executionsPerNode.size());
 
-        assertThat(executionFut.join().statesAsync(), willCompleteSuccessfully());
-        Map<ClusterNode, JobState> states = executionFut.join().statesAsync().join();
+        JobExecution<String> execution = executionsPerNode.get(node(1));
 
-        assertThat(states, aMapWithSize(1));
-        assertThat(states, hasValue(jobStateWithStatus(COMPLETED)));
+        assertThat(execution.resultAsync(), willBe("itcct_n_3345"));
+        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @Test
     void testBroadcastAllNodes() {
-        CompletableFuture<BroadcastExecution<String>> executionFut = client().compute().submitAsync(
+        BroadcastExecution<String> broadcastExecution = submit(
                 new HashSet<>(sortedNodes()),
                 JobDescriptor.builder(NodeNameJob.class).build(),
                 null
         );
 
-        assertThat(executionFut, willBe(broadcastExecutionWithResults("itcct_n_3344", "itcct_n_3345")));
+        Map<ClusterNode, JobExecution<String>> executionsPerNode = broadcastExecution.executions();
+        assertEquals(2, executionsPerNode.size());
 
-        assertThat(executionFut.join().statesAsync(), willCompleteSuccessfully());
-        Map<ClusterNode, JobState> states = executionFut.join().statesAsync().join();
-        assertThat(states.values(), everyItem(jobStateWithStatus(COMPLETED)));
+        JobExecution<String> execution1 = executionsPerNode.get(node(0));
+        JobExecution<String> execution2 = executionsPerNode.get(node(1));
+
+        assertThat(execution1.resultAsync(), willBe("itcct_n_3344"));
+        assertThat(execution2.resultAsync(), willBe("itcct_n_3345"));
+
+        assertThat(execution1.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+        assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
     }
 
     @Test
@@ -381,23 +388,28 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         int sleepMs = 1_000_000;
         CancelHandle cancelHandle = CancelHandle.create();
 
-        CompletableFuture<BroadcastExecution<Void>> executionFut = client().compute().submitAsync(
+        BroadcastExecution<Void> broadcastExecution = submit(
                 new HashSet<>(sortedNodes()),
                 JobDescriptor.builder(SleepJob.class).build(),
                 cancelHandle.token(),
                 sleepMs
         );
 
-        assertThat(executionFut, willCompleteSuccessfully());
-        BroadcastExecution<Void> execution = executionFut.join();
+        Map<ClusterNode, JobExecution<Void>> executionsPerNode = broadcastExecution.executions();
+        assertEquals(2, executionsPerNode.size());
+
+        JobExecution<Void> execution1 = executionsPerNode.get(node(0));
+        JobExecution<Void> execution2 = executionsPerNode.get(node(1));
+
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         cancelHandle.cancel();
 
-        assertThat(execution.resultsAsync(), willThrow(CancellationException.class));
+        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        await().until(execution2::stateAsync, willBe(jobStateWithStatus(CANCELED)));
 
-        assertThat(executionFut.join().statesAsync(), willCompleteSuccessfully());
-        Map<ClusterNode, JobState> states = executionFut.join().statesAsync().join();
-        assertThat(states.values(), everyItem(jobStateWithStatus(CANCELED)));
+        assertThat(broadcastExecution.resultsAsync(), willThrow(ComputeException.class));
     }
 
     @Test
@@ -487,21 +499,18 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExceptionInBroadcastJobPropagatesToClient() {
-        CompletableFuture<BroadcastExecution<String>> executionFut = client().compute().submitAsync(
+        BroadcastExecution<String> broadcastExecution = submit(
                 Set.of(node(0), node(1)),
                 JobDescriptor.builder(ExceptionJob.class).build(),
                 null
         );
 
-        assertThat(executionFut, willCompleteSuccessfully());
-        BroadcastExecution<String> execution = executionFut.join();
+        Map<ClusterNode, JobExecution<String>> executions = broadcastExecution.executions();
 
-        CompletionException ex = assertThrows(
-                CompletionException.class,
-                () -> execution.resultsAsync().join()
-        );
+        assertComputeExceptionWithClassAndMessage(getExceptionInJobExecutionAsync(executions.get(node(0))));
 
-        assertComputeExceptionWithClassAndMessage((IgniteException) ex.getCause());
+        // Second node has sendServerExceptionStackTraceToClient enabled.
+        assertComputeExceptionWithStackTrace(getExceptionInJobExecutionAsync(executions.get(node(1))));
     }
 
     @Test

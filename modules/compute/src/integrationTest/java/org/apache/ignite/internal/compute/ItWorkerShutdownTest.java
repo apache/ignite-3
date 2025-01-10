@@ -18,27 +18,18 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.compute.JobStatus.EXECUTING;
-import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
-import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.aMapWithSize;
-import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.hasEntry;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.notNullValue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,6 +45,7 @@ import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
@@ -237,32 +229,30 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         );
 
         assertThat(executionFut, willCompleteSuccessfully());
-        BroadcastExecution<Object> execution = executionFut.join();
+        BroadcastExecution<Object> broadcastExecution = executionFut.join();
+        Map<ClusterNode, JobExecution<Object>> executions = broadcastExecution.executions();
 
         // Then all three jobs are alive.
-        assertThat(execution.statesAsync(), will(aMapWithSize(3)));
-        await().untilAsserted(() -> execution.statesAsync().join().forEach((node, state) -> {
+        assertThat(executions.size(), is(3));
+        executions.forEach((node, execution) -> {
             InteractiveJobs.byNode(node).assertAlive();
-
-            assertThat(state, jobStateWithStatus(EXECUTING));
-
-            assertThat(execution.resultsAsync().isDone(), equalTo(false));
-
-            assertThat(state.id(), is(notNullValue()));
-        }));
+            new TestingJobExecution<>(execution).assertExecuting();
+        });
 
         // When stop one of workers.
+        String stoppedNodeName = node(1).name();
         stopNode(node(1));
 
         // Then two jobs are alive.
-        await().until(execution::statesAsync, will(allOf(
-                aMapWithSize(3),
-                hasEntry(clusterNode(0), jobStateWithStatus(EXECUTING)),
-                hasEntry(clusterNode(1), jobStateWithStatus(FAILED)),
-                hasEntry(clusterNode(2), jobStateWithStatus(EXECUTING))
-        )));
-
-        assertThat(execution.resultsAsync(), willThrow(ComputeException.class));
+        executions.forEach((node, execution) -> {
+            if (node.name().equals(stoppedNodeName)) {
+                new TestingJobExecution<>(execution).assertFailed();
+            } else {
+                InteractiveJobs.byNode(node).assertAlive();
+                new TestingJobExecution<>(execution).assertExecuting();
+            }
+        });
+        assertThat(broadcastExecution.resultsAsync(), willThrow(ComputeException.class));
 
         // When.
         InteractiveJobs.all().finish();

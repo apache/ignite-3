@@ -17,7 +17,7 @@
 
 package org.apache.ignite.compute;
 
-import java.util.Map;
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.task.MapReduceTask;
@@ -193,7 +193,7 @@ public interface IgniteCompute {
      * @param arg Argument of the job.
      * @return Map from node to job result.
      */
-    default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
+    default <T, R> CompletableFuture<Collection<R>> executeBroadcastAsync(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
@@ -212,7 +212,7 @@ public interface IgniteCompute {
      * @param arg Argument of the job.
      * @return Map from node to job result.
      */
-    default <T, R> CompletableFuture<Map<ClusterNode, R>> executeBroadcastAsync(
+    default <T, R> CompletableFuture<Collection<R>> executeBroadcastAsync(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
@@ -233,7 +233,7 @@ public interface IgniteCompute {
      * @return Map from node to job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    default <T, R> Map<ClusterNode, R> executeBroadcast(
+    default <T, R> Collection<R> executeBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
@@ -253,7 +253,7 @@ public interface IgniteCompute {
      * @return Map from node to job result.
      * @throws ComputeException If there is any problem executing the job.
      */
-    <T, R> Map<ClusterNode, R> executeBroadcast(
+    <T, R> Collection<R> executeBroadcast(
             Set<ClusterNode> nodes,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,

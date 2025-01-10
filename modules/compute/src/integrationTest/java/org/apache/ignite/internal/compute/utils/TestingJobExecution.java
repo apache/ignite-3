@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.utils;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
@@ -53,6 +54,10 @@ public class TestingJobExecution<R> implements JobExecution<R> {
      */
     public TestingJobExecution(CompletableFuture<JobExecution<R>> jobExecution) {
         this.jobExecution = jobExecution;
+    }
+
+    public TestingJobExecution(JobExecution<R> jobExecution) {
+        this.jobExecution = completedFuture(jobExecution);
     }
 
     private JobState stateSync() throws InterruptedException, ExecutionException, TimeoutException {
