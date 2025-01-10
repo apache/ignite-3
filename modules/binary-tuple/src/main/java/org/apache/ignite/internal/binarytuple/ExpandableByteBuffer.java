@@ -24,6 +24,9 @@ import java.nio.ByteOrder;
  * Expandable wrapper over {@link ByteBuffer}.
  */
 public class ExpandableByteBuffer {
+    /** Minimum capacity. */
+    public static int MINIMUM_CAPACITY = 16;
+
     /** Wrapped array. */
     private ByteBuffer buffer;
 
@@ -34,7 +37,7 @@ public class ExpandableByteBuffer {
      */
     public ExpandableByteBuffer(int size) {
         if (size <= 0) {
-            size = 16;
+            size = MINIMUM_CAPACITY;
         }
 
         buffer = ByteBuffer.allocate(size);
@@ -49,6 +52,16 @@ public class ExpandableByteBuffer {
         ensure(Byte.BYTES);
 
         buffer.put(val);
+    }
+
+    /**
+     * Writes {@code byte} value to the buffer.
+     *
+     * @param off Buffer offset.
+     * @param val Value.
+     */
+    public void put(int off, byte val) {
+        buffer.put(off, val);
     }
 
     /**
@@ -75,18 +88,6 @@ public class ExpandableByteBuffer {
     }
 
     /**
-     * Writes {@code byte} value to the buffer.
-     *
-     * @param off Buffer offset.
-     * @param val Value.
-     */
-    public void put(int off, byte val) {
-        ensure(off, Byte.BYTES);
-
-        buffer.put(off, val);
-    }
-
-    /**
      * Writes {@code short} value to the buffer.
      *
      * @param val Value.
@@ -104,21 +105,7 @@ public class ExpandableByteBuffer {
      * @param val Value.
      */
     public void putShort(int off, short val) {
-        ensure(off, Short.BYTES);
-
         buffer.putShort(off, val);
-    }
-
-    /**
-     * Writes {@code int} value to the buffer.
-     *
-     * @param off Offset.
-     * @param val Value.
-     */
-    public void putInt(int off, int val) {
-        ensure(off, Integer.BYTES);
-
-        buffer.putInt(off, val);
     }
 
     /**
@@ -130,6 +117,16 @@ public class ExpandableByteBuffer {
         ensure(Integer.BYTES);
 
         buffer.putInt(val);
+    }
+
+    /**
+     * Writes {@code int} value to the buffer.
+     *
+     * @param off Offset.
+     * @param val Value.
+     */
+    public void putInt(int off, int val) {
+        buffer.putInt(off, val);
     }
 
     /**
@@ -303,23 +300,9 @@ public class ExpandableByteBuffer {
      *
      * @param size Required size.
      */
-    private void ensure(int size) {
+    void ensure(int size) {
         if (buffer.remaining() < size) {
             grow(size);
-        }
-    }
-
-    /**
-     * Ensure that the buffer can fit the required size.
-     *
-     * @param size Required size.
-     * @param off Offset.
-     */
-    void ensure(int off, int size) {
-        int required = off + size;
-
-        if (buffer.capacity() < required) {
-            grow(required - buffer.capacity());
         }
     }
 

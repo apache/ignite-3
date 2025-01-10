@@ -115,7 +115,7 @@ public class BinaryTupleBuilder {
         if (buffer == null) {
             buffer = allocate(totalValueSize);
         } else {
-            buffer.ensure(0, totalValueSize);
+            buffer.ensure(estimateBufferCapacity(totalValueSize));
         }
 
         buffer.position(valueBase);

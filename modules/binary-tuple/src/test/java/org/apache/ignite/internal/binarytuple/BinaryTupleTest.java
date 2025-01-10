@@ -19,6 +19,7 @@ package org.apache.ignite.internal.binarytuple;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -654,42 +654,6 @@ public class BinaryTupleTest {
         periodTest(Period.of(Short.MIN_VALUE, Short.MIN_VALUE, Short.MIN_VALUE));
     }
 
-    @Test
-    public void reuseTupleBuffer() {
-        ExpandableByteBuffer buffer = new ExpandableByteBuffer(16);
-
-        ByteBuffer initBuffer = buffer.unwrap();
-
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(3, -1, false, buffer);
-
-        builder.appendBoolean(false);
-        builder.appendDate(LocalDate.now());
-        builder.appendBytes(new byte[16]);
-
-        ByteBuffer buf1 = buffer.unwrap();
-
-        buffer.clear();
-
-//        buffer.position(0);
-
-        System.out.println("remain " + buffer.remaining());
-
-        System.out.println(buffer.unwrap());
-
-        builder = new BinaryTupleBuilder(3, -1, false, buffer);
-
-        builder.appendBoolean(false);
-        builder.appendDate(LocalDate.now());
-        builder.appendString("test1");
-
-        byte[] array2 = builder.build().array();
-        ByteBuffer buf2 = buffer.unwrap();
-
-//        assertSame(array, array2);
-        assertSame(buf1, buf2);
-//        assertSame(buf0, buf1);
-    }
-
     /** Test period value roundtrip. */
     private static void periodTest(Period value) {
         BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
@@ -697,6 +661,72 @@ public class BinaryTupleTest {
 
         BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
         assertEquals(value, reader.periodValue(0));
+    }
+
+    @Test
+    public void externalBufferResizedOnInitialization() {
+        ExpandableByteBuffer buffer = new ExpandableByteBuffer(1);
+        ByteBuffer initBuf = buffer.unwrap();
+
+        //noinspection ResultOfObjectAllocationIgnored
+        new BinaryTupleBuilder(3, 36, false, buffer);
+
+        assertNotSame(initBuf, buffer.unwrap());
+        assertEquals(64, buffer.unwrap().capacity());
+    }
+
+    @Test
+    public void externalBufferSholdGrowIfCapacityInsufficient() {
+        ExpandableByteBuffer buffer = new ExpandableByteBuffer(64);
+
+        ByteBuffer initBuf = buffer.unwrap();
+
+        // The initial buffer capacity is sufficient.
+        {
+            new BinaryTupleBuilder(3, 36, false, buffer)
+                    .appendBoolean(false)
+                    .appendDate(LocalDate.now())
+                    .appendBytes(new byte[32])
+                    .build();
+
+            assertSame(initBuf, buffer.unwrap());
+
+            buffer.clear();
+
+            new BinaryTupleBuilder(3, 36, false, buffer)
+                    .appendBoolean(true)
+                    .appendDate(LocalDate.now())
+                    .appendBytes(new byte[33])
+                    .build();
+
+            assertSame(initBuf, buffer.unwrap());
+        }
+
+        buffer.clear();
+
+        // The initial buffer capacity is insufficient.
+        {
+            new BinaryTupleBuilder(3, 36, false, buffer)
+                    .appendBoolean(false)
+                    .appendDate(LocalDate.now())
+                    .appendBytes(new byte[64])
+                    .build();
+
+            ByteBuffer resizedBuf = buffer.unwrap();
+
+            assertNotSame(initBuf, resizedBuf);
+            assertEquals(128, resizedBuf.capacity());
+
+            buffer.clear();
+
+            new BinaryTupleBuilder(3, 36, false, buffer)
+                    .appendBoolean(true)
+                    .appendDate(LocalDate.now())
+                    .appendBytes(new byte[64])
+                    .build();
+
+            assertSame(resizedBuf, buffer.unwrap());
+        }
     }
 
     /** Get a pseudo-random number generator. */
