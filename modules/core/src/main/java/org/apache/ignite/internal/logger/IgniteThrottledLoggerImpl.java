@@ -31,7 +31,7 @@ import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
 
 class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
-    /** Throttle timeout in milliseconds (value is 5 min). */
+    /** Throttle interval in milliseconds (value is 5 min). */
     private final long throttleIntervalMs = IgniteSystemProperties.getLong(LOG_THROTTLE_INTERVAL_MS, DEFAULT_LOG_THROTTLE_INTERVAL_MS);
 
     /** Logger delegate. */
