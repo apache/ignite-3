@@ -113,6 +113,11 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
         if (tuple1HasNull && tuple2HasNull) {
             return 0;
         } else if (tuple1HasNull || tuple2HasNull) {
+            // The next statement equals to:
+            // if (collation.nullsFirst())
+            //    return tuple1HasNull ? -1 : 1;
+            // else // NULLS_LAST
+            //    return tuple1HasNull ? 1 : -1;
             return (collation.nullsFirst() ^ tuple2HasNull) ? -1 : 1;
         }
 
@@ -124,7 +129,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
     }
 
     /**
-     * Compares individual fields of two tuples.
+     * Compares individual fields of two tuples using ascending order.
      */
     @SuppressWarnings("DataFlowIssue")
     private static int compareField(NativeTypeSpec typeSpec, BinaryTupleReader tuple1, int index1, BinaryTupleReader tuple2, int index2) {
@@ -176,10 +181,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
                 return tuple1.dateTimeValue(index1).compareTo(tuple2.dateTimeValue(index2));
 
             default:
-                throw new IllegalArgumentException(format(
-                        "Unsupported column type in binary tuple comparator. [index={}, type={}]",
-                        index1, typeSpec
-                ));
+                throw new IllegalArgumentException(format("Unsupported column type in binary tuple comparator. [type={}]", typeSpec));
         }
     }
 
