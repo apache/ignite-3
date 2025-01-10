@@ -51,7 +51,6 @@ import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.MarshallingException;
-import org.apache.ignite.marshalling.UnmarshallingException;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
