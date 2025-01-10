@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobDescriptor.Builder;
 import org.apache.ignite.compute.JobTarget;
@@ -137,13 +138,13 @@ public class ItThinClientPojoComputeMarshallingTest extends ClusterPerClassInteg
 
         // When run job with custom marshaller for pojo argument and result.
         assertThrows(
-                UnmarshallingException.class,
+                ComputeException.class,
                 () -> client.compute().execute(
                         JobTarget.node(targetNode),
                         JobDescriptor.builder(PojoJob.class).build(),
                         new PojoArg().setIntValue(2).setStrValue("1")
                 ),
-                "Can not unpack object because the pojo class is not provided but the object was packed as pojo."
+                "JobDescriptor.resultClass is not defined, but the job result is packed as a POJO"
         );
     }
 

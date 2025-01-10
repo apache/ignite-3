@@ -154,13 +154,22 @@ public class SharedComputeUtils {
                 return (T) ClientBinaryTupleUtils.readObject(reader, 0);
             }
 
-            case TUPLE: // Fallthrough TODO https://issues.apache.org/jira/browse/IGNITE-23320
+            case TUPLE:
+                // TODO https://issues.apache.org/jira/browse/IGNITE-23320
+                return (T) TupleWithSchemaMarshalling.unmarshal(holder.data());
+
             case POJO:
-                Tuple tuple = TupleWithSchemaMarshalling.unmarshal(holder.data());
-                if (resultClass != null && resultClass != Tuple.class) {
-                    return (T) unmarshalPojo(resultClass, tuple);
+                if (resultClass == null) {
+                    throw new ComputeException(
+                            MARSHALLING_TYPE_MISMATCH_ERR,
+                            "JobDescriptor.resultClass is not defined, but the job result is packed as a POJO");
                 }
-                return (T) tuple;
+
+                Tuple tuple = TupleWithSchemaMarshalling.unmarshal(holder.data());
+
+                return resultClass == Tuple.class
+                        ? (T) tuple
+                        : (T) unmarshalPojo(resultClass, tuple);
 
             case MARSHALLED_CUSTOM:
                 if (marshaller == null) {
