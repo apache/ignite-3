@@ -599,7 +599,7 @@ namespace Apache.Ignite.Tests.Compute
         public async Task TestJobExecutionStatusExecuting()
         {
             const int sleepMs = 3000;
-            var beforeStart = SystemClock.Instance.GetCurrentInstant();
+            var beforeStart = GetCurrentInstant();
 
             var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
 
@@ -610,7 +610,7 @@ namespace Apache.Ignite.Tests.Compute
         public async Task TestJobExecutionStatusCompleted()
         {
             const int sleepMs = 1;
-            var beforeStart = SystemClock.Instance.GetCurrentInstant();
+            var beforeStart = GetCurrentInstant();
 
             var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
             await jobExecution.GetResultAsync();
@@ -621,7 +621,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestJobExecutionStatusFailed()
         {
-            var beforeStart = SystemClock.Instance.GetCurrentInstant();
+            var beforeStart = GetCurrentInstant();
 
             var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), ErrorJob, "unused");
             Assert.CatchAsync(async () => await jobExecution.GetResultAsync());
@@ -644,7 +644,7 @@ namespace Apache.Ignite.Tests.Compute
         public async Task TestJobExecutionCancel()
         {
             const int sleepMs = 5000;
-            var beforeStart = SystemClock.Instance.GetCurrentInstant();
+            var beforeStart = GetCurrentInstant();
 
             var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
             await jobExecution.CancelAsync();
@@ -722,7 +722,7 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestMapReduceNodeNameTask()
         {
-            Instant beforeStart = SystemClock.Instance.GetCurrentInstant();
+            Instant beforeStart = GetCurrentInstant();
 
             ITaskExecution<string> taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "+arg");
 
@@ -747,9 +747,9 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsNotNull(state);
             Assert.AreEqual(TaskStatus.Completed, state.Status);
             Assert.AreEqual(taskExec.Id, state.Id);
-            Assert.That(state.CreateTime, Is.GreaterThan(beforeStart));
-            Assert.That(state.StartTime, Is.GreaterThan(state.CreateTime));
-            Assert.That(state.FinishTime, Is.GreaterThan(state.StartTime));
+            Assert.That(state.CreateTime, Is.GreaterThanOrEqualTo(beforeStart));
+            Assert.That(state.StartTime, Is.GreaterThanOrEqualTo(state.CreateTime));
+            Assert.That(state.FinishTime, Is.GreaterThanOrEqualTo(state.StartTime));
 
             // Job states.
             IList<JobState?> jobStates = await taskExec.GetJobStatesAsync();
@@ -894,17 +894,23 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsNotNull(state);
             Assert.AreEqual(jobExecution.Id, state!.Id);
             Assert.AreEqual(status, state.Status);
-            Assert.Greater(state.CreateTime, beforeStart);
-            Assert.Greater(state.StartTime, state.CreateTime);
+            Assert.That(state.CreateTime, Is.GreaterThanOrEqualTo(beforeStart));
+            Assert.That(state.StartTime, Is.GreaterThanOrEqualTo(state.CreateTime));
 
             if (status is JobStatus.Canceled or JobStatus.Completed or JobStatus.Failed)
             {
-                Assert.Greater(state.FinishTime, state.StartTime);
+                Assert.That(state.FinishTime, Is.GreaterThanOrEqualTo(state.StartTime));
             }
             else
             {
                 Assert.IsNull(state.FinishTime);
             }
+        }
+
+        private static Instant GetCurrentInstant()
+        {
+            // Use millis precision because of OS-specific time resolution.
+            return Instant.FromUnixTimeMilliseconds(SystemClock.Instance.GetCurrentInstant().ToUnixTimeMilliseconds());
         }
 
         private async Task<IJobTarget<IClusterNode>> GetNodeAsync(int index) =>
