@@ -33,12 +33,12 @@ import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dep
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChain;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stableAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stableAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.subtract;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsChainGetLocally;
@@ -1167,7 +1167,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 if (isRecovery) {
                     AssignmentsChain assignmentsChain = assignmentsChains.get(i);
 
-                    if (assignmentsChain == null || assignmentsChain.chain().size() == 1) {
+                    if (lastRebalanceWasGraceful(assignmentsChain)) {
                         // The condition to start the replica is
                         // `pending.contains(node) || (stable.contains(node) && !pending.isForce())`.
                         // However we check only the right part of this condition here
@@ -1177,6 +1177,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 && (pendingAssignments == null || !pendingAssignments.force());
                     } else {
                         // TODO: Use logic from https://issues.apache.org/jira/browse/IGNITE-23874
+                        LOG.warn("Recovery after a forced rebalance for table is not supported yet [tableId={}, partitionId={}].",
+                                tableId, partId);
                         shouldStartPartition = localMemberAssignmentInStable != null
                                 && (pendingAssignments == null || !pendingAssignments.force());
                     }
@@ -2170,9 +2172,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         TablePartitionId replicaGrpId = extractTablePartitionId(pendingAssignmentsEntry.key(), PENDING_ASSIGNMENTS_PREFIX_BYTES);
 
         // Stable assignments from the meta store, which revision is bounded by the current pending event.
-        Assignments stableAssignments = stableAssignments(metaStorageMgr, replicaGrpId, revision);
+        Assignments stableAssignments = stableAssignmentsGetLocally(metaStorageMgr, replicaGrpId, revision);
 
-        AssignmentsChain assignmentsChain = assignmentsChain(metaStorageMgr, replicaGrpId, revision);
+        AssignmentsChain assignmentsChain = assignmentsChainGetLocally(metaStorageMgr, replicaGrpId, revision);
 
         Assignments pendingAssignments = Assignments.fromBytes(pendingAssignmentsEntry.value());
 
@@ -2257,10 +2259,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             // `pending.contains(node) || (stable.contains(node) && !pending.isForce())`.
             // This condition covers the left part of the OR expression.
             // The right part of it is covered in `startLocalPartitionsAndClients`.
-            if (assignmentsChain == null || assignmentsChain.chain().size() == 1) {
+            if (lastRebalanceWasGraceful(assignmentsChain)) {
                 shouldStartLocalGroupNode = localMemberAssignmentInPending != null;
             } else {
                 // TODO: Use logic from https://issues.apache.org/jira/browse/IGNITE-23874.
+                LOG.warn("Recovery after a forced rebalance for table is not supported yet [tablePartitionId={}].",
+                        replicaGrpId);
                 shouldStartLocalGroupNode = localMemberAssignmentInPending != null;
             }
         } else {
@@ -2378,6 +2382,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     replicaMgr.replica(replicaGrpId)
                             .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
+    }
+
+    /**
+     * For HA zones: Check that last rebalance was graceful (raft group maintained the majority) rather than forced (caused by a disaster
+     * recovery reset after losing the majority of nodes).
+     */
+    private static boolean lastRebalanceWasGraceful(@Nullable AssignmentsChain assignmentsChain) {
+        // Assignments chain is either empty (when there have been no stable switch yet) or contains a single element in chain.
+        return assignmentsChain == null || assignmentsChain.chain().size() == 1;
     }
 
     private static PartitionSet extendPartitionSet(@Nullable PartitionSet oldPartitionSet, int partitionId) {
@@ -3007,7 +3020,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TableImpl table = tables.get(tablePartitionId.tableId());
 
             return stopPartitionForRestart(tablePartitionId, table).thenComposeAsync(unused1 -> {
-                Assignments stableAssignments = stableAssignments(metaStorageMgr, tablePartitionId, revision);
+                Assignments stableAssignments = stableAssignmentsGetLocally(metaStorageMgr, tablePartitionId, revision);
 
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
 

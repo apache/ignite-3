@@ -629,7 +629,7 @@ public class RebalanceUtil {
      * @param revision Revision.
      * @return Returns partition assignments from meta storage locally or {@code null} if assignments is absent.
      */
-    public static @Nullable Assignments stableAssignments(
+    public static @Nullable Assignments stableAssignmentsGetLocally(
             MetaStorageManager metaStorageManager,
             TablePartitionId tablePartitionId,
             long revision
@@ -655,7 +655,7 @@ public class RebalanceUtil {
             int partitionNumber,
             long revision
     ) {
-        Assignments assignments = stableAssignments(metaStorageManager, new TablePartitionId(tableId, partitionNumber), revision);
+        Assignments assignments = stableAssignmentsGetLocally(metaStorageManager, new TablePartitionId(tableId, partitionNumber), revision);
 
         return assignments == null ? null : assignments.nodes();
     }
@@ -705,7 +705,7 @@ public class RebalanceUtil {
     ) {
         return IntStream.range(0, numberOfPartitions)
                 .mapToObj(p -> {
-                    Assignments assignments = stableAssignments(metaStorageManager, new TablePartitionId(tableId, p), revision);
+                    Assignments assignments = stableAssignmentsGetLocally(metaStorageManager, new TablePartitionId(tableId, p), revision);
 
                     assert assignments != null;
 
@@ -754,7 +754,7 @@ public class RebalanceUtil {
             long revision
     ) {
         return IntStream.range(0, numberOfPartitions)
-                .mapToObj(p -> assignmentsChain(metaStorageManager, new TablePartitionId(tableId, p), revision))
+                .mapToObj(p -> assignmentsChainGetLocally(metaStorageManager, new TablePartitionId(tableId, p), revision))
                 .collect(toList());
     }
 
@@ -766,7 +766,7 @@ public class RebalanceUtil {
      * @param revision Revision.
      * @return Returns assignments chain from meta storage locally or {@code null} if assignments is absent.
      */
-    public static @Nullable AssignmentsChain assignmentsChain(
+    public static @Nullable AssignmentsChain assignmentsChainGetLocally(
             MetaStorageManager metaStorageManager,
             TablePartitionId tablePartitionId,
             long revision
