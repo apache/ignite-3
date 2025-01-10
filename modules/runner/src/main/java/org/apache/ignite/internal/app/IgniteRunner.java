@@ -22,6 +22,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import jdk.internal.misc.Signal;
+import jdk.internal.misc.Signal.Handler;
 import org.apache.ignite.IgniteServer;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -72,17 +73,25 @@ public class IgniteRunner implements Callable<IgniteServer> {
     public static void main(String[] args) {
         IgniteServer server = start(args);
         AtomicBoolean shutdown = new AtomicBoolean(false);
-        Signal.handle(new Signal("INT"), sig -> {
+
+        Handler handler = sig -> {
             try {
                 System.out.println("Ignite node shutting down...");
                 shutdown.set(true);
                 server.shutdown();
+
+                //Copy-paste from default JVM signal handler java.lang.Terminator#setup
+                System.exit(sig.getNumber() + 0200);
             } catch (Throwable t) {
                 System.out.println("Failed to shutdown: " + t.getMessage());
 
                 t.printStackTrace(System.out);
             }
-        });
+        };
+
+        Signal.handle(new Signal("INT"), handler);
+        Signal.handle(new Signal("TERM"), handler);
+
         try {
             server.waitForInitAsync().get();
         } catch (ExecutionException | InterruptedException e) {
