@@ -4,7 +4,7 @@ package org.phillippko.ignite.internal.cli.optimise.command;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import picocli.CommandLine.Command;
 
-@Command(name = "optimise",
+@Command(name = "runOptimise",
         subcommands = {
                 RunOptimiseCommand.class,
                 RunBenchmarkCommand.class,

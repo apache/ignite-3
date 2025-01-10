@@ -5,9 +5,13 @@ import static java.lang.System.currentTimeMillis;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.List;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 
 public class BenchmarkRunnerImpl implements BenchmarkRunner {
     private static final IgniteLogger LOG = Loggers.forClass(BenchmarkRunnerImpl.class);
@@ -19,20 +23,33 @@ public class BenchmarkRunnerImpl implements BenchmarkRunner {
 
     @Override
     public String runBenchmark(String benchmarkFilePath) {
+        LOG.info("Benchmarking " + benchmarkFilePath + "...");
+
         long atStart = currentTimeMillis();
 
-        try (var ignored = sql.execute(null, readFromFile(benchmarkFilePath))) {
-            return String.valueOf(currentTimeMillis() - atStart);
-        } catch (Throwable e) {
-            LOG.info("Error while running a benchmark: ", e);
+        Path path = Path.of(benchmarkFilePath);
 
-            return "FAILED: " + e.getMessage();
+        if (!Files.exists(path)) {
+            throw new IllegalArgumentException("File not found: " + path.toAbsolutePath());
         }
+
+        List<String> statements = readFromFile(path);
+
+        for (String statement : statements) {
+            ResultSet<SqlRow> execute = sql.execute(null, statement);
+            execute.close();
+        }
+
+        String result = "Benchmark " + benchmarkFilePath + " finished in " + (currentTimeMillis() - atStart) + "MS";
+
+        LOG.info(result);
+
+        return result;
     }
 
-    private static String readFromFile(String benchmarkFilePath) {
+    private static List<String> readFromFile(Path path) {
         try {
-            return Files.readString(Path.of(benchmarkFilePath));
+            return Files.readAllLines(path);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

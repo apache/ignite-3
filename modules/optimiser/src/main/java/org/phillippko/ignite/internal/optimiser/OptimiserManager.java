@@ -96,7 +96,7 @@ public class OptimiserManager implements IgniteComponent {
                         throw new CompletionException(new IllegalArgumentException("Incorrect ID"));
                     }
 
-                    return "Result: " + ByteUtils.stringFromBytes(res.value());
+                    return "Optimisation result: " + ByteUtils.stringFromBytes(res.value());
                 });
     }
 
@@ -121,7 +121,7 @@ public class OptimiserManager implements IgniteComponent {
                 .exceptionally(e -> {
                     LOG.error("Error while optimising: ", e);
 
-                    metastorageManager.put(key, stringToBytes("FAILED. " + e.getMessage()));
+                    metastorageManager.put(key, stringToBytes("Optimisation FAILED: " + e.getMessage()));
 
                     return null;
                 });
@@ -130,7 +130,7 @@ public class OptimiserManager implements IgniteComponent {
     private void runBenchmarkInternal(UUID id, String benchmarkFilePath) {
         ByteArray key = ByteArray.fromString(RESULT_PREFIX + id);
 
-        metastorageManager.put(key, "STARTED".getBytes())
+        metastorageManager.put(key, "Benchmark STARTED".getBytes())
                 .thenApplyAsync((v) -> benchmarkRunner.runBenchmark(benchmarkFilePath), threadPool)
                 .thenAccept((result) -> metastorageManager.put(key, stringToBytes(result)));
     }

@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -17,6 +19,7 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfiguration;
 
 public class OptimiseRunnerImpl implements OptimiseRunner {
+    private static final IgniteLogger LOG = Loggers.forClass(OptimiseRunnerImpl.class);
     private final ConfigurationRegistry clusterConfigurationRegistry;
     private final ConfigurationRegistry nodeConfigurationRegistry;
 
@@ -27,6 +30,8 @@ public class OptimiseRunnerImpl implements OptimiseRunner {
 
     @Override
     public String getIssues(boolean writeIntensive) {
+        LOG.info("Running optimisation");
+
         List<String> issues = new ArrayList<>();
         MemoryUsage heapMemoryUsage = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
         double freeMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
@@ -37,6 +42,8 @@ public class OptimiseRunnerImpl implements OptimiseRunner {
 
         if (closeToMaxMemory) {
             issues.add("More than 90% of maximum memory is used, increase -Xmx JVM option");
+        } else {
+            issues.add("Maximum memory OK");
         }
 
         GcConfiguration gcConfig = clusterConfigurationRegistry.getConfiguration(GcExtensionConfiguration.KEY).gc();
@@ -45,12 +52,16 @@ public class OptimiseRunnerImpl implements OptimiseRunner {
             issues.add(
                     "Less than half of available threads designated for GC and memory usage is high, increase gcConfiguration.threads, current: "
                             + gcConfig.threads());
+        } else {
+            issues.add("GC threads OK");
         }
 
         LowWatermarkConfiguration lowWatermarkConfiguration = gcConfig.lowWatermark();
         if (lowWatermarkConfiguration.dataAvailabilityTime().value() > 1_000_000) {
             issues.add("Low watermark data availability is too high, causing extra disk usage: "
                     + lowWatermarkConfiguration.dataAvailabilityTime());
+        } else {
+            issues.add("Low watermark data availability OK");
         }
 
         if (lowWatermarkConfiguration.updateInterval().value() > lowWatermarkConfiguration.dataAvailabilityTime().value() / 2) {
@@ -60,6 +71,8 @@ public class OptimiseRunnerImpl implements OptimiseRunner {
                             ", dataAvailabilityTime=" +
                             lowWatermarkConfiguration.dataAvailabilityTime() + "]"
             );
+        } else {
+            issues.add("Low watermark update interval OK");
         }
 
         long volatileDataRegionsSize = profiles.stream()
@@ -70,6 +83,8 @@ public class OptimiseRunnerImpl implements OptimiseRunner {
 
         if (volatileDataRegionsSize > heapMemoryUsage.getMax()) {
             issues.add("Sum of volatile data regions exceeds max heap size: " + volatileDataRegionsSize);
+        } else {
+            issues.add("Volatile data regions size OK");
         }
 
         if (writeIntensive) {
