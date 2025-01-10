@@ -36,7 +36,6 @@ import org.apache.ignite.internal.runner.app.Jobs.PojoArgNativeResult;
 import org.apache.ignite.internal.runner.app.Jobs.PojoJob;
 import org.apache.ignite.internal.runner.app.Jobs.PojoResult;
 import org.apache.ignite.internal.runner.app.Jobs.TwoStringPojo;
-import org.apache.ignite.marshalling.UnmarshallingException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
