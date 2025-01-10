@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -330,7 +331,7 @@ public class QueryExecutor implements LifecycleAware {
     private void trackQuery(Query query, @Nullable CancellationToken cancellationToken) {
         Query old = runningQueries.put(query.id, query);
 
-        eventLog.log(() -> eventsFactory.makeStartEvent(new QueryInfo(query)));
+        eventLog.log(IgniteEventType.QUERY_STARTED.name(), () -> eventsFactory.makeStartEvent(new QueryInfo(query)));
 
         assert old == null : "Query with the same id already registered";
 
@@ -341,7 +342,7 @@ public class QueryExecutor implements LifecycleAware {
 
             long finishTime = clockService.current().getPhysical();
 
-            eventLog.log(() -> eventsFactory.makeFinishEvent(new QueryInfo(query), finishTime));
+            eventLog.log(IgniteEventType.QUERY_FINISHED.name(), () -> eventsFactory.makeFinishEvent(new QueryInfo(query), finishTime));
         });
 
         if (cancellationToken != null) {

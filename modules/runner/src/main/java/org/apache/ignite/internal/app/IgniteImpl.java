@@ -1082,8 +1082,6 @@ public class IgniteImpl implements Ignite {
                 clockService
         );
 
-        eventLog = new EventLogImpl(clusterConfigRegistry.getConfiguration(EventLogExtensionConfiguration.KEY).eventlog());
-
         qryEngine = new SqlQueryProcessor(
                 clusterSvc,
                 logicalTopologyService,
