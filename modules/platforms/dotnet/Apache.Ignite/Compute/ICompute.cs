@@ -50,8 +50,8 @@ public interface ICompute
     /// <param name="arg">Job argument.</param>
     /// <typeparam name="TArg">Job argument type.</typeparam>
     /// <typeparam name="TResult">Job result type.</typeparam>
-    /// <returns>A map of <see cref="Task"/> representing the asynchronous operation for every node.</returns>
-    IDictionary<IClusterNode, Task<IJobExecution<TResult>>> SubmitBroadcast<TArg, TResult>(
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    Task<IBroadcastExecution<TResult>> SubmitBroadcastAsync<TArg, TResult>(
         IEnumerable<IClusterNode> nodes,
         JobDescriptor<TArg, TResult> jobDescriptor,
         TArg arg);
