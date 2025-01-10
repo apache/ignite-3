@@ -117,8 +117,16 @@ OCTET_LENGTH(<binary>)
 LIKE(<string>, <string>, <string>)
 #f9618e61dc6e1f47563b2f34babb93222e268195
 
+[internal]
+NOT LIKE(<string>, <string>, <string>)
+#98a3a61de0c758cd62599fae6293068ac9f8fbf1
+
 SIMILAR TO(<string>, <string>, <string>)
 #5b59aa4a2ad6c123016ec3e78d11d440caedf1d8
+
+[internal]
+NOT SIMILAR TO(<string>, <string>, <string>)
+#4ea1dd2d99dd0ab4b4238969282571665897bb32
 
 
 === Numeric Functions
@@ -211,6 +219,14 @@ PI
 
 
 === Date/time Functions
+
+[internal]
++(<datetime>, <datetime>, <datetime_interval>)
+#5dcfb49a7f0aeb5c97045bfe841015075c50108f
+
+[internal]
+-(<datetime>, <datetime>, <datetime_interval>)
+#df54f7f0a3dd9bee9173ef4839b2a564d08dc798
 
 EXTRACT(<datetime_interval> FROM <datetime_interval>)
 EXTRACT(<datetime_interval> FROM <datetime>)
@@ -338,6 +354,11 @@ SUM0(<numeric>)
 AVG(<numeric>)
 #dd7d36f6dd878180a7da740ba184928e4a7c5eee
 
+[internal]
+DECIMAL_DIVIDE(<numeric>, <numeric>)
+DECIMAL_DIVIDE(<datetime_interval>, <numeric>)
+#af80542a8aef07ba882479721da1ce4fc4307c21
+
 MIN(<comparable_type>)
 #71a98a5ab23c326060a8464b16f583266dbc9311
 
@@ -350,11 +371,19 @@ ANY_VALUE(<any>)
 SINGLE_VALUE(<any>)
 #b454f7ac12dead652d1d09ed92cbb7e4c08761fd
 
+[internal]
+<any> FILTER <any>
+#b9102e525855e461ba8259fd7b7458d9699b513e
+
 EVERY(<boolean>)
 #41e6e59a37a487810a5f1dd045fc2eb7487937b2
 
 SOME(<boolean>)
 #014b53be23fc2009080420e94b78d52bf2b09dbd
+
+[internal]
+LITERAL_AGG()
+#6d021f1dd7329dc18c22767552769bc90f27b7ac
 
 
 === Other Functions
@@ -395,6 +424,31 @@ GREATEST(<equivalent_type>, <equivalent_type>, <...>)
 COMPRESS(<string>)
 #94758a84173af269b9e6121bda73e756fba6d38f
 
+[internal]
+DEFAULT()
+#75d3abefc3e2cc2b8de49022c0cede0cd95ac68d
+
+[internal]
+Reinterpret(<t1>) ***
+Reinterpret(<t1, t2>) ***
+#5edf91932ba5769cf9ab8a78968992c4591e8be1
+
+[internal]
+EXISTS <any>
+#c2a2db37f8a10aa29d84af9f2fdd53545b7ffdb7
+
+[internal]
+<any> NULLS FIRST
+#b3d64c31d107718583e6b1b8acf7ad6334accf6a
+
+[internal]
+<any> NULLS LAST
+#9c15430f544d7c72ea0fc7938884e1b786854efb
+
+[internal]
+<any> DESC
+#cd2aa6863ed54bd03d844b08664115655e7ae2e4
+
 TYPEOF(<any>)
 #85771dfef877b07351286b9f792f2ae2cd4a234d
 
@@ -413,6 +467,14 @@ SYSTEM_RANGE(<numeric>, <numeric>, <numeric>)
 
 <string> ~ <string>
 #5c11885edb9ee9a83966e9f7eceb5d92b5750d0f
+
+[internal]
+<string> NEGATED POSIX REGEX CASE INSENSITIVE <string>
+#c70064eb71c5c542447873f77d2515855b9f36e7
+
+[internal]
+<string> NEGATED POSIX REGEX CASE SENSITIVE <string>
+#18b256ec269fc21c7cdfb7a5faf22feea6a4b66d
 
 REGEXP_REPLACE(<string>, <string>)
 #88f28d4b1d0ff594ef97fe5d785416512cd2b98a
@@ -490,6 +552,22 @@ JSON_ARRAY(...)
 <character> IS JSON SCALAR
 #7422f5ae4031167d0cf179c1816c1ccdc5d7e42a
 
+[internal]
+<character> IS NOT JSON VALUE
+#d4057b7a18da95722a17ab11b4b86caa681df63b
+
+[internal]
+<character> IS NOT JSON OBJECT
+#22b07102150277f40676ca24a11f385df3b44a88
+
+[internal]
+<character> IS NOT JSON ARRAY
+#428e9e7904234c9d78b72d0786398122fd4e1575
+
+[internal]
+<character> IS NOT JSON SCALAR
+#f8502818b4a9746a40e73f64eeb3a27f2ae51b46
+
 
 === XML Functions
 
@@ -507,6 +585,9 @@ EXISTSNODE(<string>, <string>, <string>)
 
 
 === Collection Functions
+
+ROW(...)
+#b25caf95375750e2988f59f1d4aa95a3ad4bab22
 
 MAP(...)
 #6138fe1341443c9697831db0b65aee024ee79eb9
@@ -528,3 +609,106 @@ CARDINALITY(<map>)
 <array> IS EMPTY
 <map> IS EMPTY
 #c5bb1c286999803586ebddaeec36b606047f6f4b
+
+[internal]
+<multiset> IS NOT EMPTY
+<array> IS NOT EMPTY
+<map> IS NOT EMPTY
+#15498eeb5ac9759934107b5f22044e202618f661
+
+
+=== Logical Operators
+
+<boolean> AND <boolean>
+#5a169a211bd578118d54c3e38d595e7d460d9100
+
+<boolean> OR <boolean>
+#a1f8e63a37fcdf60efb5a240f7dbb8b1f9fb1ca6
+
+NOT <boolean>
+#e47a5c93eca6ccfd34418ec569f99e32456b1d0a
+
+<comparable_type> < <comparable_type>
+#45e427f8a3a9eb52c3160b06a747a9ac6dfe888f
+
+<comparable_type> <= <comparable_type>
+#8120fdbfab491a0dea77087cd01978042a51b582
+
+<comparable_type> > <comparable_type>
+#7d355e5456a4b8fa188742575d071a7c7d3f4ae8
+
+<comparable_type> >= <comparable_type>
+#143a9f874b3e9aac2ce48adbd3f65b579d707c47
+
+<comparable_type> = <comparable_type>
+#48013a1d6b676b3d1d75661d85e0d73193df3f39
+
+<comparable_type> <> <comparable_type>
+#57da1ed3112aaf29752b6a86fbce274da0dab963
+
+BETWEEN <comparable_type> AND <comparable_type> ***
+#7280938274e912f70ec2bcac365f69e0ec98d6d1
+
+[internal]
+NOT BETWEEN <comparable_type> AND <comparable_type> ***
+#7228a33372495c589d32efb7e851e0f984f8bb57
+
+<numeric> + <numeric>
+<datetime_interval> + <datetime_interval>
+<datetime> + <datetime_interval>
+<datetime_interval> + <datetime>
+#5cbf02ad6524061e6fc5f6eccdf19470c378ae53
+
+<numeric> - <numeric>
+<datetime_interval> - <datetime_interval>
+<datetime> - <datetime_interval>
+#cc97d9a6dfad77a428d6734943414685e8aa7fc9
+
+<numeric> * <numeric>
+<datetime_interval> * <numeric>
+<numeric> * <datetime_interval>
+#198e67fb8340698310ae7a427ea4669f92c4eaf5
+
+<numeric> / <numeric>
+<datetime_interval> / <numeric>
+#3c153a5785d7bb4d1c669e5d404febdb71394a86
+
+[internal]
+<numeric> /INT <numeric>
+<datetime_interval> /INT <numeric>
+#165d343af27079bf273224b828c4640ea67c8fcc
+
+<exact_numeric> % <exact_numeric>
+#c1021948f005aa37149800f690a4f6dca3088bb0
+
+- <numeric>
+- <datetime_interval>
+#7004dce4e24ff3db2cde54a43950f4bfa8459f77
+
++ <numeric>
++ <datetime_interval>
+#832cc5ca2ccff909e00990586094725cf9166fe6
+
+<any> IS NULL
+#188e12d5a065c6027f59e0a56638a06550ca09ad
+
+<any> IS NOT NULL
+#211a8725dca171f42d723765e25aebb6971ff78a
+
+<boolean> IS TRUE
+#44a4350079b74a9e7bea61a87c11424d657ef1b5
+
+<boolean> IS NOT TRUE
+#b5efd7a32bca576b0dba63fe566cd783632dd1ab
+
+<boolean> IS FALSE
+#0191ed297b54f37c95bc8d58718fb3b898bcf6ce
+
+<boolean> IS NOT FALSE
+#39fa03822b1ec4dbd7581ed296dbfed814a10924
+
+<comparable_type> IS DISTINCT FROM <comparable_type>
+#d34c3c44e2e46532abe0291326ecd4a9295bd004
+
+<comparable_type> IS NOT DISTINCT FROM <comparable_type>
+#1bde145ae83ee670d8d4fd00bc87c6d0c8002263

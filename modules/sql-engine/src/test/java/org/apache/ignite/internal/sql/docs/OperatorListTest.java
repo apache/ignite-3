@@ -17,11 +17,7 @@
 
 package org.apache.ignite.internal.sql.docs;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -30,27 +26,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import org.apache.calcite.runtime.SqlFunctions;
-import org.apache.calcite.sql.SqlOperandCountRange;
-import org.apache.calcite.sql.SqlOperator;
-import org.apache.calcite.sql.SqlOperatorTable;
-import org.apache.calcite.sql.SqlSyntax;
 import org.apache.calcite.sql.fun.SqlInternalOperators;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
-import org.apache.calcite.sql.util.SqlOperatorTables;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
-import org.opentest4j.AssertionFailedError;
 
 /**
  * Checks that all operators defined in a table of SQL operators are documented.
@@ -80,8 +62,6 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
 
     private static final String OPERATOR_LIST = "src/test/resources/docs/operator_list.txt";
 
-    private static final Pattern TYPE_NAME_PATTERN = Pattern.compile("<[^>]*>");
-
     private final IgniteSqlOperatorTable operatorTable = new IgniteSqlOperatorTable();
 
     private final List<DocumentedOperators> allOperators = List.of(
@@ -102,18 +82,12 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
 
     @Test
     public void test() throws IOException {
-        validateOperatorList(operatorTable, allOperators);
+        DocumentedOperators.validateOperatorList(operatorTable, allOperators, OPERATOR_LIST);
 
         StringWriter sw = new StringWriter();
 
         try (PrintWriter pw = new PrintWriter(sw)) {
-            allOperators.stream().filter(ops -> !ops.internal).forEach(ops -> {
-                pw.println("=== " + ops.name);
-                pw.println();
-                ops.operators.stream().filter(op -> !op.internal).forEach(op -> printSignature(pw, op));
-                pw.println();
-            });
-            pw.flush();
+            DocumentedOperators.printOperators(pw, allOperators);
 
             Path path = Paths.get(OPERATOR_LIST);
             List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
@@ -124,92 +98,6 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
                     "operator list does not match"
             );
         }
-    }
-
-    @Test
-    public void testValidationFunctionOk() {
-        SqlOperator add = SqlStdOperatorTable.PLUS;
-        SqlOperator mul = SqlStdOperatorTable.MULTIPLY;
-        SqlOperator sub = SqlStdOperatorTable.MINUS;
-
-        SqlOperatorTable table = SqlOperatorTables.of(add, sub, mul);
-
-        DocumentedOperators ops = new DocumentedOperators("Test");
-        ops.add(add);
-        ops.hide(mul);
-        ops.add(sub);
-
-        validateOperatorList(table, List.of(ops));
-    }
-
-    @Test
-    public void testValidationFunctionFailsWhenSomeOpsAreNotIncluded() {
-        SqlOperator add = SqlStdOperatorTable.PLUS;
-        SqlOperator mul = SqlStdOperatorTable.MULTIPLY;
-        SqlOperator sub = SqlStdOperatorTable.MINUS;
-
-        SqlOperatorTable table = SqlOperatorTables.of(add, sub, mul);
-
-        DocumentedOperators ops = new DocumentedOperators("Test");
-        ops.add(add);
-        ops.hide(mul);
-
-        // validateOperatorList should fail because minus operator is missing from DocumentedOperators.
-        try {
-            validateOperatorList(table, List.of(ops));
-        } catch (AssertionFailedError err) {
-
-            assertThat("Error:\n" + err.getMessage(), err.getMessage(), Matchers.allOf(
-                    containsString("- class: " + sub.getClass().getCanonicalName()),
-                    not(containsString("+ class: " + add.getClass().getCanonicalName())),
-                    not(containsString("* class: " + mul.getClass().getCanonicalName()))
-            ));
-            return;
-        }
-
-        fail();
-    }
-
-    private static void printSignature(PrintWriter pw, DocumentedOperator op) {
-        Signatures sigs = Signatures.makeSignatures(op);
-        for (String sig : sigs.sigs) {
-            pw.print(sig);
-            if (sigs.manual) {
-                pw.print(" ***");
-            }
-            pw.println();
-        }
-        pw.println("#" + sigs.hash);
-        pw.println();
-    }
-
-    private static void validateOperatorList(SqlOperatorTable operatorTable, List<DocumentedOperators> operators) {
-        Set<SqlOperator> annotated = operators.stream()
-                .flatMap(ops -> ops.operators.stream().map(f -> f.operator)).collect(Collectors.toSet());
-
-        List<SqlOperator> notDocumented = new ArrayList<>();
-
-        for (SqlOperator operator : operatorTable.getOperatorList()) {
-            if (!annotated.contains(operator)) {
-                notDocumented.add(operator);
-            }
-        }
-
-        if (!notDocumented.isEmpty()) {
-            StringBuilder sb = new StringBuilder(
-                    "Signatures of the following operators are missing from " + OPERATOR_LIST + ". "
-                            + "Add these operators to as public (add(OperatorTable.MY_OP)) "
-                            + "or include them as internal (call .hide(OperatorTable.MY_OP):");
-            sb.append(System.lineSeparator());
-
-            notDocumented.forEach(o -> sb.append(describeOperator(o)).append(System.lineSeparator()));
-
-            fail(sb.toString());
-        }
-    }
-
-    private static String describeOperator(SqlOperator operator) {
-        return operator.getName() + " class: " + operator.getClass().getCanonicalName();
     }
 
     // Operator definitions
@@ -252,9 +140,9 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
 
         // LIKE and SIMILAR.
         ops.add(SqlStdOperatorTable.LIKE);
-        ops.hide(SqlStdOperatorTable.NOT_LIKE);
+        ops.internal(SqlStdOperatorTable.NOT_LIKE);
         ops.add(SqlStdOperatorTable.SIMILAR_TO);
-        ops.hide(SqlStdOperatorTable.NOT_SIMILAR_TO);
+        ops.internal(SqlStdOperatorTable.NOT_SIMILAR_TO);
 
         return ops;
     }
@@ -265,8 +153,8 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         // POSIX REGEX.
         ops.add(SqlStdOperatorTable.POSIX_REGEX_CASE_INSENSITIVE, "~*");
         ops.add(SqlStdOperatorTable.POSIX_REGEX_CASE_SENSITIVE, "~");
-        ops.hide(SqlStdOperatorTable.NEGATED_POSIX_REGEX_CASE_INSENSITIVE);
-        ops.hide(SqlStdOperatorTable.NEGATED_POSIX_REGEX_CASE_SENSITIVE);
+        ops.internal(SqlStdOperatorTable.NEGATED_POSIX_REGEX_CASE_INSENSITIVE);
+        ops.internal(SqlStdOperatorTable.NEGATED_POSIX_REGEX_CASE_SENSITIVE);
 
         ops.add(SqlLibraryOperators.REGEXP_REPLACE_2);
         ops.add(SqlLibraryOperators.REGEXP_REPLACE_3);
@@ -316,8 +204,8 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         DocumentedOperators ops = new DocumentedOperators("Date/time Functions");
 
         // Date and time.
-        ops.hide(SqlStdOperatorTable.DATETIME_PLUS);
-        ops.hide(SqlStdOperatorTable.MINUS_DATE);
+        ops.internal(SqlStdOperatorTable.DATETIME_PLUS);
+        ops.internal(SqlStdOperatorTable.MINUS_DATE);
         ops.add(SqlStdOperatorTable.EXTRACT);
         ops.add(SqlStdOperatorTable.FLOOR);
         ops.add(SqlStdOperatorTable.CEIL);
@@ -372,17 +260,17 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         ops.add(SqlStdOperatorTable.SUM0, "SUM0");
         ops.add(SqlStdOperatorTable.AVG);
         // internal function
-        ops.hide(IgniteSqlOperatorTable.DECIMAL_DIVIDE);
+        ops.internal(IgniteSqlOperatorTable.DECIMAL_DIVIDE);
         ops.add(SqlStdOperatorTable.MIN);
         ops.add(SqlStdOperatorTable.MAX);
         ops.add(SqlStdOperatorTable.ANY_VALUE);
         ops.add(SqlStdOperatorTable.SINGLE_VALUE);
-        ops.hide(SqlStdOperatorTable.FILTER);
+        ops.internal(SqlStdOperatorTable.FILTER);
 
         ops.add(SqlStdOperatorTable.EVERY);
         ops.add(SqlStdOperatorTable.SOME);
 
-        ops.hide(SqlInternalOperators.LITERAL_AGG);
+        ops.internal(SqlInternalOperators.LITERAL_AGG);
 
         return ops;
     }
@@ -411,10 +299,10 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         ops.add(SqlStdOperatorTable.IS_JSON_OBJECT);
         ops.add(SqlStdOperatorTable.IS_JSON_ARRAY);
         ops.add(SqlStdOperatorTable.IS_JSON_SCALAR);
-        ops.hide(SqlStdOperatorTable.IS_NOT_JSON_VALUE);
-        ops.hide(SqlStdOperatorTable.IS_NOT_JSON_OBJECT);
-        ops.hide(SqlStdOperatorTable.IS_NOT_JSON_ARRAY);
-        ops.hide(SqlStdOperatorTable.IS_NOT_JSON_SCALAR);
+        ops.internal(SqlStdOperatorTable.IS_NOT_JSON_VALUE);
+        ops.internal(SqlStdOperatorTable.IS_NOT_JSON_OBJECT);
+        ops.internal(SqlStdOperatorTable.IS_NOT_JSON_ARRAY);
+        ops.internal(SqlStdOperatorTable.IS_NOT_JSON_SCALAR);
 
         return ops;
     }
@@ -436,11 +324,16 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         ops.add(SqlLibraryOperators.LEAST);
         ops.add(SqlLibraryOperators.GREATEST);
         ops.add(SqlLibraryOperators.COMPRESS);
-        ops.hide(SqlStdOperatorTable.DEFAULT);
-        ops.hide(SqlStdOperatorTable.REINTERPRET);
+        ops.internal(SqlStdOperatorTable.DEFAULT);
+        ops.internal(SqlStdOperatorTable.REINTERPRET).sig("(<t1>)").sig("(<t1, t2>)");
 
         // Exists.
-        ops.hide(SqlStdOperatorTable.EXISTS);
+        ops.internal(SqlStdOperatorTable.EXISTS);
+
+        // NULLS ordering.
+        ops.internal(SqlStdOperatorTable.NULLS_FIRST);
+        ops.internal(SqlStdOperatorTable.NULLS_LAST);
+        ops.internal(SqlStdOperatorTable.DESC);
 
         // Ignite
 
@@ -455,7 +348,7 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         DocumentedOperators ops = new DocumentedOperators("Collection Functions");
 
         // ROW constructor
-        ops.hide(SqlStdOperatorTable.ROW);
+        ops.add(SqlStdOperatorTable.ROW);
 
         // Collections.
         ops.add(SqlStdOperatorTable.MAP_VALUE_CONSTRUCTOR);
@@ -468,7 +361,7 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
 
         ops.add(SqlStdOperatorTable.CARDINALITY);
         ops.add(SqlStdOperatorTable.IS_EMPTY);
-        ops.hide(SqlStdOperatorTable.IS_NOT_EMPTY);
+        ops.internal(SqlStdOperatorTable.IS_NOT_EMPTY);
 
         return ops;
     }
@@ -486,7 +379,7 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
     }
 
     private static DocumentedOperators setOperators() {
-        DocumentedOperators ops = new DocumentedOperators("Set Operators").hide();
+        DocumentedOperators ops = new DocumentedOperators("Set Operators").exclude();
 
         // Set operators.
         ops.add(SqlStdOperatorTable.UNION);
@@ -500,7 +393,7 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
     }
 
     private static DocumentedOperators logicalOperators() {
-        DocumentedOperators ops = new DocumentedOperators("Logical Operators").hide();
+        DocumentedOperators ops = new DocumentedOperators("Logical Operators");
 
         // Logical.
         ops.add(SqlStdOperatorTable.AND);
@@ -513,14 +406,14 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         ops.add(SqlStdOperatorTable.GREATER_THAN_OR_EQUAL);
         ops.add(SqlStdOperatorTable.EQUALS);
         ops.add(SqlStdOperatorTable.NOT_EQUALS);
-        ops.add(SqlStdOperatorTable.BETWEEN);
-        ops.add(SqlStdOperatorTable.NOT_BETWEEN);
+        ops.add(SqlStdOperatorTable.BETWEEN, "").sig("BETWEEN <comparable_type> AND <comparable_type>");
+        ops.internal(SqlStdOperatorTable.NOT_BETWEEN, "").sig("NOT BETWEEN <comparable_type> AND <comparable_type>");
         // Arithmetic.
         ops.add(SqlStdOperatorTable.PLUS);
         ops.add(SqlStdOperatorTable.MINUS);
         ops.add(SqlStdOperatorTable.MULTIPLY);
         ops.add(SqlStdOperatorTable.DIVIDE);
-        ops.hide(SqlStdOperatorTable.DIVIDE_INTEGER); // Used internally.
+        ops.internal(SqlStdOperatorTable.DIVIDE_INTEGER); // Used internally.
         ops.add(SqlStdOperatorTable.PERCENT_REMAINDER);
         ops.add(SqlStdOperatorTable.UNARY_MINUS);
         ops.add(SqlStdOperatorTable.UNARY_PLUS);
@@ -535,287 +428,6 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
         ops.add(SqlStdOperatorTable.IS_DISTINCT_FROM);
         ops.add(SqlStdOperatorTable.IS_NOT_DISTINCT_FROM);
 
-        // NULLS ordering.
-        ops.add(SqlStdOperatorTable.NULLS_FIRST);
-        ops.add(SqlStdOperatorTable.NULLS_LAST);
-        ops.add(SqlStdOperatorTable.DESC);
-
         return ops;
-    }
-
-    // Helper classes; operators + signatures.
-
-    /** Collection of operators. */
-    private static class DocumentedOperators {
-
-        private final String name;
-
-        private final List<DocumentedOperator> operators = new ArrayList<>();
-
-        private boolean internal;
-
-        /** Creates a collection of operators. */
-        private DocumentedOperators(String name) {
-            this.name = name;
-        }
-
-        /** Adds a public operator. */
-        DocumentedOperator add(SqlOperator operator) {
-            return addOp(operator, operator.getName(), false);
-        }
-
-        /** Adds a public operator under the specified name. */
-        DocumentedOperator add(SqlOperator operator, String syntaxName) {
-            return addOp(operator, syntaxName, false);
-        }
-
-        /** Marks this collection of operators as internal. */
-        DocumentedOperators hide() {
-            internal = true;
-            return this;
-        }
-
-        /** Adds an internal operator. */
-        void hide(SqlOperator operator) {
-            addOp(operator, operator.getName(), true);
-        }
-
-        private DocumentedOperator addOp(SqlOperator operator, String syntaxName, boolean internal) {
-            DocumentedOperator op = new DocumentedOperator(operator, syntaxName, internal);
-            operators.add(op);
-            return op;
-        }
-    }
-
-    /** Operator. */
-    private static class DocumentedOperator {
-        final SqlOperator operator;
-
-        final String syntaxName;
-
-        final boolean internal;
-
-        final List<Signature> sigs = new ArrayList<>();
-
-        DocumentedOperator(SqlOperator operator, String displayName, boolean internal) {
-            this.operator = operator;
-            this.syntaxName = displayName;
-            this.internal = internal;
-        }
-
-        /** Adds a signature. */
-        DocumentedOperator sig(String sigStr) {
-            Signature sig = new Signature(syntaxName, sigStr);
-            sigs.add(sig);
-            return this;
-        }
-    }
-
-    private static class Signatures {
-
-        final List<String> sigs;
-
-        final String hash;
-
-        final boolean manual;
-
-        Signatures(List<String> sigs, String hash, boolean manual) {
-            this.sigs = sigs;
-            this.hash = hash;
-            this.manual = manual;
-        }
-
-        private static Signatures makeSignatures(DocumentedOperator op) {
-            String opHash = computeOperatorHash(op);
-
-            if (!op.sigs.isEmpty()) {
-                List<String> sigs = op.sigs.stream()
-                        .map(s -> s.fullSig)
-                        .collect(Collectors.toList());
-
-                return new Signatures(sigs, opHash, true);
-            }
-
-            try {
-                String allowedSignatures = op.operator.getAllowedSignatures();
-                String[] signatures = allowedSignatures.replace("'", "")
-                        .replace(op.operator.getName(), "")
-                        .split("\\n");
-
-                List<String> signaturesList = SignatureFormat.formatAll(SignatureFormat.ARGS, op, signatures);
-                List<String> sigs;
-
-                if (signaturesList.isEmpty()) {
-                    sigs = List.of(op.syntaxName);
-                } else if (signaturesList.size() == 1) {
-                    sigs = List.of(SignatureFormat.FULL.format(op, signatures[0]));
-                } else {
-                    sigs = new ArrayList<>(SignatureFormat.formatAll(SignatureFormat.FULL, op, signatures));
-                }
-
-                return new Signatures(sigs, opHash, false);
-            } catch (Throwable error) {
-                String syntaxName = op.syntaxName + " <UNABLE TO PARSE SIGNATURE: " + error.getMessage() + ">";
-
-                return new Signatures(List.of(syntaxName), opHash, false);
-            }
-        }
-    }
-
-    private static class Signature {
-
-        final String fullSig;
-
-        final String argSig;
-
-        Signature(String opName, String sigStr) {
-            Matcher matcher = TYPE_NAME_PATTERN.matcher(sigStr);
-            List<String> params = new ArrayList<>();
-
-            while (matcher.find()) {
-                String type = matcher.group();
-                params.add(type);
-            }
-
-            this.fullSig = opName + sigStr;
-            this.argSig = params.stream().collect(Collectors.joining(", ", "(", ")"));
-        }
-    }
-
-    private enum SignatureFormat {
-        /** Operator name ands arguments. Example: for {@code f(a, b)} full format produces {@code f(a, b)}. */
-        FULL,
-        /** Only arguments. Example: for {@code f(a, b}} this format produces {@code (a, b)}. */
-        ARGS;
-
-        static List<String> formatAll(SignatureFormat format, DocumentedOperator op, String[] sigs) {
-            return Arrays.stream(sigs)
-                    .map(OperatorListTest::formatTypeNames)
-                    .map(s -> format.format(op, s))
-                    .distinct()
-                    .collect(Collectors.toList());
-        }
-
-        String format(DocumentedOperator op, String sig) {
-            switch (this) {
-                case FULL:
-                    return full(op, sig);
-                case ARGS:
-                    return args(op, sig);
-                default:
-                    throw new IllegalArgumentException("Unknown format: " + this);
-            }
-        }
-
-        private static String full(DocumentedOperator op, String in) {
-            String s = formatTypeNames(in);
-            SqlSyntax syntax = op.operator.getSyntax();
-
-            if (syntax == SqlSyntax.PREFIX) {
-                return op.syntaxName + " " + s;
-            } else if (syntax == SqlSyntax.POSTFIX) {
-                return s + op.syntaxName;
-            } else if (syntax == SqlSyntax.BINARY) {
-                String[] args = s.split("\\s+");
-                return args[0] + " " + op.syntaxName + " " + args[1];
-            } else if (syntax == SqlSyntax.FUNCTION_ID) {
-                return op.syntaxName;
-            } else {
-                return op.syntaxName + s;
-            }
-        }
-
-        private static String args(DocumentedOperator op, String in) {
-            String s = formatTypeNames(in);
-            SqlSyntax syntax = op.operator.getSyntax();
-
-            if (syntax == SqlSyntax.BINARY) {
-                String[] args = s.split("\\s+");
-                return args[0] + " " + args[1];
-            } else if (syntax == SqlSyntax.FUNCTION_ID) {
-                return "";
-            } else {
-                return s;
-            }
-        }
-    }
-
-    /** Converts {@code (<TYPE1> AND <TYPE2>)} into {@code FUNC (<type1> AND <type2>)}}. */
-    private static String formatTypeNames(String input) {
-        Matcher matcher = TYPE_NAME_PATTERN.matcher(input);
-
-        StringBuilder result = new StringBuilder();
-
-        while (matcher.find()) {
-            String matchedSubstring = matcher.group();
-            String replacement = matchedSubstring.toLowerCase();
-
-            matcher.appendReplacement(result, replacement);
-        }
-
-        matcher.appendTail(result);
-
-        return result.toString();
-    }
-
-    /** Computes hash of SQL operator. */
-    private static String computeOperatorHash(DocumentedOperator op) {
-        SqlOperator sqlOp = op.operator;
-
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("name=").append(op.syntaxName)
-                .append("opName=").append(sqlOp.getName())
-                .append("syntax=").append(sqlOp.getSyntax())
-                .append("kind=").append(sqlOp.kind)
-                .append("signatures=");
-
-        try {
-            String allowedSigs = sqlOp.getAllowedSignatures();
-            sb.append(allowedSigs);
-        } catch (Throwable t) {
-            // Assume that an operator signature changes, if an error message changes.
-            sb.append("<ERROR: ").append(t.getMessage()).append('>');
-        }
-
-        // We can not use neither operandTypeChecker nor operandTypeInference because those properties
-        // can be provided as lambdas that does not have stable textual representation.
-
-        sb.append("operandCountRange=");
-        // Assume that changes to operandCountRange are reflected in its properties.  
-        try {
-            SqlOperandCountRange range = sqlOp.getOperandCountRange();
-            sb.append(range.getMin()).append('-').append(range.getMax());
-        } catch (UnsupportedOperationException ignore) {
-            // Change from no operandCountRange to some operandCountRange should mean signatures might have been modified.
-            sb.append("not_implemented");
-        }
-
-        // Include negated operator
-        SqlOperator negated = sqlOp.not();
-        if (negated != null) {
-            sb.append("negated=").append(negated.getName());
-        }
-
-        // Include reverse operator
-        SqlOperator reverse = sqlOp.reverse();
-        if (reverse != null) {
-            sb.append("reverse=").append(reverse.getName());
-        }
-
-        // Other properties
-
-        sb.append("leftPrecedence=").append(sqlOp.getLeftPrec())
-                .append("rightPrecedence=").append(sqlOp.getRightPrec())
-                .append("symmetrical=").append(sqlOp.isSymmetrical())
-                .append("deterministic=").append(sqlOp.isDeterministic())
-                .append("aggregator=").append(sqlOp.isAggregator())
-                .append("group=").append(sqlOp.isGroup())
-                .append("groupAuxiliary=").append(sqlOp.isGroupAuxiliary())
-                .append("allowsFraming=").append(sqlOp.allowsFraming())
-                .append("requiresOrder=").append(sqlOp.requiresOrder())
-                .append("requiresOver=").append(sqlOp.requiresOver());
-
-        return SqlFunctions.sha1(sb.toString());
     }
 }
