@@ -278,6 +278,8 @@ public class DistributionZoneManager extends
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
+            partitionDistributionResetTimeoutConfiguration.init();
+
             registerCatalogEventListenersOnStartManagerBusy();
 
             logicalTopologyService.addEventListener(topologyEventListener);
@@ -300,8 +302,6 @@ public class DistributionZoneManager extends
             // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
-
-            partitionDistributionResetTimeoutConfiguration.init();
 
             return allOf(
                     createOrRestoreZonesStates(recoveryRevision, catalogVersion),
@@ -394,6 +394,18 @@ public class DistributionZoneManager extends
             int partitionDistributionResetTimeoutSeconds,
             long causalityToken
     ) {
+        CompletableFuture<Revisions> recoveryFuture = metaStorageManager.recoveryFinishedFuture();
+
+        // At the moment of the first call to this method from configuration notifications,
+        // it is guaranteed that Meta Storage has been recovered.
+        assert recoveryFuture.isDone();
+
+        if (recoveryFuture.join().revision() >= causalityToken) {
+            // So, configuration already has the right value on configuration init
+            // and all timers started with the right configuration timeouts on recovery.
+            return;
+        }
+
         long updateTimestamp = timestampByRevision(causalityToken);
 
         if (updateTimestamp == -1) {
