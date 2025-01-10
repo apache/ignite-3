@@ -138,12 +138,11 @@ namespace Apache.Ignite.Tests.Compute
                 NodeNameJob,
                 "123");
 
-            var res = await broadcastExec.JobExecutions.Single().GetResultAsync();
+            var jobExec = broadcastExec.JobExecutions.Single();
 
-            Assert.AreEqual(1, broadcastExec.JobExecutions.Count);
-            Assert.AreSame(node, taskMap.Keys.Single());
+            Assert.AreSame(node, jobExec.Node);
 
-            Assert.AreEqual(PlatformTestNodeRunner + "123", await res.GetResultAsync());
+            Assert.AreEqual(PlatformTestNodeRunner + "123", await jobExec.GetResultAsync());
         }
 
         [Test]
@@ -633,7 +632,7 @@ namespace Apache.Ignite.Tests.Compute
         public async Task TestJobExecutionStatusNull()
         {
             var fakeJobExecution = new JobExecution<int>(
-                Guid.NewGuid(), Task.FromException<(int, JobState)>(new Exception("x")), (Compute)Client.Compute);
+                Guid.NewGuid(), Task.FromException<(int, JobState)>(new Exception("x")), (Compute)Client.Compute, null!);
 
             var status = await fakeJobExecution.GetStateAsync();
 
