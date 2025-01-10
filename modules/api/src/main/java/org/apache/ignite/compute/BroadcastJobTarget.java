@@ -73,7 +73,6 @@ public interface BroadcastJobTarget {
      * <p>This target determines that a job should be executed on the same node that hosts the data for a given key of provided table.
      *
      * @param tableName Table name.
-     * @param key Key.
      * @return Job target.
      */
     static BroadcastJobTarget partitioned(String tableName) {

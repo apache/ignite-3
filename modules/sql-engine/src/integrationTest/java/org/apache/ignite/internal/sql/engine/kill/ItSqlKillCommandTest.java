@@ -38,6 +38,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlException;
@@ -154,10 +156,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     @Test
     public void killComputeJobFromLocal() {
         Ignite node = CLUSTER.aliveNode();
-        JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-        CompletableFuture<JobExecution<Void>> executionFut = node.compute().submitAsync(JobTarget.node(clusterNode(node)), job, null);
-        assertThat(executionFut, willCompleteSuccessfully());
-        JobExecution<Void> execution = executionFut.join();
+        JobExecution<Void> execution = submit(node, JobDescriptor.builder(InfiniteJob.class).build());
 
         UUID jobId = await(execution.idAsync());
         assertThat(jobId, not(nullValue()));
@@ -244,12 +243,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
         // Single execution.
         {
-            JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-            CompletableFuture<JobExecution<Void>> executionFut = local.compute().submitAsync(
-                    JobTarget.node(clusterNode(local)), job, null
-            );
-            assertThat(executionFut, willCompleteSuccessfully());
-            JobExecution<Void> execution = executionFut.join();
+            JobExecution<Void> execution = submit(local, JobDescriptor.builder(InfiniteJob.class).build());
 
             UUID jobId = await(execution.idAsync());
             assertThat(jobId, not(nullValue()));
@@ -263,13 +257,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
         // Single execution with nowait.
         {
-            CompletableFuture<JobExecution<Void>> executionFut = local.compute().submitAsync(
-                    JobTarget.node(clusterNode(local)),
-                    JobDescriptor.builder(InfiniteJob.class).build(),
-                    null
-            );
-            assertThat(executionFut, willCompleteSuccessfully());
-            JobExecution<Void> execution = executionFut.join();
+            JobExecution<Void> execution = submit(local, JobDescriptor.builder(InfiniteJob.class).build());
 
             UUID jobId = await(execution.idAsync());
             assertThat(jobId, not(nullValue()));
@@ -282,28 +270,18 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
         // Multiple executions.
         {
-            CompletableFuture<BroadcastExecution<Void>> executionFut = local.compute().submitAsync(
-                    Set.of(clusterNode(CLUSTER.node(0)), clusterNode(CLUSTER.node(1))),
-                    JobDescriptor.builder(InfiniteJob.class).build(),
-                    null
+            JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
+            Map<ClusterNode, JobExecution<Void>> executions = submit(
+                    local, Set.of(clusterNode(CLUSTER.node(0)), clusterNode(CLUSTER.node(1))), job
             );
-            assertThat(executionFut, willCompleteSuccessfully());
-            BroadcastExecution<Void> execution = executionFut.join();
 
-            assertThat(execution.statesAsync(), willCompleteSuccessfully());
-            execution.statesAsync().join().forEach((node, state) -> {
-                UUID jobId = state.id();
+            executions.forEach((node, execution) -> {
+                UUID jobId = await(execution.idAsync());
                 assertThat(jobId, not(nullValue()));
                 assertThat("Node=" + node.name(), executeKillJob(remote, jobId), is(true));
-            });
 
-            Awaitility.await().untilAsserted(() -> {
-                assertThat(execution.statesAsync(), willCompleteSuccessfully());
-                execution.statesAsync().join().values().forEach(state -> assertThat(state, jobStateWithStatus(CANCELED)));
-            });
+                Awaitility.await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
 
-            execution.statesAsync().join().forEach((node, state) -> {
-                UUID jobId = state.id();
                 assertThat("Node=" + node.name(), executeKillJob(remote, jobId), is(false));
                 assertThat("Node=" + node.name(), executeKillJob(local, jobId), is(false));
             });
@@ -352,5 +330,17 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
             SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, matcher);
         });
+    }
+
+    private static JobExecution<Void> submit(Ignite node, JobDescriptor<Void, Void> job) {
+        CompletableFuture<JobExecution<Void>> executionFut = node.compute().submitAsync(JobTarget.node(clusterNode(node)), job, null);
+        assertThat(executionFut, willCompleteSuccessfully());
+        return executionFut.join();
+    }
+
+    private static Map<ClusterNode, JobExecution<Void>> submit(Ignite node, Set<ClusterNode> nodes, JobDescriptor<Void, Void> job) {
+        CompletableFuture<BroadcastExecution<Void>> executionFut = node.compute().submitAsync(nodes, job, null);
+        assertThat(executionFut, willCompleteSuccessfully());
+        return executionFut.join().executions();
     }
 }

@@ -252,10 +252,11 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
                 new TestingJobExecution<>(execution).assertExecuting();
             }
         });
-        assertThat(broadcastExecution.resultsAsync(), willThrow(ComputeException.class));
 
         // When.
         InteractiveJobs.all().finish();
+
+        assertThat(broadcastExecution.resultsAsync(), willThrow(ComputeException.class));
 
         // Then every job ran once because broadcast execution does not require failover.
         AllInteractiveJobsApi.assertEachCalledOnce();

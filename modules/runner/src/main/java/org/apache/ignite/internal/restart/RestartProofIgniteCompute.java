@@ -78,7 +78,7 @@ class RestartProofIgniteCompute implements IgniteCompute, Wrapper {
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
-        return attachmentLock.attached(ignite -> ignite.compute().submitAsync(nodes, descriptor, cancellationToken, arg));
+        return attachmentLock.attachedAsync(ignite -> ignite.compute().submitAsync(nodes, descriptor, cancellationToken, arg));
     }
 
     @Override

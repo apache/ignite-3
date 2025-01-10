@@ -20,12 +20,14 @@ package org.apache.ignite.internal.compute;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
-import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -41,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
@@ -248,14 +251,18 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
         respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
 
-        CompletableFuture<Map<ClusterNode, String>> future = compute.executeBroadcastAsync(
-                Set.of(localNode, remoteNode), JobDescriptor.<String, String>builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
+        CompletableFuture<BroadcastExecution<String>> future = compute.submitAsync(
+                Set.of(localNode, remoteNode),
+                JobDescriptor.<String, String>builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
                 "a"
         );
+        assertThat(future, willCompleteSuccessfully());
+        Map<ClusterNode, JobExecution<String>> executions = future.join().executions();
 
-        assertThat(future, willBe(aMapWithSize(2)));
-        assertThat(future.join().keySet(), contains(localNode, remoteNode));
-        assertThat(future.join().values(), contains("jobResponse", "remoteResponse"));
+        assertThat(executions, is(aMapWithSize(2)));
+        assertThat(executions.keySet(), containsInAnyOrder(localNode, remoteNode));
+        assertThat(executions.get(localNode).resultAsync(), willBe("jobResponse"));
+        assertThat(executions.get(remoteNode).resultAsync(), willBe("remoteResponse"));
     }
 
     private void respondWhenAskForPrimaryReplica() {
