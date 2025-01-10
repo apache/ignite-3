@@ -217,7 +217,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         await().until(execution::state, jobStateWithStatus(COMPLETED));
 
-        assertThat(execution.resultAsync(), willBe(1));
+        assertThat(execution.resultAsync().thenApply(h -> SharedComputeUtils.unmarshalArgOrResult(h, null, null)), willBe(1));
         assertThat(JobSuccess.runTimes.get(), is(1));
     }
 
@@ -232,7 +232,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     @Test
     void findJobArgumentType() {
-        assertThat(getJobExecuteArgumentType(JobSuccess.class), is(AtomicInteger.class));
+        assertThat(getJobExecuteArgumentType(RetryJobSuccess.class), is(Integer.class));
     }
 
     private static class Task implements MapReduceTask<String, String, String, String> {
