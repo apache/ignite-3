@@ -142,7 +142,7 @@ namespace Apache.Ignite
         ComputeGetStatus,
 
         /// <summary>
-        /// Cancel compute job (<see cref="IJobExecution{T}.CancelAsync"/>).
+        /// Cancel compute job.
         /// </summary>
         ComputeCancel,
 
