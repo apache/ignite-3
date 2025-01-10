@@ -167,18 +167,15 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
     void shouldRemoveEventsIfQueueIsFull() {
         WebhookSink sink = createSink(c -> c.changeQueueSize(2));
 
-        Stream<Event> events = Stream.of(
-                IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")),
-                IgniteEvents.USER_AUTHENTICATION_FAILURE.create(EventUser.of("user2", "basicProvider")),
-                IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of("user3", "basicProvider"))
-        );
+        Event evt1 = IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider"));
+        Event evt2 = IgniteEvents.USER_AUTHENTICATION_FAILURE.create(EventUser.of("user2", "basicProvider"));
+        Event evt3 = IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of("user3", "basicProvider"));
+
+        Stream<Event> events = Stream.of(evt1, evt2, evt3);
 
         events.forEach(sink::write);
 
-        assertThat(sink.getEvents(), containsInAnyOrder(
-                IgniteEvents.USER_AUTHENTICATION_FAILURE.create(EventUser.of("user2", "basicProvider")),
-                IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of("user3", "basicProvider"))
-        ));
+        assertThat(sink.getEvents(), containsInAnyOrder(evt2, evt3));
     }
 
     @ParameterizedTest
