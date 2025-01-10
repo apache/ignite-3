@@ -279,8 +279,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
         when(computeComponent.executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), isNull(), eq(null)
-        )).thenReturn(completedExecution(SharedComputeUtils.marshalArgOrResult("jobResponse", null)));
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), isNull(), any()
+        )).thenReturn(completedExecution(SharedComputeUtils.marshalArgOrResult("remoteResponse", null)));
     }
 
     private void verifyExecuteRemotelyWithFailover(ExecutionOptions options) {
