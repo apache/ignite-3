@@ -113,12 +113,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
         if (tuple1HasNull && tuple2HasNull) {
             return 0;
         } else if (tuple1HasNull || tuple2HasNull) {
-            // The next statement equals to:
-            // if (collation.nullsFirst())
-            //    return tuple1HasNull ? -1 : 1;
-            // else // NULLS_LAST
-            //    return tuple1HasNull ? 1 : -1;
-            return (collation.nullsFirst() ^ tuple2HasNull) ? -1 : 1;
+            return collation.nullsFirst() == tuple1HasNull ? -1 : 1;
         }
 
         NativeType nativeType = columnTypes[colIdx];
