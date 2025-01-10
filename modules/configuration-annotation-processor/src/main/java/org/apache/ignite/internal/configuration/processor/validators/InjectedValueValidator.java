@@ -88,7 +88,6 @@ public class InjectedValueValidator {
         }
 
         return type.getKind().isPrimitive() || isClass(type, String.class) || isClass(type, UUID.class);
-
     }
 
     private boolean isClass(TypeMirror type, Class<?> clazz) {

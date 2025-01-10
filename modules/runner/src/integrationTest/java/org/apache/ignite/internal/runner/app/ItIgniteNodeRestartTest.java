@@ -1013,8 +1013,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         stopNode(0);
 
         String newAttributesCfg = "{\n"
-                + "      region = \"US\"\n"
-                + "      storage = \"SSD\"\n"
+                + "      region = US\n"
+                + "      storage = SSD\n"
                 + "}";
 
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD");

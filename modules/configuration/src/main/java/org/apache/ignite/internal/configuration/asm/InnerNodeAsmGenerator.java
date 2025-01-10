@@ -315,7 +315,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         FieldDefinition injectedNameFieldDef = null;
 
         // Field with @InjectedValue.
-        FieldDefinition injectedValueFieldDef = null;
+        Field injectedValueField = null;
 
         for (Field schemaField : concat(schemaFields, publicExtensionFields, internalExtensionFields, polymorphicFields)) {
             FieldDefinition fieldDef = addInnerNodeField(schemaField);
@@ -327,7 +327,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             } else if (isInjectedName(schemaField)) {
                 injectedNameFieldDef = fieldDef;
             } else if (isInjectedValue(schemaField)) {
-                injectedValueFieldDef = fieldDef;
+                injectedValueField = schemaField;
             }
         }
 
@@ -454,8 +454,8 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
             addInjectedNameFieldMethods(injectedNameFieldDef);
         }
 
-        if (injectedValueFieldDef != null) {
-            implementInjectedValueFieldNameMethod(injectedValueFieldDef);
+        if (injectedValueField != null) {
+            implementInjectedValueFieldNameMethod(injectedValueField);
         }
 
         if (polymorphicTypeIdFieldDef != null) {
@@ -1592,14 +1592,14 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 )).ret();
     }
 
-    private void implementInjectedValueFieldNameMethod(FieldDefinition injectedValueFieldDef) {
+    private void implementInjectedValueFieldNameMethod(Field injectedValueField) {
         MethodDefinition method = innerNodeClassDef.declareMethod(
                 EnumSet.of(PUBLIC),
                 INJECTED_VALUE_FIELD_NAME_MTD_NAME,
                 type(String.class)
         );
 
-        method.getBody().append(constantString(injectedValueFieldDef.getName())).retObject();
+        method.getBody().append(constantString(publicName(injectedValueField))).retObject();
     }
 
     /**

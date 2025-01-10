@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
+import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
+
 import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -108,15 +110,20 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
 
         String injectedValueFieldName = node.injectedValueFieldName();
 
-        // If configuration contains an injected value, we need to take the value of the synthetic key and use it as the key for
-        // the injected value. For example, instead of ["syntheticKey": "foo", "injectedValue": "bar"], we will have ["foo": "bar"].
         if (injectedValueFieldName != null) {
-            innerMap.put(key, innerMap.remove(injectedValueFieldName));
+            // If configuration contains an injected value, the rendered named list will be a map, where every injected value is represented
+            // as a separate key-value pair.
+            Object injectedValue = innerMap.get(injectedValueFieldName);
+
+            addToParent(key, injectedValue);
+
+            return injectedValue;
+        } else {
+            // Otherwise, the rendered named list will be a list of maps.
+            addToParent(key, innerMap);
+
+            return innerMap;
         }
-
-        addToParent(key, innerMap);
-
-        return innerMap;
     }
 
     @Override
@@ -125,25 +132,50 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
             return null;
         }
 
-        List<Object> list = new ArrayList<>(node.size());
+        Object renderedList;
 
-        deque.push(list);
+        boolean hasInjectedValues = !node.isEmpty() && getFirstNode(node).injectedValueFieldName() != null;
 
-        for (String subkey : node.namedListKeys()) {
-            InnerNode innerNode = node.getInnerNode(subkey);
+        // See the comment inside "visitInnerNode" why named lists are rendered differently for injected values.
+        if (hasInjectedValues) {
+            Map<String, Object> map = newHashMap(node.size());
 
-            innerNode.accept(field, subkey, this);
+            deque.push(map);
 
-            if (innerNode.injectedValueFieldName() == null) {
+            for (String subkey : node.namedListKeys()) {
+                InnerNode innerNode = node.getInnerNode(subkey);
+
+                innerNode.accept(field, subkey, this);
+            }
+
+            renderedList = map;
+        } else {
+            List<Object> list = new ArrayList<>(node.size());
+
+            deque.push(list);
+
+            for (String subkey : node.namedListKeys()) {
+                InnerNode innerNode = node.getInnerNode(subkey);
+
+                innerNode.accept(field, subkey, this);
+
                 ((Map<String, Object>) list.get(list.size() - 1)).put(node.syntheticKeyName(), subkey);
             }
+
+            renderedList = list;
         }
 
         deque.pop();
 
-        addToParent(key, list);
+        addToParent(key, renderedList);
 
-        return list;
+        return renderedList;
+    }
+
+    private static InnerNode getFirstNode(NamedListNode<?> namedListNode) {
+        String firstKey = namedListNode.namedListKeys().get(0);
+
+        return namedListNode.getInnerNode(firstKey);
     }
 
     /**

@@ -78,7 +78,7 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
         if (injectedValueFieldName == null) {
             hoconCfgObject.forEach((key, value) -> parseConfigEntry(key, value, node));
         } else {
-            assert hoconCfgObject.size() == 1; // user-friendly check must have been performed outside this method.
+            assert hoconCfgObject.size() == 1; // User-friendly check must have been performed outside this method.
 
             ConfigValue value = hoconCfgObject.values().iterator().next();
 

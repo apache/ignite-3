@@ -102,34 +102,34 @@ public class InjectedValueConfigurationTest {
         void testAssignValuesUsingObjectNotation() {
             change("rootInjectedValue.nestedNamed = {foo: bar}");
 
-            assertEquals("nestedNamed=[{foo=bar}]", asHoconStr(List.of("rootInjectedValue")));
+            assertEquals("nestedNamed{foo=bar}", asHoconStr(List.of("rootInjectedValue")));
 
             change("rootInjectedValue.nestedNamed = {foo: bar, baz: quux}");
 
-            assertEquals("nestedNamed=[{foo=bar},{baz=quux}]", asHoconStr(List.of("rootInjectedValue")));
+            assertEquals("nestedNamed{baz=quux,foo=bar}", asHoconStr(List.of("rootInjectedValue")));
 
             change("rootInjectedValue.nestedNamed = {baz: anotherQuux}");
 
-            assertEquals("nestedNamed=[{foo=bar},{baz=anotherQuux}]", asHoconStr(List.of("rootInjectedValue")));
+            assertEquals("nestedNamed{baz=anotherQuux,foo=bar}", asHoconStr(List.of("rootInjectedValue")));
 
             change("rootInjectedValue.nestedNamed = {baz: null}");
 
-            assertEquals("nestedNamed=[{foo=bar}]", asHoconStr(List.of("rootInjectedValue")));
+            assertEquals("nestedNamed{foo=bar}", asHoconStr(List.of("rootInjectedValue")));
         }
 
         @Test
         void testAssignValuesUsingListNotation() {
             change("rootInjectedValue.nestedNamed = [{foo=bar}]");
 
-            assertEquals("nestedNamed=[{foo=bar}]", asHoconStr(List.of("rootInjectedValue")));
+            assertEquals("nestedNamed{foo=bar}", asHoconStr(List.of("rootInjectedValue")));
 
             change("rootInjectedValue.nestedNamed = [{foo=bar},{baz=quux}]");
 
-            assertEquals("nestedNamed=[{foo=bar},{baz=quux}]", asHoconStr(List.of("rootInjectedValue")));
+            assertEquals("nestedNamed{baz=quux,foo=bar}", asHoconStr(List.of("rootInjectedValue")));
 
             change("rootInjectedValue.nestedNamed = [{baz=anotherQuux}]");
 
-            assertEquals("nestedNamed=[{foo=bar},{baz=anotherQuux}]", asHoconStr(List.of("rootInjectedValue")));
+            assertEquals("nestedNamed{baz=anotherQuux,foo=bar}", asHoconStr(List.of("rootInjectedValue")));
 
             // Removing a value does not work in this notation.
         }
