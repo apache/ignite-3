@@ -117,8 +117,6 @@ public class BinaryTupleBuilder {
         valueBase = entryBase + entrySize * numElements;
 
         allocate(totalValueSize);
-
-        buffer.position(valueBase);
     }
 
     /**
