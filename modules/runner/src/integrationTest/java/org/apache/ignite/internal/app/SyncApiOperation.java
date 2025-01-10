@@ -132,13 +132,7 @@ enum SyncApiOperation {
     SQL_EXECUTE_BATCH_STATEMENT(refs -> refs.sql.executeBatch(null, refs.updateStatement, BatchedArguments.of(999))),
     SQL_EXECUTE_SCRIPT(refs -> refs.sql.executeScript(SELECT_IDS_QUERY)),
 
-    COMPUTE_SUBMIT(refs -> refs.compute.submitAsync(anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null)),
     COMPUTE_EXECUTE(refs -> refs.compute.execute(anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null)),
-    COMPUTE_SUBMIT_BROADCAST(refs -> refs.compute.submitAsync(
-            Set.copyOf(refs.clusterNodes),
-            JobDescriptor.builder(NoOpJob.class).build(),
-            null
-    )),
     COMPUTE_EXECUTE_BROADCAST(refs -> refs.compute.executeBroadcast(
             Set.copyOf(refs.clusterNodes),
             JobDescriptor.builder(NoOpJob.class).build(),
