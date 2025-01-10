@@ -665,67 +665,73 @@ public class BinaryTupleTest {
 
     @Test
     public void externalBufferResizedOnInitialization() {
-        ExpandableByteBuffer buffer = new ExpandableByteBuffer(1);
-        ByteBuffer initBuf = buffer.unwrap();
+        ByteBufferAllocator allocator = new ByteBufferAllocator();
+        ByteBuffer initBuf = allocator.allocate(1);
+
+        assertSame(initBuf, allocator.buffer());
+
+        int valueSize = 36;
+        int numElements = 3;
 
         //noinspection ResultOfObjectAllocationIgnored
-        new BinaryTupleBuilder(3, 36, false, buffer);
+        new BinaryTupleBuilder(numElements, valueSize, true, allocator);
 
-        assertNotSame(initBuf, buffer.unwrap());
-        assertEquals(64, buffer.unwrap().capacity());
+        assertNotSame(initBuf, allocator.buffer());
+        assertEquals(BinaryTupleCommon.HEADER_SIZE + valueSize + numElements, allocator.buffer().capacity());
     }
 
     @Test
     public void externalBufferSholdGrowIfCapacityInsufficient() {
-        ExpandableByteBuffer buffer = new ExpandableByteBuffer(64);
+        ByteBufferAllocator allocator = new ByteBufferAllocator();
+        allocator.allocate(64);
 
-        ByteBuffer initBuf = buffer.unwrap();
+        ByteBuffer initBuf = allocator.buffer();
 
         // The initial buffer capacity is sufficient.
         {
-            new BinaryTupleBuilder(3, 36, false, buffer)
+            new BinaryTupleBuilder(3, 36, false, allocator)
                     .appendBoolean(false)
                     .appendDate(LocalDate.now())
                     .appendBytes(new byte[32])
                     .build();
 
-            assertSame(initBuf, buffer.unwrap());
+            assertSame(initBuf, allocator.buffer());
 
-            buffer.clear();
+            allocator.buffer().clear();
 
-            new BinaryTupleBuilder(3, 36, false, buffer)
+            new BinaryTupleBuilder(3, 36, false, allocator)
                     .appendBoolean(true)
                     .appendDate(LocalDate.now())
                     .appendBytes(new byte[33])
                     .build();
 
-            assertSame(initBuf, buffer.unwrap());
+            assertSame(initBuf, allocator.buffer());
         }
 
-        buffer.clear();
+        allocator.buffer().clear();
 
         // The initial buffer capacity is insufficient.
         {
-            new BinaryTupleBuilder(3, 36, false, buffer)
+            new BinaryTupleBuilder(3, 36, false, allocator)
                     .appendBoolean(false)
                     .appendDate(LocalDate.now())
                     .appendBytes(new byte[64])
                     .build();
 
-            ByteBuffer resizedBuf = buffer.unwrap();
+            ByteBuffer resizedBuf = allocator.buffer();
 
             assertNotSame(initBuf, resizedBuf);
             assertEquals(128, resizedBuf.capacity());
 
-            buffer.clear();
+            allocator.buffer().clear();
 
-            new BinaryTupleBuilder(3, 36, false, buffer)
+            new BinaryTupleBuilder(3, 36, false, allocator)
                     .appendBoolean(true)
                     .appendDate(LocalDate.now())
                     .appendBytes(new byte[64])
                     .build();
 
-            assertSame(resizedBuf, buffer.unwrap());
+            assertSame(resizedBuf, allocator.buffer());
         }
     }
 

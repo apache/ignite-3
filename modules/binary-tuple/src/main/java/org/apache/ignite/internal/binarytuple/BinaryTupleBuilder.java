@@ -55,7 +55,10 @@ public class BinaryTupleBuilder {
     private final int valueBase;
 
     /** Buffer for tuple content. */
-    private final ExpandableByteBuffer buffer;
+    private ByteBuffer buffer;
+
+    /** Buffer allocator. */
+    private final ByteBufferAllocator allocator;
 
     /**
      * Creates a builder.
@@ -86,7 +89,7 @@ public class BinaryTupleBuilder {
      *      approximate estimate some excess allocation is possible.
      */
     public BinaryTupleBuilder(int numElements, int totalValueSize, boolean exactEstimate) {
-        this(numElements, totalValueSize, exactEstimate, null);
+        this(numElements, totalValueSize, exactEstimate, new ByteBufferAllocator());
     }
 
     /**
@@ -97,9 +100,10 @@ public class BinaryTupleBuilder {
      * @param exactEstimate Whether the total size is exact estimate or approximate. The
      *      difference here is with exact estimate allocation will be optimal, while with
      *      approximate estimate some excess allocation is possible.
-     * @param buffer Buffer that will be used to write the binary tuple.
+     * @param allocator Buffer allocator.
      */
-    public BinaryTupleBuilder(int numElements, int totalValueSize, boolean exactEstimate, @Nullable ExpandableByteBuffer buffer) {
+    public BinaryTupleBuilder(int numElements, int totalValueSize, boolean exactEstimate, ByteBufferAllocator allocator) {
+        this.allocator = allocator;
         this.numElements = numElements;
 
         entryBase = BinaryTupleCommon.HEADER_SIZE;
@@ -112,15 +116,9 @@ public class BinaryTupleBuilder {
 
         valueBase = entryBase + entrySize * numElements;
 
-        if (buffer == null) {
-            buffer = allocate(totalValueSize);
-        } else {
-            buffer.ensure(estimateBufferCapacity(totalValueSize));
-        }
+        allocate(totalValueSize);
 
         buffer.position(valueBase);
-
-        this.buffer = buffer;
     }
 
     /**
@@ -643,55 +641,65 @@ public class BinaryTupleBuilder {
 
         buffer.put(offset, flags);
 
-        return buffer.flip().position(offset).unwrap();
+        return buffer.flip().position(offset);
     }
 
     /** Put a byte value to the buffer extending it if needed. */
     private void putByte(byte value) {
+        ensure(Byte.BYTES);
         buffer.put(value);
     }
 
     /** Put a short value to the buffer extending it if needed. */
     private void putShort(short value) {
+        ensure(Short.BYTES);
         buffer.putShort(value);
     }
 
     /** Put an int value to the buffer extending it if needed. */
     private void putInt(int value) {
+        ensure(Integer.BYTES);
         buffer.putInt(value);
     }
 
     /** Put a long value to the buffer extending it if needed. */
     private void putLong(long value) {
+        ensure(Long.BYTES);
         buffer.putLong(value);
     }
 
     /** Put a float value to the buffer extending it if needed. */
     private void putFloat(float value) {
+        ensure(Float.BYTES);
         buffer.putFloat(value);
     }
 
     /** Put a double value to the buffer extending it if needed. */
     private void putDouble(double value) {
+        ensure(Double.BYTES);
         buffer.putDouble(value);
     }
 
     /** Put bytes to the buffer extending it if needed. */
     private void putBytes(byte[] bytes) {
+        ensure(bytes.length);
         buffer.put(bytes);
     }
 
     private void putBytesWithEmptyCheck(byte[] bytes) {
         if (bytes.length == 0 || bytes[0] == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            ensure(bytes.length + 1);
             buffer.put(BinaryTupleCommon.VARLEN_EMPTY_BYTE);
+        } else {
+            ensure(bytes.length);
         }
-
         buffer.put(bytes);
     }
 
     /** Put a string to the buffer extending it if needed. */
     private void putString(String value) throws CharacterCodingException {
         if (value.isEmpty()) {
+            ensure(1);
             buffer.put(BinaryTupleCommon.VARLEN_EMPTY_BYTE);
             return;
         }
@@ -744,7 +752,8 @@ public class BinaryTupleBuilder {
     /** Put element bytes to the buffer extending it if needed. */
     private void putElement(ByteBuffer bytes, int offset, int length) {
         assert bytes.limit() >= (offset + length);
-        buffer.put(bytes.asReadOnlyBuffer().position(offset).limit(offset + length), length);
+        ensure(length);
+        buffer.put(bytes.asReadOnlyBuffer().position(offset).limit(offset + length));
     }
 
     /** Proceed to the next tuple element. */
@@ -771,9 +780,10 @@ public class BinaryTupleBuilder {
     }
 
     /** Allocate a non-direct buffer for tuple. */
-    private ExpandableByteBuffer allocate(int totalValueSize) {
-        return new ExpandableByteBuffer(estimateBufferCapacity(totalValueSize))
-                .order(ByteOrder.LITTLE_ENDIAN);
+    private void allocate(int totalValueSize) {
+        buffer = allocator.allocateIfNeeded(estimateBufferCapacity(totalValueSize));
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+        buffer.position(valueBase);
     }
 
     /** Do our best to find initial buffer capacity. */
@@ -782,5 +792,29 @@ public class BinaryTupleBuilder {
             totalValueSize = Integer.max(numElements * 8, DEFAULT_BUFFER_SIZE);
         }
         return valueBase + totalValueSize;
+    }
+
+    /** Ensure that the buffer can fit the required size. */
+    private void ensure(int size) {
+        if (buffer.remaining() < size) {
+            grow(size);
+        }
+    }
+
+    /** Reallocate the buffer increasing its capacity to fit the required size. */
+    private void grow(int size) {
+        int capacity = buffer.capacity();
+        do {
+            capacity *= 2;
+            if (capacity < 0) {
+                throw new BinaryTupleFormatException("Buffer overflow in binary tuple builder");
+            }
+        } while ((capacity - buffer.position()) < size);
+
+        ByteBuffer newBuffer = allocator.allocate(capacity);
+        newBuffer.order(ByteOrder.LITTLE_ENDIAN);
+        newBuffer.put(buffer.flip());
+
+        buffer = newBuffer;
     }
 }
