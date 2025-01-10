@@ -105,35 +105,39 @@ class HoconListConfigurationSource implements ConfigurationSource {
 
         String syntheticKeyName = ((NamedListNode<?>) node).syntheticKeyName();
 
-        int idx = 0;
-        for (Iterator<ConfigValue> iterator = hoconCfgList.iterator(); iterator.hasNext(); idx++) {
-            ConfigValue next = iterator.next();
+        for (int idx = 0; idx < hoconCfgList.size(); idx++) {
+            ConfigValue next = hoconCfgList.get(idx);
 
             if (next.valueType() != ConfigValueType.OBJECT) {
-                throw new IllegalArgumentException(
-                        format(
-                                "'%s' is expected to be a composite configuration node, not a single value",
-                                formatArrayPath(path, idx)
-                        )
-                );
+                throw new IllegalArgumentException(format(
+                        "'%s' is expected to be a composite configuration node, not a single value",
+                        formatArrayPath(path, idx)
+                ));
             }
 
             ConfigObject hoconCfg = (ConfigObject) next;
 
+            String key;
+
+            List<String> path;
+
             ConfigValue keyValue = hoconCfg.get(syntheticKeyName);
 
-            if (keyValue == null || keyValue.valueType() != ConfigValueType.STRING) {
-                throw new IllegalArgumentException(
-                        format(
-                                "'%s' configuration value is mandatory and must be a String",
-                                formatArrayPath(path, idx) + KEY_SEPARATOR + syntheticKeyName
-                        )
-                );
+            if (keyValue != null && keyValue.valueType() == ConfigValueType.STRING) {
+                // If the synthetic key is present, check that it has the correct type and use it as the key.
+                key = (String) keyValue.unwrapped();
+                path = appendKey(this.path, key);
+            } else if (keyValue == null && hoconCfg.size() == 1) {
+                // If the synthetic key is not present explicitly, we need to handle the case when a configuration uses InjectedValue.
+                // This means that this object must only have one key.
+                key = hoconCfg.entrySet().iterator().next().getKey();
+                path = this.path;
+            } else {
+                throw new IllegalArgumentException(format(
+                        "'%s' configuration value is mandatory and must be a String",
+                        formatArrayPath(this.path, idx) + KEY_SEPARATOR + syntheticKeyName
+                ));
             }
-
-            String key = (String) keyValue.unwrapped();
-
-            List<String> path = appendKey(this.path, key);
 
             node.construct(key, new HoconObjectConfigurationSource(syntheticKeyName, path, hoconCfg), false);
         }

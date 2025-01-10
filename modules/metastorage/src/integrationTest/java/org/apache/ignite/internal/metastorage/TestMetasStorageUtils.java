@@ -81,8 +81,8 @@ public class TestMetasStorageUtils {
     public static String createClusterConfigWithCompactionProperties(long interval, long dataAvailabilityTime) {
         return String.format(
                 "ignite.system.properties: {"
-                        + "%s.propertyValue= \"%s\", "
-                        + "%s.propertyValue= \"%s\""
+                        + "%s = \"%s\", "
+                        + "%s = \"%s\""
                         + "}",
                 INTERVAL_SYSTEM_PROPERTY_NAME, interval, DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME, dataAvailabilityTime
         );

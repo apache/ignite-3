@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
@@ -53,6 +54,7 @@ class Query {
     final QueryExecutor executor;
     final SqlProperties properties;
     final QueryTransactionContext txContext;
+    final AtomicReference<Throwable> error = new AtomicReference<>();
     final @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture;
 
     // Below is volatile state populated during processing of particular stage for single statement execution
@@ -133,9 +135,19 @@ class Query {
     }
 
     void onError(Throwable th) {
+        setError(th);
+
         moveTo(ExecutionPhase.TERMINATED);
 
         resultHolder.completeExceptionally(th);
+    }
+
+    void setError(Throwable err) {
+        Throwable prevErr = error.compareAndExchange(null, err);
+
+        if (prevErr != null && prevErr != err) {
+            error.get().addSuppressed(err);
+        }
     }
 
     /**

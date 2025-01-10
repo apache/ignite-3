@@ -30,8 +30,11 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
@@ -200,6 +203,7 @@ public class TestNode implements LifecycleAware {
         });
 
         queryExecutor = registerService(new QueryExecutor(
+                nodeName,
                 EmptyCacheFactory.INSTANCE,
                 0,
                 parserService,
@@ -212,7 +216,18 @@ public class TestNode implements LifecycleAware {
                 executionService,
                 SqlQueryProcessor.DEFAULT_PROPERTIES,
                 NoOpTransactionTracker.INSTANCE,
-                new QueryIdGenerator(nodeName.hashCode())
+                new QueryIdGenerator(nodeName.hashCode()),
+                new EventLog() {
+                    @Override
+                    public void log(Event event) {
+                        // No-op.
+                    }
+
+                    @Override
+                    public void log(String type, Supplier<Event> eventProvider) {
+                        // No-op.
+                    }
+                }
         ));
     }
 
