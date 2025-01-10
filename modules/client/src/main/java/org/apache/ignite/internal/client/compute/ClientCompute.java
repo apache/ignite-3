@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.client.compute;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -36,6 +36,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.compute.AllNodesBroadcastJobTarget;
 import org.apache.ignite.compute.AnyNodeJobTarget;
 import org.apache.ignite.compute.BroadcastExecution;
@@ -106,14 +107,20 @@ public class ClientCompute implements IgniteCompute {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
-        ClientJobExecution<R> execution = new ClientJobExecution<>(ch, submit0(target, descriptor, arg), descriptor.resultMarshaller(),
-                descriptor.resultClass());
+        return submit0(target, descriptor, arg).thenApply(submitResult -> {
+            ClientJobExecution<R> execution = new ClientJobExecution<>(
+                    ch,
+                    submitResult,
+                    descriptor.resultMarshaller(),
+                    descriptor.resultClass()
+            );
 
-        if (cancellationToken != null) {
-            CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
-        }
+            if (cancellationToken != null) {
+                CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+            }
 
-        return completedFuture(execution);
+            return execution;
+        });
     }
 
     @Override
@@ -130,25 +137,24 @@ public class ClientCompute implements IgniteCompute {
             AllNodesBroadcastJobTarget allNodesBroadcastTarget = (AllNodesBroadcastJobTarget) target;
             Set<ClusterNode> nodes = allNodesBroadcastTarget.nodes();
 
-            Map<ClusterNode, JobExecution<R>> map = new HashMap<>(nodes.size());
+            CompletableFuture<SubmitResult>[] futures = nodes.stream()
+                    .map(node -> executeOnAnyNodeAsync(Set.of(node), descriptor, arg))
+                    .toArray(CompletableFuture[]::new);
 
-            for (ClusterNode node : nodes) {
-                ClientJobExecution<R> execution = new ClientJobExecution<>(
-                        ch,
-                        executeOnAnyNodeAsync(Set.of(node), descriptor, arg),
-                        descriptor.resultMarshaller(),
-                        descriptor.resultClass()
-                );
-                if (cancellationToken != null) {
-                    CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
-                }
-                if (map.put(node, execution) != null) {
-                    throw new IllegalStateException("Node can't be specified more than once: " + node);
-                }
-            }
-
-            return completedFuture(new ClientBroadcastExecution<>(map));
-
+            return allOf(futures).thenApply(unused -> new ClientBroadcastExecution<>(Arrays.stream(futures)
+                    .map(fut -> {
+                        ClientJobExecution<R> execution = new ClientJobExecution<>(
+                                ch,
+                                fut.join(),
+                                descriptor.resultMarshaller(),
+                                descriptor.resultClass()
+                        );
+                        if (cancellationToken != null) {
+                            CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+                        }
+                        return execution;
+                    })
+                    .collect(Collectors.toList())));
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
@@ -440,7 +446,11 @@ public class ClientCompute implements IgniteCompute {
      */
     private static SubmitResult unpackSubmitResult(PayloadInputChannel ch) {
         //noinspection DataFlowIssue (reviewed)
-        return new SubmitResult(ch.in().unpackUuid(), ch.notificationFuture());
+        return new SubmitResult(
+                ch.in().unpackUuid(),
+                ch.clientChannel().protocolContext().clusterNode(),
+                ch.notificationFuture()
+        );
     }
 
     /**
@@ -461,7 +471,12 @@ public class ClientCompute implements IgniteCompute {
         }
 
         //noinspection DataFlowIssue (reviewed)
-        return new SubmitTaskResult(jobId, jobIds, ch.notificationFuture());
+        return new SubmitTaskResult(
+                jobId,
+                jobIds,
+                ch.clientChannel().protocolContext().clusterNode(),
+                ch.notificationFuture()
+        );
     }
 
     private static <R> R sync(CompletableFuture<R> future) {

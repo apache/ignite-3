@@ -18,8 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toUnmodifiableMap;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -171,7 +170,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         .thenApply(job -> (JobExecution<R>) job);
             }
 
-            return completedFuture(new ResultUnmarshallingJobExecution<>(new JobExecutionFutureWrapper<>(jobFut), resultMarshaller));
+            return jobFut.thenApply(execution -> new ResultUnmarshallingJobExecution<>(
+                    new JobExecutionWrapper<>(execution),
+                    resultMarshaller
+            ));
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
@@ -194,27 +196,36 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             Marshaller<R, byte[]> resultMarshaller = descriptor.resultMarshaller();
 
             return completedFuture(new BroadcastJobExecutionImpl<>(nodes.stream()
-                    .collect(toUnmodifiableMap(identity(),
-                            // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
-                            // if worker node has left the cluster.
-                            node -> {
-                                if (topologyService.getByConsistentId(node.name()) == null) {
-                                    return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
-                                }
-                                return new ResultUnmarshallingJobExecution<>(
-                                        new JobExecutionWrapper<>(
-                                                executeOnOneNodeWithFailover(
-                                                        node, CompletableFutures::nullCompletedFuture,
-                                                        descriptor.units(), descriptor.jobClassName(),
-                                                        descriptor.options(), cancellationToken, tryMarshalOrCast(argumentMarshaller, arg)
-                                                )
-                                        ),
-                                        resultMarshaller
-                                );
-                            }))));
+                    .map(node -> submitForBroadcast(descriptor, cancellationToken, arg, node, argumentMarshaller, resultMarshaller))
+                    .collect(toList())));
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
+    }
+
+    private <T, R> JobExecution<R> submitForBroadcast(
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            T arg,
+            ClusterNode node,
+            Marshaller<T, byte[]> argumentMarshaller,
+            Marshaller<R, byte[]> resultMarshaller
+    ) {
+        // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
+        // if worker node has left the cluster.
+        if (topologyService.getByConsistentId(node.name()) == null) {
+            return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
+        }
+        return new ResultUnmarshallingJobExecution<>(
+                new JobExecutionWrapper<>(
+                        executeOnOneNodeWithFailover(
+                                node, CompletableFutures::nullCompletedFuture,
+                                descriptor.units(), descriptor.jobClassName(),
+                                descriptor.options(), cancellationToken, tryMarshalOrCast(argumentMarshaller, arg)
+                        )
+                ),
+                resultMarshaller
+        );
     }
 
     @Override

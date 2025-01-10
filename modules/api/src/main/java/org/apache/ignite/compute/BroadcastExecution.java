@@ -18,9 +18,7 @@
 package org.apache.ignite.compute;
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Job control object, provides information about the job execution process and result, allows cancelling the job.
@@ -28,7 +26,7 @@ import org.apache.ignite.network.ClusterNode;
  * @param <R> Job result type.
  */
 public interface BroadcastExecution<R> {
-    Map<ClusterNode, JobExecution<R>> executions();
+    Collection<JobExecution<R>> executions();
 
     /**
      * Returns job's execution result.

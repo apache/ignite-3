@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnType;
@@ -187,8 +186,8 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
                         .resultMarshaller(new ResultStringUnMarshaller())
                         .build(),
                 "Input"
-        ).thenApply(execution -> execution.executions().entrySet().stream().collect(
-                Collectors.toMap(Entry::getKey, ItEmbeddedMarshallingTest::extractResult, (v, i) -> v)
+        ).thenApply(execution -> execution.executions().stream().collect(
+                Collectors.toMap(JobExecution::node, ItEmbeddedMarshallingTest::extractResult, (v, i) -> v)
         )).join();
 
         // Then.
@@ -201,9 +200,9 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         assertEquals(resultExpected, result);
     }
 
-    private static String extractResult(Entry<ClusterNode, JobExecution<String>> e) {
+    private static String extractResult(JobExecution<String> e) {
         try {
-            return e.getValue().resultAsync().get();
+            return e.resultAsync().get();
         } catch (InterruptedException | ExecutionException ex) {
             throw new RuntimeException(ex);
         }

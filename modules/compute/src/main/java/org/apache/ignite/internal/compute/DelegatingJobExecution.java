@@ -23,6 +23,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -55,6 +56,16 @@ class DelegatingJobExecution<R> implements JobExecution<R>, MarshallerProvider<R
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return delegate.thenApply(jobExecutionInternal -> jobExecutionInternal.changePriority(newPriority));
+    }
+
+    @Override
+    public ClusterNode node() {
+        try {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24184
+            return delegate.thenApply(JobExecutionInternal::node).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

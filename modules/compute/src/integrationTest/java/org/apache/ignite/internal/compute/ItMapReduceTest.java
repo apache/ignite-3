@@ -73,7 +73,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteCompute igniteCompute = entryNode.compute();
         TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
                 TaskDescriptor.<Object, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), null);
-        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
+        TestingJobExecution<List<String>> testExecution = wrapTaskExecution(taskExecution);
         testExecution.assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
 
@@ -186,8 +186,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteCompute igniteCompute = entryNode.compute();
         TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
                 TaskDescriptor.<Object, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), null);
-        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
-        testExecution.assertExecuting();
+        wrapTaskExecution(taskExecution).assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
 
         // Save state before split.
@@ -245,8 +244,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteCompute igniteCompute = entryNode.compute();
         TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
                 TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), arg);
-        TestingJobExecution<List<String>> testExecution = new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution));
-        testExecution.assertExecuting();
+        wrapTaskExecution(taskExecution).assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
 
         // Save state before split.
@@ -278,9 +276,13 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
         IgniteCompute igniteCompute = entryNode.compute();
         TaskExecution<List<String>> taskExecution = igniteCompute.submitMapReduce(
                 TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), args);
-        new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution)).assertExecuting();
+        wrapTaskExecution(taskExecution).assertExecuting();
         InteractiveTasks.GlobalApi.assertAlive();
         return taskExecution;
+    }
+
+    private static TestingJobExecution<List<String>> wrapTaskExecution(TaskExecution<List<String>> taskExecution) {
+        return new TestingJobExecution<>(new TaskToJobExecutionWrapper<>(taskExecution, clusterNode(0)));
     }
 
     private static void finishSplit(TaskExecution<List<String>> taskExecution) {

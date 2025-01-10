@@ -18,19 +18,13 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.stream.Collectors.toMap;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Wraps the future of {@link JobExecution} converting exceptions thrown by the delegate to public.
@@ -38,20 +32,20 @@ import org.apache.ignite.network.ClusterNode;
  * @param <R> Result type.
  */
 class BroadcastJobExecutionImpl<R> implements BroadcastExecution<R> {
-    private final Map<ClusterNode, JobExecution<R>> executions;
+    private final Collection<JobExecution<R>> executions;
 
-    BroadcastJobExecutionImpl(Map<ClusterNode, JobExecution<R>> executions) {
+    BroadcastJobExecutionImpl(Collection<JobExecution<R>> executions) {
         this.executions = executions;
     }
 
     @Override
-    public Map<ClusterNode, JobExecution<R>> executions() {
-        return Map.copyOf(executions);
+    public Collection<JobExecution<R>> executions() {
+        return List.copyOf(executions);
     }
 
     @Override
     public CompletableFuture<Collection<R>> resultsAsync() {
-        CompletableFuture<R>[] futures = executions.values().stream()
+        CompletableFuture<R>[] futures = executions.stream()
                 .map(JobExecution::resultAsync)
                 .toArray(CompletableFuture[]::new);
 
@@ -64,23 +58,5 @@ class BroadcastJobExecutionImpl<R> implements BroadcastExecution<R> {
 
             return result;
         });
-    }
-
-    private <T> CompletableFuture<Map<ClusterNode, T>> mapExecutions(Function<JobExecution<R>, CompletableFuture<T>> mapping) {
-        Map<ClusterNode, CompletableFuture<T>> futures = executions.entrySet().stream()
-                .collect(toMap(Entry::getKey, entry -> mapping.apply(entry.getValue())));
-
-        Loggers.forClass(BroadcastJobExecutionImpl.class).info("Futures {}" , futures);
-        return allOf(futures.values().toArray(CompletableFuture[]::new))
-                .thenApply(ignored -> {
-                            Map<ClusterNode, T> map = new HashMap<>();
-
-                            for (Entry<ClusterNode, CompletableFuture<T>> entry : futures.entrySet()) {
-                                map.put(entry.getKey(), entry.getValue().join());
-                            }
-
-                            return map;
-                        }
-                );
     }
 }

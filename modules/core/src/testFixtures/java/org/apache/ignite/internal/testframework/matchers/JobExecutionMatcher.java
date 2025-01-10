@@ -19,14 +19,18 @@ package org.apache.ignite.internal.testframework.matchers;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
+import static org.hamcrest.Matchers.is;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.network.ClusterNode;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Matcher for {@link JobExecution}.
@@ -34,51 +38,98 @@ import org.hamcrest.TypeSafeMatcher;
 public class JobExecutionMatcher<R> extends TypeSafeMatcher<JobExecution<R>> {
     private final Matcher<? super CompletableFuture<R>> resultMatcher;
     private final Matcher<? super CompletableFuture<JobState>> stateMatcher;
+    private final Matcher<? super ClusterNode> nodeMatcher;
 
     private JobExecutionMatcher(
-            Matcher<? super CompletableFuture<R>> resultMatcher,
-            Matcher<? super CompletableFuture<JobState>> stateMatcher
+            @Nullable Matcher<? super CompletableFuture<R>> resultMatcher,
+            @Nullable Matcher<? super CompletableFuture<JobState>> stateMatcher,
+            @Nullable Matcher<? super ClusterNode> nodeMatcher
     ) {
         this.resultMatcher = resultMatcher;
         this.stateMatcher = stateMatcher;
+        this.nodeMatcher = nodeMatcher;
+    }
+
+    public static <R> JobExecutionMatcher<R> jobExecutionWithStatus(JobStatus status) {
+        return new JobExecutionMatcher<>(null, will(jobStateWithStatus(status)), null);
     }
 
     public static <R> JobExecutionMatcher<R> jobExecutionWithResultAndStatus(R result, JobStatus status) {
-        return new JobExecutionMatcher<>(willBe(result), will(JobStateMatcher.jobStateWithStatus(status)));
+        return new JobExecutionMatcher<>(willBe(result), will(jobStateWithStatus(status)), null);
     }
 
     public static <R> JobExecutionMatcher<R> jobExecutionWithResultAndStatus(
             Matcher<R> resultMatcher,
             Matcher<JobStatus> statusMatcher
     ) {
-        return new JobExecutionMatcher<>(will(resultMatcher), will(JobStateMatcher.jobStateWithStatus(statusMatcher)));
+        return new JobExecutionMatcher<>(will(resultMatcher), will(jobStateWithStatus(statusMatcher)), null);
+    }
+
+    public static <R> JobExecutionMatcher<R> jobExecutionWithResultAndNode(R result, ClusterNode node) {
+        return new JobExecutionMatcher<>(willBe(result), null, is(node));
+    }
+
+    public static <R> JobExecutionMatcher<R> jobExecutionWithResultStatusAndNode(R result, JobStatus status, ClusterNode node) {
+        return new JobExecutionMatcher<>(willBe(result), will(jobStateWithStatus(status)), is(node));
     }
 
     public static <R> JobExecutionMatcher<R> jobExecutionWithResultAndStateFuture(
             Matcher<? super CompletableFuture<R>> resultMatcher,
             Matcher<? super CompletableFuture<JobState>> stateMatcher
     ) {
-        return new JobExecutionMatcher<>(resultMatcher, stateMatcher);
+        return new JobExecutionMatcher<>(resultMatcher, stateMatcher, null);
     }
 
     @Override
     protected boolean matchesSafely(JobExecution<R> execution) {
-        return resultMatcher.matches(execution.resultAsync()) && stateMatcher.matches(execution.stateAsync());
+        if (resultMatcher != null && !resultMatcher.matches(execution.resultAsync())) {
+            return false;
+        }
+        if (stateMatcher != null && !stateMatcher.matches(execution.stateAsync())) {
+            return false;
+        }
+        return nodeMatcher != null && nodeMatcher.matches(execution.node());
     }
 
     @Override
     protected void describeMismatchSafely(JobExecution<R> execution, Description mismatchDescription) {
-        mismatchDescription.appendText("result ");
-        resultMatcher.describeMismatch(execution.resultAsync(), mismatchDescription);
-        mismatchDescription.appendText(", state ");
-        stateMatcher.describeMismatch(execution.stateAsync(), mismatchDescription);
+        if (resultMatcher != null) {
+            mismatchDescription.appendText("result ");
+            resultMatcher.describeMismatch(execution.resultAsync(), mismatchDescription);
+        }
+        if (stateMatcher != null) {
+            if (resultMatcher != null) {
+                mismatchDescription.appendText(", ");
+            }
+            mismatchDescription.appendText("state ");
+            stateMatcher.describeMismatch(execution.stateAsync(), mismatchDescription);
+        }
+        if (nodeMatcher != null) {
+            if (resultMatcher != null || stateMatcher != null) {
+                mismatchDescription.appendText(", ");
+            }
+            mismatchDescription.appendText("node ");
+            nodeMatcher.describeMismatch(execution.node(), mismatchDescription);
+        }
     }
 
     @Override
     public void describeTo(Description description) {
-        description.appendText("a JobExecution with result ")
-                .appendDescriptionOf(resultMatcher)
-                .appendText(" and state ")
-                .appendDescriptionOf(stateMatcher);
+        description.appendText("a JobExecution with ");
+        if (resultMatcher != null) {
+            description.appendText("result ").appendDescriptionOf(resultMatcher);
+        }
+        if (stateMatcher != null) {
+            if (resultMatcher != null) {
+                description.appendText(" and ");
+            }
+            description.appendText("state ").appendDescriptionOf(stateMatcher);
+        }
+        if (nodeMatcher != null) {
+            if (resultMatcher != null || stateMatcher != null) {
+                description.appendText(" and ");
+            }
+            description.appendText("node ").appendDescriptionOf(nodeMatcher);
+        }
     }
 }

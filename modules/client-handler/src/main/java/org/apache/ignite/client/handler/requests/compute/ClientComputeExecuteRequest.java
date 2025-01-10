@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
 import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
 
@@ -70,7 +71,8 @@ public class ClientComputeExecuteRequest {
         JobExecution<Object> execution = compute.executeAsyncWithFailover(
                 candidates, deploymentUnits, jobClassName, options, null, arg
         );
-        sendResultAndState(execution, notificationSender);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24184
+        sendResultAndState(completedFuture(execution), notificationSender);
 
         //noinspection DataFlowIssue
         return execution.idAsync().thenAccept(out::packUuid);
@@ -103,16 +105,17 @@ public class ClientComputeExecuteRequest {
     }
 
     static CompletableFuture<Object> sendResultAndState(
-            JobExecution<Object> execution,
+            CompletableFuture<JobExecution<Object>> executionFut,
             NotificationSender notificationSender
     ) {
-        return execution.resultAsync().whenComplete((val, err) ->
-                execution.stateAsync().whenComplete((state, errState) ->
-                        notificationSender.sendNotification(w -> {
-                            Marshaller<Object, byte[]> marshaller = extractMarshaller(execution);
-                            ClientComputeJobPacker.packJobResult(val, marshaller, w);
-                            packJobState(w, state);
-                        }, err)));
+        return executionFut.thenCompose(execution ->
+                execution.resultAsync().whenComplete((val, err) ->
+                        execution.stateAsync().whenComplete((state, errState) ->
+                                notificationSender.sendNotification(w -> {
+                                    Marshaller<Object, byte[]> marshaller = extractMarshaller(execution);
+                                    ClientComputeJobPacker.packJobResult(val, marshaller, w);
+                                    packJobState(w, state);
+                                }, err))));
     }
 
     private static <T> @Nullable Marshaller<T, byte[]> extractMarshaller(JobExecution<T> e) {

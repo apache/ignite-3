@@ -28,6 +28,7 @@ import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -164,6 +165,11 @@ class FailSafeJobExecution<T> implements JobExecution<T>, MarshallerProvider<T> 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return runningJobExecution.get().changePriorityAsync(newPriority);
+    }
+
+    @Override
+    public ClusterNode node() {
+        return runningJobExecution.get().node();
     }
 
     /**

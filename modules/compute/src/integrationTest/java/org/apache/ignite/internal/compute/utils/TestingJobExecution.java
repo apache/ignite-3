@@ -38,6 +38,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Testing instance of {@link JobExecution}. Adds useful assertions on job's state and sync methods.
@@ -106,6 +107,11 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     @Override
     public CompletableFuture<Boolean> changePriorityAsync(int newPriority) {
         return jobExecution.thenCompose(execution -> execution.changePriorityAsync(newPriority));
+    }
+
+    @Override
+    public ClusterNode node() {
+        return jobExecution.join().node();
     }
 
     /**

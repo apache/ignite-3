@@ -191,7 +191,10 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             inFlightFutures.registerFuture(taskFuture);
 
             DelegatingTaskExecution<I, M, T, R> result = new DelegatingTaskExecution<>(taskFuture);
-            result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, new TaskToJobExecutionWrapper<>(result)));
+            result.idAsync().thenAccept(jobId -> executionManager.addExecution(
+                    jobId,
+                    new TaskToJobExecutionWrapper<>(result, topologyService.localMember())
+            ));
             return result;
         } finally {
             busyLock.leaveBusy();

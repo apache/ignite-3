@@ -18,13 +18,11 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.Collection;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.thread.PublicApiThreading;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Wrapper around {@link JobExecution} that adds protection against thread hijacking by users.
@@ -42,7 +40,7 @@ class AntiHijackBroadcastExecution<R> implements BroadcastExecution<R> {
     }
 
     @Override
-    public Map<ClusterNode, JobExecution<R>> executions() {
+    public Collection<JobExecution<R>> executions() {
         return execution.executions();
     }
 

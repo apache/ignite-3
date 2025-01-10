@@ -89,4 +89,9 @@ public class RemoteJobExecution<R> implements JobExecution<R> {
                 jobIdFuture.thenCompose(jobId -> messaging.remoteChangePriorityAsync(remoteNode, jobId, newPriority))
         );
     }
+
+    @Override
+    public ClusterNode node() {
+        return remoteNode;
+    }
 }

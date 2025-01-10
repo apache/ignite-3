@@ -27,12 +27,13 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.in;
-import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -231,12 +232,12 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
         assertThat(executionFut, willCompleteSuccessfully());
         BroadcastExecution<Object> broadcastExecution = executionFut.join();
-        Map<ClusterNode, JobExecution<Object>> executions = broadcastExecution.executions();
+        Collection<JobExecution<Object>> executions = broadcastExecution.executions();
 
         // Then all three jobs are alive.
-        assertThat(executions.size(), is(3));
-        executions.forEach((node, execution) -> {
-            InteractiveJobs.byNode(node).assertAlive();
+        assertThat(executions, hasSize(3));
+        executions.forEach(execution -> {
+            InteractiveJobs.byNode(execution.node()).assertAlive();
             new TestingJobExecution<>(execution).assertExecuting();
         });
 
@@ -245,11 +246,11 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         stopNode(node(1));
 
         // Then two jobs are alive.
-        executions.forEach((node, execution) -> {
-            if (node.name().equals(stoppedNodeName)) {
+        executions.forEach(execution -> {
+            if (execution.node().name().equals(stoppedNodeName)) {
                 new TestingJobExecution<>(execution).assertFailed();
             } else {
-                InteractiveJobs.byNode(node).assertAlive();
+                InteractiveJobs.byNode(execution.node()).assertAlive();
                 new TestingJobExecution<>(execution).assertExecuting();
             }
         });

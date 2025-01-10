@@ -37,8 +37,8 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -272,9 +272,10 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         // Multiple executions.
         {
             JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-            Map<ClusterNode, JobExecution<Void>> executions = submit(local, Set.of(clusterNode(0), clusterNode(1)), job);
+            Collection<JobExecution<Void>> executions = submit(local, Set.of(clusterNode(0), clusterNode(1)), job);
 
-            executions.forEach((node, execution) -> {
+            executions.forEach(execution -> {
+                ClusterNode node = execution.node();
                 UUID jobId = await(execution.idAsync());
                 assertThat(jobId, not(nullValue()));
                 assertThat("Node=" + node.name(), executeKillJob(remote, jobId), is(true));
@@ -337,7 +338,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         return executionFut.join();
     }
 
-    private static Map<ClusterNode, JobExecution<Void>> submit(Ignite node, Set<ClusterNode> nodes, JobDescriptor<Void, Void> job) {
+    private static Collection<JobExecution<Void>> submit(Ignite node, Set<ClusterNode> nodes, JobDescriptor<Void, Void> job) {
         CompletableFuture<BroadcastExecution<Void>> executionFut = node.compute().submitAsync(BroadcastJobTarget.nodes(nodes), job, null);
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join().executions();

@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.TaskExecution;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,9 +31,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TaskToJobExecutionWrapper<R> implements JobExecution<R> {
     private final TaskExecution<R> taskExecution;
+    private final ClusterNode localNode;
 
-    public TaskToJobExecutionWrapper(TaskExecution<R> taskExecution) {
+    public TaskToJobExecutionWrapper(TaskExecution<R> taskExecution, ClusterNode localNode) {
         this.taskExecution = taskExecution;
+        this.localNode = localNode;
     }
 
     @Override
@@ -65,5 +68,10 @@ public class TaskToJobExecutionWrapper<R> implements JobExecution<R> {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return taskExecution.changePriorityAsync(newPriority);
+    }
+
+    @Override
+    public ClusterNode node() {
+        return localNode;
     }
 }

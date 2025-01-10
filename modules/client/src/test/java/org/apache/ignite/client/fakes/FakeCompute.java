@@ -260,6 +260,11 @@ public class FakeCompute implements IgniteComputeInternal {
             return trueCompletedFuture();
         }
 
+        @Override
+        public ClusterNode node() {
+            return null;
+        }
+
 
         @Override
         public Marshaller<R, byte[]> resultMarshaller() {

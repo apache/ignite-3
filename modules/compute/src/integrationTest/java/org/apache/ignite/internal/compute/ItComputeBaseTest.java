@@ -28,12 +28,12 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.JobExecutionMatcher.jobExecutionWithResultStatusAndNode;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
@@ -336,15 +336,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 new Object[] {"a", 42}
         );
 
-        Map<ClusterNode, JobExecution<String>> executions = broadcastExecution.executions();
-        assertThat(executions, is(aMapWithSize(3)));
-        for (int i = 0; i < 3; i++) {
-            ClusterNode node = clusterNode(node(i));
-            JobExecution<String> execution = executions.get(node);
-            assertThat(execution.resultAsync(), willBe("a42"));
-            assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-            assertThat(execution.cancelAsync(), willBe(false));
-        }
+        Collection<JobExecution<String>> executions = broadcastExecution.executions();
+        assertThat(executions, containsInAnyOrder(
+                jobExecutionWithResultStatusAndNode("a42", COMPLETED, clusterNode(0)),
+                jobExecutionWithResultStatusAndNode("a42", COMPLETED, clusterNode(1)),
+                jobExecutionWithResultStatusAndNode("a42", COMPLETED, clusterNode(2))
+        ));
 
         assertThat(broadcastExecution.resultsAsync(), will(hasSize(3)));
         assertThat(broadcastExecution.resultsAsync(), will(everyItem(is("a42"))));
@@ -358,15 +355,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 null
         );
 
-        Map<ClusterNode, JobExecution<String>> executions = broadcastExecution.executions();
-        assertThat(executions, is(aMapWithSize(3)));
-        for (int i = 0; i < 3; i++) {
-            ClusterNode node = clusterNode(node(i));
-            JobExecution<String> execution = executions.get(node);
-            assertThat(execution.resultAsync(), willBe(node.name()));
-            assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-            assertThat(execution.cancelAsync(), willBe(false));
-        }
+        Collection<JobExecution<String>> executions = broadcastExecution.executions();
+        assertThat(executions, containsInAnyOrder(
+                jobExecutionWithResultStatusAndNode(clusterNode(0).name(), COMPLETED, clusterNode(0)),
+                jobExecutionWithResultStatusAndNode(clusterNode(1).name(), COMPLETED, clusterNode(1)),
+                jobExecutionWithResultStatusAndNode(clusterNode(2).name(), COMPLETED, clusterNode(2))
+        ));
 
         assertThat(broadcastExecution.resultsAsync(), will(hasSize(3)));
         assertThat(broadcastExecution.resultsAsync(), will(containsInAnyOrder(allNodeNames().toArray())));
@@ -380,10 +374,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 null
         );
 
-        Map<ClusterNode, JobExecution<String>> executions = broadcastExecution.executions();
-        assertThat(executions, is(aMapWithSize(3)));
-        for (int i = 0; i < 3; i++) {
-            JobExecution<String> execution = executions.get(clusterNode(node(i)));
+        Collection<JobExecution<String>> executions = broadcastExecution.executions();
+        assertThat(executions, hasSize(3));
+        for (JobExecution<String> execution : executions) {
             ExecutionException ex = assertThrows(ExecutionException.class, () -> execution.resultAsync().get(1, TimeUnit.SECONDS));
             assertComputeException(ex, "JobException", "Oops");
 
