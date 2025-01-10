@@ -76,6 +76,16 @@ public class ExpandableByteBuffer {
     }
 
     /**
+     * Writes {@code byte[]} value to the buffer.
+     *
+     * @param off Buffer offset.
+     * @param val Value.
+     */
+    public void put(int off, byte[] val) {
+        buffer.put(val, off, val.length);
+    }
+
+    /**
      * Transfers the bytes remaining in the given source buffer into this buffer.
      *
      * @param buffer Source buffer.
@@ -101,7 +111,7 @@ public class ExpandableByteBuffer {
     /**
      * Writes {@code short} value to the buffer.
      *
-     * @param off Offset.
+     * @param off Buffer offset.
      * @param val Value.
      */
     public void putShort(int off, short val) {
@@ -122,22 +132,11 @@ public class ExpandableByteBuffer {
     /**
      * Writes {@code int} value to the buffer.
      *
-     * @param off Offset.
+     * @param off Buffer offset.
      * @param val Value.
      */
     public void putInt(int off, int val) {
         buffer.putInt(off, val);
-    }
-
-    /**
-     * Writes {@code float} value to the buffer.
-     *
-     * @param val Value.
-     */
-    public void putFloat(float val) {
-        ensure(Float.BYTES);
-
-        buffer.putFloat(val);
     }
 
     /**
@@ -152,11 +151,53 @@ public class ExpandableByteBuffer {
     }
 
     /**
+     * Writes {@code long} value to the buffer.
+     *
+     * @param off Buffer offset.
+     * @param val Value.
+     */
+    public void putLong(int off, long val) {
+        buffer.putLong(off, val);
+    }
+
+    /**
+     * Writes {@code float} value to the buffer.
+     *
+     * @param val Value.
+     */
+    public void putFloat(float val) {
+        ensure(Float.BYTES);
+
+        buffer.putFloat(val);
+    }
+
+    /**
+     * Writes {@code float} value to the buffer.
+     *
+     * @param val Value.
+     */
+    public void putFloat(int off, float val) {
+        buffer.putFloat(off, val);
+    }
+
+    /**
      * Writes {@code double} value to the buffer.
      *
      * @param val Value.
      */
     public void putDouble(double val) {
+        ensure(Double.BYTES);
+
+        buffer.putDouble(val);
+    }
+
+    /**
+     * Writes {@code double} value to the buffer.
+     *
+     * @param off Buffer offset.
+     * @param val Value.
+     */
+    public void putDouble(int off, double val) {
         ensure(Double.BYTES);
 
         buffer.putDouble(val);
