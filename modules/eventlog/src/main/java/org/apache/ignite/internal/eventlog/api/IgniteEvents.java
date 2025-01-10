@@ -29,22 +29,26 @@ import org.apache.ignite.internal.eventlog.event.EventUser;
  * <pre>{@code IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.system());}</pre>
  */
 public final class IgniteEvents implements EventFactory {
-    public static final IgniteEvents USER_AUTHENTICATION_SUCCESS = new IgniteEvents(IgniteEventType.USER_AUTHENTICATION_SUCCESS.name());
-    public static final IgniteEvents USER_AUTHENTICATION_FAILURE = new IgniteEvents(IgniteEventType.USER_AUTHENTICATION_FAILURE.name());
+    public static final IgniteEvents USER_AUTHENTICATION_SUCCESS = new IgniteEvents(IgniteEventType.USER_AUTHENTICATION_SUCCESS);
+    public static final IgniteEvents USER_AUTHENTICATION_FAILURE = new IgniteEvents(IgniteEventType.USER_AUTHENTICATION_FAILURE);
 
-    public static final IgniteEvents CLIENT_CONNECTION_ESTABLISHED = new IgniteEvents(IgniteEventType.CLIENT_CONNECTION_ESTABLISHED.name());
-    public static final IgniteEvents CLIENT_CONNECTION_CLOSED = new IgniteEvents(IgniteEventType.CLIENT_CONNECTION_CLOSED.name());
+    public static final IgniteEvents CLIENT_CONNECTION_ESTABLISHED = new IgniteEvents(IgniteEventType.CLIENT_CONNECTION_ESTABLISHED);
+    public static final IgniteEvents CLIENT_CONNECTION_CLOSED = new IgniteEvents(IgniteEventType.CLIENT_CONNECTION_CLOSED);
 
-    private final String type;
+    private final IgniteEventType type;
 
-    private IgniteEvents(String type) {
+    private IgniteEvents(IgniteEventType type) {
         this.type = type;
+    }
+
+    public String type() {
+        return type.name();
     }
 
     @Override
     public Event create(EventUser user) {
         return Event.builder()
-                .type(type)
+                .type(type.name())
                 .user(user)
                 .timestamp(System.currentTimeMillis())
                 .build();
@@ -52,6 +56,6 @@ public final class IgniteEvents implements EventFactory {
 
     @Override
     public EventBuilder builder() {
-        return new EventBuilder().type(type);
+        return new EventBuilder().type(type.name());
     }
 }
