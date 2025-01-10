@@ -20,7 +20,6 @@ package org.apache.ignite.internal.logger;
 import java.lang.System.Logger.Level;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.jetbrains.annotations.Nullable;
 
 /**
