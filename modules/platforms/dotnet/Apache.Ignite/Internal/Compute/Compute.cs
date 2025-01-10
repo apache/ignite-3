@@ -82,6 +82,12 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
+        public Task<IBroadcastExecution<TResult>> SubmitBroadcastAsync<TArg, TResult>(IEnumerable<IClusterNode> nodes, JobDescriptor<TArg, TResult> jobDescriptor, TArg arg)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc/>
         public IDictionary<IClusterNode, Task<IJobExecution<TResult>>> SubmitBroadcast<TArg, TResult>(
             IEnumerable<IClusterNode> nodes,
             JobDescriptor<TArg, TResult> jobDescriptor,
@@ -303,7 +309,8 @@ namespace Apache.Ignite.Internal.Compute
         private JobExecution<T> GetJobExecution<T>(
             PooledBuffer computeExecuteResult,
             bool readSchema,
-            IMarshaller<T>? marshaller)
+            IMarshaller<T>? marshaller,
+            IClusterNode node)
         {
             var reader = computeExecuteResult.GetReader();
 
@@ -315,7 +322,7 @@ namespace Apache.Ignite.Internal.Compute
             var jobId = reader.ReadGuid();
             var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
 
-            return new JobExecution<T>(jobId, resultTask, this);
+            return new JobExecution<T>(jobId, resultTask, this, node);
 
             async Task<(T, JobState)> GetResult(NotificationHandler handler)
             {
@@ -377,11 +384,13 @@ namespace Apache.Ignite.Internal.Compute
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
-            using PooledBuffer res = await _socket.DoOutInOpAsync(
-                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
+            var (buf, sock) = await _socket.DoOutInOpAndGetSocketAsync(
+                    ClientOp.ComputeExecute, tx: null, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
-            return GetJobExecution(res, readSchema: false, jobDescriptor.ResultMarshaller);
+            using var res = buf;
+
+            return GetJobExecution(res, readSchema: false, jobDescriptor.ResultMarshaller, sock.ConnectionContext.ClusterNode);
 
             void Write()
             {
@@ -442,11 +451,13 @@ namespace Apache.Ignite.Internal.Compute
                     var colocationHash = Write(bufferWriter, table, schema);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
-                    using var res = await _socket.DoOutInOpAsync(
-                            ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, expectNotifications: true)
+                    var (resBuf, sock) = await _socket.DoOutInOpAndGetSocketAsync(
+                            ClientOp.ComputeExecuteColocated, tx: null, bufferWriter, preferredNode, expectNotifications: true)
                         .ConfigureAwait(false);
 
-                    return GetJobExecution(res, readSchema: true, descriptor.ResultMarshaller);
+                    using var res = resBuf;
+
+                    return GetJobExecution(res, readSchema: true, descriptor.ResultMarshaller, sock.ConnectionContext.ClusterNode);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {

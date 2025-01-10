@@ -19,6 +19,7 @@ namespace Apache.Ignite.Compute;
 
 using System;
 using System.Threading.Tasks;
+using Network;
 
 /// <summary>
 /// Job control object, provides information about the job execution process and result, allows cancelling the job.
@@ -30,6 +31,11 @@ public interface IJobExecution<T>
     /// Gets the job ID.
     /// </summary>
     Guid Id { get; }
+
+    /// <summary>
+    /// Gets the node where the job is executing.
+    /// </summary>
+    IClusterNode Node { get; }
 
     /// <summary>
     /// Gets the job execution result.
