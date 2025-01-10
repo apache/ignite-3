@@ -43,7 +43,6 @@ import org.apache.ignite.internal.runner.app.Jobs.ResultMarshallingJob;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
-import org.apache.ignite.marshalling.UnmarshallingException;
 import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
