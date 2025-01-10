@@ -17,13 +17,11 @@
 
 package org.apache.ignite.internal.schema;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 
-import it.unimi.dsi.fastutil.ints.IntList;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.time.Instant;
@@ -217,45 +215,6 @@ public class BinaryTupleComparatorTest {
     }
 
     @Test
-    public void testCompareMultipleColumnTuplesWithMapping() {
-        ByteBuffer tuple1 = new BinaryTupleBuilder(2)
-                .appendInt(0)
-                .appendString("foobar")
-                .build();
-
-        ByteBuffer tuple2 = new BinaryTupleBuilder(2)
-                .appendInt(1)
-                .appendString("foobar")
-                .build();
-
-        ByteBuffer tuple3 = new BinaryTupleBuilder(2)
-                .appendInt(0)
-                .appendString("foobaa")
-                .build();
-
-        var comparator = new BinaryTupleComparator(
-                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
-                IntList.of(1, 0)::getInt,
-                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
-        );
-
-        validate(comparator, tuple2, tuple1);
-        validate(comparator, tuple3, tuple1);
-        validate(comparator, tuple3, tuple2);
-
-        var reversedComparator = new BinaryTupleComparator(
-                new CatalogColumnCollation[]{CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST},
-                IntList.of(1, 0)::getInt,
-                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
-        );
-
-        validate(reversedComparator, tuple1, tuple2);
-        validate(reversedComparator, tuple1, tuple3);
-        validate(reversedComparator, tuple2, tuple3);
-    }
-
-
-    @Test
     public void testCompareMultipleColumnTuplesWithNulls() {
         var comparator = new BinaryTupleComparator(
                 new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
@@ -324,37 +283,6 @@ public class BinaryTupleComparatorTest {
 
         assertThat(comparator.compare(prefix3, tuple), is(lessThanOrEqualTo(1)));
         assertThat(comparator.compare(tuple, prefix3), is(greaterThanOrEqualTo(-1)));
-    }
-
-    @Test
-    public void compareWithPrefixNotSupportMapping() {
-        var comparator = new BinaryTupleComparator(
-                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST},
-                IntList.of(1)::getInt,
-                new NativeType[]{NativeTypes.STRING, NativeTypes.INT32}
-        );
-
-        ByteBuffer tuple = new BinaryTupleBuilder(2)
-                .appendString("foobar")
-                .appendInt(1)
-                .build();
-
-        ByteBuffer prefix = new BinaryTuplePrefixBuilder(1, 2)
-                .appendInt(2)
-                .build();
-
-        String errorMessage = "prefix comparison doesn't support mapping";
-
-        assertThrows(AssertionError.class, () -> comparator.compare(tuple, prefix), errorMessage);
-        assertThrows(AssertionError.class, () -> comparator.compare(prefix, tuple), errorMessage);
-        assertThrows(AssertionError.class, () -> comparator.compare(prefix, prefix), errorMessage);
-
-        // Ensure equality flag has no effect.
-        setEqualityFlag(prefix);
-
-        assertThrows(AssertionError.class, () -> comparator.compare(tuple, prefix), errorMessage);
-        assertThrows(AssertionError.class, () -> comparator.compare(prefix, tuple), errorMessage);
-        assertThrows(AssertionError.class, () -> comparator.compare(prefix, prefix), errorMessage);
     }
 
     @Test
