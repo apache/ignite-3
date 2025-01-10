@@ -85,7 +85,7 @@ public class IgniteRunner implements Callable<IgniteServer> {
                 t.printStackTrace(System.out);
             }
 
-            //Copy-paste from default JVM signal handler java.lang.Terminator#setup
+            // Copy-paste from default JVM signal handler java.lang.Terminator#setup.
             System.exit(sig.getNumber() + 0200);
         };
 
