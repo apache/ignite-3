@@ -34,6 +34,8 @@ public final class IgniteEvents implements EventFactory {
 
     public static final IgniteEvents CLIENT_CONNECTION_ESTABLISHED = new IgniteEvents(IgniteEventType.CLIENT_CONNECTION_ESTABLISHED);
     public static final IgniteEvents CLIENT_CONNECTION_CLOSED = new IgniteEvents(IgniteEventType.CLIENT_CONNECTION_CLOSED);
+    public static final IgniteEvents QUERY_STARTED = new IgniteEvents(IgniteEventType.QUERY_STARTED);
+    public static final IgniteEvents QUERY_FINISHED = new IgniteEvents(IgniteEventType.QUERY_FINISHED);
 
     private final IgniteEventType type;
 
