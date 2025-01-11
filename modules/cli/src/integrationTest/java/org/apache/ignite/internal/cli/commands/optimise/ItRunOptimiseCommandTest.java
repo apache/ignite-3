@@ -12,6 +12,6 @@ public class ItRunOptimiseCommandTest extends CliIntegrationTest {
         execute("optimise", "runOptimise", CLUSTER_URL_OPTION, NODE_URL, WRITE_INTENSIVE_OPTION);
 
         assertErrOutputIsEmpty();
-        assertOutputIs("Optimisation was started successfully with id ");
+        assertOutputContains("Optimisation was started successfully with id ");
     }
 }

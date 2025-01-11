@@ -6,7 +6,6 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.junit.jupiter.api.Test;
 
-/** Base test class for Cluster Recovery restart partitions commands. */
 public class ItRunBenchmarkCommandTest extends CliIntegrationTest {
     @Test
     public void testRunBenchmark() {
