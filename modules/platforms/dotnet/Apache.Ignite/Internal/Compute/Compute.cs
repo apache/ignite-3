@@ -82,13 +82,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public Task<IBroadcastExecution<TResult>> SubmitBroadcastAsync<TArg, TResult>(IEnumerable<IClusterNode> nodes, JobDescriptor<TArg, TResult> jobDescriptor, TArg arg)
-        {
-            throw new NotImplementedException();
-        }
-
-        /// <inheritdoc/>
-        public IDictionary<IClusterNode, Task<IJobExecution<TResult>>> SubmitBroadcast<TArg, TResult>(
+        public async Task<IBroadcastExecution<TResult>> SubmitBroadcastAsync<TArg, TResult>(
             IEnumerable<IClusterNode> nodes,
             JobDescriptor<TArg, TResult> jobDescriptor,
             TArg arg)
@@ -97,15 +91,16 @@ namespace Apache.Ignite.Internal.Compute
             IgniteArgumentCheck.NotNull(jobDescriptor);
             IgniteArgumentCheck.NotNull(jobDescriptor.JobClassName);
 
-            var res = new Dictionary<IClusterNode, Task<IJobExecution<TResult>>>();
+            var jobExecutions = new List<IJobExecution<TResult>>();
 
             foreach (var node in nodes)
             {
-                Task<IJobExecution<TResult>> task = ExecuteOnNodes(new[] { node }, jobDescriptor, arg);
-                res[node] = task;
+                IJobExecution<TResult> jobExec = await ExecuteOnNodes([node], jobDescriptor, arg).ConfigureAwait(false);
+
+                jobExecutions.Add(jobExec);
             }
 
-            return res;
+            return new BroadcastExecution<TResult>(jobExecutions);
         }
 
         /// <inheritdoc/>

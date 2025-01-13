@@ -15,18 +15,14 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Compute;
+namespace Apache.Ignite.Internal.Compute;
 
 using System.Collections.Generic;
+using Ignite.Compute;
 
 /// <summary>
-/// Broadcast execution control object, provides information about the broadcast execution process and result.
+/// Broadcast execution.
 /// </summary>
+/// <param name="JobExecutions">Job executions.</param>
 /// <typeparam name="TResult">Job result type.</typeparam>
-public interface IBroadcastExecution<TResult>
-{
-    /// <summary>
-    /// Gets the job executions.
-    /// </summary>
-    IReadOnlyList<IJobExecution<TResult>> JobExecutions { get; }
-}
+internal sealed record BroadcastExecution<TResult>(IReadOnlyList<IJobExecution<TResult>> JobExecutions) : IBroadcastExecution<TResult>;
