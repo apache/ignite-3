@@ -208,13 +208,12 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestUnknownNodeSubmitBroadcastThrows()
+        public void TestUnknownNodeSubmitBroadcastThrows()
         {
             var unknownNode = new ClusterNode(Guid.NewGuid(), "y", new IPEndPoint(IPAddress.Loopback, 0));
 
-            IBroadcastExecution<object> broadcastExec = await Client.Compute.SubmitBroadcastAsync([unknownNode], EchoJob, "unused");
-
-            var ex = Assert.ThrowsAsync<NodeNotFoundException>(async () => await broadcastExec.JobExecutions.Single().GetResultAsync());
+            var ex = Assert.ThrowsAsync<NodeNotFoundException>(
+                async () => await Client.Compute.SubmitBroadcastAsync([unknownNode], EchoJob, "unused"));
 
             StringAssert.Contains("None of the specified nodes are present in the cluster: [y]", ex!.Message);
             Assert.AreEqual(ErrorGroups.Compute.NodeNotFound, ex.Code);
