@@ -75,6 +75,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -1524,10 +1525,9 @@ public class DistributionZoneManager extends
          * @return The highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()}.
          */
         Optional<Long> highestRevision() {
-            return topologyAugmentationMap().entrySet()
+            return topologyAugmentationMap().keySet()
                     .stream()
-                    .max(Map.Entry.comparingByKey())
-                    .map(Map.Entry::getKey);
+                    .max(Comparator.naturalOrder());
         }
 
         @TestOnly
