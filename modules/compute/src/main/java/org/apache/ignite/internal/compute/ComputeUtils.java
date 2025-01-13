@@ -232,7 +232,7 @@ public class ComputeUtils {
      * @param jobResultResponse Job execution result message response.
      * @return Completable future with result.
      */
-    public static  CompletableFuture<ComputeJobDataHolder> resultFromJobResultResponse(JobResultResponse jobResultResponse) {
+    public static CompletableFuture<ComputeJobDataHolder> resultFromJobResultResponse(JobResultResponse jobResultResponse) {
         Throwable throwable = jobResultResponse.throwable();
         if (throwable != null) {
             return failedFuture(throwable);
