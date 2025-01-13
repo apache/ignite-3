@@ -39,7 +39,7 @@ class ClientSqlProperties {
 
     ClientSqlProperties(ClientMessageUnpacker in) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-24021
-        // Converts schema name to its canonical form.
+        //  Do parse simple name correctly.
         schema = in.tryUnpackNil() ? null : QualifiedName.fromSimple(in.unpackString()).objectName();
         pageSize = in.tryUnpackNil() ? SqlCommon.DEFAULT_PAGE_SIZE : in.unpackInt();
         queryTimeout = in.tryUnpackNil() ? 0 : in.unpackLong();
