@@ -303,7 +303,10 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
         });
     }
 
-    private static <M, T> CompletableFuture<List<JobExecution<T>>> submit(List<MapReduceJob<M, T>> runners, JobSubmitter<M, T> jobSubmitter) {
+    private static <M, T> CompletableFuture<List<JobExecution<T>>> submit(
+            List<MapReduceJob<M, T>> runners,
+            JobSubmitter<M, T> jobSubmitter
+    ) {
         return allOfToList(
                 runners.stream()
                         .map(jobSubmitter::submit)

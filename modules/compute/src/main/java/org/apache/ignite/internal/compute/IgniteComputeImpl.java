@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPub
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
-import static org.apache.ignite.marshalling.Marshaller.tryMarshalOrCast;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -170,7 +169,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                 SharedComputeUtils.marshalArgOrResult(args, argumentMarshaller)));
             }
 
-            return jobFut.thenApply(execution -> new ResultUnmarshallingJobExecution<>(execution, resultMarshaller, descriptor.resultClass()));
+            return jobFut.thenApply(execution -> new ResultUnmarshallingJobExecution<>(
+                    execution,
+                    resultMarshaller,
+                    descriptor.resultClass()
+            ));
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);

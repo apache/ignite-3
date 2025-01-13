@@ -33,7 +33,6 @@ import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
-import org.apache.ignite.compute.JobDescriptor.Builder;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -126,8 +125,11 @@ abstract class ItComputeErrorsBaseTest extends ClusterPerClassIntegrationTest {
         InteractiveJobs.initChannels(nodes.stream().map(ClusterNode::name).collect(Collectors.toList()));
 
         // When broadcast a job
-        Builder<Object[], String> builder = JobDescriptor.builder(InteractiveJobs.interactiveJobName());
-        CompletableFuture<BroadcastExecution<String>> executionFut = compute().submitAsync(BroadcastJobTarget.nodes(nodes), builder.build(), null);
+        CompletableFuture<BroadcastExecution<String>> executionFut = compute().submitAsync(
+                BroadcastJobTarget.nodes(nodes),
+                JobDescriptor.<Object[], String>builder(InteractiveJobs.interactiveJobName()).build(),
+                null
+        );
 
         assertThat(executionFut, willCompleteSuccessfully());
         BroadcastExecution<String> execution = executionFut.join();

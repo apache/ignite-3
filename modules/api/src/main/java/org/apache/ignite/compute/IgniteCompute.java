@@ -244,7 +244,7 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param target
+     * @param target Execution target.
      * @param descriptor Job descriptor.
      * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
