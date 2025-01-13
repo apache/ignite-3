@@ -256,14 +256,11 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
         SUBMIT_COLOCATED_BY_KEY(compute -> compute.submitAsync(
                 JobTarget.colocated(TABLE_NAME, KEY, Mapper.of(Integer.class)),
                 JobDescriptor.builder(NoOpJob.class).build(), null)
-        );
-
-/*
+        ),
         SUBMIT_BROADCAST(compute -> compute
-                .submitBroadcast(justNonEntryNode(), JobDescriptor.builder(NoOpJob.class).build(), null)
-                .values().iterator().next()
+                .submitAsync(BroadcastJobTarget.nodes(justNonEntryNode()), JobDescriptor.builder(NoOpJob.class).build(), null)
+                .thenApply(broadcastExecution -> broadcastExecution.executions().iterator().next())
         );
-*/
 
         private final Function<IgniteCompute, CompletableFuture<? extends JobExecution<?>>> action;
 

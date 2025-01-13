@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.thread.PublicApiThreading;
@@ -41,7 +42,9 @@ class AntiHijackBroadcastExecution<R> implements BroadcastExecution<R> {
 
     @Override
     public Collection<JobExecution<R>> executions() {
-        return execution.executions();
+        return execution.executions().stream()
+                .map(execution -> new AntiHijackJobExecution<>(execution, asyncContinuationExecutor))
+                .collect(Collectors.toList());
     }
 
     @Override
