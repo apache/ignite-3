@@ -22,6 +22,7 @@ import static org.apache.calcite.sql.type.SqlTypeName.INTEGER;
 import static org.apache.calcite.sql.type.SqlTypeUtil.isNull;
 import static org.apache.calcite.util.Static.RESOURCE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -49,6 +50,7 @@ import org.apache.calcite.runtime.PairList;
 import org.apache.calcite.runtime.Resources;
 import org.apache.calcite.schema.impl.ModifiableViewTable;
 import org.apache.calcite.sql.JoinConditionType;
+import org.apache.calcite.sql.JoinType;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlCall;
@@ -103,6 +105,7 @@ import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /** Validator. */
@@ -940,6 +943,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     @Override
     protected void validateJoin(SqlJoin join, SqlValidatorScope scope) {
+        if (join.getJoinType() == JoinType.ASOF) {
+            throw new SqlException(STMT_VALIDATION_ERR, "Unsupported join type: " + join.getJoinType());
+        }
+
         super.validateJoin(join, scope);
 
         if (join.isNatural() || join.getConditionType() == JoinConditionType.USING) {
