@@ -39,8 +39,8 @@ class ItHighAvailablePartitionsRecoveryWithNodeRestartTest extends AbstractHighA
     /** It should be less than {@link #LW_UPDATE_TIME_MS} for the test to work. */
     private static final long AIPERSIST_CHECKPOINT_INTERVAL_MS = LW_UPDATE_TIME_MS / 2;
 
-    /** Should be greater than 2 x {@link #LW_UPDATE_TIME_MS} and long enough to await for the compaction finish. */
-    private static final long COMPACTION_AWAIT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
+    /** Should be greater than 2 x {@link #LW_UPDATE_TIME_MS} and long enough to await for the catalog compaction finish. */
+    private static final long CATALOG_COMPACTION_AWAIT_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
 
     private static final String FAST_FAILURE_DETECTION_AND_FAST_CHECKPOINT_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
             + "  network: {\n"
@@ -121,7 +121,7 @@ class ItHighAvailablePartitionsRecoveryWithNodeRestartTest extends AbstractHighA
     }
 
     private void expectEarliestCatalogVersionGreaterThanZero() {
-        Awaitility.await().timeout(COMPACTION_AWAIT_INTERVAL_MS, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+        Awaitility.await().timeout(CATALOG_COMPACTION_AWAIT_INTERVAL_MS, TimeUnit.MILLISECONDS).untilAsserted(() -> {
             for (var node : runningNodes().collect(Collectors.toList())) {
                 IgniteImpl ignite = unwrapIgniteImpl(node);
                 CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
