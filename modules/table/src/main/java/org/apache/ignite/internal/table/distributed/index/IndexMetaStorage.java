@@ -31,7 +31,9 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_ALTER
 import static org.apache.ignite.internal.event.EventListener.fromFunction;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -80,6 +82,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
@@ -211,7 +214,7 @@ public class IndexMetaStorage implements IgniteComponent {
 
         Catalog catalog = catalog(parameters.catalogVersion());
 
-        return updateAndSaveIndexMetaToMetastore(indexId, indexMeta -> {
+        return createAndSaveIndexMetaToMetastore(indexId, indexMeta -> {
             assert indexMeta == null : "indexId=" + indexId + "catalogVersion=" + catalog.version();
 
             return IndexMeta.of(indexId, catalog);
@@ -336,7 +339,7 @@ public class IndexMetaStorage implements IgniteComponent {
 
                 if (fromMetastore == null) {
                     // We did not have time to save at the index creation event.
-                    futures.add(updateAndSaveIndexMetaToMetastore(indexId, indexMeta -> IndexMeta.of(indexId, catalog)));
+                    futures.add(createAndSaveIndexMetaToMetastore(indexId, indexMeta -> IndexMeta.of(indexId, catalog)));
                 } else if (fromMetastore.catalogVersion() < catalog.version()) {
                     if (!catalogIndexDescriptor.name().equals(fromMetastore.indexName())) {
                         // We did not have time to process the index renaming event.
@@ -437,17 +440,22 @@ public class IndexMetaStorage implements IgniteComponent {
         return ByteArray.fromString(INDEX_META_VALUE_KEY_PREFIX + indexMeta.indexId());
     }
 
-    private CompletableFuture<?> saveToMetastore(IndexMeta newMeta) {
-        ByteArray versionKey = indexMetaVersionKey(newMeta);
+    private CompletableFuture<?> createInMetastore(IndexMeta indexMeta) {
+        return metaStorageManager.invoke(
+                notExists(indexMetaVersionKey(indexMeta)),
+                saveIndexMetaOperations(indexMeta),
+                List.of(noop())
+        );
+    }
+
+    private CompletableFuture<?> updateInMetastore(IndexMeta indexMeta) {
+        ByteArray versionKey = indexMetaVersionKey(indexMeta);
         // We need to keep order for the comparison to work correctly.
-        byte[] versionValue = intToBytesKeepingOrder(newMeta.catalogVersion());
+        byte[] versionValue = intToBytesKeepingOrder(indexMeta.catalogVersion());
 
         return metaStorageManager.invoke(
-                value(versionKey).lt(versionValue),
-                List.of(
-                        put(versionKey, versionValue),
-                        put(indexMetaValueKey(newMeta), VersionedSerialization.toBytes(newMeta, IndexMetaSerializer.INSTANCE))
-                ),
+                and(exists(versionKey), value(versionKey).lt(versionValue)),
+                saveIndexMetaOperations(indexMeta),
                 List.of(noop())
         );
     }
@@ -462,13 +470,32 @@ public class IndexMetaStorage implements IgniteComponent {
         );
     }
 
+    private static List<Operation> saveIndexMetaOperations(IndexMeta indexMeta) {
+        // We need to keep order for the comparison to work correctly.
+        byte[] versionValue = intToBytesKeepingOrder(indexMeta.catalogVersion());
+
+        return List.of(
+                put(indexMetaVersionKey(indexMeta), versionValue),
+                put(indexMetaValueKey(indexMeta), VersionedSerialization.toBytes(indexMeta, IndexMetaSerializer.INSTANCE))
+        );
+    }
+
+    private CompletableFuture<?> createAndSaveIndexMetaToMetastore(
+            int indexId,
+            Function<@Nullable IndexMeta, IndexMeta> updateFunction
+    ) {
+        IndexMeta newMeta = indexMetaByIndexId.compute(indexId, (id, indexMeta) -> updateFunction.apply(indexMeta));
+
+        return createInMetastore(newMeta);
+    }
+
     private CompletableFuture<?> updateAndSaveIndexMetaToMetastore(
             int indexId,
             Function<@Nullable IndexMeta, IndexMeta> updateFunction
     ) {
         IndexMeta newMeta = indexMetaByIndexId.compute(indexId, (id, indexMeta) -> updateFunction.apply(indexMeta));
 
-        return saveToMetastore(newMeta);
+        return updateInMetastore(newMeta);
     }
 
     private int lwmCatalogVersion(@Nullable HybridTimestamp lwm) {
