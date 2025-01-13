@@ -88,7 +88,7 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
                 scheduledExecutorService
         );
 
-        return StandaloneMetaStorageManager.create(keyValueStorage, readOperationForCompactionTracker);
+        return StandaloneMetaStorageManager.create(keyValueStorage, clock, readOperationForCompactionTracker);
     }
 
     @Override
