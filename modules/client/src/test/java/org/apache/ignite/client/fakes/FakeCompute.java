@@ -54,11 +54,13 @@ import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.JobStateImpl;
 import org.apache.ignite.internal.compute.MarshallerProvider;
+import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -94,16 +96,16 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <R> JobExecution<R> executeAsyncWithFailover(
+    public JobExecution<ComputeJobDataHolder> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
             @Nullable CancellationToken cancellationToken,
-            Object args) {
+            @Nullable ComputeJobDataHolder args) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
-            return completedExecution((R) unitString);
+            return completedExecution(unitString);
         }
 
         try {
@@ -119,39 +121,75 @@ public class FakeCompute implements IgniteComputeInternal {
 
         if (jobClassName.startsWith("org.apache.ignite")) {
             JobClassLoader jobClassLoader = new JobClassLoader(List.of(), new URL[]{}, this.getClass().getClassLoader());
-            Class<ComputeJob<Object, R>> jobClass = ComputeUtils.jobClass(jobClassLoader, jobClassName);
-            ComputeJob<Object, R> job = ComputeUtils.instantiateJob(jobClass);
-            CompletableFuture<R> jobFut = job.executeAsync(
-                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()), args);
+            Class<ComputeJob<Object, Object>> jobClass = ComputeUtils.jobClass(jobClassLoader, jobClassName);
+            ComputeJob<Object, Object> job = ComputeUtils.instantiateJob(jobClass);
+            CompletableFuture<Object> jobFut = job.executeAsync(
+                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()),
+                    SharedComputeUtils.unmarshalArgOrResult(args, null, null));
 
             return jobExecution(jobFut != null ? jobFut : nullCompletedFuture());
         }
 
         var future0 = future;
-        return jobExecution(future0 != null ? future0 : completedFuture((R) nodeName));
+        return jobExecution(future0 != null ? future0 : completedFuture(SharedComputeUtils.marshalArgOrResult(nodeName, null)));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+    public CompletableFuture<JobExecution<ComputeJobDataHolder>> submitColocatedInternal(
             TableViewInternal table,
             Tuple key,
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
             @Nullable CancellationToken cancellationToken,
-            Object args
+            ComputeJobDataHolder args
     ) {
-        return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
+        return completedFuture(jobExecution(future != null
+                ? future
+                : completedFuture(SharedComputeUtils.marshalArgOrResult(nodeName, null))));
     }
 
-    private <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
+    private <T, R> JobExecution<R> submit(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
             @Nullable T args) {
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
-            return executeAsyncWithFailover(
-                    nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), cancellationToken, args
+
+            JobExecution<ComputeJobDataHolder> internalExecution = executeAsyncWithFailover(
+                    nodes,
+                    descriptor.units(),
+                    descriptor.jobClassName(),
+                    descriptor.options(),
+                    cancellationToken,
+                    SharedComputeUtils.marshalArgOrResult(args, null)
             );
+
+            return new JobExecution<>() {
+                @Override
+                public CompletableFuture<R> resultAsync() {
+                    return internalExecution.resultAsync()
+                            .thenApply(r -> SharedComputeUtils.unmarshalArgOrResult(
+                                    r, descriptor.resultMarshaller(), descriptor.resultClass()));
+                }
+
+                @Override
+                public CompletableFuture<@Nullable JobState> stateAsync() {
+                    return internalExecution.stateAsync();
+                }
+
+                @Override
+                public CompletableFuture<@Nullable Boolean> cancelAsync() {
+                    return internalExecution.cancelAsync();
+                }
+
+                @Override
+                public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+                    return internalExecution.cancelAsync();
+                }
+            };
         } else if (target instanceof ColocatedJobTarget) {
             return jobExecution(future != null ? future : completedFuture((R) nodeName));
         } else {
@@ -201,11 +239,11 @@ public class FakeCompute implements IgniteComputeInternal {
         return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
     }
 
-    private <R> JobExecution<R> completedExecution(R result) {
-        return jobExecution(completedFuture(result));
+    private <R> JobExecution<ComputeJobDataHolder> completedExecution(R result) {
+        return jobExecution(completedFuture(SharedComputeUtils.marshalArgOrResult(result, null)));
     }
 
-    private <R> JobExecution<R> jobExecution(CompletableFuture<R> result) {
+    private <R> JobExecution<ComputeJobDataHolder> jobExecution(CompletableFuture<R> result) {
         UUID jobId = UUID.randomUUID();
 
         JobState state = JobStateImpl.builder()
@@ -221,7 +259,10 @@ public class FakeCompute implements IgniteComputeInternal {
             JobState newState = JobStateImpl.toBuilder(state).status(status).finishTime(Instant.now()).build();
             jobStates.put(jobId, newState);
         });
-        return new FakeJobExecution<>(result, jobId);
+
+        return new FakeJobExecution<>(result.thenApply(r -> r instanceof ComputeJobDataHolder
+                ? (ComputeJobDataHolder) r
+                : SharedComputeUtils.marshalArgOrResult(r, null)), jobId);
     }
 
     private class FakeJobExecution<R> implements JobExecution<R>, MarshallerProvider<R> {

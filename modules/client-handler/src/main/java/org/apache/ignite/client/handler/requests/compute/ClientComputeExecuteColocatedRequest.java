@@ -30,6 +30,7 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.IgniteTables;
@@ -59,11 +60,11 @@ public class ClientComputeExecuteColocatedRequest {
             List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
             String jobClassName = in.unpackString();
             JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-            Object args = unpackJobArgumentWithoutMarshaller(in);
+            ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(in);
 
             out.packInt(table.schemaView().lastKnownSchemaVersion());
 
-            CompletableFuture<JobExecution<Object>> jobExecutionFut = compute.submitColocatedInternal(
+            CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
                     table,
                     keyTuple,
                     deploymentUnits,
@@ -72,7 +73,7 @@ public class ClientComputeExecuteColocatedRequest {
                     null,
                     args);
 
-            var jobExecution = compute.wrapJobExecutionFuture(jobExecutionFut);
+            JobExecution<ComputeJobDataHolder> jobExecution = compute.wrapJobExecutionFuture(jobExecutionFut);
 
             sendResultAndState(jobExecution, notificationSender);
 

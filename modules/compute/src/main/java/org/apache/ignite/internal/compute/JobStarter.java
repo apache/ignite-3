@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute;
 import java.util.List;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute job starter interface.
@@ -32,13 +33,12 @@ public interface JobStarter {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param args Arguments of the job.
-     * @param <R> Job result type.
      * @return CompletableFuture Job result.
      */
-    <R> JobExecution<R> start(
+    JobExecution<ComputeJobDataHolder> start(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            Object args
+            @Nullable ComputeJobDataHolder args
     );
 }
