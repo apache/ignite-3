@@ -311,7 +311,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         private static CountDownLatch[] latches;
 
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Integer latchId) {
+        public @Nullable CompletableFuture<String> executeAsync(JobExecutionContext context, Integer latchId) {
             try {
                 latches[latchId].await();
             } catch (InterruptedException e) {
