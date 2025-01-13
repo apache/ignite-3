@@ -140,8 +140,7 @@ namespace Apache.Ignite.Tests.Compute
 
             var jobExec = broadcastExec.JobExecutions.Single();
 
-            Assert.AreSame(node, jobExec.Node);
-
+            Assert.AreEqual(node, jobExec.Node);
             Assert.AreEqual(PlatformTestNodeRunner + "123", await jobExec.GetResultAsync());
         }
 
