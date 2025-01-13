@@ -309,8 +309,7 @@ namespace Apache.Ignite.Internal.Compute
         private JobExecution<T> GetJobExecution<T>(
             PooledBuffer computeExecuteResult,
             bool readSchema,
-            IMarshaller<T>? marshaller,
-            IClusterNode node)
+            IMarshaller<T>? marshaller)
         {
             var reader = computeExecuteResult.GetReader();
 
@@ -321,6 +320,9 @@ namespace Apache.Ignite.Internal.Compute
 
             var jobId = reader.ReadGuid();
             var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
+
+            // TODO: Actual node id should come back from the server.
+            IClusterNode node = null!;
 
             return new JobExecution<T>(jobId, resultTask, this, node);
 
@@ -390,7 +392,7 @@ namespace Apache.Ignite.Internal.Compute
 
             using var res = buf;
 
-            return GetJobExecution(res, readSchema: false, jobDescriptor.ResultMarshaller, sock.ConnectionContext.ClusterNode);
+            return GetJobExecution(res, readSchema: false, jobDescriptor.ResultMarshaller);
 
             void Write()
             {
@@ -457,7 +459,7 @@ namespace Apache.Ignite.Internal.Compute
 
                     using var res = resBuf;
 
-                    return GetJobExecution(res, readSchema: true, descriptor.ResultMarshaller, sock.ConnectionContext.ClusterNode);
+                    return GetJobExecution(res, readSchema: true, descriptor.ResultMarshaller);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
