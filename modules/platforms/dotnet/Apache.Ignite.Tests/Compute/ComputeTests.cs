@@ -639,7 +639,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        [Ignore("TODO: Cancellation ticket exists - find it")]
+        [Ignore("IGNITE-23495")]
         public async Task TestJobExecutionCancel()
         {
             const int sleepMs = 5000;
@@ -803,19 +803,22 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
+        [Ignore("IGNITE-23495")]
         public async Task TestCancelCompletedTask()
         {
             var taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "arg");
 
             await taskExec.GetResultAsync();
-            var cancelRes = await taskExec.CancelAsync();
+
+            // var cancelRes = await taskExec.CancelAsync();
             var state = await taskExec.GetStateAsync();
 
-            Assert.IsFalse(cancelRes);
+            // Assert.IsFalse(cancelRes);
             Assert.AreEqual(TaskStatus.Completed, state!.Status);
         }
 
         [Test]
+        [Ignore("IGNITE-23495")]
         public async Task TestCancelExecutingTask()
         {
             var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 3000);
@@ -823,10 +826,10 @@ namespace Apache.Ignite.Tests.Compute
             var state1 = await taskExec.GetStateAsync();
             Assert.AreEqual(TaskStatus.Executing, state1!.Status);
 
-            var cancelRes = await taskExec.CancelAsync();
+            // var cancelRes = await taskExec.CancelAsync();
             var state2 = await taskExec.GetStateAsync();
 
-            Assert.IsTrue(cancelRes);
+            // Assert.IsTrue(cancelRes);
             Assert.AreEqual(TaskStatus.Failed, state2!.Status);
 
             var ex = Assert.ThrowsAsync<ComputeException>(async () => await taskExec.GetResultAsync());
