@@ -28,6 +28,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
@@ -44,7 +45,9 @@ import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfigura
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
@@ -81,7 +84,12 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
                 new CmgMessagesFactory().metaStorageInfo().metaStorageNodes(Set.of(mcNodeName)).build()
         ));
         configureCmgManagerToStartMetastorage(cmgManager);
+
+        TopologyService topologyService = mock(TopologyService.class);
+        when(topologyService.localMember()).thenReturn(new ClusterNodeImpl(UUID.randomUUID(), mcNodeName, null));
+
         when(clusterService.nodeName()).thenReturn(mcNodeName);
+        when(clusterService.topologyService()).thenReturn(topologyService);
         when(raftManager.startRaftGroupNodeAndWaitNodeReady(any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(raftGroupService);
         when(raftGroupService.run(any(GetCurrentRevisionsCommand.class), anyLong()))

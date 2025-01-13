@@ -97,6 +97,27 @@ class ItSqlReplCommandTest extends CliIntegrationTest {
         );
     }
 
+    @Test
+    void exceptionHandler() {
+        execute("SELECT 1/0;", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("SQL query execution error"),
+                () -> assertErrOutputContains("Division by zero"),
+                () -> assertErrOutputDoesNotContain("Unknown error")
+        );
+
+        execute("SELECT * FROM NOTEXISTEDTABLE;", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("SQL query execution error"),
+                () -> assertErrOutputContains("Object 'NOTEXISTEDTABLE' not found"),
+                () -> assertErrOutputDoesNotContain("Unknown error")
+        );
+    }
+
     @Bean
     @Replaces(ReplExecutorProvider.class)
     public ReplExecutorProvider replExecutorProvider() {

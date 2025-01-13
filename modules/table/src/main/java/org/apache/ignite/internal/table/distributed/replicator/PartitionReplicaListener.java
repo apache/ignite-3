@@ -636,7 +636,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             leaderWithTerm.leader(),
                             replicaGrpId,
                             replicaGrpId.partitionId(),
-                            catalogService.table(replicaGrpId.tableId(), catalogService.latestCatalogVersion()).name()
+                            replicaGrpId.tableId()
                     );
 
                     return raftClient.changePeersAndLearnersAsync(peersConfigurationFromMessage(request), leaderWithTerm.term());

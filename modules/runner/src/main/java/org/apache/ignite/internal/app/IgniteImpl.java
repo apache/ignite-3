@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -130,7 +131,7 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryManagerI
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProviderImpl;
-import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -467,6 +468,8 @@ public class IgniteImpl implements Ignite {
 
     private final IndexMetaStorage indexMetaStorage;
 
+    private final EventLog eventLog;
+
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
@@ -733,6 +736,9 @@ public class IgniteImpl implements Ignite {
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+
+        eventLog = new EventLogImpl(clusterConfigRegistry.getConfiguration(EventLogExtensionConfiguration.KEY).eventlog(),
+                () -> CollectionUtils.last(clusterInfo(clusterStateStorageMgr).idHistory()), name);
 
         metaStorageMgr.configure(clusterConfigRegistry.getConfiguration(MetaStorageExtensionConfiguration.KEY).metaStorage());
 
@@ -1097,7 +1103,8 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                killCommandHandler
+                killCommandHandler,
+                eventLog
         );
 
         systemViewManager.register(qryEngine);
@@ -1217,10 +1224,8 @@ public class IgniteImpl implements Ignite {
     private AuthenticationManager createAuthenticationManager() {
         SecurityConfiguration securityConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(SecurityExtensionConfiguration.KEY).security();
-        EventLogConfiguration eventLogConfiguration = clusterCfgMgr.configurationRegistry()
-                .getConfiguration(EventLogExtensionConfiguration.KEY).eventlog();
 
-        return new AuthenticationManagerImpl(securityConfiguration, new EventLogImpl(eventLogConfiguration));
+        return new AuthenticationManagerImpl(securityConfiguration, eventLog);
     }
 
     private RestComponent createRestComponent(String name) {
@@ -1510,7 +1515,7 @@ public class IgniteImpl implements Ignite {
 
         LOG.error(errMsg, e);
 
-        IgniteException igniteException = new IgniteException(errMsg, e);
+        IgniteException igniteException = new IgniteException(INTERNAL_ERR, errMsg, e);
 
         ExecutorService lifecycleExecutor = stopExecutor();
 

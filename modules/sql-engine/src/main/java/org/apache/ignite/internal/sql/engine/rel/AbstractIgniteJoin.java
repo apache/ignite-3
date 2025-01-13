@@ -38,13 +38,11 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelDistribution;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
@@ -63,14 +61,6 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
     protected AbstractIgniteJoin(RelOptCluster cluster, RelTraitSet traitSet, RelNode left, RelNode right,
             RexNode condition, Set<CorrelationId> variablesSet, JoinRelType joinType) {
         super(cluster, traitSet, List.of(), left, right, condition, variablesSet, joinType);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RelWriter explainTerms(RelWriter pw) {
-        return super.explainTerms(pw)
-                .itemIf("variablesSet", Commons.transform(variablesSet.asList(), CorrelationId::getId),
-                        pw.getDetailLevel() == SqlExplainLevel.ALL_ATTRIBUTES);
     }
 
     /** {@inheritDoc} */

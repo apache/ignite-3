@@ -24,11 +24,14 @@ import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
@@ -80,7 +83,17 @@ public class TestServer {
         this.testSslConfig = testSslConfig;
         this.authenticationManager = securityConfiguration == null
                 ? new DummyAuthenticationManager()
-                : new AuthenticationManagerImpl(securityConfiguration, ign -> {});
+                : new AuthenticationManagerImpl(securityConfiguration, new EventLog() {
+                    @Override
+                    public void log(Event event) {
+
+                    }
+
+                    @Override
+                    public void log(String type, Supplier<Event> eventProvider) {
+
+                    }
+                });
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.networkConfiguration = networkConfiguration;
 

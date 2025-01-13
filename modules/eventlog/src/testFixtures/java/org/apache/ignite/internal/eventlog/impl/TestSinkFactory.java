@@ -15,18 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.exporters.validator;
+package org.apache.ignite.internal.eventlog.impl;
 
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import org.apache.ignite.internal.eventlog.api.Sink;
+import org.apache.ignite.internal.eventlog.config.schema.SinkView;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
+class TestSinkFactory implements SinkFactory {
+    private final SinkFactory delegate;
+    private final InMemoryCollectionSink inMemoryCollectionSink;
 
-/**
- * Annotation to validate endpoint.
- */
-@Target(FIELD)
-@Retention(RUNTIME)
-public @interface EndpointValidator {
+    TestSinkFactory(SinkFactory delegate, InMemoryCollectionSink inMemoryCollectionSink) {
+        this.delegate = delegate;
+        this.inMemoryCollectionSink = inMemoryCollectionSink;
+    }
+
+    @Override
+    public Sink createSink(SinkView sinkView) {
+        if (sinkView instanceof InMemoryCollectionSinkView) {
+            return inMemoryCollectionSink;
+        }
+
+        return delegate.createSink(sinkView);
+    }
 }

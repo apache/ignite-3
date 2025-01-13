@@ -32,6 +32,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.network.ClusterService;
@@ -65,9 +66,9 @@ public class ClientComputeExecuteRequest {
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String jobClassName = in.unpackString();
         JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-        Object arg = unpackJobArgumentWithoutMarshaller(in);
+        ComputeJobDataHolder arg = unpackJobArgumentWithoutMarshaller(in);
 
-        JobExecution<Object> execution = compute.executeAsyncWithFailover(
+        JobExecution<ComputeJobDataHolder> execution = compute.executeAsyncWithFailover(
                 candidates, deploymentUnits, jobClassName, options, null, arg
         );
         sendResultAndState(execution, notificationSender);
@@ -102,8 +103,8 @@ public class ClientComputeExecuteRequest {
         return nodes;
     }
 
-    static CompletableFuture<Object> sendResultAndState(
-            JobExecution<Object> execution,
+    static CompletableFuture<ComputeJobDataHolder> sendResultAndState(
+            JobExecution<ComputeJobDataHolder> execution,
             NotificationSender notificationSender
     ) {
         return execution.resultAsync().whenComplete((val, err) ->
@@ -115,7 +116,7 @@ public class ClientComputeExecuteRequest {
                         }, err)));
     }
 
-    private static <T> @Nullable Marshaller<T, byte[]> extractMarshaller(JobExecution<T> e) {
+    private static <T> @Nullable Marshaller<T, byte[]> extractMarshaller(JobExecution<ComputeJobDataHolder> e) {
         if (e instanceof MarshallerProvider) {
             return ((MarshallerProvider<T>) e).resultMarshaller();
         }

@@ -63,6 +63,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
@@ -624,6 +625,24 @@ public class RebalanceUtil {
      * Returns partition assignments from meta storage locally.
      *
      * @param metaStorageManager Meta storage manager.
+     * @param tablePartitionId Table partition id.
+     * @param revision Revision.
+     * @return Returns partition assignments from meta storage locally or {@code null} if assignments is absent.
+     */
+    public static @Nullable Assignments stableAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            TablePartitionId tablePartitionId,
+            long revision
+    ) {
+        Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(tablePartitionId), revision);
+
+        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value());
+    }
+
+    /**
+     * Returns partition assignments from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
      * @param tableId Table id.
      * @param partitionNumber Partition number.
      * @param revision Revision.
@@ -636,9 +655,9 @@ public class RebalanceUtil {
             int partitionNumber,
             long revision
     ) {
-        Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)), revision);
+        Assignments assignments = stableAssignmentsGetLocally(metaStorageManager, new TablePartitionId(tableId, partitionNumber), revision);
 
-        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value()).nodes();
+        return assignments == null ? null : assignments.nodes();
     }
 
     /**
@@ -686,11 +705,11 @@ public class RebalanceUtil {
     ) {
         return IntStream.range(0, numberOfPartitions)
                 .mapToObj(p -> {
-                    Entry e = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, p)), revision);
+                    Assignments assignments = stableAssignmentsGetLocally(metaStorageManager, new TablePartitionId(tableId, p), revision);
 
-                    assert e != null && !e.empty() && !e.tombstone() : e;
+                    assert assignments != null;
 
-                    return Assignments.fromBytes(e.value());
+                    return assignments;
                 })
                 .collect(toList());
     }
@@ -717,5 +736,43 @@ public class RebalanceUtil {
                     return e != null ? Assignments.fromBytes(e.value()) : null;
                 })
                 .collect(toList());
+    }
+
+    /**
+     * Returns assignments chains for all table partitions from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param tableId Table id.
+     * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
+     * @return Future with table assignments as a value.
+     */
+    public static List<AssignmentsChain> tableAssignmentsChainGetLocally(
+            MetaStorageManager metaStorageManager,
+            int tableId,
+            int numberOfPartitions,
+            long revision
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(p -> assignmentsChainGetLocally(metaStorageManager, new TablePartitionId(tableId, p), revision))
+                .collect(toList());
+    }
+
+    /**
+     * Returns assignments chain from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param tablePartitionId Table partition id.
+     * @param revision Revision.
+     * @return Returns assignments chain from meta storage locally or {@code null} if assignments is absent.
+     */
+    public static @Nullable AssignmentsChain assignmentsChainGetLocally(
+            MetaStorageManager metaStorageManager,
+            TablePartitionId tablePartitionId,
+            long revision
+    ) {
+        Entry e = metaStorageManager.getLocally(assignmentsChainKey(tablePartitionId), revision);
+
+        return e != null ? AssignmentsChain.fromBytes(e.value()) : null;
     }
 }

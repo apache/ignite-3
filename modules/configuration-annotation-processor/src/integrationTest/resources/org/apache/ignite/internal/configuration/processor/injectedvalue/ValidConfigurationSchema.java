@@ -15,24 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.impl;
+package org.apache.ignite.internal.configuration.processor.injectedvalue;
 
-import org.apache.ignite.internal.eventlog.api.Sink;
-import org.apache.ignite.internal.eventlog.config.schema.SinkView;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.InjectedValue;
 
-class TestSinkFactory implements SinkFactory {
-    private final InMemoryCollectionSink inMemoryCollectionSink;
+@Config
+public class ValidConfigurationSchema {
+    @InjectedName
+    public String name;
 
-    TestSinkFactory(InMemoryCollectionSink inMemoryCollectionSink) {
-        this.inMemoryCollectionSink = inMemoryCollectionSink;
-    }
-
-    @Override
-    public Sink createSink(SinkView sinkView) {
-        if (sinkView.type().equals("inMemory")) {
-            return inMemoryCollectionSink;
-        }
-
-        return SinkFactory.super.createSink(sinkView);
-    }
+    @InjectedValue
+    public String someValue;
 }

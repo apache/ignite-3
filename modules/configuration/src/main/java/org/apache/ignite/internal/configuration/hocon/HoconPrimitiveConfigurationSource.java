@@ -58,7 +58,6 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
         this.hoconCfgValue = hoconCfgValue;
     }
 
-    /** {@inheritDoc} */
     @Override
     public <T> T unwrap(Class<T> clazz) {
         if (clazz.isArray()) {
@@ -68,12 +67,17 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
         return unwrapPrimitive(hoconCfgValue, clazz, path, -1);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void descend(ConstructableTreeNode node) {
-        throw new IllegalArgumentException(
-                format("'%s' is expected to be a composite configuration node, not a single value", join(path))
-        );
+        String fieldName = node.injectedValueFieldName();
+
+        if (fieldName == null) {
+            throw new IllegalArgumentException(
+                    format("'%s' is expected to be a composite configuration node, not a single value", join(path))
+            );
+        }
+
+        node.construct(fieldName, this, false);
     }
 
     /**

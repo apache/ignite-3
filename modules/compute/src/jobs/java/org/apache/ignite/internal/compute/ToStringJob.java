@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.impl;
+package org.apache.ignite.internal.compute;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.api.Sink;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
-class InMemoryCollectionSink implements Sink {
-    private final CopyOnWriteArrayList<Event> events = new CopyOnWriteArrayList<>();
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
 
+/** Compute job that returns the string representation of its argument. */
+public class ToStringJob implements ComputeJob<Object, String> {
     @Override
-    public void write(Event event) {
-        events.add(event);
-    }
-
-    List<Event> events() {
-        return new ArrayList<>(events);
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object input) {
+        return completedFuture(input == null ? null : input.toString());
     }
 }
+
