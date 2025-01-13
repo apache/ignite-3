@@ -377,7 +377,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
             SqlProperties properties = toPropertiesBuilder(statement)
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                    .set(QueryProperty.DEFAULT_SCHEMA, schemaNameInCanonicalForm)
+                    .set(QueryProperty.DEFAULT_SCHEMA, schemaName)
                     .build();
 
             result = queryProcessor.queryAsync(
