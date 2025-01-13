@@ -82,7 +82,7 @@ class ComputeJobFailover {
     /**
      * Context of the called job. Captures deployment units, jobClassName and arguments.
      */
-    private final RemoteExecutionContext<ComputeJobDataHolder, ComputeJobDataHolder> jobContext;
+    private final RemoteExecutionContext jobContext;
 
     /** Cancellation token. */
     @Nullable private final CancellationToken cancellationToken;
@@ -100,7 +100,7 @@ class ComputeJobFailover {
      * @param jobClassName the name of the job class.
      * @param executionOptions execution options like priority or max retries.
      * @param cancellationToken Cancellation token or {@code null}.
-     * @param args the arguments of the job.
+     * @param arg the arguments of the job.
      */
     ComputeJobFailover(
             ComputeComponent computeComponent,
@@ -120,7 +120,7 @@ class ComputeJobFailover {
         this.logicalTopologyService = logicalTopologyService;
         this.topologyService = topologyService;
         this.nextWorkerSelector = nextWorkerSelector;
-        this.jobContext = new RemoteExecutionContext<>(units, jobClassName, executionOptions, args);
+        this.jobContext = new RemoteExecutionContext(units, jobClassName, executionOptions, arg);
         this.executor = executor;
         this.cancellationToken = cancellationToken;
     }
