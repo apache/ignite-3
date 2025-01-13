@@ -125,7 +125,7 @@ class ClientComputeJobPackerUnpackerTest {
     @ParameterizedTest
     void packUnpackNoMarshalling(Object arg) {
         // When pack job result without marshaller.
-        packJobResult(arg, messagePacker);
+        packJobResult(arg, null, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result without marshaller.
@@ -162,7 +162,7 @@ class ClientComputeJobPackerUnpackerTest {
     @ParameterizedTest
     void packUnpackPojo(Object arg) {
         // When pack job result without marshaller.
-        packJobResult(arg, messagePacker);
+        packJobResult(arg, null, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result without marshaller.
@@ -181,7 +181,7 @@ class ClientComputeJobPackerUnpackerTest {
         var str = "Hi, marshal me!";
 
         // When pack job result with marshaller.
-        packJobArgument(str, marshaller, messagePacker);
+        packJobResult(str, marshaller, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result with marshaller.
@@ -200,7 +200,7 @@ class ClientComputeJobPackerUnpackerTest {
         var str = "Hi, marshal me!";
 
         // When pack job result with marshaller.
-        packJobArgument(str, marshaller, messagePacker);
+        packJobResult(str, marshaller, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result without marshaller.
@@ -221,7 +221,7 @@ class ClientComputeJobPackerUnpackerTest {
         var bytes = str.getBytes();
 
         // When pack job result without marshaller.
-        packJobResult(bytes, messagePacker);
+        packJobResult(bytes, null, messagePacker);
         byte[] data = ByteBufUtil.getBytes(messagePacker.getBuffer());
 
         // And unpack job result with marshaller.
@@ -239,7 +239,7 @@ class ClientComputeJobPackerUnpackerTest {
     void packInvalidPojoStatic() {
         assertThrows(
                 MarshallingException.class,
-                () -> packJobResult(new StaticFieldPojo(), messagePacker),
+                () -> packJobResult(new StaticFieldPojo(), null, messagePacker),
                 "Can't pack object"
         );
     }
@@ -248,7 +248,7 @@ class ClientComputeJobPackerUnpackerTest {
     void packInvalidPojoEmpty() {
         assertThrows(
                 MarshallingException.class,
-                () -> packJobResult(new Object(), messagePacker),
+                () -> packJobResult(new Object(), null, messagePacker),
                 "Can't pack object"
         );
     }

@@ -264,7 +264,7 @@ public class FakeCompute implements IgniteComputeInternal {
                 : SharedComputeUtils.marshalArgOrResult(r, null)), jobId);
     }
 
-    private class FakeJobExecution<R> implements JobExecution<R> {
+    private class FakeJobExecution<R> implements JobExecution<R>, MarshallerProvider<R> {
         private final CompletableFuture<R> result;
         private final UUID jobId;
 
