@@ -35,7 +35,7 @@ public class FailedExecution<R> implements JobExecution<R> {
 
     private final Throwable error;
 
-    FailedExecution(Throwable error) {
+    public FailedExecution(Throwable error) {
         this.error = error;
     }
 

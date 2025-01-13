@@ -62,6 +62,7 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
+import org.apache.ignite.internal.compute.FailedExecution;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ViewUtils;
@@ -142,23 +143,38 @@ public class ClientCompute implements IgniteCompute {
                     .map(node -> executeOnAnyNodeAsync(Set.of(node), descriptor, arg))
                     .toArray(CompletableFuture[]::new);
 
-            return allOf(futures).thenApply(unused -> new ClientBroadcastExecution<>(Arrays.stream(futures)
-                    .map(fut -> {
-                        ClientJobExecution<R> execution = new ClientJobExecution<>(
-                                ch,
-                                fut.join(),
-                                descriptor.resultMarshaller(),
-                                descriptor.resultClass()
-                        );
-                        if (cancellationToken != null) {
-                            CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
-                        }
-                        return execution;
-                    })
-                    .collect(Collectors.toList())));
+            // Wait for all the futures but don't fail resulting future, keep individual futures in executions.
+            return allOf(futures).handle((unused, throwable) -> new ClientBroadcastExecution<>(
+                    Arrays.stream(futures)
+                            .map(fut -> mapSubmitResult(descriptor, cancellationToken, fut))
+                            .collect(Collectors.toList())
+            ));
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
+    }
+
+    private <T, R> JobExecution<R> mapSubmitResult(
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            CompletableFuture<SubmitResult> submitResultFut
+    ) {
+        SubmitResult submitResult;
+        try {
+            submitResult = submitResultFut.join();
+        } catch (Exception e) {
+            return new FailedExecution<>(ExceptionUtils.unwrapCause(e));
+        }
+        ClientJobExecution<R> execution = new ClientJobExecution<>(
+                ch,
+                submitResult,
+                descriptor.resultMarshaller(),
+                descriptor.resultClass()
+        );
+        if (cancellationToken != null) {
+            CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+        }
+        return execution;
     }
 
     private <T, R> CompletableFuture<SubmitResult> submit0(JobTarget target, JobDescriptor<T, R> descriptor, T arg) {
