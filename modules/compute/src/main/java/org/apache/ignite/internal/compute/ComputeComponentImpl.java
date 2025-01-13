@@ -324,7 +324,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     }
 
 
-    private <T, R> JobExecutionInternal<ComputeJobDataHolder> execJob(
+    private JobExecutionInternal<ComputeJobDataHolder> execJob(
             JobContext context,
             ExecutionOptions options,
             String jobClassName,
