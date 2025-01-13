@@ -59,6 +59,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
@@ -272,7 +274,8 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         Set<String> remoteWorkerCandidates = workerCandidates(node(1), node(2));
 
         // When execute job.
-        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
+        CancelHandle cancelHandle = CancelHandle.create();
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates, cancelHandle.token());
 
         // Then one of candidates became a worker and run the job.
         String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
@@ -293,7 +296,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         assertThat(remoteWorkerCandidates, hasItem(failoverWorker));
 
         // When cancel job.
-        execution.cancelSync();
+        cancelHandle.cancel();
 
         // Then it is cancelled.
         execution.assertCancelled();
@@ -382,9 +385,14 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     }
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(Ignite entryNode, Set<String> nodes) {
+        return executeGlobalInteractiveJob(entryNode, nodes, null);
+    }
+
+    private TestingJobExecution<String> executeGlobalInteractiveJob(Ignite entryNode, Set<String> nodes, CancellationToken token) {
         return new TestingJobExecution<>(compute(entryNode).submitAsync(
                 JobTarget.anyNode(clusterNodesByNames(nodes)),
                 JobDescriptor.builder(InteractiveJobs.globalJob().jobClass()).build(),
+                token,
                 null
         ));
     }

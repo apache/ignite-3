@@ -151,7 +151,7 @@ public enum ClientOperationType {
     COMPUTE_GET_STATE,
 
     /**
-     * Cancel compute job ({@link org.apache.ignite.compute.JobExecution#cancelAsync()}).
+     * Cancel compute job.
      */
     COMPUTE_CANCEL,
 

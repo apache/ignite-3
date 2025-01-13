@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
@@ -396,28 +397,25 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submitMapReduce(taskDescriptor, cancellationToken, arg).resultAsync();
-    }
-
-    @Override
-    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return submitMapReduce(taskDescriptor, null, arg);
-    }
-
-    <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T arg) {
+    public <T, R> TaskExecution<R> submitMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
         Objects.requireNonNull(taskDescriptor);
 
-        TaskExecutionWrapper<R> execution = new TaskExecutionWrapper<>(
-                computeComponent.executeTask(this::submitJob, taskDescriptor.units(), taskDescriptor.taskClassName(), arg));
+        CancellableTaskExecution<R> taskExecution = computeComponent.executeTask(
+                this::submitJobs,
+                taskDescriptor.units(),
+                taskDescriptor.taskClassName(),
+                arg
+        );
 
         if (cancellationToken != null) {
-            CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+            CancelHandleHelper.addCancelAction(cancellationToken, taskExecution::cancelAsync, taskExecution.resultAsync());
         }
 
-        return execution;
+        return new TaskExecutionWrapper<>(taskExecution);
     }
 
     @Override
@@ -425,8 +423,20 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
     }
 
-    private <M, T> CompletableFuture<JobExecution<T>> submitJob(MapReduceJob<M, T> runner) {
-        return submitAsync(JobTarget.anyNode(runner.nodes()), runner.jobDescriptor(), runner.arg());
+    private <M, T> CompletableFuture<List<JobExecution<T>>> submitJobs(
+            List<MapReduceJob<M, T>> runners,
+            CancellationToken cancellationToken
+    ) {
+        return allOfToList(
+                runners.stream()
+                        .map(runner -> submitAsync(
+                                JobTarget.anyNode(runner.nodes()),
+                                runner.jobDescriptor(),
+                                cancellationToken,
+                                runner.arg()
+                        ))
+                        .toArray(CompletableFuture[]::new)
+        );
     }
 
     @Override

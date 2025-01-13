@@ -229,8 +229,17 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
+        return submit(target, descriptor, null, arg);
+    }
+
+    protected <T, R> JobExecution<R> submit(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
         //noinspection resource (closed in afterAll)
-        CompletableFuture<JobExecution<R>> executionFut = client().compute().submitAsync(target, descriptor, arg);
+        CompletableFuture<JobExecution<R>> executionFut = client().compute().submitAsync(target, descriptor, cancellationToken, arg);
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
     }

@@ -15,24 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.task;
+package org.apache.ignite.internal.compute;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.task.MapReduceJob;
-import org.apache.ignite.lang.CancellationToken;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Compute job submitter.
+ * {@link JobExecution} that can be cancelled.
+ *
+ * @param <R> Result type.
  */
-@FunctionalInterface
-public interface JobSubmitter<T, R> {
+public interface CancellableJobExecution<R> extends JobExecution<R> {
     /**
-     * Submits compute jobs for an execution.
+     * Cancels the job.
      *
-     * @param computeJobRunners List of the compute job start parameters.
-     * @param cancellationToken Cancellation token.
+     * @return The future which will be completed with {@code true} when the job is cancelled, {@code false} when the job couldn't be
+     *         cancelled (if it's already completed or in the process of cancelling), or {@code null} if the job no longer exists due to
+     *         exceeding the retention time limit.
      */
-    CompletableFuture<List<JobExecution<R>>> submit(List<MapReduceJob<T, R>> computeJobRunners, CancellationToken cancellationToken);
+    CompletableFuture<@Nullable Boolean> cancelAsync();
 }

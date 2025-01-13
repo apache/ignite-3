@@ -92,7 +92,6 @@ class ClientJobExecution<R> implements JobExecution<R> {
         return getJobState(ch, jobId);
     }
 
-    @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
         if (stateFuture.isDone()) {
             return falseCompletedFuture();

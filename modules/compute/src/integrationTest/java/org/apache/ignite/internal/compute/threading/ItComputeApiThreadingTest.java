@@ -277,7 +277,6 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
         RESULT_ASYNC(execution -> execution.resultAsync()),
         STATE_ASYNC(execution -> execution.stateAsync()),
         ID_ASYNC(execution -> execution.idAsync()),
-        CANCEL_ASYNC(execution -> execution.cancelAsync()),
         CHANGE_PRIORITY_ASYNC(execution -> execution.changePriorityAsync(1));
 
         private final Function<JobExecution<Object>, CompletableFuture<?>> action;
@@ -313,7 +312,6 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
         RESULT_ASYNC(execution -> execution.resultAsync()),
         STATE_ASYNC(execution -> execution.stateAsync()),
         ID_ASYNC(execution -> execution.idAsync()),
-        CANCEL_ASYNC(execution -> execution.cancelAsync()),
         CHANGE_PRIORITY_ASYNC(execution -> execution.changePriorityAsync(1));
 
         private final Function<TaskExecution<Object>, CompletableFuture<?>> action;

@@ -255,18 +255,11 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submitMapReduce(taskDescriptor, cancellationToken, arg).resultAsync();
-    }
-
-    @Override
-    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return submitMapReduce(taskDescriptor, null, arg);
-    }
-
-    private <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T arg) {
+    public <T, R> TaskExecution<R> submitMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
         Objects.requireNonNull(taskDescriptor);
 
         ClientTaskExecution<R> clientExecution = new ClientTaskExecution<>(ch,

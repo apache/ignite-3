@@ -19,8 +19,8 @@ package org.apache.ignite.internal.compute.messaging;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.internal.compute.CancellableJobExecution;
 import org.apache.ignite.internal.future.InFlightFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Job result type.
  */
-public class RemoteJobExecution<R> implements JobExecution<R> {
+public class RemoteJobExecution<R> implements CancellableJobExecution<R> {
     private final ClusterNode remoteNode;
 
     private final CompletableFuture<UUID> jobIdFuture;

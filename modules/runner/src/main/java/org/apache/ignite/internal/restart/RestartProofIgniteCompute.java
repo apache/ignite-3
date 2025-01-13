@@ -99,19 +99,17 @@ class RestartProofIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return attachmentLock.attached(ignite -> ignite.compute().submitMapReduce(taskDescriptor, arg));
+    public <T, R> TaskExecution<R> submitMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return attachmentLock.attached(ignite -> ignite.compute().submitMapReduce(taskDescriptor, cancellationToken, arg));
     }
 
     @Override
     public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
         return attachmentLock.attached(ignite -> ignite.compute().executeMapReduce(taskDescriptor, cancellationToken, arg));
-    }
-
-    @Override
-    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return attachmentLock.attachedAsync(ignite -> ignite.compute().executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
     }
 
     @Override

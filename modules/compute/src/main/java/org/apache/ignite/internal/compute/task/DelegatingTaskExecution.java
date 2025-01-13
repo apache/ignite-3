@@ -22,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.task.TaskExecution;
+import org.apache.ignite.internal.compute.CancellableTaskExecution;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
@@ -31,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-public class DelegatingTaskExecution<I, M, T, R> implements TaskExecution<R>, MarshallerProvider<R> {
+public class DelegatingTaskExecution<I, M, T, R> implements CancellableTaskExecution<R>, MarshallerProvider<R> {
     private final CompletableFuture<TaskExecutionInternal<I, M, T, R>> delegate;
 
     public DelegatingTaskExecution(CompletableFuture<TaskExecutionInternal<I, M, T, R>> delegate) {

@@ -98,7 +98,6 @@ class ClientTaskExecution<R> implements TaskExecution<R> {
         return jobIdFuture.thenCompose(jobId -> getTaskState(ch, jobId));
     }
 
-    @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
         if (stateFuture.isDone()) {
             return falseCompletedFuture();

@@ -54,15 +54,6 @@ public interface JobExecution<R> {
     }
 
     /**
-     * Cancels the job.
-     *
-     * @return The future which will be completed with {@code true} when the job is cancelled, {@code false} when the job couldn't be
-     *         cancelled (if it's already completed or in the process of cancelling), or {@code null} if the job no longer exists due to
-     *         exceeding the retention time limit.
-     */
-    CompletableFuture<@Nullable Boolean> cancelAsync();
-
-    /**
      * Changes job priority. After priority change job will be the last in the queue of jobs with the same priority.
      *
      * @param newPriority new priority.

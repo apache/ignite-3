@@ -50,11 +50,6 @@ public class JobExecutionWrapper<R> implements JobExecution<R>, MarshallerProvid
     }
 
     @Override
-    public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return convertToPublicFuture(delegate.cancelAsync());
-    }
-
-    @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return convertToPublicFuture(delegate.changePriorityAsync(newPriority));
     }

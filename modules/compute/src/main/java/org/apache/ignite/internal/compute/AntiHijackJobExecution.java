@@ -51,11 +51,6 @@ public class AntiHijackJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return preventThreadHijack(execution.cancelAsync());
-    }
-
-    @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return preventThreadHijack(execution.changePriorityAsync(newPriority));
     }

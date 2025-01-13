@@ -37,7 +37,10 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
 import org.apache.ignite.internal.wrapper.Wrappers;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -116,21 +119,23 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     @Test
     void localCancelled() throws Exception {
         // Start first task
-        TestingJobExecution<Object> runningExecution = submit(localNodes);
+        CancelHandle runningCancelHandle = CancelHandle.create();
+        TestingJobExecution<Object> runningExecution = submit(localNodes, runningCancelHandle.token());
         UUID runningJobId = runningExecution.idSync();
 
         // Start second task
-        TestingJobExecution<Object> queuedExecution = submit(localNodes);
+        CancelHandle queuedCancelHandle = CancelHandle.create();
+        TestingJobExecution<Object> queuedExecution = submit(localNodes, queuedCancelHandle.token());
         UUID queuedJobId = queuedExecution.idSync();
 
         // Second task is queued, cancel it
         queuedExecution.assertQueued();
-        queuedExecution.cancelAsync();
+        queuedCancelHandle.cancel();
         queuedExecution.assertCancelled();
 
         // First task is executing, cancel it
         runningExecution.assertExecuting();
-        runningExecution.cancelAsync();
+        runningCancelHandle.cancel();
         runningExecution.assertCancelled();
 
         // All executions are retained
@@ -173,21 +178,23 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     @Test
     void remoteCancelled() throws Exception {
         // Start first task
-        TestingJobExecution<Object> runningExecution = submit(remoteNodes);
+        CancelHandle runningCancelHandle = CancelHandle.create();
+        TestingJobExecution<Object> runningExecution = submit(remoteNodes, runningCancelHandle.token());
         UUID runningJobId = runningExecution.idSync();
 
         // Start second task
-        TestingJobExecution<Object> queuedExecution = submit(remoteNodes);
+        CancelHandle queuedCancelHandle = CancelHandle.create();
+        TestingJobExecution<Object> queuedExecution = submit(remoteNodes, queuedCancelHandle.token());
         UUID queuedJobId = queuedExecution.idSync();
 
         // Second task is queued, cancel it
         queuedExecution.assertQueued();
-        queuedExecution.cancelAsync();
+        queuedCancelHandle.cancel();
         queuedExecution.assertCancelled();
 
         // First task is executing, cancel it
         runningExecution.assertExecuting();
-        runningExecution.cancelAsync();
+        runningCancelHandle.cancel();
         runningExecution.assertCancelled();
 
         // All executions are retained
@@ -249,8 +256,12 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static TestingJobExecution<Object> submit(Set<ClusterNode> nodes) {
+        return submit(nodes, null);
+    }
+
+    private static TestingJobExecution<Object> submit(Set<ClusterNode> nodes, @Nullable CancellationToken cancellationToken) {
         return new TestingJobExecution<>(CLUSTER.node(0).compute().submitAsync(
-                JobTarget.anyNode(nodes), JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), null
+                JobTarget.anyNode(nodes), JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(), cancellationToken, null
         ));
     }
 }

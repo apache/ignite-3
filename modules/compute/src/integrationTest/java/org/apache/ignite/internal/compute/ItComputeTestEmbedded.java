@@ -55,6 +55,7 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -90,7 +91,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start one more task
-        JobExecution<Void> execution2 = submit(jobTarget, job, 1);
+        CancelHandle cancelHandle = CancelHandle.create();
+        JobExecution<Void> execution2 = submit(jobTarget, job, cancelHandle.token(), 1);
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Start third task
@@ -115,7 +117,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         assertThat(execution2.resultAsync().isDone(), is(false));
 
         // Finish task 2
-        assertThat(execution2.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
     }
 
     @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
@@ -134,7 +136,8 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start one more task
-        JobExecution<Void> execution2 = submit(jobTarget, job, 1);
+        CancelHandle cancelHandle = CancelHandle.create();
+        JobExecution<Void> execution2 = submit(jobTarget, job, cancelHandle.token(), 1);
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Start third task it should be before task2 in the queue due to higher priority in options
@@ -172,7 +175,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         assertThat(execution2.resultAsync().isDone(), is(false));
 
         // Cancel task2
-        assertThat(execution2.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
     }
 
     @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")

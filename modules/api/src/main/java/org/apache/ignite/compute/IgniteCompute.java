@@ -267,7 +267,25 @@ public interface IgniteCompute {
      * @param arg Task argument.
      * @return Task execution interface.
      */
-    <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg);
+    default <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+        return submitMapReduce(taskDescriptor, null, arg);
+    }
+
+    /**
+     * Submits a {@link MapReduceTask} of the given class for an execution.
+     *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param taskDescriptor Map reduce task descriptor.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param arg Task argument.
+     * @return Task execution interface.
+     */
+    <T, R> TaskExecution<R> submitMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    );
 
     /**
      * Submits a {@link MapReduceTask} of the given class for an execution. A shortcut for {@code submitMapReduce(...).resultAsync()}.
@@ -292,11 +310,13 @@ public interface IgniteCompute {
      * @param arg Task argument.
      * @return Task result future.
      */
-    <T, R> CompletableFuture<R> executeMapReduceAsync(
+    default <T, R> CompletableFuture<R> executeMapReduceAsync(
             TaskDescriptor<T, R> taskDescriptor,
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
-    );
+    ) {
+        return submitMapReduce(taskDescriptor, cancellationToken, arg).resultAsync();
+    }
 
     /**
      * Executes a {@link MapReduceTask} of the given class.

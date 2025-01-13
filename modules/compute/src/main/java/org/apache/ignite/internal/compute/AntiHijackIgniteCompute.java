@@ -84,22 +84,14 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
         return compute.execute(target, descriptor, cancellationToken, arg);
     }
 
-    private <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken,
+    @Override
+    public <T, R> TaskExecution<R> submitMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable CancellationToken cancellationToken,
             @Nullable T arg) {
         IgniteComputeImpl compute0 = unwrap(IgniteComputeImpl.class);
 
         return new AntiHijackTaskExecution<>(compute0.submitMapReduce(taskDescriptor, cancellationToken, arg), asyncContinuationExecutor);
-    }
-
-    @Override
-    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return new AntiHijackTaskExecution<>(compute.submitMapReduce(taskDescriptor, arg), asyncContinuationExecutor);
-    }
-
-    @Override
-    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submitMapReduce(taskDescriptor, cancellationToken, arg).resultAsync();
     }
 
     @Override

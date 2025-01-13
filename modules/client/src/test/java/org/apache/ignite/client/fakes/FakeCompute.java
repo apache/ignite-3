@@ -187,13 +187,8 @@ public class FakeCompute implements IgniteComputeInternal {
                 }
 
                 @Override
-                public CompletableFuture<@Nullable Boolean> cancelAsync() {
-                    return internalExecution.cancelAsync();
-                }
-
-                @Override
                 public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-                    return internalExecution.cancelAsync();
+                    return internalExecution.changePriorityAsync(newPriority);
                 }
 
                 @Override
@@ -235,14 +230,12 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
+    public <T, R> TaskExecution<R> submitMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
         return taskExecution(future != null ? future : completedFuture((R) nodeName));
-    }
-
-    @Override
-    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submitMapReduce(taskDescriptor, arg).resultAsync();
     }
 
     @Override
@@ -293,11 +286,6 @@ public class FakeCompute implements IgniteComputeInternal {
         @Override
         public CompletableFuture<@Nullable JobState> stateAsync() {
             return completedFuture(jobStates.get(jobId));
-        }
-
-        @Override
-        public CompletableFuture<@Nullable Boolean> cancelAsync() {
-            return trueCompletedFuture();
         }
 
         @Override
@@ -379,11 +367,6 @@ public class FakeCompute implements IgniteComputeInternal {
         @Override
         public CompletableFuture<List<@Nullable JobState>> statesAsync() {
             return completedFuture(List.of(jobStates.get(subJobId1), jobStates.get(subJobId2)));
-        }
-
-        @Override
-        public CompletableFuture<@Nullable Boolean> cancelAsync() {
-            return trueCompletedFuture();
         }
 
         @Override

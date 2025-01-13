@@ -76,6 +76,7 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
@@ -115,7 +116,16 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        CompletableFuture<JobExecution<R>> executionFut = compute().submitAsync(target, descriptor, arg);
+        return submit(target, descriptor, null, arg);
+    }
+
+    protected <T, R> JobExecution<R> submit(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        CompletableFuture<JobExecution<R>> executionFut = compute().submitAsync(target, descriptor, cancellationToken, arg);
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
     }
@@ -213,7 +223,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         assertThat(execution.resultAsync(), willBe("42"));
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-        assertThat(execution.cancelAsync(), willBe(false));
     }
 
     @Test
@@ -236,7 +245,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         assertThat(execution.resultAsync(), willBe("42"));
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-        assertThat(execution.cancelAsync(), willBe(false));
     }
 
     @Test
@@ -287,7 +295,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertComputeException(ex, "JobException", "Oops");
 
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
-        assertThat(execution.cancelAsync(), willBe(false));
     }
 
     @Test
@@ -325,7 +332,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertComputeException(ex, "JobException", "Oops");
 
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
-        assertThat(execution.cancelAsync(), willBe(false));
     }
 
     @Test
@@ -381,7 +387,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
             assertComputeException(ex, "JobException", "Oops");
 
             assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
-            assertThat(execution.cancelAsync(), willBe(false));
         }
 
         ExecutionException ex = assertThrows(ExecutionException.class, () -> broadcastExecution.resultsAsync().get(1, TimeUnit.SECONDS));
@@ -411,7 +416,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         assertThat(execution.resultAsync(), willBe(in(allNodeNames())));
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-        assertThat(execution.cancelAsync(), willBe(false));
     }
 
     @Test
@@ -560,7 +564,6 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         assertThat(execution.resultAsync(), willBe(in(allNodeNames())));
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-        assertThat(execution.cancelAsync(), willBe(false));
     }
 
     @Test
@@ -606,13 +609,15 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void cancelsJob(boolean local) {
         Ignite executeNode = local ? node(0) : node(1);
 
+        CancelHandle cancelHandle = CancelHandle.create();
+
         // This job catches the interruption and throws a RuntimeException
         JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units()).build();
-        JobExecution<Void> execution = submit(JobTarget.node(clusterNode(executeNode)), job, Long.MAX_VALUE);
+        JobExecution<Void> execution = submit(JobTarget.node(clusterNode(executeNode)), job, cancelHandle.token(), Long.MAX_VALUE);
 
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
-        assertThat(execution.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
         CompletionException completionException = assertThrows(CompletionException.class, () -> execution.resultAsync().join());
 
@@ -635,13 +640,15 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void cancelsNotCancellableJob(boolean local) {
         Ignite executeNode = local ? node(0) : node(1);
 
+        CancelHandle cancelHandle = CancelHandle.create();
+
         // This job catches the interruption and returns normally
         JobDescriptor<Long, Void> job = JobDescriptor.builder(SilentSleepJob.class).units(units()).build();
-        JobExecution<Void> execution = submit(JobTarget.node(clusterNode(executeNode)), job, Long.MAX_VALUE);
+        JobExecution<Void> execution = submit(JobTarget.node(clusterNode(executeNode)), job, cancelHandle.token(), Long.MAX_VALUE);
 
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
-        assertThat(execution.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
         CompletionException completionException = assertThrows(CompletionException.class, () -> execution.resultAsync().join());
 
@@ -666,23 +673,25 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units()).build();
 
+        CancelHandle cancelHandle1 = CancelHandle.create();
         // Start 1 task in executor with 1 thread
-        JobExecution<Void> execution1 = submit(nodes, job, Long.MAX_VALUE);
+        JobExecution<Void> execution1 = submit(nodes, job, cancelHandle1.token(), Long.MAX_VALUE);
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
+        CancelHandle cancelHandle2 = CancelHandle.create();
         // Start one more task
-        JobExecution<Void> execution2 = submit(nodes, job, Long.MAX_VALUE);
+        JobExecution<Void> execution2 = submit(nodes, job, cancelHandle2.token(), Long.MAX_VALUE);
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Task 2 is not complete, in queued state
         assertThat(execution2.resultAsync().isDone(), is(false));
 
         // Cancel queued task
-        assertThat(execution2.cancelAsync(), willBe(true));
+        assertThat(cancelHandle2.cancelAsync(), willCompleteSuccessfully());
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(CANCELED)));
 
         // Cancel running task
-        assertThat(execution1.cancelAsync(), willBe(true));
+        assertThat(cancelHandle1.cancelAsync(), willCompleteSuccessfully());
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
     }
 
@@ -691,12 +700,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void changeExecutingJobPriority(boolean local) {
         Ignite executeNode = local ? node(0) : node(1);
 
+        CancelHandle cancelHandle = CancelHandle.create();
         JobDescriptor<Long, Void> job = JobDescriptor.builder(SleepJob.class).units(units()).build();
-        JobExecution<Void> execution = submit(JobTarget.node(clusterNode(executeNode)), job, Long.MAX_VALUE);
+        JobExecution<Void> execution = submit(JobTarget.node(clusterNode(executeNode)), job, cancelHandle.token(), Long.MAX_VALUE);
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         assertThat(execution.changePriorityAsync(2), willBe(false));
-        assertThat(execution.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
     }
 
     @Test

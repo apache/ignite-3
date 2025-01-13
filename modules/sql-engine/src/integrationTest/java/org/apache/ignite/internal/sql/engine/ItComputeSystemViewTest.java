@@ -59,7 +59,6 @@ import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.Matchers;
@@ -112,9 +111,10 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
 
             long tsBefore = clockService.now().getPhysical();
 
-            JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
+            JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).build();
+            CancelHandle cancelHandle = CancelHandle.create();
             CompletableFuture<JobExecution<Void>> executionFut = entryNode.compute().submitAsync(
-                    JobTarget.node(clusterNode(targetNode)), job, null
+                    JobTarget.node(clusterNode(targetNode)), job, cancelHandle.token(), null
             );
             assertThat(executionFut, willCompleteSuccessfully());
             JobExecution<Void> execution = executionFut.join();
@@ -127,22 +127,21 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
 
             List<List<Object>> res = sql(0, query, EXECUTING.name());
 
-            assertThat(res, Matchers.hasSize(1));
+            assertThat(res, hasSize(1));
 
             verifyComputeJobState(res.get(0), List.of(targetNode.name()), EXECUTING.name(), tsBefore, tsAfter);
 
-            IgniteTestUtils.await(execution.cancelAsync());
+            assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
             await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
 
             // Second Job call on different node.
-            job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-
             tsBefore = clockService.now().getPhysical();
 
             targetNode = CLUSTER.node(1);
 
-            executionFut = entryNode.compute().submitAsync(JobTarget.node(clusterNode(targetNode)), job, null);
+            cancelHandle = CancelHandle.create();
+            executionFut = entryNode.compute().submitAsync(JobTarget.node(clusterNode(targetNode)), job, cancelHandle.token(), null);
             assertThat(executionFut, willCompleteSuccessfully());
             execution = executionFut.join();
 
@@ -156,7 +155,7 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
 
             verifyComputeJobState(res.get(0), List.of(targetNode.name()), EXECUTING.name(), tsBefore, tsAfter);
 
-            IgniteTestUtils.await(execution.cancelAsync());
+            assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
             await().until(execution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
         } finally {
@@ -215,8 +214,9 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
 
             long tsBefore = clockService.now().getPhysical();
 
+            CancelHandle cancelHandle = CancelHandle.create();
             TaskExecution<Void> execution = entryNode.compute()
-                    .submitMapReduce(TaskDescriptor.builder(MapReduceTaskCustom.class).build(), null);
+                    .submitMapReduce(TaskDescriptor.builder(MapReduceTaskCustom.class).build(), cancelHandle.token(), null);
 
             await().until(execution::stateAsync, willBe(taskStateWithStatus(TaskStatus.EXECUTING)));
 
@@ -232,7 +232,7 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
             verifyComputeJobState(res.get(0), execNodes, EXECUTING.name(), tsBefore, tsAfter);
             verifyComputeJobState(res.get(1), execNodes, EXECUTING.name(), tsBefore, tsAfter);
 
-            IgniteTestUtils.await(execution.cancelAsync());
+            assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
         } finally {
             closeQuiet(entryNode);
         }

@@ -55,11 +55,6 @@ class ResultUnmarshallingJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return delegate.cancelAsync();
-    }
-
-    @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return delegate.changePriorityAsync(newPriority);
     }

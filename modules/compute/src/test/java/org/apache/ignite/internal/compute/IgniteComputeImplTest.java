@@ -296,8 +296,8 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static <R> JobExecution<R> completedExecution(R result, ClusterNode node) {
-        return new JobExecution<>() {
+    private static <R> CancellableJobExecution<R> completedExecution(@Nullable R result, ClusterNode node) {
+        return new CancellableJobExecution<>() {
             @Override
             public CompletableFuture<R> resultAsync() {
                 return completedFuture(result);

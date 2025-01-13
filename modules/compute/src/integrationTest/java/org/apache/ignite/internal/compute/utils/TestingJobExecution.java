@@ -85,10 +85,6 @@ public class TestingJobExecution<R> implements JobExecution<R> {
         return stateSync().finishTime().toEpochMilli();
     }
 
-    public void cancelSync() throws ExecutionException, InterruptedException, TimeoutException {
-        jobExecution.thenCompose(JobExecution::cancelAsync).get(10, TimeUnit.SECONDS);
-    }
-
     @Override
     public CompletableFuture<R> resultAsync() {
         return jobExecution.thenCompose(JobExecution::resultAsync);
@@ -97,11 +93,6 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     @Override
     public CompletableFuture<JobState> stateAsync() {
         return jobExecution.thenCompose(JobExecution::stateAsync);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> cancelAsync() {
-        return jobExecution.thenCompose(JobExecution::cancelAsync);
     }
 
     @Override

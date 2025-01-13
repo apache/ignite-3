@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Delegates {@link JobExecution} to the future of {@link JobExecutionInternal}.
  */
-class DelegatingJobExecution implements JobExecution<ComputeJobDataHolder> {
+class DelegatingJobExecution implements CancellableJobExecution<ComputeJobDataHolder> {
     private final CompletableFuture<JobExecutionInternal<ComputeJobDataHolder>> delegate;
 
     DelegatingJobExecution(CompletableFuture<JobExecutionInternal<ComputeJobDataHolder>> delegate) {

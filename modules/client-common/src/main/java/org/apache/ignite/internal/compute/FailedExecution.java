@@ -50,11 +50,6 @@ public class FailedExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return failedFuture(error);
-    }
-
-    @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return failedFuture(error);
     }
