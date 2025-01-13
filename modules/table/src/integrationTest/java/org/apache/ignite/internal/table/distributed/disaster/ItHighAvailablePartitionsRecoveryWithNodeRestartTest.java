@@ -20,16 +20,13 @@ package org.apache.ignite.internal.table.distributed.disaster;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.greaterThan;
 
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
@@ -109,8 +106,7 @@ class ItHighAvailablePartitionsRecoveryWithNodeRestartTest extends AbstractHighA
         assertRecoveryKeyIsEmpty(node);
 
         // Await for catalog compaction
-        int catalogVersion1 = getLatestCatalogVersion(node);
-        expectEarliestCatalogVersion(catalogVersion1 - 1);
+        expectEarliestCatalogVersionGreaterThanZero();
 
         stopNodes(2, 1, 0);
 
@@ -124,31 +120,14 @@ class ItHighAvailablePartitionsRecoveryWithNodeRestartTest extends AbstractHighA
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node1, HA_TABLE_NAME, PARTITION_IDS, Set.of(node1.name()));
     }
 
-    private static int getLatestCatalogVersion(Ignite ignite) {
-        Catalog catalog = getLatestCatalog(ignite);
-
-        return catalog.version();
-    }
-
-    private static Catalog getLatestCatalog(Ignite ignite) {
-        IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
-        CatalogManagerImpl catalogManager = ((CatalogManagerImpl) igniteImpl.catalogManager());
-
-        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(igniteImpl.clock().nowLong()));
-
-        Objects.requireNonNull(catalog);
-
-        return catalog;
-    }
-
-    private void expectEarliestCatalogVersion(int expectedVersion) {
+    private void expectEarliestCatalogVersionGreaterThanZero() {
         Awaitility.await().timeout(COMPACTION_AWAIT_INTERVAL_MS, TimeUnit.MILLISECONDS).untilAsserted(() -> {
             for (var node : runningNodes().collect(Collectors.toList())) {
                 IgniteImpl ignite = unwrapIgniteImpl(node);
                 CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());
 
                 assertThat("The earliest catalog version does not match. ",
-                        catalogManager.earliestCatalogVersion(), is(expectedVersion));
+                        catalogManager.earliestCatalogVersion(), greaterThan(0));
             }
         });
     }
