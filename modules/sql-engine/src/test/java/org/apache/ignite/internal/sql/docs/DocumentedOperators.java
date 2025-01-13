@@ -116,7 +116,8 @@ class DocumentedOperators {
                     .append(". Add these operators to as public (add(OperatorTable.MY_OP))")
                     .append(" or include them as internal (call .hide(OperatorTable.MY_OP):")
                     .append(System.lineSeparator())
-                    .append("Review the difference and file an issue to update SQL documentation if necessary.");
+                    .append("Review the difference and file an issue to update SQL documentation if necessary.")
+                    .append(System.lineSeparator());
 
             notDocumented.forEach(o -> sb.append(describeOperator(o)).append(System.lineSeparator()));
 
