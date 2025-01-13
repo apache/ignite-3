@@ -207,7 +207,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             List<DeploymentUnit> units,
             String jobClassName,
             @Nullable CancellationToken cancellationToken,
-            ComputeJobDataHolder arg
+            @Nullable ComputeJobDataHolder arg
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution(
