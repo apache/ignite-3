@@ -37,6 +37,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 )
 public class TpchQueryPlannerTest extends AbstractTpcQueryPlannerTest {
     @ParameterizedTest
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-24195
     // Query #7 contains disjunctive predicate that switches its part from run to run, making
     // the test unstable.
     // 
