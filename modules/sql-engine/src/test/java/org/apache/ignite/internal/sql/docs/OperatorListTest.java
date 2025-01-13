@@ -59,8 +59,6 @@ import org.junit.jupiter.api.Test;
  * When a signature ends with {@code ***} it means that it was not automatically generated and was added manually.
  * Each internal SQL operator (an operator that can not be created from public API) as a {@code [Internal]}
  * on a line prior to their definition.
- *
- * <p>Every time this file is updated, an issue for updating documentation should be filed as well.
  */
 public class OperatorListTest extends BaseIgniteAbstractTest {
 
