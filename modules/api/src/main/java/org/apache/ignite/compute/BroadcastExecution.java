@@ -21,17 +21,22 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Job control object, provides information about the job execution process and result, allows cancelling the job.
+ * Broadcast job control object, provides information about the job executions and results.
  *
  * @param <R> Job result type.
  */
 public interface BroadcastExecution<R> {
+    /**
+     * Returns a collection of individual job executions.
+     *
+     * @return A collection of individual job executions.
+     */
     Collection<JobExecution<R>> executions();
 
     /**
-     * Returns job's execution result.
+     * Returns all jobs execution results.
      *
-     * @return Job's execution result future.
+     * @return Future which will be completed with a collection of all jobs results when all jobs have completed successfully.
      */
     CompletableFuture<Collection<R>> resultsAsync();
 }

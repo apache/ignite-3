@@ -62,6 +62,7 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
+import org.apache.ignite.internal.compute.BroadcastJobExecutionImpl;
 import org.apache.ignite.internal.compute.FailedExecution;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -144,7 +145,7 @@ public class ClientCompute implements IgniteCompute {
                     .toArray(CompletableFuture[]::new);
 
             // Wait for all the futures but don't fail resulting future, keep individual futures in executions.
-            return allOf(futures).handle((unused, throwable) -> new ClientBroadcastExecution<>(
+            return allOf(futures).handle((unused, throwable) -> new BroadcastJobExecutionImpl<>(
                     Arrays.stream(futures)
                             .map(fut -> mapSubmitResult(descriptor, cancellationToken, fut))
                             .collect(Collectors.toList())

@@ -39,7 +39,7 @@ public interface IgniteCompute {
      * @param target Execution target.
      * @param descriptor Job descriptor.
      * @param arg Argument of the job.
-     * @return Job execution object.
+     * @return Future of the job execution object which will be completed when the job is submitted.
      */
     default <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
@@ -58,7 +58,7 @@ public interface IgniteCompute {
      * @param descriptor Job descriptor.
      * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
-     * @return Job execution object.
+     * @return Future of the job execution object which will be completed when the job is submitted.
      */
     <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
@@ -72,10 +72,10 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param target Execution target.
+     * @param target Broadcast execution target.
      * @param descriptor Job descriptor.
      * @param arg Argument of the job.
-     * @return Map from node to job execution object.
+     * @return Future of the broadcast job execution object which will be completed when all the jobs are submitted.
      */
     default <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
             BroadcastJobTarget target,
@@ -90,11 +90,11 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param target Execution target.
+     * @param target Broadcast execution target.
      * @param descriptor Job descriptor.
      * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
-     * @return Map from node to job execution object.
+     * @return Future of the broadcast job execution object which will be completed when all the jobs are submitted.
      */
     <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
             BroadcastJobTarget target,
@@ -148,10 +148,10 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param target Execution target.
+     * @param target Broadcast execution target.
      * @param descriptor Job descriptor.
      * @param arg Argument of the job.
-     * @return Map from node to job result.
+     * @return Job results future.
      */
     default <T, R> CompletableFuture<Collection<R>> executeAsync(
             BroadcastJobTarget target,
@@ -166,11 +166,11 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param target Execution target.
+     * @param target Broadcast execution target.
      * @param descriptor Job descriptor.
      * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
-     * @return Map from node to job result.
+     * @return Job results future.
      */
     default <T, R> CompletableFuture<Collection<R>> executeAsync(
             BroadcastJobTarget target,
@@ -225,10 +225,10 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param target Execution target.
+     * @param target Broadcast execution target.
      * @param descriptor Job descriptor.
      * @param arg Argument of the job.
-     * @return Map from node to job result.
+     * @return Collection of results.
      * @throws ComputeException If there is any problem executing the job.
      */
     default <T, R> Collection<R> execute(
@@ -244,11 +244,11 @@ public interface IgniteCompute {
      *
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
-     * @param target Execution target.
+     * @param target Broadcast execution target.
      * @param descriptor Job descriptor.
      * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
-     * @return Map from node to job result.
+     * @return Collection of results.
      * @throws ComputeException If there is any problem executing the job.
      */
     <T, R> Collection<R> execute(

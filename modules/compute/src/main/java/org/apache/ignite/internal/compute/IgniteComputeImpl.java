@@ -184,7 +184,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
-            T arg
+            @Nullable T arg
     ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
@@ -198,7 +198,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
             return completedFuture(new BroadcastJobExecutionImpl<>(nodes.stream()
                     .map(node -> submitForBroadcast(descriptor, cancellationToken, node, resultMarshaller, argHolder))
-                    .collect(toList())));
+                    .collect(toList()))
+            );
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
@@ -208,8 +209,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
             ClusterNode node,
-            Marshaller<R, byte[]> resultMarshaller,
-            ComputeJobDataHolder argHolder
+            @Nullable Marshaller<R, byte[]> resultMarshaller,
+            @Nullable ComputeJobDataHolder argHolder
     ) {
         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
         // if worker node has left the cluster.
@@ -299,6 +300,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return iterator.next();
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24184
     private JobExecution<ComputeJobDataHolder> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,

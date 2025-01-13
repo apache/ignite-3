@@ -37,6 +37,11 @@ public class AllNodesBroadcastJobTarget implements BroadcastJobTarget {
         this.nodes = nodes;
     }
 
+    /**
+     * Returns a set of nodes to execute the jobs on.
+     *
+     * @return A set of nodes to execute the jobs on.
+     */
     public Set<ClusterNode> nodes() {
         return nodes;
     }

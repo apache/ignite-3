@@ -72,5 +72,10 @@ public interface JobExecution<R> {
      */
     CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority);
 
+    /**
+     * A cluster node on which this job is executing.
+     *
+     * @return Node instance.
+     */
     ClusterNode node();
 }

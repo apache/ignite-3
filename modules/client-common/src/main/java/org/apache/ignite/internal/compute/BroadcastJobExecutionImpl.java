@@ -27,14 +27,14 @@ import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.JobExecution;
 
 /**
- * Wraps the future of {@link JobExecution} converting exceptions thrown by the delegate to public.
+ * {@link BroadcastExecution} implementation. Contains a collection of individual executions.
  *
  * @param <R> Result type.
  */
-class BroadcastJobExecutionImpl<R> implements BroadcastExecution<R> {
+public class BroadcastJobExecutionImpl<R> implements BroadcastExecution<R> {
     private final Collection<JobExecution<R>> executions;
 
-    BroadcastJobExecutionImpl(Collection<JobExecution<R>> executions) {
+    public BroadcastJobExecutionImpl(Collection<JobExecution<R>> executions) {
         this.executions = executions;
     }
 
