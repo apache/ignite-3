@@ -41,11 +41,14 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderChange;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
@@ -92,7 +95,17 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
     void setUp() {
         securityConfiguration = ((SecurityExtensionConfiguration) clusterConfiguration).security();
 
-        manager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
+        manager = new AuthenticationManagerImpl(securityConfiguration, new EventLog() {
+            @Override
+            public void log(Event event) {
+
+            }
+
+            @Override
+            public void log(String type, Supplier<Event> eventProvider) {
+
+            }
+        });
 
         Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.listen(event, listener));
 

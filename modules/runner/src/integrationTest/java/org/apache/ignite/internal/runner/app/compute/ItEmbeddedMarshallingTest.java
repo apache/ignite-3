@@ -103,7 +103,7 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         var embeddedCompute = node.compute();
         PojoResult result = embeddedCompute.execute(
                 JobTarget.node(targetNode),
-                JobDescriptor.builder(PojoJob.class).build(),
+                JobDescriptor.builder(PojoJob.class).resultClass(PojoResult.class).build(),
                 new PojoArg().setIntValue(2).setStrValue("1")
         );
 
@@ -122,7 +122,7 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         var embeddedCompute = node.compute();
         PojoResult result = embeddedCompute.execute(
                 JobTarget.node(targetNode),
-                JobDescriptor.builder(PojoJob.class).build(),
+                JobDescriptor.builder(PojoJob.class).resultClass(PojoResult.class).build(),
                 new PojoArg().setIntValue(2).setStrValue("1")
         );
 
@@ -145,7 +145,8 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
                 "Input"
         );
 
-        assertEquals("Input:marshalledOnClient:unmarshalledOnServer:processedOnServer", result);
+        // TODO IGNITE-24183 Avoid job argument and result marshalling on local execution
+        assertEquals("Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient", result);
     }
 
     @Test
@@ -164,9 +165,10 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         );
 
         // Then.
+        // TODO IGNITE-24183 Avoid job argument and result marshalling on local execution
         Map<ClusterNode, String> resultExpected = Map.of(
                 // todo: "https://issues.apache.org/jira/browse/IGNITE-23024"
-                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer",
+                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
                 node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
         );
 
@@ -191,9 +193,10 @@ public class ItEmbeddedMarshallingTest extends ItAbstractThinClientTest {
         );
 
         // Then.
+        // TODO IGNITE-24183 Avoid job argument and result marshalling on local execution
         Map<ClusterNode, String> resultExpected = Map.of(
                 // todo: "https://issues.apache.org/jira/browse/IGNITE-23024"
-                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer",
+                node(0), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient",
                 node(1), "Input:marshalledOnClient:unmarshalledOnServer:processedOnServer:marshalledOnServer:unmarshalledOnClient"
         );
 

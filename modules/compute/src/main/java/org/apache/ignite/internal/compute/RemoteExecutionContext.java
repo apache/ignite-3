@@ -25,23 +25,19 @@ import org.apache.ignite.deployment.DeploymentUnit;
 /**
  * Captures the context of a remote job execution. Also provides methods to access the job execution object
  * that is returned to the user. The access is thread safe.
- *
- * @param <T> type of the input of the job.
- * @param <R> type of the result of the job.
  */
-class RemoteExecutionContext<T, R> {
-
+class RemoteExecutionContext {
     private final ExecutionOptions executionOptions;
 
     private final List<DeploymentUnit> units;
 
     private final String jobClassName;
 
-    private final T arg;
+    private final ComputeJobDataHolder arg;
 
-    private final AtomicReference<FailSafeJobExecution<R>> jobExecution;
+    private final AtomicReference<FailSafeJobExecution<ComputeJobDataHolder>> jobExecution;
 
-    RemoteExecutionContext(List<DeploymentUnit> units, String jobClassName, ExecutionOptions executionOptions, T arg) {
+    RemoteExecutionContext(List<DeploymentUnit> units, String jobClassName, ExecutionOptions executionOptions, ComputeJobDataHolder arg) {
         this.executionOptions = executionOptions;
         this.units = units;
         this.jobClassName = jobClassName;
@@ -54,7 +50,7 @@ class RemoteExecutionContext<T, R> {
      *
      * @param jobExecution the instance of job execution that should be returned to the client.
      */
-    void initJobExecution(FailSafeJobExecution<R> jobExecution) {
+    void initJobExecution(FailSafeJobExecution<ComputeJobDataHolder> jobExecution) {
         if (!this.jobExecution.compareAndSet(null, jobExecution)) {
             throw new IllegalStateException("Job execution is already initialized.");
         }
@@ -65,8 +61,8 @@ class RemoteExecutionContext<T, R> {
      *
      * @return fail-safe job execution object.
      */
-    FailSafeJobExecution<R> failSafeJobExecution() {
-        FailSafeJobExecution<R> jobExecution = this.jobExecution.get();
+    FailSafeJobExecution<ComputeJobDataHolder> failSafeJobExecution() {
+        FailSafeJobExecution<ComputeJobDataHolder> jobExecution = this.jobExecution.get();
         if (jobExecution == null) {
             throw new IllegalStateException("Job execution is not initialized. Call initJobExecution() first.");
         }
@@ -80,7 +76,7 @@ class RemoteExecutionContext<T, R> {
      *
      * @param jobExecution the new job execution object (supposed to be a restarted job but in another worker node).
      */
-    void updateJobExecution(JobExecution<R> jobExecution) {
+    void updateJobExecution(JobExecution<ComputeJobDataHolder> jobExecution) {
         failSafeJobExecution().updateJobExecution(jobExecution);
     }
 
@@ -96,7 +92,7 @@ class RemoteExecutionContext<T, R> {
         return jobClassName;
     }
 
-    T arg() {
+    ComputeJobDataHolder arg() {
         return arg;
     }
 }

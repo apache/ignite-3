@@ -122,15 +122,15 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     /** {@inheritDoc} */
     @Override
-    public <I, R> JobExecution<R> executeLocally(
+    public JobExecution<ComputeJobDataHolder> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
             @Nullable CancellationToken cancellationToken,
-            I arg
+            @Nullable ComputeJobDataHolder arg
     ) {
         if (!busyLock.enterBusy()) {
-            return new DelegatingJobExecution<>(
+            return new DelegatingJobExecution(
                     failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
             );
         }
@@ -138,10 +138,10 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         try {
             CompletableFuture<JobContext> classLoaderFut = jobContextManager.acquireClassLoader(units);
 
-            CompletableFuture<JobExecutionInternal<R>> future =
+            CompletableFuture<JobExecutionInternal<ComputeJobDataHolder>> future =
                     mapClassLoaderExceptions(classLoaderFut, jobClassName)
                             .thenApply(context -> {
-                                JobExecutionInternal<R> execution = execJob(context, options, jobClassName, arg);
+                                JobExecutionInternal<ComputeJobDataHolder> execution = execJob(context, options, jobClassName, arg);
                                 execution.resultAsync().whenComplete((result, e) -> context.close());
                                 inFlightFutures.registerFuture(execution.resultAsync());
                                 return execution;
@@ -150,7 +150,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             inFlightFutures.registerFuture(future);
             inFlightFutures.registerFuture(classLoaderFut);
 
-            JobExecution<R> result = new DelegatingJobExecution<>(future);
+            JobExecution<ComputeJobDataHolder> result = new DelegatingJobExecution(future);
 
             if (cancellationToken != null) {
                 CancelHandleHelper.addCancelAction(cancellationToken, classLoaderFut);
@@ -191,6 +191,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             inFlightFutures.registerFuture(taskFuture);
 
             DelegatingTaskExecution<I, M, T, R> result = new DelegatingTaskExecution<>(taskFuture);
+
             result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, new TaskToJobExecutionWrapper<>(result)));
             return result;
         } finally {
@@ -200,28 +201,30 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
 
     /** {@inheritDoc} */
     @Override
-    public <T, R> JobExecution<R> executeRemotely(
+    public JobExecution<ComputeJobDataHolder> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
             @Nullable CancellationToken cancellationToken,
-            T arg
+            @Nullable ComputeJobDataHolder arg
     ) {
         if (!busyLock.enterBusy()) {
-            return new DelegatingJobExecution<>(
+            return new DelegatingJobExecution(
                     failedFuture(new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException()))
            );
         }
 
         try {
             CompletableFuture<UUID> jobIdFuture = messaging.remoteExecuteRequestAsync(options, remoteNode, units, jobClassName, arg);
-            CompletableFuture<R> resultFuture = jobIdFuture.thenCompose(jobId -> messaging.remoteJobResultRequestAsync(remoteNode, jobId));
+            CompletableFuture<ComputeJobDataHolder> resultFuture = jobIdFuture.thenCompose(
+                    jobId -> messaging.remoteJobResultRequestAsync(remoteNode, jobId));
 
             inFlightFutures.registerFuture(jobIdFuture);
             inFlightFutures.registerFuture(resultFuture);
 
-            JobExecution<R> result = new RemoteJobExecution<>(remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging);
+            JobExecution<ComputeJobDataHolder> result = new RemoteJobExecution<>(
+                    remoteNode, jobIdFuture, resultFuture, inFlightFutures, messaging);
 
             if (cancellationToken != null) {
                 CancelHandleHelper.addCancelAction(cancellationToken, result::cancelAsync, result.resultAsync());
@@ -235,16 +238,16 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     }
 
     @Override
-    public <T, R> JobExecution<R> executeRemotelyWithFailover(
+    public JobExecution<ComputeJobDataHolder> executeRemotelyWithFailover(
             ClusterNode remoteNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
             @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable ComputeJobDataHolder arg
     ) {
-        JobExecution<R> result = (JobExecution<R>) new ComputeJobFailover<>(
+        JobExecution<ComputeJobDataHolder> result = new ComputeJobFailover(
                 this, logicalTopologyService, topologyService,
                 remoteNode, nextWorkerSelector, failoverExecutor, units,
                 jobClassName, options, cancellationToken, arg
@@ -293,7 +296,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         executor.start();
-        messaging.start(this::executeLocally);
+        messaging.start((options, units, jobClassName, arg) ->
+                executeLocally(options, units, jobClassName, null, arg));
         executionManager.start();
         computeViewProvider.init(executionManager);
 
@@ -320,7 +324,11 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     }
 
 
-    private <T, R> JobExecutionInternal<R> execJob(JobContext context, ExecutionOptions options, String jobClassName, T arg) {
+    private JobExecutionInternal<ComputeJobDataHolder> execJob(
+            JobContext context,
+            ExecutionOptions options,
+            String jobClassName,
+            @Nullable ComputeJobDataHolder arg) {
         try {
             return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), arg);
         } catch (Throwable e) {

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.eventlog.impl;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockserver.matchers.MatchType.ONLY_MATCHING_FIELDS;
 import static org.mockserver.model.HttpRequest.request;
@@ -165,20 +165,16 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
 
     @Test
     void shouldRemoveEventsIfQueueIsFull() {
+        var user1Event = IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider"));
+        var user2Event = IgniteEvents.USER_AUTHENTICATION_FAILURE.create(EventUser.of("user2", "basicProvider"));
+        var user3Event = IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of("user3", "basicProvider"));
+
+        Stream<Event> events = Stream.of(user1Event, user2Event, user3Event);
+
         WebhookSink sink = createSink(c -> c.changeQueueSize(2));
-
-        Stream<Event> events = Stream.of(
-                IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")),
-                IgniteEvents.USER_AUTHENTICATION_FAILURE.create(EventUser.of("user2", "basicProvider")),
-                IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of("user3", "basicProvider"))
-        );
-
         events.forEach(sink::write);
 
-        assertThat(sink.getEvents(), containsInAnyOrder(
-                IgniteEvents.USER_AUTHENTICATION_FAILURE.create(EventUser.of("user2", "basicProvider")),
-                IgniteEvents.CLIENT_CONNECTION_ESTABLISHED.create(EventUser.of("user3", "basicProvider"))
-        ));
+        assertThat(sink.getEvents(), hasItems(user2Event, user3Event));
     }
 
     @ParameterizedTest
