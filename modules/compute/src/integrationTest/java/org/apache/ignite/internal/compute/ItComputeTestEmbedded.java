@@ -326,7 +326,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         static final AtomicInteger counter = new AtomicInteger(0);
 
         @Override
-        public CompletableFuture<String> executeAsync(JobExecutionContext context, Object arg) {
+        public @Nullable CompletableFuture<String> executeAsync(JobExecutionContext context, Object arg) {
             try {
                 latch.await();
                 if (counter.incrementAndGet() == 1) {
