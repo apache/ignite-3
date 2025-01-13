@@ -288,8 +288,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithJobStateResponseWhenJobStateRequestIsSent(jobId, COMPLETED);
         respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, false);
 
+        CancelHandle cancelHandle = CancelHandle.create();
         JobExecution<ComputeJobDataHolder> execution = computeComponent.executeRemotely(
-                DEFAULT, remoteNode, List.of(), SimpleJob.class.getName(), null, SharedComputeUtils.marshalArgOrResult("a", null)
+                DEFAULT, remoteNode, List.of(), SimpleJob.class.getName(), cancelHandle.token(),
+                SharedComputeUtils.marshalArgOrResult("a", null)
         );
         assertThat(unwrapResult(execution), willBe("remoteResponse"));
 
@@ -297,6 +299,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         assertThat(unwrapResult(execution), willBe("remoteResponse"));
 
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
         assertThatExecuteRequestWasSent(SimpleJob.class.getName(), "a");
         assertThatJobResultRequestWasSent(jobId);
