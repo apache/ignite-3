@@ -17,28 +17,17 @@
 
 package org.apache.ignite.internal.compute;
 
-import java.util.List;
-import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.deployment.DeploymentUnit;
-import org.jetbrains.annotations.Nullable;
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
-/**
- * Compute job starter interface.
- */
-public interface JobStarter {
-    /**
-     * Start compute job.
-     *
-     * @param options Compute job execution options.
-     * @param units Deployment units. Can be empty.
-     * @param jobClassName Name of the job class to execute.
-     * @param args Arguments of the job.
-     * @return CompletableFuture Job result.
-     */
-    JobExecution<ComputeJobDataHolder> start(
-            ExecutionOptions options,
-            List<DeploymentUnit> units,
-            String jobClassName,
-            @Nullable ComputeJobDataHolder args
-    );
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobExecutionContext;
+
+/** Compute job that returns the string representation of its argument. */
+public class ToStringJob implements ComputeJob<Object, String> {
+    @Override
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object input) {
+        return completedFuture(input == null ? null : input.toString());
+    }
 }
+
