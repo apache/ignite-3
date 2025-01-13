@@ -372,8 +372,8 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
         try {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-24021
-            // Converts schema name to its canonical form.
-            String schemaNameInCanonicalForm = QualifiedName.fromSimple(statement.defaultSchema()).objectName();
+            //  Use correct implementation to parse identifier.
+            String schemaName = QualifiedName.fromSimple(statement.defaultSchema()).objectName();
 
             SqlProperties properties = toPropertiesBuilder(statement)
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
