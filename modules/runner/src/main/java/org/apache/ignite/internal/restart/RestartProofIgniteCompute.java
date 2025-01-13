@@ -55,7 +55,7 @@ class RestartProofIgniteCompute implements IgniteCompute, Wrapper {
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
-        return attachmentLock.attached(ignite -> ignite.compute().submitAsync(target, descriptor, cancellationToken, arg));
+        return attachmentLock.attachedAsync(ignite -> ignite.compute().submitAsync(target, descriptor, cancellationToken, arg));
     }
 
     @Override
@@ -71,6 +71,15 @@ class RestartProofIgniteCompute implements IgniteCompute, Wrapper {
     @Override
     public <T, R> CompletableFuture<R> executeAsync(
             JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return attachmentLock.attachedAsync(ignite -> ignite.compute().executeAsync(target, descriptor, cancellationToken, arg));
+    }
+
+    @Override
+    public <T, R> CompletableFuture<Collection<R>> executeAsync(BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
@@ -105,6 +114,12 @@ class RestartProofIgniteCompute implements IgniteCompute, Wrapper {
             @Nullable T arg
     ) {
         return attachmentLock.attached(ignite -> ignite.compute().submitMapReduce(taskDescriptor, cancellationToken, arg));
+    }
+
+    @Override
+    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
+            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+        return attachmentLock.attachedAsync(ignite -> ignite.compute().executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
     }
 
     @Override
