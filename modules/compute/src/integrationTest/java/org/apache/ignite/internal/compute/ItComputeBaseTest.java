@@ -344,7 +344,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         ));
 
         assertThat(broadcastExecution.resultsAsync(), will(hasSize(3)));
-        assertThat(broadcastExecution.resultsAsync(), will(everyItem(is("a42"))));
+        assertThat(broadcastExecution.resultsAsync(), will(everyItem(is("42"))));
     }
 
     @Test

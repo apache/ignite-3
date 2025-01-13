@@ -209,12 +209,6 @@ public class FakeCompute implements IgniteComputeInternal {
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T args) {
-        return sync(executeAsync(target, descriptor, cancellationToken, args));
-    }
-
-    @Override
     public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
@@ -222,6 +216,12 @@ public class FakeCompute implements IgniteComputeInternal {
             T arg
     ) {
         return nullCompletedFuture();
+    }
+
+    @Override
+    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
+            @Nullable T args) {
+        return sync(executeAsync(target, descriptor, cancellationToken, args));
     }
 
     @Override
