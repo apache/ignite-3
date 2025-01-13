@@ -29,8 +29,8 @@ import static org.apache.ignite.internal.app.ApiReferencesTestUtils.zoneDefiniti
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Consumer;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.sql.BatchedArguments;
@@ -132,15 +132,9 @@ enum SyncApiOperation {
     SQL_EXECUTE_BATCH_STATEMENT(refs -> refs.sql.executeBatch(null, refs.updateStatement, BatchedArguments.of(999))),
     SQL_EXECUTE_SCRIPT(refs -> refs.sql.executeScript(SELECT_IDS_QUERY)),
 
-    COMPUTE_SUBMIT(refs -> refs.compute.submit(anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null)),
     COMPUTE_EXECUTE(refs -> refs.compute.execute(anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null)),
-    COMPUTE_SUBMIT_BROADCAST(refs -> refs.compute.submitBroadcast(
-            Set.copyOf(refs.clusterNodes),
-            JobDescriptor.builder(NoOpJob.class).build(),
-            null
-    )),
-    COMPUTE_EXECUTE_BROADCAST(refs -> refs.compute.executeBroadcast(
-            Set.copyOf(refs.clusterNodes),
+    COMPUTE_EXECUTE_BROADCAST(refs -> refs.compute.execute(
+            BroadcastJobTarget.nodes(refs.clusterNodes),
             JobDescriptor.builder(NoOpJob.class).build(),
             null
     )),

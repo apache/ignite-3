@@ -20,7 +20,6 @@ package org.apache.ignite.internal.compute;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -130,8 +129,8 @@ class ComputeJobFailover {
      *
      * @return JobExecution with the result of the job and the status of the job.
      */
-    JobExecution<ComputeJobDataHolder> failSafeExecute() {
-        JobExecution<ComputeJobDataHolder> jobExecution = launchJobOn(runningWorkerNode.get());
+    CancellableJobExecution<ComputeJobDataHolder> failSafeExecute() {
+        CancellableJobExecution<ComputeJobDataHolder> jobExecution = launchJobOn(runningWorkerNode.get());
         jobContext.initJobExecution(new FailSafeJobExecution<>(jobExecution));
 
         LogicalTopologyEventListener nodeLeftEventListener = new OnNodeLeft();
@@ -141,7 +140,7 @@ class ComputeJobFailover {
         return jobContext.failSafeJobExecution();
     }
 
-    private JobExecution<ComputeJobDataHolder> launchJobOn(ClusterNode runningWorkerNode) {
+    private CancellableJobExecution<ComputeJobDataHolder> launchJobOn(ClusterNode runningWorkerNode) {
         if (runningWorkerNode.name().equals(topologyService.localMember().name())) {
             return computeComponent.executeLocally(
                     jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), cancellationToken,
@@ -189,7 +188,7 @@ class ComputeJobFailover {
                         LOG.info("Restarting the job {} on node {}.", jobContext.jobClassName(), nextWorker.name());
 
                         runningWorkerNode.set(nextWorker);
-                        JobExecution<ComputeJobDataHolder> jobExecution = launchJobOn(runningWorkerNode.get());
+                        CancellableJobExecution<ComputeJobDataHolder> jobExecution = launchJobOn(runningWorkerNode.get());
                         jobContext.updateJobExecution(jobExecution);
                     });
         }

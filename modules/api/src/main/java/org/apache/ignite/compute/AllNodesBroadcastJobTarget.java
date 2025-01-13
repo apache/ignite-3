@@ -15,28 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.compute;
+package org.apache.ignite.compute;
 
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.PayloadInputChannel;
+import java.util.Objects;
+import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Result of the task submission.
- * Contains unpacked job id, a collection of ids of the jobs which are executing under this task, and notification future.
+ * All nodes broadcast execution target. Indicates that the job will be executed on all nodes from the provided set.
  */
-class SubmitTaskResult extends SubmitResult {
-    private final List<UUID> jobIds;
+public class AllNodesBroadcastJobTarget implements BroadcastJobTarget {
+    private final Set<ClusterNode> nodes;
 
-    SubmitTaskResult(UUID jobId, List<UUID> jobIds, ClusterNode node, CompletableFuture<PayloadInputChannel> notificationFuture) {
-        super(jobId, node, notificationFuture);
-        this.jobIds = jobIds;
+    AllNodesBroadcastJobTarget(Set<ClusterNode> nodes) {
+        Objects.requireNonNull(nodes);
+
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("Nodes collection must not be empty.");
+        }
+
+        this.nodes = nodes;
     }
 
-    List<@Nullable UUID> jobIds() {
-        return jobIds;
+    /**
+     * Returns a set of nodes to execute the jobs on.
+     *
+     * @return A set of nodes to execute the jobs on.
+     */
+    public Set<ClusterNode> nodes() {
+        return nodes;
     }
 }

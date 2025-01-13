@@ -17,43 +17,22 @@
 
 package org.apache.ignite.internal.compute;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
-
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobState;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Job execution implementation which will return failed future with specified error from all methods.
+ * {@link JobExecution} that can be cancelled.
  *
- * @param <R> Job result type.
+ * @param <R> Result type.
  */
-public class FailedExecution<R> implements JobExecution<R> {
-
-    private final Throwable error;
-
-    FailedExecution(Throwable error) {
-        this.error = error;
-    }
-
-    @Override
-    public CompletableFuture<R> resultAsync() {
-        return failedFuture(error);
-    }
-
-    @Override
-    public CompletableFuture<@Nullable JobState> stateAsync() {
-        return failedFuture(error);
-    }
-
-    @Override
-    public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return failedFuture(error);
-    }
-
-    @Override
-    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return failedFuture(error);
-    }
+public interface CancellableJobExecution<R> extends JobExecution<R> {
+    /**
+     * Cancels the job.
+     *
+     * @return The future which will be completed with {@code true} when the job is cancelled, {@code false} when the job couldn't be
+     *         cancelled (if it's already completed or in the process of cancelling), or {@code null} if the job no longer exists due to
+     *         exceeding the retention time limit.
+     */
+    CompletableFuture<@Nullable Boolean> cancelAsync();
 }

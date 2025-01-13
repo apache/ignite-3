@@ -93,7 +93,7 @@ public class ServerMetricsTest extends AbstractClientTest {
 
         FakeCompute.latch = new CountDownLatch(1);
 
-        client.compute().submit(getClusterNodes("s1"), JobDescriptor.builder("job").build(), null);
+        client.compute().submitAsync(getClusterNodes("s1"), JobDescriptor.builder("job").build(), null);
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive() == 1, 1000),
@@ -110,7 +110,7 @@ public class ServerMetricsTest extends AbstractClientTest {
     public void testRequestsProcessed() throws Exception {
         long processed = testServer.metrics().requestsProcessed();
 
-        client.compute().submit(getClusterNodes("s1"), JobDescriptor.builder("job").build(), null);
+        client.compute().submitAsync(getClusterNodes("s1"), JobDescriptor.builder("job").build(), null);
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsProcessed() == processed + 1, 1000),
@@ -123,7 +123,7 @@ public class ServerMetricsTest extends AbstractClientTest {
 
         FakeCompute.err = new RuntimeException("test");
 
-        client.compute().submit(getClusterNodes("s1"), JobDescriptor.builder("job").build(), null);
+        client.compute().submitAsync(getClusterNodes("s1"), JobDescriptor.builder("job").build(), null);
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsFailed() == 1, 1000),

@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.compute.task;
 
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.task.MapReduceJob;
+import org.apache.ignite.lang.CancellationToken;
 
 /**
  * Compute job submitter.
@@ -26,9 +29,10 @@ import org.apache.ignite.compute.task.MapReduceJob;
 @FunctionalInterface
 public interface JobSubmitter<T, R> {
     /**
-     * Submits compute job for an execution.
+     * Submits compute jobs for an execution.
      *
-     * @param computeJobRunner Computer job start parameters.
+     * @param computeJobRunners List of the compute job start parameters.
+     * @param cancellationToken Cancellation token.
      */
-    JobExecution<R> submit(MapReduceJob<T, R> computeJobRunner);
+    CompletableFuture<List<JobExecution<R>>> submit(List<MapReduceJob<T, R>> computeJobRunners, CancellationToken cancellationToken);
 }

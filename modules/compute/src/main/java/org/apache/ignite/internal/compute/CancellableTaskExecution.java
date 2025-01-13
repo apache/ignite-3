@@ -15,28 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.compute;
+package org.apache.ignite.internal.compute;
 
-import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.PayloadInputChannel;
-import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.compute.task.TaskExecution;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Result of the task submission.
- * Contains unpacked job id, a collection of ids of the jobs which are executing under this task, and notification future.
+ * {@link TaskExecution} that can be cancelled.
+ *
+ * @param <R> Result type.
  */
-class SubmitTaskResult extends SubmitResult {
-    private final List<UUID> jobIds;
-
-    SubmitTaskResult(UUID jobId, List<UUID> jobIds, ClusterNode node, CompletableFuture<PayloadInputChannel> notificationFuture) {
-        super(jobId, node, notificationFuture);
-        this.jobIds = jobIds;
-    }
-
-    List<@Nullable UUID> jobIds() {
-        return jobIds;
-    }
+public interface CancellableTaskExecution<R> extends TaskExecution<R> {
+    /**
+     * Cancels the task.
+     *
+     * @return The future which will be completed with {@code true} when the task is cancelled, {@code false} when the task couldn't be
+     *         cancelled (if it's already completed or in the process of cancelling), or {@code null} if the task no longer exists due to
+     *         exceeding the retention time limit.
+     */
+    CompletableFuture<@Nullable Boolean> cancelAsync();
 }

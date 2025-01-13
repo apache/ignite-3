@@ -50,6 +50,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param payload Arguments of the job.
      * @return CompletableFuture Job result.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24184
     JobExecution<ComputeJobDataHolder> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
@@ -80,17 +81,6 @@ public interface IgniteComputeInternal extends IgniteCompute {
             JobExecutionOptions options,
             @Nullable CancellationToken cancellationToken,
             @Nullable ComputeJobDataHolder payload);
-
-    /**
-     * Wraps the given future into a job execution object.
-     *
-     * @param fut Future to wrap.
-     * @param <R> Job result type.
-     * @return Job execution object.
-     */
-    default <R> JobExecution<R> wrapJobExecutionFuture(CompletableFuture<JobExecution<R>> fut) {
-        return new JobExecutionFutureWrapper<>(fut);
-    }
 
     /**
      * Retrieves the current state of all jobs on all nodes in the cluster.

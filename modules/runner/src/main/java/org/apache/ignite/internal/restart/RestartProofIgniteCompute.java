@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.restart;
 
-import java.util.Map;
-import java.util.Set;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
@@ -30,7 +31,6 @@ import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,45 +49,67 @@ class RestartProofIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
-        return attachmentLock.attached(ignite -> ignite.compute().submit(target, descriptor, arg));
+    public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return attachmentLock.attached(ignite -> ignite.compute().submitAsync(target, descriptor, cancellationToken, arg));
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T arg) {
-        return attachmentLock.attached(ignite -> ignite.compute().execute(target, descriptor, cancellationToken, arg));
+    public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return attachmentLock.attachedAsync(ignite -> ignite.compute().submitAsync(target, descriptor, cancellationToken, arg));
     }
 
     @Override
-    public <T, R> CompletableFuture<R> executeAsync(JobTarget target, JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
+    public <T, R> CompletableFuture<R> executeAsync(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
         return attachmentLock.attachedAsync(ignite -> ignite.compute().executeAsync(target, descriptor, cancellationToken, arg));
     }
 
     @Override
-    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
-            Set<ClusterNode> nodes,
+    public <T, R> R execute(
+            JobTarget target,
             JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
-        return attachmentLock.attached(ignite -> ignite.compute().submitBroadcast(nodes, descriptor, arg));
+        return attachmentLock.attached(ignite -> ignite.compute().execute(target, descriptor, cancellationToken, arg));
     }
 
     @Override
-    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return attachmentLock.attached(ignite -> ignite.compute().submitMapReduce(taskDescriptor, arg));
+    public <T, R> Collection<R> execute(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return attachmentLock.attached(ignite -> ignite.compute().execute(target, descriptor, cancellationToken, arg));
+    }
+
+    @Override
+    public <T, R> TaskExecution<R> submitMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        return attachmentLock.attached(ignite -> ignite.compute().submitMapReduce(taskDescriptor, cancellationToken, arg));
     }
 
     @Override
     public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
         return attachmentLock.attached(ignite -> ignite.compute().executeMapReduce(taskDescriptor, cancellationToken, arg));
-    }
-
-    @Override
-    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return attachmentLock.attachedAsync(ignite -> ignite.compute().executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
     }
 
     @Override
