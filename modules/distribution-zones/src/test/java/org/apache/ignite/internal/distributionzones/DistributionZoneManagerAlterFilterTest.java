@@ -145,7 +145,12 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
             "false, STRONG_CONSISTENCY",
     })
     void testAlterFilterDoNotAffectScaleDown(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
-        String zoneName = preparePrerequisites(IMMEDIATE_TIMER_VALUE, COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, defaultZone, consistencyMode);
+        String zoneName = preparePrerequisites(
+                IMMEDIATE_TIMER_VALUE,
+                COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS,
+                defaultZone,
+                consistencyMode
+        );
 
         topology.putNode(D);
 
@@ -271,7 +276,12 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed
      */
-    private String preparePrerequisites(int scaleUpTimer, int scaleDownTimer, boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
+    private String preparePrerequisites(
+            int scaleUpTimer,
+            int scaleDownTimer,
+            boolean defaultZone,
+            ConsistencyMode consistencyMode
+    ) throws Exception {
         startDistributionZoneManager();
 
         topology.putNode(A);

@@ -467,7 +467,15 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertTrue(metaStorageManager.get(pendingPartAssignmentsKey(partId)).get().empty());
     }
 
-    private static String createZoneSql(int partitions, int replicas, int scaleUp, int scaleDown, String filter, String storageProfiles, ConsistencyMode consistencyMode) {
+    private static String createZoneSql(
+            int partitions,
+            int replicas,
+            int scaleUp,
+            int scaleDown,
+            String filter,
+            String storageProfiles,
+            ConsistencyMode consistencyMode
+    ) {
         String sqlFormat = "CREATE ZONE \"%s\" WITH "
                 + "\"REPLICAS\" = %s, "
                 + "\"PARTITIONS\" = %s, "

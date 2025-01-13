@@ -139,7 +139,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for checking {@link DistributionZoneManager} behavior after node's restart.
@@ -670,7 +669,15 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             return dataNodeKeyOptional.isPresent();
         }));
 
-        createZone(getCatalogManager(node), "zone1", INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null, consistencyMode, DEFAULT_STORAGE_PROFILE);
+        createZone(
+                getCatalogManager(node),
+                "zone1",
+                INFINITE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                null,
+                consistencyMode,
+                DEFAULT_STORAGE_PROFILE
+        );
 
         // Assert that after creation of a zone, data nodes are still tombstone, but not the logical topology, as for default zone.
         assertThat(metastore.get(new ByteArray(dataNodeKey[0])).thenApply(Entry::tombstone), willBe(true));
