@@ -101,7 +101,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 options.maxRetries()
         );
 
-        return new JobExecutionInternal<>(execution, isInterrupted);
+        return new JobExecutionInternal<>(execution, isInterrupted, null, false);
     }
 
     private static <T, R> Callable<CompletableFuture<ComputeJobDataHolder>> unmarshalExecMarshal(

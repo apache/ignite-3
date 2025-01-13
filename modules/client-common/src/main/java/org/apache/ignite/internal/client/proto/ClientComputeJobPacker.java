@@ -42,11 +42,12 @@ public final class ClientComputeJobPacker {
      * the result is a native column type or a tuple, it will be packed accordingly.
      *
      * @param res Result.
+     * @param marshaller Marshaller.
      * @param packer Packer.
      * @param <T> Result type.
      */
-    public static <T> void packJobResult(@Nullable T res, ClientMessagePacker packer) {
-        pack(res, null, packer);
+    public static <T> void packJobResult(@Nullable T res, @Nullable Marshaller<T, byte[]> marshaller, ClientMessagePacker packer) {
+        pack(res, marshaller, packer);
     }
 
     /** Packs object in the format: | typeId | value |. */
