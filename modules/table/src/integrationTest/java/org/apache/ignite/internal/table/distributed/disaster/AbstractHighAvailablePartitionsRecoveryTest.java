@@ -54,6 +54,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 
 /** Parent for tests of HA zones feature. */
@@ -86,7 +87,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 recoveryTriggerEntry.value(), DisasterRecoveryRequestSerializer.INSTANCE);
 
         int zoneId = node.catalogManager().zone(zoneName, clock.nowLong()).id();
-        int tableId = node.catalogManager().table(tableName, clock.nowLong()).id();
+        int tableId = node.catalogManager().table(SqlCommon.DEFAULT_SCHEMA_NAME, tableName, clock.nowLong()).id();
 
         assertEquals(zoneId, request.zoneId());
         assertEquals(Map.of(tableId, PARTITION_IDS), request.partitionIds());

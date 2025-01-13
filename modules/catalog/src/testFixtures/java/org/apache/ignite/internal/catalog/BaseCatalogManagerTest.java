@@ -78,6 +78,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
+    protected static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     protected static final String TABLE_NAME = "test_table";
     protected static final String TABLE_NAME_2 = "test_table_2";
     protected static final String TABLE_NAME_3 = "test_table_3";

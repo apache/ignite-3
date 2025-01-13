@@ -110,7 +110,8 @@ public class ItDisasterRecoveryMetricTest extends BaseSqlIntegrationTest {
     }
 
     private static String partitionStatesMetricSourceName(IgniteImpl node, String tableName) {
-        CatalogTableDescriptor tableDescriptor = node.catalogManager().table(tableName, node.clock().nowLong());
+        CatalogTableDescriptor tableDescriptor = node.catalogManager().table(SCHEMA_NAME, tableName, node.clock().nowLong()
+        );
 
         return String.format("partition.states.zone.%s.table.%s", tableDescriptor.zoneId(), tableDescriptor.id());
     }

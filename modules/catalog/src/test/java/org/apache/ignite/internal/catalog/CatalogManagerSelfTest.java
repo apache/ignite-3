@@ -69,7 +69,6 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -77,7 +76,6 @@ import org.mockito.ArgumentCaptor;
  * Catalog manager self test.
  */
 public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
-    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
     @Test
     public void testEmptyCatalog() {

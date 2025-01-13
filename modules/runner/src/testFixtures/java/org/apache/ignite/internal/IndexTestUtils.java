@@ -18,6 +18,7 @@
 package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -40,7 +41,7 @@ public class IndexTestUtils {
         IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
 
         assertTrue(waitForCondition(
-                () -> igniteImpl.catalogManager().aliveIndex(indexName, igniteImpl.clock().nowLong()) != null,
+                () -> igniteImpl.catalogManager().aliveIndex(DEFAULT_SCHEMA_NAME, indexName, igniteImpl.clock().nowLong()) != null,
                 10_000
         ));
     }
