@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleComparator;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.IndexRow;
@@ -54,7 +55,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
     public TestSortedIndexStorage(int partitionId, StorageSortedIndexDescriptor descriptor) {
         super(partitionId, descriptor);
 
-        var binaryTupleComparator = StorageUtils.binaryTupleComparator(descriptor.columns());
+        BinaryTupleComparator binaryTupleComparator = StorageUtils.binaryTupleComparator(descriptor.columns());
 
         this.descriptor = descriptor;
         this.index = new ConcurrentSkipListSet<>(

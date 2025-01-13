@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.util;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -263,12 +264,14 @@ public class StorageUtils {
      * Creates a comparator for a Sorted Index identified by the given columns descriptors.
      */
     public static BinaryTupleComparator binaryTupleComparator(List<StorageSortedIndexColumnDescriptor> columns) {
-        CatalogColumnCollation[] collations = columns.stream()
-                .map(c -> CatalogColumnCollation.get(c.asc(), !c.asc()))
-                .toArray(CatalogColumnCollation[]::new);
+        List<CatalogColumnCollation> columnCollation = new ArrayList<>(columns.size());
+        List<NativeType> columnTypes = new ArrayList<>(columns.size());
 
-        NativeType[] columnTypes = columns.stream().map(StorageSortedIndexColumnDescriptor::type).toArray(NativeType[]::new);
+        for (StorageSortedIndexColumnDescriptor col : columns) {
+            columnCollation.add(CatalogColumnCollation.get(col.asc(), !col.asc()));
+            columnTypes.add(col.type());
+        }
 
-        return new BinaryTupleComparator(collations, columnTypes);
+        return new BinaryTupleComparator(columnCollation, columnTypes);
     }
 }

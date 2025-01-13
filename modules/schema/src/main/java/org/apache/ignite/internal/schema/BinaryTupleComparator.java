@@ -26,6 +26,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.type.NativeType;
@@ -40,8 +41,8 @@ import org.apache.ignite.internal.type.NativeTypeSpec;
  */
 @SuppressWarnings("ComparatorNotSerializable")
 public class BinaryTupleComparator implements Comparator<ByteBuffer> {
-    private final NativeType[] columnTypes;
-    private final CatalogColumnCollation[] columnCollations;
+    private final List<CatalogColumnCollation>  columnCollations;
+    private final List<NativeType> columnTypes;
 
     /**
      * Creates BinaryTuple comparator.
@@ -50,8 +51,8 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
      * @param columnTypes Column types in order, which is defined in BinaryTuple schema.
      */
     public BinaryTupleComparator(
-            CatalogColumnCollation[] columnCollations,
-            NativeType[] columnTypes
+            List<CatalogColumnCollation> columnCollations,
+            List<NativeType> columnTypes
     ) {
         this.columnCollations = columnCollations;
         this.columnTypes = columnTypes;
@@ -65,7 +66,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
         boolean isBuffer1Prefix = isFlagSet(buffer1, PREFIX_FLAG);
         boolean isBuffer2Prefix = isFlagSet(buffer2, PREFIX_FLAG);
 
-        int numElements = columnTypes.length;
+        int numElements = columnTypes.size();
 
         BinaryTupleReader tuple1 = isBuffer1Prefix ? new BinaryTuplePrefix(numElements, buffer1) : new BinaryTuple(numElements, buffer1);
         BinaryTupleReader tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(numElements, buffer2) : new BinaryTuple(numElements, buffer2);
@@ -97,18 +98,11 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
     /**
      * Compares two tuples by column using given column index.
      */
-    protected int compareField(int colIdx, BinaryTupleReader tuple1, BinaryTupleReader tuple2) {
-        return compareField(colIdx, tuple1, colIdx, tuple2, colIdx);
-    }
+    private int compareField(int colIdx, BinaryTupleReader tuple1, BinaryTupleReader tuple2) {
+        CatalogColumnCollation collation = columnCollations.get(colIdx);
 
-    /**
-     * Compares nullable individual fields of two tuples.
-     */
-    protected final int compareField(int colIdx, BinaryTupleReader tuple1, int index1, BinaryTupleReader tuple2, int index2) {
-        CatalogColumnCollation collation = columnCollations[colIdx];
-
-        boolean tuple1HasNull = tuple1.hasNullValue(index1);
-        boolean tuple2HasNull = tuple2.hasNullValue(index2);
+        boolean tuple1HasNull = tuple1.hasNullValue(colIdx);
+        boolean tuple2HasNull = tuple2.hasNullValue(colIdx);
 
         if (tuple1HasNull && tuple2HasNull) {
             return 0;
@@ -116,9 +110,9 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
             return collation.nullsFirst() == tuple1HasNull ? -1 : 1;
         }
 
-        NativeType nativeType = columnTypes[colIdx];
+        NativeType nativeType = columnTypes.get(colIdx);
 
-        int res = compareField(nativeType.spec(), tuple1, index1, tuple2, index2);
+        int res = compareField(nativeType.spec(), tuple1, colIdx, tuple2, colIdx);
 
         return collation.asc() ? res : -res;
     }

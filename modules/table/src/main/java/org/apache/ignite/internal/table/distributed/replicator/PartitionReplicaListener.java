@@ -163,6 +163,7 @@ import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleComparator;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -1367,7 +1368,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         int flags = request.flags();
 
-        var comparator = StorageUtils.binaryTupleComparator(indexStorage.indexDescriptor().columns());
+        BinaryTupleComparator comparator = StorageUtils.binaryTupleComparator(indexStorage.indexDescriptor().columns());
 
         Predicate<IndexRow> isUpperBoundAchieved = indexRow -> {
             if (indexRow == null) {

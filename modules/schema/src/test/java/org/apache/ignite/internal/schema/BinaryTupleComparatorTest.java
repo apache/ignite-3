@@ -180,8 +180,8 @@ public class BinaryTupleComparatorTest {
     @Test
     public void testCompareMultipleColumnTuples() {
         var comparator = new BinaryTupleComparator(
-                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
-                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST),
+                List.of(NativeTypes.INT32, NativeTypes.STRING)
         );
 
         ByteBuffer tuple1 = new BinaryTupleBuilder(2)
@@ -204,8 +204,8 @@ public class BinaryTupleComparatorTest {
         validate(comparator, tuple3, tuple2);
 
         var reversedComparator = new BinaryTupleComparator(
-                new CatalogColumnCollation[]{CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST},
-                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+                List.of(CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST),
+                List.of(NativeTypes.INT32, NativeTypes.STRING)
         );
 
         validate(reversedComparator, tuple2, tuple1);
@@ -216,8 +216,8 @@ public class BinaryTupleComparatorTest {
     @Test
     public void testCompareMultipleColumnTuplesWithNulls() {
         var comparator = new BinaryTupleComparator(
-                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST},
-                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST),
+                List.of(NativeTypes.INT32, NativeTypes.STRING)
         );
 
         ByteBuffer tuple1 = new BinaryTupleBuilder(2)
@@ -248,8 +248,8 @@ public class BinaryTupleComparatorTest {
     @Test
     public void testCompareWithPrefix() {
         var comparator = new BinaryTupleComparator(
-                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST},
-                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
+                List.of(NativeTypes.INT32, NativeTypes.STRING)
         );
 
         ByteBuffer tuple = new BinaryTupleBuilder(2)
@@ -287,8 +287,8 @@ public class BinaryTupleComparatorTest {
     @Test
     public void testCompareWithPrefixWithNulls() {
         var comparator = new BinaryTupleComparator(
-                new CatalogColumnCollation[]{CatalogColumnCollation.ASC_NULLS_LAST},
-                new NativeType[]{NativeTypes.INT32, NativeTypes.STRING}
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
+                List.of(NativeTypes.INT32, NativeTypes.STRING)
         );
 
         ByteBuffer tuple1 = new BinaryTupleBuilder(2)
@@ -317,7 +317,7 @@ public class BinaryTupleComparatorTest {
     }
 
     private static BinaryTupleComparator createSingleColumnComparator(NativeType type, CatalogColumnCollation collation) {
-        return new BinaryTupleComparator(new CatalogColumnCollation[]{collation}, new NativeType[]{type});
+        return new BinaryTupleComparator(List.of(collation), List.of(type));
     }
 
     private static void setEqualityFlag(ByteBuffer buffer) {
