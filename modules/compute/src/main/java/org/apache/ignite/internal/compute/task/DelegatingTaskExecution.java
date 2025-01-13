@@ -22,8 +22,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.task.TaskExecution;
-import org.apache.ignite.internal.compute.MarshallerProvider;
-import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Result type.
  */
-public class DelegatingTaskExecution<I, M, T, R> implements TaskExecution<R>, MarshallerProvider<R> {
+public class DelegatingTaskExecution<I, M, T, R> implements TaskExecution<R> {
     private final CompletableFuture<TaskExecutionInternal<I, M, T, R>> delegate;
 
     public DelegatingTaskExecution(CompletableFuture<TaskExecutionInternal<I, M, T, R>> delegate) {
@@ -61,19 +59,5 @@ public class DelegatingTaskExecution<I, M, T, R> implements TaskExecution<R>, Ma
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return delegate.thenCompose(execution -> execution.changePriorityAsync(newPriority));
-    }
-
-    @Override
-    public @Nullable Marshaller<R, byte[]> resultMarshaller() {
-        assert delegate.isDone() : "Task execution is supposed to be done before calling `resultMarshaller()`";
-
-        return delegate.join().resultMarshaller();
-    }
-
-    @Override
-    public boolean marshalResult() {
-        assert delegate.isDone() : "Task execution is supposed to be done before calling `marshalResult()`";
-
-        return delegate.join().marshalResult();
     }
 }

@@ -52,13 +52,11 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
-import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,7 +68,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Task result type.
  */
 @SuppressWarnings("unchecked")
-public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, MarshallerProvider<R> {
+public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R> {
     private static final IgniteLogger LOG = Loggers.forClass(TaskExecutionInternal.class);
 
     private final QueueExecution<SplitResult<I, M, T, R>> splitExecution;
@@ -84,8 +82,6 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
     private final AtomicReference<TaskState> reduceFailedState = new AtomicReference<>();
 
     private final AtomicBoolean isCancelled;
-
-    private volatile @Nullable Marshaller<R, byte[]> reduceResultMarshallerRef;
 
     /**
      * Construct an execution object and starts executing.
@@ -110,8 +106,6 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
         splitExecution = executorService.submit(
                 () -> {
                     MapReduceTask<I, M, T, R> task = instantiateTask(taskClass);
-
-                    reduceResultMarshallerRef = task.reduceJobResultMarshaller();
 
                     Class<?> splitArgumentType = getTaskSplitArgumentType(taskClass);
                     return task.splitAsync(context, unmarshalOrNotIfNull(task.splitJobInputMarshaller(), arg, splitArgumentType))
@@ -307,17 +301,6 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
         return runners.stream()
                 .map(jobSubmitter::submit)
                 .collect(toList());
-    }
-
-    @Override
-    public @Nullable Marshaller<R, byte[]> resultMarshaller() {
-        return reduceResultMarshallerRef;
-    }
-
-    @Override
-    public boolean marshalResult() {
-        // Not needed because split/reduce jobs always run on the client handler node
-        return false;
     }
 
     private static class SplitResult<I, M, T, R> {

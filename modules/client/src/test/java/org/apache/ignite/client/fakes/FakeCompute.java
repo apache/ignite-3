@@ -59,7 +59,6 @@ import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.JobStateImpl;
-import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
@@ -293,17 +292,6 @@ public class FakeCompute implements IgniteComputeInternal {
         public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
             return trueCompletedFuture();
         }
-
-
-        @Override
-        public Marshaller<R, byte[]> resultMarshaller() {
-            return null;
-        }
-
-        @Override
-        public boolean marshalResult() {
-            return false;
-        }
     }
 
     private <R> TaskExecution<R> taskExecution(CompletableFuture<R> result) {
@@ -335,7 +323,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
     }
 
-    class FakeTaskExecution<R> implements TaskExecution<R>, MarshallerProvider<R> {
+    class FakeTaskExecution<R> implements TaskExecution<R> {
         private final CompletableFuture<R> result;
         private final UUID jobId;
         private final UUID subJobId1;
@@ -373,16 +361,6 @@ public class FakeCompute implements IgniteComputeInternal {
         @Override
         public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
             return trueCompletedFuture();
-        }
-
-        @Override
-        public @Nullable Marshaller<R, byte[]> resultMarshaller() {
-            return marshaller;
-        }
-
-        @Override
-        public boolean marshalResult() {
-            return false;
         }
     }
 

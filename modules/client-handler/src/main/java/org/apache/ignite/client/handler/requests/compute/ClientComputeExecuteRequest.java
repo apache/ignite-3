@@ -34,11 +34,8 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
-import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute execute request.
@@ -110,17 +107,8 @@ public class ClientComputeExecuteRequest {
         return execution.resultAsync().whenComplete((val, err) ->
                 execution.stateAsync().whenComplete((state, errState) ->
                         notificationSender.sendNotification(w -> {
-                            Marshaller<Object, byte[]> marshaller = extractMarshaller(execution);
-                            ClientComputeJobPacker.packJobResult(val, marshaller, w);
+                            ClientComputeJobPacker.packJobResult(val, w);
                             packJobState(w, state);
                         }, err)));
-    }
-
-    private static <T> @Nullable Marshaller<T, byte[]> extractMarshaller(JobExecution<ComputeJobDataHolder> e) {
-        if (e instanceof MarshallerProvider) {
-            return ((MarshallerProvider<T>) e).resultMarshaller();
-        }
-
-        return null;
     }
 }

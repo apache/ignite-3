@@ -21,9 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
-import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
-import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,33 +29,23 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Job result type.
  */
-public class JobExecutionInternal<R> implements MarshallerProvider<R> {
+public class JobExecutionInternal<R> {
     private final QueueExecution<ComputeJobDataHolder> execution;
 
     private final AtomicBoolean isInterrupted;
-
-    private final Marshaller<R, byte[]> marshaller;
-
-    private final boolean marshalResult;
 
     /**
      * Constructor.
      *
      * @param execution Internal execution state.
      * @param isInterrupted Flag which is passed to the execution context so that the job can check it for cancellation request.
-     * @param marshaller Result marshaller.
-     * @param marshalResult Flag indicating whether the marshalling of the result will be needed.
      */
     JobExecutionInternal(
             QueueExecution<ComputeJobDataHolder> execution,
-            AtomicBoolean isInterrupted,
-            @Nullable Marshaller<R, byte[]> marshaller,
-            boolean marshalResult
+            AtomicBoolean isInterrupted
     ) {
         this.execution = execution;
         this.isInterrupted = isInterrupted;
-        this.marshaller = marshaller;
-        this.marshalResult = marshalResult;
     }
 
     public CompletableFuture<ComputeJobDataHolder> resultAsync() {
@@ -87,15 +75,5 @@ public class JobExecutionInternal<R> implements MarshallerProvider<R> {
      */
     public boolean changePriority(int newPriority) {
         return execution.changePriority(newPriority);
-    }
-
-    @Override
-    public @Nullable Marshaller<R, byte[]> resultMarshaller() {
-        return marshaller;
-    }
-
-    @Override
-    public boolean marshalResult() {
-        return marshalResult;
     }
 }

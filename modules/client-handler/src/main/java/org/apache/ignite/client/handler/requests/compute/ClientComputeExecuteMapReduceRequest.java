@@ -35,8 +35,6 @@ import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
-import org.apache.ignite.internal.compute.MarshallerProvider;
-import org.apache.ignite.marshalling.Marshaller;
 
 /**
  * Compute MapReduce request.
@@ -90,8 +88,7 @@ public class ClientComputeExecuteMapReduceRequest {
                 t.stateAsync().whenComplete((state, errState) ->
                         execution.statesAsync().whenComplete((states, errStates) ->
                                 notificationSender.sendNotification(w -> {
-                                    Marshaller<Object, byte[]> resultMarshaller = ((MarshallerProvider<Object>) t).resultMarshaller();
-                                    ClientComputeJobPacker.packJobResult(val, resultMarshaller, w);
+                                    ClientComputeJobPacker.packJobResult(val, w);
                                     packTaskState(w, state);
                                     packJobStates(w, states);
                                 }, firstNotNull(err, errState, errStates)))

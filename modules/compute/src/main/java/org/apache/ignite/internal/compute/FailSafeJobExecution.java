@@ -27,7 +27,6 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <T> the type of the job result.
  */
-class FailSafeJobExecution<T> implements JobExecution<T>, MarshallerProvider<T> {
+class FailSafeJobExecution<T> implements JobExecution<T> {
     private static final IgniteLogger LOG = Loggers.forClass(FailSafeJobExecution.class);
 
     /**
@@ -178,21 +177,5 @@ class FailSafeJobExecution<T> implements JobExecution<T>, MarshallerProvider<T> 
         } else {
             throw new IllegalStateException("Job is already completed exceptionally.");
         }
-    }
-
-    @Override
-    public @Nullable Marshaller<T, byte[]> resultMarshaller() {
-        JobExecution<T> exec = runningJobExecution.get();
-        if (exec instanceof MarshallerProvider) {
-            return ((MarshallerProvider<T>) exec).resultMarshaller();
-        }
-
-        return null;
-    }
-
-    @Override
-    public boolean marshalResult() {
-        JobExecution<T> exec = runningJobExecution.get();
-        return exec instanceof MarshallerProvider && ((MarshallerProvider<T>) exec).marshalResult();
     }
 }
