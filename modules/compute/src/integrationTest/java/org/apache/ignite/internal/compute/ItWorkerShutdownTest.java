@@ -64,7 +64,6 @@ import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -268,7 +267,6 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24199")
     void cancelRemoteExecutionOnRestartedJob() throws Exception {
         // Given entry node.
         Ignite entryNode = node(0);
