@@ -31,7 +31,7 @@ public static class BroadcastJobTarget
     /// </summary>
     /// <param name="nodes">Nodes to run the job on.</param>
     /// <returns>Job target.</returns>
-    public static IBroadcastJobTarget<IEnumerable<IClusterNode>> AllNodes(IEnumerable<IClusterNode> nodes)
+    public static IBroadcastJobTarget<IEnumerable<IClusterNode>> Nodes(IEnumerable<IClusterNode> nodes)
     {
         IgniteArgumentCheck.NotNull(nodes);
 
@@ -43,7 +43,7 @@ public static class BroadcastJobTarget
     /// </summary>
     /// <param name="nodes">Nodes to run the job on.</param>
     /// <returns>Job target.</returns>
-    public static IBroadcastJobTarget<IEnumerable<IClusterNode>> AllNodes(params IClusterNode[] nodes)
+    public static IBroadcastJobTarget<IEnumerable<IClusterNode>> Nodes(params IClusterNode[] nodes)
     {
         IgniteArgumentCheck.NotNull(nodes);
 
