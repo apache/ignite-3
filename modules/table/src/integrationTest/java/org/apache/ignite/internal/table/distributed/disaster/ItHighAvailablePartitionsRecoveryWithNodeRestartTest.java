@@ -35,13 +35,11 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 
 /** Test for the HA zones recovery with node restarts. */
-class ItHighAvailablePartitionsRecoveryWithNodeRestartTest  extends AbstractHighAvailablePartitionsRecoveryTest {
+class ItHighAvailablePartitionsRecoveryWithNodeRestartTest extends AbstractHighAvailablePartitionsRecoveryTest {
     /** How often we update the low water mark. */
     private static final long LW_UPDATE_TIME_MS = TimeUnit.MILLISECONDS.toMillis(500);
 
-    /**
-     * It should be less than {@link #LW_UPDATE_TIME_MS} for the test to work.
-     */
+    /** It should be less than {@link #LW_UPDATE_TIME_MS} for the test to work. */
     private static final long CHECK_POINT_INTERVAL_MS = LW_UPDATE_TIME_MS / 2;
 
     /** Should be greater than 2 x {@link #LW_UPDATE_TIME_MS}. */
