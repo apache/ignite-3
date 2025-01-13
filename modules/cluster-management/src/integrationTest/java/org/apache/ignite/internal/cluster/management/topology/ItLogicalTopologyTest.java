@@ -67,7 +67,7 @@ class ItLogicalTopologyTest extends ClusterPerTestIntegrationTest {
             + "    port: {},\n"
             + "    nodeFinder.netClusterNodes: [ {} ]\n"
             + "  },\n"
-            + "  nodeAttributes.nodeAttributes: {region.attribute = US, storage.attribute = SSD},\n"
+            + "  nodeAttributes.nodeAttributes: {region = US, storage = SSD},\n"
             + "  storage.profiles: {lru_rocks.engine = rocksdb, segmented_aipersist.engine = aipersist},\n"
             + "  clientConnector.port: {},\n"
             + "  rest.port: {},\n"

@@ -205,8 +205,9 @@ public class AuthenticationManagerImpl
     }
 
     private void logAuthenticationFailure(AuthenticationRequest<?, ?> authenticationRequest) {
-        eventLog.log(() ->
-                IgniteEvents.USER_AUTHENTICATION_FAILURE.builder()
+        eventLog.log(
+                IgniteEvents.USER_AUTHENTICATION_FAILURE.type(),
+                () -> IgniteEvents.USER_AUTHENTICATION_FAILURE.builder()
                         .user(EventUser.system())
                         .fields(Map.of("identity", tryGetUsernameOrUnknown(authenticationRequest)))
                         .build()
@@ -221,10 +222,12 @@ public class AuthenticationManagerImpl
     }
 
     private void logUserAuthenticated(UserDetails userDetails) {
-        eventLog.log(() ->
-                IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of(
+        eventLog.log(
+                IgniteEvents.USER_AUTHENTICATION_SUCCESS.type(),
+                () -> IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of(
                         userDetails.username(), userDetails.providerName()
-                )));
+                ))
+        );
     }
 
     private void refreshProviders(@Nullable SecurityView view) {
