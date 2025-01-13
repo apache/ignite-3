@@ -214,7 +214,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         }
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-24021
-        // Converts schema name to its canonical form.
+        //  Replace this with using correct implementation of `IgniteNameUtils.parseSimpleName`, when it will be fixed.
         String schemaNameInCanonicalForm = QualifiedName.fromSimple(defaultSchemaName).objectName();
 
         return SqlPropertiesHelper.newBuilder()
