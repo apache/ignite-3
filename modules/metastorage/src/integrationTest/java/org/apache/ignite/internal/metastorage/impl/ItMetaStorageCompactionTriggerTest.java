@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.FOO_KEY;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.VALUE;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.allNodesContainSingleRevisionForKeyLocally;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.collectCompactionRevision;
+import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.collectKeyRevisions;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.createClusterConfigWithCompactionProperties;
 import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.latestKeyRevision;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -93,7 +95,11 @@ public class ItMetaStorageCompactionTriggerTest extends ClusterPerClassIntegrati
         long latestFooEntryRevision = latestKeyRevision(metaStorageManager, FOO_KEY);
 
         assertTrue(
-                waitForCondition(() -> allNodesContainSingleRevisionForKeyLocally(CLUSTER, FOO_KEY, latestFooEntryRevision), 10, 1_000)
+                waitForCondition(() -> allNodesContainSingleRevisionForKeyLocally(CLUSTER, FOO_KEY, latestFooEntryRevision), 10, 1_000),
+                () -> String.format(
+                        "Failed get revisions: [latestRevision=%s, keyRevisionsPerNode=%s, compactionRevisionPerNode=%s]",
+                        latestFooEntryRevision, collectKeyRevisions(CLUSTER, FOO_KEY), collectCompactionRevision(CLUSTER)
+                )
         );
     }
 

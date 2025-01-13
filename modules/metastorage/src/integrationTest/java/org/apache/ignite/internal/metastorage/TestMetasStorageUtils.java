@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage;
 
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.INTERVAL_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -26,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +36,8 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.jetbrains.annotations.Nullable;
 
@@ -96,13 +100,31 @@ public class TestMetasStorageUtils {
         return latestEntryFuture.join().revision();
     }
 
+    private static final IgniteLogger LOG = Loggers.forClass(TestMetasStorageUtils.class);
+
     /** Returns {@code true} if the metastorage key has only one revision in the cluster. */
     public static boolean allNodesContainSingleRevisionForKeyLocally(Cluster cluster, ByteArray key, long revision) {
+        return collectKeyRevisions(cluster, key).entrySet().stream()
+                .peek(entry -> LOG.info(
+                        ">>>>> try find: [node={}, revision={}, revisions={}]",
+                        entry.getKey(), revision, entry.getValue()
+                ))
+                .map(Map.Entry::getValue)
+                .allMatch(keyRevisions -> keyRevisions.size() == 1 && keyRevisions.contains(revision));
+    }
+
+    /** Returns some staff. */
+    public static Map<String, Set<Long>> collectKeyRevisions(Cluster cluster, ByteArray key) {
         return cluster.runningNodes()
                 .map(TestWrappers::unwrapIgniteImpl)
-                .map(IgniteImpl::metaStorageManager)
-                .map(metaStorageManager -> collectRevisionsLocally(metaStorageManager, key))
-                .allMatch(keyRevisions -> keyRevisions.size() == 1 && keyRevisions.contains(revision));
+                .collect(toMap(IgniteImpl::name, ignite -> collectRevisionsLocally(ignite.metaStorageManager(), key)));
+    }
+
+    /** Returns some staff. */
+    public static Map<String, Long> collectCompactionRevision(Cluster cluster) {
+        return cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .collect(toMap(IgniteImpl::name, ignite -> ignite.metaStorageManager().getCompactionRevisionLocally()));
     }
 
     private static Set<Long> collectRevisionsLocally(MetaStorageManager metaStorageManager, ByteArray key) {
