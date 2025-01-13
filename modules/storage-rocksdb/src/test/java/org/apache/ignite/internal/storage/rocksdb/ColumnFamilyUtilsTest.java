@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.compa
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -68,15 +69,15 @@ public class ColumnFamilyUtilsTest {
     void testComparatorFromCfName() {
         RocksDbBinaryTupleComparator comparator = comparatorFromCfName(name(3, 0, 2, 1, 1, 2, 0, 3));
 
-        NativeType[] expectedTypes = {NativeTypes.INT64, NativeTypes.INT32, NativeTypes.INT16, NativeTypes.INT8};
-        CatalogColumnCollation[] expectedCollations = {DESC_NULLS_FIRST, DESC_NULLS_FIRST, ASC_NULLS_LAST, ASC_NULLS_LAST};
+        List<NativeType> expectedTypes = List.of(NativeTypes.INT64, NativeTypes.INT32, NativeTypes.INT16, NativeTypes.INT8);
+        List<CatalogColumnCollation> expectedCollations = List.of(DESC_NULLS_FIRST, DESC_NULLS_FIRST, ASC_NULLS_LAST, ASC_NULLS_LAST);
 
         // I am sorry, this is for a single test only.
-        NativeType[] columnTypes = getFieldValue(comparator, "comparator", "columnTypes");
-        CatalogColumnCollation[] columnCollations = getFieldValue(comparator, "comparator", "columnCollations");
+        List<NativeType> columnTypes = getFieldValue(comparator, "comparator", "columnTypes");
+        List<CatalogColumnCollation> columnCollations = getFieldValue(comparator, "comparator", "columnCollations");
 
-        assertArrayEquals(expectedTypes, columnTypes);
-        assertArrayEquals(expectedCollations, columnCollations);
+        assertEquals(expectedTypes, columnTypes);
+        assertEquals(expectedCollations, columnCollations);
     }
 
     private static byte[] name(int... bytes) {
