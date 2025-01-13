@@ -63,11 +63,13 @@ import org.apache.ignite.internal.compute.JobStateImpl;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
@@ -262,7 +264,7 @@ public class FakeCompute implements IgniteComputeInternal {
 
         @Override
         public ClusterNode node() {
-            return null;
+            return new ClusterNodeImpl(UUID.randomUUID(), nodeName, new NetworkAddress("local-host", 1));
         }
 
 

@@ -66,7 +66,7 @@ public class JobExecutionMatcher<R> extends TypeSafeMatcher<JobExecution<R>> {
     }
 
     public static <R> JobExecutionMatcher<R> jobExecutionWithResultAndNode(R result, ClusterNode node) {
-        return new JobExecutionMatcher<>(willBe(result), null, is(node));
+        return new JobExecutionMatcher<>(willBe(result), null, is(node.name()));
     }
 
     public static <R> JobExecutionMatcher<R> jobExecutionWithResultStatusAndNode(R result, JobStatus status, ClusterNode node) {
