@@ -134,7 +134,7 @@ namespace Apache.Ignite.Tests.Compute
             var node = (await GetNodeAsync(0)).Data;
 
             var broadcastExec = await Client.Compute.SubmitBroadcastAsync(
-                [node],
+                BroadcastJobTarget.AllNodes(node),
                 NodeNameJob,
                 "123");
 
@@ -150,7 +150,7 @@ namespace Apache.Ignite.Tests.Compute
             var nodes = await Client.GetClusterNodesAsync();
 
             IBroadcastExecution<string> broadcastExecution = await Client.Compute.SubmitBroadcastAsync(
-                nodes,
+                BroadcastJobTarget.AllNodes(nodes),
                 NodeNameJob,
                 "123");
 
@@ -213,7 +213,7 @@ namespace Apache.Ignite.Tests.Compute
             var unknownNode = new ClusterNode(Guid.NewGuid(), "y", new IPEndPoint(IPAddress.Loopback, 0));
 
             var ex = Assert.ThrowsAsync<NodeNotFoundException>(
-                async () => await Client.Compute.SubmitBroadcastAsync([unknownNode], EchoJob, "unused"));
+                async () => await Client.Compute.SubmitBroadcastAsync(BroadcastJobTarget.AllNodes(unknownNode), EchoJob, "unused"));
 
             StringAssert.Contains("None of the specified nodes are present in the cluster: [y]", ex!.Message);
             Assert.AreEqual(ErrorGroups.Compute.NodeNotFound, ex.Code);
