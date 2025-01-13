@@ -83,25 +83,37 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public async Task<IBroadcastExecution<TResult>> SubmitBroadcastAsync<TArg, TResult>(
-            IEnumerable<IClusterNode> nodes,
+        public async Task<IBroadcastExecution<TResult>> SubmitBroadcastAsync<TTarget, TArg, TResult>(
+            IBroadcastJobTarget<TTarget> target,
             JobDescriptor<TArg, TResult> jobDescriptor,
             TArg arg)
+            where TTarget : notnull
         {
-            IgniteArgumentCheck.NotNull(nodes);
+            IgniteArgumentCheck.NotNull(target);
             IgniteArgumentCheck.NotNull(jobDescriptor);
             IgniteArgumentCheck.NotNull(jobDescriptor.JobClassName);
 
-            var jobExecutions = new List<IJobExecution<TResult>>();
-
-            foreach (var node in nodes)
+            return target switch
             {
-                IJobExecution<TResult> jobExec = await ExecuteOnNodes([node], jobDescriptor, arg).ConfigureAwait(false);
+                BroadcastJobTarget.AllNodesTarget allNodes => await SubmitBroadcastAsyncInternal(allNodes.Data)
+                    .ConfigureAwait(false),
 
-                jobExecutions.Add(jobExec);
+                _ => throw new ArgumentException("Unsupported broadcast job target: " + target)
+            };
+
+            async Task<IBroadcastExecution<TResult>> SubmitBroadcastAsyncInternal(IEnumerable<IClusterNode> nodes)
+            {
+                var jobExecutions = new List<IJobExecution<TResult>>();
+
+                foreach (var node in nodes)
+                {
+                    IJobExecution<TResult> jobExec = await ExecuteOnNodes([node], jobDescriptor, arg).ConfigureAwait(false);
+
+                    jobExecutions.Add(jobExec);
+                }
+
+                return new BroadcastExecution<TResult>(jobExecutions);
             }
-
-            return new BroadcastExecution<TResult>(jobExecutions);
         }
 
         /// <inheritdoc/>

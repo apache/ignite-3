@@ -26,14 +26,24 @@ using Network;
 /// </summary>
 public static class BroadcastJobTarget
 {
-    public static IBroadcastJobTarget<IEnumerable<IClusterNode>> Nodes(IEnumerable<IClusterNode> nodes)
+    /// <summary>
+    /// Creates a broadcast job target for all specified nodes.
+    /// </summary>
+    /// <param name="nodes">Nodes to run the job on.</param>
+    /// <returns>Job target.</returns>
+    public static IBroadcastJobTarget<IEnumerable<IClusterNode>> AllNodes(IEnumerable<IClusterNode> nodes)
     {
         IgniteArgumentCheck.NotNull(nodes);
 
         return new AllNodesTarget(nodes);
     }
 
-    public static IBroadcastJobTarget<IEnumerable<IClusterNode>> Nodes(params IClusterNode[] nodes)
+    /// <summary>
+    /// Creates a broadcast job target for all specified nodes.
+    /// </summary>
+    /// <param name="nodes">Nodes to run the job on.</param>
+    /// <returns>Job target.</returns>
+    public static IBroadcastJobTarget<IEnumerable<IClusterNode>> AllNodes(params IClusterNode[] nodes)
     {
         IgniteArgumentCheck.NotNull(nodes);
 
