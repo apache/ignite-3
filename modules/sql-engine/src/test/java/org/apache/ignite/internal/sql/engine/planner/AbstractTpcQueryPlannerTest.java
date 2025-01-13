@@ -32,6 +32,7 @@ import java.lang.annotation.Target;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.sql.SqlExplainLevel;
@@ -75,7 +76,10 @@ abstract class AbstractTpcQueryPlannerTest extends AbstractPlannerTest {
         queryLoader = queryId -> invoke(queryLoaderMethod, queryId);
         planLoader = queryId -> invoke(planLoaderMethod, queryId);
 
-        CLUSTER = TestBuilders.cluster().nodes("N1").build();
+        CLUSTER = TestBuilders.cluster()
+                .nodes("N1")
+                .planningTimeout(1, TimeUnit.MINUTES)
+                .build();
         CLUSTER.start();
 
         TestNode node = CLUSTER.node("N1");
