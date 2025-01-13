@@ -2385,7 +2385,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     /**
-     * For HA zones: Check that last rebalance was graceful (raft group maintained the majority) rather than forced (caused by a disaster
+     * For HA zones: Check that last rebalance was graceful (caused by common rebalance triggers, like data nodes change, replica factor change, etc.) rather than forced (caused by a disaster
      * recovery reset after losing the majority of nodes).
      */
     private static boolean lastRebalanceWasGraceful(@Nullable AssignmentsChain assignmentsChain) {
