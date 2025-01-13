@@ -46,7 +46,7 @@ public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerC
 
     private static final String TABLE_NAME = "first_ZONE_table";
 
-    private static final String QUALIFIED_TABLE_NAME = "PUBLIC." + TABLE_NAME;
+    private static final String SCHEMA_NAME = "PUBLIC";
 
     @Inject
     @Client(NODE_URL + "/management/v1/recovery/")
@@ -61,7 +61,7 @@ public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerC
     @Test
     public void testResetAllPartitions() {
         MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST(RESET_PARTITIONS_ENDPOINT,
-                new ResetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
+                new ResetPartitionsRequest(FIRST_ZONE, SCHEMA_NAME, TABLE_NAME, Set.of()));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
@@ -71,7 +71,7 @@ public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerC
     @Test
     public void testResetSpecifiedPartitions() {
         MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST(RESET_PARTITIONS_ENDPOINT,
-                new ResetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0)));
+                new ResetPartitionsRequest(FIRST_ZONE, SCHEMA_NAME, TABLE_NAME, Set.of(0)));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 

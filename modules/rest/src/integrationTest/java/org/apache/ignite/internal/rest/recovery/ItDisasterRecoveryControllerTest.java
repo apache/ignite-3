@@ -70,7 +70,9 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     private static final String FIRST_ZONE = "first_ZONE";
 
-    private static final String QUALIFIED_TABLE_NAME = "PUBLIC.first_ZONE_table";
+    private static final String SCHEMA_NAME = "PUBLIC";
+
+    private static final String TABLE_NAME = "first_ZONE_table";
 
     private static final Set<String> ZONES = Set.of(FIRST_ZONE, "second_ZONE", "third_ZONE");
 
@@ -382,7 +384,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         String unknownZone = "unknown_zone";
 
         MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST(RESET_PARTITIONS_ENDPOINT,
-                new ResetPartitionsRequest(unknownZone, QUALIFIED_TABLE_NAME, Set.of()));
+                new ResetPartitionsRequest(unknownZone, SCHEMA_NAME, TABLE_NAME, Set.of()));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -397,7 +399,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         String tableName = "unknown_table";
 
         MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST(RESET_PARTITIONS_ENDPOINT,
-                new ResetPartitionsRequest(FIRST_ZONE, tableName, Set.of()));
+                new ResetPartitionsRequest(FIRST_ZONE, SCHEMA_NAME, tableName, Set.of()));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -410,7 +412,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     @Test
     void testResetPartitionsIllegalPartitionNegative() {
         MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST(RESET_PARTITIONS_ENDPOINT,
-                new ResetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 5, -1, -10)));
+                new ResetPartitionsRequest(FIRST_ZONE, SCHEMA_NAME, TABLE_NAME, Set.of(0, 5, -1, -10)));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));
@@ -423,7 +425,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     @Test
     void testResetPartitionsPartitionsOutOfRange() {
         MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST(RESET_PARTITIONS_ENDPOINT,
-                new ResetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT)));
+                new ResetPartitionsRequest(FIRST_ZONE, SCHEMA_NAME, TABLE_NAME, Set.of(DEFAULT_PARTITION_COUNT)));
 
         HttpClientResponseException e = assertThrows(HttpClientResponseException.class,
                 () -> client.toBlocking().exchange(post));

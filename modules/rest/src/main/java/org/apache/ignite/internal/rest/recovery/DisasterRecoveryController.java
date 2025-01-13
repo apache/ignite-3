@@ -86,6 +86,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
     public CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command) {
         return disasterRecoveryManager.resetPartitions(
                 command.zoneName(),
+                command.schemaName(),
                 command.tableName(),
                 command.partitionIds()
         );
@@ -96,6 +97,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         return disasterRecoveryManager.restartPartitions(
                 command.nodeNames(),
                 command.zoneName(),
+                command.schemaName(),
                 command.tableName(),
                 command.partitionIds()
         );
