@@ -615,6 +615,66 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         configRootConfigurationInterfaceContent.contains("extends " + getConfigurationInterfaceName(abstractRootConfigSchema).simpleName());
     }
 
+    @Test
+    void testSuccessInjectedValueFieldCodeGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.injectedvalue";
+
+        ClassName cls0 = ClassName.get(packageName, "ValidConfigurationSchema");
+
+        BatchCompilation batchCompile = batchCompile(cls0);
+
+        assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
+
+        assertEquals(3, batchCompile.generated().size());
+
+        assertTrue(batchCompile.getBySchema(cls0).allGenerated());
+    }
+
+    @Test
+    void testMultipleInjectedValuesUnsuccessfulGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.injectedvalue";
+
+        ClassName cls0 = ClassName.get(packageName, "MultipleInjectedValuesConfigurationSchema");
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(cls0),
+                "Field marked as @InjectedValue must be the only \"value\" field in the schema "
+                        + "org.apache.ignite.internal.configuration.processor.injectedvalue.MultipleInjectedValuesConfigurationSchema, "
+                        + "found: [firstValue, secondValue]"
+        );
+    }
+
+    @Test
+    void testValuesAndInjectedValueUnsuccessfulGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.injectedvalue";
+
+        ClassName cls0 = ClassName.get(packageName, "ValueAndInjectedValueConfigurationSchema");
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(cls0),
+                "Field marked as @InjectedValue must be the only \"value\" field in the schema "
+                        + "org.apache.ignite.internal.configuration.processor.injectedvalue.ValueAndInjectedValueConfigurationSchema, "
+                        + "found: [secondValue, firstValue, thirdValue]"
+        );
+    }
+
+    @Test
+    void testUnsupportedFieldTypeUnsuccessfulGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.injectedvalue";
+
+        ClassName cls0 = ClassName.get(packageName, "UnsupportedFieldTypeConfigurationSchema");
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(cls0),
+                "org.apache.ignite.internal.configuration.processor.injectedvalue.UnsupportedFieldTypeConfigurationSchema.firstValue "
+                        + "field must have one of the following types: boolean, int, long, double, String, UUID "
+                        + "or an array of aforementioned type."
+        );
+    }
+
     /**
      * Compile set of classes.
      *

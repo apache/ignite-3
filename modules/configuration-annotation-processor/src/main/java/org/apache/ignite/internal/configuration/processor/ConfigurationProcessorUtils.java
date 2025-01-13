@@ -27,13 +27,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
-import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.VariableElement;
 
 /**
  * Annotation processing utilities.
  */
-class ConfigurationProcessorUtils {
+public class ConfigurationProcessorUtils {
     /**
      * Returns {@link ClassName} for configuration class public interface.
      *
@@ -91,17 +91,25 @@ class ConfigurationProcessorUtils {
     }
 
     /**
-     * Returns the first annotation found for the class.
+     * Returns the first annotation found for the given element.
      *
-     * @param clazz Class type.
-     * @param annotationClasses Annotation classes that will be searched for the class.
+     * @param element Element.
+     * @param annotationClasses Annotation classes that will be searched for the element.
      */
     @SafeVarargs
     public static Optional<? extends Annotation> findFirstPresentAnnotation(
-            TypeElement clazz,
+            Element element,
             Class<? extends Annotation>... annotationClasses
     ) {
-        return Stream.of(annotationClasses).map(clazz::getAnnotation).filter(Objects::nonNull).findFirst();
+        return Stream.of(annotationClasses).map(element::getAnnotation).filter(Objects::nonNull).findFirst();
+    }
+
+    /**
+     * Returns {@code true} if any of the given annotations are present on the given element.
+     */
+    @SafeVarargs
+    public static boolean containsAnyAnnotation(Element element, Class<? extends Annotation>... annotationClasses) {
+        return findFirstPresentAnnotation(element, annotationClasses).isPresent();
     }
 
     /**

@@ -54,6 +54,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.is
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicConfig;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicConfigInstance;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isPolymorphicId;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isReadOnly;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.isValue;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.polymorphicInstanceId;
 import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
@@ -385,7 +386,7 @@ class ConfigurationImplAsmGenerator extends AbstractAsmGenerator {
                         rootKeyVar,
                         changerVar,
                         listenOnlyVar,
-                        constantBoolean(isPolymorphicId(schemaField) || isInjectedName(schemaField) || isInternalId(schemaField))
+                        constantBoolean(isReadOnly(schemaField))
                 );
             } else {
                 SchemaClassesInfo fieldInfo = cgen.schemaInfo(schemaField.getType());

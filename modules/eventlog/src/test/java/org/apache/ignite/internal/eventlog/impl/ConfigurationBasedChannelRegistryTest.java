@@ -119,7 +119,7 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
         // Then registry returns the channel by type.
         assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATION_SUCCESS.name()), hasSize(1));
         // But for another type it returns empty set.
-        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CLIENT_CONNECTION_CLOSED.name()), hasSize(0));
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CLIENT_CONNECTION_CLOSED.name()), nullValue());
 
         // When update configuration entry.
         cfg.channels().change(c -> c.update(TEST_CHANNEL, s -> {
