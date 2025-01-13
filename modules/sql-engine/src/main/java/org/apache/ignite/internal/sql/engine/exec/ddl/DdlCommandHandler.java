@@ -89,7 +89,7 @@ public class DdlCommandHandler implements LifecycleAware {
     }
 
     /** Handles ddl commands. */
-    public CompletableFuture<Boolean> handle(CatalogCommand cmd) {
+    public CompletableFuture<Long> handle(CatalogCommand cmd) {
         if (cmd instanceof CreateTableCommand) {
             return handleCreateTable((CreateTableCommand) cmd);
         } else if (cmd instanceof DropTableCommand) {
@@ -122,74 +122,91 @@ public class DdlCommandHandler implements LifecycleAware {
     }
 
     /** Handles create distribution zone command. */
-    private CompletableFuture<Boolean> handleCreateZone(CreateZoneCommand cmd) {
+    private CompletableFuture<Long> handleCreateZone(CreateZoneCommand cmd) {
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifNotExists(), DistributionZoneExistsValidationException.class));
     }
 
     /** Handles rename zone command. */
-    private CompletableFuture<Boolean> handleRenameZone(RenameZoneCommand cmd) {
+    private CompletableFuture<Long> handleRenameZone(RenameZoneCommand cmd) {
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles alter zone command. */
-    private CompletableFuture<Boolean> handleAlterZone(AlterZoneCommand cmd) {
+    private CompletableFuture<Long> handleAlterZone(AlterZoneCommand cmd) {
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles alter zone set default command. */
-    private CompletableFuture<Boolean> handleAlterZoneSetDefault(AlterZoneSetDefaultCommand cmd) {
+    private CompletableFuture<Long> handleAlterZoneSetDefault(AlterZoneSetDefaultCommand cmd) {
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles drop distribution zone command. */
-    private CompletableFuture<Boolean> handleDropZone(DropZoneCommand cmd) {
+    private CompletableFuture<Long> handleDropZone(DropZoneCommand cmd) {
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifExists(), DistributionZoneNotFoundValidationException.class));
     }
 
     /** Handles create table command. */
-    private CompletableFuture<Boolean> handleCreateTable(CreateTableCommand cmd) {
+    private CompletableFuture<Long> handleCreateTable(CreateTableCommand cmd) {
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifTableExists(), TableExistsValidationException.class));
     }
 
     /** Handles drop table command. */
-    private CompletableFuture<Boolean> handleDropTable(DropTableCommand cmd) {
+    private CompletableFuture<Long> handleDropTable(DropTableCommand cmd) {
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundValidationException.class));
     }
 
     /** Handles add column command. */
-    private CompletableFuture<Boolean> handleAlterAddColumn(AlterTableAddColumnCommand cmd) {
+    private CompletableFuture<Long> handleAlterAddColumn(AlterTableAddColumnCommand cmd) {
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundValidationException.class));
     }
 
     /** Handles drop column command. */
-    private CompletableFuture<Boolean> handleAlterDropColumn(AlterTableDropColumnCommand cmd) {
+    private CompletableFuture<Long> handleAlterDropColumn(AlterTableDropColumnCommand cmd) {
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundValidationException.class));
     }
 
     /** Handles drop column command. */
-    private CompletableFuture<Boolean> handleAlterColumn(AlterTableAlterColumnCommand cmd) {
+    private CompletableFuture<Long> handleAlterColumn(AlterTableAlterColumnCommand cmd) {
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifTableExists(), TableNotFoundValidationException.class));
     }
 
-    private static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {
-        return (val, err) -> {
+    /** Handles create index command. */
+    private CompletableFuture<Long> handleCreateIndex(AbstractCreateIndexCommand cmd) {
+        return catalogManager.execute(cmd)
+                .thenCompose(catalogVersion -> inBusyLock(busyLock, () -> waitTillIndexBecomesAvailableOrRemoved(cmd, catalogVersion)))
+                .handle(handleModificationResult(cmd.ifNotExists(), IndexExistsValidationException.class));
+    }
+
+    /** Handles drop index command. */
+    private CompletableFuture<Long> handleDropIndex(DropIndexCommand cmd) {
+        return catalogManager.execute(cmd)
+                .handle(handleModificationResult(cmd.ifExists(), IndexNotFoundValidationException.class));
+    }
+
+    private BiFunction<Integer, Throwable, Long> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {
+        return (ver, err) -> {
             if (err == null) {
-                return Boolean.TRUE;
+                Catalog catalog = catalogManager.catalog(ver);
+
+                assert catalog != null;
+
+                return catalog.time();
             } else if (ignoreExpectedError) {
                 Throwable err0 = err instanceof CompletionException ? err.getCause() : err;
 
                 if (expErrCls.isAssignableFrom(err0.getClass())) {
-                    return Boolean.FALSE;
+                    return null;
                 }
             }
 
@@ -197,14 +214,10 @@ public class DdlCommandHandler implements LifecycleAware {
         };
     }
 
-    /** Handles create index command. */
-    private CompletableFuture<Boolean> handleCreateIndex(AbstractCreateIndexCommand cmd) {
-        return catalogManager.execute(cmd)
-                .thenCompose(catalogVersion -> inBusyLock(busyLock, () -> waitTillIndexBecomesAvailableOrRemoved(cmd, catalogVersion)))
-                .handle(handleModificationResult(cmd.ifNotExists(), IndexExistsValidationException.class));
-    }
-
-    private CompletionStage<Void> waitTillIndexBecomesAvailableOrRemoved(AbstractCreateIndexCommand cmd, Integer creationCatalogVersion) {
+    private CompletionStage<Integer> waitTillIndexBecomesAvailableOrRemoved(
+            AbstractCreateIndexCommand cmd,
+            Integer creationCatalogVersion
+    ) {
         CompletableFuture<Void> future = inFlightFutures.registerFuture(new CompletableFuture<>());
 
         Catalog catalog = catalogManager.catalog(creationCatalogVersion);
@@ -250,7 +263,7 @@ public class DdlCommandHandler implements LifecycleAware {
         return future.whenComplete((res, ex) -> {
             catalogManager.removeListener(CatalogEvent.INDEX_AVAILABLE, availabilityListener);
             catalogManager.removeListener(CatalogEvent.INDEX_REMOVED, removalListener);
-        });
+        }).thenApply(none -> creationCatalogVersion);
     }
 
     private void completeFutureWhenEventVersionActivates(CompletableFuture<Void> future, CatalogEventParameters event) {
@@ -268,12 +281,6 @@ public class DdlCommandHandler implements LifecycleAware {
         );
         clockService.waitFor(tsToWait)
                 .whenComplete((res, ex) -> future.complete(null));
-    }
-
-    /** Handles drop index command. */
-    private CompletableFuture<Boolean> handleDropIndex(DropIndexCommand cmd) {
-        return catalogManager.execute(cmd)
-                .handle(handleModificationResult(cmd.ifExists(), IndexNotFoundValidationException.class));
     }
 
     @Override

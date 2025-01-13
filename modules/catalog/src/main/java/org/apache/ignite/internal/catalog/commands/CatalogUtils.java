@@ -542,11 +542,7 @@ public class CatalogUtils {
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier,
             long maxClockSkewMillis
     ) {
-        HybridTimestamp clusterWideEnsuredActivationTs = clusterWideEnsuredActivationTimestamp(catalog.time(), maxClockSkewMillis);
-        // TODO: this addition has to be removed when IGNITE-20378 is implemented.
-        return clusterWideEnsuredActivationTs.addPhysicalTime(
-                partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + maxClockSkewMillis
-        );
+        return clusterWideEnsuredActivationTimestamp(catalog.time(), maxClockSkewMillis);
     }
 
     /** Returns id of the default zone from given catalog, or {@code null} if default zone is not exist. */

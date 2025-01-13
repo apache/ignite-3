@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -116,6 +117,6 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
                 .ifNotExists(ifNotExists)
                 .build();
 
-        return commandHandler.handle(cmd);
+        return commandHandler.handle(cmd).thenApply(Objects::nonNull);
     }
 }
