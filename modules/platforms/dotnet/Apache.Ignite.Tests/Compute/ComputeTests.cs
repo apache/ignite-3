@@ -150,15 +150,17 @@ namespace Apache.Ignite.Tests.Compute
         {
             var nodes = await Client.GetClusterNodesAsync();
 
-            IDictionary<IClusterNode, Task<IJobExecution<string>>> taskMap = Client.Compute.SubmitBroadcast(
+            IBroadcastExecution<string> broadcastExecution = await Client.Compute.SubmitBroadcastAsync(
                 nodes,
                 NodeNameJob,
                 "123");
 
-            var res1 = await taskMap[nodes[0]];
-            var res2 = await taskMap[nodes[1]];
-            var res3 = await taskMap[nodes[2]];
-            var res4 = await taskMap[nodes[3]];
+            var taskMap = broadcastExecution.JobExecutions.ToDictionary(x => x.Node);
+
+            IJobExecution<string> res1 = taskMap[nodes[0]];
+            IJobExecution<string> res2 = taskMap[nodes[1]];
+            IJobExecution<string> res3 = taskMap[nodes[2]];
+            IJobExecution<string> res4 = taskMap[nodes[3]];
 
             Assert.AreEqual(4, taskMap.Count);
 
@@ -207,14 +209,13 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public void TestUnknownNodeSubmitBroadcastThrows()
+        public async Task TestUnknownNodeSubmitBroadcastThrows()
         {
             var unknownNode = new ClusterNode(Guid.NewGuid(), "y", new IPEndPoint(IPAddress.Loopback, 0));
 
-            IDictionary<IClusterNode, Task<IJobExecution<object>>> taskMap =
-                Client.Compute.SubmitBroadcast(new[] { unknownNode }, EchoJob, "unused");
+            IBroadcastExecution<object> broadcastExec = await Client.Compute.SubmitBroadcastAsync([unknownNode], EchoJob, "unused");
 
-            var ex = Assert.ThrowsAsync<NodeNotFoundException>(async () => await taskMap[unknownNode]);
+            var ex = Assert.ThrowsAsync<NodeNotFoundException>(async () => await broadcastExec.JobExecutions.Single().GetResultAsync());
 
             StringAssert.Contains("None of the specified nodes are present in the cluster: [y]", ex!.Message);
             Assert.AreEqual(ErrorGroups.Compute.NodeNotFound, ex.Code);
