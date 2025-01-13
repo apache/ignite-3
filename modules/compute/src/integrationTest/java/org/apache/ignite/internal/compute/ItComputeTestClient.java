@@ -55,46 +55,4 @@ public class ItComputeTestClient extends ItComputeTestEmbedded {
     void cancelsNotCancellableJob(boolean local) {
         // No-op. Embedded-specific.
     }
-
-    @Override
-    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
-    void executesJobLocally() {
-        super.executesJobLocally();
-    }
-
-    @Override
-    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
-    void executesJobLocallyAsync() {
-        super.executesJobLocallyAsync();
-    }
-
-    @Override
-    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
-    void broadcastsJobWithArgumentsAsync() {
-        super.broadcastsJobWithArgumentsAsync();
-    }
-
-    @Override
-    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
-    void executesJobOnRemoteNodes() {
-        super.executesJobOnRemoteNodes();
-    }
-
-    @Override
-    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
-    void executesJobOnRemoteNodesAsync() {
-        super.executesJobOnRemoteNodesAsync();
-    }
-
-    @Override
-    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
-    void changeJobPriorityLocally() {
-        super.changeJobPriorityLocally();
-    }
-
-    @Override
-    @Disabled("IGNITE-24059 Compute argument serialization is inconsistent in embedded and thin client")
-    void executesJobLocallyWithOptions() {
-        super.executesJobLocallyWithOptions();
-    }
 }

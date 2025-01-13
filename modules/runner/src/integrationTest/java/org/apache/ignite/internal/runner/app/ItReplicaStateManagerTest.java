@@ -52,9 +52,9 @@ import org.junit.jupiter.api.Test;
  */
 public class ItReplicaStateManagerTest extends BaseIgniteRestartTest {
     private static final String[] ATTRIBUTES = {
-            "{region:{attribute:\"REG0\"}}",
-            "{region:{attribute:\"REG1\"}}",
-            "{region:{attribute:\"REG2\"}}"
+            "{ region: REG0 }",
+            "{ region: REG1 }",
+            "{ region: REG2 }"
     };
 
     private static final String ZONE_NAME = "TEST_ZONE";

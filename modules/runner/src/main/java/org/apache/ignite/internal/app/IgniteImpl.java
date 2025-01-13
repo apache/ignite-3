@@ -1103,7 +1103,8 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                killCommandHandler
+                killCommandHandler,
+                eventLog
         );
 
         systemViewManager.register(qryEngine);

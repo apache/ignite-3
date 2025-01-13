@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app.client;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.FAILED;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.runner.app.Jobs.ResultMarshallingJob;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
-import org.apache.ignite.marshalling.UnmarshallingException;
 import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -77,7 +77,7 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         );
 
         await().until(result::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
-        assertThat(result.resultAsync(), willThrow(UnmarshallingException.class));
+        assertThat(result.resultAsync(), willThrow(ComputeException.class));
     }
 
     @Test
@@ -111,11 +111,9 @@ public class ItThinClientComputeTypeCheckMarshallingTest extends ItAbstractThinC
         );
 
         await().until(result::stateAsync, willBe(jobStateWithStatus(COMPLETED)));
+
         // The job has completed successfully, but result was not unmarshaled
-        assertThat(result.resultAsync(), willBe(instanceOf(byte[].class)));
-        assertThrows(ClassCastException.class, () -> {
-            Integer i = result.resultAsync().join();
-        });
+        assertThrowsWithCause(() -> result.resultAsync().join(), ClassCastException.class);
     }
 
     static class ArgumentTypeCheckingmarshallingJob implements ComputeJob<String, String> {

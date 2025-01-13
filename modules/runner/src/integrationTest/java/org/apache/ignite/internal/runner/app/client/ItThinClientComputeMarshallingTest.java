@@ -318,7 +318,9 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
                         + ":marshalledOnClient"
                         + ":unmarshalledOnServer" // Job argument unmarshalled on the target node
                         + ":processedOnServer" // Job processed on the target node
-                        // Job result is not marshalled because it's a local execution
+                        // TODO IGNITE-24183 Avoid job argument and result marshalling on local execution
+                        + ":marshalledOnServer"
+                        + ":unmarshalledOnClient"
                         + ":listMarshalledOnServer" // Reduce job result marshalled on the client handler node
                         + ":listUnmarshalledOnClient", // Reduce job result unmarshalled on the client
                 "Input_1"

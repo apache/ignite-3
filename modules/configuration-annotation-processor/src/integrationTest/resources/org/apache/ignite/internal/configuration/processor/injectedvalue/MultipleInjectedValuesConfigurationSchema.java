@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.configuration.processor.injectedvalue;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedValue;
 
-import java.util.Arrays;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecutionContext;
+@Config
+public class MultipleInjectedValuesConfigurationSchema {
+    @InjectedValue
+    public String firstValue;
 
-/** Compute job that concatenates the string representation of its arguments. */
-public class ConcatJob implements ComputeJob<Object[], String> {
-    @Override
-    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... input) {
-        return completedFuture(Arrays.stream(input)
-                .map(Object::toString)
-                .collect(Collectors.joining()));
-    }
+    @InjectedValue
+    public String secondValue;
 }
-

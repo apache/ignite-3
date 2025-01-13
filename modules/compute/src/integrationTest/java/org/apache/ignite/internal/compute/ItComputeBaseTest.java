@@ -195,10 +195,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         String result = compute().execute(
                 JobTarget.node(clusterNode(entryNode)),
-                JobDescriptor.builder(concatJobClass()).units(units()).build(),
-                new Object[]{"a", 42});
+                JobDescriptor.builder(toStringJobClass()).units(units()).build(),
+                42);
 
-        assertThat(result, is("a42"));
+        assertThat(result, is("42"));
     }
 
     @Test
@@ -207,11 +207,11 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         JobExecution<String> execution = submit(
                 JobTarget.node(clusterNode(entryNode)),
-                JobDescriptor.builder(concatJobClass()).units(units()).build(),
-                new Object[] {"a", 42}
+                JobDescriptor.builder(toStringJobClass()).units(units()).build(),
+                42
         );
 
-        assertThat(execution.resultAsync(), willBe("a42"));
+        assertThat(execution.resultAsync(), willBe("42"));
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
@@ -220,21 +220,21 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesJobOnRemoteNodes() {
         String result = compute().execute(
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
-                JobDescriptor.builder(concatJobClass()).units(units()).build(),
-                new Object[]{"a", 42});
+                JobDescriptor.builder(toStringJobClass()).units(units()).build(),
+                42);
 
-        assertThat(result, is("a42"));
+        assertThat(result, is("42"));
     }
 
     @Test
     void executesJobOnRemoteNodesAsync() {
         JobExecution<String> execution = submit(
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
-                JobDescriptor.builder(concatJobClass()).units(units()).build(),
-                new Object[]{"a", 42}
+                JobDescriptor.builder(toStringJobClass()).units(units()).build(),
+                42
         );
 
-        assertThat(execution.resultAsync(), willBe("a42"));
+        assertThat(execution.resultAsync(), willBe("42"));
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
         assertThat(execution.cancelAsync(), willBe(false));
     }
@@ -332,15 +332,15 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void broadcastsJobWithArgumentsAsync() {
         BroadcastExecution<String> broadcastExecution = submit(
                 Set.of(clusterNode(node(0)), clusterNode(node(1)), clusterNode(node(2))),
-                JobDescriptor.builder(concatJobClass()).units(units()).build(),
-                new Object[] {"a", 42}
+                JobDescriptor.builder(toStringJobClass()).units(units()).build(),
+                42
         );
 
         Collection<JobExecution<String>> executions = broadcastExecution.executions();
         assertThat(executions, containsInAnyOrder(
-                jobExecutionWithResultStatusAndNode("a42", COMPLETED, clusterNode(0)),
-                jobExecutionWithResultStatusAndNode("a42", COMPLETED, clusterNode(1)),
-                jobExecutionWithResultStatusAndNode("a42", COMPLETED, clusterNode(2))
+                jobExecutionWithResultStatusAndNode("42", COMPLETED, clusterNode(0)),
+                jobExecutionWithResultStatusAndNode("42", COMPLETED, clusterNode(1)),
+                jobExecutionWithResultStatusAndNode("42", COMPLETED, clusterNode(2))
         ));
 
         assertThat(broadcastExecution.resultsAsync(), will(hasSize(3)));
@@ -742,12 +742,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         ).map(Arguments::of);
     }
 
-    static String concatJobClassName() {
-        return ConcatJob.class.getName();
+    static String toStringJobClassName() {
+        return ToStringJob.class.getName();
     }
 
-    private static Class<ConcatJob> concatJobClass() {
-        return ConcatJob.class;
+    private static Class<ToStringJob> toStringJobClass() {
+        return ToStringJob.class;
     }
 
     private static String getNodeNameJobClassName() {

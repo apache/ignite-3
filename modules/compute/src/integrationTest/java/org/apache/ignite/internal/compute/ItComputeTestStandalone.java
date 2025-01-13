@@ -88,15 +88,15 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
         List<DeploymentUnit> nonExistingUnits = List.of(new DeploymentUnit("non-existing", "1.0.0"));
         CompletableFuture<String> result = entryNode.compute().executeAsync(
                 JobTarget.node(clusterNode(entryNode)),
-                JobDescriptor.<Object[], String>builder(concatJobClassName()).units(nonExistingUnits).build(),
-                new Object[]{"a", 42});
+                JobDescriptor.<Object[], String>builder(toStringJobClassName()).units(nonExistingUnits).build(),
+                null);
 
         CompletionException ex0 = assertThrows(CompletionException.class, result::join);
 
         assertComputeException(
                 ex0,
                 ClassNotFoundException.class,
-                "org.apache.ignite.internal.compute.ConcatJob. Deployment unit non-existing:1.0.0 doesn't exist"
+                "org.apache.ignite.internal.compute.ToStringJob. Deployment unit non-existing:1.0.0 doesn't exist"
         );
     }
 
