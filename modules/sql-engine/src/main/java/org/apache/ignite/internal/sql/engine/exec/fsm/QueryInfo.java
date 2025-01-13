@@ -37,6 +37,7 @@ public class QueryInfo {
     private final @Nullable UUID transactionId;
     private final int statementNum;
     private final boolean script;
+    private final @Nullable Throwable error;
 
     QueryInfo(Query query) {
         id = query.id;
@@ -48,6 +49,7 @@ public class QueryInfo {
         phase = query.currentPhase();
         queryType = deriveQueryType(query.parsedResult);
         transactionId = deriveTxId(query);
+        error = query.error.get();
 
         script = query.parsedScript != null;
     }
@@ -57,6 +59,12 @@ public class QueryInfo {
     }
 
     private static @Nullable UUID deriveTxId(Query query) {
+        QueryTransactionWrapper explicit = query.txContext.explicitTx();
+
+        if (explicit != null) {
+            return explicit.unwrap().id();
+        }
+
         QueryTransactionWrapper tx = query.usedTransaction;
 
         return tx != null ? tx.unwrap().id() : null;
@@ -110,5 +118,10 @@ public class QueryInfo {
     /** Returns 0-based index of query within the script, if applicable, returns {@code -1} otherwise. */ 
     public int statementNum() {
         return statementNum;
+    }
+
+    /** Returns an error if one occurred during execution and caused the query to terminate. */
+    public @Nullable Throwable error() {
+        return error;
     }
 }

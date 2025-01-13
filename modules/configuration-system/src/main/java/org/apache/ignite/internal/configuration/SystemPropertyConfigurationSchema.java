@@ -20,7 +20,7 @@ package org.apache.ignite.internal.configuration;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.annotation.InjectedValue;
 import org.apache.ignite.configuration.validation.CamelCaseKeys;
 import org.apache.ignite.internal.configuration.validation.LongNumberSystemPropertyValueValidator;
 
@@ -41,6 +41,6 @@ public class SystemPropertyConfigurationSchema {
     @InjectedName
     public String name;
 
-    @Value
+    @InjectedValue
     public String propertyValue;
 }

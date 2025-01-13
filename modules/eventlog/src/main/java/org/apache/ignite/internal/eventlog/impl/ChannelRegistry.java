@@ -19,6 +19,7 @@ package org.apache.ignite.internal.eventlog.impl;
 
 import java.util.Set;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Channel registry. The only way to send an event into channel is to get the channel from this registry.
@@ -36,8 +37,9 @@ interface ChannelRegistry {
     /**
      * Get all channels that can handle the given event type.
      *
-     * @param igniteEventType Ignite event type.
-     * @return Set of channels.
+     * @param type Ignite event type.
+     * @return Set of channels or {@code null} if there are no channels for the given event type.
      */
-    Set<EventChannel> findAllChannelsByEventType(String igniteEventType);
+    @Nullable
+    Set<EventChannel> findAllChannelsByEventType(String type);
 }

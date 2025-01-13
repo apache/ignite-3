@@ -113,7 +113,7 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
         );
 
         // Then then the sink can not be found by previous channel.
-        assertThat(registry.findAllByChannel("some"), hasSize(0));
+        assertThat(registry.findAllByChannel("some"), nullValue());
         // And the sink can be found by new channel.
         assertThat(registry.findAllByChannel(TEST_CHANNEL), hasSize(1));
 
