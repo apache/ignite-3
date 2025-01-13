@@ -909,8 +909,12 @@ namespace Apache.Ignite.Tests.Compute
 
         private static Instant GetCurrentInstant()
         {
+            var instant = SystemClock.Instance.GetCurrentInstant();
+
             // Subtract 1 milli to account for OS-specific time resolution differences in .NET and Java.
-            return SystemClock.Instance.GetCurrentInstant().Minus(Duration.FromMilliseconds(1));
+            return OperatingSystem.IsWindows()
+                ? instant.Minus(Duration.FromMilliseconds(1))
+                : instant;
         }
 
         private async Task<IJobTarget<IClusterNode>> GetNodeAsync(int index) =>
