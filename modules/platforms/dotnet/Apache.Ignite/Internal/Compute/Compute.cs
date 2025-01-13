@@ -30,6 +30,7 @@ namespace Apache.Ignite.Internal.Compute
     using Ignite.Network;
     using Ignite.Table;
     using Marshalling;
+    using Network;
     using Proto;
     using Proto.MsgPack;
     using Table;
@@ -315,9 +316,7 @@ namespace Apache.Ignite.Internal.Compute
 
             var jobId = reader.ReadGuid();
             var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
-
-            // TODO: Actual node id should come back from the server.
-            IClusterNode node = null!;
+            var node = ClusterNode.Read(ref reader);
 
             return new JobExecution<T>(jobId, resultTask, this, node);
 
