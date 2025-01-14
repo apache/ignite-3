@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -349,7 +350,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         try {
             descriptors = prepareMarshal(message);
         } catch (Exception e) {
-            return failedFuture(new IgniteException("Failed to marshal message: " + e.getMessage(), e));
+            return failedFuture(new IgniteException(INTERNAL_ERR, "Failed to marshal message: " + e.getMessage(), e));
         }
 
         return connectionManager.channel(consistentId, type, addr)
@@ -479,7 +480,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         try {
             obj.message().unmarshal(marshaller, obj.registry());
         } catch (Exception e) {
-            throw new IgniteException("Failed to unmarshal message: " + e.getMessage(), e);
+            throw new IgniteException(INTERNAL_ERR, "Failed to unmarshal message: " + e.getMessage(), e);
         }
     }
 

@@ -120,6 +120,7 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -543,7 +544,7 @@ public class InternalTableImpl implements InternalTable {
                 (enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                         .groupId(serializeTablePartitionId(partGroupId))
                         .tableId(tableId)
-                        .timestamp(clockService.now())
+                        .timestamp(tx.startTimestamp())
                         .transactionId(tx.id())
                         .scanId(scanId)
                         .indexToUse(indexId)
@@ -903,7 +904,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET)
-                        .timestamp(clockService.now())
+                        .timestamp(txo.startTimestamp())
                         .full(false)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1058,7 +1059,7 @@ public class InternalTableImpl implements InternalTable {
                 .transactionId(tx.id())
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .requestType(requestType)
-                .timestamp(clockService.now())
+                .timestamp(tx.startTimestamp())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
                 .build();
@@ -1127,7 +1128,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_UPSERT)
-                        .timestamp(txo.startTimestamp()) // TODO https://issues.apache.org/jira/browse/IGNITE-23712
+                        .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1214,7 +1215,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET_AND_UPSERT)
-                        .timestamp(clockService.now())
+                        .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1237,7 +1238,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_INSERT)
-                        .timestamp(clockService.now())
+                        .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1295,7 +1296,7 @@ public class InternalTableImpl implements InternalTable {
                 .transactionId(tx.id())
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .requestType(requestType)
-                .timestamp(clockService.now())
+                .timestamp(tx.startTimestamp())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
                 .build();
@@ -1316,7 +1317,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_REPLACE_IF_EXIST)
-                        .timestamp(clockService.now())
+                        .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1343,7 +1344,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_REPLACE)
-                        .timestamp(clockService.now())
+                        .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1368,7 +1369,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET_AND_REPLACE)
-                        .timestamp(clockService.now())
+                        .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1391,7 +1392,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_DELETE)
-                        .timestamp(clockService.now())
+                        .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1414,7 +1415,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_DELETE_EXACT)
-                        .timestamp(clockService.now())
+                        .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1439,7 +1440,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET_AND_DELETE)
-                        .timestamp(clockService.now())
+                        .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .build(),
@@ -1750,7 +1751,7 @@ public class InternalTableImpl implements InternalTable {
                 ReadWriteScanRetrieveBatchReplicaRequest request = TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                         .groupId(serializeTablePartitionId(tablePartitionId))
                         .tableId(tableId)
-                        .timestamp(clockService.now())
+                        .timestamp(TransactionIds.beginTimestamp(txId))
                         .transactionId(txId)
                         .scanId(scanId)
                         .indexToUse(indexId)
@@ -1997,7 +1998,7 @@ public class InternalTableImpl implements InternalTable {
 
     @Override
     public CompletableFuture<ClusterNode> partitionLocation(TablePartitionId tablePartitionId) {
-        return partitionMeta(tablePartitionId, clockService.now()).thenApply(this::getClusterNode);
+        return partitionMeta(tablePartitionId, clockService.current()).thenApply(this::getClusterNode);
     }
 
     private CompletableFuture<ReplicaMeta> partitionMeta(TablePartitionId tablePartitionId, HybridTimestamp at) {
@@ -2119,7 +2120,7 @@ public class InternalTableImpl implements InternalTable {
 
     @Override
     public CompletableFuture<Long> estimatedSize() {
-        HybridTimestamp now = clockService.now();
+        HybridTimestamp now = clockService.current();
 
         var invokeFutures = new CompletableFuture<?>[partitions];
 

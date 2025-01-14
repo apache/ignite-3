@@ -65,7 +65,7 @@ public final class VarBinary implements NativeTypeWrapper<VarBinary> {
     /** {@inheritDoc} */
     @Override
     public int compareTo(VarBinary o) {
-        return Arrays.compare(bytes, o.bytes);
+        return Arrays.compareUnsigned(bytes, o.bytes);
     }
 
     /** {@inheritDoc} */

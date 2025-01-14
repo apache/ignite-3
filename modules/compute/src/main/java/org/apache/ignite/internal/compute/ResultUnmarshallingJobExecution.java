@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
-
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
@@ -31,17 +29,23 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Result type.
  */
 class ResultUnmarshallingJobExecution<R> implements JobExecution<R> {
-    private final JobExecution<R> delegate;
-    private final Marshaller<R, byte[]> resultUnmarshaller;
+    private final JobExecution<ComputeJobDataHolder> delegate;
+    private final @Nullable Marshaller<R, byte[]> resultUnmarshaller;
+    private final @Nullable Class<R> resultClass;
 
-    ResultUnmarshallingJobExecution(JobExecution<R> delegate, @Nullable Marshaller<R, byte[]> resultUnmarshaller) {
+    ResultUnmarshallingJobExecution(
+            JobExecution<ComputeJobDataHolder> delegate,
+            @Nullable Marshaller<R, byte[]> resultUnmarshaller,
+            @Nullable Class<R> resultClass) {
         this.delegate = delegate;
         this.resultUnmarshaller = resultUnmarshaller;
+        this.resultClass = resultClass;
     }
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return delegate.resultAsync().thenApply(r -> tryUnmarshalOrCast(resultUnmarshaller, r));
+        return delegate.resultAsync().thenApply(
+                r -> SharedComputeUtils.unmarshalArgOrResult(r, resultUnmarshaller, resultClass));
     }
 
     @Override

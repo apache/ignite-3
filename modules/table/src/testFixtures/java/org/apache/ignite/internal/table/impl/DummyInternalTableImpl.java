@@ -382,7 +382,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         try {
                             partitionListener.onWrite(List.of(clo).iterator());
                         } catch (Throwable e) {
-                            res.completeExceptionally(new TransactionException(e));
+                            res.completeExceptionally(new TransactionException(0, e));
                         }
 
                         return res;

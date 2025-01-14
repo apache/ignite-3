@@ -90,9 +90,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
-    @InjectConfiguration("mock.properties = {"
-            + PARTITION_DISTRIBUTION_RESET_TIMEOUT + ".propertyValue = \"" + IMMEDIATE_TIMER_VALUE + "\", "
-            + "}")
+    @InjectConfiguration("mock.properties." + PARTITION_DISTRIBUTION_RESET_TIMEOUT + " = \"" + IMMEDIATE_TIMER_VALUE + "\"")
     SystemDistributedConfiguration systemDistributedConfiguration;
 
     @BeforeEach
