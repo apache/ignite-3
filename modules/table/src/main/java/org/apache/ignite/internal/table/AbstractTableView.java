@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
+import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicableTx;
 import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
@@ -130,13 +131,14 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @return Whatever the action returns.
      */
     protected final <T> CompletableFuture<T> withSchemaSync(@Nullable Transaction tx, KvAction<T> action) {
-        return withSchemaSync(tx, null, action);
+        return withSchemaSync((InternalTransaction) tx, null, action);
     }
 
-    private <T> CompletableFuture<T> withSchemaSync(@Nullable Transaction tx, @Nullable Integer previousSchemaVersion, KvAction<T> action) {
-        CompletableFuture<Integer> schemaVersionFuture = (tx == null || (((InternalTransaction) tx).implicit() && tx.isReadOnly()))
+    private <T> CompletableFuture<T> withSchemaSync(@Nullable InternalTransaction tx, @Nullable Integer previousSchemaVersion,
+            KvAction<T> action) {
+        CompletableFuture<Integer> schemaVersionFuture = isDirectFlowApplicableTx(tx)
                 ? schemaVersions.schemaVersionAtCurrentTime(tbl.tableId())
-                : schemaVersions.schemaVersionAt(((InternalTransaction) tx).startTimestamp(), tbl.tableId());
+                : schemaVersions.schemaVersionAt(tx.startTimestamp(), tbl.tableId());
 
         return schemaVersionFuture
                 .thenCompose(schemaVersion -> action.act(schemaVersion)
@@ -152,12 +154,12 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                                 // version corresponding to the transaction creation moment, so this mismatch is not tolerable: we need
                                 // to retry the operation here.
 
-                                assert tx == null : "Only for implicit transactions a retry might be requested";
+                                assert isDirectFlowApplicableTx(tx) : "Only for direct flow applicable tx a retry might be requested";
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
                                 // Repeat.
                                 return withSchemaSync(tx, schemaVersion, action);
-                            } else if (tx == null && isOrCausedBy(IncompatibleSchemaVersionException.class, ex)) {
+                            } else if (isDirectFlowApplicableTx(tx) && isOrCausedBy(IncompatibleSchemaVersionException.class, ex)) {
                                 // Table version was changed while we were executing an implicit transaction (between it had been created
                                 // and the moment when the operation actually touched the partition), let's retry.
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);

@@ -42,6 +42,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicableTx;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
@@ -1028,16 +1029,6 @@ public class InternalTableImpl implements InternalTable {
         }
 
         return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values());
-    }
-
-    /**
-     * Checks whether the transaction meets the requirements for a direct transaction or not.
-     *
-     * @param tx Transaction of {@code null}.
-     * @return True of direct flow is applicable for the transaction.
-     */
-    private boolean isDirectFlowApplicableTx(@Nullable InternalTransaction tx) {
-        return tx == null || (tx.implicit() && tx.isReadOnly());
     }
 
     private ReadWriteMultiRowPkReplicaRequest readWriteMultiRowPkReplicaRequest(

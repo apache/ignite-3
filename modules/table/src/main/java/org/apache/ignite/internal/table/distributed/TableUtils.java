@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.jetbrains.annotations.Nullable;
 
@@ -90,5 +91,15 @@ public class TableUtils {
         }
 
         return res;
+    }
+
+    /**
+     * Checks whether the transaction meets the requirements for a direct transaction or not.
+     *
+     * @param tx Transaction of {@code null}.
+     * @return True of direct flow is applicable for the transaction.
+     */
+    public static boolean isDirectFlowApplicableTx(@Nullable InternalTransaction tx) {
+        return tx == null || (tx.implicit() && tx.isReadOnly());
     }
 }
