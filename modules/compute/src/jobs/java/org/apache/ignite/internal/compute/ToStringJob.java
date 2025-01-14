@@ -19,19 +19,15 @@ package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
-import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
 
-/** Compute job that concatenates the string representation of its arguments. */
-public class ConcatJob implements ComputeJob<Object[], String> {
+/** Compute job that returns the string representation of its argument. */
+public class ToStringJob implements ComputeJob<Object, String> {
     @Override
-    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... input) {
-        return completedFuture(Arrays.stream(input)
-                .map(Object::toString)
-                .collect(Collectors.joining()));
+    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object input) {
+        return completedFuture(input == null ? null : input.toString());
     }
 }
 

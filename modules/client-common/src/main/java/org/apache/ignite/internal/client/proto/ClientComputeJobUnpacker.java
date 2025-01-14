@@ -17,22 +17,11 @@
 
 package org.apache.ignite.internal.client.proto;
 
-import static org.apache.ignite.internal.compute.PojoConverter.fromTuple;
-import static org.apache.ignite.marshalling.Marshaller.tryUnmarshalOrCast;
-
-import java.lang.reflect.InvocationTargetException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
-import org.apache.ignite.internal.compute.PojoConversionException;
+import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnmarshallingException;
-import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /** Unpacks job results. */
@@ -52,97 +41,13 @@ public final class ClientComputeJobUnpacker {
             @Nullable Marshaller<?, byte[]> marshaller,
             @Nullable Class<?> resultClass
     ) {
-        if (unpacker.tryUnpackNil()) {
-            return null;
-        }
+        ComputeJobDataHolder holder = unpackJobArgumentWithoutMarshaller(unpacker);
 
-        // Underlying byte array expected to be in the following format: | typeId | value |.
-        int typeId = unpacker.unpackInt();
-        ComputeJobDataType type = ComputeJobDataType.fromId(typeId);
-        if (type == null) {
-            throw new UnmarshallingException("Unsupported compute job type id: " + typeId);
-        }
-
-        switch (type) {
-            case NATIVE:
-                if (marshaller != null) {
-                    throw new UnmarshallingException(
-                            "Can not unpack object because the marshaller is provided but the object was packed without marshaller."
-                    );
-                }
-
-                return unpacker.unpackObjectFromBinaryTuple();
-
-            case TUPLE:
-                return TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary());
-
-            case MARSHALLED_CUSTOM:
-                if (marshaller == null) {
-                    throw new UnmarshallingException(
-                            "Can not unpack object because the marshaller is not provided but the object was packed with marshaller."
-                    );
-                }
-                return tryUnmarshalOrCast(marshaller, unpacker.readBinary());
-
-            case POJO:
-                if (resultClass == null) {
-                    throw new UnmarshallingException(
-                            "Can not unpack object because the pojo class is not provided but the object was packed as pojo. "
-                                    + "Provide Job result type in JobDescriptor.resultClass."
-                    );
-                }
-                return unpackPojo(unpacker, resultClass);
-
-            case TUPLE_COLLECTION: {
-                // TODO: IGNITE-24059 Deduplicate with ComputeUtils.
-                ByteBuffer collectionBuf = unpacker.readBinaryUnsafe().order(ByteOrder.LITTLE_ENDIAN);
-                int count = collectionBuf.getInt();
-                BinaryTupleReader reader = new BinaryTupleReader(count, collectionBuf.slice().order(ByteOrder.LITTLE_ENDIAN));
-
-                List<Tuple> res = new ArrayList<>(count);
-                for (int i = 0; i < count; i++) {
-                    ByteBuffer elementBytes = reader.bytesValueAsBuffer(i);
-
-                    if (elementBytes == null) {
-                        res.add(null);
-                        continue;
-                    }
-
-                    res.add(TupleWithSchemaMarshalling.unmarshal(elementBytes));
-                }
-
-                return res;
-            }
-
-            default:
-                throw new UnmarshallingException("Unsupported compute job type: " + type);
-        }
-    }
-
-    private static Object unpackPojo(ClientMessageUnpacker unpacker, Class<?> pojoClass) {
-        try {
-            Object obj = pojoClass.getConstructor().newInstance();
-
-            fromTuple(obj, TupleWithSchemaMarshalling.unmarshal(unpacker.readBinary()));
-
-            return obj;
-        } catch (NoSuchMethodException e) {
-            throw new UnmarshallingException("Class " + pojoClass.getName() + " doesn't have public default constructor. "
-                    + "Add the default constructor or provide Marshaller for " + pojoClass.getName() + " in JobDescriptor.resultMarshaller",
-                    e);
-        } catch (InvocationTargetException e) {
-            throw new UnmarshallingException("Constructor has thrown an exception", e);
-        } catch (InstantiationException e) {
-            throw new UnmarshallingException("Can't instantiate an object of class " + pojoClass.getName(), e);
-        } catch (IllegalAccessException e) {
-            throw new UnmarshallingException("Constructor is inaccessible", e);
-        } catch (PojoConversionException e) {
-            throw new UnmarshallingException("Can't unpack object", e);
-        }
+        return SharedComputeUtils.unmarshalArgOrResult(holder, marshaller, resultClass);
     }
 
     /** Unpacks compute job argument without marshaller. */
-    public static @Nullable Object unpackJobArgumentWithoutMarshaller(ClientMessageUnpacker unpacker) {
+    public static @Nullable ComputeJobDataHolder unpackJobArgumentWithoutMarshaller(ClientMessageUnpacker unpacker) {
         if (unpacker.tryUnpackNil()) {
             return null;
         }
