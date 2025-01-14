@@ -40,15 +40,15 @@ import java.lang.annotation.Target;
  *
  * <pre><code> {@literal @}Config
  * class PropertyConfigurationSchema {
- *     {@literal @}NamedConfigValue
+ *    {@literal @}NamedConfigValue
  *     public PropertyEntryConfigurationSchema properties;
  * }</code></pre>
  * <pre><code> {@literal @}Config
  * class PropertyEntryConfigurationSchema {
- *     {@literal @}InjectedName
+ *    {@literal @}InjectedName
  *     public String propertyName;
  *
- *     {@literal @}InjectedValue
+ *    {@literal @}InjectedValue
  *     public String propertyValue;
  * }</code></pre>
  *
