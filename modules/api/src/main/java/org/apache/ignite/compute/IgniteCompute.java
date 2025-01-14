@@ -46,7 +46,7 @@ public interface IgniteCompute {
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        return submitAsync(target, descriptor, null, arg);
+        return submitAsync(target, descriptor, arg, null);
     }
 
     /**
@@ -56,15 +56,15 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param target Execution target.
      * @param descriptor Job descriptor.
-     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Future of the job execution object which will be completed when the job is submitted.
      */
     <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
@@ -140,7 +140,7 @@ public interface IgniteCompute {
             @Nullable T arg,
             @Nullable CancellationToken cancellationToken
     ) {
-        return submitAsync(target, descriptor, cancellationToken, arg).thenCompose(JobExecution::resultAsync);
+        return submitAsync(target, descriptor, arg, cancellationToken).thenCompose(JobExecution::resultAsync);
     }
 
     /**

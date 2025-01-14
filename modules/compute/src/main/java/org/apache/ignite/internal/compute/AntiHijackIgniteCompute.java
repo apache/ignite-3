@@ -52,10 +52,10 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return compute.submitAsync(target, descriptor, cancellationToken, arg).thenApply(this::preventThreadHijack);
+        return compute.submitAsync(target, descriptor, arg, cancellationToken).thenApply(this::preventThreadHijack);
     }
 
     @Override

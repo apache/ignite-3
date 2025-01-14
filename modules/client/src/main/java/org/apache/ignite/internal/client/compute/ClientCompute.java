@@ -104,8 +104,8 @@ public class ClientCompute implements IgniteCompute {
     public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);

@@ -117,8 +117,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T args
+            @Nullable T args,
+            @Nullable CancellationToken cancellationToken
     ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
@@ -436,8 +436,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         .map(runner -> submitAsync(
                                 JobTarget.anyNode(runner.nodes()),
                                 runner.jobDescriptor(),
-                                cancellationToken,
-                                runner.arg()
+                                runner.arg(),
+                                cancellationToken
                         ))
                         .toArray(CompletableFuture[]::new)
         );

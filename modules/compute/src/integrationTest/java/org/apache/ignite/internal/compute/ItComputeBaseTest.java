@@ -125,7 +125,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
-        CompletableFuture<JobExecution<R>> executionFut = compute().submitAsync(target, descriptor, cancellationToken, arg);
+        CompletableFuture<JobExecution<R>> executionFut = compute().submitAsync(target, descriptor, arg, cancellationToken);
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
     }

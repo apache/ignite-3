@@ -52,10 +52,10 @@ class RestartProofIgniteCompute implements IgniteCompute, Wrapper {
     public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return attachmentLock.attachedAsync(ignite -> ignite.compute().submitAsync(target, descriptor, cancellationToken, arg));
+        return attachmentLock.attachedAsync(ignite -> ignite.compute().submitAsync(target, descriptor, arg, cancellationToken));
     }
 
     @Override
