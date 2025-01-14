@@ -68,7 +68,6 @@ public class ItSchemaTest extends BaseSqlIntegrationTest {
                 .returnRowCount(2)
                 .check();
 
-        //
         sql("CREATE SCHEMA IF NOT EXISTS schema1");
 
         assertQuery("SELECT * FROM schema1.test1")
@@ -149,5 +148,27 @@ public class ItSchemaTest extends BaseSqlIntegrationTest {
                     () -> sql("CREATE TABLE schema2.test1 (id INT PRIMARY KEY, val INT)")
             );
         }
+    }
+
+    @Test
+    public void schemaQuoted() {
+        sql("CREATE SCHEMA IF NOT EXISTS \"Sche ma1\"");
+        sql("CREATE TABLE \"Sche ma1\".test1 (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO \"Sche ma1\".test1 VALUES (1, 1), (2, 2)");
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                "Schema with name 'Sche ma1' already exists.",
+                () -> sql("CREATE SCHEMA \"Sche ma1\"")
+        );
+
+        assertQuery("SELECT * FROM \"Sche ma1\".test1")
+                .returnRowCount(2)
+                .check();
+
+        sql("DROP SCHEMA \"Sche ma1\" CASCADE");
+
+        sql("CREATE SCHEMA \"Sche ma2\"");
+        sql("DROP SCHEMA \"Sche ma2\"");
     }
 }
