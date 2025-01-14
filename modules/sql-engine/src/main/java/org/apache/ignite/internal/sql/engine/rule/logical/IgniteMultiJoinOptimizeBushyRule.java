@@ -51,8 +51,10 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Transformation rule used for optimizing multi-join queries using a bushy join tree strategy.
  *
- * <p>This is an implementation of subset-driven enumeration algorithm. The main loop (which actually consists
- * of two for-loop) enumerates all subset of relations in a way suitable for dynamic programming: it guarantees,
+ * <p>This is an implementation of subset-driven enumeration algorithm (Inspired by G. Moerkotte and T. Neumann.
+ * Analysis of Two Existing and One New Dynamic Programming Algorithm for the Generation of Optimal Bushy Join
+ * Trees without Cross Products. 2.2 Subset-Driven Enumeration). The main loop (which actually consists of two
+ * for-loop) enumerates all subset of relations in a way suitable for dynamic programming: it guarantees,
  * that for every set {@code S}, any split of the S will produce subsets which have been already processed:
  * <pre>
  *     For example, for join of 4 relations it will produce following sequence: 
@@ -66,7 +68,8 @@ import org.jetbrains.annotations.Nullable;
  * </pre>
  *
  * <p>The inner while-loop enumerates all possible splits of given subset {@code S} on disjoint subset
- * {@code lhs} and {@code rhs} such that {@code lhs ∪ rhs = S}.
+ * {@code lhs} and {@code rhs} such that {@code lhs ∪ rhs = S} (Inspired by B. Vance and D. Maier.
+ * Rapid bushy join-order optimization with cartesian products).
  *
  * <p>Finally, if the initial set of relations is not connected, the algorithm composes cartesian join
  * from best plans, until all relations are joined.
@@ -125,8 +128,7 @@ public class IgniteMultiJoinOptimizeBushyRule
         RelBuilder relBuilder = call.builder();
         RelMetadataQuery mq = call.getMetadataQuery();
 
-        Set<RexNode> unusedConditions = Collections.newSetFromMap(new IdentityHashMap<>());
-        unusedConditions.addAll(multiJoin.getJoinFilters());
+        List<RexNode> unusedConditions = new ArrayList<>();
 
         Int2ObjectMap<List<Edge>> edges = collectEdges(multiJoin, unusedConditions);
         Int2ObjectMap<Vertex> bestPlan = new Int2ObjectOpenHashMap<>();
@@ -184,9 +186,11 @@ public class IgniteMultiJoinOptimizeBushyRule
             }
         }
 
+        int allRelationsMask = (1 << numberOfRelations) - 1;
+
         Vertex best;
-        if (bestSoFar == null || bestSoFar.id != (1 << numberOfRelations) - 1) {
-            best = composeCartesianJoin(bestPlan, edges, bestSoFar, mq, relBuilder, rexBuilder);
+        if (bestSoFar == null || bestSoFar.id != allRelationsMask) {
+            best = composeCartesianJoin(allRelationsMask, bestPlan, edges, bestSoFar, mq, relBuilder, rexBuilder);
         } else {
             best = bestSoFar;
         }
@@ -204,16 +208,25 @@ public class IgniteMultiJoinOptimizeBushyRule
     private static void aggregateEdges(Int2ObjectMap<List<Edge>> edges, int lhs, int rhs) {
         int id = lhs | rhs;
         if (!edges.containsKey(id)) {
-            Set<Edge> union = Collections.newSetFromMap(new IdentityHashMap<>());
+            Set<Edge> used = Collections.newSetFromMap(new IdentityHashMap<>());
 
-            union.addAll(edges.getOrDefault(lhs, List.of()));
-            union.addAll(edges.getOrDefault(rhs, List.of()));
+            List<Edge> union = new ArrayList<>(edges.getOrDefault(lhs, List.of()));
+            used.addAll(union);
 
-            edges.put(id, List.copyOf(union));
+            edges.getOrDefault(rhs, List.of()).forEach(edge -> {
+                if (used.add(edge)) {
+                    union.add(edge);
+                }
+            });
+
+            if (!union.isEmpty()) {
+                edges.put(id, union);
+            }
         }
     }
 
     private static Vertex composeCartesianJoin(
+            int allRelationsMask,
             Int2ObjectMap<Vertex> bestPlan,
             Int2ObjectMap<List<Edge>> edges,
             @Nullable Vertex bestSoFar,
@@ -243,7 +256,7 @@ public class IgniteMultiJoinOptimizeBushyRule
             bestSoFar = it.next();
         }
 
-        while (it.hasNext()) {
+        while (it.hasNext() && bestSoFar.id != allRelationsMask) {
             Vertex input = it.next();
 
             if ((bestSoFar.id & input.id) != 0) {
@@ -256,6 +269,8 @@ public class IgniteMultiJoinOptimizeBushyRule
 
             bestSoFar = createJoin(bestSoFar, input, edges0, mq, relBuilder, rexBuilder);
         }
+
+        assert bestSoFar.id == allRelationsMask;
 
         return bestSoFar;
     }
@@ -272,17 +287,26 @@ public class IgniteMultiJoinOptimizeBushyRule
         return currentBest;
     }
 
-    private static Int2ObjectMap<List<Edge>> collectEdges(LoptMultiJoin multiJoin, Set<RexNode> unusedConditions) {
+    private static Int2ObjectMap<List<Edge>> collectEdges(LoptMultiJoin multiJoin, List<RexNode> unusedConditions) {
         Int2ObjectMap<List<Edge>> edges = new Int2ObjectOpenHashMap<>();
 
         for (RexNode condition : multiJoin.getJoinFilters()) {
             int[] inputRefs = multiJoin.getFactorsRefByJoinFilter(condition).toArray();
 
-            if (inputRefs.length < 2 || condition.isA(SqlKind.OR)) {
+            // No need to collect conditions involving a single table, because 1) during main loop
+            // we will be looking only for edges connecting two subsets, and condition referring to
+            // a single table never meet this condition, and 2) for inner join such conditions must
+            // be pushed down already, and we rely on this fact.
+            if (inputRefs.length < 2) {
+                unusedConditions.add(condition);
                 continue;
             }
 
-            unusedConditions.remove(condition);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-24210 the whole if-block need to be removed
+            if (condition.isA(SqlKind.OR)) {
+                unusedConditions.add(condition);
+                continue;
+            }
 
             int connectedInputs = 0;
             for (int i : inputRefs) {
