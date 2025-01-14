@@ -162,6 +162,7 @@ dependencies {
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.calcite.core
     integrationTestImplementation libs.rocksdb.jni
+    integrationTestImplementation libs.awaitility
 }
 
 description = 'ignite-table'
