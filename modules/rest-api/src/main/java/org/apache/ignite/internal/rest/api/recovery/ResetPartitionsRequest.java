@@ -36,17 +36,13 @@ public class ResetPartitionsRequest {
     @Schema(description = "IDs of partitions to reset. All if empty.")
     private final Set<Integer> partitionIds;
 
-    @Schema(description = "Schema name. Without quotes, case-sensitive.")
-    private final String schemaName;
-
-    @Schema(description = "Table name. Without quotes, case-sensitive.")
+    @Schema(description = "Fully-qualified name of the table to reset partitions of. Without quotes, case-sensitive.")
     private final String tableName;
 
     /** Constructor. */
     @JsonCreator
     public ResetPartitionsRequest(
             @JsonProperty("zoneName") String zoneName,
-            @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("partitionIds") @Nullable Collection<Integer> partitionIds
     ) {
@@ -54,7 +50,6 @@ public class ResetPartitionsRequest {
         Objects.requireNonNull(tableName);
 
         this.zoneName = zoneName;
-        this.schemaName = schemaName;
         this.tableName = tableName;
         this.partitionIds = partitionIds == null ? Set.of() : Set.copyOf(partitionIds);
     }
@@ -69,12 +64,6 @@ public class ResetPartitionsRequest {
     @JsonGetter("zoneName")
     public String zoneName() {
         return zoneName;
-    }
-
-    /** Returns name of the schema the table belongs to. */
-    @JsonGetter("schemaName")
-    public String schemaName() {
-        return schemaName;
     }
 
     /** Returns name of the table to reset partitions of. */

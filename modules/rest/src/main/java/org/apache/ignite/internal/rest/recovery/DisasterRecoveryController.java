@@ -43,6 +43,7 @@ import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryMan
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * Disaster recovery controller.
@@ -84,21 +85,23 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
 
     @Override
     public CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command) {
+        QualifiedName tableName = QualifiedName.parse(command.tableName());
         return disasterRecoveryManager.resetPartitions(
                 command.zoneName(),
-                command.schemaName(),
-                command.tableName(),
+                tableName.schemaName(),
+                tableName.objectName(),
                 command.partitionIds()
         );
     }
 
     @Override
     public CompletableFuture<Void> restartPartitions(@Body RestartPartitionsRequest command) {
+        QualifiedName tableName = QualifiedName.parse(command.tableName());
         return disasterRecoveryManager.restartPartitions(
                 command.nodeNames(),
                 command.zoneName(),
-                command.schemaName(),
-                command.tableName(),
+                tableName.schemaName(),
+                tableName.objectName(),
                 command.partitionIds()
         );
     }

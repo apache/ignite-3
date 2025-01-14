@@ -40,18 +40,14 @@ public class RestartPartitionsRequest {
     @Schema(description = "IDs of partitions to restart. If empty/omitted, all partitions will be restarted.")
     private final Set<Integer> partitionIds;
 
-    @Schema(description = "Table name. Without quotes, case-sensitive.")
+    @Schema(description = "Fully-qualified name of the table to restart partitions of.")
     private final String tableName;
-
-    @Schema(description = "Schema name. Without quotes, case-sensitive.")
-    private final String schemaName;
 
     /** Constructor. */
     @JsonCreator
     public RestartPartitionsRequest(
             @JsonProperty("nodeNames") @Nullable Set<String> nodeNames,
             @JsonProperty("zoneName") String zoneName,
-            @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("partitionIds") @Nullable Collection<Integer> partitionIds
     ) {
@@ -59,7 +55,6 @@ public class RestartPartitionsRequest {
         Objects.requireNonNull(tableName);
 
         this.zoneName = zoneName;
-        this.schemaName = schemaName;
         this.tableName = tableName;
         this.partitionIds = partitionIds == null ? Set.of() : Set.copyOf(partitionIds);
         this.nodeNames = nodeNames == null ? Set.of() : Set.copyOf(nodeNames);
@@ -87,12 +82,6 @@ public class RestartPartitionsRequest {
     @JsonGetter("tableName")
     public String tableName() {
         return tableName;
-    }
-
-    /** Returns name of the schema the table belongs to. */
-    @JsonGetter("schemaName")
-    public String schemaName() {
-        return schemaName;
     }
 
     @Override

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest.recovery;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
 import static org.apache.ignite.internal.rest.recovery.ItDisasterRecoveryControllerTest.RESET_PARTITIONS_ENDPOINT;
+import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
@@ -46,7 +47,7 @@ public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerC
 
     private static final String TABLE_NAME = "first_ZONE_table";
 
-    private static final String SCHEMA_NAME = "PUBLIC";
+    private static final String QUALIFIED_TABLE_NAME = canonicalName("PUBLIC", TABLE_NAME);
 
     @Inject
     @Client(NODE_URL + "/management/v1/recovery/")
@@ -61,7 +62,7 @@ public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerC
     @Test
     public void testResetAllPartitions() {
         MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST(RESET_PARTITIONS_ENDPOINT,
-                new ResetPartitionsRequest(FIRST_ZONE, SCHEMA_NAME, TABLE_NAME, Set.of()));
+                new ResetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of()));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
@@ -71,7 +72,7 @@ public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerC
     @Test
     public void testResetSpecifiedPartitions() {
         MutableHttpRequest<ResetPartitionsRequest> post = HttpRequest.POST(RESET_PARTITIONS_ENDPOINT,
-                new ResetPartitionsRequest(FIRST_ZONE, SCHEMA_NAME, TABLE_NAME, Set.of(0)));
+                new ResetPartitionsRequest(FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0)));
 
         HttpResponse<Void> response = client.toBlocking().exchange(post);
 
