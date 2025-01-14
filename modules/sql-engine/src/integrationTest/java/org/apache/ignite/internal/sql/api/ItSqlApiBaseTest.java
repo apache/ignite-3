@@ -98,6 +98,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     @AfterEach
     public void dropTables() {
         dropAllTables();
+        dropAllSchemas();
     }
 
     @Test
