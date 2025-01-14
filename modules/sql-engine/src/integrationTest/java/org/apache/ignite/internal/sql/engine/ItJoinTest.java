@@ -1138,5 +1138,11 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
                 + " ASOF JOIN (VALUES (1, NULL)) AS t2(k, t)\n"
                 + " MATCH_CONDITION t2.t < t1.t\n"
                 + " ON t1.k = t2.k"));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Unsupported join type: LEFT ASOF", () -> sql("SELECT *\n"
+                + " FROM (VALUES (NULL, 0)) AS t1(k, t)\n"
+                + " LEFT ASOF JOIN (VALUES (1, NULL)) AS t2(k, t)\n"
+                + " MATCH_CONDITION t2.t < t1.t\n"
+                + " ON t1.k = t2.k"));
     }
 }

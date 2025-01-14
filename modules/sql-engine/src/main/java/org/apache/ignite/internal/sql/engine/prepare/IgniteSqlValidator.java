@@ -943,8 +943,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     @Override
     protected void validateJoin(SqlJoin join, SqlValidatorScope scope) {
-        if (join.getJoinType() == JoinType.ASOF) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Unsupported join type: " + join.getJoinType());
+        if (join.getJoinType() == JoinType.ASOF || join.getJoinType() == JoinType.LEFT_ASOF) {
+            throw new SqlException(STMT_VALIDATION_ERR, "Unsupported join type: " + join.getJoinType().toString().replace("_", " "));
         }
 
         super.validateJoin(join, scope);
