@@ -35,7 +35,6 @@ import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
@@ -141,8 +140,15 @@ public class IgniteServerImpl implements IgniteServer {
      * @param workDir Work directory for the started node. Must not be {@code null}.
      * @param classLoader The class loader to be used to load provider-configuration files and provider classes, or {@code null} if
      *         the system class loader (or, failing that, the bootstrap class loader) is to be used
+     * @param asyncContinuationExecutor Executor in which user-facing futures will be completed.
      */
-    public IgniteServerImpl(String nodeName, Path configPath, Path workDir, @Nullable ClassLoader classLoader) {
+    public IgniteServerImpl(
+            String nodeName,
+            Path configPath,
+            Path workDir,
+            @Nullable ClassLoader classLoader,
+            Executor asyncContinuationExecutor
+    ) {
         if (nodeName == null) {
             throw new NodeStartException("Node name must not be null");
         }
@@ -158,13 +164,16 @@ public class IgniteServerImpl implements IgniteServer {
         if (workDir == null) {
             throw new NodeStartException("Working directory must not be null");
         }
+        if (asyncContinuationExecutor == null) {
+            throw new NodeStartException("Async continuation executor must not be null");
+        }
 
         this.nodeName = nodeName;
         this.configPath = configPath;
         this.workDir = workDir;
         this.classLoader = classLoader;
+        this.asyncContinuationExecutor = asyncContinuationExecutor;
 
-        asyncContinuationExecutor = ForkJoinPool.commonPool();
         attachmentLock = new IgniteAttachmentLock(() -> ignite, asyncContinuationExecutor);
         publicIgnite = new RestartProofIgnite(attachmentLock);
     }

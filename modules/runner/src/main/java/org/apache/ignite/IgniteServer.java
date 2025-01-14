@@ -19,6 +19,8 @@ package org.apache.ignite;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -43,32 +45,7 @@ public interface IgniteServer {
      *         endpoint is functional).
      */
     static CompletableFuture<IgniteServer> startAsync(String nodeName, Path configPath, Path workDir) {
-        return startAsync(nodeName, configPath, workDir, null);
-    }
-
-    /**
-     * Starts an embedded Ignite node with a configuration from a HOCON file with an optional class loader for further usage by
-     * {@link java.util.ServiceLoader}..
-     *
-     * <p>When the future returned from this method completes, the node is partially started, and is ready to accept the init command (that
-     * is, its REST endpoint is functional).
-     *
-     * @param nodeName Name of the node. Must not be {@code null}.
-     * @param configPath Path to the node configuration in the HOCON format. Must not be {@code null}.
-     * @param workDir Work directory for the node. Must not be {@code null}.
-     * @param serviceLoaderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
-     *         {@code null} if the system class loader (or, failing that, the bootstrap class loader) is to be used
-     * @return Future that will be completed when the node is partially started, and is ready to accept the init command (that is, its REST
-     *         endpoint is functional).
-     */
-    static CompletableFuture<IgniteServer> startAsync(
-            String nodeName,
-            Path configPath,
-            Path workDir,
-            @Nullable ClassLoader serviceLoaderClassLoader
-    ) {
-        IgniteServerImpl embeddedNode = new IgniteServerImpl(nodeName, configPath, workDir, serviceLoaderClassLoader);
-        return embeddedNode.startAsync().thenApply(unused -> embeddedNode);
+        return builder(nodeName, configPath, workDir).buildAsync();
     }
 
     /**
@@ -83,31 +60,19 @@ public interface IgniteServer {
      * @return Node instance.
      */
     static IgniteServer start(String nodeName, Path configPath, Path workDir) {
-        return start(nodeName, configPath, workDir, null);
+        return builder(nodeName, configPath, workDir).build();
     }
 
     /**
-     * Starts an embedded Ignite node with a configuration from a HOCON file, with an optional class loader for further usage by
-     * {@link java.util.ServiceLoader} synchronously.
-     *
-     * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its REST endpoint is
-     * functional).
+     * Returns a builder for an embedded Ignite node.
      *
      * @param nodeName Name of the node. Must not be {@code null}.
      * @param configPath Path to the node configuration in the HOCON format. Must not be {@code null}.
      * @param workDir Work directory for the node. Must not be {@code null}.
-     * @param serviceLoaderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
-     *         {@code null} if the system class loader (or, failing that, the bootstrap class loader) is to be used
+     * @return Node instance.
      */
-    static IgniteServer start(
-            String nodeName,
-            Path configPath,
-            Path workDir,
-            @Nullable ClassLoader serviceLoaderClassLoader
-    ) {
-        IgniteServerImpl embeddedNode = new IgniteServerImpl(nodeName, configPath, workDir, serviceLoaderClassLoader);
-        embeddedNode.start();
-        return embeddedNode;
+    static Builder builder(String nodeName, Path configPath, Path workDir) {
+        return new Builder(nodeName, configPath, workDir);
     }
 
     /**
@@ -191,4 +156,84 @@ public interface IgniteServer {
      * @return Node name.
      */
     String name();
+
+    /**
+     * Builder for IgniteServer.
+     */
+    final class Builder {
+        private final String nodeName;
+        private final Path configPath;
+        private final Path workDir;
+
+        private @Nullable ClassLoader serviceLoaderClassLoader;
+        private Executor asyncContinuationExecutor = ForkJoinPool.commonPool();
+
+        private Builder(String nodeName, Path configPath, Path workDir) {
+            this.nodeName = nodeName;
+            this.configPath = configPath;
+            this.workDir = workDir;
+        }
+
+        /**
+         * Specifies class loader to use when loading components via {@link java.util.ServiceLoader}.
+         *
+         * @param serviceLoaderClassLoader The class loader to be used to load provider-configuration files and provider classes, or
+         *         {@code null} if the system class loader (or, failing that, the bootstrap class loader) is to be used
+         * @return This instance for chaining.
+         */
+        public Builder serviceLoaderClassLoader(@Nullable ClassLoader serviceLoaderClassLoader) {
+            this.serviceLoaderClassLoader = serviceLoaderClassLoader;
+            return this;
+        }
+
+        /**
+         * Specifies executor in which futures obtained via API will be completed..
+         *
+         * @param asyncContinuationExecutor Executor in which futures obtained via API will be completed.
+         * @return This instance for chaining.
+         */
+        public Builder asyncContinuationExecutor(Executor asyncContinuationExecutor) {
+            this.asyncContinuationExecutor = asyncContinuationExecutor;
+            return this;
+        }
+
+        /**
+         * Starts an embedded Ignite node with a configuration from a HOCON file synchronously.
+         *
+         * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its REST endpoint
+         * is functional).
+         *
+         * @return Node instance.
+         */
+        public IgniteServer build() {
+            IgniteServerImpl embeddedNode = createServer();
+            embeddedNode.start();
+            return embeddedNode;
+        }
+
+        /**
+         * Starts an embedded Ignite node with a configuration from a HOCON file.
+         *
+         * <p>When the future returned from this method completes, the node is partially started, and is ready to accept the init command
+         * (that is, its REST endpoint is functional).
+         *
+         * @return Future that will be completed when the node is partially started, and is ready to accept the init command (that is,
+         *     its REST endpoint is functional).
+         */
+        public CompletableFuture<IgniteServer> buildAsync() {
+            IgniteServerImpl embeddedNode = createServer();
+
+            return embeddedNode.startAsync().thenApply(unused -> embeddedNode);
+        }
+
+        private IgniteServerImpl createServer() {
+            return new IgniteServerImpl(
+                    nodeName,
+                    configPath,
+                    workDir,
+                    serviceLoaderClassLoader,
+                    asyncContinuationExecutor
+            );
+        }
+    }
 }
