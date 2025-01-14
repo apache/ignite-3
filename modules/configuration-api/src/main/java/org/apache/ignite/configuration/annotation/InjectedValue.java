@@ -38,22 +38,19 @@ import java.lang.annotation.Target;
  *
  * <p>For example, this annotation can be used to declare a configuration schema with arbitrary {@code String} properties:
  *
- * <pre>{@code
- *     @Config
- *     class PropertyConfigurationSchema {
- *         @NamedConfigValue
- *         public PropertyEntryConfigurationSchema properties;
- *     }
+ * <pre><code> {@literal @}Config
+ * class PropertyConfigurationSchema {
+ *    {@literal @}NamedConfigValue
+ *     public PropertyEntryConfigurationSchema properties;
+ * }</code></pre>
+ * <pre><code> {@literal @}Config
+ * class PropertyEntryConfigurationSchema {
+ *    {@literal @}InjectedName
+ *     public String propertyName;
  *
- *     @Config
- *     class PropertyEntryConfigurationSchema {
- *         @InjectedName
- *         public String propertyName;
- *
- *         @InjectedValue
- *         public String propertyValue;
- *     }
- * }</pre>
+ *    {@literal @}InjectedValue
+ *     public String propertyValue;
+ * }</code></pre>
  *
  * <p>This will allow to use the following HOCON to represent this configuration:
  *
