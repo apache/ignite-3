@@ -15,22 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.processor.validators;
+package org.apache.ignite.internal.configuration.processor.validation;
 
-import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.collectFieldsWithAnnotation;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.simpleName;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
 
 import java.util.List;
 import java.util.UUID;
 import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.apache.ignite.configuration.annotation.InjectedValue;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.processor.ClassWrapper;
 import org.apache.ignite.internal.configuration.processor.ConfigurationProcessorException;
 
 /**
@@ -51,20 +50,20 @@ public class InjectedValueValidator {
      *     <li>There is only a single InjectedValue field in the schema (including {@link Value} fields).</li>
      * </ol>
      */
-    public void validate(TypeElement clazz, List<VariableElement> fields) {
-        List<VariableElement> injectedValueFields = collectFieldsWithAnnotation(fields, InjectedValue.class);
+    public void validate(ClassWrapper classWrapper) {
+        List<VariableElement> injectedValueFields = classWrapper.fieldsAnnotatedWith(InjectedValue.class);
 
         if (injectedValueFields.isEmpty()) {
             return;
         }
 
-        List<VariableElement> valueFields = collectFieldsWithAnnotation(fields, Value.class);
+        List<VariableElement> valueFields = classWrapper.fieldsAnnotatedWith(Value.class);
 
         if (injectedValueFields.size() > 1 || !valueFields.isEmpty()) {
             throw new ConfigurationProcessorException(String.format(
                     "Field marked as %s must be the only \"value\" field in the schema %s, found: %s",
                     simpleName(InjectedValue.class),
-                    clazz.getQualifiedName(),
+                    classWrapper.clazz().getQualifiedName(),
                     concat(injectedValueFields, valueFields)
             ));
         }
@@ -76,7 +75,7 @@ public class InjectedValueValidator {
             throw new ConfigurationProcessorException(String.format(
                     "%s.%s field must have one of the following types: "
                             + "boolean, int, long, double, String, UUID or an array of aforementioned type.",
-                    clazz.getQualifiedName(),
+                    classWrapper.clazz().getQualifiedName(),
                     injectedValueField.getSimpleName()
             ));
         }
