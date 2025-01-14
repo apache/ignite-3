@@ -17,6 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,6 +26,8 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -182,6 +185,53 @@ public class ItJdbcSchemaTest extends AbstractJdbcSelfTest {
         try (ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM schema2.T1")) {
             assertTrue(rs.next());
             assertEquals(3, rs.getLong(1));
+        }
+    }
+
+    @Test
+    public void quotedSchemaTest() throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("CREATE SCHEMA \"ScheMa1\"");
+
+            stmt.executeUpdate("CREATE TABLE \"ScheMa1\".t1(ID INT PRIMARY KEY, val INT)");
+            stmt.executeUpdate("INSERT INTO \"ScheMa1\".t1 VALUES (1, 1)");
+
+            try (ResultSet rs = stmt.executeQuery("SELECT * FROM \"ScheMa1\".T1")) {
+                assertTrue(rs.next());
+                assertEquals(1, rs.getLong(1));
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertEquals("ScheMa1", metaData.getSchemaName(1));
+            }
+
+            stmt.executeUpdate("DROP TABLE \"ScheMa1\".t1");
+            stmt.executeUpdate("DROP SCHEMA \"ScheMa1\"");
+
+            stmt.executeUpdate("CREATE SCHEMA \"ScheMa2\"");
+            stmt.executeUpdate("CREATE TABLE \"ScheMa2\".t1(ID INT PRIMARY KEY, val INT)");
+            stmt.executeUpdate("DROP SCHEMA \"ScheMa2\" CASCADE");
+        }
+    }
+
+    @Test
+    public void quotedSchemaAndTableTest() throws SQLException {
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate("CREATE SCHEMA \"Sche Ma1\"");
+
+            stmt.executeUpdate("CREATE TABLE \"Sche Ma1\".\"Ta ble1\"(ID INT PRIMARY KEY, val INT)");
+            stmt.executeUpdate("INSERT INTO \"Sche Ma1\".\"Ta ble1\" VALUES (1, 1)");
+
+            try (ResultSet rs = stmt.executeQuery("SELECT * FROM \"Sche Ma1\".\"Ta ble1\"")) {
+                assertTrue(rs.next());
+                assertEquals(1, rs.getLong(1));
+
+                ResultSetMetaData metaData = rs.getMetaData();
+                assertEquals("Ta ble1", metaData.getTableName(1));
+                assertEquals("Sche Ma1", metaData.getSchemaName(1));
+            }
+
+            stmt.executeUpdate("DROP TABLE \"Sche Ma1\".\"Ta ble1\"");
+            stmt.executeUpdate("DROP SCHEMA \"Sche Ma1\"");
         }
     }
 }

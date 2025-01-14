@@ -35,7 +35,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -54,6 +56,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -192,7 +195,10 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
                     if (table.id() != tableId) {
                         continue;
                     }
-                    sql("DROP TABLE " + QualifiedName.of(schema.name(), table.name()).toCanonicalForm());
+                    String schemaName = IgniteNameUtils.quote(schema.name());
+                    String tableName = IgniteNameUtils.quote(table.name());
+
+                    sql("DROP TABLE " + QualifiedName.of(schemaName, tableName).toCanonicalForm());
                 }
             }
         }
@@ -208,9 +214,16 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         Catalog latestCatalog = catalogManager.catalog(latestCatalogVersion);
         assert latestCatalog != null;
 
+        Set<String> quotedSystemSchemas = CatalogUtils.SYSTEM_SCHEMAS.stream()
+                .map(IgniteNameUtils::quote)
+                .collect(Collectors.toSet());
+
+        quotedSystemSchemas.add(IgniteNameUtils.quote(QualifiedName.DEFAULT_SCHEMA_NAME));
+
         for (CatalogSchemaDescriptor schema : latestCatalog.schemas()) {
-            String schemaName = schema.name();
-            if (QualifiedName.DEFAULT_SCHEMA_NAME.equals(schemaName) || CatalogUtils.isSystemSchema(schemaName)) {
+            String schemaName = IgniteNameUtils.quote(schema.name());
+
+            if (quotedSystemSchemas.contains(schemaName)) {
                 continue;
             }
             sql("DROP SCHEMA " + schemaName + " CASCADE");

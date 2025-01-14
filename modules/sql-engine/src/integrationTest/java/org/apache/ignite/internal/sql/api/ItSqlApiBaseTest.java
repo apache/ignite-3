@@ -1118,7 +1118,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE schema1.t1 (id INT PRIMARY KEY, val INT)");
         sql("INSERT INTO schema1.t1 VALUES (1, 1), (2, 2)");
 
-        // Schema 2 have t2 as well
+        // Schema 2 has t1 as well
 
         sql("CREATE SCHEMA schema2");
         sql("CREATE TABLE schema2.t1 (id INT PRIMARY KEY, val INT)");
@@ -1151,6 +1151,47 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             Statement stmt = sql.statementBuilder()
                     .defaultSchema("schema2")
                     .query(format("SELECT COUNT(*) FROM t1"))
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(3, rs.next().longValue(0));
+            }
+        }
+    }
+
+    @Test
+    public void useNonDefaultSchemaWithQuotedName() {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE SCHEMA schema1");
+        sql("CREATE TABLE schema1.\"T 1\" (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO schema1.\"T 1\" VALUES (1, 1), (2, 2)");
+
+        // Schema 2 has T1 as well
+
+        sql("CREATE SCHEMA \"ScheMa1\"");
+        sql("CREATE TABLE \"ScheMa1\".\"T 1\" (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO \"ScheMa1\".\"T 1\" VALUES (1, 1), (2, 2), (3, 3)");
+
+        // Check schema 1
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .defaultSchema("schema1")
+                    .query("SELECT COUNT(*) FROM \"T 1\"")
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(2, rs.next().longValue(0));
+            }
+        }
+
+        // Check schema 2
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .defaultSchema("\"ScheMa1\"")
+                    .query(format("SELECT COUNT(*) FROM \"T 1\""))
                     .build();
 
             try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
