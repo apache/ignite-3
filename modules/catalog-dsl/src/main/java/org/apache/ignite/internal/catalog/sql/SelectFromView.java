@@ -84,8 +84,5 @@ class SelectFromView<T> extends AbstractCatalogQuery<List<T>> {
                 option.accept(ctx);
             }
         }
-
-        System.out.println("SELECT");
-        System.out.println(ctx.getSql());
     }
 }

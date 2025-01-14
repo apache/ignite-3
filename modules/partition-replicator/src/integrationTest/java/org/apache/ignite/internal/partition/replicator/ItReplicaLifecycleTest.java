@@ -256,13 +256,13 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static SystemLocalConfiguration systemConfiguration;
 
-    @InjectConfiguration("mock.nodeAttributes: {region.attribute = US, storage.attribute = SSD}")
+    @InjectConfiguration("mock.nodeAttributes: {region = US, storage = SSD}")
     private static NodeAttributesConfiguration nodeAttributes1;
 
-    @InjectConfiguration("mock.nodeAttributes: {region.attribute = EU, storage.attribute = SSD}")
+    @InjectConfiguration("mock.nodeAttributes: {region = EU, storage = SSD}")
     private static NodeAttributesConfiguration nodeAttributes2;
 
-    @InjectConfiguration("mock.nodeAttributes: {region.attribute = UK, storage.attribute = SSD}")
+    @InjectConfiguration("mock.nodeAttributes: {region = UK, storage = SSD}")
     private static NodeAttributesConfiguration nodeAttributes3;
 
     @InjectConfiguration

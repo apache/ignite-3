@@ -24,6 +24,7 @@ import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.collectFieldsWithAnnotation;
+import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.containsAnyAnnotation;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.findFirstPresentAnnotation;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getChangeName;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getConfigurationInterfaceName;
@@ -80,6 +81,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.InjectedValue;
 import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
@@ -87,6 +89,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Secret;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.processor.validators.InjectedValueValidator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -153,11 +156,15 @@ public class ConfigurationProcessor extends AbstractProcessor {
             return false;
         }
 
+        var injectedValueValidator = new InjectedValueValidator(processingEnv);
+
         for (TypeElement clazz : annotatedConfigs) {
             // Find all the fields of the schema.
             List<VariableElement> fields = fields(clazz);
 
             validateConfigurationSchemaClass(clazz, fields);
+
+            injectedValueValidator.validate(clazz, fields);
 
             // Get package name of the schema class
             String packageName = elementUtils.getPackageOf(clazz).getQualifiedName().toString();
@@ -175,10 +182,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     throw new ConfigurationProcessorException("Field " + clazz.getQualifiedName() + "." + field + " must be public");
                 }
 
-                final String fieldName = field.getSimpleName().toString();
-
-                // Get configuration types (VIEW, CHANGE and so on)
-                final TypeName interfaceGetMethodType = getInterfaceGetMethodType(field);
+                String fieldName = field.getSimpleName().toString();
 
                 if (field.getAnnotation(ConfigValue.class) != null) {
                     checkConfigField(field, ConfigValue.class);
@@ -190,8 +194,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     checkConfigField(field, NamedConfigValue.class);
                 }
 
-                Value valueAnnotation = field.getAnnotation(Value.class);
-                if (valueAnnotation != null) {
+                if (field.getAnnotation(Value.class) != null) {
                     // Must be a primitive or an array of the primitives (including java.lang.String, java.util.UUID).
                     if (!isValidValueAnnotationFieldType(field.asType())) {
                         throw new ConfigurationProcessorException(String.format(
@@ -204,8 +207,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     }
                 }
 
-                PolymorphicId polymorphicId = field.getAnnotation(PolymorphicId.class);
-                if (polymorphicId != null) {
+                if (field.getAnnotation(PolymorphicId.class) != null) {
                     if (!isClass(field.asType(), String.class)) {
                         throw new ConfigurationProcessorException(String.format(
                                 FIELD_MUST_BE_SPECIFIC_CLASS_ERROR_FORMAT,
@@ -236,6 +238,9 @@ public class ConfigurationProcessor extends AbstractProcessor {
                         );
                     }
                 }
+
+                // Get configuration types (VIEW, CHANGE and so on)
+                TypeName interfaceGetMethodType = getInterfaceGetMethodType(field);
 
                 createGetters(configurationInterfaceBuilder, fieldName, interfaceGetMethodType);
             }
@@ -355,13 +360,11 @@ public class ConfigurationProcessor extends AbstractProcessor {
      * @return Bundle with all types for configuration
      */
     private static TypeName getInterfaceGetMethodType(VariableElement field) {
-        TypeName interfaceGetMethodType = null;
-
         TypeName baseType = TypeName.get(field.asType());
 
         ConfigValue confAnnotation = field.getAnnotation(ConfigValue.class);
         if (confAnnotation != null) {
-            interfaceGetMethodType = getConfigurationInterfaceName((ClassName) baseType);
+            return getConfigurationInterfaceName((ClassName) baseType);
         }
 
         NamedConfigValue namedConfigAnnotation = field.getAnnotation(NamedConfigValue.class);
@@ -371,7 +374,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
             TypeName viewClassType = getViewName((ClassName) baseType);
             TypeName changeClassType = getChangeName((ClassName) baseType);
 
-            interfaceGetMethodType = ParameterizedTypeName.get(
+            return ParameterizedTypeName.get(
                     ClassName.get(NamedConfigurationTree.class),
                     interfaceGetType,
                     viewClassType,
@@ -379,13 +382,16 @@ public class ConfigurationProcessor extends AbstractProcessor {
             );
         }
 
-        Value valueAnnotation = field.getAnnotation(Value.class);
-        PolymorphicId polymorphicIdAnnotation = field.getAnnotation(PolymorphicId.class);
-        InjectedName injectedNameAnnotation = field.getAnnotation(InjectedName.class);
-        InternalId internalIdAnnotation = field.getAnnotation(InternalId.class);
+        boolean containsAnnotation = containsAnyAnnotation(
+                field,
+                Value.class,
+                PolymorphicId.class,
+                InjectedName.class,
+                InternalId.class,
+                InjectedValue.class
+        );
 
-        if (valueAnnotation != null || polymorphicIdAnnotation != null || injectedNameAnnotation != null
-                || internalIdAnnotation != null) {
+        if (containsAnnotation) {
             // It is necessary to use class names without loading classes so that we won't
             // accidentally get NoClassDefFoundError
             ClassName confValueClass = ClassName.get("org.apache.ignite.configuration", "ConfigurationValue");
@@ -396,10 +402,10 @@ public class ConfigurationProcessor extends AbstractProcessor {
                 genericType = genericType.box();
             }
 
-            interfaceGetMethodType = ParameterizedTypeName.get(confValueClass, genericType);
+            return ParameterizedTypeName.get(confValueClass, genericType);
         }
 
-        return interfaceGetMethodType;
+        throw new IllegalArgumentException(String.format("Field \"%s\" does not contain any supported annotations", field));
     }
 
     /**
@@ -503,8 +509,6 @@ public class ConfigurationProcessor extends AbstractProcessor {
         ClassName consumerClsName = ClassName.get(Consumer.class);
 
         for (VariableElement field : fields) {
-            Value valAnnotation = field.getAnnotation(Value.class);
-
             String fieldName = field.getSimpleName().toString();
             TypeMirror schemaFieldType = field.asType();
             TypeName schemaFieldTypeName = TypeName.get(schemaFieldType);
@@ -512,15 +516,13 @@ public class ConfigurationProcessor extends AbstractProcessor {
             boolean leafField = isValidValueAnnotationFieldType(schemaFieldType)
                     || !((ClassName) schemaFieldTypeName).simpleName().contains(CONFIGURATION_SCHEMA_POSTFIX);
 
-            boolean namedListField = field.getAnnotation(NamedConfigValue.class) != null;
-
             TypeName viewFieldType =
                     leafField ? schemaFieldTypeName : getViewName((ClassName) schemaFieldTypeName);
 
             TypeName changeFieldType =
                     leafField ? schemaFieldTypeName : getChangeName((ClassName) schemaFieldTypeName);
 
-            if (namedListField) {
+            if (field.getAnnotation(NamedConfigValue.class) != null) {
                 changeFieldType = ParameterizedTypeName.get(
                         ClassName.get(NamedListChange.class),
                         viewFieldType,
@@ -540,8 +542,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
             viewClsBuilder.addMethod(getMtdBuilder.build());
 
             // Read only.
-            if (field.getAnnotation(PolymorphicId.class) != null || field.getAnnotation(InjectedName.class) != null
-                    || field.getAnnotation(InternalId.class) != null) {
+            if (containsAnyAnnotation(field, PolymorphicId.class, InjectedName.class, InternalId.class)) {
                 continue;
             }
 
@@ -551,7 +552,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     .addModifiers(PUBLIC, ABSTRACT)
                     .returns(changeClsName);
 
-            if (valAnnotation != null) {
+            if (containsAnyAnnotation(field, Value.class, InjectedValue.class)) {
                 if (schemaFieldType.getKind() == TypeKind.ARRAY) {
                     changeMtdBuilder.varargs(true);
                 }
@@ -559,18 +560,16 @@ public class ConfigurationProcessor extends AbstractProcessor {
                 changeMtdBuilder.addParameter(changeFieldType, fieldName);
             } else {
                 changeMtdBuilder.addParameter(ParameterizedTypeName.get(consumerClsName, changeFieldType), fieldName);
-            }
 
-            changeClsBuilder.addMethod(changeMtdBuilder.build());
-
-            // Create "FooChange changeFoo()" method with no parameters, if it's a config value or named list value.
-            if (valAnnotation == null) {
+                // Create "FooChange changeFoo()" method with no parameters, if it's a config value or named list value.
                 MethodSpec.Builder shortChangeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
                         .addModifiers(PUBLIC, ABSTRACT)
                         .returns(changeFieldType);
 
                 changeClsBuilder.addMethod(shortChangeMtdBuilder.build());
             }
+
+            changeClsBuilder.addMethod(changeMtdBuilder.build());
         }
 
         if (isPolymorphicConfig) {
@@ -1112,8 +1111,8 @@ public class ConfigurationProcessor extends AbstractProcessor {
      * Checks for missing {@link org.apache.ignite.configuration.annotation.Name} for nested schema with {@link InjectedName}.
      *
      * @param field Class field.
-     * @throws ConfigurationProcessorException If there is no {@link org.apache.ignite.configuration.annotation.Name} for the nested schema
-     *      with {@link InjectedName}.
+     * @throws ConfigurationProcessorException If there is no {@link org.apache.ignite.configuration.annotation.Name} for the nested
+     *         schema with {@link InjectedName}.
      */
     private void checkMissingNameForInjectedName(VariableElement field) {
         TypeElement fieldType = (TypeElement) processingEnv.getTypeUtils().asElement(field.asType());
@@ -1123,7 +1122,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
         List<VariableElement> fields;
 
         if (!isClass(superClassFieldType.asType(), Object.class)
-                && findFirstPresentAnnotation(superClassFieldType, AbstractConfiguration.class).isPresent()) {
+                && superClassFieldType.getAnnotation(AbstractConfiguration.class) != null) {
             fields = concat(
                     collectFieldsWithAnnotation(fields(fieldType), InjectedName.class),
                     collectFieldsWithAnnotation(fields(superClassFieldType), InjectedName.class)
