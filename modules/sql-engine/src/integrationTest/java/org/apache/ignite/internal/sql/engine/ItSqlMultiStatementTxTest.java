@@ -301,7 +301,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         AsyncSqlCursor<InternalSqlRow> insCur = await(cursor.nextResult());
         assertNotNull(insCur);
 
-        assertThrowsSqlException(RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
+        assertThrowsSqlException(RUNTIME_ERR, "DML cannot be started by using read only transactions.",
                 () -> await(insCur.nextResult()));
 
         verifyFinishedTxCount(1);

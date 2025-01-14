@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.ignite.internal.sql.api;
 
 import java.math.BigDecimal;
@@ -73,13 +72,15 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public boolean hasRowSet() {
-        return cursor.queryType() == SqlQueryType.QUERY || cursor.queryType() == SqlQueryType.EXPLAIN;
+        SqlQueryType queryType = cursor.queryType();
+        return queryType.hasRowSet();
     }
 
     /** {@inheritDoc} */
     @Override
     public long affectedRows() {
-        if (cursor.queryType() != SqlQueryType.DML) {
+        SqlQueryType queryType = cursor.queryType();
+        if (!queryType.returnsAffectedRows()) {
             return -1;
         }
 
@@ -91,7 +92,8 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     /** {@inheritDoc} */
     @Override
     public boolean wasApplied() {
-        if (cursor.queryType() != SqlQueryType.DDL && cursor.queryType() != SqlQueryType.KILL) {
+        SqlQueryType queryType = cursor.queryType();
+        if (!queryType.supportsWasApplied()) {
             return false;
         }
 

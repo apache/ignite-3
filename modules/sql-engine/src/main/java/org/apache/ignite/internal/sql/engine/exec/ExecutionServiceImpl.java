@@ -337,7 +337,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert txContext != null;
 
-        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(plan.type() != SqlQueryType.DML, false);
+        boolean readOnly = plan.type().implicitTransactionReadOnlyMode();
+        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(readOnly, false);
         InternalTransaction tx = txWrapper.unwrap();
 
         operationContext.notifyTxUsed(txWrapper);
@@ -449,8 +450,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert txContext != null;
 
-        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(((ExplainablePlan) plan).type() != SqlQueryType.DML, true);
-
+        QueryPlan queryPlan = (ExplainablePlan) plan;
+        boolean readOnly = queryPlan.type().implicitTransactionReadOnlyMode();
+        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(readOnly, true);
         operationContext.notifyTxUsed(txWrapper);
 
         PrefetchCallback prefetchCallback = new PrefetchCallback();
