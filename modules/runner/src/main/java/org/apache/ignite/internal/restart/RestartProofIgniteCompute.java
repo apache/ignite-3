@@ -79,7 +79,8 @@ class RestartProofIgniteCompute implements IgniteCompute, Wrapper {
     }
 
     @Override
-    public <T, R> CompletableFuture<Collection<R>> executeAsync(BroadcastJobTarget target,
+    public <T, R> CompletableFuture<Collection<R>> executeAsync(
+            BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
