@@ -62,44 +62,48 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
     public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return compute.submitAsync(target, descriptor, cancellationToken, arg).thenApply(this::preventThreadHijack);
+        return compute.submitAsync(target, descriptor, arg, cancellationToken).thenApply(this::preventThreadHijack);
     }
 
     @Override
     public <T, R> R execute(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return compute.execute(target, descriptor, cancellationToken, arg);
+        return compute.execute(target, descriptor, arg, cancellationToken);
     }
 
     @Override
     public <T, R> Collection<R> execute(
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return compute.execute(target, descriptor, cancellationToken, arg);
+        return compute.execute(target, descriptor, arg, cancellationToken);
     }
 
     @Override
     public <T, R> TaskExecution<R> submitMapReduce(
             TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return new AntiHijackTaskExecution<>(compute.submitMapReduce(taskDescriptor, cancellationToken, arg), asyncContinuationExecutor);
+        return new AntiHijackTaskExecution<>(compute.submitMapReduce(taskDescriptor, arg, cancellationToken), asyncContinuationExecutor);
     }
 
     @Override
-    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return compute.executeMapReduce(taskDescriptor, cancellationToken, arg);
+    public <T, R> R executeMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return compute.executeMapReduce(taskDescriptor, arg, cancellationToken);
     }
 
     private <T, R> JobExecution<R> preventThreadHijack(JobExecution<R> execution) {

@@ -177,8 +177,8 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
             CompletableFuture<BroadcastExecution<Void>> executionFut = entryNode.compute().submitAsync(
                     BroadcastJobTarget.nodes(clusterNode(0), clusterNode(1)),
                     JobDescriptor.builder(InfiniteJob.class).build(),
-                    cancelHandle.token(),
-                    null
+                    null,
+                    cancelHandle.token()
             );
 
             assertThat(executionFut, willCompleteSuccessfully());
@@ -216,7 +216,7 @@ public class ItComputeSystemViewTest extends BaseSqlIntegrationTest {
 
             CancelHandle cancelHandle = CancelHandle.create();
             TaskExecution<Void> execution = entryNode.compute()
-                    .submitMapReduce(TaskDescriptor.builder(MapReduceTaskCustom.class).build(), cancelHandle.token(), null);
+                    .submitMapReduce(TaskDescriptor.builder(MapReduceTaskCustom.class).build(), null, cancelHandle.token());
 
             await().until(execution::stateAsync, willBe(taskStateWithStatus(TaskStatus.EXECUTING)));
 

@@ -262,8 +262,8 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         CompletableFuture<BroadcastExecution<R>> executionFut = client().compute().submitAsync(
                 BroadcastJobTarget.nodes(nodes),
                 descriptor,
-                cancellationToken,
-                arg
+                arg,
+                cancellationToken
         );
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();

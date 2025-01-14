@@ -155,7 +155,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         CancelHandle cancelHandle = CancelHandle.create();
 
         JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-        CompletableFuture<Void> execution = entryNode.compute().executeAsync(JobTarget.node(executeNode), job, cancelHandle.token(), null);
+        CompletableFuture<Void> execution = entryNode.compute().executeAsync(JobTarget.node(executeNode), job, null, cancelHandle.token());
 
         cancelHandle.cancel();
 
@@ -171,7 +171,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
         CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() ->  entryNode.compute()
-                .execute(JobTarget.node(executeNode), job, cancelHandle.token(), null));
+                .execute(JobTarget.node(executeNode), job, null, cancelHandle.token()));
 
         cancelHandle.cancel();
 
@@ -185,8 +185,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         CompletableFuture<Collection<Void>> results = client().compute().executeAsync(
                 BroadcastJobTarget.nodes(node(0), node(1)),
                 JobDescriptor.builder(InfiniteJob.class).build(),
-                cancelHandle.token(),
-                100L
+                100L,
+                cancelHandle.token()
         );
 
         cancelHandle.cancel();
@@ -201,8 +201,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         CompletableFuture<Collection<Void>> runFut = IgniteTestUtils.runAsync(() -> client().compute().execute(
                 BroadcastJobTarget.nodes(node(0), node(1)),
                 JobDescriptor.builder(InfiniteJob.class).build(),
-                cancelHandle.token(),
-                100L
+                100L,
+                cancelHandle.token()
         ));
 
         cancelHandle.cancel();
@@ -217,7 +217,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         CancelHandle cancelHandle = CancelHandle.create();
 
         CompletableFuture<Void> execution = entryNode.compute()
-                .executeMapReduceAsync(TaskDescriptor.builder(InfiniteMapReduceTask.class).build(), cancelHandle.token(), null);
+                .executeMapReduceAsync(TaskDescriptor.builder(InfiniteMapReduceTask.class).build(), null, cancelHandle.token());
 
         cancelHandle.cancel();
 

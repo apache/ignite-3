@@ -271,7 +271,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
             @Nullable String arg
     ) throws InterruptedException {
         TaskExecution<List<String>> taskExecution = entryNode.compute().submitMapReduce(
-                TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), cancellationToken, arg
+                TaskDescriptor.<String, List<String>>builder(InteractiveTasks.GlobalApi.name()).build(), arg, cancellationToken
         );
         assertTaskExecuting(taskExecution);
         InteractiveTasks.GlobalApi.assertAlive();
