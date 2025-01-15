@@ -43,6 +43,8 @@ public class ConfigurationExtentionValidator extends Validator {
         assertNotContainsFieldAnnotatedWith(classWrapper, PolymorphicId.class);
 
         if (classWrapper.getAnnotation(ConfigurationRoot.class) == null) {
+            assertHasSuperClass(classWrapper);
+
             assertSuperclassHasAnnotations(classWrapper, ConfigurationRoot.class, Config.class);
 
             assertNoFieldNameConflictsWithSuperClass(classWrapper);

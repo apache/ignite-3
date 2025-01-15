@@ -69,6 +69,12 @@ public abstract class Validator {
         }
     }
 
+    static void assertHasSuperClass(ClassWrapper classWrapper) {
+        if (classWrapper.superClass() == null) {
+            throw new ConfigurationValidationException(classWrapper, "Must have a superclass.");
+        }
+    }
+
     static void assertHasNoSuperClass(ClassWrapper classWrapper) {
         if (classWrapper.superClass() != null) {
             throw new ConfigurationValidationException(classWrapper, "Must not have a superclass.");

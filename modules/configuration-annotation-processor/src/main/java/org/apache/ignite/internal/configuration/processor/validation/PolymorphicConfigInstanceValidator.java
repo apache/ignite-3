@@ -53,6 +53,8 @@ public class PolymorphicConfigInstanceValidator extends Validator {
             ));
         }
 
+        assertHasSuperClass(classWrapper);
+
         assertSuperclassHasAnnotations(classWrapper, PolymorphicConfig.class);
 
         assertNoFieldNameConflictsWithSuperClass(classWrapper);
