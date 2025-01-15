@@ -379,7 +379,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         String queryRw = "UPDATE TEST SET VAL0=VAL0+1";
         if (explicit && readOnly) {
-            assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
+            assertThrowsSqlException(Sql.RUNTIME_ERR, "DML cannot be started by using read only transactions.",
                     () -> execute(outerTx, sql, queryRw));
         } else {
             checkDml(ROW_COUNT, outerTx, sql, queryRw);
