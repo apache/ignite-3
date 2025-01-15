@@ -88,7 +88,7 @@ public class DropSchemaCommand implements CatalogCommand {
         }
 
         if (!cascade && !schema.isEmpty()) {
-            throw new SchemaNotFoundException(format("Schema '{}' is not empty. Use CASCADE to drop it anyway.", schemaName));
+            throw new CatalogValidationException(format("Schema '{}' is not empty. Use CASCADE to drop it anyway.", schemaName));
         }
 
         List<UpdateEntry> updateEntries = new ArrayList<>();
