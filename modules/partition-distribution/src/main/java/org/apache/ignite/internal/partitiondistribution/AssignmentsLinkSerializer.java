@@ -18,39 +18,33 @@
 package org.apache.ignite.internal.partitiondistribution;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
 
-
 /**
- * {@link VersionedSerializer} for {@link AssignmentsChain} instances.
+ * {@link VersionedSerializer} for {@link AssignmentsLink} instances.
  */
-public class AssignmentsChainSerializer extends VersionedSerializer<AssignmentsChain> {
+public class AssignmentsLinkSerializer extends VersionedSerializer<AssignmentsLink> {
 
     /** Serializer instance. */
-    public static final AssignmentsChainSerializer INSTANCE = new AssignmentsChainSerializer();
+    public static final AssignmentsLinkSerializer INSTANCE = new AssignmentsLinkSerializer();
 
     @Override
-    protected void writeExternalData(AssignmentsChain chain, IgniteDataOutput out) throws IOException {
-        out.writeVarInt(chain.chain().size());
+    protected void writeExternalData(AssignmentsLink link, IgniteDataOutput out) throws IOException {
+        AssignmentsSerializer.INSTANCE.writeExternal(link.assignments(), out);
 
-        for (AssignmentsLink assignment : chain.chain()) {
-            AssignmentsLinkSerializer.INSTANCE.writeExternal(assignment, out);
-        }
+        out.writeVarInt(link.configurationTerm());
+        out.writeVarInt(link.configurationIndex());
     }
 
     @Override
-    protected AssignmentsChain readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
-        int length = in.readVarIntAsInt();
-        List<AssignmentsLink> links = new ArrayList<>(length);
+    protected AssignmentsLink readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
+        Assignments assignments = AssignmentsSerializer.INSTANCE.readExternal(in);
 
-        for (int i = 0; i < length; i++) {
-            links.add(AssignmentsLinkSerializer.INSTANCE.readExternal(in));
-        }
+        long term = in.readVarInt();
+        long index = in.readVarInt();
 
-        return AssignmentsChain.of(links);
+        return new AssignmentsLink(assignments, term, index);
     }
 }

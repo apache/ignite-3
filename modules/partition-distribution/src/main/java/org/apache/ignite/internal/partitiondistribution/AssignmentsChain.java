@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.partitiondistribution;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -30,15 +33,19 @@ import org.jetbrains.annotations.Nullable;
  * Contains the chain of changed assignments.
  */
 public class AssignmentsChain {
+
+    private static final long DEFAULT_CONF_TERM = -1;
+    private static final long DEFAULT_CONF_IDX = -1;
+
     /** Chain of assignments. */
     @IgniteToStringInclude
-    private final List<Assignments> chain;
+    private final List<AssignmentsLink> chain;
 
-    private AssignmentsChain(List<Assignments> chain) {
+    private AssignmentsChain(List<AssignmentsLink> chain) {
         this.chain = chain;
     }
 
-    public List<Assignments> chain() {
+    public List<AssignmentsLink> chain() {
         return chain;
     }
 
@@ -48,12 +55,12 @@ public class AssignmentsChain {
      * @param newLast New last link.
      * @return new AssignmentsChain.
      */
-    public AssignmentsChain replaceLast(Assignments newLast) {
+    public AssignmentsChain replaceLast(Assignments newLast, long configurationTerm, long configurationIndex) {
         assert !chain.isEmpty() : "Assignments chain is empty.";
 
-        List<Assignments> newChain = new ArrayList<>(chain);
+        List<AssignmentsLink> newChain = new ArrayList<>(chain);
 
-        newChain.set(newChain.size() - 1, newLast);
+        newChain.set(newChain.size() - 1, new AssignmentsLink(newLast, configurationTerm, configurationIndex));
 
         return new AssignmentsChain(newChain);
     }
@@ -64,14 +71,48 @@ public class AssignmentsChain {
      * @param newLast New last link.
      * @return new AssignmentsChain.
      */
-    public AssignmentsChain addLast(Assignments newLast) {
+    public AssignmentsChain addLast(Assignments newLast, long configurationTerm, long configurationIndex) {
         assert !chain.isEmpty() : "Assignments chain is empty.";
 
-        List<Assignments> newChain = new ArrayList<>(chain);
+        List<AssignmentsLink> newChain = new ArrayList<>(chain);
 
-        newChain.add(newLast);
+        newChain.add(new AssignmentsLink(newLast, configurationTerm, configurationIndex));
 
         return new AssignmentsChain(newChain);
+    }
+
+
+    /**
+     * Gets the next link in the chain after the given link.
+     *
+     * @param link The link to get the next one from.
+     * @return The next link in the chain, or {@code null} if the given link is the last one in the chain.
+     */
+    public @Nullable AssignmentsLink nextLink(AssignmentsLink link) {
+        int i = chain.indexOf(link);
+
+        return i < 0 || i == chain().size() - 1 ? null : chain.get(i + 1);
+    }
+
+    /**
+     * Returns the last {@link AssignmentsLink} in the chain that contains the specified node.
+     *
+     * @param nodeConsistentId The consistent identifier of the node to search for.
+     * @return The last {@link AssignmentsLink} that contains the node, or {@code null} if no such link exists.
+     */
+    public @Nullable AssignmentsLink lastLink(String nodeConsistentId) {
+        for (int i = chain.size() - 1; i >= 0; i--) {
+            AssignmentsLink link = chain.get(i);
+            if (link.hasNode(nodeConsistentId)) {
+                return link;
+            }
+        }
+
+        return null;
+    }
+
+    public static AssignmentsChain of(Assignments... assignments) {
+        return of(DEFAULT_CONF_TERM, DEFAULT_CONF_IDX, assignments);
     }
 
     /**
@@ -79,8 +120,13 @@ public class AssignmentsChain {
      *
      * @param assignments Partition assignments.
      */
-    public static AssignmentsChain of(Assignments assignments) {
-        return new AssignmentsChain(List.of(assignments));
+    public static AssignmentsChain of(long configurationTerm, long configurationIndex, Assignments... assignments) {
+        List<AssignmentsLink> links =
+                Stream.of(assignments)
+                        .map(assignment -> new AssignmentsLink(assignment, configurationTerm, configurationIndex))
+                        .collect(toList());
+
+        return new AssignmentsChain(links);
     }
 
     /**
@@ -88,7 +134,7 @@ public class AssignmentsChain {
      *
      * @param assignmentsChain Chain of partition assignments.
      */
-    public static AssignmentsChain of(List<Assignments> assignmentsChain) {
+    public static AssignmentsChain of(List<AssignmentsLink> assignmentsChain) {
         return new AssignmentsChain(assignmentsChain);
     }
 
