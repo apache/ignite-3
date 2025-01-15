@@ -4311,7 +4311,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @DisplayName("application of long batch is state machine does not prevent fast shutdown")
+    @DisplayName("application of long batch in state machine does not prevent fast shutdown")
     public void longBatchInStateMachineAndShutdown() throws Exception {
         CompletableFuture<Void> allowExecutionFuture = new CompletableFuture<>();
 
