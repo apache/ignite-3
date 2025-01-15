@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
 import static java.lang.Integer.bitCount;
+import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -53,9 +54,9 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>This is an implementation of subset-driven enumeration algorithm (Inspired by G. Moerkotte and T. Neumann.
  * Analysis of Two Existing and One New Dynamic Programming Algorithm for the Generation of Optimal Bushy Join
- * Trees without Cross Products. 2.2 Subset-Driven Enumeration). The main loop (which actually consists of two
- * for-loop) enumerates all subset of relations in a way suitable for dynamic programming: it guarantees,
- * that for every set {@code S}, any split of the S will produce subsets which have been already processed:
+ * Trees without Cross Products. 2.2 Subset-Driven Enumeration). The main loop enumerates all subsets of relations
+ * in a way suitable for dynamic programming: it guarantees, that for every emitted set {@code S}, any split of the
+ * {@code S} will produce subsets which have been already processed:
  * <pre>
  *     For example, for join of 4 relations it will produce following sequence: 
  *         0011
@@ -151,38 +152,41 @@ public class IgniteMultiJoinOptimizeBushyRule
         }
 
         Vertex bestSoFar = null;
-        for (int k = 2; k <= numberOfRelations; k++) {
-            for (int s = (1 << (k - 1)) + 1; s < 1 << k; s++) {
-                int lhs = Integer.lowestOneBit(s);
-                while (lhs < (s / 2) + 1) {
-                    int rhs = s - lhs;
+        for (int s = 0b11; s < 1 << numberOfRelations; s++) {
+            if (isPow2(s)) {
+                // Single relations have been processed during initialization.
+                continue;
+            }
 
-                    List<Edge> edges0;
-                    if (connections.get(lhs) && connections.get(rhs)) {
-                        edges0 = findEdges(lhs, rhs, edges);
-                    } else {
-                        edges0 = List.of();
-                    }
+            int lhs = Integer.lowestOneBit(s);
+            while (lhs < (s / 2) + 1) {
+                int rhs = s - lhs;
 
-                    if (!edges0.isEmpty()) {
-                        connections.set(s);
-
-                        Vertex planLhs = bestPlan.get(lhs);
-                        Vertex planRhs = bestPlan.get(rhs);
-
-                        Vertex newPlan = createJoin(planLhs, planRhs, edges0, mq, relBuilder, rexBuilder);
-                        Vertex currentBest = bestPlan.get(s);
-                        if (currentBest == null || currentBest.cost > newPlan.cost) {
-                            bestPlan.put(s, newPlan);
-
-                            bestSoFar = chooseBest(bestSoFar, newPlan);
-                        }
-
-                        aggregateEdges(edges, lhs, rhs);
-                    }
-
-                    lhs = s & (lhs - s);
+                List<Edge> edges0;
+                if (connections.get(lhs) && connections.get(rhs)) {
+                    edges0 = findEdges(lhs, rhs, edges);
+                } else {
+                    edges0 = List.of();
                 }
+
+                if (!edges0.isEmpty()) {
+                    connections.set(s);
+
+                    Vertex planLhs = bestPlan.get(lhs);
+                    Vertex planRhs = bestPlan.get(rhs);
+
+                    Vertex newPlan = createJoin(planLhs, planRhs, edges0, mq, relBuilder, rexBuilder);
+                    Vertex currentBest = bestPlan.get(s);
+                    if (currentBest == null || currentBest.cost > newPlan.cost) {
+                        bestPlan.put(s, newPlan);
+
+                        bestSoFar = chooseBest(bestSoFar, newPlan);
+                    }
+
+                    aggregateEdges(edges, lhs, rhs);
+                }
+
+                lhs = s & (lhs - s);
             }
         }
 

@@ -237,7 +237,7 @@ public class IgnitePlanner implements Planner, RelOptTable.ViewExpander {
         throw new UnsupportedOperationException();
     }
 
-    /** Derives hints from give relation node, if possible. */
+    /** Derives hints from given relation node, if possible. */
     List<RelHint> deriveHints(SqlNode node) {
         SqlSelect select = null;
         if (node instanceof SqlSelect) {
