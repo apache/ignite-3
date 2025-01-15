@@ -23,9 +23,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.lang.model.element.Modifier.STATIC;
-import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.collectFieldsWithAnnotation;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.containsAnyAnnotation;
-import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.findFirstPresentAnnotation;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getChangeName;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getConfigurationInterfaceName;
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.getViewName;
@@ -49,6 +47,7 @@ import com.squareup.javapoet.WildcardTypeName;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.annotation.Annotation;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -89,7 +88,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.Secret;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.configuration.processor.validators.InjectedValueValidator;
+import org.apache.ignite.internal.configuration.processor.validation.InjectedValueValidator;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -98,6 +97,15 @@ import org.jetbrains.annotations.Nullable;
 // TODO: IGNITE-17166 Split into classes/methods for regular/internal/polymorphic/abstract configuration
 @AutoService(Processor.class)
 public class ConfigurationProcessor extends AbstractProcessor {
+    public static final Set<Class<? extends Annotation>> TOP_LEVEL_ANNOTATIONS = Set.of(
+            Config.class,
+            ConfigurationRoot.class,
+            ConfigurationExtension.class,
+            PolymorphicConfig.class,
+            PolymorphicConfigInstance.class,
+            AbstractConfiguration.class
+    );
+
     /** Java file padding. */
     private static final String INDENT = "    ";
 
@@ -121,7 +129,6 @@ public class ConfigurationProcessor extends AbstractProcessor {
     /** Postfix with which any configuration schema class name must end. */
     private static final String CONFIGURATION_SCHEMA_POSTFIX = "ConfigurationSchema";
 
-    /** {@inheritDoc} */
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
         try {
@@ -146,7 +153,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
         // All classes annotated with {@link #supportedAnnotationTypes}.
         List<TypeElement> annotatedConfigs = roundEnvironment
-                .getElementsAnnotatedWithAny(supportedAnnotationTypes())
+                .getElementsAnnotatedWithAny(TOP_LEVEL_ANNOTATIONS)
                 .stream()
                 .filter(element -> element.getKind() == ElementKind.CLASS)
                 .map(TypeElement.class::cast)
@@ -159,12 +166,11 @@ public class ConfigurationProcessor extends AbstractProcessor {
         var injectedValueValidator = new InjectedValueValidator(processingEnv);
 
         for (TypeElement clazz : annotatedConfigs) {
-            // Find all the fields of the schema.
-            List<VariableElement> fields = fields(clazz);
+            var classWrapper = new ClassWrapper(processingEnv, clazz);
 
-            validateConfigurationSchemaClass(clazz, fields);
+            validateConfigurationSchemaClass(classWrapper);
 
-            injectedValueValidator.validate(clazz, fields);
+            injectedValueValidator.validate(classWrapper);
 
             // Get package name of the schema class
             String packageName = elementUtils.getPackageOf(clazz).getQualifiedName().toString();
@@ -177,7 +183,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
             TypeSpec.Builder configurationInterfaceBuilder = TypeSpec.interfaceBuilder(configInterface)
                     .addModifiers(PUBLIC);
 
-            for (VariableElement field : fields) {
+            for (VariableElement field : classWrapper.fields()) {
                 if (!field.getModifiers().contains(PUBLIC)) {
                     throw new ConfigurationProcessorException("Field " + clazz.getQualifiedName() + "." + field + " must be public");
                 }
@@ -259,11 +265,10 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
             // Create VIEW and CHANGE classes.
             createPojoBindings(
-                    fields,
+                    classWrapper,
                     schemaClassName,
                     configurationInterfaceBuilder,
                     (isExtendingConfig && !isRootConfig) || isPolymorphicInstance,
-                    clazz,
                     isPolymorphicConfig,
                     isPolymorphicInstance
             );
@@ -271,10 +276,11 @@ public class ConfigurationProcessor extends AbstractProcessor {
             if (isRootConfig) {
                 createRootKeyField(configInterface, configurationInterfaceBuilder, schemaClassName, clazz);
             } else if (isExtendingConfig) {
-                TypeElement superClass = superClass(clazz);
-                boolean isSuperClassRootConfig = superClass.getAnnotation(ConfigurationRoot.class) != null;
+                ClassWrapper superClass = classWrapper.superClass();
+
+                boolean isSuperClassRootConfig = superClass != null && superClass.getAnnotation(ConfigurationRoot.class) != null;
                 if (isSuperClassRootConfig) {
-                    createExtensionKeyField(configInterface, configurationInterfaceBuilder, ClassName.get(superClass));
+                    createExtensionKeyField(configInterface, configurationInterfaceBuilder, ClassName.get(superClass.clazz()));
                 }
             }
 
@@ -411,20 +417,17 @@ public class ConfigurationProcessor extends AbstractProcessor {
     /**
      * Create VIEW and CHANGE classes and methods.
      *
-     * @param fields Collection of configuration fields.
      * @param schemaClassName Class name of schema.
      * @param configurationInterfaceBuilder Configuration interface builder.
      * @param extendBaseSchema {@code true} if extending base schema interfaces.
-     * @param realSchemaClass Class descriptor.
      * @param isPolymorphicConfig Is a polymorphic configuration.
      * @param isPolymorphicInstanceConfig Is an instance of polymorphic configuration.
      */
     private void createPojoBindings(
-            Collection<VariableElement> fields,
+            ClassWrapper classWrapper,
             ClassName schemaClassName,
             TypeSpec.Builder configurationInterfaceBuilder,
             boolean extendBaseSchema,
-            TypeElement realSchemaClass,
             boolean isPolymorphicConfig,
             boolean isPolymorphicInstanceConfig
     ) {
@@ -435,13 +438,13 @@ public class ConfigurationProcessor extends AbstractProcessor {
         @Nullable TypeName viewBaseSchemaInterfaceType;
         @Nullable TypeName changeBaseSchemaInterfaceType;
 
-        TypeElement superClass = superClass(realSchemaClass);
+        ClassWrapper superClass = classWrapper.superClass();
 
-        boolean isSuperClassAbstractConfiguration = !isClass(superClass.asType(), Object.class)
+        boolean isSuperClassAbstractConfiguration = superClass != null
                 && superClass.getAnnotation(AbstractConfiguration.class) != null;
 
-        if (extendBaseSchema || isSuperClassAbstractConfiguration) {
-            ClassName superClassSchemaClassName = ClassName.get(superClass);
+        if (superClass != null && (extendBaseSchema || isSuperClassAbstractConfiguration)) {
+            ClassName superClassSchemaClassName = ClassName.get(superClass.clazz());
 
             viewBaseSchemaInterfaceType = getViewName(superClassSchemaClassName);
             changeBaseSchemaInterfaceType = getChangeName(superClassSchemaClassName);
@@ -460,7 +463,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
         } else {
             ClassName confTreeInterface = ClassName.get("org.apache.ignite.configuration", "ConfigurationTree");
 
-            if (realSchemaClass.getAnnotation(AbstractConfiguration.class) != null) {
+            if (classWrapper.getAnnotation(AbstractConfiguration.class) != null) {
                 // Example: TableConfig<VIEWT extends TableView, CHANGET extends TableChange> extends ConfigurationTree<VIEWT, CHANGET>
                 configurationInterfaceBuilder.addTypeVariables(List.of(
                         TypeVariableName.get("VIEWT", viewClsName),
@@ -508,7 +511,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
         ClassName consumerClsName = ClassName.get(Consumer.class);
 
-        for (VariableElement field : fields) {
+        for (VariableElement field : classWrapper.fields()) {
             String fieldName = field.getSimpleName().toString();
             TypeMirror schemaFieldType = field.asType();
             TypeName schemaFieldTypeName = TypeName.get(schemaFieldType);
@@ -642,181 +645,131 @@ public class ConfigurationProcessor extends AbstractProcessor {
     }
 
     /**
-     * Get class fields.
-     *
-     * @param type Class type.
-     * @return Class fields.
-     */
-    private static List<VariableElement> fields(TypeElement type) {
-        return type.getEnclosedElements().stream()
-                .filter(el -> el.getKind() == ElementKind.FIELD)
-                .filter(el -> !el.getModifiers().contains(STATIC)) // ignore static members
-                .map(VariableElement.class::cast)
-                .collect(toList());
-    }
-
-    /**
      * Validate the class.
      *
-     * @param clazz Class type.
-     * @param fields Class fields.
      * @throws ConfigurationProcessorException If the class validation fails.
      */
-    private void validateConfigurationSchemaClass(TypeElement clazz, List<VariableElement> fields) {
-        if (!clazz.getSimpleName().toString().endsWith(CONFIGURATION_SCHEMA_POSTFIX)) {
+    private void validateConfigurationSchemaClass(ClassWrapper classWrapper) {
+        if (!classWrapper.clazz().getSimpleName().toString().endsWith(CONFIGURATION_SCHEMA_POSTFIX)) {
             throw new ConfigurationProcessorException(
-                    String.format("%s must end with '%s'", clazz.getQualifiedName(), CONFIGURATION_SCHEMA_POSTFIX));
+                    String.format("%s must end with '%s'", classWrapper.clazz().getQualifiedName(), CONFIGURATION_SCHEMA_POSTFIX));
         }
 
-        if (clazz.getAnnotation(ConfigurationExtension.class) != null) {
-            validateExtensionConfiguration(clazz, fields);
-        } else if (clazz.getAnnotation(PolymorphicConfig.class) != null) {
-            validatePolymorphicConfig(clazz, fields);
-        } else if (clazz.getAnnotation(PolymorphicConfigInstance.class) != null) {
-            validatePolymorphicConfigInstance(clazz, fields);
-        } else if (clazz.getAnnotation(AbstractConfiguration.class) != null) {
-            validateAbstractConfiguration(clazz, fields);
-        } else if (clazz.getAnnotation(ConfigurationRoot.class) != null) {
-            validateConfigurationRoot(clazz, fields);
-        } else if (clazz.getAnnotation(Config.class) != null) {
-            validateConfig(clazz, fields);
+        if (classWrapper.getAnnotation(ConfigurationExtension.class) != null) {
+            validateExtensionConfiguration(classWrapper);
+        } else if (classWrapper.getAnnotation(PolymorphicConfig.class) != null) {
+            validatePolymorphicConfig(classWrapper);
+        } else if (classWrapper.getAnnotation(PolymorphicConfigInstance.class) != null) {
+            validatePolymorphicConfigInstance(classWrapper);
+        } else if (classWrapper.getAnnotation(AbstractConfiguration.class) != null) {
+            validateAbstractConfiguration(classWrapper);
+        } else if (classWrapper.getAnnotation(ConfigurationRoot.class) != null) {
+            validateConfigurationRoot(classWrapper);
+        } else if (classWrapper.getAnnotation(Config.class) != null) {
+            validateConfig(classWrapper);
         }
 
-        validateInjectedNameFields(clazz, fields);
+        validateInjectedNameFields(classWrapper);
 
-        validateNameFields(clazz, fields);
+        validateNameFields(classWrapper);
     }
 
     /**
      * Checks configuration schema with {@link ConfigurationExtension}.
-     *
-     * @param clazz Type element under validation.
-     * @param fields Non-static fields of the class under validation.
      */
-    private void validateExtensionConfiguration(TypeElement clazz, List<VariableElement> fields) {
+    private void validateExtensionConfiguration(ClassWrapper classWrapper) {
         checkIncompatibleClassAnnotations(
-                clazz,
+                classWrapper.clazz(),
                 ConfigurationExtension.class,
                 incompatibleSchemaClassAnnotations(ConfigurationExtension.class, ConfigurationRoot.class)
         );
 
-        checkNotContainsPolymorphicIdField(clazz, ConfigurationExtension.class, fields);
+        checkNotContainsPolymorphicIdField(classWrapper, ConfigurationExtension.class);
 
-        if (clazz.getAnnotation(ConfigurationRoot.class) != null) {
-            checkNotExistSuperClass(clazz, ConfigurationExtension.class);
+        if (classWrapper.getAnnotation(ConfigurationRoot.class) != null) {
+            checkNotExistSuperClass(classWrapper.clazz(), ConfigurationExtension.class);
         } else {
-            checkExistSuperClass(clazz, ConfigurationExtension.class);
+            checkExistSuperClass(classWrapper.clazz(), ConfigurationExtension.class);
 
-            TypeElement superClazz = superClass(clazz);
+            ClassWrapper superClassWrapper = classWrapper.requiredSuperClass();
 
-            if (superClazz.getAnnotation(ConfigurationExtension.class) != null) {
+            if (superClassWrapper.getAnnotation(ConfigurationExtension.class) != null) {
                 throw new ConfigurationProcessorException(String.format(
                         "Superclass must not have %s: %s",
                         simpleName(ConfigurationExtension.class),
-                        clazz.getQualifiedName()
+                        classWrapper.clazz().getQualifiedName()
                 ));
             }
 
-            checkSuperclassContainAnyAnnotation(clazz, superClazz, ConfigurationRoot.class, Config.class);
+            checkSuperclassContainAnyAnnotation(classWrapper.clazz(), superClassWrapper.clazz(), ConfigurationRoot.class, Config.class);
 
-            checkNoConflictFieldNames(clazz, superClazz, fields, fields(superClazz));
+            checkNoConflictFieldNames(classWrapper, superClassWrapper);
         }
     }
 
     /**
      * Checks configuration schema with {@link PolymorphicConfig}.
-     *
-     * @param clazz Type element under validation.
-     * @param fields Non-static fields of the class under validation.
      */
-    private void validatePolymorphicConfig(TypeElement clazz, List<VariableElement> fields) {
+    private void validatePolymorphicConfig(ClassWrapper classWrapper) {
         checkIncompatibleClassAnnotations(
-                clazz,
+                classWrapper.clazz(),
                 PolymorphicConfig.class,
                 incompatibleSchemaClassAnnotations(PolymorphicConfig.class)
         );
 
-        checkNotExistSuperClass(clazz, PolymorphicConfig.class);
+        checkNotExistSuperClass(classWrapper.clazz(), PolymorphicConfig.class);
 
-        List<VariableElement> typeIdFields = collectFieldsWithAnnotation(fields, PolymorphicId.class);
+        List<VariableElement> typeIdFields = classWrapper.fieldsAnnotatedWith(PolymorphicId.class);
 
-        if (typeIdFields.size() != 1 || fields.indexOf(typeIdFields.get(0)) != 0) {
+        if (typeIdFields.size() != 1 || classWrapper.fields().indexOf(typeIdFields.get(0)) != 0) {
             throw new ConfigurationProcessorException(String.format(
                     "Class with %s must contain one field with %s and it should be the first in the schema: %s",
                     simpleName(PolymorphicConfig.class),
                     simpleName(PolymorphicId.class),
-                    clazz.getQualifiedName()
+                    classWrapper.clazz().getQualifiedName()
             ));
         }
     }
 
     /**
      * Checks configuration schema with {@link PolymorphicConfigInstance}.
-     *
-     * @param clazz Type element under validation.
-     * @param fields Non-static fields of the class under validation.
      */
-    private void validatePolymorphicConfigInstance(TypeElement clazz, List<VariableElement> fields) {
+    private void validatePolymorphicConfigInstance(ClassWrapper classWrapper) {
         checkIncompatibleClassAnnotations(
-                clazz,
+                classWrapper.clazz(),
                 PolymorphicConfigInstance.class,
                 incompatibleSchemaClassAnnotations(PolymorphicConfigInstance.class)
         );
 
-        checkNotContainsPolymorphicIdField(clazz, PolymorphicConfigInstance.class, fields);
+        checkNotContainsPolymorphicIdField(classWrapper, PolymorphicConfigInstance.class);
 
-        String id = clazz.getAnnotation(PolymorphicConfigInstance.class).value();
+        String id = classWrapper.getAnnotation(PolymorphicConfigInstance.class).value();
 
         if (id == null || id.isBlank()) {
             throw new ConfigurationProcessorException(String.format(
                     EMPTY_FIELD_ERROR_FORMAT,
                     simpleName(PolymorphicConfigInstance.class) + ".id()",
-                    clazz.getQualifiedName()
+                    classWrapper.clazz().getQualifiedName()
             ));
         }
 
-        checkExistSuperClass(clazz, PolymorphicConfigInstance.class);
+        checkExistSuperClass(classWrapper.clazz(), PolymorphicConfigInstance.class);
 
-        TypeElement superClazz = superClass(clazz);
+        ClassWrapper superClassWrapper = classWrapper.requiredSuperClass();
 
-        checkSuperclassContainAnyAnnotation(clazz, superClazz, PolymorphicConfig.class);
+        checkSuperclassContainAnyAnnotation(classWrapper.clazz(), superClassWrapper.clazz(), PolymorphicConfig.class);
 
-        checkNoConflictFieldNames(clazz, superClazz, fields, fields(superClazz));
+        checkNoConflictFieldNames(classWrapper, superClassWrapper);
     }
 
-    /** {@inheritDoc} */
     @Override
     public Set<String> getSupportedAnnotationTypes() {
-        return supportedAnnotationTypes().stream().map(Class::getCanonicalName).collect(toSet());
+        return TOP_LEVEL_ANNOTATIONS.stream().map(Class::getCanonicalName).collect(toSet());
     }
 
-    /** {@inheritDoc} */
     @Override
     public SourceVersion getSupportedSourceVersion() {
         return SourceVersion.latest();
-    }
-
-    /**
-     * Returns immutable set of annotation types supported by this processor.
-     */
-    private Set<Class<? extends Annotation>> supportedAnnotationTypes() {
-        return Set.of(
-                Config.class,
-                ConfigurationRoot.class,
-                ConfigurationExtension.class,
-                PolymorphicConfig.class,
-                PolymorphicConfigInstance.class,
-                AbstractConfiguration.class
-        );
-    }
-
-    /**
-     * Getting a superclass.
-     *
-     * @param clazz Class type.
-     */
-    private TypeElement superClass(TypeElement clazz) {
-        return processingEnv.getElementUtils().getTypeElement(clazz.getSuperclass().toString());
     }
 
     /**
@@ -901,12 +854,14 @@ public class ConfigurationProcessor extends AbstractProcessor {
         assert clazz.getAnnotation(clazzAnnotation) != null : clazz.getQualifiedName();
         assert !nullOrEmpty(incompatibleAnnotations);
 
-        Optional<? extends Annotation> incompatible = findFirstPresentAnnotation(clazz, incompatibleAnnotations);
+        Optional<Class<? extends Annotation>> incompatible = Arrays.stream(incompatibleAnnotations)
+                .filter(a -> clazz.getAnnotation(a) != null)
+                .findAny();
 
         if (incompatible.isPresent()) {
             throw new ConfigurationProcessorException(String.format(
                     "Class with %s is not allowed with %s: %s",
-                    simpleName(incompatible.get().annotationType()),
+                    simpleName(incompatible.get()),
                     simpleName(clazzAnnotation),
                     clazz.getQualifiedName()
             ));
@@ -954,24 +909,20 @@ public class ConfigurationProcessor extends AbstractProcessor {
     /**
      * Checks that the class does not have a field with {@link PolymorphicId}.
      *
-     * @param clazz Class type.
-     * @param clazzAnnotation Class annotation.
-     * @param clazzfields Class fields.
      * @throws ConfigurationProcessorException If the class has a field with {@link PolymorphicId}.
      */
     private void checkNotContainsPolymorphicIdField(
-            TypeElement clazz,
-            Class<? extends Annotation> clazzAnnotation,
-            List<VariableElement> clazzfields
+            ClassWrapper classWrapper,
+            Class<? extends Annotation> clazzAnnotation
     ) {
-        assert clazz.getAnnotation(clazzAnnotation) != null : clazz.getQualifiedName();
+        assert classWrapper.getAnnotation(clazzAnnotation) != null : classWrapper.clazz().getQualifiedName();
 
-        if (!collectFieldsWithAnnotation(clazzfields, PolymorphicId.class).isEmpty()) {
+        if (!classWrapper.fieldsAnnotatedWith(PolymorphicId.class).isEmpty()) {
             throw new ConfigurationProcessorException(String.format(
                     "Class with %s cannot have a field with %s: %s",
                     simpleName(clazzAnnotation),
                     simpleName(PolymorphicId.class),
-                    clazz.getQualifiedName()
+                    classWrapper.clazz().getQualifiedName()
             ));
         }
     }
@@ -979,25 +930,19 @@ public class ConfigurationProcessor extends AbstractProcessor {
     /**
      * Checks that there is no conflict of field names between classes.
      *
-     * @param clazz0 First class type.
-     * @param clazz1 Second class type.
-     * @param clazzFields0 First class fields.
-     * @param clazzFields1 Second class fields.
      * @throws ConfigurationProcessorException If there is a conflict of field names between classes.
      */
     private void checkNoConflictFieldNames(
-            TypeElement clazz0,
-            TypeElement clazz1,
-            List<VariableElement> clazzFields0,
-            List<VariableElement> clazzFields1
+            ClassWrapper classWrapper0,
+            ClassWrapper classWrapper1
     ) {
-        Collection<Name> duplicateFieldNames = findDuplicates(clazzFields0, clazzFields1);
+        Collection<Name> duplicateFieldNames = findDuplicates(classWrapper0.fields(), classWrapper1.fields());
 
         if (!duplicateFieldNames.isEmpty()) {
             throw new ConfigurationProcessorException(String.format(
                     "Duplicate field names are not allowed [class=%s, superClass=%s, fields=%s]",
-                    clazz0.getQualifiedName(),
-                    clazz1.getQualifiedName(),
+                    classWrapper0.clazz().getQualifiedName(),
+                    classWrapper1.clazz().getQualifiedName(),
                     duplicateFieldNames
             ));
         }
@@ -1029,12 +974,10 @@ public class ConfigurationProcessor extends AbstractProcessor {
     /**
      * Validation of class fields with {@link InjectedName} if present.
      *
-     * @param clazz Class type.
-     * @param fields Class fields.
      * @throws ConfigurationProcessorException If the class validation fails.
      */
-    private void validateInjectedNameFields(TypeElement clazz, List<VariableElement> fields) {
-        List<VariableElement> injectedNameFields = collectFieldsWithAnnotation(fields, InjectedName.class);
+    private void validateInjectedNameFields(ClassWrapper classWrapper) {
+        List<VariableElement> injectedNameFields = classWrapper.fieldsAnnotatedWith(InjectedName.class);
 
         if (injectedNameFields.isEmpty()) {
             return;
@@ -1043,7 +986,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
         if (injectedNameFields.size() > 1) {
             throw new ConfigurationProcessorException(String.format(
                     "%s contains more than one field with %s",
-                    clazz.getQualifiedName(),
+                    classWrapper.clazz().getQualifiedName(),
                     simpleName(InjectedName.class)
             ));
         }
@@ -1054,7 +997,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
             throw new ConfigurationProcessorException(String.format(
                     FIELD_MUST_BE_SPECIFIC_CLASS_ERROR_FORMAT,
                     simpleName(InjectedName.class),
-                    clazz.getQualifiedName(),
+                    classWrapper.clazz().getQualifiedName(),
                     injectedNameField.getSimpleName(),
                     String.class.getSimpleName()
             ));
@@ -1064,31 +1007,30 @@ public class ConfigurationProcessor extends AbstractProcessor {
         if (injectedNameField.getAnnotationMirrors().size() > 1) {
             throw new ConfigurationProcessorException(String.format(
                     "%s.%s must contain only one %s",
-                    clazz.getQualifiedName(),
+                    classWrapper.clazz().getQualifiedName(),
                     injectedNameField.getSimpleName(),
                     simpleName(InjectedName.class)
             ));
         }
 
-        findFirstPresentAnnotation(clazz, Config.class, PolymorphicConfig.class, AbstractConfiguration.class)
-                .orElseThrow(() -> new ConfigurationProcessorException(String.format(
-                        "%s %s.%s can only be present in a class annotated with %s",
-                        simpleName(InjectedName.class),
-                        clazz.getQualifiedName(),
-                        injectedNameField.getSimpleName(),
-                        joinSimpleName(" or ", Config.class, PolymorphicConfig.class, AbstractConfiguration.class)
-                )));
+        if (!containsAnyAnnotation(classWrapper.clazz(), Config.class, PolymorphicConfig.class, AbstractConfiguration.class)) {
+            throw new ConfigurationProcessorException(String.format(
+                    "%s %s.%s can only be present in a class annotated with %s",
+                    simpleName(InjectedName.class),
+                    classWrapper.clazz().getQualifiedName(),
+                    injectedNameField.getSimpleName(),
+                    joinSimpleName(" or ", Config.class, PolymorphicConfig.class, AbstractConfiguration.class)
+            ));
+        }
     }
 
     /**
      * Validation of class fields with {@link Name} if present.
      *
-     * @param clazz Class type.
-     * @param fields Class fields.
      * @throws ConfigurationProcessorException If the class validation fails.
      */
-    private void validateNameFields(TypeElement clazz, List<VariableElement> fields) {
-        List<VariableElement> nameFields = collectFieldsWithAnnotation(fields, org.apache.ignite.configuration.annotation.Name.class);
+    private void validateNameFields(ClassWrapper classWrapper) {
+        List<VariableElement> nameFields = classWrapper.fieldsAnnotatedWith(org.apache.ignite.configuration.annotation.Name.class);
 
         if (nameFields.isEmpty()) {
             return;
@@ -1100,7 +1042,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                         "%s annotation can only be used with %s: %s.%s",
                         simpleName(org.apache.ignite.configuration.annotation.Name.class),
                         simpleName(ConfigValue.class),
-                        clazz.getQualifiedName(),
+                        classWrapper.clazz().getQualifiedName(),
                         nameField.getSimpleName()
                 ));
             }
@@ -1117,18 +1059,20 @@ public class ConfigurationProcessor extends AbstractProcessor {
     private void checkMissingNameForInjectedName(VariableElement field) {
         TypeElement fieldType = (TypeElement) processingEnv.getTypeUtils().asElement(field.asType());
 
-        TypeElement superClassFieldType = superClass(fieldType);
+        var fieldClassWrapper = new ClassWrapper(processingEnv, fieldType);
+
+        ClassWrapper fieldSuperClassWrapper = fieldClassWrapper.superClass();
 
         List<VariableElement> fields;
 
-        if (!isClass(superClassFieldType.asType(), Object.class)
-                && superClassFieldType.getAnnotation(AbstractConfiguration.class) != null) {
+        if (fieldSuperClassWrapper != null
+                && fieldSuperClassWrapper.getAnnotation(AbstractConfiguration.class) != null) {
             fields = concat(
-                    collectFieldsWithAnnotation(fields(fieldType), InjectedName.class),
-                    collectFieldsWithAnnotation(fields(superClassFieldType), InjectedName.class)
+                    fieldClassWrapper.fieldsAnnotatedWith(InjectedName.class),
+                    fieldSuperClassWrapper.fieldsAnnotatedWith(InjectedName.class)
             );
         } else {
-            fields = collectFieldsWithAnnotation(fields(fieldType), InjectedName.class);
+            fields = fieldClassWrapper.fieldsAnnotatedWith(InjectedName.class);
         }
 
         if (!fields.isEmpty() && field.getAnnotation(org.apache.ignite.configuration.annotation.Name.class) == null) {
@@ -1144,64 +1088,58 @@ public class ConfigurationProcessor extends AbstractProcessor {
     /**
      * Checks configuration schema with {@link AbstractConfiguration}.
      *
-     * @param clazz Type element under validation.
-     * @param fields Non-static fields of the class under validation.
      * @throws ConfigurationProcessorException If validation fails.
      */
-    private void validateAbstractConfiguration(TypeElement clazz, List<VariableElement> fields) throws ConfigurationProcessorException {
+    private void validateAbstractConfiguration(ClassWrapper classWrapper) throws ConfigurationProcessorException {
         checkIncompatibleClassAnnotations(
-                clazz,
+                classWrapper.clazz(),
                 AbstractConfiguration.class,
                 incompatibleSchemaClassAnnotations(AbstractConfiguration.class)
         );
 
-        checkNotExistSuperClass(clazz, AbstractConfiguration.class);
+        checkNotExistSuperClass(classWrapper.clazz(), AbstractConfiguration.class);
 
-        checkNotContainsPolymorphicIdField(clazz, AbstractConfiguration.class, fields);
+        checkNotContainsPolymorphicIdField(classWrapper, AbstractConfiguration.class);
     }
 
     /**
      * Checks configuration schema with {@link ConfigurationRoot}.
      *
-     * @param clazz Type element under validation.
-     * @param fields Non-static fields of the class under validation.
      * @throws ConfigurationProcessorException If validation fails.
      */
-    private void validateConfigurationRoot(TypeElement clazz, List<VariableElement> fields) throws ConfigurationProcessorException {
+    private void validateConfigurationRoot(ClassWrapper classWrapper) throws ConfigurationProcessorException {
         checkIncompatibleClassAnnotations(
-                clazz,
+                classWrapper.clazz(),
                 ConfigurationRoot.class,
                 incompatibleSchemaClassAnnotations(ConfigurationRoot.class)
         );
 
-        checkNotContainsPolymorphicIdField(clazz, ConfigurationRoot.class, fields);
+        checkNotContainsPolymorphicIdField(classWrapper, ConfigurationRoot.class);
 
-        TypeElement superClazz = superClass(clazz);
+        ClassWrapper superClassWrapper = classWrapper.superClass();
 
-        if (!isClass(superClazz.asType(), Object.class)) {
-            checkSuperclassContainAnyAnnotation(clazz, superClazz, AbstractConfiguration.class);
+        if (superClassWrapper != null) {
+            checkSuperclassContainAnyAnnotation(classWrapper.clazz(), superClassWrapper.clazz(), AbstractConfiguration.class);
 
-            List<VariableElement> superClazzFields = fields(superClazz);
-
-            checkNoConflictFieldNames(clazz, superClazz, fields, superClazzFields);
+            checkNoConflictFieldNames(classWrapper, superClassWrapper);
 
             String invalidFieldInSuperClassFormat = "Field with %s in superclass are not allowed [class=%s, superClass=%s]";
 
-            if (!collectFieldsWithAnnotation(superClazzFields, InjectedName.class).isEmpty()) {
+            if (!superClassWrapper.fieldsAnnotatedWith(InjectedName.class).isEmpty()) {
                 throw new ConfigurationProcessorException(String.format(
                         invalidFieldInSuperClassFormat,
                         simpleName(InjectedName.class),
-                        clazz.getQualifiedName(),
-                        superClazz.getQualifiedName()
+                        classWrapper.clazz().getQualifiedName(),
+                        superClassWrapper.clazz().getQualifiedName()
                 ));
             }
 
-            if (!collectFieldsWithAnnotation(superClazzFields, InternalId.class).isEmpty()) {
+            if (!superClassWrapper.fieldsAnnotatedWith(InternalId.class).isEmpty()) {
                 throw new ConfigurationProcessorException(String.format(
                         invalidFieldInSuperClassFormat,
                         simpleName(InternalId.class),
-                        clazz.getQualifiedName(),
-                        superClazz.getQualifiedName()
+                        classWrapper.clazz().getQualifiedName(),
+                        superClassWrapper.clazz().getQualifiedName()
                 ));
             }
         }
@@ -1210,47 +1148,43 @@ public class ConfigurationProcessor extends AbstractProcessor {
     /**
      * Checks configuration schema with {@link Config}.
      *
-     * @param clazz Type element under validation.
-     * @param fields Non-static fields of the class under validation.
      * @throws ConfigurationProcessorException If validation fails.
      */
-    private void validateConfig(TypeElement clazz, List<VariableElement> fields) throws ConfigurationProcessorException {
+    private void validateConfig(ClassWrapper classWrapper) throws ConfigurationProcessorException {
         checkIncompatibleClassAnnotations(
-                clazz,
+                classWrapper.clazz(),
                 Config.class,
                 incompatibleSchemaClassAnnotations(Config.class)
         );
 
-        checkNotContainsPolymorphicIdField(clazz, Config.class, fields);
+        checkNotContainsPolymorphicIdField(classWrapper, Config.class);
 
-        TypeElement superClazz = superClass(clazz);
+        ClassWrapper superClassWrapper = classWrapper.superClass();
 
-        if (!isClass(superClazz.asType(), Object.class)) {
-            checkSuperclassContainAnyAnnotation(clazz, superClazz, AbstractConfiguration.class);
+        if (superClassWrapper != null) {
+            checkSuperclassContainAnyAnnotation(classWrapper.clazz(), superClassWrapper.clazz(), AbstractConfiguration.class);
 
-            List<VariableElement> superClazzFields = fields(superClazz);
-
-            checkNoConflictFieldNames(clazz, superClazz, fields, superClazzFields);
+            checkNoConflictFieldNames(classWrapper, superClassWrapper);
 
             String fieldAlreadyPresentInSuperClassFormat = "Field with %s is already present in the superclass [class=%s, superClass=%s]";
 
-            if (!collectFieldsWithAnnotation(superClazzFields, InjectedName.class).isEmpty()
-                    && !collectFieldsWithAnnotation(fields, InjectedName.class).isEmpty()) {
+            if (!superClassWrapper.fieldsAnnotatedWith(InjectedName.class).isEmpty()
+                    && !classWrapper.fieldsAnnotatedWith(InjectedName.class).isEmpty()) {
                 throw new ConfigurationProcessorException(String.format(
                         fieldAlreadyPresentInSuperClassFormat,
                         simpleName(InjectedName.class),
-                        clazz.getQualifiedName(),
-                        superClazz.getQualifiedName()
+                        classWrapper.clazz().getQualifiedName(),
+                        superClassWrapper.clazz().getQualifiedName()
                 ));
             }
 
-            if (!collectFieldsWithAnnotation(superClazzFields, InternalId.class).isEmpty()
-                    && !collectFieldsWithAnnotation(fields, InternalId.class).isEmpty()) {
+            if (!superClassWrapper.fieldsAnnotatedWith(InternalId.class).isEmpty()
+                    && !classWrapper.fieldsAnnotatedWith(InternalId.class).isEmpty()) {
                 throw new ConfigurationProcessorException(String.format(
                         fieldAlreadyPresentInSuperClassFormat,
                         simpleName(InternalId.class),
-                        clazz.getQualifiedName(),
-                        superClazz.getQualifiedName()
+                        classWrapper.clazz().getQualifiedName(),
+                        superClassWrapper.clazz().getQualifiedName()
                 ));
             }
         }
@@ -1258,6 +1192,6 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
     @SafeVarargs
     private Class<? extends Annotation>[] incompatibleSchemaClassAnnotations(Class<? extends Annotation>... compatibleAnnotations) {
-        return difference(supportedAnnotationTypes(), Set.of(compatibleAnnotations)).toArray(Class[]::new);
+        return difference(TOP_LEVEL_ANNOTATIONS, Set.of(compatibleAnnotations)).toArray(Class[]::new);
     }
 }
