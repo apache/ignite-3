@@ -19,11 +19,17 @@ package org.apache.ignite.internal.sql.engine.prepare;
 
 import static org.apache.ignite.internal.sql.engine.prepare.IgnitePrograms.cbo;
 import static org.apache.ignite.internal.sql.engine.prepare.IgnitePrograms.hep;
+import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.JOIN_PUSH_THROUGH_JOIN_RULE;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.calcite.plan.RelOptLattice;
+import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelRule;
+import org.apache.calcite.plan.hep.HepMatchOrder;
+import org.apache.calcite.plan.hep.HepPlanner;
+import org.apache.calcite.plan.hep.HepProgramBuilder;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalFilter;
@@ -35,8 +41,6 @@ import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.FilterJoinRule.FilterIntoJoinRule;
 import org.apache.calcite.rel.rules.FilterMergeRule;
 import org.apache.calcite.rel.rules.FilterProjectTransposeRule;
-import org.apache.calcite.rel.rules.JoinPushExpressionsRule;
-import org.apache.calcite.rel.rules.JoinPushThroughJoinRule;
 import org.apache.calcite.rel.rules.ProjectFilterTransposeRule;
 import org.apache.calcite.rel.rules.ProjectMergeRule;
 import org.apache.calcite.rel.rules.ProjectRemoveRule;
@@ -68,8 +72,10 @@ import org.apache.ignite.internal.sql.engine.rule.ValuesConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ExposeIndexRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.FilterScanMergeRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteJoinConditionPushRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.IgniteMultiJoinOptimizeBushyRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Represents a planner phase with its description and a used rule set.
@@ -138,17 +144,49 @@ public enum PlannerPhase {
         }
     },
 
+    HEP_OPTIMIZE_JOIN_ORDER(
+            "Heuristic phase to optimize join order"
+    ) {
+        @Override
+        public Program getProgram(PlanningContext ctx) {
+            return (planner, rel, traits, materializations, lattices) -> {
+                HepProgramBuilder builder = new HepProgramBuilder();
+
+                builder
+                        .addSubprogram(
+                                new HepProgramBuilder()
+                                        .addMatchOrder(HepMatchOrder.BOTTOM_UP)
+                                        .addRuleInstance(CoreRules.JOIN_TO_MULTI_JOIN)
+                                        .build()
+                        )
+                        .addRuleInstance(IgniteMultiJoinOptimizeBushyRule.Config.DEFAULT.toRule());
+
+                HepPlanner hepPlanner = new HepPlanner(builder.build(), Commons.context(rel), true,
+                        null, Commons.context(rel).config().getCostFactory());
+
+                hepPlanner.setExecutor(planner.getExecutor());
+
+                for (RelOptMaterialization materialization : materializations) {
+                    hepPlanner.addMaterialization(materialization);
+                }
+
+                for (RelOptLattice lattice : lattices) {
+                    hepPlanner.addLattice(lattice);
+                }
+
+                hepPlanner.setRoot(rel);
+
+                return hepPlanner.findBestExp();
+            };
+        }
+    },
+
     OPTIMIZATION(
             "Main optimization phase",
             FilterMergeRule.Config.DEFAULT
                     .withOperandFor(LogicalFilter.class).toRule(),
 
-            JoinPushThroughJoinRule.Config.RIGHT
-                    .withOperandFor(LogicalJoin.class).toRule(),
-
-            JoinPushExpressionsRule.Config.DEFAULT
-                    .withOperandFor(LogicalJoin.class).toRule(),
-
+            CoreRules.JOIN_PUSH_EXPRESSIONS,
             IgniteJoinConditionPushRule.INSTANCE,
 
             FilterIntoJoinRule.FilterIntoJoinRuleConfig.DEFAULT
@@ -193,9 +231,11 @@ public enum PlannerPhase {
             CoreRules.MINUS_MERGE,
             CoreRules.INTERSECT_MERGE,
             CoreRules.UNION_REMOVE,
-            CoreRules.JOIN_COMMUTE,
             CoreRules.AGGREGATE_REMOVE,
+
+            CoreRules.JOIN_COMMUTE,
             CoreRules.JOIN_COMMUTE_OUTER,
+            JOIN_PUSH_THROUGH_JOIN_RULE,
 
             PruneEmptyRules.CORRELATE_LEFT_INSTANCE,
             PruneEmptyRules.CORRELATE_RIGHT_INSTANCE,
