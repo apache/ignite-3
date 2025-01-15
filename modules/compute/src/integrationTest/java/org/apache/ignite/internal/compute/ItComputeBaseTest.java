@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.compute.JobStatus.CANCELED;
 import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
@@ -52,6 +53,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -73,6 +75,7 @@ import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
@@ -82,6 +85,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -750,6 +754,38 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 List.of(Tuple.create(), Tuple.create().set("key", 1), Tuple.create().set("key", "value1")),
                 Set.of(Tuple.create().set("key", 2), Tuple.create().set("key", "value2"))
         ).map(Arguments::of);
+    }
+
+    @Test
+    void partitionedBroadcast() {
+        createTestTableWithOneRow();
+
+        Ignite entryNode = node(0);
+
+        Map<Partition, ClusterNode> replicas = entryNode.tables().table("test").partitionManager().primaryReplicasAsync().join();
+        Map<Integer, ClusterNode> partitionIdToNode = replicas.entrySet().stream()
+                .collect(toMap(entry -> ((HashPartition) entry.getKey()).partitionId(), Entry::getValue));
+
+        // When run job that will return its partition id
+        JobDescriptor<Void, Integer> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
+        CompletableFuture<BroadcastExecution<Integer>> future = entryNode.compute()
+                .submitAsync(BroadcastJobTarget.table("test"), job, null);
+
+        // Then the jobs are submitted
+        assertThat(future, willCompleteSuccessfully());
+        BroadcastExecution<Integer> broadcastExecution = future.join();
+
+        // And results contain all partition ids
+        assertThat(broadcastExecution.resultsAsync(), will(containsInAnyOrder(partitionIdToNode.keySet().toArray())));
+
+        Collection<JobExecution<Integer>> executions = broadcastExecution.executions();
+
+        // And each execution was submitted to the node that holds the primary replica for a particular partition
+        assertThat(executions, hasSize(partitionIdToNode.size()));
+        executions.forEach(execution -> {
+            Integer partitionId = execution.resultAsync().join(); // safe to join since resultsAsync is already complete
+            assertThat(execution.node(), is(partitionIdToNode.get(partitionId)));
+        });
     }
 
     static String toStringJobClassName() {

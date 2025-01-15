@@ -151,6 +151,7 @@ public class ClientCompute implements IgniteCompute {
                             .collect(Collectors.toList())
             ));
         }
+        // TODO https://issues.apache.org/jira/browse/IGNITE-23936
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
     }

@@ -52,6 +52,7 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.NodeNotFoundException;
+import org.apache.ignite.compute.TableJobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
@@ -76,11 +77,11 @@ import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.lang.util.IgniteNameUtils;
-import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -123,19 +124,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
-        Marshaller<T, byte[]> argumentMarshaller = descriptor.argumentMarshaller();
-        Marshaller<R, byte[]> resultMarshaller = descriptor.resultMarshaller();
+        ComputeJobDataHolder argHolder = SharedComputeUtils.marshalArgOrResult(args, descriptor.argumentMarshaller());
 
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
-            return completedFuture(new ResultUnmarshallingJobExecution<>(
+            return completedFuture(unmarshalResult(
                     executeAsyncWithFailover(
-                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), cancellationToken,
-                            SharedComputeUtils.marshalArgOrResult(args, argumentMarshaller)
+                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), cancellationToken, argHolder
                     ),
-                    resultMarshaller,
-                    descriptor.resultClass()
+                    descriptor
             ));
         }
 
@@ -154,8 +152,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, mapper),
                                         descriptor.units(),
                                         descriptor.jobClassName(),
-                                        descriptor.options(), cancellationToken,
-                                        SharedComputeUtils.marshalArgOrResult(args, argumentMarshaller)
+                                        descriptor.options(),
+                                        cancellationToken,
+                                        argHolder
                                 )));
 
             } else {
@@ -167,14 +166,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                 descriptor.jobClassName(),
                                 descriptor.options(),
                                 cancellationToken,
-                                SharedComputeUtils.marshalArgOrResult(args, argumentMarshaller)));
+                                argHolder
+                        ));
             }
 
-            return jobFut.thenApply(execution -> new ResultUnmarshallingJobExecution<>(
-                    execution,
-                    resultMarshaller,
-                    descriptor.resultClass()
-            ));
+            return jobFut.thenApply(execution -> unmarshalResult(execution, descriptor));
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
@@ -190,46 +186,93 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
+        ComputeJobDataHolder argHolder = SharedComputeUtils.marshalArgOrResult(arg, descriptor.argumentMarshaller());
+
         if (target instanceof AllNodesBroadcastJobTarget) {
             AllNodesBroadcastJobTarget allNodesBroadcastTarget = (AllNodesBroadcastJobTarget) target;
             Set<ClusterNode> nodes = allNodesBroadcastTarget.nodes();
-            Marshaller<T, byte[]> argumentMarshaller = descriptor.argumentMarshaller();
-            Marshaller<R, byte[]> resultMarshaller = descriptor.resultMarshaller();
-            ComputeJobDataHolder argHolder = SharedComputeUtils.marshalArgOrResult(arg, argumentMarshaller);
 
             return completedFuture(new BroadcastJobExecutionImpl<>(nodes.stream()
-                    .map(node -> submitForBroadcast(descriptor, cancellationToken, node, resultMarshaller, argHolder))
+                    .map(node -> submitForBroadcast(node, descriptor, argHolder, cancellationToken))
                     .collect(toList()))
             );
+        } else if (target instanceof TableJobTarget) {
+            TableJobTarget tableJobTarget = (TableJobTarget) target;
+            return requiredTable(tableJobTarget.tableName())
+                    .thenCompose(table -> table.partitionManager().primaryReplicasAsync())
+                    .thenApply(replicas -> new BroadcastJobExecutionImpl<>(
+                            replicas.entrySet().stream()
+                                    .map(entry -> submitForBroadcast(
+                                            entry.getValue(),
+                                            entry.getKey(),
+                                            descriptor,
+                                            argHolder,
+                                            cancellationToken
+                                    ))
+                                    .collect(toList())
+                    ));
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
     }
 
     private <T, R> JobExecution<R> submitForBroadcast(
-            JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
             ClusterNode node,
-            @Nullable Marshaller<R, byte[]> resultMarshaller,
-            @Nullable ComputeJobDataHolder argHolder
+            JobDescriptor<T, R> descriptor,
+            @Nullable ComputeJobDataHolder argHolder,
+            @Nullable CancellationToken cancellationToken
     ) {
-        // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
-        // if worker node has left the cluster.
+        ExecutionOptions options = ExecutionOptions.from(descriptor.options());
+        return submitForBroadcast(node, descriptor, options, argHolder, cancellationToken);
+    }
+
+    private <T, R> JobExecution<R> submitForBroadcast(
+            ClusterNode node,
+            @Nullable Partition partition,
+            JobDescriptor<T, R> descriptor,
+            @Nullable ComputeJobDataHolder argHolder,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        ExecutionOptions options = ExecutionOptions.builder()
+                .priority(descriptor.options().priority())
+                .maxRetries(descriptor.options().maxRetries())
+                .partition(partition)
+                .build();
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24027
+        return submitForBroadcast(node, descriptor, options, argHolder, cancellationToken);
+    }
+
+    private <T, R> JobExecution<R> submitForBroadcast(
+            ClusterNode node,
+            JobDescriptor<T, R> descriptor,
+            ExecutionOptions options,
+            @Nullable ComputeJobDataHolder argHolder,
+            @Nullable CancellationToken cancellationToken
+    ) {
         if (topologyService.getByConsistentId(node.name()) == null) {
             return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
         }
 
-        return new ResultUnmarshallingJobExecution<>(
+        // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
+        // if worker node has left the cluster.
+        return unmarshalResult(
                 executeOnOneNodeWithFailover(
                         node,
                         CompletableFutures::nullCompletedFuture,
                         descriptor.units(),
                         descriptor.jobClassName(),
-                        descriptor.options(),
-                        cancellationToken,
-                        argHolder
+                        options,
+                        cancellationToken, argHolder
                 ),
-                resultMarshaller,
+                descriptor
+        );
+    }
+
+    private static <T, R> JobExecution<R> unmarshalResult(JobExecution<ComputeJobDataHolder> execution, JobDescriptor<T, R> descriptor) {
+        return new ResultUnmarshallingJobExecution<>(
+                execution,
+                descriptor.resultMarshaller(),
                 descriptor.resultClass()
         );
     }
@@ -285,8 +328,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 units,
                 jobClassName,
                 options,
-                cancellationToken,
-                arg
+                cancellationToken, arg
         );
     }
 
@@ -312,7 +354,18 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             @Nullable ComputeJobDataHolder arg
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
+        return executeOnOneNodeWithFailover(targetNode, nextWorkerSelector, units, jobClassName, options, cancellationToken, arg);
+    }
 
+    private JobExecution<ComputeJobDataHolder> executeOnOneNodeWithFailover(
+            ClusterNode targetNode,
+            NextWorkerSelector nextWorkerSelector,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            ExecutionOptions options,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable ComputeJobDataHolder arg
+    ) {
         if (isLocal(targetNode)) {
             return new JobExecutionWrapper<>(computeComponent.executeLocally(options, units, jobClassName, cancellationToken, arg));
         } else {
