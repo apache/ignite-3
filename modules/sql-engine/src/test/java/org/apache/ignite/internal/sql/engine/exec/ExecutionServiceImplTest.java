@@ -34,6 +34,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -79,6 +80,7 @@ import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -978,7 +980,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     @Test
     public void testTimeoutSelectCount() {
         // SELECT COUNT(*) does not run in transactional context.
-        QueryTransactionContext txContext = ImplicitTxContext.INSTANCE;
+        QueryTransactionContext txContext = ImplicitTxContext.instance();
 
         // Use a separate context, so planning won't timeout.
         SqlOperationContext planCtx = operationContext()
@@ -1165,6 +1167,30 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertEquals(expectedEx, actualException);
 
         verify(txWrapper).rollback(any());
+    }
+
+    @Test
+    public void ddlUpdatesObservableTime() {
+        SqlOperationContext planCtx = operationContext().txContext(ImplicitTxContext.instance()).build();
+        QueryPlan plan = prepare("CREATE TABLE x (id INTEGER PRIMARY KEY)", planCtx);
+
+        assertInstanceOf(DdlPlan.class, plan);
+
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
+
+        HybridTimestamp expectedCatalogActivationTimestamp = HybridTimestamp.hybridTimestamp(100L);
+
+        DdlCommandHandler ddlCommandHandler = execService.ddlCommandHandler();
+        when(ddlCommandHandler.handle(any(CatalogCommand.class)))
+                .thenReturn(CompletableFuture.completedFuture(expectedCatalogActivationTimestamp.longValue()));
+
+        await(execService.executePlan(plan, planCtx));
+
+        ImplicitTxContext txCtx = (ImplicitTxContext) planCtx.txContext();
+
+        assertThat(txCtx, notNullValue());
+
+        assertThat(txCtx.observableTime(), equalTo(expectedCatalogActivationTimestamp));
     }
 
     private static Stream<Arguments> txTypes() {

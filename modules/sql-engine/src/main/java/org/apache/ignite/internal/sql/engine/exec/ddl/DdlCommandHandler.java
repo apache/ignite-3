@@ -88,7 +88,14 @@ public class DdlCommandHandler implements LifecycleAware {
         this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
     }
 
-    /** Handles ddl commands. */
+    /**
+     * Handles ddl commands.
+     *
+     * @param cmd Catalog command.
+     * @return Future representing pending completion of the operation. If the command execution resulted in a modification of the catalog,
+     *         the result will be the activation timestamp of the new catalog version, if the command did not result in a change of the
+     *         catalog, the result will be {@code null}.
+     */
     public CompletableFuture<Long> handle(CatalogCommand cmd) {
         if (cmd instanceof CreateTableCommand) {
             return handleCreateTable((CreateTableCommand) cmd);
