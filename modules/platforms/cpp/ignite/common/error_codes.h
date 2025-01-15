@@ -221,7 +221,7 @@ enum class code : underlying_t {
     UNMARSHALLING = 0x160003
 
     // REST service group. Group code: 23
-    CLUSTER_NOT_INIT = 0x170001,
+    CLUSTER_NOT_INIT = 0x170001
 };
 
 } // namespace error

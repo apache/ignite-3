@@ -631,7 +631,7 @@ namespace Apache.Ignite
             public const String GroupName = "REST";
 
             /// <summary> Common error. </summary>
-            public const int ClusterNotInit = (GroupCode << 17) | (1 & 0xFFFF);
+            public const int ClusterNotInit = (GroupCode << 16) | (1 & 0xFFFF);
         }
     }
 }
