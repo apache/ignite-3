@@ -94,7 +94,7 @@ public class IgniteMultiJoinOptimizeBushyRule
      * <p>Better vertex is the one that incorporate more relations, or costs less.
      */
     private static final Comparator<Vertex> VERTEX_COMPARATOR = 
-            Comparator.<Vertex>comparingInt(v -> bitCount(v.id))
+            Comparator.<Vertex>comparingInt(v -> v.size)
                     .reversed()
                     .thenComparingDouble(v -> v.cost);
 
@@ -426,6 +426,8 @@ public class IgniteMultiJoinOptimizeBushyRule
     private static class Vertex {
         /** Bitmap of inputs joined together so far with current vertex served as a root. */
         private final int id;
+        /** Number of inputs joined together so far with current vertex served as a root. */
+        private final byte size;
         /** Cumulative cost of the tree. */
         private final double cost;
         private final TargetMapping mapping;
@@ -433,6 +435,7 @@ public class IgniteMultiJoinOptimizeBushyRule
 
         Vertex(int id, double cost, RelNode rel, TargetMapping mapping) {
             this.id = id;
+            this.size = (byte) bitCount(id);
             this.cost = cost;
             this.rel = rel;
             this.mapping = mapping;
