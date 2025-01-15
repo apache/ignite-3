@@ -1170,7 +1170,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void ddlUpdatesObservableTime() {
+    public void ddlExecutionUpdatesObservableTime() {
         SqlOperationContext planCtx = operationContext().txContext(ImplicitTxContext.instance()).build();
         QueryPlan plan = prepare("CREATE TABLE x (id INTEGER PRIMARY KEY)", planCtx);
 
