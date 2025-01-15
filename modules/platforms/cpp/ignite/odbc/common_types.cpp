@@ -310,6 +310,10 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::MARSHALLING_TYPE_MISMATCH:
         case error::code::UNMARSHALLING:
             return sql_state::SHY000_GENERAL_ERROR;
+
+        // REST service group. Group code: 23
+        case error::code::CLUSTER_NOT_INIT:
+            return sql_state::CLUSTER_NOT_INIT_ERR;
     }
 
     return sql_state::SHY000_GENERAL_ERROR;

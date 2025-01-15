@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.cluster;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Rest.CLUSTER_NOT_INIT_ERR;
 
 import io.micronaut.http.annotation.Body;
 import io.micronaut.http.annotation.Controller;
@@ -91,7 +92,7 @@ public class ClusterManagementController implements ClusterManagementApi, Resour
     private static ClusterState mapClusterState(@Nullable org.apache.ignite.internal.cluster.management.ClusterState clusterState) {
         if (clusterState == null) {
             throw new IgniteException(
-                    INTERNAL_ERR,
+                    CLUSTER_NOT_INIT_ERR,
                     "Cluster has not yet been initialized or the node is in the process of being stopped."
             );
         }

@@ -219,6 +219,9 @@ enum class code : underlying_t {
     COMMON = 0x160001,
     UNSUPPORTED_OBJECT_TYPE = 0x160002,
     UNMARSHALLING = 0x160003
+
+    // REST service group. Group code: 23
+    CLUSTER_NOT_INIT = 0x170001,
 };
 
 } // namespace error
