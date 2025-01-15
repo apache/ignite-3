@@ -1,28 +1,36 @@
 package org.phillippko.ignite.internal.optimiser;
 
+import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
-import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 
 public class OptimiseRunnerImpl implements OptimiseRunner {
     private static final IgniteLogger LOG = Loggers.forClass(OptimiseRunnerImpl.class);
+
+    private static final String OPENTUNER_COMMAND = "/usr/bin/apachetuner --writeIntensive=";
+
+    private static final Path OPENTUNER_RESULT_PATH = Path.of("/tmp/opentuner_result.txt");
+
+    private static final long OPENTUNER_TIMEOUT_SECONDS = 100;
+
     private final ConfigurationRegistry clusterConfigurationRegistry;
     private final ConfigurationRegistry nodeConfigurationRegistry;
 
@@ -112,10 +120,36 @@ public class OptimiseRunnerImpl implements OptimiseRunner {
             }
         }
 
+
+        // OpenTuner не поддерживается в Windows
+        if (!System.getProperty("os.name").toLowerCase().contains("windows")) {
+            String opentunerIssues = getIssuesWithOpentuner(writeIntensive);
+
+            if (!opentunerIssues.isEmpty()) {
+                issues.add(opentunerIssues);
+            }
+        } else {
+            issues.add("Can't run opentuner on Windows");
+        }
+
         String result = String.join("; ", issues);
 
         LOG.info(result);
 
         return result;
+    }
+
+    private static String getIssuesWithOpentuner(boolean writeIntensive) {
+        try {
+            ProcessBuilder builder = new ProcessBuilder(OPENTUNER_COMMAND + writeIntensive);
+
+            builder.start().waitFor(OPENTUNER_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+            return Files.readString(OPENTUNER_RESULT_PATH);
+        } catch (IOException | InterruptedException e) {
+            LOG.error("Couldn't run opentuner: " + OPENTUNER_COMMAND, e);
+
+            return "Couldn't run opentuner: " + e.getMessage();
+        }
     }
 }

@@ -1,4 +1,3 @@
-
 package org.apache.ignite.internal.cli.commands.optimise;
 
 import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_URL_OPTION;

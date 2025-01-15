@@ -91,9 +91,9 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
 
     private CommandLine cmd;
 
-    private StringWriter sout;
+    protected StringWriter sout;
 
-    private StringWriter serr;
+    protected StringWriter serr;
 
     private int exitCode = Integer.MIN_VALUE;
 

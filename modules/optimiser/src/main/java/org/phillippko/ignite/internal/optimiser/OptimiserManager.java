@@ -1,5 +1,6 @@
 package org.phillippko.ignite.internal.optimiser;
 
+import static org.apache.ignite.internal.util.ByteUtils.stringFromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -96,7 +97,7 @@ public class OptimiserManager implements IgniteComponent {
                         throw new CompletionException(new IllegalArgumentException("Incorrect ID"));
                     }
 
-                    return "Optimisation result: " + ByteUtils.stringFromBytes(res.value());
+                    return "Optimisation result: " + stringFromBytes(res.value());
                 });
     }
 
