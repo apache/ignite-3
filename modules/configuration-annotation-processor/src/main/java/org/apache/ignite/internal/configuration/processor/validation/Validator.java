@@ -142,7 +142,7 @@ public abstract class Validator {
         allCompatibleAnnotations.add(currentAnnotation);
         allCompatibleAnnotations.addAll(Arrays.asList(compatibleAnnotations));
 
-        assert TOP_LEVEL_ANNOTATIONS.containsAll(allCompatibleAnnotations);
+        assert TOP_LEVEL_ANNOTATIONS.containsAll(allCompatibleAnnotations) : allCompatibleAnnotations;
 
         @SuppressWarnings("unchecked")
         Class<? extends Annotation>[] conflictingAnnotations = TOP_LEVEL_ANNOTATIONS.stream()
