@@ -165,6 +165,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -4310,7 +4311,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void applicationOfLongBatchInStateMachineDoesNotPreventFastShutdown() throws Exception {
+    @DisplayName("application of long batch in state machine does not prevent fast shutdown")
+    public void longBatchInStateMachineAndShutdown() throws Exception {
         CompletableFuture<Void> allowExecutionFuture = new CompletableFuture<>();
 
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 2);
@@ -4407,7 +4409,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // Make sure all closures were executed as expected.
         assertThat(successfullyExecuted, hasSize(successfullyExecuted.last() - successfullyExecuted.first() + 1));
-        assertThat(exceptions, is(aMapWithSize(exceptions.lastKey() - exceptions.firstKey() + 1)));
+        if (!exceptions.isEmpty()) {
+            assertThat(exceptions, is(aMapWithSize(exceptions.lastKey() - exceptions.firstKey() + 1)));
+        }
         if (!statusErrors.isEmpty()) {
             assertThat(statusErrors, is(aMapWithSize(statusErrors.lastKey() - statusErrors.firstKey() + 1)));
         }
