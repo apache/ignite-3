@@ -68,6 +68,20 @@ public class CsharpGenerator extends GenericGenerator {
         line();
         line("            _ => UnknownGroupName");
         line("        };");
+        line();
+        line("        /// <summary>");
+        line("        /// Gets the group error prefix by code.");
+        line("        /// </summary>");
+        line("        /// <param name=\"groupCode\">Group code.</param>");
+        line("        /// <returns>Group error prefix.</returns>");
+        line("        public static string GetErrorPrefix(int groupCode) => groupCode switch");
+        line("        {");
+        for (var descriptor : descriptors) {
+            line("            " + descriptor.className + ".GroupCode => " + descriptor.className + ".ErrorPrefix,");
+        }
+        line();
+        line("            _ => UnknownGroupName");
+        line("        };");
         for (var descriptor : descriptors) {
             generateErrorGroupClass(descriptor);
         }
@@ -86,6 +100,10 @@ public class CsharpGenerator extends GenericGenerator {
 
         line("            /// <summary> " + descriptor.className + " group name. </summary>");
         line("            public const String GroupName = \"" + descriptor.groupName + "\";");
+        line();
+
+        line("            /// <summary> " + descriptor.className + " error prefix. </summary>");
+        line("            public const String ErrorPrefix = \"" + descriptor.errorPrefix + "\";");
         line();
 
         for (int i = 0; i < descriptor.errorCodes.size(); i++) {
