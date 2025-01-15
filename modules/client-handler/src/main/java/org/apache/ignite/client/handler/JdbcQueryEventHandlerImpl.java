@@ -77,11 +77,8 @@ import org.jetbrains.annotations.Nullable;
  * Jdbc query event handler implementation.
  */
 public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQueryEventHandler {
-    /** {@link SqlQueryType}s allowed in JDBC select statements. **/
-    private static final Set<SqlQueryType> SELECT_STATEMENT_QUERIES = Set.of(SqlQueryType.QUERY, SqlQueryType.EXPLAIN);
-
     /** {@link SqlQueryType}s allowed in JDBC update statements. **/
-    private static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(DML, SqlQueryType.DDL, SqlQueryType.KILL);
+    public static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(DML, SqlQueryType.DDL, SqlQueryType.KILL);
 
     /**
      * Observation timestamp tracker.

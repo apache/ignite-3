@@ -125,7 +125,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
             @Nullable CancellationToken cancellationToken,
             @Nullable T arg
     ) {
-        CompletableFuture<JobExecution<R>> executionFut = compute().submitAsync(target, descriptor, cancellationToken, arg);
+        CompletableFuture<JobExecution<R>> executionFut = compute().submitAsync(target, descriptor, arg, cancellationToken);
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
     }
@@ -454,7 +454,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         JobDescriptor<Long, Void> job = JobDescriptor.builder(SilentSleepJob.class).units(units()).build();
 
         CompletableFuture<Void> execution = compute()
-                .executeAsync(JobTarget.node(clusterNode(executeNode)), job, cancelHandle.token(), 100L);
+                .executeAsync(JobTarget.node(clusterNode(executeNode)), job, 100L, cancelHandle.token());
 
         cancelHandle.cancel();
 
@@ -471,7 +471,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         JobDescriptor<Long, Void> job = JobDescriptor.builder(SilentSleepJob.class).units(units()).build();
 
         CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() -> compute()
-                .execute(JobTarget.node(clusterNode(executeNode)), job, cancelHandle.token(), 100L));
+                .execute(JobTarget.node(clusterNode(executeNode)), job, 100L, cancelHandle.token()));
 
         cancelHandle.cancel();
 
@@ -489,7 +489,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<Collection<Void>> resultsFut = compute().executeAsync(
                 BroadcastJobTarget.nodes(executeNodes),
-                JobDescriptor.builder(SilentSleepJob.class).units(units()).build(), cancelHandle.token(), 100L
+                JobDescriptor.builder(SilentSleepJob.class).units(units()).build(), 100L, cancelHandle.token()
         );
 
         cancelHandle.cancel();
@@ -508,7 +508,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         CompletableFuture<Collection<Void>> runFut = IgniteTestUtils.runAsync(() -> compute().execute(
                 BroadcastJobTarget.nodes(executeNodes),
-                JobDescriptor.builder(SilentSleepJob.class).units(units()).build(), cancelHandle.token(), 100L
+                JobDescriptor.builder(SilentSleepJob.class).units(units()).build(), 100L, cancelHandle.token()
         ));
 
         cancelHandle.cancel();
@@ -521,7 +521,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         CancelHandle cancelHandle = CancelHandle.create();
 
         CompletableFuture<Void> execution = compute()
-                .executeMapReduceAsync(TaskDescriptor.builder(InfiniteMapReduceTask.class).build(), cancelHandle.token(), null);
+                .executeMapReduceAsync(TaskDescriptor.builder(InfiniteMapReduceTask.class).build(), null, cancelHandle.token());
 
         cancelHandle.cancel();
 

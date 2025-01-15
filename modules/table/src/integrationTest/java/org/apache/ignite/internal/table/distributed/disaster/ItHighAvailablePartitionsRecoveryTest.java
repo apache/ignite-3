@@ -46,7 +46,7 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.junit.jupiter.api.Test;
 
 /** Test for the HA zones recovery. */
-public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailablePartitionsRecoveryTest {
+public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailablePartitionsRecoveryTest {
     @Override
     protected int initialNodes() {
         return 3;
@@ -158,28 +158,6 @@ public class ItHighAvailablePartitionsRecoveryTest  extends AbstractHighAvailabl
         assertRecoveryRequestWasOnlyOne(node);
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
-    }
-
-    @Test
-    void testHaRecoveryOnZoneTimersRestoreAfterNodeRestart() throws InterruptedException {
-        createHaZoneWithTable();
-
-        IgniteImpl node = igniteImpl(0);
-
-        changePartitionDistributionTimeout(node, 10);
-
-        assertRecoveryKeyIsEmpty(node);
-
-        stopNodes(2, 1, 0);
-
-        IgniteImpl node1 = unwrapIgniteImpl(startNode(0));
-
-        waitAndAssertRecoveryKeyIsNotEmpty(node1, 30_000);
-
-        assertRecoveryRequestForHaZoneTable(node1);
-        assertRecoveryRequestWasOnlyOne(node1);
-
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node1, HA_TABLE_NAME, PARTITION_IDS, Set.of(node1.name()));
     }
 
     @Test

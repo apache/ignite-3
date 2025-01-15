@@ -104,8 +104,8 @@ public class ClientCompute implements IgniteCompute {
     public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
@@ -130,8 +130,8 @@ public class ClientCompute implements IgniteCompute {
     public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
@@ -203,20 +203,20 @@ public class ClientCompute implements IgniteCompute {
     public <T, R> R execute(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return sync(executeAsync(target, descriptor, cancellationToken, arg));
+        return sync(executeAsync(target, descriptor, arg, cancellationToken));
     }
 
     @Override
     public <T, R> Collection<R> execute(
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return sync(executeAsync(target, descriptor, cancellationToken, arg));
+        return sync(executeAsync(target, descriptor, arg, cancellationToken));
     }
 
     private <T, R> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
@@ -257,8 +257,8 @@ public class ClientCompute implements IgniteCompute {
     @Override
     public <T, R> TaskExecution<R> submitMapReduce(
             TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         Objects.requireNonNull(taskDescriptor);
 
@@ -276,8 +276,12 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
+    public <T, R> R executeMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return sync(executeMapReduceAsync(taskDescriptor, arg, cancellationToken));
     }
 
     private <T, R> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {

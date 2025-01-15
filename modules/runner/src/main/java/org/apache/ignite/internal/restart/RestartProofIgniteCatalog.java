@@ -24,6 +24,7 @@ import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.internal.wrapper.Wrappers;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 
 /**
@@ -89,12 +90,12 @@ class RestartProofIgniteCatalog implements IgniteCatalog, Wrapper {
     }
 
     @Override
-    public CompletableFuture<TableDefinition> tableDefinitionAsync(String tableName) {
+    public CompletableFuture<TableDefinition> tableDefinitionAsync(QualifiedName tableName) {
         return attachmentLock.attachedAsync(ignite -> ignite.catalog().tableDefinitionAsync(tableName));
     }
 
     @Override
-    public TableDefinition tableDefinition(String tableName) {
+    public TableDefinition tableDefinition(QualifiedName tableName) {
         return attachmentLock.attached(ignite -> ignite.catalog().tableDefinition(tableName));
     }
 
@@ -128,7 +129,7 @@ class RestartProofIgniteCatalog implements IgniteCatalog, Wrapper {
     }
 
     @Override
-    public CompletableFuture<Void> dropTableAsync(String name) {
+    public CompletableFuture<Void> dropTableAsync(QualifiedName name) {
         return attachmentLock.attachedAsync(ignite -> ignite.catalog().dropTableAsync(name));
     }
 
@@ -138,7 +139,7 @@ class RestartProofIgniteCatalog implements IgniteCatalog, Wrapper {
     }
 
     @Override
-    public void dropTable(String name) {
+    public void dropTable(QualifiedName name) {
         attachmentLock.consumeAttached(ignite -> ignite.catalog().dropTable(name));
     }
 

@@ -239,7 +239,7 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
             @Nullable T arg
     ) {
         //noinspection resource (closed in afterAll)
-        CompletableFuture<JobExecution<R>> executionFut = client().compute().submitAsync(target, descriptor, cancellationToken, arg);
+        CompletableFuture<JobExecution<R>> executionFut = client().compute().submitAsync(target, descriptor, arg, cancellationToken);
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();
     }
@@ -262,8 +262,8 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         CompletableFuture<BroadcastExecution<R>> executionFut = client().compute().submitAsync(
                 BroadcastJobTarget.nodes(nodes),
                 descriptor,
-                cancellationToken,
-                arg
+                arg,
+                cancellationToken
         );
         assertThat(executionFut, willCompleteSuccessfully());
         return executionFut.join();

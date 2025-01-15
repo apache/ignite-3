@@ -29,7 +29,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -83,9 +82,6 @@ class ComputeJobFailover {
      */
     private final RemoteExecutionContext jobContext;
 
-    /** Cancellation token. */
-    @Nullable private final CancellationToken cancellationToken;
-
     /**
      * Creates a per-job instance.
      *
@@ -98,7 +94,6 @@ class ComputeJobFailover {
      * @param units deployment units.
      * @param jobClassName the name of the job class.
      * @param executionOptions execution options like priority or max retries.
-     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg the arguments of the job.
      */
     ComputeJobFailover(
@@ -111,7 +106,6 @@ class ComputeJobFailover {
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions executionOptions,
-            @Nullable CancellationToken cancellationToken,
             @Nullable ComputeJobDataHolder arg
     ) {
         this.computeComponent = computeComponent;
@@ -121,7 +115,6 @@ class ComputeJobFailover {
         this.nextWorkerSelector = nextWorkerSelector;
         this.jobContext = new RemoteExecutionContext(units, jobClassName, executionOptions, arg);
         this.executor = executor;
-        this.cancellationToken = cancellationToken;
     }
 
     /**
@@ -143,13 +136,11 @@ class ComputeJobFailover {
     private CancellableJobExecution<ComputeJobDataHolder> launchJobOn(ClusterNode runningWorkerNode) {
         if (runningWorkerNode.name().equals(topologyService.localMember().name())) {
             return computeComponent.executeLocally(
-                    jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), cancellationToken,
-                    jobContext.arg()
+                    jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), null, jobContext.arg()
             );
         } else {
             return computeComponent.executeRemotely(
-                    jobContext.executionOptions(), runningWorkerNode, jobContext.units(), jobContext.jobClassName(), cancellationToken,
-                    jobContext.arg()
+                    jobContext.executionOptions(), runningWorkerNode, jobContext.units(), jobContext.jobClassName(), null, jobContext.arg()
             );
         }
     }

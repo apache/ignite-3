@@ -139,8 +139,9 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.node(localNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        cancelHandle.token(),
-                        null),
+                        null,
+                        cancelHandle.token()
+                ),
                 willBe("jobResponse")
         );
 

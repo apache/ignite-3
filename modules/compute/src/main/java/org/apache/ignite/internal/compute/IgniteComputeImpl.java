@@ -117,8 +117,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T args
+            @Nullable T args,
+            @Nullable CancellationToken cancellationToken
     ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
@@ -184,8 +184,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
@@ -238,20 +238,20 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     public <T, R> R execute(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return sync(executeAsync(target, descriptor, cancellationToken, arg));
+        return sync(executeAsync(target, descriptor, arg, cancellationToken));
     }
 
     @Override
     public <T, R> Collection<R> execute(
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return sync(executeAsync(target, descriptor, cancellationToken, arg));
+        return sync(executeAsync(target, descriptor, arg, cancellationToken));
     }
 
     @Override
@@ -399,8 +399,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     @Override
     public <T, R> TaskExecution<R> submitMapReduce(
             TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         Objects.requireNonNull(taskDescriptor);
 
@@ -419,8 +419,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
+    public <T, R> R executeMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return sync(executeMapReduceAsync(taskDescriptor, arg, cancellationToken));
     }
 
     private <M, T> CompletableFuture<List<JobExecution<T>>> submitJobs(
@@ -432,8 +436,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         .map(runner -> submitAsync(
                                 JobTarget.anyNode(runner.nodes()),
                                 runner.jobDescriptor(),
-                                cancellationToken,
-                                runner.arg()
+                                runner.arg(),
+                                cancellationToken
                         ))
                         .toArray(CompletableFuture[]::new)
         );

@@ -46,7 +46,7 @@ public interface IgniteCompute {
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        return submitAsync(target, descriptor, null, arg);
+        return submitAsync(target, descriptor, arg, null);
     }
 
     /**
@@ -56,15 +56,15 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param target Execution target.
      * @param descriptor Job descriptor.
-     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Future of the job execution object which will be completed when the job is submitted.
      */
     <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
@@ -82,7 +82,7 @@ public interface IgniteCompute {
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        return submitAsync(target, descriptor, null, arg);
+        return submitAsync(target, descriptor, arg, null);
     }
 
     /**
@@ -92,15 +92,15 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param target Broadcast execution target.
      * @param descriptor Job descriptor.
-     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Future of the broadcast job execution object which will be completed when all the jobs are submitted.
      */
     <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
@@ -119,7 +119,7 @@ public interface IgniteCompute {
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        return executeAsync(target, descriptor, null, arg);
+        return executeAsync(target, descriptor, arg, null);
     }
 
     /**
@@ -130,17 +130,17 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param target Execution target.
      * @param descriptor Job descriptor.
-     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Job result future.
      */
     default <T, R> CompletableFuture<R> executeAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return submitAsync(target, descriptor, cancellationToken, arg).thenCompose(JobExecution::resultAsync);
+        return submitAsync(target, descriptor, arg, cancellationToken).thenCompose(JobExecution::resultAsync);
     }
 
     /**
@@ -158,7 +158,7 @@ public interface IgniteCompute {
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        return executeAsync(target, descriptor, null, arg);
+        return executeAsync(target, descriptor, arg, null);
     }
 
     /**
@@ -168,18 +168,17 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param target Broadcast execution target.
      * @param descriptor Job descriptor.
+     * @param arg Argument of the job.
      * @param cancellationToken Cancellation token or {@code null}.
-     * @param arg Argument of the job.
      * @return Job results future.
      */
     default <T, R> CompletableFuture<Collection<R>> executeAsync(
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return submitAsync(target, descriptor, cancellationToken, arg)
-                .thenCompose(BroadcastExecution::resultsAsync);
+        return submitAsync(target, descriptor, arg, cancellationToken).thenCompose(BroadcastExecution::resultsAsync);
     }
 
     /**
@@ -198,7 +197,7 @@ public interface IgniteCompute {
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        return execute(target, descriptor, null, arg);
+        return execute(target, descriptor, arg, null);
     }
 
     /**
@@ -208,16 +207,16 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param target Execution target.
      * @param descriptor Job descriptor.
-     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Job result.
      * @throws ComputeException If there is any problem executing the job.
      */
     <T, R> R execute(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
@@ -236,7 +235,7 @@ public interface IgniteCompute {
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
     ) {
-        return execute(target, descriptor, null, arg);
+        return execute(target, descriptor, arg, null);
     }
 
     /**
@@ -246,16 +245,16 @@ public interface IgniteCompute {
      * @param <R> Job (R)esult type.
      * @param target Broadcast execution target.
      * @param descriptor Job descriptor.
-     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Collection of results.
      * @throws ComputeException If there is any problem executing the job.
      */
     <T, R> Collection<R> execute(
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
@@ -268,7 +267,7 @@ public interface IgniteCompute {
      * @return Task execution interface.
      */
     default <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return submitMapReduce(taskDescriptor, null, arg);
+        return submitMapReduce(taskDescriptor, arg, null);
     }
 
     /**
@@ -277,14 +276,14 @@ public interface IgniteCompute {
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
      * @param taskDescriptor Map reduce task descriptor.
-     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Task argument.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Task execution interface.
      */
     <T, R> TaskExecution<R> submitMapReduce(
             TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
@@ -297,7 +296,7 @@ public interface IgniteCompute {
      * @return Task result future.
      */
     default <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return executeMapReduceAsync(taskDescriptor, null, arg);
+        return executeMapReduceAsync(taskDescriptor, arg, null);
     }
 
     /**
@@ -306,16 +305,16 @@ public interface IgniteCompute {
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
      * @param taskDescriptor Map reduce task descriptor.
-     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Task argument.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Task result future.
      */
     default <T, R> CompletableFuture<R> executeMapReduceAsync(
             TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return submitMapReduce(taskDescriptor, cancellationToken, arg).resultAsync();
+        return submitMapReduce(taskDescriptor, arg, cancellationToken).resultAsync();
     }
 
     /**
@@ -329,7 +328,7 @@ public interface IgniteCompute {
      * @throws ComputeException If there is any problem executing the task.
      */
     default <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return executeMapReduce(taskDescriptor, null, arg);
+        return executeMapReduce(taskDescriptor, arg, null);
     }
 
     /**
@@ -338,11 +337,10 @@ public interface IgniteCompute {
      * @param <T> Job argument (T)ype.
      * @param <R> Job (R)esult type.
      * @param taskDescriptor Map reduce task descriptor.
-     * @param cancellationToken Cancellation token or {@code null}.
      * @param arg Task argument.
+     * @param cancellationToken Cancellation token or {@code null}.
      * @return Task result.
      * @throws ComputeException If there is any problem executing the task.
      */
-    <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg);
-
+    <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg, @Nullable CancellationToken cancellationToken);
 }

@@ -158,8 +158,8 @@ public class FakeCompute implements IgniteComputeInternal {
     public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
             JobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
@@ -207,40 +207,48 @@ public class FakeCompute implements IgniteComputeInternal {
     public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         return nullCompletedFuture();
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T args) {
-        return sync(executeAsync(target, descriptor, cancellationToken, args));
+    public <T, R> R execute(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T args,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return sync(executeAsync(target, descriptor, args, cancellationToken));
     }
 
     @Override
     public <T, R> Collection<R> execute(
             BroadcastJobTarget target,
             JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        return sync(executeAsync(target, descriptor, cancellationToken, arg));
+        return sync(executeAsync(target, descriptor, arg, cancellationToken));
     }
 
     @Override
     public <T, R> TaskExecution<R> submitMapReduce(
             TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable T arg
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         return taskExecution(future != null ? future : completedFuture((R) nodeName));
     }
 
     @Override
-    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
+    public <T, R> R executeMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return sync(executeMapReduceAsync(taskDescriptor, arg, cancellationToken));
     }
 
     private <R> JobExecution<ComputeJobDataHolder> completedExecution(R result) {

@@ -33,44 +33,42 @@ import org.junit.jupiter.api.BeforeEach;
  * In short, these two approaches are basically equivalent:<br>
  * <br>
  * Short:
- * <pre>{@code  @WithSystemProperty(key = "name", value = "val")
- *  public class SomeTest {
- *  }
- * }</pre>
+ * <pre><code> {@literal @}WithSystemProperty(key = "name", value = "val")
+ * public class SomeTest {
+ * }</code></pre>
  * Long:
- * <pre>{@code  public class SomeTest {
+ * <pre><code>  public class SomeTest {
  *      private static Object oldVal;
  *
- *      @BeforeClass
+ *     {@literal @}BeforeClass
  *      public static void beforeClass() {
  *          oldVal = System.getProperty("name");
  *
  *          System.setProperty("name", "val");
  *      }
  *
- *      @AfterClass
+ *     {@literal @}AfterClass
  *      public static void afterClass() {
  *          if (oldVal == null)
  *              System.clearProperty("name");
  *          else
  *              System.setProperty("name", oldVal);
  *      }
- *  }
- * }</pre>
+ *  }</code></pre>
  *
  * <p>Same applies to methods with the difference that annotation translates into something like {@link BeforeEach} and {@link AfterEach}.
  * <br><br>
- * <pre>{@code  public class SomeTest {
- *      @Test
- *      @WithSystemProperty(key = "name", value = "val")
+ * <pre><code>  public class SomeTest {
+ *     {@literal @}Test
+ *     {@literal @}WithSystemProperty(key = "name", value = "val")
  *      public void test() {
  *          // ...
  *      }
  *  }
- * }</pre>
+ * </code></pre>
  * is equivalent to:
- * <pre>{@code  public class SomeTest {
- *      @Test
+ * <pre><code>  public class SomeTest {
+ *     {@literal @}Test
  *      public void test() {
  *          Object oldVal = System.getProperty("name");
  *
@@ -85,7 +83,7 @@ import org.junit.jupiter.api.BeforeEach;
  *          }
  *      }
  *  }
- * }</pre>
+ * </code></pre>
  * For class level annotation it applies system properties for the whole class hierarchy (ignoring interfaces, there's no linearization
  * implemented). More specific classes have higher priority and set their properties last. It all starts with {@link Object} which, of
  * course, is not annotated.<br>

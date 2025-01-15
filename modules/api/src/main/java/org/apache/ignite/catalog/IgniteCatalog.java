@@ -20,6 +20,7 @@ package org.apache.ignite.catalog;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 
 /**
@@ -197,7 +198,17 @@ public interface IgniteCatalog {
      * @param tableName Table name.
      * @return Future with table definition with provided name or {@code null} if table doesn't exist.
      */
-    CompletableFuture<TableDefinition> tableDefinitionAsync(String tableName);
+    default CompletableFuture<TableDefinition> tableDefinitionAsync(String tableName) {
+        return tableDefinitionAsync(QualifiedName.parse(tableName));
+    }
+
+    /**
+     * Returns definition of the table with provided {@link QualifiedName} or {@code null} if table doesn't exist.
+     *
+     * @param name Qualified name.
+     * @return Future with table definition with provided name or {@code null} if table doesn't exist.
+     */
+    CompletableFuture<TableDefinition> tableDefinitionAsync(QualifiedName name);
 
     /**
      * Returns definition of the table with provided name or {@code null} if table doesn't exist.
@@ -205,7 +216,17 @@ public interface IgniteCatalog {
      * @param tableName Table name.
      * @return Table definition with provided name.
      */
-    TableDefinition tableDefinition(String tableName);
+    default TableDefinition tableDefinition(String tableName) {
+        return tableDefinition(QualifiedName.parse(tableName));
+    }
+
+    /**
+     * Returns definition of the table with provided {@link QualifiedName} or {@code null} if table doesn't exist.
+     *
+     * @param name Qualified name.
+     * @return Future with table definition with provided name or {@code null} if table doesn't exist.
+     */
+    TableDefinition tableDefinition(QualifiedName name);
 
     /**
      * Creates a query object from the zone definition.
@@ -249,7 +270,16 @@ public interface IgniteCatalog {
      *
      * @param name Table name.
      */
-    CompletableFuture<Void> dropTableAsync(String name);
+    default CompletableFuture<Void> dropTableAsync(String name) {
+        return dropTableAsync(QualifiedName.parse(name));
+    }
+
+    /**
+     * Creates a {@code DROP TABLE} query object from the {@link QualifiedName}.
+     *
+     * @param name Qualified name.
+     */
+    CompletableFuture<Void> dropTableAsync(QualifiedName name);
 
     /**
      * Creates a {@code DROP TABLE} query object from the table definition.
@@ -261,9 +291,18 @@ public interface IgniteCatalog {
     /**
      * Creates a {@code DROP TABLE} query object from the table name.
      *
-     * @param name Table name.
+     * @param tableName Table name.
      */
-    void dropTable(String name);
+    default void dropTable(String tableName) {
+        dropTable(QualifiedName.parse(tableName));
+    }
+
+    /**
+     * Creates a {@code DROP TABLE} query object from the {@link QualifiedName}.
+     *
+     * @param name Qualified name.
+     */
+    void dropTable(QualifiedName name);
 
     /**
      * Creates a {@code DROP ZONE} query object from the zone definition.

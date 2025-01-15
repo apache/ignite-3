@@ -253,8 +253,13 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
         CancellableJobExecution<ComputeJobDataHolder> result = new ComputeJobFailover(
                 this, logicalTopologyService, topologyService,
                 remoteNode, nextWorkerSelector, failoverExecutor, units,
-                jobClassName, options, cancellationToken, arg
+                jobClassName, options, arg
         ).failSafeExecute();
+
+        // Do not add cancel action to the underlying jobs, let the FailSafeJobExecution handle it.
+        if (cancellationToken != null) {
+            CancelHandleHelper.addCancelAction(cancellationToken, result::cancelAsync, result.resultAsync());
+        }
 
         result.idAsync().thenAccept(jobId -> executionManager.addExecution(jobId, result));
         return result;

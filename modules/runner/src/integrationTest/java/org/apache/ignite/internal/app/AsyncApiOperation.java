@@ -136,6 +136,14 @@ enum AsyncApiOperation {
     SQL_EXECUTE_BATCH_STATEMENT(refs -> refs.sql.executeBatchAsync(null, refs.updateStatement, BatchedArguments.of(999))),
     SQL_EXECUTE_SCRIPT(refs -> refs.sql.executeScriptAsync(SELECT_IDS_QUERY)),
 
+    COMPUTE_SUBMIT(refs -> refs.compute.submitAsync(
+            anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null
+    )),
+    COMPUTE_SUBMIT_BROADCAST(refs -> refs.compute.submitAsync(
+            BroadcastJobTarget.nodes(refs.clusterNodes),
+            JobDescriptor.builder(NoOpJob.class).build(),
+            null
+    )),
     COMPUTE_EXECUTE(refs -> refs.compute.executeAsync(
             anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null
     )),

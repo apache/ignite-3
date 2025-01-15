@@ -392,8 +392,8 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         return new TestingJobExecution<>(compute(entryNode).submitAsync(
                 JobTarget.anyNode(clusterNodesByNames(nodes)),
                 JobDescriptor.builder(InteractiveJobs.globalJob().jobClass()).build(),
-                token,
-                null
+                null,
+                token
         ));
     }
 

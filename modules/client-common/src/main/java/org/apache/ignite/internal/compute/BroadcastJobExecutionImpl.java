@@ -50,7 +50,7 @@ public class BroadcastJobExecutionImpl<R> implements BroadcastExecution<R> {
                 .toArray(CompletableFuture[]::new);
 
         return allOf(futures).thenApply(ignored -> {
-            ArrayList<R> result = new ArrayList<>();
+            ArrayList<R> result = new ArrayList<>(futures.length);
 
             for (CompletableFuture<R> future : futures) {
                 result.add(future.join());
