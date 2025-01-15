@@ -66,13 +66,13 @@ public class ClassWrapper {
     }
 
     /**
-     * Returns the superclass of the class, or throws {@link ConfigurationValidationException} if the superclass is {@link Object}.
+     * Returns the superclass of the class, or throws {@link NullPointerException} if the superclass is {@link Object}.
      */
     public ClassWrapper requiredSuperClass() {
         ClassWrapper superClass = superClass();
 
         if (superClass == null) {
-            throw new ConfigurationValidationException(this, "Must have a superclass");
+            throw new NullPointerException(String.format("Class %s does not have a superclass", this));
         }
 
         return superClass;

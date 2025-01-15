@@ -18,52 +18,41 @@
 package org.apache.ignite.internal.configuration.processor.validation;
 
 import static org.apache.ignite.internal.configuration.processor.ConfigurationProcessorUtils.simpleName;
-import static org.apache.ignite.internal.util.CollectionUtils.concat;
 
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.VariableElement;
-import org.apache.ignite.configuration.annotation.InjectedValue;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.annotation.PolymorphicConfig;
+import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.internal.configuration.processor.ClassWrapper;
 import org.apache.ignite.internal.configuration.processor.ConfigurationValidationException;
 
 /**
- * Validator class for the {@link InjectedValue} annotation.
+ * Validator for the {@link PolymorphicConfig} annotation.
  */
-public class InjectedValueValidator extends Validator {
-    public InjectedValueValidator(ProcessingEnvironment processingEnv) {
-        super(processingEnv);
+public class PolymorphicConfigValidator extends Validator {
+    public PolymorphicConfigValidator(ProcessingEnvironment processingEnvironment) {
+        super(processingEnvironment);
     }
 
-    /**
-     * Validates invariants of the {@link InjectedValue} annotation. This includes:
-     *
-     * <ol>
-     *     <li>Type of InjectedValue field is either a primitive, or a String, or a UUID;</li>
-     *     <li>There is only a single InjectedValue field in the schema (including {@link Value} fields).</li>
-     * </ol>
-     */
     @Override
     public void validate(ClassWrapper classWrapper) {
-        List<VariableElement> injectedValueFields = classWrapper.fieldsAnnotatedWith(InjectedValue.class);
-
-        if (injectedValueFields.isEmpty()) {
+        if (classWrapper.clazz().getAnnotation(PolymorphicConfig.class) == null) {
             return;
         }
 
-        List<VariableElement> valueFields = classWrapper.fieldsAnnotatedWith(Value.class);
+        assertHasCompatibleTopLevelAnnotation(classWrapper, PolymorphicConfig.class);
 
-        if (injectedValueFields.size() > 1 || !valueFields.isEmpty()) {
+        assertHasNoSuperClass(classWrapper);
+
+        List<VariableElement> annotatedFields = classWrapper.fieldsAnnotatedWith(PolymorphicId.class);
+
+        if (annotatedFields.size() != 1 || classWrapper.fields().indexOf(annotatedFields.get(0)) != 0) {
             throw new ConfigurationValidationException(classWrapper, String.format(
-                    "Field marked as %s must be the only \"value\" field in the schema, found: %s",
-                    simpleName(InjectedValue.class),
-                    concat(injectedValueFields, valueFields)
+                    "Must contain one field with %s and it must be the first in the schema.",
+                    simpleName(PolymorphicConfig.class),
+                    simpleName(PolymorphicId.class)
             ));
         }
-
-        VariableElement injectedValueField = injectedValueFields.get(0);
-
-        assertValidValueFieldType(classWrapper, injectedValueField);
     }
 }
