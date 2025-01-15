@@ -96,7 +96,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     protected static final int ROW_COUNT = 16;
 
     @AfterEach
-    public void dropTables() {
+    public void dropTablesAndSchemas() {
         dropAllTables();
         dropAllSchemas();
     }
