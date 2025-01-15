@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteException;
@@ -38,7 +40,7 @@ public class TxIdMismatchException extends IgniteException {
      * @param conflictingTxId Conflicting transaction id.
      */
     public TxIdMismatchException(UUID expectedTxId, UUID conflictingTxId) {
-        super(S.toString(
+        super(INTERNAL_ERR, S.toString(
                 "Mismatched transaction id",
                 "expectedTxId", expectedTxId, false,
                 "actualTxId", conflictingTxId, false

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.rest.configuration;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -55,7 +57,7 @@ public abstract class AbstractConfigurationController implements ResourceHolder 
         try {
             return cfgPresentation.representByPath(path);
         } catch (IllegalArgumentException ex) {
-            throw new IgniteException(ex);
+            throw new IgniteException(INTERNAL_ERR, ex);
         }
     }
 
@@ -71,10 +73,10 @@ public abstract class AbstractConfigurationController implements ResourceHolder 
                         var cause = ex.getCause();
                         if (cause instanceof IllegalArgumentException
                                 || cause instanceof ConfigurationValidationException) {
-                            throw new IgniteException(cause);
+                            throw new IgniteException(INTERNAL_ERR, cause);
                         }
                     }
-                    throw new IgniteException(ex);
+                    throw new IgniteException(INTERNAL_ERR, ex);
                 });
     }
 

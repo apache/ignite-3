@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,19 +66,6 @@ public class HeartbeatTest extends BaseIgniteAbstractTest {
 
                 assertEquals(0, client.tables().tables().size());
             }
-        }
-    }
-
-    @SuppressWarnings("ThrowableNotThrown")
-    @Test
-    public void testInvalidHeartbeatIntervalThrows() {
-        try (var srv = new TestServer(300, new FakeIgnite())) {
-
-            Builder builder = IgniteClient.builder()
-                    .addresses("127.0.0.1:" + srv.port())
-                    .heartbeatInterval(-50);
-
-            assertThrowsWithCause(builder::build, IllegalArgumentException.class, "Negative delay.");
         }
     }
 

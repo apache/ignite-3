@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
@@ -48,7 +49,7 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
     void setUp() {
         registry = new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(
                 cfg,
-                new LogSinkFactory(new EventSerializerFactory().createEventSerializer()))
+                new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(), UUID::randomUUID, "default"))
         );
     }
 
@@ -118,7 +119,7 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
         // Then registry returns the channel by type.
         assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATION_SUCCESS.name()), hasSize(1));
         // But for another type it returns empty set.
-        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CLIENT_CONNECTION_CLOSED.name()), hasSize(0));
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CLIENT_CONNECTION_CLOSED.name()), nullValue());
 
         // When update configuration entry.
         cfg.channels().change(c -> c.update(TEST_CHANNEL, s -> {

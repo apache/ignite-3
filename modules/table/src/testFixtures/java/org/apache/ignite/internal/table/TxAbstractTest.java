@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -1012,7 +1013,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         assertThrows(IgniteException.class, () -> igniteTransactions.runInTransaction(tx -> {
             accounts.recordView().upsertAll(tx, List.of(makeValue(3, 300.), makeValue(4, 400.)));
             if (true) {
-                throw new IgniteException();
+                throw new IgniteException(INTERNAL_ERR, "Test error");
             }
         }));
 
@@ -1806,7 +1807,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
         }
 
         if (firstErr.get() != null) {
-            throw new IgniteException(firstErr.get());
+            throw new IgniteException(INTERNAL_ERR, firstErr.get());
         }
 
         log.info("After test ops={} fails={}", ops.sum(), fails.sum());

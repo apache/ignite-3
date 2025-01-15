@@ -130,34 +130,15 @@ dependencies {
     testFixturesImplementation libs.junit5.params
 
 
-    integrationTestImplementation project(':ignite-replicator')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-partition-distribution')
-    integrationTestImplementation project(':ignite-storage-rocksdb')
-    integrationTestImplementation project(':ignite-storage-api')
-    integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-catalog')
-    integrationTestImplementation project(':ignite-metastorage-api')
-    integrationTestImplementation project(':ignite-metastorage')
-    integrationTestImplementation project(':ignite-vault')
-    integrationTestImplementation project(':ignite-runner')
-    integrationTestImplementation project(':ignite-index')
-    integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-client')
-    integrationTestImplementation project(':ignite-client-handler')
-    integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-storage-page-memory')
-    integrationTestImplementation project(':ignite-sql-engine')
-    integrationTestImplementation project(':ignite-failure-handler')
-    integrationTestImplementation project(':ignite-low-watermark')
-    integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(':ignite-system-view-api')
-    integrationTestImplementation project(':ignite-system-view')
     integrationTestImplementation project(':ignite-partition-replicator')
     integrationTestImplementation project(':ignite-configuration-root')
     integrationTestImplementation project(':ignite-configuration-system')
-    integrationTestImplementation project(':ignite-system-disaster-recovery')
-    integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-table')))
     integrationTestImplementation(testFixtures(project(':ignite-schema')))
@@ -174,7 +155,6 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-runner')))
     integrationTestImplementation(testFixtures(project(':ignite-low-watermark')))
     integrationTestImplementation(testFixtures(project(':ignite-failure-handler')))
-    integrationTestImplementation(testFixtures(project(':ignite-metrics')))
     integrationTestImplementation(testFixtures(project(':ignite-sql-engine')))
     integrationTestImplementation(testFixtures(project(':ignite-replicator')))
     integrationTestImplementation(testFixtures(project(':ignite-marshaller-common')))
@@ -182,6 +162,7 @@ dependencies {
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.calcite.core
     integrationTestImplementation libs.rocksdb.jni
+    integrationTestImplementation libs.awaitility
 }
 
 description = 'ignite-table'

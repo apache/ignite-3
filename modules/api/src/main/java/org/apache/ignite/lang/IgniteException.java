@@ -19,7 +19,6 @@ package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroup.errorMessage;
 import static org.apache.ignite.lang.ErrorGroup.extractErrorCode;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.errorGroupByCode;
 import static org.apache.ignite.lang.ErrorGroups.extractGroupCode;
 import static org.apache.ignite.lang.util.TraceIdUtils.getOrCreateTraceId;
@@ -58,45 +57,6 @@ public class IgniteException extends RuntimeException implements TraceableExcept
      */
     @SuppressWarnings({"NonFinalFieldOfException", "FieldMayBeFinal"})
     private UUID traceId;
-
-    /**
-     * Creates an empty exception.
-     */
-    @Deprecated
-    public IgniteException() {
-        this(INTERNAL_ERR);
-    }
-
-    /**
-     * Creates an exception with the given error message.
-     *
-     * @param msg Error message.
-     */
-    @Deprecated
-    public IgniteException(String msg) {
-        this(INTERNAL_ERR, msg);
-    }
-
-    /**
-     * Creates a grid exception with the given throwable as a cause and source of the error message.
-     *
-     * @param cause Non-null throwable cause.
-     */
-    @Deprecated
-    public IgniteException(Throwable cause) {
-        this(INTERNAL_ERR, cause);
-    }
-
-    /**
-     * Creates an exception with the given error message and optional nested exception.
-     *
-     * @param msg Error message.
-     * @param cause Optional nested exception (can be {@code null}).
-     */
-    @Deprecated
-    public IgniteException(String msg, @Nullable Throwable cause) {
-        this(INTERNAL_ERR, msg, cause);
-    }
 
     /**
      * Creates an exception with the given error code.

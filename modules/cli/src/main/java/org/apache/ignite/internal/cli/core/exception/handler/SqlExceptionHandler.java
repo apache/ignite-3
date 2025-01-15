@@ -42,6 +42,8 @@ import org.apache.ignite.lang.IgniteException;
  * Exception handler for {@link SQLException}.
  */
 public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
+    public static final SqlExceptionHandler INSTANCE = new SqlExceptionHandler();
+
     private static final IgniteLogger LOG = Loggers.forClass(SqlExceptionHandler.class);
 
     public static final String PARSING_ERROR_MESSAGE = "SQL query parsing error";
@@ -57,7 +59,7 @@ public class SqlExceptionHandler implements ExceptionHandler<SQLException> {
     private final Map<Integer, Function<IgniteException, ErrorComponentBuilder>> sqlExceptionMappers = new HashMap<>();
 
     /** Default constructor. */
-    public SqlExceptionHandler() {
+    private SqlExceptionHandler() {
         sqlExceptionMappers.put(Client.CONNECTION_ERR, SqlExceptionHandler::connectionErrUiComponent);
         sqlExceptionMappers.put(Sql.STMT_PARSE_ERR, SqlExceptionHandler::sqlParseErrUiComponent);
     }
