@@ -166,9 +166,6 @@ public class ConfigurationProcessor extends AbstractProcessor {
         var injectedValueValidator = new InjectedValueValidator(processingEnv);
 
         for (TypeElement clazz : annotatedConfigs) {
-            // Find all the fields of the schema.
-            List<VariableElement> fields = fields(clazz);
-
             var classWrapper = new ClassWrapper(processingEnv, clazz);
 
             validateConfigurationSchemaClass(classWrapper);
@@ -186,7 +183,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
             TypeSpec.Builder configurationInterfaceBuilder = TypeSpec.interfaceBuilder(configInterface)
                     .addModifiers(PUBLIC);
 
-            for (VariableElement field : fields) {
+            for (VariableElement field : classWrapper.fields()) {
                 if (!field.getModifiers().contains(PUBLIC)) {
                     throw new ConfigurationProcessorException("Field " + clazz.getQualifiedName() + "." + field + " must be public");
                 }
@@ -645,20 +642,6 @@ public class ConfigurationProcessor extends AbstractProcessor {
         }
 
         return isClass(type, String.class) || isClass(type, UUID.class);
-    }
-
-    /**
-     * Get class fields.
-     *
-     * @param type Class type.
-     * @return Class fields.
-     */
-    private static List<VariableElement> fields(TypeElement type) {
-        return type.getEnclosedElements().stream()
-                .filter(el -> el.getKind() == ElementKind.FIELD)
-                .filter(el -> !el.getModifiers().contains(STATIC)) // ignore static members
-                .map(VariableElement.class::cast)
-                .collect(toList());
     }
 
     /**
