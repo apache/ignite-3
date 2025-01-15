@@ -373,14 +373,7 @@ public class IgniteServerImpl implements IgniteServer {
         return nodeName;
     }
 
-    /**
-     * Starts ignite node.
-     *
-     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
-     * REST endpoint is functional).
-     *
-     * @return Future that will be completed when the node is started.
-     */
+    @Override
     public CompletableFuture<Void> startAsync() {
         if (ignite != null) {
             throw new NodeStartException("Node is already started.");
@@ -420,12 +413,7 @@ public class IgniteServerImpl implements IgniteServer {
         }).thenCompose(identity());
     }
 
-    /**
-     * Starts ignite node.
-     *
-     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
-     * REST endpoint is functional).
-     */
+    @Override
     public void start() {
         sync(startAsync());
     }

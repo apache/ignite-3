@@ -45,8 +45,21 @@ public interface IgniteServer {
      *         endpoint is functional).
      */
     static CompletableFuture<IgniteServer> startAsync(String nodeName, Path configPath, Path workDir) {
-        return builder(nodeName, configPath, workDir).buildAsync();
+        IgniteServer server = builder(nodeName, configPath, workDir).build();
+        return server.startAsync().thenApply(unused -> server);
     }
+
+    /**
+     * Starts the node.
+     *
+     * <p>When the returned future completes, the node is partially started and ready to accept the init command (that is, its
+     * REST endpoint is functional).
+     *
+     * <p>Start can only be called once.
+     *
+     * @return Future that will be completed when the node is started.
+     */
+    CompletableFuture<Void> startAsync();
 
     /**
      * Starts an embedded Ignite node with a configuration from a HOCON file synchronously.
@@ -60,8 +73,20 @@ public interface IgniteServer {
      * @return Node instance.
      */
     static IgniteServer start(String nodeName, Path configPath, Path workDir) {
-        return builder(nodeName, configPath, workDir).build();
+        IgniteServer server = builder(nodeName, configPath, workDir).build();
+        server.start();
+        return server;
     }
+
+    /**
+     * Starts the node.
+     *
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * REST endpoint is functional).
+     *
+     * <p>Start can only be called once.
+     */
+    void start();
 
     /**
      * Returns a builder for an embedded Ignite node.
@@ -198,35 +223,11 @@ public interface IgniteServer {
         }
 
         /**
-         * Starts an embedded Ignite node with a configuration from a HOCON file synchronously.
+         * Builds an IgniteServer. It is not started; {@link #start()} or {@link #startAsync()} can be used to start it.
          *
-         * <p>When this method returns, the node is partially started, and is ready to accept the init command (that is, its REST endpoint
-         * is functional).
-         *
-         * @return Node instance.
+         * @return Server instance.
          */
         public IgniteServer build() {
-            IgniteServerImpl embeddedNode = createServer();
-            embeddedNode.start();
-            return embeddedNode;
-        }
-
-        /**
-         * Starts an embedded Ignite node with a configuration from a HOCON file.
-         *
-         * <p>When the future returned from this method completes, the node is partially started, and is ready to accept the init command
-         * (that is, its REST endpoint is functional).
-         *
-         * @return Future that will be completed when the node is partially started, and is ready to accept the init command (that is,
-         *     its REST endpoint is functional).
-         */
-        public CompletableFuture<IgniteServer> buildAsync() {
-            IgniteServerImpl embeddedNode = createServer();
-
-            return embeddedNode.startAsync().thenApply(unused -> embeddedNode);
-        }
-
-        private IgniteServerImpl createServer() {
             return new IgniteServerImpl(
                     nodeName,
                     configPath,
