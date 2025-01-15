@@ -98,7 +98,7 @@ namespace Apache.Ignite
             public const String GroupName = "CMN";
 
             /// <summary> Common error prefix. </summary>
-            public const String ErrorPrefix = "TST";
+            public const String ErrorPrefix = "IGN";
 
             /// <summary> NodeStopping error. </summary>
             public const int NodeStopping = (GroupCode << 16) | (1 & 0xFFFF);
