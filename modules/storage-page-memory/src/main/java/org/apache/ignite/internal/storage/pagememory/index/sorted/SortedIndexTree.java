@@ -29,12 +29,13 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageLockListener;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
+import org.apache.ignite.internal.schema.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeInnerIo;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeIo;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeLeafIo;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeMetaIo;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -90,7 +91,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
                 ? binaryTupleInlineSize(pageSize(), ITEM_SIZE_WITHOUT_COLUMNS, indexDescriptor)
                 : readInlineSizeFromMetaIo();
         this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
-        this.binaryTupleComparator = new BinaryTupleComparator(indexDescriptor.columns());
+        this.binaryTupleComparator = StorageUtils.binaryTupleComparator(indexDescriptor.columns());
 
         init(initNew);
     }

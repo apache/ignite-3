@@ -32,6 +32,7 @@ import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 
 /**
@@ -87,8 +88,8 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     @Override
-    public CompletableFuture<TableDefinition> tableDefinitionAsync(String tableName) {
-        TableDefinitionCollector collector = new TableDefinitionCollector(tableName, sql);
+    public CompletableFuture<TableDefinition> tableDefinitionAsync(QualifiedName tableName) {
+        TableDefinitionCollector collector = new TableDefinitionCollector(tableName.objectName(), sql);
 
         return collector.collectDefinition().thenApply(builder -> {
             if (builder != null) {
@@ -99,7 +100,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     @Override
-    public TableDefinition tableDefinition(String tableName) {
+    public TableDefinition tableDefinition(QualifiedName tableName) {
         return join(tableDefinitionAsync(tableName));
     }
 
@@ -166,9 +167,9 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     @Override
-    public CompletableFuture<Void> dropTableAsync(String name) {
+    public CompletableFuture<Void> dropTableAsync(QualifiedName name) {
         return new DropTableImpl(sql)
-                .name(name)
+                .name(name.schemaName(), name.objectName())
                 .ifExists()
                 .executeAsync()
                 .thenApply(unused -> null);
@@ -180,7 +181,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     }
 
     @Override
-    public void dropTable(String name) {
+    public void dropTable(QualifiedName name) {
         join(dropTableAsync(name));
     }
 
