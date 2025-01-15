@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -63,11 +64,13 @@ class ItInProcessRestartApiReferencesTest extends ClusterPerClassIntegrationTest
 
     @Test
     void submitStaysLocalAfterRestart() {
-        JobExecution<String> execution = beforeRestart.compute.submit(
+        CompletableFuture<JobExecution<String>> executionFut = beforeRestart.compute.submitAsync(
                 anyNode(beforeRestart.clusterNodes),
                 JobDescriptor.builder(NoOpJob.class).build(),
                 null
         );
+        assertThat(executionFut, willCompleteSuccessfully());
+        JobExecution<String> execution = executionFut.join();
         assertThat(execution.stateAsync(), willCompleteSuccessfully());
     }
 

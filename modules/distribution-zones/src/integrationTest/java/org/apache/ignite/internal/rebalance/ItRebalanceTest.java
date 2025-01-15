@@ -36,7 +36,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterConfiguration.Builder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -52,7 +51,6 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Test;
@@ -101,18 +99,18 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
         BinaryRowEx row = marshalTuple(table, Tuple.create().set("id", 1).set("val", "value1"));
         BinaryRowEx key = marshalKey(table, 1, Integer.class);
 
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(nullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(nullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(2))), willBe(nullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(0)), willBe(nullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(1)), willBe(nullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(2)), willBe(nullValue()));
 
         assertThat(table.internalTable().insert(row, null), willCompleteSuccessfully());
 
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(2))), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(0)), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(1)), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(2)), willBe(notNullValue()));
 
         assertThat(
-                table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))),
+                table.internalTable().get(key, clock.now(), clusterNode(3)),
                 willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
 
@@ -124,9 +122,9 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
                 nodeName(3)
         ), table.tableId());
 
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(0)), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(1)), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(3)), willBe(notNullValue()));
 
         cluster.startNode(2);
 
@@ -136,18 +134,14 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
                 nodeName(2)
         ), table.tableId());
 
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(0))), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(1))), willBe(notNullValue()));
-        assertThat(table.internalTable().get(key, clock.now(), clusterNode(cluster.node(2))), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(0)), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(1)), willBe(notNullValue()));
+        assertThat(table.internalTable().get(key, clock.now(), clusterNode(2)), willBe(notNullValue()));
 
         assertThat(
-                table.internalTable().get(key, clock.now(), clusterNode(cluster.node(3))),
+                table.internalTable().get(key, clock.now(), clusterNode(3)),
                 willThrow(ReplicationException.class, 10, TimeUnit.SECONDS)
         );
-    }
-
-    private static ClusterNode clusterNode(Ignite ignite) {
-        return unwrapIgniteImpl(ignite).node();
     }
 
     private static Row marshalTuple(TableViewInternal table, Tuple tuple) {

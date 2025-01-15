@@ -15,28 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client.compute;
+package org.apache.ignite.compute;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.PayloadInputChannel;
-import org.apache.ignite.network.ClusterNode;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Result of the task submission.
- * Contains unpacked job id, a collection of ids of the jobs which are executing under this task, and notification future.
+ * Broadcast job control object, provides information about the job executions and results.
+ *
+ * @param <R> Job result type.
  */
-class SubmitTaskResult extends SubmitResult {
-    private final List<UUID> jobIds;
+public interface BroadcastExecution<R> {
+    /**
+     * Returns a collection of individual job executions.
+     *
+     * @return A collection of individual job executions.
+     */
+    Collection<JobExecution<R>> executions();
 
-    SubmitTaskResult(UUID jobId, List<UUID> jobIds, ClusterNode node, CompletableFuture<PayloadInputChannel> notificationFuture) {
-        super(jobId, node, notificationFuture);
-        this.jobIds = jobIds;
-    }
-
-    List<@Nullable UUID> jobIds() {
-        return jobIds;
-    }
+    /**
+     * Returns all jobs execution results.
+     *
+     * @return Future which will be completed with a collection of all jobs results when all jobs have completed successfully.
+     */
+    CompletableFuture<Collection<R>> resultsAsync();
 }

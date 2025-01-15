@@ -50,14 +50,15 @@ import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
-import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.internal.compute.CancellableTaskExecution;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 
@@ -70,7 +71,7 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Task result type.
  */
 @SuppressWarnings("unchecked")
-public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, MarshallerProvider<R> {
+public class TaskExecutionInternal<I, M, T, R> implements CancellableTaskExecution<R>, MarshallerProvider<R> {
     private static final IgniteLogger LOG = Loggers.forClass(TaskExecutionInternal.class);
 
     private final QueueExecution<SplitResult<I, M, T, R>> splitExecution;
@@ -82,6 +83,8 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
     private final CompletableFuture<QueueExecution<R>> reduceExecutionFuture;
 
     private final AtomicReference<TaskState> reduceFailedState = new AtomicReference<>();
+
+    private final CancelHandle cancelHandle = CancelHandle.create();
 
     private final AtomicBoolean isCancelled;
 
@@ -122,10 +125,10 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
                 0
         );
 
-        executionsFuture = splitExecution.resultAsync().thenApply(splitResult -> {
+        executionsFuture = splitExecution.resultAsync().thenCompose(splitResult -> {
             List<MapReduceJob<M, T>> runners = splitResult.runners();
             LOG.debug("Submitting {} jobs for {}", runners.size(), taskClass.getName());
-            return submit(runners, jobSubmitter);
+            return jobSubmitter.submit(runners, cancelHandle.token());
         });
 
         resultsFuture = executionsFuture.thenCompose(TaskExecutionInternal::resultsAsync);
@@ -223,13 +226,8 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
 
         // Split job was complete, results future was running, but not complete yet.
         if (resultsFuture.cancel(true)) {
-            return executionsFuture.thenCompose(executions -> {
-                CompletableFuture<Boolean>[] cancelFutures = executions.stream()
-                        .map(JobExecution::cancelAsync)
-                        .toArray(CompletableFuture[]::new);
-
-                return allOf(cancelFutures);
-            }).thenApply(unused -> true);
+            return executionsFuture.thenCompose(unused -> cancelHandle.cancelAsync())
+                    .thenApply(unused -> true);
         }
 
         // Results arrived but reduce is not yet submitted
@@ -301,12 +299,6 @@ public class TaskExecutionInternal<I, M, T, R> implements TaskExecution<R>, Mars
 
             return results;
         });
-    }
-
-    private static <M, T> List<JobExecution<T>> submit(List<MapReduceJob<M, T>> runners, JobSubmitter<M, T> jobSubmitter) {
-        return runners.stream()
-                .map(jobSubmitter::submit)
-                .collect(toList());
     }
 
     @Override

@@ -23,7 +23,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
-import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -38,7 +37,6 @@ public interface ComputeComponent extends IgniteComponent {
     /**
      * Executes a job of the given class on the current node.
      *
-     *
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
@@ -46,7 +44,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param arg Job args.
      * @return Job execution object.
      */
-    JobExecution<ComputeJobDataHolder> executeLocally(
+    CancellableJobExecution<ComputeJobDataHolder> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -65,7 +63,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param arg Job args.
      * @return Job execution object.
      */
-    JobExecution<ComputeJobDataHolder> executeRemotely(
+    CancellableJobExecution<ComputeJobDataHolder> executeRemotely(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
@@ -107,7 +105,7 @@ public interface ComputeComponent extends IgniteComponent {
      * @param <R> Task result type.
      * @return Task execution object.
      */
-    <I, M, T, R> TaskExecution<R> executeTask(
+    <I, M, T, R> CancellableTaskExecution<R> executeTask(
             JobSubmitter<M, T> jobSubmitter,
             List<DeploymentUnit> units,
             String taskClassName,

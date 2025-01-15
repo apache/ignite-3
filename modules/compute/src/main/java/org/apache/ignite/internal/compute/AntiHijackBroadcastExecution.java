@@ -15,54 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.task;
+package org.apache.ignite.internal.compute;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import org.apache.ignite.compute.JobState;
-import org.apache.ignite.compute.TaskState;
-import org.apache.ignite.compute.task.TaskExecution;
+import java.util.stream.Collectors;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.thread.PublicApiThreading;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper around {@link TaskExecution} that adds protection against thread hijacking by users.
+ * Wrapper around {@link JobExecution} that adds protection against thread hijacking by users.
  */
-public class AntiHijackTaskExecution<R> implements TaskExecution<R> {
-    private final TaskExecution<R> execution;
-
+class AntiHijackBroadcastExecution<R> implements BroadcastExecution<R> {
+    private final BroadcastExecution<R> execution;
     private final Executor asyncContinuationExecutor;
 
     /**
      * Constructor.
-     *
-     * @param execution Original execution.
-     * @param asyncContinuationExecutor Executor to which the execution will be resubmitted.
      */
-    public AntiHijackTaskExecution(TaskExecution<R> execution, Executor asyncContinuationExecutor) {
+    AntiHijackBroadcastExecution(BroadcastExecution<R> execution, Executor asyncContinuationExecutor) {
         this.execution = execution;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
 
     @Override
-    public CompletableFuture<List<@Nullable JobState>> statesAsync() {
-        return preventThreadHijack(execution.statesAsync());
+    public Collection<JobExecution<R>> executions() {
+        return execution.executions().stream()
+                .map(execution -> new AntiHijackJobExecution<>(execution, asyncContinuationExecutor))
+                .collect(Collectors.toList());
     }
 
     @Override
-    public CompletableFuture<R> resultAsync() {
-        return preventThreadHijack(execution.resultAsync());
-    }
-
-    @Override
-    public CompletableFuture<@Nullable TaskState> stateAsync() {
-        return preventThreadHijack(execution.stateAsync());
-    }
-
-    @Override
-    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return preventThreadHijack(execution.changePriorityAsync(newPriority));
+    public CompletableFuture<Collection<R>> resultsAsync() {
+        return preventThreadHijack(execution.resultsAsync());
     }
 
     private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {

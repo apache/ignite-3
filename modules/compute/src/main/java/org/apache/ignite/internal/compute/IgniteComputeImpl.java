@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.compute;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toUnmodifiableMap;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
+import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
@@ -29,7 +29,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
@@ -40,7 +39,10 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import org.apache.ignite.compute.AllNodesBroadcastJobTarget;
 import org.apache.ignite.compute.AnyNodeJobTarget;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
@@ -111,8 +113,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         tables.setStreamerReceiverRunner(this);
     }
 
-    <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T args) {
+    @Override
+    public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T args,
+            @Nullable CancellationToken cancellationToken
+    ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
@@ -122,14 +129,14 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
-            return new ResultUnmarshallingJobExecution<>(
+            return completedFuture(new ResultUnmarshallingJobExecution<>(
                     executeAsyncWithFailover(
                             nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), cancellationToken,
                             SharedComputeUtils.marshalArgOrResult(args, argumentMarshaller)
                     ),
                     resultMarshaller,
                     descriptor.resultClass()
-            );
+            ));
         }
 
         if (target instanceof ColocatedJobTarget) {
@@ -163,28 +170,88 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                 SharedComputeUtils.marshalArgOrResult(args, argumentMarshaller)));
             }
 
-            return new ResultUnmarshallingJobExecution<>(
-                    new JobExecutionFutureWrapper<>(jobFut), resultMarshaller, descriptor.resultClass());
+            return jobFut.thenApply(execution -> new ResultUnmarshallingJobExecution<>(
+                    execution,
+                    resultMarshaller,
+                    descriptor.resultClass()
+            ));
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
     }
 
     @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
-        return submit(target, descriptor, null, arg);
+    public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        Objects.requireNonNull(target);
+        Objects.requireNonNull(descriptor);
+
+        if (target instanceof AllNodesBroadcastJobTarget) {
+            AllNodesBroadcastJobTarget allNodesBroadcastTarget = (AllNodesBroadcastJobTarget) target;
+            Set<ClusterNode> nodes = allNodesBroadcastTarget.nodes();
+            Marshaller<T, byte[]> argumentMarshaller = descriptor.argumentMarshaller();
+            Marshaller<R, byte[]> resultMarshaller = descriptor.resultMarshaller();
+            ComputeJobDataHolder argHolder = SharedComputeUtils.marshalArgOrResult(arg, argumentMarshaller);
+
+            return completedFuture(new BroadcastJobExecutionImpl<>(nodes.stream()
+                    .map(node -> submitForBroadcast(descriptor, cancellationToken, node, resultMarshaller, argHolder))
+                    .collect(toList()))
+            );
+        }
+
+        throw new IllegalArgumentException("Unsupported job target: " + target);
+    }
+
+    private <T, R> JobExecution<R> submitForBroadcast(
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            ClusterNode node,
+            @Nullable Marshaller<R, byte[]> resultMarshaller,
+            @Nullable ComputeJobDataHolder argHolder
+    ) {
+        // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
+        // if worker node has left the cluster.
+        if (topologyService.getByConsistentId(node.name()) == null) {
+            return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
+        }
+
+        return new ResultUnmarshallingJobExecution<>(
+                executeOnOneNodeWithFailover(
+                        node,
+                        CompletableFutures::nullCompletedFuture,
+                        descriptor.units(),
+                        descriptor.jobClassName(),
+                        descriptor.options(),
+                        cancellationToken,
+                        argHolder
+                ),
+                resultMarshaller,
+                descriptor.resultClass()
+        );
     }
 
     @Override
-    public <T, R> CompletableFuture<R> executeAsync(JobTarget target, JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submit(target, descriptor, cancellationToken, arg).resultAsync();
+    public <T, R> R execute(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return sync(executeAsync(target, descriptor, arg, cancellationToken));
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T args) {
-        return sync(executeAsync(target, descriptor, cancellationToken, args));
+    public <T, R> Collection<R> execute(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return sync(executeAsync(target, descriptor, arg, cancellationToken));
     }
 
     @Override
@@ -212,16 +279,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
         NextWorkerSelector selector = new DeqNextWorkerSelector(new ConcurrentLinkedDeque<>(candidates));
 
-        return new JobExecutionWrapper<>(
-                executeOnOneNodeWithFailover(
-                        targetNode,
-                        selector,
-                        units,
-                        jobClassName,
-                        options,
-                        cancellationToken,
-                        arg
-                ));
+        return executeOnOneNodeWithFailover(
+                targetNode,
+                selector,
+                units,
+                jobClassName,
+                options,
+                cancellationToken,
+                arg
+        );
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -235,6 +301,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return iterator.next();
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24184
     private JobExecution<ComputeJobDataHolder> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
@@ -247,10 +314,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
 
         if (isLocal(targetNode)) {
-            return computeComponent.executeLocally(options, units, jobClassName, cancellationToken, arg);
+            return new JobExecutionWrapper<>(computeComponent.executeLocally(options, units, jobClassName, cancellationToken, arg));
         } else {
-            return computeComponent.executeRemotelyWithFailover(
-                    targetNode, nextWorkerSelector, units, jobClassName, options, cancellationToken, arg);
+            return new JobExecutionWrapper<>(computeComponent.executeRemotelyWithFailover(
+                    targetNode, nextWorkerSelector, units, jobClassName, options, cancellationToken, arg));
         }
     }
 
@@ -330,74 +397,50 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
-            Set<ClusterNode> nodes,
-            JobDescriptor<T, R> descriptor,
-            T args
+    public <T, R> TaskExecution<R> submitMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
     ) {
-        Objects.requireNonNull(nodes);
-        Objects.requireNonNull(descriptor);
-
-        Marshaller<T, byte[]> argumentMarshaller = descriptor.argumentMarshaller();
-        Marshaller<R, byte[]> resultMarshaller = descriptor.resultMarshaller();
-        ComputeJobDataHolder argHolder = SharedComputeUtils.marshalArgOrResult(args, argumentMarshaller);
-
-        return nodes.stream()
-                .collect(toUnmodifiableMap(identity(),
-                        // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
-                        // if worker node has left the cluster.
-                        node -> {
-                            if (topologyService.getByConsistentId(node.name()) == null) {
-                                return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
-                            }
-
-                            return new ResultUnmarshallingJobExecution<>(
-                                    new JobExecutionWrapper<>(
-                                            executeOnOneNodeWithFailover(
-                                                    node,
-                                                    CompletableFutures::nullCompletedFuture,
-                                                    descriptor.units(),
-                                                    descriptor.jobClassName(),
-                                                    descriptor.options(),
-                                                    null,
-                                                    argHolder)),
-                                    resultMarshaller,
-                                    descriptor.resultClass());
-                        }));
-    }
-
-    @Override
-    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submitMapReduce(taskDescriptor, cancellationToken, arg).resultAsync();
-    }
-
-    @Override
-    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return submitMapReduce(taskDescriptor, null, arg);
-    }
-
-    <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T arg) {
         Objects.requireNonNull(taskDescriptor);
 
-        TaskExecutionWrapper<R> execution = new TaskExecutionWrapper<>(
-                computeComponent.executeTask(this::submitJob, taskDescriptor.units(), taskDescriptor.taskClassName(), arg));
+        CancellableTaskExecution<R> taskExecution = computeComponent.executeTask(
+                this::submitJobs,
+                taskDescriptor.units(),
+                taskDescriptor.taskClassName(),
+                arg
+        );
 
         if (cancellationToken != null) {
-            CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+            CancelHandleHelper.addCancelAction(cancellationToken, taskExecution::cancelAsync, taskExecution.resultAsync());
         }
 
-        return execution;
+        return new TaskExecutionWrapper<>(taskExecution);
     }
 
     @Override
-    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
+    public <T, R> R executeMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return sync(executeMapReduceAsync(taskDescriptor, arg, cancellationToken));
     }
 
-    private <M, T> JobExecution<T> submitJob(MapReduceJob<M, T> runner) {
-        return submit(JobTarget.anyNode(runner.nodes()), runner.jobDescriptor(), runner.arg());
+    private <M, T> CompletableFuture<List<JobExecution<T>>> submitJobs(
+            List<MapReduceJob<M, T>> runners,
+            CancellationToken cancellationToken
+    ) {
+        return allOfToList(
+                runners.stream()
+                        .map(runner -> submitAsync(
+                                JobTarget.anyNode(runner.nodes()),
+                                runner.jobDescriptor(),
+                                runner.arg(),
+                                cancellationToken
+                        ))
+                        .toArray(CompletableFuture[]::new)
+        );
     }
 
     @Override
