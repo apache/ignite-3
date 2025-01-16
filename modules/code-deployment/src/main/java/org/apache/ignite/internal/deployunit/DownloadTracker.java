@@ -44,7 +44,10 @@ public class DownloadTracker {
      */
     public <T> CompletableFuture<T> track(String id, Version version, Supplier<CompletableFuture<T>> trackableAction) {
         ClusterStatusKey key = ClusterStatusKey.builder().id(id).version(version).build();
-        return (CompletableFuture<T>) inFlightFutures.computeIfAbsent(key, k -> trackableAction.get());
+        return ((CompletableFuture<T>) inFlightFutures.computeIfAbsent(key,
+                k -> trackableAction.get()
+                        .whenComplete((result, throwable) -> inFlightFutures.remove(key))
+        ));
     }
 
     /**

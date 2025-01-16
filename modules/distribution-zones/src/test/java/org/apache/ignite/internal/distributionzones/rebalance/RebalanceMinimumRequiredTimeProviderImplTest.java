@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import org.apache.ignite.catalog.annotations.Table;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
@@ -47,6 +46,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.sql.ColumnType;
@@ -58,6 +58,7 @@ import org.junit.jupiter.api.Test;
  * Test for {@link RebalanceMinimumRequiredTimeProviderImpl}.
  */
 class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneManagerTest {
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
     private static final String TABLE_NAME = "tableName";
 
     private static final String UPDATED_FILTER_1 = "$..*.*";
@@ -356,7 +357,7 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     private int createTable(String defaultZoneName) throws Exception {
         CompletableFuture<Integer> tableFuture = catalogManager.execute(CreateTableCommand.builder()
                 .tableName(TABLE_NAME)
-                .schemaName(Table.DEFAULT_SCHEMA)
+                .schemaName(SCHEMA_NAME)
                 .zone(defaultZoneName)
                 .columns(List.of(ColumnParams.builder().name("key").type(ColumnType.INT32).build()))
                 .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key")).build())
@@ -370,7 +371,7 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
         Catalog catalog = catalogManager.catalog(catalogVersion);
         assertNotNull(catalog);
 
-        CatalogTableDescriptor table = catalog.table(Table.DEFAULT_SCHEMA, TABLE_NAME);
+        CatalogTableDescriptor table = catalog.table(SCHEMA_NAME, TABLE_NAME);
         assertNotNull(table);
 
         return table.id();
@@ -379,7 +380,7 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     private void dropTable(String tableName) {
         CompletableFuture<Integer> future = catalogManager.execute(DropTableCommand.builder()
                 .tableName(tableName)
-                .schemaName(Table.DEFAULT_SCHEMA)
+                .schemaName(SCHEMA_NAME)
                 .build()
         );
 

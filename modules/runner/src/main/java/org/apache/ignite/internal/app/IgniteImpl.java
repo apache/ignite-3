@@ -971,7 +971,7 @@ public class IgniteImpl implements Ignite {
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 
-        LockManager lockMgr = new HeapLockManager();
+        LockManager lockMgr = new HeapLockManager(systemConfiguration);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(

@@ -58,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -134,6 +135,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
     private final LocalRwTxCounter localRwTxCounter = spy(new TestLocalRwTxCounter());
 
     private final TestLowWatermark lowWatermark = spy(new TestLowWatermark());
@@ -172,8 +176,8 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
-    private static LockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager();
+    private LockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }
