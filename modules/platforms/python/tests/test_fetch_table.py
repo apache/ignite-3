@@ -174,3 +174,18 @@ def test_cursor_iterable(table_name, cursor, drop_table_cleanup):
 
     for i, row in enumerate(cursor):
         check_row(i, row)
+
+
+def test_fetch_table_several_pages(table_name, cursor, drop_table_cleanup):
+    rows_num = 1025
+    create_and_populate_test_table(cursor, rows_num, table_name)
+
+    cursor.execute(f"select id, data, fl from {table_name} order by id")
+
+    rows_all = cursor.fetchall()
+    assert len(rows_all) == rows_num
+    for i in range(rows_num):
+        check_row(i, rows_all[i])
+
+    end = cursor.fetchone()
+    assert end is None
