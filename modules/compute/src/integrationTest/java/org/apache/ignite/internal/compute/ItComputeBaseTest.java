@@ -787,7 +787,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         });
     }
 
-    private static Class<ToStringJob> toStringJobClass() {
+    static Class<ToStringJob> toStringJobClass() {
         return ToStringJob.class;
     }
 
