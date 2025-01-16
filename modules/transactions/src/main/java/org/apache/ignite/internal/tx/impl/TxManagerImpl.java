@@ -455,7 +455,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean scheduleExpiration = !implicit;
 
             if (scheduleExpiration) {
-                transactionExpirationRegistry.register(transaction, roExpirationTimeFor(beginTimestamp, options));
+                transactionExpirationRegistry.register(transaction, roExpirationPhysicalTimeFor(beginTimestamp, options));
             }
 
             txFuture.whenComplete((unused, throwable) -> {
@@ -474,12 +474,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         }
     }
 
-    private HybridTimestamp roExpirationTimeFor(HybridTimestamp beginTimestamp, InternalTxOptions options) {
-        long effectiveTimeoutMillis = options.timeoutMillis() == 0 ? defaultTransactionTimeout() : options.timeoutMillis();
-        return beginTimestamp.addPhysicalTime(effectiveTimeoutMillis);
+    private long roExpirationPhysicalTimeFor(HybridTimestamp beginTimestamp, InternalTxOptions options) {
+        long effectiveTimeoutMillis = options.timeoutMillis() == 0 ? defaultTransactionTimeoutMillis() : options.timeoutMillis();
+        return beginTimestamp.getPhysical() + effectiveTimeoutMillis;
     }
 
-    private long defaultTransactionTimeout() {
+    private long defaultTransactionTimeoutMillis() {
         return txConfig.timeout().value();
     }
 
@@ -855,7 +855,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         try {
             expirationTime = clockService.current();
-            transactionExpirationRegistry.expireUpTo(expirationTime);
+            transactionExpirationRegistry.expireUpTo(expirationTime.getPhysical());
         } catch (Throwable t) {
             LOG.error("Could not expire transactions up to {}", t, expirationTime);
         }

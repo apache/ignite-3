@@ -23,7 +23,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,10 +49,10 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
     @Test
     void abortsTransactionsBeforeExpirationTime() {
-        registry.register(tx1, new HybridTimestamp(1000, 0));
-        registry.register(tx2, new HybridTimestamp(2000, 0));
+        registry.register(tx1, 1000);
+        registry.register(tx2, 2000);
 
-        registry.expireUpTo(new HybridTimestamp(3000, 0));
+        registry.expireUpTo(3000);
 
         verify(tx1).rollbackAsync();
         verify(tx2).rollbackAsync();
@@ -61,38 +60,38 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
     @Test
     void abortsTransactionsExactlyOnExpirationTime() {
-        registry.register(tx1, new HybridTimestamp(1000, 0));
+        registry.register(tx1, 1000);
 
-        registry.expireUpTo(new HybridTimestamp(1000, 0));
+        registry.expireUpTo(1000);
 
         verify(tx1).rollbackAsync();
     }
 
     @Test
     void doesNotAbortTransactionsAfterExpirationTime() {
-        registry.register(tx1, new HybridTimestamp(1000, 1));
+        registry.register(tx1, 1001);
 
-        registry.expireUpTo(new HybridTimestamp(1000, 0));
+        registry.expireUpTo(1000);
 
         verify(tx1, never()).rollbackAsync();
     }
 
     @Test
     void abortsTransactionsExpiredAfterFewExpirations() {
-        registry.register(tx1, new HybridTimestamp(1000, 1));
+        registry.register(tx1, 1000);
 
-        registry.expireUpTo(new HybridTimestamp(1000, 0));
-        registry.expireUpTo(new HybridTimestamp(2000, 0));
+        registry.expireUpTo(1000);
+        registry.expireUpTo(2000);
 
         verify(tx1).rollbackAsync();
     }
 
     @Test
     void abortsAlreadyExpiredTransactionOnRegistration() {
-        registry.expireUpTo(new HybridTimestamp(2000, 0));
+        registry.expireUpTo(2000);
 
-        registry.register(tx1, new HybridTimestamp(1000, 0));
-        registry.register(tx2, new HybridTimestamp(2000, 0));
+        registry.register(tx1, 1000);
+        registry.register(tx2, 2000);
 
         verify(tx1).rollbackAsync();
         verify(tx2).rollbackAsync();
@@ -100,12 +99,12 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
     @Test
     void abortsAlreadyExpiredTransactionJustOnce() {
-        registry.expireUpTo(new HybridTimestamp(2000, 0));
+        registry.expireUpTo(2000);
 
-        registry.register(tx1, new HybridTimestamp(1000, 0));
-        registry.register(tx2, new HybridTimestamp(2000, 0));
+        registry.register(tx1, 1000);
+        registry.register(tx2, 2000);
 
-        registry.expireUpTo(new HybridTimestamp(2000, 0));
+        registry.expireUpTo(2000);
 
         verify(tx1, times(1)).rollbackAsync();
         verify(tx2, times(1)).rollbackAsync();
@@ -113,8 +112,8 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
     @Test
     void abortsAllRegistered() {
-        registry.register(tx1, new HybridTimestamp(1000, 0));
-        registry.register(tx2, HybridTimestamp.MAX_VALUE);
+        registry.register(tx1, 1000);
+        registry.register(tx2, Long.MAX_VALUE);
 
         registry.abortAllRegistered();
 
@@ -126,8 +125,8 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
     void abortsOnRegistrationAfterAbortingAllRegistered() {
         registry.abortAllRegistered();
 
-        registry.register(tx1, new HybridTimestamp(1000, 0));
-        registry.register(tx2, HybridTimestamp.MAX_VALUE);
+        registry.register(tx1, 1000);
+        registry.register(tx2, Long.MAX_VALUE);
 
         verify(tx1).rollbackAsync();
         verify(tx2).rollbackAsync();
@@ -135,11 +134,11 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
     @Test
     void removesTransactionOnUnregister() {
-        registry.register(tx1, new HybridTimestamp(1000, 0));
+        registry.register(tx1, 1000);
 
         registry.unregister(tx1);
 
-        registry.expireUpTo(new HybridTimestamp(2000, 0));
+        registry.expireUpTo(2000);
 
         // Should not be aborted due to expiration as we removed the transaction.
         verify(tx1, never()).rollbackAsync();
@@ -147,7 +146,7 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
     @Test
     void unregisterIsIdempotent() {
-        registry.register(tx1, new HybridTimestamp(1000, 0));
+        registry.register(tx1, 1000);
 
         registry.unregister(tx1);
         registry.unregister(tx1);

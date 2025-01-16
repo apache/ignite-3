@@ -26,7 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -34,13 +33,17 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 class TransactionExpirationRegistry {
     private static final IgniteLogger LOG = Loggers.forClass(TransactionExpirationRegistry.class);
 
-    private final NavigableMap<HybridTimestamp, Set<InternalTransaction>> txsByExpirationTime = new ConcurrentSkipListMap<>();
-    private final Map<InternalTransaction, HybridTimestamp> expirationTimeByTx = new ConcurrentHashMap<>();
+    /** Map from expiration timestamp (number of millis since Unix epoch) to set of transactions expiring at the timestamp. */
+    private final NavigableMap<Long, Set<InternalTransaction>> txsByExpirationTime = new ConcurrentSkipListMap<>();
+    /** Map from registered transaction to its expiration timestamp. */
+    private final Map<InternalTransaction, Long> expirationTimeByTx = new ConcurrentHashMap<>();
 
     private final ReadWriteLock watermarkLock = new ReentrantReadWriteLock();
-    private volatile HybridTimestamp watermark = HybridTimestamp.MIN_VALUE;
 
-    void register(InternalTransaction tx, HybridTimestamp txExpirationTime) {
+    /** Watermark at which expiration has already happened (millis since Unix epoch). */
+    private volatile long watermark = Long.MIN_VALUE;
+
+    void register(InternalTransaction tx, long txExpirationTime) {
         if (isExpired(txExpirationTime)) {
             abortTransaction(tx);
             return;
@@ -66,8 +69,8 @@ class TransactionExpirationRegistry {
         }
     }
 
-    private boolean isExpired(HybridTimestamp expirationTime) {
-        return expirationTime.compareTo(watermark) <= 0;
+    private boolean isExpired(long expirationTime) {
+        return expirationTime <= watermark;
     }
 
     private static void abortTransaction(InternalTransaction tx) {
@@ -78,13 +81,13 @@ class TransactionExpirationRegistry {
         });
     }
 
-    void expireUpTo(HybridTimestamp expirationTime) {
+    void expireUpTo(long expirationTime) {
         List<Set<InternalTransaction>> transactionSetsToExpire;
 
         watermarkLock.writeLock().lock();
 
         try {
-            NavigableMap<HybridTimestamp, Set<InternalTransaction>> headMap = txsByExpirationTime.headMap(expirationTime, true);
+            NavigableMap<Long, Set<InternalTransaction>> headMap = txsByExpirationTime.headMap(expirationTime, true);
             transactionSetsToExpire = new ArrayList<>(headMap.values());
             headMap.clear();
 
@@ -103,11 +106,11 @@ class TransactionExpirationRegistry {
     }
 
     void abortAllRegistered() {
-        expireUpTo(HybridTimestamp.MAX_VALUE);
+        expireUpTo(Long.MAX_VALUE);
     }
 
     void unregister(InternalTransaction tx) {
-        HybridTimestamp expirationTime = expirationTimeByTx.remove(tx);
+        Long expirationTime = expirationTimeByTx.remove(tx);
 
         if (expirationTime != null) {
             txsByExpirationTime.compute(expirationTime, (k, set) -> {
