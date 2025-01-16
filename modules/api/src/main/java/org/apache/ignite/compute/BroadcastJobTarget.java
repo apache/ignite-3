@@ -66,7 +66,7 @@ public interface BroadcastJobTarget {
 
     /**
      * Creates a job target for partitioned execution. For each partition in the provided table the job will be executed on a node that
-     * holds a primary replica.
+     * holds the primary replica.
      *
      * @param tableName Table name.
      * @return Job target.
