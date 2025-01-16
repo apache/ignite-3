@@ -98,7 +98,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
-                lowWatermarkConfiguration,
                 storageUpdateConfiguration,
                 workDir,
                 nodes(),
@@ -121,7 +120,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
-                        lowWatermarkConfiguration,
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(),

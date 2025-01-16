@@ -86,7 +86,6 @@ import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutExcepti
 import org.apache.ignite.internal.replicator.message.ErrorReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
-import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
@@ -125,8 +124,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     /** Transaction configuration. */
     private final TransactionConfiguration txConfig;
-
-    private final LowWatermarkConfiguration lowWatermarkConfig;
 
     /** Lock manager. */
     private final LockManager lockManager;
@@ -217,7 +214,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * Test-only constructor.
      *
      * @param txConfig Transaction configuration.
-     * @param lowWatermarkConfig Low watermark configuration.
      * @param clusterService Cluster service.
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
@@ -233,7 +229,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @TestOnly
     public TxManagerImpl(
             TransactionConfiguration txConfig,
-            LowWatermarkConfiguration lowWatermarkConfig,
             ClusterService clusterService,
             ReplicaService replicaService,
             LockManager lockManager,
@@ -250,7 +245,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this(
                 clusterService.nodeName(),
                 txConfig,
-                lowWatermarkConfig,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 replicaService,
@@ -272,7 +266,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * The constructor.
      *
      * @param txConfig Transaction configuration.
-     * @param lowWatermarkConfig Low watermark configuration.
      * @param messagingService Messaging service.
      * @param topologyService Topology service.
      * @param replicaService Replica service.
@@ -290,7 +283,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     public TxManagerImpl(
             String nodeName,
             TransactionConfiguration txConfig,
-            LowWatermarkConfiguration lowWatermarkConfig,
             MessagingService messagingService,
             TopologyService topologyService,
             ReplicaService replicaService,
@@ -307,7 +299,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             ScheduledExecutorService commonScheduler
     ) {
         this.txConfig = txConfig;
-        this.lowWatermarkConfig = lowWatermarkConfig;
         this.lockManager = lockManager;
         this.clockService = clockService;
         this.transactionIdGenerator = transactionIdGenerator;
@@ -481,12 +472,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     private HybridTimestamp roExpirationTimeFor(HybridTimestamp beginTimestamp, InternalTxOptions options) {
-        long effectiveTimeoutMillis = options.timeoutMillis() == 0 ? defaultRoTransactionTimeout() : options.timeoutMillis();
+        long effectiveTimeoutMillis = options.timeoutMillis() == 0 ? defaultTransactionTimeout() : options.timeoutMillis();
         return beginTimestamp.addPhysicalTime(effectiveTimeoutMillis);
     }
 
-    private long defaultRoTransactionTimeout() {
-        return lowWatermarkConfig.dataAvailabilityTime().value();
+    private long defaultTransactionTimeout() {
+        return txConfig.timeout().value();
     }
 
     /**

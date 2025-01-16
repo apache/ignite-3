@@ -38,7 +38,6 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -101,9 +100,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
     protected static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    protected LowWatermarkConfiguration lowWatermarkConfiguration;
-
-    @InjectConfiguration
     protected static ReplicationConfiguration replicationConfiguration;
 
     @InjectConfiguration
@@ -131,7 +127,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
-                lowWatermarkConfiguration,
                 storageUpdateConfiguration,
                 workDir,
                 1,
@@ -154,7 +149,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
-                        lowWatermarkConfiguration,
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(

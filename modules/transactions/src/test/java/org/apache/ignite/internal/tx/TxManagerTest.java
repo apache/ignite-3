@@ -78,7 +78,6 @@ import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
-import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -139,9 +138,6 @@ public class TxManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
-    @InjectConfiguration
-    private LowWatermarkConfiguration lowWatermarkConfiguration;
-
     @InjectExecutorService
     private ScheduledExecutorService commonScheduler;
 
@@ -167,7 +163,6 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         txManager = new TxManagerImpl(
                 txConfiguration,
-                lowWatermarkConfiguration,
                 clusterService,
                 replicaService,
                 lockManager(),

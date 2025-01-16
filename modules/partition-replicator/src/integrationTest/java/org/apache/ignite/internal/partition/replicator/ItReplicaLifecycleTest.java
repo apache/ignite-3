@@ -170,7 +170,6 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfigurationSchema;
@@ -250,9 +249,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
-
-    @InjectConfiguration
-    private static LowWatermarkConfiguration lowWatermarkConfiguration;
 
     @InjectConfiguration
     private static RaftConfiguration raftConfiguration;
@@ -1231,7 +1227,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
             txManager = new TxManagerImpl(
                     txConfiguration,
-                    lowWatermarkConfiguration,
                     clusterService,
                     replicaSvc,
                     lockManager,

@@ -61,7 +61,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
-import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
@@ -107,9 +106,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
-
-    @InjectConfiguration
-    private LowWatermarkConfiguration lowWatermarkConfiguration;
 
     @InjectExecutorService
     private ScheduledExecutorService commonExecutor;
@@ -172,7 +168,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             TxManagerImpl txManager = new TxManagerImpl(
                     txConfiguration,
-                    lowWatermarkConfiguration,
                     clusterService,
                     replicaSvc,
                     HeapLockManager.smallInstance(),

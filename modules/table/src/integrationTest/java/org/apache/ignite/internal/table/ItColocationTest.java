@@ -91,7 +91,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
@@ -164,9 +163,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
 
-    @InjectConfiguration
-    private static LowWatermarkConfiguration lowWatermarkConfiguration;
-
     @InjectExecutorService
     private static ScheduledExecutorService commonExecutor;
 
@@ -199,7 +195,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         txManager = new TxManagerImpl(
                 txConfiguration,
-                lowWatermarkConfiguration,
                 clusterService,
                 replicaService,
                 new HeapLockManager(),

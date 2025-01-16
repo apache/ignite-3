@@ -39,7 +39,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -85,7 +84,6 @@ import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -561,14 +559,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriver, CLOCK_SERVICE);
 
-        LowWatermarkConfiguration lowWatermarkConfiguration = mock(LowWatermarkConfiguration.class);
-        ConfigurationValue<Long> dataAvailabilityTime = mock(ConfigurationValue.class);
-        lenient().when(dataAvailabilityTime.value()).thenReturn(15L * 60 * 1000);
-        lenient().when(lowWatermarkConfiguration.dataAvailabilityTime()).thenReturn(dataAvailabilityTime);
-
         var txManager = new TxManagerImpl(
                 txConfiguration,
-                lowWatermarkConfiguration,
                 clusterService,
                 replicaSvc,
                 HeapLockManager.smallInstance(),

@@ -47,7 +47,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -119,9 +118,6 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     protected TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    protected LowWatermarkConfiguration lowWatermarkConfiguration;
-
-    @InjectConfiguration
     protected StorageUpdateConfiguration storageUpdateConfiguration;
 
     @InjectConfiguration
@@ -177,7 +173,6 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
-                lowWatermarkConfiguration,
                 storageUpdateConfiguration,
                 workDir,
                 nodes(),
