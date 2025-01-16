@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage;
+package org.apache.ignite.internal.raft.storage;
 
 import java.util.Map;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;

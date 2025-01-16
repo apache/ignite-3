@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -31,13 +31,13 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
-import org.apache.ignite.raft.jraft.storage.GroupStoragesDestructionIntents;
 
 /** Uses VaultManager to destroy raft group storages durably, using vault to store destruction intents. */
 public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestructionIntents {

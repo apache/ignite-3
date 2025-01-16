@@ -1,12 +1,12 @@
-package org.apache.ignite.raft.jraft.storage.impl;
+package org.apache.ignite.internal.raft.storage.impl;
 
 import java.util.Collections;
 import java.util.Map;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.raft.jraft.storage.GroupStoragesDestructionIntents;
 
 // Storage that doesn't save intents to destroy group storages.
 public class NoopGroupStoragesDestructionIntents implements GroupStoragesDestructionIntents {
