@@ -36,12 +36,13 @@ public class TransactionOptions {
         return timeoutMillis;
     }
 
+    // TODO: remove a note that timeouts are not supported for RW after IGNITE-15936 is implemented.
     /**
      * Sets transaction timeout, in milliseconds.
      *
      * @param timeoutMillis Transaction timeout, in milliseconds. Cannot be negative; 0 means 'use default timeout'.
      *     For RO transactions, the default timeout is configured via ignite.transaction.timeout configuration property.
-     *     For RW transactions, timeouts are not supported yet. TODO: IGNITE-15936
+     *     For RW transactions, timeouts are not supported yet.
      * @return {@code this} for chaining.
      */
     public TransactionOptions timeoutMillis(long timeoutMillis) {
