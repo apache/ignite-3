@@ -451,7 +451,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
             // no need to register them.
-            if (!implicit) {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-24229 - schedule expiration for multi-key implicit transactions?
+            boolean scheduleExpiration = !implicit;
+
+            if (scheduleExpiration) {
                 transactionExpirationRegistry.register(transaction, roExpirationTimeFor(beginTimestamp, options));
             }
 
@@ -459,7 +462,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 lowWatermark.unlock(txId);
 
                 // We only register explicit transactions, so we only unregister them as well.
-                if (!implicit) {
+                if (scheduleExpiration) {
                     transactionExpirationRegistry.unregister(transaction);
                 }
             });
