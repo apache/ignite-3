@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
@@ -117,7 +118,13 @@ public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestru
                         ? RaftGroupOptions.defaults()
                         : RaftGroupOptions.forPersistentStores();
 
-                configurerByName.get(intent.configurerName).configure(groupOptions);
+                RaftGroupOptionsConfigurer configurer = configurerByName.get(intent.configurerName);
+
+                if (configurer == null) {
+                    throw new IgniteInternalException("No configurer found for " + intent.configurerName);
+                }
+
+                configurer.configure(groupOptions);
 
                 result.put(nodeId, groupOptions);
             }
