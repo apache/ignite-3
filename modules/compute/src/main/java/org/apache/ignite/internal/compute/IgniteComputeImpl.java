@@ -263,7 +263,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         descriptor.units(),
                         descriptor.jobClassName(),
                         options,
-                        cancellationToken, argHolder
+                        cancellationToken,
+                        argHolder
                 ),
                 descriptor
         );
@@ -328,7 +329,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 units,
                 jobClassName,
                 options,
-                cancellationToken, arg
+                cancellationToken,
+                arg
         );
     }
 
