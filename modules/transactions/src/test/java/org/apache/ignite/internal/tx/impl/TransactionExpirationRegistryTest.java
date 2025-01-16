@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -160,6 +161,7 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
         registry.register(tx1, 1000);
 
         registry.unregister(tx1);
-        registry.unregister(tx1);
+
+        assertDoesNotThrow(() -> registry.unregister(tx1));
     }
 }
