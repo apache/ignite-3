@@ -35,14 +35,12 @@ import java.util.concurrent.Executors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.raft.storage.PersistentLogStorageFactory;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.rocksdb.LoggingRocksDbFlushListener;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.DestroyStorageIntentStorage;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
-import org.apache.ignite.raft.jraft.storage.impl.NoopDestroyStorageIntentStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Platform;
 import org.jetbrains.annotations.Nullable;
@@ -63,8 +61,8 @@ import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 import org.rocksdb.util.SizeUnit;
 
-/** Implementation of the {@link PersistentLogStorageFactory} that creates {@link RocksDbSharedLogStorage}s. */
-public class DefaultLogStorageFactory implements PersistentLogStorageFactory {
+/** Implementation of the {@link LogStorageFactory} that creates {@link RocksDbSharedLogStorage}s. */
+public class DefaultLogStorageFactory implements LogStorageFactory {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
 
     /** Name of the log factory, will be used in logs. */
@@ -75,8 +73,6 @@ public class DefaultLogStorageFactory implements PersistentLogStorageFactory {
 
     /** Executor for shared storages. */
     private final ExecutorService executorService;
-
-    private final DestroyStorageIntentStorage destroyStorageIntentStorage;
 
     /** Database instance shared across log storages. */
     private RocksDB db;
@@ -115,7 +111,7 @@ public class DefaultLogStorageFactory implements PersistentLogStorageFactory {
      */
     @TestOnly
     public DefaultLogStorageFactory(Path path) {
-        this("test", "test", path, new NoopDestroyStorageIntentStorage(), true);
+        this("test", "test", path, true);
     }
 
     /**
@@ -124,20 +120,12 @@ public class DefaultLogStorageFactory implements PersistentLogStorageFactory {
      * @param factoryName Name of the log factory, will be used in logs.
      * @param nodeName Node name.
      * @param logPath Function to get path to the log storage.
-     * @param destroyStorageIntentStorage Storage to persist and retrieve log storage destroy intents.
      * @param fsync If should fsync after each write to database.
      */
-    public DefaultLogStorageFactory(
-            String factoryName,
-            String nodeName,
-            Path logPath,
-            DestroyStorageIntentStorage destroyStorageIntentStorage,
-            boolean fsync
-    ) {
+    public DefaultLogStorageFactory(String factoryName, String nodeName, Path logPath, boolean fsync) {
         this.factoryName = factoryName;
         this.logPath = logPath;
         this.fsync = fsync;
-        this.destroyStorageIntentStorage = destroyStorageIntentStorage;
 
         executorService = Executors.newSingleThreadExecutor(
                 NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
@@ -196,8 +184,6 @@ public class DefaultLogStorageFactory implements PersistentLogStorageFactory {
             assert (columnFamilyHandles.size() == 2);
             this.confHandle = columnFamilyHandles.get(0);
             this.dataHandle = columnFamilyHandles.get(1);
-
-            completeLogStoragesDestruction();
         } catch (Exception e) {
             closeRocksResources();
 
@@ -242,8 +228,6 @@ public class DefaultLogStorageFactory implements PersistentLogStorageFactory {
     @Override
     public void destroyLogStorage(String uri) {
         try {
-            destroyStorageIntentStorage.saveDestroyStorageIntent(factoryName, uri);
-
             RocksDbSharedLogStorage.destroyAllEntriesBetween(
                     db,
                     confHandle,
@@ -251,8 +235,6 @@ public class DefaultLogStorageFactory implements PersistentLogStorageFactory {
                     raftNodeStorageStartPrefix(uri),
                     raftNodeStorageEndPrefix(uri)
             );
-
-            destroyStorageIntentStorage.removeDestroyStorageIntent(factoryName, uri);
         } catch (RocksDBException e) {
             throw new LogStorageException("Fail to destroy the log storage for " + uri, e);
         }
@@ -352,10 +334,5 @@ public class DefaultLogStorageFactory implements PersistentLogStorageFactory {
         }
 
         return opts;
-    }
-
-    @Override
-    public void completeLogStoragesDestruction() {
-        destroyStorageIntentStorage.storagesToDestroy(factoryName).forEach(this::destroyLogStorage);
     }
 }

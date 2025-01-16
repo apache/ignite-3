@@ -155,7 +155,6 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.PersistentLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.Replica;
@@ -218,7 +217,7 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.apache.ignite.raft.jraft.storage.impl.NoopDestroyStorageIntentStorage;
+import org.apache.ignite.raft.jraft.storage.impl.NoopGroupStoragesDestructionIntents;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
@@ -976,7 +975,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         private AtomicReference<Function<ReplicaRequest, ReplicationGroupId>> converter =
                 new AtomicReference<>(request -> request.groupId().asReplicationGroupId());
 
-        private final PersistentLogStorageFactory partitionsLogStorageFactory;
+        private final LogStorageFactory partitionsLogStorageFactory;
 
         private final LogStorageFactory msLogStorageFactory;
 
@@ -1054,7 +1053,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     raftGroupEventsClientListener,
                     new NoOpFailureManager(),
-                    new NoopDestroyStorageIntentStorage()
+                    new NoopGroupStoragesDestructionIntents()
             );
 
             var clusterStateStorage = new TestClusterStateStorage();

@@ -35,7 +35,6 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.impl.BaseLogStorageTest;
-import org.apache.ignite.raft.jraft.storage.impl.NoopDestroyStorageIntentStorage;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
 import org.apache.ignite.raft.jraft.storage.logit.storage.LogitLogStorage;
 import org.apache.ignite.raft.jraft.storage.logit.storage.db.IndexDB;
@@ -54,13 +53,7 @@ public class LogitLogStorageTest extends BaseLogStorageTest {
     @BeforeEach
     @Override
     public void setup() throws Exception {
-        logStorageFactory = new LogitLogStorageFactory(
-                "logit-test-factory",
-                "test",
-                testStoreOptions(),
-                path,
-                new NoopDestroyStorageIntentStorage()
-        );
+        logStorageFactory = new LogitLogStorageFactory("test", testStoreOptions(), path);
         assertThat(logStorageFactory.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         super.setup();
