@@ -18,7 +18,7 @@
 [versions]
 assertj = "3.27.2"
 asm = "9.7.1"
-bouncycastle = "1.79"
+bouncycastle = "1.80"
 compileTesting = "0.21.0"
 fliptables = "1.1.1"
 fmpp = "0.9.16"
