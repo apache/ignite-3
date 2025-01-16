@@ -58,7 +58,7 @@ import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.ActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
-import org.apache.ignite.raft.jraft.storage.DestroyStorageIntentStorage;
+import org.apache.ignite.raft.jraft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.raft.jraft.util.Utils;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -119,7 +119,7 @@ public class Loza implements RaftManager {
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             FailureManager failureManager,
-            DestroyStorageIntentStorage destroyStorageIntentStorage
+            GroupStoragesDestructionIntents groupStorageDestructionIntents
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.raftConfiguration = raftConfiguration;
@@ -137,7 +137,7 @@ public class Loza implements RaftManager {
                 options,
                 raftGroupEventsClientListener,
                 failureManager,
-                destroyStorageIntentStorage
+                groupStorageDestructionIntents
         );
 
         this.executor = new ScheduledThreadPoolExecutor(

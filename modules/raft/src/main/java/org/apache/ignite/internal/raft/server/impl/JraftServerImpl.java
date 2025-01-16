@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.server.impl;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
@@ -98,7 +99,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.NullActionRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.raft.jraft.rpc.impl.core.AppendEntriesRequestInterceptor;
 import org.apache.ignite.raft.jraft.rpc.impl.core.NullAppendEntriesRequestInterceptor;
-import org.apache.ignite.raft.jraft.storage.DestroyStorageIntentStorage;
+import org.apache.ignite.raft.jraft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.raft.jraft.storage.impl.LogManagerImpl.StableClosureEvent;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
@@ -114,14 +115,13 @@ import org.jetbrains.annotations.TestOnly;
 public class JraftServerImpl implements RaftServer {
     private static final IgniteLogger LOG = Loggers.forClass(JraftServerImpl.class);
 
-    /** Prefix to save destroy storage intents in {@link DestroyStorageIntentStorage}. */
-    private static final String DESTROY_PREFIX = "jraftServer";
-
     /** Cluster service. */
     private final ClusterService service;
 
     /** Failure processor that is used to handle critical errors. */
     private final FailureManager failureManager;
+
+    private final GroupStoragesDestructionIntents destructor;
 
     /** Server instance. */
     private IgniteRpcServer rpcServer;
@@ -156,15 +156,12 @@ public class JraftServerImpl implements RaftServer {
     /** The number of parallel raft groups starts. */
     private static final int SIMULTANEOUS_GROUP_START_PARALLELISM = Math.min(Utils.cpus() * 3, 25);
 
-    private final DestroyStorageIntentStorage destroyStorageIntentStorage;
-
     /**
      * The constructor.
      *
      * @param service Cluster service.
      * @param opts Default node options.
      * @param raftGroupEventsClientListener Raft events listener.
-     * @param destroyStorageIntentStorage Storage to persist and retrieve storage destroy intents.
      * @param failureManager Failure processor that is used to handle critical errors.
      */
     public JraftServerImpl(
@@ -172,11 +169,11 @@ public class JraftServerImpl implements RaftServer {
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             FailureManager failureManager,
-            DestroyStorageIntentStorage destroyStorageIntentStorage
+            GroupStoragesDestructionIntents destructor
     ) {
         this.service = service;
         this.nodeManager = new NodeManager();
-        this.destroyStorageIntentStorage = destroyStorageIntentStorage;
+        this.destructor = destructor;
 
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
@@ -349,9 +346,7 @@ public class JraftServerImpl implements RaftServer {
 
         rpcServer.init(null);
 
-        completeStoragesDestroy();
-
-        return nullCompletedFuture();
+        return completeStoragesDestruction(componentContext.executor());
     }
 
     /** {@inheritDoc} */
@@ -422,7 +417,11 @@ public class JraftServerImpl implements RaftServer {
     }
 
     public static Path getServerDataPath(Path basePath, RaftNodeId nodeId) {
-        return basePath.resolve(nodeId.nodeIdStringForStorage());
+        return getServerDataPath(basePath, nodeId.nodeIdStringForStorage());
+    }
+
+    public static Path getServerDataPath(Path basePath, String nodeId) {
+        return basePath.resolve(nodeId);
     }
 
     @Override
@@ -533,6 +532,10 @@ public class JraftServerImpl implements RaftServer {
     }
 
     private static Path serverDataPathForNodeId(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
+        return serverDataPathForNodeId(nodeId.nodeIdStringForStorage(), groupOptions);
+    }
+
+    private static Path serverDataPathForNodeId(String nodeId, RaftGroupOptions groupOptions) {
         Path dataPath = groupOptions.serverDataPath();
 
         assert dataPath != null : "Raft metadata path was not set, nodeId is " + nodeId;
@@ -584,19 +587,26 @@ public class JraftServerImpl implements RaftServer {
 
     @Override
     public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
+        destructor.saveDestroyStorageIntent(nodeId, groupOptions);
+
+        destroyStorage(nodeId.nodeIdStringForStorage(), groupOptions, true);
+    }
+
+    private void destroyStorage(String nodeId, RaftGroupOptions groupOptions, boolean destroyVolatile) {
+        LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory();
+
         try {
-            String logUri = nodeId.nodeIdStringForStorage();
-            groupOptions.getLogStorageFactory().destroyLogStorage(logUri);
-        } finally {
-            Path serverDataPath = serverDataPathForNodeId(nodeId, groupOptions);
-
-            destroyStorageIntentStorage.saveDestroyStorageIntent(DESTROY_PREFIX, serverDataPath.toString());
-
-            // This destroys both meta storage and snapshots storage as they are stored under serverDataPath.
-            if (IgniteUtils.deleteIfExists(serverDataPath)) {
-                destroyStorageIntentStorage.removeDestroyStorageIntent(DESTROY_PREFIX, serverDataPath.toString());
+            if (destroyVolatile || !groupOptions.volatileStores()) {
+                logStorageFactory.destroyLogStorage(nodeId);
             }
+
+            // This destroys both meta storage and snapshots storage as they are stored under nodeDataPath.
+            IgniteUtils.deleteIfExistsThrowable(serverDataPathForNodeId(nodeId, groupOptions));
+        } catch (IOException e) {
+            throw new IgniteInternalException("Failed to delete storage for node: " + nodeId, e);
         }
+
+        destructor.removeDestroyStorageIntent(nodeId);
     }
 
     @Override
@@ -715,6 +725,11 @@ public class JraftServerImpl implements RaftServer {
      */
     private Object startNodeMonitor(RaftNodeId nodeId) {
         return startGroupInProgressMonitors.get(Math.abs(nodeId.hashCode() % SIMULTANEOUS_GROUP_START_PARALLELISM));
+    }
+
+    private CompletableFuture<Void> completeStoragesDestruction(ExecutorService executor) {
+        return runAsync(() -> destructor.readGroupOptionsByNodeIdForDestruction()
+                .forEach((nodeId, groupOptions) -> destroyStorage(nodeId, groupOptions, false)), executor);
     }
 
     /**
@@ -897,15 +912,5 @@ public class JraftServerImpl implements RaftServer {
 
             listener.onLeaderStop();
         }
-    }
-
-    private void completeStoragesDestroy() {
-        destroyStorageIntentStorage.storagesToDestroy(DESTROY_PREFIX).forEach(serverDataPath -> {
-            if (IgniteUtils.deleteIfExists(Path.of(serverDataPath))) {
-                destroyStorageIntentStorage.removeDestroyStorageIntent(DESTROY_PREFIX, serverDataPath);
-            } else {
-                LOG.error("Failed to delete storage: " + serverDataPath);
-            }
-        });
     }
 }

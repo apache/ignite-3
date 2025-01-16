@@ -188,7 +188,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.PersistentLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.Replica;
@@ -257,7 +256,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.CliRequests.ChangePeersAndLearnersAsyncRequest;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
-import org.apache.ignite.raft.jraft.storage.impl.NoopDestroyStorageIntentStorage;
+import org.apache.ignite.raft.jraft.storage.impl.NoopGroupStoragesDestructionIntents;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.NotNull;
@@ -1161,7 +1160,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ScheduledExecutorService rebalanceScheduler;
 
-        private final PersistentLogStorageFactory logStorageFactory;
+        private final LogStorageFactory logStorageFactory;
 
         private final LogStorageFactory cmgLogStorageFactory;
 
@@ -1239,7 +1238,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     raftGroupEventsClientListener,
                     new NoOpFailureManager(),
-                    new NoopDestroyStorageIntentStorage()
+                    new NoopGroupStoragesDestructionIntents()
             ));
 
             var clusterStateStorage = new TestClusterStateStorage();
