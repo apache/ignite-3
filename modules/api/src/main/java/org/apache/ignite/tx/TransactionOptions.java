@@ -41,8 +41,10 @@ public class TransactionOptions {
      * Sets transaction timeout, in milliseconds.
      *
      * @param timeoutMillis Transaction timeout, in milliseconds. Cannot be negative; 0 means 'use default timeout'.
-     *     For RO transactions, the default timeout is configured via ignite.transaction.timeout configuration property.
-     *     For RW transactions, timeouts are not supported yet.
+     *     <ul>
+     *     <li>For RO transactions, the default timeout is configured via ignite.transaction.timeout configuration property.</li>
+     *     <li>For RW transactions, timeouts are not supported yet.</li>
+     *     </ul>
      * @return {@code this} for chaining.
      */
     public TransactionOptions timeoutMillis(long timeoutMillis) {
