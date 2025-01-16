@@ -87,6 +87,17 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void abortsTransactionsWithSameExpirationTime() {
+        registry.register(tx1, 1000);
+        registry.register(tx2, 1000);
+
+        registry.expireUpTo(2000);
+
+        verify(tx1).rollbackAsync();
+        verify(tx2).rollbackAsync();
+    }
+
+    @Test
     void abortsAlreadyExpiredTransactionOnRegistration() {
         registry.expireUpTo(2000);
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.impl;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -33,8 +34,12 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 class TransactionExpirationRegistry {
     private static final IgniteLogger LOG = Loggers.forClass(TransactionExpirationRegistry.class);
 
-    /** Map from expiration timestamp (number of millis since Unix epoch) to set of transactions expiring at the timestamp. */
-    private final NavigableMap<Long, Set<InternalTransaction>> txsByExpirationTime = new ConcurrentSkipListMap<>();
+    /**
+     * Map from expiration timestamp (number of millis since Unix epoch) to transactions expiring at the timestamp.
+     * Each value is either a transaction or a set of at least 2 transactions.
+     */
+    private final NavigableMap<Long, Object> txsByExpirationTime = new ConcurrentSkipListMap<>();
+
     /** Map from registered transaction to its expiration timestamp. */
     private final Map<InternalTransaction, Long> expirationTimeByTx = new ConcurrentHashMap<>();
 
@@ -57,11 +62,26 @@ class TransactionExpirationRegistry {
                 return;
             }
 
-            Set<InternalTransaction> txsExpiringAtTs = txsByExpirationTime.computeIfAbsent(
+            txsByExpirationTime.compute(
                     txExpirationTime,
-                    k -> ConcurrentHashMap.newKeySet()
+                    (k, txOrSet) -> {
+                        if (txOrSet == null) {
+                            return tx;
+                        }
+
+                        Set<InternalTransaction> txsExpiringAtTs;
+                        if (txOrSet instanceof Set) {
+                            txsExpiringAtTs = (Set<InternalTransaction>) txOrSet;
+                        } else {
+                            txsExpiringAtTs = new HashSet<>();
+                            txsExpiringAtTs.add((InternalTransaction) txOrSet);
+                        }
+
+                        txsExpiringAtTs.add(tx);
+
+                        return txsExpiringAtTs;
+                    }
             );
-            txsExpiringAtTs.add(tx);
 
             expirationTimeByTx.put(tx, txExpirationTime);
         } finally {
@@ -82,13 +102,13 @@ class TransactionExpirationRegistry {
     }
 
     void expireUpTo(long expirationTime) {
-        List<Set<InternalTransaction>> transactionSetsToExpire;
+        List<Object> transactionsAndSetsToExpire;
 
         watermarkLock.writeLock().lock();
 
         try {
-            NavigableMap<Long, Set<InternalTransaction>> headMap = txsByExpirationTime.headMap(expirationTime, true);
-            transactionSetsToExpire = new ArrayList<>(headMap.values());
+            NavigableMap<Long, Object> headMap = txsByExpirationTime.headMap(expirationTime, true);
+            transactionsAndSetsToExpire = new ArrayList<>(headMap.values());
             headMap.clear();
 
             watermark = expirationTime;
@@ -96,10 +116,16 @@ class TransactionExpirationRegistry {
             watermarkLock.writeLock().unlock();
         }
 
-        for (Set<InternalTransaction> set : transactionSetsToExpire) {
-            for (InternalTransaction tx : set) {
-                expirationTimeByTx.remove(tx);
+        for (Object txOrSet : transactionsAndSetsToExpire) {
+            if (txOrSet instanceof Set) {
+                for (InternalTransaction tx : (Set<InternalTransaction>) txOrSet) {
+                    expirationTimeByTx.remove(tx);
+                    abortTransaction(tx);
+                }
+            } else {
+                InternalTransaction tx = (InternalTransaction) txOrSet;
 
+                expirationTimeByTx.remove(tx);
                 abortTransaction(tx);
             }
         }
@@ -113,10 +139,16 @@ class TransactionExpirationRegistry {
         Long expirationTime = expirationTimeByTx.remove(tx);
 
         if (expirationTime != null) {
-            txsByExpirationTime.computeIfPresent(expirationTime, (k, set) -> {
-                set.remove(tx);
+            txsByExpirationTime.computeIfPresent(expirationTime, (k, txOrSet) -> {
+                if (txOrSet instanceof Set) {
+                    Set<InternalTransaction> set = (Set<InternalTransaction>) txOrSet;
 
-                return set.isEmpty() ? null : set;
+                    set.remove(tx);
+
+                    return set.size() == 1 ? set.iterator().next() : set;
+                } else {
+                    return null;
+                }
             });
         }
     }
