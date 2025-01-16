@@ -17,14 +17,67 @@
 
 package org.apache.ignite.internal.deployunit;
 
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
+import static org.apache.ignite.internal.deployunit.UnitContent.toDeploymentUnit;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+
 import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStore;
+import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 
 /**
  * Unit downloader.
  */
-@FunctionalInterface
-interface UnitDownloader {
+class UnitDownloader {
+    private static final IgniteLogger LOG = Loggers.forClass(UnitDownloader.class);
+
+    private final DeploymentUnitStore deploymentUnitStore;
+
+    private final String nodeName;
+
+    private final FileDeployerService deployer;
+
+    private final DownloadTracker tracker;
+
+    private final DeployMessagingService messaging;
+
+    UnitDownloader(
+            DeploymentUnitStore deploymentUnitStore,
+            String nodeName,
+            FileDeployerService deployer,
+            DownloadTracker tracker,
+            DeployMessagingService messaging
+    ) {
+        this.deploymentUnitStore = deploymentUnitStore;
+        this.nodeName = nodeName;
+        this.deployer = deployer;
+        this.tracker = tracker;
+        this.messaging = messaging;
+    }
+
+    /**
+     * Downloads specified unit from any node where this unit is deployed from the specified collection of nodes to the local node, deploys
+     * it and sets the node status to {@link DeploymentStatus#DEPLOYED}.
+     *
+     * @param statuses Collection of all node statuses for this unit.
+     * @param id Deployment unit identifier.
+     * @param version Deployment unit version.
+     */
+    CompletableFuture<Boolean> downloadUnit(Collection<UnitNodeStatus> statuses, String id, Version version) {
+        List<String> deployedNodes = statuses.stream()
+                .filter(status -> status.status() == DEPLOYED)
+                .map(UnitNodeStatus::nodeId)
+                .collect(Collectors.toList());
+
+        return downloadUnit(id, version, deployedNodes);
+    }
+
     /**
      * Downloads specified unit from any node from the specified collection of nodes to the local node, deploys it and sets the node status
      * to {@link DeploymentStatus#DEPLOYED}.
@@ -33,5 +86,25 @@ interface UnitDownloader {
      * @param version Deployment unit version.
      * @param nodes Nodes where the unit is deployed.
      */
-    void downloadUnit(String id, Version version, Collection<String> nodes);
+    CompletableFuture<Boolean> downloadUnit(String id, Version version, Collection<String> nodes) {
+        return tracker.track(id, version, () -> messaging.downloadUnitContent(id, version, nodes)
+                .thenCompose(content -> {
+                    DeploymentUnit unit = toDeploymentUnit(content);
+                    return deployer.deploy(id, version, unit)
+                            .whenComplete((deployed, throwable) -> {
+                                try {
+                                    unit.close();
+                                } catch (Exception e) {
+                                    LOG.error("Error closing deployment unit", e);
+                                }
+                            });
+                })
+                .thenCompose(deployed -> {
+                    if (deployed) {
+                        return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);
+                    }
+                    return falseCompletedFuture();
+                })
+        );
+    }
 }

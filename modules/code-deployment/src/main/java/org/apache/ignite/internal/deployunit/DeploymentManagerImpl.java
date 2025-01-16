@@ -23,14 +23,12 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
-import static org.apache.ignite.internal.deployunit.UnitContent.toDeploymentUnit;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -131,6 +129,8 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     private final ClusterStatusWatchListener clusterStatusWatchListener;
 
+    private final UnitDownloader unitDownloader;
+
     /**
      * Constructor.
      *
@@ -164,13 +164,9 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                 unit -> deploymentUnitStore.updateNodeStatus(nodeName, unit.name(), unit.version(), REMOVING)
         );
         messaging = new DeployMessagingService(clusterService, cmgManager, deployer, tracker);
+        unitDownloader = new UnitDownloader(deploymentUnitStore, nodeName, deployer, tracker, messaging);
 
-        nodeStatusCallback = new DefaultNodeCallback(
-                deploymentUnitStore,
-                undeployer,
-                this::download,
-                cmgManager
-        );
+        nodeStatusCallback = new DefaultNodeCallback(deploymentUnitStore, undeployer, unitDownloader, cmgManager);
         nodeStatusWatchListener = new NodeStatusWatchListener(deploymentUnitStore, nodeName, nodeStatusCallback);
 
         clusterEventCallback = new ClusterEventCallbackImpl(deploymentUnitStore, deployer, cmgManager, nodeName);
@@ -368,7 +364,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                             case UPLOADING:
                                 // Wait for the upload
                                 LOG.debug("Status is UPLOADING, downloading the unit");
-                                return download(statuses, id, version);
+                                return unitDownloader.downloadUnit(statuses, id, version);
                             case DEPLOYED:
                                 // Unit is already deployed on the local node.
                                 LOG.debug("Status is DEPLOYED");
@@ -384,42 +380,11 @@ public class DeploymentManagerImpl implements IgniteDeployment {
                                 deploymentUnitStore.createNodeStatus(nodeName, id, version, clusterStatus.opId(), UPLOADING)
                                         .thenCompose(created -> {
                                             LOG.debug("Status {}, downloading the unit", created ? "created" : "not created");
-                                            return download(statuses, id, version);
+                                            return unitDownloader.downloadUnit(statuses, id, version);
                                         })
                         );
                     }
                 });
-    }
-
-    private CompletableFuture<Boolean> download(Collection<UnitNodeStatus> statuses, String id, Version version) {
-        List<String> deployedNodes = statuses.stream()
-                .filter(status -> status.status() == DEPLOYED)
-                .map(UnitNodeStatus::nodeId)
-                .collect(Collectors.toList());
-
-        return download(id, version, deployedNodes);
-    }
-
-    private CompletableFuture<Boolean> download(String id, Version version, Collection<String> nodes) {
-        return tracker.track(id, version, () -> messaging.downloadUnitContent(id, version, nodes)
-                .thenCompose(content -> {
-                    DeploymentUnit unit = toDeploymentUnit(content);
-                    return deployer.deploy(id, version, unit)
-                            .whenComplete((deployed, throwable) -> {
-                                try {
-                                    unit.close();
-                                } catch (Exception e) {
-                                    LOG.error("Error closing deployment unit", e);
-                                }
-                            });
-                })
-                .thenCompose(deployed -> {
-                    if (deployed) {
-                        return deploymentUnitStore.updateNodeStatus(nodeName, id, version, DEPLOYED);
-                    }
-                    return falseCompletedFuture();
-                })
-        );
     }
 
     @Override
