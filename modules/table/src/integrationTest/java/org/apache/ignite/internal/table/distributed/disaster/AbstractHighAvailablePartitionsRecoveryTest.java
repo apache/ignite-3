@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -40,6 +44,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
@@ -50,9 +55,12 @@ import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfig
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 
@@ -114,6 +122,18 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     }
 
+    final void waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(
+            IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
+        partitionIds.forEach(p -> {
+            try {
+                waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(gatewayNode, tableName, p, nodes);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+    }
+
     private void waitAndAssertStableAssignmentsOfPartitionEqualTo(
             IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes) throws InterruptedException {
 
@@ -132,8 +152,56 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 .collect(Collectors.toUnmodifiableSet()));
     }
 
+    private void waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(
+            IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes) throws InterruptedException {
+        AtomicReference<Set<String>> stableNodes = new AtomicReference<>();
+        AtomicReference<Set<String>> pendingNodes = new AtomicReference<>();
+        AtomicReference<Set<String>> plannedNodes = new AtomicReference<>();
+
+        assertTrue(waitForCondition(() -> {
+                    var tableId = getTableId(gatewayNode.catalogManager(), tableName, clock.nowLong());
+                    TablePartitionId tablePartitionId = new TablePartitionId(tableId, partNum);
+
+                    ByteArray stableKey = stablePartAssignmentsKey(tablePartitionId);
+                    ByteArray pendingKey = pendingPartAssignmentsKey(tablePartitionId);
+                    ByteArray plannedKey = plannedPartAssignmentsKey(tablePartitionId);
+
+                    Map<ByteArray, Entry> results = gatewayNode.metaStorageManager()
+                            .getAll(Set.of(stableKey, pendingKey, plannedKey))
+                            .join();
+
+                    var isStableAsExpected = results.get(stableKey).value() != null && nodes.equals(
+                            Assignments.fromBytes(results.get(stableKey).value()).nodes().stream().map(Assignment::consistentId).collect(
+                                    Collectors.toUnmodifiableSet()));
+                    var isPendingEmpty = results.get(pendingKey).value() == null;
+                    var isPlannedEmpty = results.get(plannedKey).value() == null;
+
+                    stableNodes.set(assignmentsFromEntry(results.get(stableKey)));
+                    pendingNodes.set(assignmentsFromEntry(results.get(pendingKey)));
+                    plannedNodes.set(assignmentsFromEntry(results.get(plannedKey)));
+
+                    return isStableAsExpected && isPendingEmpty && isPlannedEmpty;
+                },
+                500,
+                30_000
+        ), IgniteStringFormatter.format(
+                "Expected: (stable: {}, pending: [], planned: []), but actual: (stable: {}, pending: {}, planned: {})",
+                nodes, stableNodes, pendingNodes, plannedNodes
+                )
+        );
+    }
+
     static Entry getRecoveryTriggerKey(IgniteImpl node) {
         return node.metaStorageManager().getLocally(RECOVERY_TRIGGER_KEY, Long.MAX_VALUE);
+    }
+
+    private static Set<String> assignmentsFromEntry(Entry entry) {
+        return (entry.value() != null) ?
+                Assignments.fromBytes(entry.value()).nodes()
+                        .stream()
+                        .map(Assignment::consistentId)
+                        .collect(Collectors.toUnmodifiableSet())
+                : emptySet();
     }
 
     private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
@@ -148,10 +216,15 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     private void createHaZoneWithTables(
             String zoneName, List<String> tableNames, String filter, Set<String> targetNodes) throws InterruptedException {
+        createHaZoneWithTables(zoneName, tableNames, filter, DEFAULT_STORAGE_PROFILE, targetNodes);
+    }
+
+    private void createHaZoneWithTables(
+            String zoneName, List<String> tableNames, String filter, String storageProfiles, Set<String> targetNodes) throws InterruptedException {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', "
                         + "CONSISTENCY_MODE='HIGH_AVAILABILITY', DATA_NODES_FILTER='%s'",
-                zoneName, targetNodes.size(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE, filter
+                zoneName, targetNodes.size(), PARTITIONS_NUMBER, storageProfiles, filter
         ));
 
         Set<Integer> tableIds = new HashSet<>();
@@ -184,6 +257,20 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     final void createHaZoneWithTable(String zoneName, String tableName) throws InterruptedException {
         createHaZoneWithTables(zoneName, List.of(tableName));
+    }
+
+    final void createHaZoneWithTable(int replicas, String filter, Set<String> targetNodes) throws InterruptedException {
+        createHaZoneWithTables(
+                HA_ZONE_NAME, List.of(HA_TABLE_NAME), filter, targetNodes
+        );
+    }
+
+    final void createHaZoneWithTableWithStorageProfile(int replicas, String storageProfiles, Set<String> targetNodes)
+            throws InterruptedException {
+        createHaZoneWithTables(
+                HA_ZONE_NAME, List.of(HA_TABLE_NAME), DEFAULT_FILTER, storageProfiles, targetNodes
+        );
+
     }
 
     final void createHaZoneWithTable() throws InterruptedException {
