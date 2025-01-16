@@ -62,6 +62,8 @@ abstract class ItReadOnlyTxTimeoutOneNodeTest extends ClusterPerTestIntegrationT
         );
 
         assertThrows(TransactionException.class, () -> doGetOn(table, roTx));
+        // TODO: uncomment the following assert after IGNITE-24233 is fixed.
+        // assertThrows(TransactionException.class, roTx::commit);
     }
 
     private static void doGetOn(Table table, Transaction tx) {
