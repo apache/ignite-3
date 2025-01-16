@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.readonly;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.Ignite;
@@ -26,6 +27,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.tx.impl.ReadOnlyTransactionImpl;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.Test;
 
@@ -59,9 +61,7 @@ abstract class ItReadOnlyTxTimeoutOneNodeTest extends ClusterPerTestIntegrationT
                 "Transaction should have been finished due to timeout"
         );
 
-        // TODO: Uncomment the following lines after https://issues.apache.org/jira/browse/IGNITE-23980 is fixed.
-        // assertThrows(TransactionException.class, () -> doGetOn(table, roTx));
-        // assertThrows(TransactionException.class, roTx::commit);
+        assertThrows(TransactionException.class, () -> doGetOn(table, roTx));
     }
 
     private static void doGetOn(Table table, Transaction tx) {
