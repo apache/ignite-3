@@ -30,6 +30,7 @@ namespace Apache.Ignite.Internal.Compute
     using Ignite.Network;
     using Ignite.Table;
     using Marshalling;
+    using Network;
     using Proto;
     using Proto.MsgPack;
     using Table;
@@ -82,24 +83,37 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public IDictionary<IClusterNode, Task<IJobExecution<TResult>>> SubmitBroadcast<TArg, TResult>(
-            IEnumerable<IClusterNode> nodes,
+        public async Task<IBroadcastExecution<TResult>> SubmitBroadcastAsync<TTarget, TArg, TResult>(
+            IBroadcastJobTarget<TTarget> target,
             JobDescriptor<TArg, TResult> jobDescriptor,
             TArg arg)
+            where TTarget : notnull
         {
-            IgniteArgumentCheck.NotNull(nodes);
+            IgniteArgumentCheck.NotNull(target);
             IgniteArgumentCheck.NotNull(jobDescriptor);
             IgniteArgumentCheck.NotNull(jobDescriptor.JobClassName);
 
-            var res = new Dictionary<IClusterNode, Task<IJobExecution<TResult>>>();
-
-            foreach (var node in nodes)
+            return target switch
             {
-                Task<IJobExecution<TResult>> task = ExecuteOnNodes(new[] { node }, jobDescriptor, arg);
-                res[node] = task;
-            }
+                BroadcastJobTarget.AllNodesTarget allNodes => await SubmitBroadcastAsyncInternal(allNodes.Data)
+                    .ConfigureAwait(false),
 
-            return res;
+                _ => throw new ArgumentException("Unsupported broadcast job target: " + target)
+            };
+
+            async Task<IBroadcastExecution<TResult>> SubmitBroadcastAsyncInternal(IEnumerable<IClusterNode> nodes)
+            {
+                var jobExecutions = new List<IJobExecution<TResult>>();
+
+                foreach (var node in nodes)
+                {
+                    IJobExecution<TResult> jobExec = await ExecuteOnNodes([node], jobDescriptor, arg).ConfigureAwait(false);
+
+                    jobExecutions.Add(jobExec);
+                }
+
+                return new BroadcastExecution<TResult>(jobExecutions);
+            }
         }
 
         /// <inheritdoc/>
@@ -314,8 +328,9 @@ namespace Apache.Ignite.Internal.Compute
 
             var jobId = reader.ReadGuid();
             var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
+            var node = ClusterNode.Read(ref reader);
 
-            return new JobExecution<T>(jobId, resultTask, this);
+            return new JobExecution<T>(jobId, resultTask, this, node);
 
             async Task<(T, JobState)> GetResult(NotificationHandler handler)
             {
@@ -377,9 +392,11 @@ namespace Apache.Ignite.Internal.Compute
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
-            using PooledBuffer res = await _socket.DoOutInOpAsync(
-                    ClientOp.ComputeExecute, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
+            var (buf, sock) = await _socket.DoOutInOpAndGetSocketAsync(
+                    ClientOp.ComputeExecute, tx: null, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
+
+            using var res = buf;
 
             return GetJobExecution(res, readSchema: false, jobDescriptor.ResultMarshaller);
 
@@ -442,9 +459,11 @@ namespace Apache.Ignite.Internal.Compute
                     var colocationHash = Write(bufferWriter, table, schema);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
-                    using var res = await _socket.DoOutInOpAsync(
-                            ClientOp.ComputeExecuteColocated, bufferWriter, preferredNode, expectNotifications: true)
+                    var (resBuf, sock) = await _socket.DoOutInOpAndGetSocketAsync(
+                            ClientOp.ComputeExecuteColocated, tx: null, bufferWriter, preferredNode, expectNotifications: true)
                         .ConfigureAwait(false);
+
+                    using var res = resBuf;
 
                     return GetJobExecution(res, readSchema: true, descriptor.ResultMarshaller);
                 }

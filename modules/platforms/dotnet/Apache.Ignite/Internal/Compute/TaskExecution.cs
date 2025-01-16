@@ -87,10 +87,6 @@ internal sealed record TaskExecution<T> : ITaskExecution<T>
     }
 
     /// <inheritdoc/>
-    public async Task<bool?> CancelAsync() =>
-        await _compute.CancelJobAsync(Id).ConfigureAwait(false);
-
-    /// <inheritdoc/>
     public async Task<bool?> ChangePriorityAsync(int priority) =>
         await _compute.ChangeJobPriorityAsync(Id, priority).ConfigureAwait(false);
 
