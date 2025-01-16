@@ -75,6 +75,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.ClusterState;
+import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesExtensionConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
@@ -680,7 +681,7 @@ public class IgniteImpl implements Ignite {
                 cmgRaftConfigurer
         );
 
-        groupStorageDestructor.addGroupOptionsConfigurer(MetastorageGroupId.INSTANCE, cmgRaftConfigurer);
+        groupStorageDestructor.addGroupOptionsConfigurer(CmgGroupId.INSTANCE, cmgRaftConfigurer);
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
 
