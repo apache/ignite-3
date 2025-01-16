@@ -166,7 +166,7 @@ public class ClientLazyTransaction implements Transaction {
     }
 
     /**
-     * Returns actual {@link ClientTransaction} started by this transaction or throws an exception if no transaction was started yet.
+     * Returns actual {@link ClientTransaction} started by this transaction.
      */
     public ClientTransaction startedTx() {
         var tx0 = tx;
