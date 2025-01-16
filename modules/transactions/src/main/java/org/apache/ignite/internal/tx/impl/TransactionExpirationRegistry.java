@@ -113,11 +113,7 @@ class TransactionExpirationRegistry {
         Long expirationTime = expirationTimeByTx.remove(tx);
 
         if (expirationTime != null) {
-            txsByExpirationTime.compute(expirationTime, (k, set) -> {
-                if (set == null) {
-                    return null;
-                }
-
+            txsByExpirationTime.computeIfPresent(expirationTime, (k, set) -> {
                 set.remove(tx);
 
                 return set.isEmpty() ? null : set;
