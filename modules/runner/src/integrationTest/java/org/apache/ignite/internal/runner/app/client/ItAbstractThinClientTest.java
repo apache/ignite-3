@@ -32,18 +32,27 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
@@ -203,6 +212,61 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
         return client.clusterNodes().stream()
                 .sorted(Comparator.comparing(ClusterNode::name))
                 .collect(toList());
+    }
+
+    /**
+     * Submits the job for execution, verifies that the execution future completes successfully and returns an execution object.
+     *
+     * @param <T> Job argument (T)ype.
+     * @param <R> Job (R)esult type.
+     * @param target Execution target.
+     * @param descriptor Job descriptor.
+     * @param arg Argument of the job.
+     * @return Job execution object.
+     */
+    protected <T, R> JobExecution<R> submit(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return submit(target, descriptor, null, arg);
+    }
+
+    protected <T, R> JobExecution<R> submit(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        //noinspection resource (closed in afterAll)
+        CompletableFuture<JobExecution<R>> executionFut = client().compute().submitAsync(target, descriptor, arg, cancellationToken);
+        assertThat(executionFut, willCompleteSuccessfully());
+        return executionFut.join();
+    }
+
+    protected <T, R> BroadcastExecution<R> submit(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return submit(nodes, descriptor, null, arg);
+    }
+
+    protected <T, R> BroadcastExecution<R> submit(
+            Set<ClusterNode> nodes,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            @Nullable T arg
+    ) {
+        //noinspection resource (closed in afterAll)
+        CompletableFuture<BroadcastExecution<R>> executionFut = client().compute().submitAsync(
+                BroadcastJobTarget.nodes(nodes),
+                descriptor,
+                arg,
+                cancellationToken
+        );
+        assertThat(executionFut, willCompleteSuccessfully());
+        return executionFut.join();
     }
 
     /**

@@ -26,9 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -98,11 +100,22 @@ public class TestMetasStorageUtils {
 
     /** Returns {@code true} if the metastorage key has only one revision in the cluster. */
     public static boolean allNodesContainSingleRevisionForKeyLocally(Cluster cluster, ByteArray key, long revision) {
+        return collectRevisionForKeyForAllNodesLocally(cluster, key).values().stream()
+                .allMatch(keyRevisions -> keyRevisions.size() == 1 && keyRevisions.contains(revision));
+    }
+
+    /** Returns a mapping of a node name to local key revisions. */
+    public static Map<String, Set<Long>> collectRevisionForKeyForAllNodesLocally(Cluster cluster, ByteArray key) {
         return cluster.runningNodes()
                 .map(TestWrappers::unwrapIgniteImpl)
-                .map(IgniteImpl::metaStorageManager)
-                .map(metaStorageManager -> collectRevisionsLocally(metaStorageManager, key))
-                .allMatch(keyRevisions -> keyRevisions.size() == 1 && keyRevisions.contains(revision));
+                .collect(Collectors.toMap(IgniteImpl::name, ignite -> collectRevisionsLocally(ignite.metaStorageManager(), key)));
+    }
+
+    /** Returns a mapping of a node name to local compaction revisions. */
+    public static Map<String, Long> collectCompactionRevisionForAllNodesLocally(Cluster cluster) {
+        return cluster.runningNodes()
+                .map(TestWrappers::unwrapIgniteImpl)
+                .collect(Collectors.toMap(IgniteImpl::name, ignite -> ignite.metaStorageManager().getCompactionRevisionLocally()));
     }
 
     private static Set<Long> collectRevisionsLocally(MetaStorageManager metaStorageManager, ByteArray key) {

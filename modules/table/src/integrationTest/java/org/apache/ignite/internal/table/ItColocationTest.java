@@ -53,6 +53,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -163,6 +164,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    private static SystemLocalConfiguration systemLocalConfiguration;
+
     @InjectExecutorService
     private static ScheduledExecutorService commonExecutor;
 
@@ -197,7 +201,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 txConfiguration,
                 clusterService,
                 replicaService,
-                new HeapLockManager(),
+                new HeapLockManager(systemLocalConfiguration),
                 clockService,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
@@ -461,7 +465,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     }
 
     private static LockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager();
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }

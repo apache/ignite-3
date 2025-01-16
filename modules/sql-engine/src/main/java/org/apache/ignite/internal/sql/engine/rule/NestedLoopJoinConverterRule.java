@@ -27,6 +27,7 @@ import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteNestedLoopJoin;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 
 /**
  * Ignite Join converter.
@@ -45,12 +46,11 @@ public class NestedLoopJoinConverterRule extends AbstractIgniteConverterRule<Log
     @Override
     protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalJoin rel) {
         RelOptCluster cluster = rel.getCluster();
-        RelTraitSet outTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
-        RelTraitSet leftInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
-        RelTraitSet rightInTraits = cluster.traitSetOf(IgniteConvention.INSTANCE);
-        RelNode left = convert(rel.getLeft(), leftInTraits);
-        RelNode right = convert(rel.getRight(), rightInTraits);
+        RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE)
+                .replace(IgniteDistributions.single());
+        RelNode left = convert(rel.getLeft(), traits);
+        RelNode right = convert(rel.getRight(), traits);
 
-        return new IgniteNestedLoopJoin(cluster, outTraits, left, right, rel.getCondition(), rel.getVariablesSet(), rel.getJoinType());
+        return new IgniteNestedLoopJoin(cluster, traits, left, right, rel.getCondition(), rel.getVariablesSet(), rel.getJoinType());
     }
 }

@@ -133,4 +133,25 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
                 this::assertErrOutputIsEmpty
         );
     }
+
+    @Test
+    void exceptionHandler() {
+        execute("sql", "SELECT 1/0;", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("SQL query execution error"),
+                () -> assertErrOutputContains("Division by zero"),
+                () -> assertErrOutputDoesNotContain("Unknown error")
+        );
+
+        execute("sql", "SELECT * FROM NOTEXISTEDTABLE;", "--jdbc-url", JDBC_URL);
+
+        assertAll(
+                this::assertOutputIsEmpty,
+                () -> assertErrOutputContains("SQL query execution error"),
+                () -> assertErrOutputContains("Object 'NOTEXISTEDTABLE' not found"),
+                () -> assertErrOutputDoesNotContain("Unknown error")
+        );
+    }
 }

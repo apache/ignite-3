@@ -25,7 +25,9 @@ import static org.apache.ignite.compute.TaskStatus.FAILED;
 import static org.apache.ignite.compute.TaskStatus.QUEUED;
 
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.TaskStatus;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Mapper for job status from\to task status.
@@ -33,12 +35,32 @@ import org.apache.ignite.compute.TaskStatus;
 public class JobTaskStatusMapper {
 
     /**
+     * Map task state to job state.
+     *
+     * @param taskState Task state.
+     * @return Mapped job state.
+     */
+    public static @Nullable JobStateImpl toJobState(@Nullable TaskState taskState) {
+        if (taskState == null) {
+            return null;
+
+        }
+        return JobStateImpl.builder()
+                .id(taskState.id())
+                .createTime(taskState.createTime())
+                .startTime(taskState.startTime())
+                .finishTime(taskState.finishTime())
+                .status(toJobStatus(taskState.status()))
+                .build();
+    }
+
+    /**
      * Map task status to job status.
      *
      * @param taskStatus Task status.
      * @return Mapped job status.
      */
-    public static JobStatus toJobStatus(TaskStatus taskStatus) {
+    private static JobStatus toJobStatus(TaskStatus taskStatus) {
         switch (taskStatus) {
             case QUEUED:
                 return JobStatus.QUEUED;
@@ -63,7 +85,7 @@ public class JobTaskStatusMapper {
      * @param jobStatus Job status.
      * @return Mapped task status.
      */
-    public static TaskStatus toTaskStatus(JobStatus jobStatus) {
+    static TaskStatus toTaskStatus(JobStatus jobStatus) {
         switch (jobStatus) {
             case QUEUED:
                 return QUEUED;
