@@ -59,10 +59,13 @@ public class RaftConfigurationSchema {
     public long responseTimeout = 3_000;
 
     /**
-     * Call fsync when need.
+     * Whether Raft log entries should be fsynced on table partition groups before reporting that the entries are replicated.
+     *
+     * <p>When this is {@code false}, the node might lose user data in case of an OS crash. Crash of just Ignite application
+     * does not cause user data loss even when this setting is {@code false}.
      */
     @Value(hasDefault = true)
-    public boolean fsync = true;
+    public boolean fsync = false;
 
     /**
      * Amount of Disruptors that will handle the RAFT server.
