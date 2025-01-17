@@ -39,7 +39,7 @@ public class TransactionConfigurationSchema {
     /** Default transaction timeout (milliseconds). */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public final long timeout = 3_000;
+    public final long timeout = 10_000;
 
     /** Timeout for implicit transactions (milliseconds). */
     @Range(min = 1)
