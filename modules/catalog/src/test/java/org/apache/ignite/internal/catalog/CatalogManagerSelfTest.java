@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -59,7 +60,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommand;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommandFailure;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
@@ -247,7 +247,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void alwaysWaitForActivationTime() throws Exception {
         delayDuration.set(TimeUnit.DAYS.toMillis(365));
-        partitionIdleSafeTimePropagationPeriod.set(0);
         reset(updateLog);
 
         CatalogCommand catalogCommand = spy(TestCommand.ok());
@@ -280,9 +279,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertNotNull(catalog0);
 
-        HybridTimestamp activationSkew = CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads(
-                catalog0,
-                () -> partitionIdleSafeTimePropagationPeriod.get(), clockService.maxClockSkewMillis());
+        HybridTimestamp activationSkew = clusterWideEnsuredActivationTimestamp(catalog0.time(), clockService.maxClockSkewMillis());
 
         clock.update(activationSkew);
 

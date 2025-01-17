@@ -71,7 +71,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         clockWaiter = new ClockWaiter("test", clock, scheduledExecutor);
         assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        commandHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
+        commandHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter));
     }
 
     @AfterEach

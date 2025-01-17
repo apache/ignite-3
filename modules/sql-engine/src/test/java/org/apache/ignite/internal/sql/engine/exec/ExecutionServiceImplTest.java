@@ -980,7 +980,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     @Test
     public void testTimeoutSelectCount() {
         // SELECT COUNT(*) does not run in transactional context.
-        QueryTransactionContext txContext = ImplicitTxContext.instance();
+        QueryTransactionContext txContext = ImplicitTxContext.create();
 
         // Use a separate context, so planning won't timeout.
         SqlOperationContext planCtx = operationContext()
@@ -1171,7 +1171,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void ddlExecutionUpdatesObservableTime() {
-        SqlOperationContext planCtx = operationContext().txContext(ImplicitTxContext.instance()).build();
+        SqlOperationContext planCtx = operationContext().txContext(ImplicitTxContext.create()).build();
         QueryPlan plan = prepare("CREATE TABLE x (id INTEGER PRIMARY KEY)", planCtx);
 
         assertInstanceOf(DdlPlan.class, plan);

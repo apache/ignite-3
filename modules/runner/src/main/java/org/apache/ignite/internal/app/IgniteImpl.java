@@ -877,8 +877,7 @@ public class IgniteImpl implements Ignite {
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockService,
-                delayDurationMsSupplier,
-                partitionIdleSafeTimePropagationPeriodMsSupplier
+                delayDurationMsSupplier
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
@@ -1095,7 +1094,6 @@ public class IgniteImpl implements Ignite {
                 metricManager,
                 systemViewManager,
                 failureManager,
-                partitionIdleSafeTimePropagationPeriodMsSupplier,
                 placementDriverMgr.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlClusterExtensionConfiguration.KEY).sql(),
                 nodeConfigRegistry.getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
