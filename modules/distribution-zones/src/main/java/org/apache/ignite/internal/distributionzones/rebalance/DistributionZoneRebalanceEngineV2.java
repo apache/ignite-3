@@ -19,7 +19,6 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
@@ -28,6 +27,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.triggerZonePartitionsRebalance;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -170,19 +170,28 @@ public class DistributionZoneRebalanceEngineV2 {
             Set<String> filteredDataNodes = filterDataNodes(dataNodes, zoneDescriptor, nodesAttributes);
 
             if (LOG.isInfoEnabled()) {
-                List<NodeWithAttributes> filteredOutNodes = dataNodes.stream()
-                        .filter(node -> !filteredDataNodes.contains(node.nodeName()))
-                        .map(node -> nodesAttributes.get(node.nodeId()))
-                        .collect(toList());
+                var matchedNodes = new ArrayList<NodeWithAttributes>();
+                var filteredOutNodes = new ArrayList<NodeWithAttributes>();
+
+                for (Node dataNode : dataNodes) {
+                    NodeWithAttributes nodeWithAttributes = nodesAttributes.get(dataNode.nodeId());
+
+                    if (filteredDataNodes.contains(dataNode.nodeName())) {
+                        matchedNodes.add(nodeWithAttributes);
+                    } else {
+                        filteredOutNodes.add(nodeWithAttributes);
+                    }
+                }
 
                 if (!filteredOutNodes.isEmpty()) {
                     LOG.info(
-                            "Some data nodes were filtered out because they don't match zone's attributes: "
-                                    + "zoneId={}, filter={}, storageProfiles={}, filteredOutNodes={}",
+                            "Some data nodes were filtered out because they don't match zone's attributes:"
+                                    + "\n\tzoneId={}\n\tfilter={}\n\tstorageProfiles={}'\n\tfilteredOutNodes={}\n\tremainingNodes={}",
                             zoneDescriptor.id(),
                             zoneDescriptor.filter(),
                             zoneDescriptor.storageProfiles(),
-                            filteredOutNodes
+                            filteredOutNodes,
+                            matchedNodes
                     );
                 }
             }
