@@ -63,4 +63,15 @@ public interface BroadcastJobTarget {
     static BroadcastJobTarget nodes(Set<ClusterNode> nodes) {
         return new AllNodesBroadcastJobTarget(nodes);
     }
+
+    /**
+     * Creates a job target for partitioned execution. For each partition in the provided table the job will be executed on a node that
+     * holds the primary replica.
+     *
+     * @param tableName Table name.
+     * @return Job target.
+     */
+    static BroadcastJobTarget table(String tableName) {
+        return new TableJobTarget(tableName);
+    }
 }
