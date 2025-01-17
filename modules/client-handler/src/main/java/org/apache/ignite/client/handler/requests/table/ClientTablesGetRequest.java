@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -44,7 +46,7 @@ public class ClientTablesGetRequest {
                 var tableImpl = (TableViewInternal) table;
 
                 out.packInt(tableImpl.tableId());
-                out.packString(table.name().toCanonicalForm());
+                out.packString(quote(table.name().objectName()));
             }
         });
     }

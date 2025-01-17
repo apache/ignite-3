@@ -99,7 +99,6 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -239,10 +238,10 @@ import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -1615,7 +1614,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     ) {
         QualifiedName tableName = QualifiedNameHelper.fromNormalized(schemaDescriptor.name(), tableDescriptor.name());
 
-        LOG.trace("Creating local table: name={}, id={}, token={}", tableDescriptor.name(), tableDescriptor.id(), causalityToken);
+        LOG.trace("Creating local table: name={}, id={}, token={}", tableName.toCanonicalForm(), tableDescriptor.id(), causalityToken);
 
         MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor);
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableDescriptor, zoneDescriptor);
@@ -1984,7 +1983,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public Table table(String name) {
+    public Table table(QualifiedName name) {
         return join(tableAsync(name));
     }
 
@@ -1994,8 +1993,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Table> tableAsync(String name) {
-        return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name))
+    public CompletableFuture<Table> tableAsync(QualifiedName name) {
+        return tableAsyncInternal(name)
                 .thenApply(identity());
     }
 
@@ -2048,13 +2047,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public TableViewInternal tableView(String name) {
+    public TableViewInternal tableView(QualifiedName name) {
         return join(tableViewAsync(name));
     }
 
     @Override
-    public CompletableFuture<TableViewInternal> tableViewAsync(String name) {
-        return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name));
+    public CompletableFuture<TableViewInternal> tableViewAsync(QualifiedName name) {
+        return tableAsyncInternal(name);
     }
 
     /**
@@ -2063,13 +2062,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param name Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
-    private CompletableFuture<TableViewInternal> tableAsyncInternal(String name) {
+    private CompletableFuture<TableViewInternal> tableAsyncInternal(QualifiedName name) {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clockService.now();
 
             return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
                     .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                        CatalogTableDescriptor tableDescriptor = catalogService.table(SqlCommon.DEFAULT_SCHEMA_NAME, name, now.longValue());
+                        CatalogTableDescriptor tableDescriptor = catalogService.table(name.schemaName(), name.objectName(),
+                                now.longValue());
 
                         // Check if the table has been deleted.
                         if (tableDescriptor == null) {

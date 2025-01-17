@@ -17,10 +17,12 @@
 
 package org.apache.ignite.table;
 
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Utility class to provide direct access to internals of {@link org.apache.ignite.table.QualifiedName}.
+ * Utility class to provide direct access to internals of {@link QualifiedName}.
  */
 public final class QualifiedNameHelper {
     /**
@@ -33,11 +35,10 @@ public final class QualifiedNameHelper {
      * @param tableName Normalized table name.
      * @return Qualified name.
      */
-    public static QualifiedName fromNormalized(String schemaName, String tableName) {
-        assert schemaName != null;
+    public static QualifiedName fromNormalized(@Nullable String schemaName, String tableName) {
         assert tableName != null;
 
-        return new QualifiedName(schemaName, tableName);
+        return new QualifiedName(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName, tableName);
     }
 
     private QualifiedNameHelper() {

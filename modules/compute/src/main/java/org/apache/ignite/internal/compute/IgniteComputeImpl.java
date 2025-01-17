@@ -77,6 +77,7 @@ import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -440,12 +441,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private CompletableFuture<TableViewInternal> requiredTable(String tableName) {
-        String parsedName = IgniteNameUtils.parseSimpleName(tableName);
+        QualifiedName qualifiedName = QualifiedName.fromSimple(tableName);
 
-        return tables.tableViewAsync(parsedName)
+        return tables.tableViewAsync(qualifiedName)
                 .thenApply(table -> {
                     if (table == null) {
-                        throw new TableNotFoundException(SqlCommon.DEFAULT_SCHEMA_NAME, parsedName);
+                        throw new TableNotFoundException(qualifiedName);
                     }
                     return table;
                 });

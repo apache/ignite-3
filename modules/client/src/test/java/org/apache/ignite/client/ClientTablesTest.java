@@ -39,7 +39,7 @@ public class ClientTablesTest extends AbstractClientTest {
         var tables = client.tables().tables();
         assertEquals(2, tables.size());
 
-        assertThat(tables.stream().map(t -> t.name().objectName()).collect(Collectors.toList()), containsInAnyOrder(DEFAULT_TABLE, "t"));
+        assertThat(tables.stream().map(t -> t.name().objectName()).collect(Collectors.toList()), containsInAnyOrder(DEFAULT_TABLE, "T"));
     }
 
     @Test
@@ -59,7 +59,7 @@ public class ClientTablesTest extends AbstractClientTest {
 
     @Test
     public void testTableReturnsNullWhenDoesNotExist() {
-        Table table = client.tables().table("non-existent-table");
+        Table table = client.tables().table("\"non-existent-table\"");
 
         assertNull(table);
     }

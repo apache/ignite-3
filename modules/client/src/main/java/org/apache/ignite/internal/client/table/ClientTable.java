@@ -30,7 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
@@ -50,7 +49,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -109,17 +107,16 @@ public class ClientTable implements Table {
             ReliableChannel ch,
             MarshallersProvider marshallers,
             int id,
-            String name
+            QualifiedName name
     ) {
         assert ch != null;
         assert marshallers != null;
-        assert name != null && !name.isEmpty();
+        assert name != null;
 
         this.ch = ch;
         this.marshallers = marshallers;
         this.id = id;
-        // TODO IGNITE-24029 Client API should use QualifiedName.
-        this.name = QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, name);
+        this.name = name;
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
         this.sql = new ClientSql(ch, marshallers);
         clientPartitionManager = new ClientPartitionManager(this);

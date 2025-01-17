@@ -27,7 +27,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -36,7 +35,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
@@ -72,8 +70,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     public static final String BAD_TABLE_ERR = "Err!";
 
-    // TODO Make Client API use QualifiedName
-    private final ConcurrentHashMap<String, TableViewInternal> tables = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<QualifiedName, TableViewInternal> tables = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<Integer, TableViewInternal> tablesById = new ConcurrentHashMap<>();
 
@@ -108,7 +105,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
     public TableViewInternal createTable(String name, int id) {
         var newTable = getNewTable(name, id);
 
-        var oldTable = tables.putIfAbsent(name, newTable);
+        var oldTable = tables.putIfAbsent(QualifiedName.parse(name), newTable);
 
         if (oldTable != null) {
             throw new IgniteException(INTERNAL_ERR, TABLE_EXISTS);
@@ -125,6 +122,15 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      * @param name Table name.
      */
     public void dropTable(String name) {
+        dropTable(QualifiedName.parse(name));
+    }
+
+    /**
+     * Drops a table.
+     *
+     * @param name Table name.
+     */
+    public void dropTable(QualifiedName name) {
         var table = tables.remove(name);
 
         if (table != null) {
@@ -146,8 +152,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public Table table(String name) {
-        if (BAD_TABLE.equals(name)) {
+    public Table table(QualifiedName name) {
+        if (name.toCanonicalForm().contains(BAD_TABLE)) {
             throw new RuntimeException(BAD_TABLE_ERR);
         }
 
@@ -162,7 +168,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Table> tableAsync(String name) {
+    public CompletableFuture<Table> tableAsync(QualifiedName name) {
         return completedFuture(table(name));
     }
 
@@ -174,13 +180,13 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     /** {@inheritDoc} */
     @Override
-    public TableViewInternal tableView(String name) {
+    public TableViewInternal tableView(QualifiedName name) {
         return tables.get(name);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<TableViewInternal> tableViewAsync(String name) {
+    public CompletableFuture<TableViewInternal> tableViewAsync(QualifiedName name) {
         return completedFuture(tableView(name));
     }
 
@@ -230,7 +236,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
             return BinaryRowConverter.keyExtractor(schema).extractColumns(row);
         };
 
-        QualifiedName tableName = QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, name);
+        QualifiedName tableName = QualifiedName.parse(name);
         return new TableImpl(
                 new FakeInternalTable(tableName, id, keyExtractor, compute, placementDriver),
                 schemaReg,

@@ -92,7 +92,7 @@ public interface JobTarget {
      * @return Job target.
      */
     static JobTarget colocated(String tableName, Tuple key) {
-        return new ColocatedJobTarget(tableName, key, null);
+        return colocated(QualifiedName.parse(tableName), key);
     }
 
     /**
@@ -119,7 +119,7 @@ public interface JobTarget {
      * @return Job target.
      */
     static <K> JobTarget colocated(String tableName, K key, Mapper<K> keyMapper) {
-        return new ColocatedJobTarget(tableName, key, keyMapper);
+        return colocated(QualifiedName.parse(tableName), key, keyMapper);
     }
 
     /**
@@ -132,6 +132,7 @@ public interface JobTarget {
      * @return Job target.
      */
     static <K> JobTarget colocated(QualifiedName tableName, K key, Mapper<K> keyMapper) {
+        // TODO IGNITE-24033 Compute API must use QualifiedName.
         return new ColocatedJobTarget(tableName.objectName(), key, keyMapper);
     }
 }
