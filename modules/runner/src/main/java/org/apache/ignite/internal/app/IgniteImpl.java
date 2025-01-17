@@ -1291,7 +1291,7 @@ public class IgniteImpl implements Ignite {
     /**
      * Starts ignite node.
      *
-     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * <p>When the returned future completes, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @return Future that will be completed when the node is started.
