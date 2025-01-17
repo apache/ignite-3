@@ -550,14 +550,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         return sqlStatisticManager;
     }
 
-    private static boolean shouldBeCached(SqlQueryType queryType) {
-        return queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML;
-    }
-
     private ParsedResult parseAndCache(String sql) {
         ParsedResult result = queryExecutor.parse(sql);
 
-        if (shouldBeCached(result.queryType())) {
+        if (result.queryType().supportsParseResultCaching()) {
             queryExecutor.updateParsedResultCache(sql, result);
         }
 

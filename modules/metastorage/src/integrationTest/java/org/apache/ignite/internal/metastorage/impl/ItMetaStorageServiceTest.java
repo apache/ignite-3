@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.metastorage.impl.ItMetaStorageServiceTe
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.findLocalAddresses;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToValue;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -43,12 +44,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -85,6 +83,7 @@ import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.OperationType;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.OperationTimeoutException;
 import org.apache.ignite.internal.metastorage.server.AbstractCompoundCondition;
@@ -347,111 +346,102 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     /**
      * Tests {@link MetaStorageService#get(ByteArray)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testGet() throws Exception {
+    public void testGet() {
         Node node = prepareNodes(1).get(0);
 
         when(node.mockStorage.get(EXPECTED_RESULT_ENTRY.key())).thenReturn(EXPECTED_RESULT_ENTRY);
 
         startNodes();
 
-        assertEquals(EXPECTED_RESULT_ENTRY, node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
+        assertThat(node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())), willBe(EXPECTED_RESULT_ENTRY));
     }
 
     /**
      * Tests {@link MetaStorageService#get(ByteArray, long)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testGetWithUpperBoundRevision() throws Exception {
+    public void testGetWithUpperBoundRevision() {
         Node node = prepareNodes(1).get(0);
 
         when(node.mockStorage.get(EXPECTED_RESULT_ENTRY.key(), EXPECTED_RESULT_ENTRY.revision())).thenReturn(EXPECTED_RESULT_ENTRY);
 
         startNodes();
 
-        assertEquals(
-                EXPECTED_RESULT_ENTRY,
-                node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key()), EXPECTED_RESULT_ENTRY.revision()).get()
+        assertThat(
+                node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key()), EXPECTED_RESULT_ENTRY.revision()),
+                willBe(EXPECTED_RESULT_ENTRY)
         );
     }
 
     /**
      * Tests {@link MetaStorageService#getAll(Set)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testGetAll() throws Exception {
+    public void testGetAll() {
         Node node = prepareNodes(1).get(0);
 
         when(node.mockStorage.getAll(anyList())).thenReturn(EXPECTED_SRV_RESULT_COLL);
 
         startNodes();
 
-        assertEquals(EXPECTED_RESULT_MAP, node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet()).get());
+        assertThat(node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet()), willBe(EXPECTED_RESULT_MAP));
     }
 
     /**
      * Tests {@link MetaStorageService#getAll(Set, long)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testGetAllWithUpperBoundRevision() throws Exception {
+    public void testGetAllWithUpperBoundRevision() {
         Node node = prepareNodes(1).get(0);
 
         when(node.mockStorage.getAll(anyList(), eq(10L))).thenReturn(EXPECTED_SRV_RESULT_COLL);
 
         startNodes();
 
-        assertEquals(
-                EXPECTED_RESULT_MAP,
-                node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet(), 10).get()
-        );
+        assertThat(node.metaStorageService.getAll(EXPECTED_RESULT_MAP.keySet(), 10), willBe(EXPECTED_RESULT_MAP));
     }
 
     /**
      * Tests {@link MetaStorageService#put(ByteArray, byte[])}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testPut() throws Exception {
+    public void testPut() {
         Node node = prepareNodes(1).get(0);
 
         ByteArray expKey = new ByteArray(new byte[]{1});
 
         byte[] expVal = {2};
 
-        doNothing().when(node.mockStorage).put(eq(expKey.bytes()), eq(expVal), any());
-
         startNodes();
 
-        node.metaStorageService.put(expKey, expVal).get();
+        assertThat(node.metaStorageService.put(expKey, expVal), willCompleteSuccessfully());
+
+        verify(node.mockStorage).put(eq(expKey.bytes()), eq(expVal), any());
     }
 
     /**
      * Tests {@link MetaStorageService#putAll(Map)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testPutAll() throws Exception {
+    public void testPutAll() {
         Node node = prepareNodes(1).get(0);
 
         startNodes();
 
-        node.metaStorageService.putAll(
-                EXPECTED_RESULT_MAP.entrySet().stream()
-                        .collect(Collectors.toMap(
-                                Map.Entry::getKey,
-                                e -> e.getValue().value())
-                        )
-        ).get();
+        Map<ByteArray, byte[]> values = EXPECTED_RESULT_MAP.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> e.getValue().value()
+                ));
+
+        assertThat(node.metaStorageService.putAll(values), willCompleteSuccessfully());
 
         ArgumentCaptor<List<byte[]>> keysCaptor = ArgumentCaptor.forClass(List.class);
         ArgumentCaptor<List<byte[]>> valuesCaptor = ArgumentCaptor.forClass(List.class);
@@ -459,7 +449,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         verify(node.mockStorage).putAll(keysCaptor.capture(), valuesCaptor.capture(), any());
 
         // Assert keys equality.
-        assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
+        assertEquals(EXPECTED_RESULT_MAP.size(), keysCaptor.getValue().size());
 
         List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream()
                 .map(ByteArray::bytes).collect(toList());
@@ -469,7 +459,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         }
 
         // Assert values equality.
-        assertEquals(EXPECTED_RESULT_MAP.values().size(), valuesCaptor.getValue().size());
+        assertEquals(EXPECTED_RESULT_MAP.size(), valuesCaptor.getValue().size());
 
         List<byte[]> expVals = EXPECTED_RESULT_MAP.values().stream()
                 .map(Entry::value).collect(toList());
@@ -482,33 +472,31 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     /**
      * Tests {@link MetaStorageService#remove(ByteArray)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testRemove() throws Exception {
+    public void testRemove() {
         Node node = prepareNodes(1).get(0);
 
         ByteArray expKey = new ByteArray(new byte[]{1});
 
-        doNothing().when(node.mockStorage).remove(eq(expKey.bytes()), any());
-
         startNodes();
 
-        node.metaStorageService.remove(expKey).get();
+        assertThat(node.metaStorageService.remove(expKey), willCompleteSuccessfully());
+
+        verify(node.mockStorage).remove(eq(expKey.bytes()), any());
     }
 
     /**
      * Tests {@link MetaStorageService#removeAll(Set)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testRemoveAll() throws Exception {
+    public void testRemoveAll() {
         Node node = prepareNodes(1).get(0);
 
         startNodes();
 
-        node.metaStorageService.removeAll(EXPECTED_RESULT_MAP.keySet()).get();
+        assertThat(node.metaStorageService.removeAll(EXPECTED_RESULT_MAP.keySet()), willCompleteSuccessfully());
 
         List<byte[]> expKeys = EXPECTED_RESULT_MAP.keySet().stream()
                 .map(ByteArray::bytes).collect(toList());
@@ -517,7 +505,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         verify(node.mockStorage).removeAll(keysCaptor.capture(), any());
 
-        assertEquals(EXPECTED_RESULT_MAP.keySet().size(), keysCaptor.getValue().size());
+        assertEquals(EXPECTED_RESULT_MAP.size(), keysCaptor.getValue().size());
 
         for (int i = 0; i < expKeys.size(); i++) {
             assertArrayEquals(expKeys.get(i), keysCaptor.getValue().get(i));
@@ -527,19 +515,18 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     /**
      * Tests {@link MetaStorageService#removeByPrefix(ByteArray)}.
      *
-     * @throws Exception If failed.
      */
     @Test
-    public void testRemoveByPrefix() throws Exception {
+    public void testRemoveByPrefix() {
         Node node = prepareNodes(1).get(0);
 
         startNodes();
 
         ByteArray prefix = new ByteArray(new byte[]{1});
 
-        doNothing().when(node.mockStorage).removeByPrefix(eq(prefix.bytes()), any());
+        assertThat(node.metaStorageService.removeByPrefix(prefix), willCompleteSuccessfully());
 
-        node.metaStorageService.removeByPrefix(prefix).get();
+        verify(node.mockStorage).removeByPrefix(eq(prefix.bytes()), any());
     }
 
     /**
@@ -647,7 +634,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testMultiInvoke() throws Exception {
+    public void testMultiInvoke() {
         Node node = prepareNodes(1).get(0);
 
         ByteArray key1 = new ByteArray(new byte[]{1});
@@ -691,7 +678,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        assertTrue(node.metaStorageService.invoke(iif).get().getAsBoolean());
+        assertThat(node.metaStorageService.invoke(iif).thenApply(StatementResult::getAsBoolean), willBe(true));
 
         verify(node.mockStorage).invoke(ifCaptor.capture(), any(), any());
 
@@ -731,7 +718,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testInvoke() throws Exception {
+    public void testInvoke() {
         Node node = prepareNodes(1).get(0);
 
         ByteArray expKey = new ByteArray(new byte[]{1});
@@ -748,7 +735,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         Operation failure = Operations.noop();
 
-        assertTrue(node.metaStorageService.invoke(condition, success, failure).get());
+        assertThat(node.metaStorageService.invoke(condition, success, failure), willBe(true));
 
         var conditionCaptor = ArgumentCaptor.forClass(AbstractSimpleCondition.class);
 
@@ -781,7 +768,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        assertThrows(CompactedException.class, () -> node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
+        assertThat(node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())), willThrow(CompactedException.class));
     }
 
     /**
@@ -796,7 +783,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
         startNodes();
 
-        assertThrows(OperationTimeoutException.class, () -> node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())).get());
+        assertThat(node.metaStorageService.get(new ByteArray(EXPECTED_RESULT_ENTRY.key())), willThrow(OperationTimeoutException.class));
     }
 
     private static Subscriber<Entry> singleElementSubscriber() {

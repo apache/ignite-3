@@ -2,6 +2,7 @@
 -- noinspection SqlNoDataSourceInspectionForFile
 
 SELECT
+    /*+ NO_INDEX, DISABLE_RULE('MergeJoinConverter') */
     o_year,
     sum(CASE
             WHEN nation = 'BRAZIL'

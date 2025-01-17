@@ -45,6 +45,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -86,9 +88,13 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     );
 
     /**
-     * Table size. TODO make it configurable IGNITE-20694
+     * Table size.
      */
-    public static final int SLOTS = 1_048_576;
+    public static final int DEFAULT_SLOTS = 1_048_576;
+
+    private static final String LOCK_MAP_SIZE_PROPERTY_NAME = "lockMapSize";
+
+    private static final String RAW_SLOTS_MAX_SIZE_PROPERTY_NAME = "rawSlotsMaxSize";
 
     /**
      * Striped lock concurrency.
@@ -145,11 +151,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         return new HeapLockManager(1024, 1024);
     }
 
-    /**
-     * Constructor.
-     */
-    public HeapLockManager() {
-        this(SLOTS, SLOTS);
+    /** Constructor. */
+    public HeapLockManager(SystemLocalConfiguration systemProperties) {
+        this(
+                intProperty(systemProperties, RAW_SLOTS_MAX_SIZE_PROPERTY_NAME, DEFAULT_SLOTS),
+                intProperty(systemProperties, LOCK_MAP_SIZE_PROPERTY_NAME, DEFAULT_SLOTS)
+        );
     }
 
     /**
@@ -165,6 +172,12 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         this.rawSlotsMaxSize = rawSlotsMaxSize;
         this.lockMapSize = lockMapSize;
+    }
+
+    private static int intProperty(SystemLocalConfiguration systemProperties, String name, int defaultValue) {
+        SystemPropertyView property = systemProperties.properties().value().get(name);
+
+        return property == null ? defaultValue : Integer.parseInt(property.propertyValue());
     }
 
     @Override

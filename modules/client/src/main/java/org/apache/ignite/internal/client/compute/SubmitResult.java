@@ -20,16 +20,19 @@ package org.apache.ignite.internal.client.compute;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.PayloadInputChannel;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Result of the job submission. Contains unpacked job id and notification future.
  */
 class SubmitResult {
     private final UUID jobId;
+    private final ClusterNode clusterNode;
     private final CompletableFuture<PayloadInputChannel> notificationFuture;
 
-    SubmitResult(UUID jobId, CompletableFuture<PayloadInputChannel> notificationFuture) {
+    SubmitResult(UUID jobId, ClusterNode clusterNode, CompletableFuture<PayloadInputChannel> notificationFuture) {
         this.jobId = jobId;
+        this.clusterNode = clusterNode;
         this.notificationFuture = notificationFuture;
     }
 
@@ -39,5 +42,9 @@ class SubmitResult {
 
     CompletableFuture<PayloadInputChannel> notificationFuture() {
         return notificationFuture;
+    }
+
+    public ClusterNode clusterNode() {
+        return clusterNode;
     }
 }

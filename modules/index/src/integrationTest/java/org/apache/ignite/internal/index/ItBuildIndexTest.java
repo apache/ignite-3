@@ -102,7 +102,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         checkIndexBuild(partitions, replicas, INDEX_NAME);
 
-        assertQuery(format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
+        assertQuery(format("SELECT /*+ FORCE_INDEX({}) */ * FROM {} WHERE i1 > 0", INDEX_NAME, TABLE_NAME))
                 .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
                 .returns(1, 1)
                 .returns(2, 2)

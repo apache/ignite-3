@@ -20,12 +20,13 @@ package org.apache.ignite.internal.compute;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.internal.testframework.matchers.JobExecutionMatcher.jobExecutionWithResultAndNode;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.aMapWithSize;
-import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -37,10 +38,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
@@ -119,11 +122,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.node(localNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        "a"),
+                        null),
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, null, "a");
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, null, null);
     }
 
     @Test
@@ -136,8 +139,9 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.node(localNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        cancelHandle.token(),
-                        "a"),
+                        null,
+                        cancelHandle.token()
+                ),
                 willBe("jobResponse")
         );
 
@@ -157,11 +161,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.node(newNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                        "a"),
+                        null),
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, null, "a");
+        verify(computeComponent).executeLocally(ExecutionOptions.DEFAULT, testDeploymentUnits, JOB_CLASS_NAME, null, null);
     }
 
     @Test
@@ -189,11 +193,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
                 compute.executeAsync(
                         JobTarget.node(localNode),
                         JobDescriptor.builder(JOB_CLASS_NAME).units(testDeploymentUnits).options(options).build(),
-                        "a"),
+                        null),
                 willBe("jobResponse")
         );
 
-        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, null, "a");
+        verify(computeComponent).executeLocally(expectedOptions, testDeploymentUnits, JOB_CLASS_NAME, null, null);
     }
 
     @Test
@@ -248,14 +252,18 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
         respondWhenExecutingSimpleJobLocally(ExecutionOptions.DEFAULT);
         respondWhenExecutingSimpleJobRemotely(ExecutionOptions.DEFAULT);
 
-        CompletableFuture<Map<ClusterNode, String>> future = compute.executeBroadcastAsync(
-                Set.of(localNode, remoteNode), JobDescriptor.<String, String>builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
-                "a"
+        CompletableFuture<BroadcastExecution<String>> future = compute.submitAsync(
+                BroadcastJobTarget.nodes(localNode, remoteNode),
+                JobDescriptor.<String, String>builder(JOB_CLASS_NAME).units(testDeploymentUnits).build(),
+                null
         );
+        assertThat(future, willCompleteSuccessfully());
+        Collection<JobExecution<String>> executions = future.join().executions();
 
-        assertThat(future, willBe(aMapWithSize(2)));
-        assertThat(future.join().keySet(), contains(localNode, remoteNode));
-        assertThat(future.join().values(), contains("jobResponse", "remoteResponse"));
+        assertThat(executions, containsInAnyOrder(
+                jobExecutionWithResultAndNode("jobResponse", localNode),
+                jobExecutionWithResultAndNode("remoteResponse", remoteNode)
+        ));
     }
 
     private void respondWhenAskForPrimaryReplica() {
@@ -268,29 +276,29 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions) {
-        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, null, "a"))
-                .thenReturn(completedExecution("jobResponse"));
+        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, null, null))
+                .thenReturn(completedExecution(SharedComputeUtils.marshalArgOrResult("jobResponse", null), localNode));
     }
 
     private void respondWhenExecutingSimpleJobLocally(ExecutionOptions executionOptions, CancellationToken token) {
-        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, token, "a"))
-                .thenReturn(completedExecution("jobResponse"));
+        when(computeComponent.executeLocally(executionOptions, testDeploymentUnits, JOB_CLASS_NAME, token, null))
+                .thenReturn(completedExecution(SharedComputeUtils.marshalArgOrResult("jobResponse", null), localNode));
     }
 
     private void respondWhenExecutingSimpleJobRemotely(ExecutionOptions options) {
         when(computeComponent.executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), isNull(), eq("a")
-        )).thenReturn(completedExecution("remoteResponse"));
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), isNull(), any()
+        )).thenReturn(completedExecution(SharedComputeUtils.marshalArgOrResult("remoteResponse", null), remoteNode));
     }
 
     private void verifyExecuteRemotelyWithFailover(ExecutionOptions options) {
         verify(computeComponent).executeRemotelyWithFailover(
-                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), isNull(), eq("a")
+                eq(remoteNode), any(), eq(testDeploymentUnits), eq(JOB_CLASS_NAME), eq(options), isNull(), any()
         );
     }
 
-    private static <R> JobExecution<R> completedExecution(R result) {
-        return new JobExecution<>() {
+    private static <R> CancellableJobExecution<R> completedExecution(@Nullable R result, ClusterNode node) {
+        return new CancellableJobExecution<>() {
             @Override
             public CompletableFuture<R> resultAsync() {
                 return completedFuture(result);
@@ -309,6 +317,11 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
             @Override
             public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
                 return nullCompletedFuture();
+            }
+
+            @Override
+            public ClusterNode node() {
+                return node;
             }
         };
     }

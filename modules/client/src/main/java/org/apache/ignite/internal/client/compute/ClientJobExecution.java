@@ -36,6 +36,7 @@ import org.apache.ignite.internal.compute.JobStateImpl;
 import org.apache.ignite.internal.compute.TaskStateImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -49,7 +50,9 @@ class ClientJobExecution<R> implements JobExecution<R> {
 
     private final ReliableChannel ch;
 
-    private final CompletableFuture<UUID> jobIdFuture;
+    private final UUID jobId;
+
+    private final ClusterNode node;
 
     private final CompletableFuture<R> resultAsync;
 
@@ -58,24 +61,22 @@ class ClientJobExecution<R> implements JobExecution<R> {
 
     ClientJobExecution(
             ReliableChannel ch,
-            CompletableFuture<SubmitResult> reqFuture,
+            SubmitResult submitResult,
             @Nullable Marshaller<R, byte[]> marshaller,
             @Nullable Class<R> resultClass
     ) {
         this.ch = ch;
+        this.jobId = submitResult.jobId();
+        node = submitResult.clusterNode();
 
-        jobIdFuture = reqFuture.thenApply(SubmitResult::jobId);
-
-        resultAsync = reqFuture
-                .thenCompose(SubmitResult::notificationFuture)
-                .thenApply(r -> {
-                    // Notifications require explicit input close.
-                    try (r) {
-                        Object result = ClientComputeJobUnpacker.unpackJobResult(r.in(), marshaller, resultClass);
-                        stateFuture.complete(unpackJobState(r));
-                        return (R) result;
-                    }
-                });
+        resultAsync = submitResult.notificationFuture().thenApply(r -> {
+            // Notifications require explicit input close.
+            try (r) {
+                Object result = ClientComputeJobUnpacker.unpackJobResult(r.in(), marshaller, resultClass);
+                stateFuture.complete(unpackJobState(r));
+                return (R) result;
+            }
+        });
     }
 
     @Override
@@ -88,15 +89,14 @@ class ClientJobExecution<R> implements JobExecution<R> {
         if (stateFuture.isDone()) {
             return stateFuture;
         }
-        return jobIdFuture.thenCompose(jobId -> getJobState(ch, jobId));
+        return getJobState(ch, jobId);
     }
 
-    @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync() {
         if (stateFuture.isDone()) {
             return falseCompletedFuture();
         }
-        return jobIdFuture.thenCompose(jobId -> cancelJob(ch, jobId));
+        return cancelJob(ch, jobId);
     }
 
     @Override
@@ -104,7 +104,12 @@ class ClientJobExecution<R> implements JobExecution<R> {
         if (stateFuture.isDone()) {
             return falseCompletedFuture();
         }
-        return jobIdFuture.thenCompose(jobId -> changePriority(ch, jobId, newPriority));
+        return changePriority(ch, jobId, newPriority);
+    }
+
+    @Override
+    public ClusterNode node() {
+        return node;
     }
 
     static CompletableFuture<@Nullable JobState> getJobState(ReliableChannel ch, UUID jobId) {

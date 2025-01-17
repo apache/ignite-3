@@ -15,23 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.internal.sql.engine.util;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
+/** Enumerates scale factors supported for TPC tables. */
+public enum TpcScaleFactor {
+    SF_1GB, SF_1TB, SF_3TB, SF_10TB, SF_30TB, SF_100TB;
 
-import java.util.Arrays;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-import org.apache.ignite.compute.ComputeJob;
-import org.apache.ignite.compute.JobExecutionContext;
+    /** Returns size that corresponds for current scale factor. */ 
+    public long size(long... sizes) {
+        assert sizes.length == values().length;
 
-/** Compute job that concatenates the string representation of its arguments. */
-public class ConcatJob implements ComputeJob<Object[], String> {
-    @Override
-    public CompletableFuture<String> executeAsync(JobExecutionContext context, Object... input) {
-        return completedFuture(Arrays.stream(input)
-                .map(Object::toString)
-                .collect(Collectors.joining()));
-    }
+        return sizes[ordinal()];
+    } 
 }
-

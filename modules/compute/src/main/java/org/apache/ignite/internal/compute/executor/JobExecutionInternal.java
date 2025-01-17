@@ -20,9 +20,11 @@ package org.apache.ignite.internal.compute.executor;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.MarshallerProvider;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,13 +33,15 @@ import org.jetbrains.annotations.Nullable;
  * @param <R> Job result type.
  */
 public class JobExecutionInternal<R> implements MarshallerProvider<R> {
-    private final QueueExecution<R> execution;
+    private final QueueExecution<ComputeJobDataHolder> execution;
 
     private final AtomicBoolean isInterrupted;
 
     private final Marshaller<R, byte[]> marshaller;
 
     private final boolean marshalResult;
+
+    private final ClusterNode localNode;
 
     /**
      * Constructor.
@@ -46,20 +50,23 @@ public class JobExecutionInternal<R> implements MarshallerProvider<R> {
      * @param isInterrupted Flag which is passed to the execution context so that the job can check it for cancellation request.
      * @param marshaller Result marshaller.
      * @param marshalResult Flag indicating whether the marshalling of the result will be needed.
+     * @param localNode Local cluster node.
      */
     JobExecutionInternal(
-            QueueExecution<R> execution,
+            QueueExecution<ComputeJobDataHolder> execution,
             AtomicBoolean isInterrupted,
             @Nullable Marshaller<R, byte[]> marshaller,
-            boolean marshalResult
+            boolean marshalResult,
+            ClusterNode localNode
     ) {
         this.execution = execution;
         this.isInterrupted = isInterrupted;
         this.marshaller = marshaller;
         this.marshalResult = marshalResult;
+        this.localNode = localNode;
     }
 
-    public CompletableFuture<R> resultAsync() {
+    public CompletableFuture<ComputeJobDataHolder> resultAsync() {
         return execution.resultAsync();
     }
 
@@ -96,5 +103,9 @@ public class JobExecutionInternal<R> implements MarshallerProvider<R> {
     @Override
     public boolean marshalResult() {
         return marshalResult;
+    }
+
+    public ClusterNode node() {
+        return localNode;
     }
 }

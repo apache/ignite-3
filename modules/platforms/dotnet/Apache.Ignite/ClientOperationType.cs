@@ -117,7 +117,7 @@ namespace Apache.Ignite
         TupleContainsKey,
 
         /// <summary>
-        /// Compute (<see cref="ICompute.SubmitAsync{TTarget,TArg,TResult}"/>, <see cref="ICompute.SubmitBroadcast{TArg,TResult}"/>).
+        /// Compute (<see cref="ICompute.SubmitAsync{TTarget,TArg,TResult}"/>, <see cref="ICompute.SubmitBroadcastAsync{TTarget,TArg,TResult}"/>).
         /// </summary>
         ComputeExecute,
 
@@ -142,7 +142,7 @@ namespace Apache.Ignite
         ComputeGetStatus,
 
         /// <summary>
-        /// Cancel compute job (<see cref="IJobExecution{T}.CancelAsync"/>).
+        /// Cancel compute job.
         /// </summary>
         ComputeCancel,
 

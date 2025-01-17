@@ -23,25 +23,40 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests coarse lock modes. It allows IX, S locks and upgrade from S to SIX (S, then IX).
  */
-public class CoarseGrainedLockManagerTest {
-    private final HeapLockManager lockManager = lockManager();
+@ExtendWith(ConfigurationExtension.class)
+public class CoarseGrainedLockManagerTest extends BaseIgniteAbstractTest {
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
+    private HeapLockManager lockManager;
+
+    @BeforeEach
+    void setUp() {
+        lockManager = lockManager();
+    }
 
     @AfterEach
     void after() {
         assertTrue(lockManager.isEmpty());
     }
 
-    private static HeapLockManager lockManager() {
-        HeapLockManager lockManager = new HeapLockManager();
+    private HeapLockManager lockManager() {
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }
