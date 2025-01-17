@@ -314,7 +314,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 v = empty.poll();
                 if (v == null) {
                     res[0] = slots[index];
-                    assert !res[0].markedForRemove;
 
                     THROTTLED_LOG.warn(
                             "Log manager runs out of slots. So the lock state starts to share, and conflicts may appear frequently."
