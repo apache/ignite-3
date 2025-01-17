@@ -62,7 +62,6 @@ public interface TxManager extends IgniteComponent {
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
-     *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
      * @return The transaction.
      */
     InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly);
@@ -98,7 +97,6 @@ public interface TxManager extends IgniteComponent {
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
-     *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
      * @param txOptions Options.
      * @return The started transaction.
      */
