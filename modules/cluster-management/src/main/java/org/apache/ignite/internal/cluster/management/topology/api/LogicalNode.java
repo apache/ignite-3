@@ -24,8 +24,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.tostring.IgniteToStringInclude;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
@@ -41,16 +39,13 @@ public class LogicalNode extends ClusterNodeImpl {
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter
      *         documentation</a>
      */
-    @IgniteToStringInclude
     private final Map<String, String> userAttributes;
 
-    @IgniteToStringInclude
     private final Map<String, String> systemAttributes;
 
     /**
      * List of storage profiles, which the node supports.
      */
-    @IgniteToStringInclude
     private final List<String> storageProfiles;
 
     /**
@@ -141,11 +136,5 @@ public class LogicalNode extends ClusterNodeImpl {
      */
     public List<String> storageProfiles() {
         return storageProfiles;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String toString() {
-        return S.toString(LogicalNode.class, this, super.toString());
     }
 }
