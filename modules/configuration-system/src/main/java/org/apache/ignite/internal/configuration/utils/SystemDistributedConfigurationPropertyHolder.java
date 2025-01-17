@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.configuration.utils;
 
-import java.util.concurrent.CompletableFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.function.Function;
 import java.util.function.ObjLongConsumer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
@@ -69,7 +70,7 @@ public class SystemDistributedConfigurationPropertyHolder<T> {
         systemDistributedConfig.listen(ctx -> {
             updateSystemProperties(ctx.newValue(), ctx.storageRevision());
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
     }
 
