@@ -431,6 +431,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 .maxRetries(jobExecutionOptions.maxRetries())
                 .partition(new HashPartition(partitionId))
                 .build();
+
         return primaryReplicaForPartition(table, partitionId)
                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
