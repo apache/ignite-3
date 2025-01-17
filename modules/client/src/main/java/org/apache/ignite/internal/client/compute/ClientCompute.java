@@ -47,6 +47,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TableJobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.client.PayloadInputChannel;
@@ -65,6 +66,7 @@ import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.internal.compute.BroadcastJobExecutionImpl;
 import org.apache.ignite.internal.compute.FailedExecution;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
@@ -74,6 +76,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -140,20 +143,40 @@ public class ClientCompute implements IgniteCompute {
             AllNodesBroadcastJobTarget allNodesBroadcastTarget = (AllNodesBroadcastJobTarget) target;
             Set<ClusterNode> nodes = allNodesBroadcastTarget.nodes();
 
+            //noinspection unchecked
             CompletableFuture<SubmitResult>[] futures = nodes.stream()
                     .map(node -> executeOnAnyNodeAsync(Set.of(node), descriptor, arg))
                     .toArray(CompletableFuture[]::new);
 
-            // Wait for all the futures but don't fail resulting future, keep individual futures in executions.
-            return allOf(futures).handle((unused, throwable) -> new BroadcastJobExecutionImpl<>(
-                    Arrays.stream(futures)
-                            .map(fut -> mapSubmitResult(descriptor, cancellationToken, fut))
-                            .collect(Collectors.toList())
-            ));
+            return mapSubmitFutures(futures, descriptor, cancellationToken);
+        } else if (target instanceof TableJobTarget) {
+            TableJobTarget tableJobTarget = (TableJobTarget) target;
+            String tableName = tableJobTarget.tableName();
+            return getTable(tableName)
+                    .thenCompose(table -> table.partitionManager().primaryReplicasAsync()
+                            .thenCompose(replicas -> {
+                                //noinspection unchecked
+                                CompletableFuture<SubmitResult>[] futures = replicas.keySet().stream()
+                                        .map(partition -> doExecutePartitionedAsync(tableName, partition, descriptor, arg))
+                                        .toArray(CompletableFuture[]::new);
+                                return mapSubmitFutures(futures, descriptor, cancellationToken);
+                            }));
         }
-        // TODO https://issues.apache.org/jira/browse/IGNITE-23936
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
+    }
+
+    private <T, R> CompletableFuture<BroadcastExecution<R>> mapSubmitFutures(
+            CompletableFuture<SubmitResult>[] futures,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        // Wait for all the futures but don't fail resulting future, keep individual futures in executions.
+        return allOf(futures).handle((unused, throwable) -> new BroadcastJobExecutionImpl<>(
+                Arrays.stream(futures)
+                        .map(fut -> mapSubmitResult(descriptor, cancellationToken, fut))
+                        .collect(Collectors.toList())
+        ));
     }
 
     private <T, R> JobExecution<R> mapSubmitResult(
@@ -381,6 +404,47 @@ public class ClientCompute implements IgniteCompute {
                 partitionAwarenessProvider,
                 true,
                 null);
+    }
+
+    private <T, R> CompletableFuture<SubmitResult> doExecutePartitionedAsync(
+            String tableName,
+            Partition partition,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return getTable(tableName).thenCompose(table -> executePartitioned(table, partition, descriptor, arg)
+                .handle((res, err) -> handleMissingTable(
+                        tableName,
+                        res,
+                        err,
+                        () -> doExecutePartitionedAsync(tableName, partition, descriptor, arg))
+                )
+                .thenCompose(Function.identity()));
+    }
+
+    private static <T, R> CompletableFuture<SubmitResult> executePartitioned(
+            ClientTable t,
+            Partition partition,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        int partitionId = ((HashPartition) partition).partitionId();
+        return t.doSchemaOutOpAsync(
+                ClientOp.COMPUTE_EXECUTE_PARTITIONED,
+                (schema, outputChannel) -> {
+                    ClientMessagePacker w = outputChannel.out();
+
+                    w.packInt(t.tableId());
+
+                    w.packInt(partitionId);
+
+                    packJob(w, descriptor, arg);
+                },
+                ClientCompute::unpackSubmitResult,
+                PartitionAwarenessProvider.of(partitionId),
+                true,
+                null
+        );
     }
 
     private CompletableFuture<ClientTable> getTable(String tableName) {

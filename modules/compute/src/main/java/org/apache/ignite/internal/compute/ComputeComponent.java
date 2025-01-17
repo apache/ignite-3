@@ -40,16 +40,16 @@ public interface ComputeComponent extends IgniteComponent {
      * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
+     * @param arg Job argument.
      * @param cancellationToken Cancellation token or {@code null}.
-     * @param arg Job args.
      * @return Job execution object.
      */
     CancellableJobExecution<ComputeJobDataHolder> executeLocally(
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder arg
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
@@ -59,8 +59,8 @@ public interface ComputeComponent extends IgniteComponent {
      * @param remoteNode Remote node name.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
+     * @param arg Job argument.
      * @param cancellationToken Cancellation token or {@code null}.
-     * @param arg Job args.
      * @return Job execution object.
      */
     CancellableJobExecution<ComputeJobDataHolder> executeRemotely(
@@ -68,8 +68,8 @@ public interface ComputeComponent extends IgniteComponent {
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder arg
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
@@ -78,11 +78,11 @@ public interface ComputeComponent extends IgniteComponent {
      *
      * @param remoteNode Remote node name.
      * @param nextWorkerSelector The selector that returns the next worker to execute job on.
-     * @param options Job execution options.
      * @param units Deployment units which will be loaded for execution.
      * @param jobClassName Name of the job class.
+     * @param options Job execution options.
+     * @param arg Job argument.
      * @param cancellationToken Cancellation token or {@code null}.
-     * @param arg Job args.
      * @return Job execution object.
      */
     JobExecution<ComputeJobDataHolder> executeRemotelyWithFailover(
@@ -91,8 +91,8 @@ public interface ComputeComponent extends IgniteComponent {
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder arg
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**

@@ -180,7 +180,7 @@ public class ComputeMessaging {
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            ComputeJobDataHolder input
+            @Nullable ComputeJobDataHolder input
     ) {
         List<DeploymentUnitMsg> deploymentUnitMsgs = units.stream()
                 .map(ComputeUtils::toDeploymentUnitMsg)

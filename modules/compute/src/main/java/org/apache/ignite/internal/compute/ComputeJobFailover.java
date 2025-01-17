@@ -136,11 +136,11 @@ class ComputeJobFailover {
     private CancellableJobExecution<ComputeJobDataHolder> launchJobOn(ClusterNode runningWorkerNode) {
         if (runningWorkerNode.name().equals(topologyService.localMember().name())) {
             return computeComponent.executeLocally(
-                    jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), null, jobContext.arg()
+                    jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), jobContext.arg(), null
             );
         } else {
             return computeComponent.executeRemotely(
-                    jobContext.executionOptions(), runningWorkerNode, jobContext.units(), jobContext.jobClassName(), null, jobContext.arg()
+                    jobContext.executionOptions(), runningWorkerNode, jobContext.units(), jobContext.jobClassName(), jobContext.arg(), null
             );
         }
     }

@@ -759,15 +759,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void partitionedBroadcast() {
         createTestTableWithOneRow();
 
-        Ignite entryNode = node(0);
-
-        Map<Partition, ClusterNode> replicas = entryNode.tables().table("test").partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> replicas = node(0).tables().table("test").partitionManager().primaryReplicasAsync().join();
         Map<Integer, ClusterNode> partitionIdToNode = replicas.entrySet().stream()
                 .collect(toMap(entry -> ((HashPartition) entry.getKey()).partitionId(), Entry::getValue));
 
         // When run job that will return its partition id
         JobDescriptor<Void, Integer> job = JobDescriptor.builder(GetPartitionJob.class).units(units()).build();
-        CompletableFuture<BroadcastExecution<Integer>> future = entryNode.compute()
+        CompletableFuture<BroadcastExecution<Integer>> future = compute()
                 .submitAsync(BroadcastJobTarget.table("test"), job, null);
 
         // Then the jobs are submitted
@@ -783,7 +781,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(executions, hasSize(partitionIdToNode.size()));
         executions.forEach(execution -> {
             Integer partitionId = execution.resultAsync().join(); // safe to join since resultsAsync is already complete
-            assertThat(execution.node(), is(partitionIdToNode.get(partitionId)));
+            assertThat(execution.node().name(), is(partitionIdToNode.get(partitionId).name()));
         });
     }
 
