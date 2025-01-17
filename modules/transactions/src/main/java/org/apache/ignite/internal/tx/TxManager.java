@@ -46,7 +46,18 @@ public interface TxManager extends IgniteComponent {
     }
 
     /**
-     * Starts an implicit read-write transaction coordinated by a local node.
+     * Starts an implicit read-only transaction coordinated by a local node.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @return The transaction.
+     */
+    default InternalTransaction beginImplicitRo(HybridTimestampTracker timestampTracker) {
+        return beginImplicit(timestampTracker, true);
+    }
+
+    /**
+     * Starts an implicit transaction coordinated by a local node.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
@@ -66,6 +77,18 @@ public interface TxManager extends IgniteComponent {
      */
     default InternalTransaction beginExplicitRw(HybridTimestampTracker timestampTracker, InternalTxOptions options) {
         return beginExplicit(timestampTracker, false, options);
+    }
+
+    /**
+     * Starts an explicit read-only transaction coordinated by a local node.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @param options Transaction options.
+     * @return The transaction.
+     */
+    default InternalTransaction beginExplicitRo(HybridTimestampTracker timestampTracker, InternalTxOptions options) {
+        return beginExplicit(timestampTracker, true, options);
     }
 
     /**

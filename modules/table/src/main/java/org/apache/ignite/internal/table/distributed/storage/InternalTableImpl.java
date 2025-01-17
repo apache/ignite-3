@@ -505,7 +505,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private InternalTransaction startImplicitRoTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.beginImplicit(observableTimestampTracker, true) : tx;
+        return tx == null ? txManager.beginImplicitRo(observableTimestampTracker) : tx;
     }
 
     /**

@@ -204,9 +204,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Test
     public void testBegin() {
         InternalTransaction tx0 = txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
-        InternalTransaction tx1 = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
+        InternalTransaction tx1 = txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults());
         InternalTransaction tx2 = txManager.beginImplicitRw(hybridTimestampTracker);
-        InternalTransaction tx3 = txManager.beginImplicit(hybridTimestampTracker, true);
+        InternalTransaction tx3 = txManager.beginImplicitRo(hybridTimestampTracker);
 
         assertNotNull(tx0.id());
         assertNotNull(tx1.id());
@@ -257,7 +257,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         IgniteInternalException exception = assertThrows(
                 IgniteInternalException.class,
-                () -> txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults())
+                () -> txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults())
         );
 
         assertEquals(Transactions.TX_READ_ONLY_TOO_OLD_ERR, exception.code());
@@ -272,8 +272,8 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         hybridTimestampTracker.update(clockService.now());
 
-        InternalTransaction roTx0 = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
-        InternalTransaction roTx1 = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
+        InternalTransaction roTx0 = txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults());
+        InternalTransaction roTx1 = txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults());
 
         CompletableFuture<Void> readOnlyTxsFuture = lowWatermark.updateAndNotify(roTx1.readTimestamp());
         assertFalse(readOnlyTxsFuture.isDone());
@@ -404,7 +404,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertEquals(0, txManager.finished());
 
         // Start transaction.
-        InternalTransaction tx = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
+        InternalTransaction tx = txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults());
         assertEquals(1, txManager.pending());
         assertEquals(0, txManager.finished());
 
@@ -432,7 +432,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         // Start transaction.
         InternalTransaction tx =
-                startReadOnlyTransaction ? txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults())
+                startReadOnlyTransaction ? txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults())
                         : txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
         assertEquals(1, txManager.pending());
         assertEquals(0, txManager.finished());
@@ -461,14 +461,14 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         HybridTimestamp now = clockService.now();
 
-        InternalTransaction tx = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
+        InternalTransaction tx = txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults());
 
         assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) > compareThreshold);
         tx.commit();
 
         hybridTimestampTracker.update(now);
 
-        tx = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
+        tx = txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults());
 
         assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold);
         tx.commit();
@@ -482,7 +482,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         hybridTimestampTracker.update(timestampInPast);
 
-        tx = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
+        tx = txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults());
 
         long readTime = now.getPhysical() - idleSafeTimePropagationPeriodMsSupplier.getAsLong() - clockService.maxClockSkewMillis();
 
@@ -499,7 +499,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         HybridTimestamp now = clockService.now();
 
-        InternalTransaction tx = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
+        InternalTransaction tx = txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults());
 
         HybridTimestamp firstReadTs = tx.readTimestamp();
 
@@ -509,7 +509,7 @@ public class TxManagerTest extends IgniteAbstractTest {
                 + idleSafeTimePropagationPeriodMsSupplier.getAsLong() + clockService.maxClockSkewMillis());
         tx.commit();
 
-        tx = txManager.beginExplicit(hybridTimestampTracker, true, InternalTxOptions.defaults());
+        tx = txManager.beginExplicitRo(hybridTimestampTracker, InternalTxOptions.defaults());
 
         assertTrue(firstReadTs.compareTo(tx.readTimestamp()) <= 0);
 
@@ -759,7 +759,7 @@ public class TxManagerTest extends IgniteAbstractTest {
             return result;
         }).when(localRwTxCounter).inUpdateRwTxCountLock(any());
 
-        txManager.beginExplicit(hybridTimestampTracker, false, InternalTxOptions.defaults());
+        txManager.beginExplicitRw(hybridTimestampTracker, InternalTxOptions.defaults());
     }
 
     private InternalTransaction prepareTransaction() {
