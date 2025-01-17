@@ -1217,7 +1217,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterIdService
             );
 
-            lockManager = new HeapLockManager();
+            lockManager = new HeapLockManager(systemConfiguration);
 
             MetricManager metricManager = new NoOpMetricManager();
 

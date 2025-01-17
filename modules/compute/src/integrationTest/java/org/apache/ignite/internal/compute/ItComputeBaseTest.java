@@ -275,7 +275,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         IgniteException ex = assertThrows(IgniteException.class, () -> compute().execute(
                 JobTarget.node(clusterNode(entryNode)),
-                JobDescriptor.builder(failingJobClassName()).units(units()).build(), null));
+                JobDescriptor.builder(failingJobClass()).units(units()).build(), null));
 
         assertComputeException(ex, "JobException", "Oops");
     }
@@ -286,7 +286,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         JobExecution<String> execution = submit(
                 JobTarget.node(clusterNode(entryNode)),
-                JobDescriptor.<Object, String>builder(failingJobClassName()).units(units()).build(),
+                JobDescriptor.builder(failingJobClass()).units(units()).build(),
                 null
         );
 
@@ -301,7 +301,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesFailingJobOnRemoteNodes() {
         IgniteException ex = assertThrows(IgniteException.class, () -> compute().execute(
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
-                JobDescriptor.builder(failingJobClassName()).units(units()).build(), null));
+                JobDescriptor.builder(failingJobClass()).units(units()).build(), null));
 
         assertComputeException(ex, "JobException", "Oops");
     }
@@ -323,7 +323,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesFailingJobOnRemoteNodesAsync() {
         JobExecution<String> execution = submit(
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
-                JobDescriptor.<Object, String>builder(failingJobClassName()).units(units()).build(),
+                JobDescriptor.builder(failingJobClass()).units(units()).build(),
                 null
         );
 
@@ -376,7 +376,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void broadcastsFailingJob() {
         BroadcastExecution<String> broadcastExecution = submit(
                 Set.of(clusterNode(node(0)), clusterNode(node(1)), clusterNode(node(2))),
-                JobDescriptor.<Object, String>builder(failingJobClassName()).units(units()).build(),
+                JobDescriptor.builder(failingJobClass()).units(units()).build(),
                 null
         );
 
@@ -435,7 +435,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         var ex = assertThrows(CompletionException.class,
                 () -> compute().submitAsync(
                         JobTarget.colocated("BAD_TABLE", Tuple.create(Map.of("k", 1))),
-                        JobDescriptor.builder(getNodeNameJobClassName()).units(units()).build(),
+                        JobDescriptor.builder(getNodeNameJobClass()).units(units()).build(),
                         null
                 ).join()
         );
@@ -568,10 +568,10 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void submitMapReduce() {
-        List<DeploymentUnit> units = units();
-        @Nullable List<DeploymentUnit> arg = units();
         TaskExecution<Integer> taskExecution = compute().submitMapReduce(
-                TaskDescriptor.<List<DeploymentUnit>, Integer>builder(mapReduceTaskClassName()).units(units).build(), arg);
+                TaskDescriptor.builder(mapReduceTaskClass()).units(units()).build(),
+                units()
+        );
 
         int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(Ignite::name).map(String::length).reduce(Integer::sum).orElseThrow();
         assertThat(taskExecution.resultAsync(), willBe(sumOfNodeNamesLengths));
@@ -587,8 +587,9 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     @Test
     void executeMapReduceAsync() {
         CompletableFuture<Integer> future = compute().executeMapReduceAsync(
-                TaskDescriptor.<List<DeploymentUnit>, Integer>builder(mapReduceTaskClassName()).units(units()).build(),
-                units());
+                TaskDescriptor.builder(mapReduceTaskClass()).units(units()).build(),
+                units()
+        );
 
         int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(Ignite::name).map(String::length).reduce(Integer::sum).orElseThrow();
         assertThat(future, willBe(sumOfNodeNamesLengths));
@@ -596,9 +597,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void executeMapReduce() {
-        int result = compute().executeMapReduce(
-                TaskDescriptor.<List<DeploymentUnit>, Integer>builder(mapReduceTaskClassName()).units(units()).build(),
-                units());
+        int result = compute().executeMapReduce(TaskDescriptor.builder(mapReduceTaskClass()).units(units()).build(), units());
 
         int sumOfNodeNamesLengths = CLUSTER.runningNodes().map(Ignite::name).map(String::length).reduce(Integer::sum).orElseThrow();
         assertThat(result, is(sumOfNodeNamesLengths));
@@ -752,28 +751,20 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         ).map(Arguments::of);
     }
 
-    static String toStringJobClassName() {
-        return ToStringJob.class.getName();
-    }
-
-    private static Class<ToStringJob> toStringJobClass() {
+    static Class<ToStringJob> toStringJobClass() {
         return ToStringJob.class;
-    }
-
-    private static String getNodeNameJobClassName() {
-        return GetNodeNameJob.class.getName();
     }
 
     private static Class<GetNodeNameJob> getNodeNameJobClass() {
         return GetNodeNameJob.class;
     }
 
-    private static String failingJobClassName() {
-        return FailingJob.class.getName();
+    private static Class<FailingJob> failingJobClass() {
+        return FailingJob.class;
     }
 
-    private static String mapReduceTaskClassName() {
-        return MapReduce.class.getName();
+    private static Class<MapReduce> mapReduceTaskClass() {
+        return MapReduce.class;
     }
 
     static void assertComputeException(Exception ex, Throwable cause) {

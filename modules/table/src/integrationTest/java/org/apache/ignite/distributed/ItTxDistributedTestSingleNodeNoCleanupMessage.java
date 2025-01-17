@@ -34,6 +34,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -87,6 +88,9 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
     /**
      * The constructor.
      *
@@ -127,7 +131,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         txConfiguration,
                         clusterService,
                         replicaSvc,
-                        new HeapLockManager(),
+                        new HeapLockManager(systemLocalConfiguration),
                         clockService,
                         generator,
                         placementDriver,

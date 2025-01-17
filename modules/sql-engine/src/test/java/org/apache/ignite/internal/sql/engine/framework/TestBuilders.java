@@ -21,7 +21,6 @@ import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
-import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -405,6 +404,15 @@ public class TestBuilders {
          * @return {@code this} for chaining.
          */
         ClusterBuilder registerSystemView(String nodeName, String systemViewName);
+
+        /**
+         * Sets a timeout for query optimization phase.
+         *
+         * @param value A planning timeout value.
+         * @param timeUnit A time unit.
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder planningTimeout(long value, TimeUnit timeUnit);
     }
 
     /**
@@ -616,6 +624,7 @@ public class TestBuilders {
         private final List<SystemView<?>> systemViews = new ArrayList<>();
         private final Map<String, Set<String>> nodeName2SystemView = new HashMap<>();
 
+        private long planningTimeout = TimeUnit.SECONDS.toMillis(15);
         private @Nullable DefaultDataProvider defaultDataProvider = null;
         private @Nullable DefaultAssignmentsProvider defaultAssignmentsProvider = null;
 
@@ -663,6 +672,13 @@ public class TestBuilders {
             return this;
         }
 
+        @Override
+        public ClusterBuilder planningTimeout(long value, TimeUnit timeUnit) {
+            this.planningTimeout = timeUnit.toMillis(value);
+
+            return this;
+        }
+
         /** {@inheritDoc} */
         @Override
         public TestCluster build() {
@@ -678,7 +694,7 @@ public class TestBuilders {
             ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
             var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
+                    new DdlSqlToCommandConverter(), planningTimeout, PLANNING_THREAD_COUNT,
                     new NoOpMetricManager(), schemaManager);
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();

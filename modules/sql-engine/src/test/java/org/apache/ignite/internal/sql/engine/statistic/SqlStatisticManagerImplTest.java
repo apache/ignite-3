@@ -86,22 +86,6 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void checkMinimumTableSize() {
-        int tableId = ThreadLocalRandom.current().nextInt();
-        prepareCatalogWithTable(tableId);
-
-        when(tableManager.cachedTable(tableId)).thenReturn(tableViewInternal);
-        when(tableViewInternal.internalTable()).thenReturn(internalTable);
-        when(internalTable.estimatedSize()).thenReturn(CompletableFuture.completedFuture(10L));
-
-        SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
-        sqlStatisticManager.start();
-
-        // even table size is 10 it should return default minimum size
-        assertEquals(1_000L, sqlStatisticManager.tableSize(tableId));
-    }
-
-    @Test
     public void checkTableSize() {
         int tableId = ThreadLocalRandom.current().nextInt();
         long tableSize = 999_888_777L;

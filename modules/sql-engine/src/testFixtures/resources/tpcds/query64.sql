@@ -84,7 +84,9 @@ group by i_product_name
        ,d2.d_year
        ,d3.d_year
 )
-select cs1.product_name
+select
+      /*+ NO_INDEX, DISABLE_RULE('MergeJoinConverter') */ 
+      cs1.product_name
      ,cs1.store_name
      ,cs1.store_zip
      ,cs1.b_street_number
