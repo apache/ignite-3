@@ -62,6 +62,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
+    integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.jetbrains.annotations
 
 }
