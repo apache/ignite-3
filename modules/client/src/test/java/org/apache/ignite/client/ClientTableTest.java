@@ -479,7 +479,8 @@ public class ClientTableTest extends AbstractClientTableTest {
 
     private void checkSchemaUpdate(Consumer<RecordView<Tuple>> consumer) throws Exception {
         try (var client2 = startClient()) {
-            var table = client2.tables().table(defaultTable().name());
+            // TODO IGNITE-24029 Make Client API use QualifiedName.
+            var table = client2.tables().table(defaultTable().name().objectName());
             Map<Integer, Object> schemas = IgniteTestUtils.getFieldValue(table, "schemas");
             var recView = table.recordView();
 

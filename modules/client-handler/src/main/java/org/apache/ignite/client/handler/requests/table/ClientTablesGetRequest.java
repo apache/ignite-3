@@ -44,7 +44,7 @@ public class ClientTablesGetRequest {
                 var tableImpl = (TableViewInternal) table;
 
                 out.packInt(tableImpl.tableId());
-                out.packString(table.name());
+                out.packString(table.name().toCanonicalForm());
             }
         });
     }

@@ -405,7 +405,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     @Test
     public void createAllColumnTypesFromPojo() {
         Table table = catalog().createTable(AllColumnTypesPojo.class);
-        assertEquals("ALLCOLUMNTYPESPOJO", table.name());
+        assertEquals("ALLCOLUMNTYPESPOJO", table.name().objectName());
 
         TableDefinition tableDef = catalog().tableDefinition(table.name());
         assertEquals(tableDef.tableName(), tableDef.tableName());

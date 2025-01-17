@@ -27,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableImpl;
@@ -46,6 +48,7 @@ import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 
@@ -69,6 +72,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
 
     public static final String BAD_TABLE_ERR = "Err!";
 
+    // TODO Make Client API use QualifiedName
     private final ConcurrentHashMap<String, TableViewInternal> tables = new ConcurrentHashMap<>();
 
     private final ConcurrentHashMap<Integer, TableViewInternal> tablesById = new ConcurrentHashMap<>();
@@ -226,8 +230,9 @@ public class FakeIgniteTables implements IgniteTablesInternal {
             return BinaryRowConverter.keyExtractor(schema).extractColumns(row);
         };
 
+        QualifiedName tableName = QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, name);
         return new TableImpl(
-                new FakeInternalTable(name, id, keyExtractor, compute, placementDriver),
+                new FakeInternalTable(tableName, id, keyExtractor, compute, placementDriver),
                 schemaReg,
                 lockManager(),
                 new SchemaVersions() {

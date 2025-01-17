@@ -63,7 +63,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -77,7 +76,6 @@ import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
@@ -471,9 +469,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         return topologyService.getById(replicaMeta.getLeaseholderId());
                     }
 
+                    String tableName = table.name().toCanonicalForm();
                     throw new ComputeException(
                             Compute.PRIMARY_REPLICA_RESOLVE_ERR,
-                            "Can not find primary replica for [table=" + table.name() + ", partition=" + partitionIndex + "]."
+                            "Can not find primary replica for [table=" + tableName + ", partition=" + partitionIndex + "]."
                     );
                 });
     }

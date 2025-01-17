@@ -15,19 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql;
+package org.apache.ignite.table;
 
 import org.apache.ignite.lang.util.IgniteNameUtils;
-import org.apache.ignite.table.QualifiedName;
 
 /**
- * Common SQL utilities.
+ * Utility class to provide direct access to internals of {@link org.apache.ignite.table.QualifiedName}.
  */
-public final class SqlCommon {
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24021: parse identifier correctly.
-    /** Normalized name of the default schema. */
-    public static final String DEFAULT_SCHEMA_NAME = IgniteNameUtils.parseSimpleName(QualifiedName.DEFAULT_SCHEMA_NAME);
+public final class QualifiedNameHelper {
+    /**
+     * Return QualifiedName from a given schema and table names.
+     *
+     * <p>Given names are expected to be normalized, thus it's up to caller to invoke
+     * {@link IgniteNameUtils#parseSimpleName(String)} prior passing the names to this method.
+     *
+     * @param schemaName Normalized schema name.
+     * @param tableName Normalized table name.
+     * @return Qualified name.
+     */
+    public static QualifiedName fromNormalized(String schemaName, String tableName) {
+        assert schemaName != null;
+        assert tableName != null;
 
-    /** Default page size. */
-    public static final int DEFAULT_PAGE_SIZE = 1024;
+        return new QualifiedName(schemaName, tableName);
+    }
+
+    private QualifiedNameHelper() {
+        // No-op.
+    }
 }

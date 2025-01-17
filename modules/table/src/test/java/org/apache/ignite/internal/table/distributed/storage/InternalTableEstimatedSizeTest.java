@@ -80,6 +80,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaSyncService;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
@@ -103,6 +104,7 @@ import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -197,7 +199,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
         var clockService = new ClockServiceImpl(clock, clockWaiter, () -> 0);
 
         table = new InternalTableImpl(
-                TABLE_NAME,
+                QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME),
                 TABLE_ID,
                 PARTITIONS_NUM,
                 clusterService.topologyService(),

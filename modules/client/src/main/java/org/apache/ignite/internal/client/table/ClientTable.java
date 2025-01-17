@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
@@ -49,9 +50,11 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.tostring.IgniteToStringBuilder;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -68,7 +71,7 @@ public class ClientTable implements Table {
     private final int id;
 
     // TODO: table name can change, this approach should probably be reworked, see https://issues.apache.org/jira/browse/IGNITE-21237.
-    private final String name;
+    private final QualifiedName name;
 
     private final ReliableChannel ch;
 
@@ -115,7 +118,8 @@ public class ClientTable implements Table {
         this.ch = ch;
         this.marshallers = marshallers;
         this.id = id;
-        this.name = name;
+        // TODO IGNITE-24029 Client API should use QualifiedName.
+        this.name = QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, name);
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
         this.sql = new ClientSql(ch, marshallers);
         clientPartitionManager = new ClientPartitionManager(this);
@@ -141,7 +145,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override
-    public String name() {
+    public QualifiedName name() {
         return name;
     }
 
@@ -639,8 +643,10 @@ public class ClientTable implements Table {
                         if (oldPartitionCount < 0) {
                             partitionCount = cnt;
                         } else if (oldPartitionCount != cnt) {
-                            throw new IgniteException(INTERNAL_ERR,
-                                    String.format("Partition count has changed for table '%s': %d -> %d", name, oldPartitionCount, cnt));
+                            String message = String.format("Partition count has changed for table '%s': %d -> %d",
+                                    name.toCanonicalForm(), oldPartitionCount, cnt);
+
+                            throw new IgniteException(INTERNAL_ERR, message);
                         }
 
                         boolean assignmentAvailable = r.in().unpackBoolean();

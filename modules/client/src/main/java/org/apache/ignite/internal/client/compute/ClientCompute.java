@@ -462,7 +462,8 @@ public class ClientCompute implements IgniteCompute {
             }
 
             ClientTable clientTable = (ClientTable) t;
-            tableCache.put(t.name(), clientTable);
+            // TODO IGNITE-24029 Make Client API use QualifiedName.
+            tableCache.put(t.name().objectName(), clientTable);
 
             return clientTable;
         });

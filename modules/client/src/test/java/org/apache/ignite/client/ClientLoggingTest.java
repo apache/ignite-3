@@ -61,8 +61,8 @@ public class ClientLoggingTest extends BaseIgniteAbstractTest {
         var client1 = createClient(loggerFactory1, 10901, 10902);
         var client2 = createClient(loggerFactory2, 10901, 10902);
 
-        assertEquals("t", client1.tables().tables().get(0).name());
-        assertEquals("t", client2.tables().tables().get(0).name());
+        assertEquals("t", client1.tables().tables().get(0).name().objectName());
+        assertEquals("t", client2.tables().tables().get(0).name().objectName());
 
         server.close();
 
@@ -71,8 +71,8 @@ public class ClientLoggingTest extends BaseIgniteAbstractTest {
 
         server2 = startServer(ignite2, 10902);
 
-        assertEquals("t2", client1.tables().tables().get(0).name());
-        assertEquals("t2", client2.tables().tables().get(0).name());
+        assertEquals("t2", client1.tables().tables().get(0).name().objectName());
+        assertEquals("t2", client2.tables().tables().get(0).name().objectName());
 
         assertThat(loggerFactory1.logger.entries(), not(empty()));
         assertThat(loggerFactory2.logger.entries(), not(empty()));
