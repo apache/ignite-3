@@ -153,14 +153,15 @@ public class ClientCompute implements IgniteCompute {
             TableJobTarget tableJobTarget = (TableJobTarget) target;
             String tableName = tableJobTarget.tableName();
             return getTable(tableName)
-                    .thenCompose(table -> table.partitionManager().primaryReplicasAsync()
-                            .thenCompose(replicas -> {
-                                //noinspection unchecked
-                                CompletableFuture<SubmitResult>[] futures = replicas.keySet().stream()
-                                        .map(partition -> doExecutePartitionedAsync(tableName, partition, descriptor, arg))
-                                        .toArray(CompletableFuture[]::new);
-                                return mapSubmitFutures(futures, descriptor, cancellationToken);
-                            }));
+                    .thenCompose(table -> table.partitionManager().primaryReplicasAsync())
+                    .thenCompose(replicas -> {
+                        //noinspection unchecked
+                        CompletableFuture<SubmitResult>[] futures = replicas.keySet().stream()
+                                .map(partition -> doExecutePartitionedAsync(tableName, partition, descriptor, arg))
+                                .toArray(CompletableFuture[]::new);
+
+                        return mapSubmitFutures(futures, descriptor, cancellationToken);
+                    });
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
