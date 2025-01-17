@@ -132,7 +132,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
     protected static final int PAGE_SIZE = 512;
 
-    protected static final long MAX_MEMORY_SIZE = 32 * MiB;
+    protected static final long MAX_MEMORY_SIZE = 64 * MiB;
 
     /** Forces printing lock/unlock events on the test tree. */
     private static boolean PRINT_LOCKS = false;
