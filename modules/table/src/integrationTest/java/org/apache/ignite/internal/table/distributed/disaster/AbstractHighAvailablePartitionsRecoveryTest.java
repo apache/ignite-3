@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -42,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -122,18 +124,6 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     }
 
-    final void waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(
-            IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
-        partitionIds.forEach(p -> {
-            try {
-                waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(gatewayNode, tableName, p, nodes);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        });
-
-    }
-
     private void waitAndAssertStableAssignmentsOfPartitionEqualTo(
             IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes) throws InterruptedException {
 
@@ -152,41 +142,54 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 .collect(Collectors.toUnmodifiableSet()));
     }
 
+    final void waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(
+            IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
+        partitionIds.forEach(p -> {
+            try {
+                waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(gatewayNode, tableName, p, nodes);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
     private void waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(
-            IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes) throws InterruptedException {
+            IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes
+    ) throws InterruptedException {
         AtomicReference<Set<String>> stableNodes = new AtomicReference<>();
         AtomicReference<Set<String>> pendingNodes = new AtomicReference<>();
         AtomicReference<Set<String>> plannedNodes = new AtomicReference<>();
 
-        assertTrue(waitForCondition(() -> {
-                    var tableId = getTableId(gatewayNode.catalogManager(), tableName, clock.nowLong());
-                    TablePartitionId tablePartitionId = new TablePartitionId(tableId, partNum);
+        assertTrue(
+                waitForCondition(() -> {
+                            Integer tableId = getTableId(gatewayNode.catalogManager(), tableName, clock.nowLong());
 
-                    ByteArray stableKey = stablePartAssignmentsKey(tablePartitionId);
-                    ByteArray pendingKey = pendingPartAssignmentsKey(tablePartitionId);
-                    ByteArray plannedKey = plannedPartAssignmentsKey(tablePartitionId);
+                            assert tableId != null;
 
-                    Map<ByteArray, Entry> results = gatewayNode.metaStorageManager()
-                            .getAll(Set.of(stableKey, pendingKey, plannedKey))
-                            .join();
+                            TablePartitionId tablePartitionId = new TablePartitionId(tableId, partNum);
 
-                    var isStableAsExpected = results.get(stableKey).value() != null && nodes.equals(
-                            Assignments.fromBytes(results.get(stableKey).value()).nodes().stream().map(Assignment::consistentId).collect(
-                                    Collectors.toUnmodifiableSet()));
-                    var isPendingEmpty = results.get(pendingKey).value() == null;
-                    var isPlannedEmpty = results.get(plannedKey).value() == null;
+                            ByteArray stableKey = stablePartAssignmentsKey(tablePartitionId);
+                            ByteArray pendingKey = pendingPartAssignmentsKey(tablePartitionId);
+                            ByteArray plannedKey = plannedPartAssignmentsKey(tablePartitionId);
 
-                    stableNodes.set(assignmentsFromEntry(results.get(stableKey)));
-                    pendingNodes.set(assignmentsFromEntry(results.get(pendingKey)));
-                    plannedNodes.set(assignmentsFromEntry(results.get(plannedKey)));
+                            Map<ByteArray, Entry> results = await(gatewayNode.metaStorageManager()
+                                    .getAll(Set.of(stableKey, pendingKey, plannedKey)), 1, TimeUnit.SECONDS);
 
-                    return isStableAsExpected && isPendingEmpty && isPlannedEmpty;
-                },
-                500,
-                30_000
-        ), IgniteStringFormatter.format(
-                "Expected: (stable: {}, pending: [], planned: []), but actual: (stable: {}, pending: {}, planned: {})",
-                nodes, stableNodes, pendingNodes, plannedNodes
+                            boolean isStableAsExpected = nodes.equals(assignmentsFromEntry(results.get(stableKey)));
+                            boolean isPendingEmpty = results.get(pendingKey).value() == null;
+                            boolean isPlannedEmpty = results.get(plannedKey).value() == null;
+
+                            stableNodes.set(assignmentsFromEntry(results.get(stableKey)));
+                            pendingNodes.set(assignmentsFromEntry(results.get(pendingKey)));
+                            plannedNodes.set(assignmentsFromEntry(results.get(plannedKey)));
+
+                            return isStableAsExpected && isPendingEmpty && isPlannedEmpty;
+                        },
+                        500,
+                        30_000
+                ), IgniteStringFormatter.format(
+                        "Expected: (stable: {}, pending: [], planned: []), but actual: (stable: {}, pending: {}, planned: {})",
+                        nodes, stableNodes, pendingNodes, plannedNodes
                 )
         );
     }
@@ -196,8 +199,8 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     private static Set<String> assignmentsFromEntry(Entry entry) {
-        return (entry.value() != null) ?
-                Assignments.fromBytes(entry.value()).nodes()
+        return (entry.value() != null)
+                ? Assignments.fromBytes(entry.value()).nodes()
                         .stream()
                         .map(Assignment::consistentId)
                         .collect(Collectors.toUnmodifiableSet())
@@ -220,7 +223,8 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     private void createHaZoneWithTables(
-            String zoneName, List<String> tableNames, String filter, String storageProfiles, Set<String> targetNodes) throws InterruptedException {
+            String zoneName, List<String> tableNames, String filter, String storageProfiles, Set<String> targetNodes
+    ) throws InterruptedException {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', "
                         + "CONSISTENCY_MODE='HIGH_AVAILABILITY', DATA_NODES_FILTER='%s'",
@@ -265,16 +269,15 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         );
     }
 
+    final void createHaZoneWithTable() throws InterruptedException {
+        createHaZoneWithTable(HA_ZONE_NAME, HA_TABLE_NAME);
+    }
+
     final void createHaZoneWithTableWithStorageProfile(int replicas, String storageProfiles, Set<String> targetNodes)
             throws InterruptedException {
         createHaZoneWithTables(
                 HA_ZONE_NAME, List.of(HA_TABLE_NAME), DEFAULT_FILTER, storageProfiles, targetNodes
         );
-
-    }
-
-    final void createHaZoneWithTable() throws InterruptedException {
-        createHaZoneWithTable(HA_ZONE_NAME, HA_TABLE_NAME);
     }
 
     final void createScZoneWithTable() {
