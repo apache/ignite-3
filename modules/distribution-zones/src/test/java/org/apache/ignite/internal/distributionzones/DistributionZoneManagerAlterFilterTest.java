@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doAnswer;
 
 import java.util.Arrays;
@@ -35,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.metastorage.server.If;
+import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -211,18 +212,18 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
         );
 
         doAnswer(invocation -> {
-            If iif = invocation.getArgument(0);
+            Condition condition = invocation.getArgument(0);
 
             // Emulate a situation when immediate timer was run after filter altering and new node was added, so timer was scheduled.
             byte[] key = zoneScaleUpChangeTriggerKey(zoneId).bytes();
 
-            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(key, k))) {
+            if (Arrays.stream(condition.keys()).anyMatch(k -> Arrays.equals(key, k))) {
                 assertNotNull(distributionZoneManager.zonesState().get(zoneId).scaleUpTask());
 
                 topology.putNode(e);
             }
             return invocation.callRealMethod();
-        }).when(keyValueStorage).invoke(any(), any(), any());
+        }).when(keyValueStorage).invoke(any(), anyList(), anyList(), any(), any());
 
         // Check that node E, that was added while filter's altering, is not propagated to data nodes.
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,

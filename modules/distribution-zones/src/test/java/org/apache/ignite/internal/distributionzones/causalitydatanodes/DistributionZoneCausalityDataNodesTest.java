@@ -52,7 +52,8 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 
@@ -64,8 +65,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
@@ -86,8 +85,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.server.If;
-import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.ClusterNode;
@@ -96,7 +93,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.mockito.stubbing.Answer;
 
 /**
  * Tests for causality data nodes updating in {@link DistributionZoneManager}.
@@ -1107,22 +1103,19 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     ) throws Exception {
         prepareZonesTimerValuesToTest();
 
-        CountDownLatch latch = new CountDownLatch(1);
-
-        AtomicBoolean reached = new AtomicBoolean();
+        var conditionReached = new CompletableFuture<Void>();
 
         AtomicLong topologyUpdateRevision = new AtomicLong();
 
         WatchListener testListener = createLogicalTopologyWatchListenerToCheckDataNodes(
                 topologyUpdateRevision,
-                latch,
-                reached,
+                conditionReached,
                 expectedDataNodesOnTopologyUpdateEvent
         );
 
         metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), testListener);
 
-        blockDataNodesUpdatesInMetaStorage(latch);
+        blockDataNodesUpdatesInMetaStorage(conditionReached);
 
         Set<LogicalNode> newTopology = new HashSet<>();
         newTopology.add(NODE_0);
@@ -1146,9 +1139,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         assertEquals(topologyRevision, topologyUpdateRevision.get());
 
-        latch.await();
-
-        assertTrue(reached.get());
+        assertThat(conditionReached, willCompleteSuccessfully());
 
         // Check that data nodes values are changed in the meta storage after ms invokes updated the meta storage.
         checkThatDataNodesIsChangedInMetastorage(expectedDataNodesAfterTimersAreExpired);
@@ -1200,8 +1191,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     private WatchListener createLogicalTopologyWatchListenerToCheckDataNodes(
             AtomicLong topologyUpdateRevision,
-            CountDownLatch latch,
-            AtomicBoolean reached,
+            CompletableFuture<Void> conditionReached,
             Map<Integer, Set<String>> expectedDataNodes
     ) {
         return evt -> {
@@ -1224,11 +1214,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                     // Check that data nodes values are not changed in the meta storage.
                     checkThatDataNodesIsNotChangedInMetastorage(expectedDataNodes.keySet());
 
-                    reached.set(true);
+                    conditionReached.complete(null);
                 } catch (Exception e) {
-                    fail();
+                    conditionReached.completeExceptionally(e);
                 }
-            }).thenRun(latch::countDown).thenApply(ignored -> null);
+            });
         };
     }
 
@@ -1605,25 +1595,21 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         }
     }
 
-    private void blockDataNodesUpdatesInMetaStorage(CountDownLatch latch) {
-        doAnswer((Answer<CompletableFuture<Void>>) invocation -> CompletableFuture.runAsync(() -> {
-            try {
-                latch.await();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }).thenCompose(v -> {
-            try {
-                return (CompletableFuture<Void>) invocation.callRealMethod();
-            } catch (Throwable e) {
-                throw new RuntimeException(e);
-            }
-        })).when(metaStorageManager).invoke(argThat(iif -> {
-            If iif1 = MetaStorageWriteHandler.toIf(iif);
+    private void blockDataNodesUpdatesInMetaStorage(CompletableFuture<?> conditionReached) {
+        byte[] zoneDataNodes = zoneDataNodesKey().bytes();
 
-            byte[] zoneDataNodes = zoneDataNodesKey().bytes();
-
-            return iif1.andThen().update().operations().stream().anyMatch(op -> startsWith(toByteArray(op.key()), zoneDataNodes));
-        }));
+        doAnswer(invocation ->
+                conditionReached.thenCompose(v -> {
+                    try {
+                        return (CompletableFuture<Void>) invocation.callRealMethod();
+                    } catch (Throwable e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+        ).when(metaStorageManager).invoke(
+                any(),
+                argThat(operations -> operations.stream().anyMatch(op -> startsWith(toByteArray(op.key()), zoneDataNodes))),
+                anyList()
+        );
     }
 }

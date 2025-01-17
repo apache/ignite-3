@@ -42,6 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.doAnswer;
 
 import java.util.Arrays;
@@ -57,7 +58,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Zone
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.server.If;
+import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -445,14 +446,14 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         long revisionOfScaleUp = bytesToLongKeepingOrder(keyValueStorage.get(zoneScaleUpChangeTriggerKey(zoneId).bytes()).value());
 
         doAnswer(invocation -> {
-            If iif = invocation.getArgument(0);
+            Condition condition = invocation.getArgument(0);
 
             // Emulate a situation when one of the scale up keys gets concurrently updated during a Meta Storage invoke. We then expect
             // that the invoke call will be retried.
             byte[] keyScaleUp = zoneScaleUpChangeTriggerKey(zoneId).bytes();
             byte[] keyDataNodes = zoneDataNodesKey(zoneId).bytes();
 
-            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(keyScaleUp, k))) {
+            if (Arrays.stream(condition.keys()).anyMatch(k -> Arrays.equals(keyScaleUp, k))) {
                 byte[] value = keyValueStorage.get(zoneDataNodesKey(zoneId).bytes()).value();
 
                 keyValueStorage.putAll(
@@ -463,7 +464,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
             }
 
             return invocation.callRealMethod();
-        }).when(keyValueStorage).invoke(any(), any(), any());
+        }).when(keyValueStorage).invoke(any(), anyList(), anyList(), any(), any());
 
         topology.putNode(NODE_1);
 
@@ -550,14 +551,14 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         long revisionOfScaleDown = bytesToLongKeepingOrder(keyValueStorage.get(zoneScaleDownChangeTriggerKey(zoneId).bytes()).value());
 
         doAnswer(invocation -> {
-            If iif = invocation.getArgument(0);
+            Condition condition = invocation.getArgument(0);
 
             // Emulate a situation when one of the scale down keys gets concurrently updated during a Meta Storage invoke. We then expect
             // that the invoke call will be retried.
             byte[] keyScaleDown = zoneScaleDownChangeTriggerKey(zoneId).bytes();
             byte[] keyDataNodes = zoneDataNodesKey(zoneId).bytes();
 
-            if (Arrays.stream(iif.cond().keys()).anyMatch(k -> Arrays.equals(keyScaleDown, k))) {
+            if (Arrays.stream(condition.keys()).anyMatch(k -> Arrays.equals(keyScaleDown, k))) {
                 byte[] scaleDownRevision = longToBytesKeepingOrder(revisionOfScaleDown + 100);
 
                 keyValueStorage.putAll(
@@ -568,7 +569,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
             }
 
             return invocation.callRealMethod();
-        }).when(keyValueStorage).invoke(any(), any(), any());
+        }).when(keyValueStorage).invoke(any(), anyList(), anyList(), any(), any());
 
         topology.removeNodes(Set.of(NODE_1));
 

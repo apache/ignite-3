@@ -61,9 +61,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
@@ -124,11 +122,8 @@ import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
-import org.apache.ignite.internal.metastorage.dsl.StatementResult;
-import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
@@ -607,16 +602,13 @@ public class DistributionZoneManager extends
             // Update data nodes for a zone only if the corresponding data nodes keys weren't initialised in ms yet.
             CompoundCondition triggerKeyCondition = conditionForZoneCreation(zoneId);
 
-            Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKeys(
+            List<Operation> dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKeys(
                     zoneId,
                     revision,
                     DataNodesMapSerializer.serialize(toDataNodesMap(dataNodes))
             );
 
-            Iif iif = iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
-
-            return metaStorageManager.invoke(iif)
-                    .thenApply(StatementResult::getAsBoolean)
+            return metaStorageManager.invoke(triggerKeyCondition, dataNodesAndTriggerKeyUpd, List.of())
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
                             LOG.error(
@@ -660,12 +652,9 @@ public class DistributionZoneManager extends
         try {
             SimpleCondition triggerKeyCondition = conditionForZoneRemoval(zoneId);
 
-            Update removeKeysUpd = deleteDataNodesAndTriggerKeys(zoneId, revision);
+            List<Operation> removeKeysUpd = deleteDataNodesAndTriggerKeys(zoneId, revision);
 
-            Iif iif = iif(triggerKeyCondition, removeKeysUpd, ops().yield(false));
-
-            return metaStorageManager.invoke(iif)
-                    .thenApply(StatementResult::getAsBoolean)
+            return metaStorageManager.invoke(triggerKeyCondition, removeKeysUpd, List.of())
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
                             LOG.error(
@@ -701,7 +690,7 @@ public class DistributionZoneManager extends
             Set<LogicalNode> logicalTopology = newTopology.nodes();
 
             Condition condition;
-            Update update;
+            List<Operation> update;
 
             if (newTopology.version() == LogicalTopologySnapshot.FIRST_VERSION) {
                 // Very first start of the cluster, OR first topology version after a cluster reset, so we just
@@ -716,9 +705,7 @@ public class DistributionZoneManager extends
                 update = updateLogicalTopologyAndVersion(newTopology);
             }
 
-            Iif iff = iif(condition, update, ops().yield(false));
-
-            metaStorageManager.invoke(iff).whenComplete((res, e) -> {
+            metaStorageManager.invoke(condition, update, List.of()).whenComplete((res, e) -> {
                 if (e != null) {
                     LOG.error(
                             "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
@@ -726,7 +713,7 @@ public class DistributionZoneManager extends
                             Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()
                     );
-                } else if (res.getAsBoolean()) {
+                } else if (res) {
                     LOG.info(
                             "Distribution zones' logical topology and version keys were updated [topology = {}, version = {}]",
                             Arrays.toString(logicalTopology.toArray()),
@@ -854,7 +841,7 @@ public class DistributionZoneManager extends
 
         Set<Integer> zoneIds = new HashSet<>();
 
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        List<CompletableFuture<?>> futures = new ArrayList<>();
 
         logicalTopologyByRevision.put(revision, newLogicalTopology);
 
@@ -902,41 +889,32 @@ public class DistributionZoneManager extends
      * @param newLogicalTopology New logical topology.
      * @return Future representing pending completion of the operation.
      */
-    private CompletableFuture<Void> saveRecoverableStateToMetastorage(
+    private CompletableFuture<?> saveRecoverableStateToMetastorage(
             Set<Integer> zoneIds,
             long revision,
             Set<NodeWithAttributes> newLogicalTopology
     ) {
-        Operation[] puts = new Operation[3 + zoneIds.size()];
+        var puts = new ArrayList<Operation>(3 + zoneIds.size());
 
-        puts[0] = put(zonesNodesAttributes(), NodesAttributesSerializer.serialize(nodesAttributes()));
+        puts.add(put(zonesNodesAttributes(), NodesAttributesSerializer.serialize(nodesAttributes())));
 
-        puts[1] = put(zonesRecoverableStateRevision(), longToBytesKeepingOrder(revision));
+        puts.add(put(zonesRecoverableStateRevision(), longToBytesKeepingOrder(revision)));
 
-        puts[2] = put(
+        puts.add(put(
                 zonesLastHandledTopology(),
                 LogicalTopologySetSerializer.serialize(newLogicalTopology)
-        );
-
-        int i = 3;
+        ));
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise topology augmentation map. Also this map
         // TODO: can be saved only once for all zones.
         for (Integer zoneId : zoneIds) {
-            puts[i++] = put(
+            puts.add(put(
                     zoneTopologyAugmentation(zoneId),
                     TopologyAugmentationMapSerializer.serialize(zonesState.get(zoneId).topologyAugmentationMap())
-            );
+            ));
         }
 
-        Iif iif = iif(
-                conditionForRecoverableStateChanges(revision),
-                ops(puts).yield(true),
-                ops().yield(false)
-        );
-
-        return metaStorageManager.invoke(iif)
-                .thenApply(StatementResult::getAsBoolean)
+        return metaStorageManager.invoke(conditionForRecoverableStateChanges(revision), puts, List.of())
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
                         LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
@@ -945,7 +923,7 @@ public class DistributionZoneManager extends
                     } else {
                         LOG.debug("Failed to update recoverable states for distribution zone manager [revision = {}]", revision);
                     }
-                }).thenCompose((ignored) -> nullCompletedFuture());
+                });
     }
 
     /**
@@ -1108,20 +1086,15 @@ public class DistributionZoneManager extends
                 // Remove redundant nodes that are not presented in the data nodes.
                 newDataNodes.entrySet().removeIf(e -> e.getValue() == 0);
 
-                Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleUpTriggerKey(
+                List<Operation> dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleUpTriggerKey(
                         zoneId,
                         revision,
                         DataNodesMapSerializer.serialize(newDataNodes)
                 );
 
-                Iif iif = iif(
-                        triggerScaleUpScaleDownKeysCondition(scaleUpTriggerRevision, scaleDownTriggerRevision, zoneId),
-                        dataNodesAndTriggerKeyUpd,
-                        ops().yield(false)
-                );
+                Condition condition = triggerScaleUpScaleDownKeysCondition(scaleUpTriggerRevision, scaleDownTriggerRevision, zoneId);
 
-                return metaStorageManager.invoke(iif)
-                        .thenApply(StatementResult::getAsBoolean)
+                return metaStorageManager.invoke(condition, dataNodesAndTriggerKeyUpd, List.of())
                         .thenCompose(invokeResult -> inBusyLock(busyLock, () -> {
                             if (invokeResult) {
                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-19491 Properly utilise this map
@@ -1218,20 +1191,15 @@ public class DistributionZoneManager extends
                 // Remove redundant nodes that are not presented in the data nodes.
                 newDataNodes.entrySet().removeIf(e -> e.getValue() == 0);
 
-                Update dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleDownTriggerKey(
+                List<Operation> dataNodesAndTriggerKeyUpd = updateDataNodesAndScaleDownTriggerKey(
                         zoneId,
                         revision,
                         DataNodesMapSerializer.serialize(newDataNodes)
                 );
 
-                Iif iif = iif(
-                        triggerScaleUpScaleDownKeysCondition(scaleUpTriggerRevision, scaleDownTriggerRevision, zoneId),
-                        dataNodesAndTriggerKeyUpd,
-                        ops().yield(false)
-                );
+                Condition condition = triggerScaleUpScaleDownKeysCondition(scaleUpTriggerRevision, scaleDownTriggerRevision, zoneId);
 
-                return metaStorageManager.invoke(iif)
-                        .thenApply(StatementResult::getAsBoolean)
+                return metaStorageManager.invoke(condition, dataNodesAndTriggerKeyUpd, List.of())
                         .thenCompose(invokeResult -> inBusyLock(busyLock, () -> {
                             if (invokeResult) {
                                 LOG.info(

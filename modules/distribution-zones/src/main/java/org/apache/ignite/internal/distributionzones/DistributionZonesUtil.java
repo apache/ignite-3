@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notTombstone;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
@@ -40,7 +39,6 @@ import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -48,6 +46,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
@@ -60,7 +59,6 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
-import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.jetbrains.annotations.Nullable;
@@ -115,7 +113,7 @@ public class DistributionZonesUtil {
     /** Key prefix for zones' logical topology cluster ID. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_CLUSTER_ID = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "clusterId";
 
-    /** Key prefix that represents {@link ZoneState#topologyAugmentationMap()}.*/
+    /** Key prefix that represents {@link ZoneState#topologyAugmentationMap()}. */
     private static final String DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_PREFIX = "distributionZones.topologyAugmentation.";
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
@@ -171,6 +169,8 @@ public class DistributionZonesUtil {
 
     /** Default value for the {@link #REBALANCE_RETRY_DELAY_MS}. */
     public static final int REBALANCE_RETRY_DELAY_DEFAULT = 200;
+
+    private static final Pattern PROFILES_PATTERN = Pattern.compile("\\s*,\\s*");
 
     /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX}.
@@ -335,7 +335,7 @@ public class DistributionZonesUtil {
      * @param zoneId Zone id.
      * @return Update condition.
      */
-    static CompoundCondition triggerScaleUpScaleDownKeysCondition(long scaleUpTriggerRevision, long scaleDownTriggerRevision,  int zoneId) {
+    static CompoundCondition triggerScaleUpScaleDownKeysCondition(long scaleUpTriggerRevision, long scaleDownTriggerRevision, int zoneId) {
         SimpleCondition scaleUpCondition;
 
         if (scaleUpTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
@@ -361,13 +361,13 @@ public class DistributionZonesUtil {
      * @param zoneId Distribution zone id
      * @param revision Revision of the event.
      * @param nodes Data nodes.
-     * @return Update command for the meta storage.
+     * @return Update commands for the meta storage.
      */
-    static Update updateDataNodesAndScaleUpTriggerKey(int zoneId, long revision, byte[] nodes) {
-        return ops(
+    static List<Operation> updateDataNodesAndScaleUpTriggerKey(int zoneId, long revision, byte[] nodes) {
+        return List.of(
                 put(zoneDataNodesKey(zoneId), nodes),
                 put(zoneScaleUpChangeTriggerKey(zoneId), longToBytesKeepingOrder(revision))
-        ).yield(true);
+        );
     }
 
     /**
@@ -376,13 +376,13 @@ public class DistributionZonesUtil {
      * @param zoneId Distribution zone id
      * @param revision Revision of the event.
      * @param nodes Data nodes.
-     * @return Update command for the meta storage.
+     * @return Update commands for the meta storage.
      */
-    static Update updateDataNodesAndScaleDownTriggerKey(int zoneId, long revision, byte[] nodes) {
-        return ops(
+    static List<Operation> updateDataNodesAndScaleDownTriggerKey(int zoneId, long revision, byte[] nodes) {
+        return List.of(
                 put(zoneDataNodesKey(zoneId), nodes),
                 put(zoneScaleDownChangeTriggerKey(zoneId), longToBytesKeepingOrder(revision))
-        ).yield(true);
+        );
     }
 
 
@@ -393,14 +393,14 @@ public class DistributionZonesUtil {
      * @param zoneId Distribution zone id
      * @param revision Revision of the event.
      * @param nodes Data nodes.
-     * @return Update command for the meta storage.
+     * @return Update commands for the meta storage.
      */
-    static Update updateDataNodesAndTriggerKeys(int zoneId, long revision, byte[] nodes) {
-        return ops(
+    static List<Operation> updateDataNodesAndTriggerKeys(int zoneId, long revision, byte[] nodes) {
+        return List.of(
                 put(zoneDataNodesKey(zoneId), nodes),
                 put(zoneScaleUpChangeTriggerKey(zoneId), longToBytesKeepingOrder(revision)),
                 put(zoneScaleDownChangeTriggerKey(zoneId), longToBytesKeepingOrder(revision))
-        ).yield(true);
+        );
     }
 
     /**
@@ -409,23 +409,23 @@ public class DistributionZonesUtil {
      *
      * @param zoneId Distribution zone id
      * @param revision Revision of the event.
-     * @return Update command for the meta storage.
+     * @return Update commands for the meta storage.
      */
-    static Update deleteDataNodesAndTriggerKeys(int zoneId, long revision) {
-        return ops(
+    static List<Operation> deleteDataNodesAndTriggerKeys(int zoneId, long revision) {
+        return List.of(
                 remove(zoneDataNodesKey(zoneId)),
                 remove(zoneScaleUpChangeTriggerKey(zoneId)),
                 remove(zoneScaleDownChangeTriggerKey(zoneId))
-        ).yield(true);
+        );
     }
 
     /**
      * Updates logical topology and its version values for zones.
      *
      * @param logicalTopology Logical topology snapshot.
-     * @return Update command for the meta storage.
+     * @return Update commands for the meta storage.
      */
-    static Update updateLogicalTopologyAndVersion(LogicalTopologySnapshot logicalTopology) {
+    static List<Operation> updateLogicalTopologyAndVersion(LogicalTopologySnapshot logicalTopology) {
         return updateLogicalTopologyAndVersionAndMaybeClusterId(logicalTopology, false);
     }
 
@@ -433,13 +433,13 @@ public class DistributionZonesUtil {
      * Updates logical topology, its version and cluster ID values for zones.
      *
      * @param logicalTopology Logical topology snapshot.
-     * @return Update command for the meta storage.
+     * @return Update commands for the meta storage.
      */
-    static Update updateLogicalTopologyAndVersionAndClusterId(LogicalTopologySnapshot logicalTopology) {
+    static List<Operation> updateLogicalTopologyAndVersionAndClusterId(LogicalTopologySnapshot logicalTopology) {
         return updateLogicalTopologyAndVersionAndMaybeClusterId(logicalTopology, true);
     }
 
-    private static Update updateLogicalTopologyAndVersionAndMaybeClusterId(
+    private static List<Operation> updateLogicalTopologyAndVersionAndMaybeClusterId(
             LogicalTopologySnapshot logicalTopology,
             boolean updateClusterId
     ) {
@@ -458,7 +458,7 @@ public class DistributionZonesUtil {
             operations.add(put(zonesLogicalTopologyClusterIdKey(), uuidToBytes(logicalTopology.clusterId())));
         }
 
-        return ops(operations.toArray(Operation[]::new)).yield(true);
+        return operations;
     }
 
     /**
@@ -562,20 +562,16 @@ public class DistributionZonesUtil {
         // nodeAttributes has String values of numbers because nodeAttributes come from configuration,
         // but configuration does not support Object as a configuration value.
         Map<String, Object> convertedAttributes = nodeAttributes.entrySet().stream()
-                .collect(
-                        toMap(
-                                Map.Entry::getKey,
-                                e -> {
-                                    long res;
-
-                                    try {
-                                        res = Long.parseLong(e.getValue());
-                                    } catch (NumberFormatException ignored) {
-                                        return e.getValue();
-                                    }
-                                    return res;
-                                })
-                );
+                .collect(toMap(
+                        Map.Entry::getKey,
+                        e -> {
+                            try {
+                                return Long.valueOf(e.getValue());
+                            } catch (NumberFormatException ignored) {
+                                return e.getValue();
+                            }
+                        }
+                ));
 
         Configuration jsonPathCfg = new Configuration.ConfigurationBuilder()
                 .options(Option.SUPPRESS_EXCEPTIONS, Option.ALWAYS_RETURN_LIST)
@@ -622,7 +618,6 @@ public class DistributionZonesUtil {
             CatalogZoneDescriptor zoneDescriptor,
             Map<UUID, NodeWithAttributes> nodesAttributes
     ) {
-
         return dataNodes.stream()
                 .filter(n -> filterNodeAttributes(nodesAttributes.get(n.nodeId()).userAttributes(), zoneDescriptor.filter()))
                 .filter(n -> filterStorageProfiles(nodesAttributes.get(n.nodeId()), zoneDescriptor.storageProfiles().profiles()))
@@ -637,9 +632,7 @@ public class DistributionZonesUtil {
      * @return List of storage profile params
      */
     public static List<StorageProfileParams> parseStorageProfiles(String storageProfiles) {
-        List<String> items = Arrays.asList(storageProfiles.split("\\s*,\\s*"));
-
-        return items.stream()
+        return PROFILES_PATTERN.splitAsStream(storageProfiles)
                 .map(p -> StorageProfileParams.builder().storageProfile(p).build())
                 .collect(toList());
     }

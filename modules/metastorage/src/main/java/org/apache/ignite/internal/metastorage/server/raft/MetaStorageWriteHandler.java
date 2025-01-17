@@ -247,7 +247,7 @@ public class MetaStorageWriteHandler {
         }
     }
 
-    public static If toIf(Iif iif) {
+    private static If toIf(Iif iif) {
         return new If(toCondition(iif.condition()), toConditionBranch(iif.andThen()), toConditionBranch(iif.orElse()));
     }
 
@@ -261,7 +261,10 @@ public class MetaStorageWriteHandler {
         }
     }
 
-    private static Condition toCondition(org.apache.ignite.internal.metastorage.dsl.Condition condition) {
+    /**
+     * Converts a {@link org.apache.ignite.internal.metastorage.dsl.Condition} into a {@link Condition}.
+     */
+    public static Condition toCondition(org.apache.ignite.internal.metastorage.dsl.Condition condition) {
         if (condition instanceof SimpleCondition.ValueCondition) {
             var valueCondition = (SimpleCondition.ValueCondition) condition;
 

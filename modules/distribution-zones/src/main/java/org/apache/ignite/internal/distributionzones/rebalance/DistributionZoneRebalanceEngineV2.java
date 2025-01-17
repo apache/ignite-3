@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -276,7 +275,8 @@ public class DistributionZoneRebalanceEngineV2 {
     // TODO: And then run the remote invoke, only if needed.
     private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision) {
         if (recoveryRevision > 0) {
-            List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogService.latestCatalogVersion())
+            @SuppressWarnings("unchecked")
+            CompletableFuture<Void>[] zonesRecoveryFutures = catalogService.zones(catalogService.latestCatalogVersion())
                     .stream()
                     .map(zoneDesc ->
                             recalculateAssignmentsAndTriggerZonePartitionsRebalance(
@@ -285,9 +285,9 @@ public class DistributionZoneRebalanceEngineV2 {
                                     catalogService.latestCatalogVersion()
                             )
                     )
-                    .collect(Collectors.toUnmodifiableList());
+                    .toArray(CompletableFuture[]::new);
 
-            return allOf(zonesRecoveryFutures.toArray(new CompletableFuture[0]));
+            return allOf(zonesRecoveryFutures);
         } else {
             return completedFuture(null);
         }

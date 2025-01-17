@@ -39,6 +39,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
+import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.toCondition;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -53,6 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -113,10 +115,8 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
-import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
@@ -648,19 +648,19 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             metastore.remove(dataNodeKeyForZone).get();
 
             return invocation.callRealMethod();
-        }).when(metastore).invoke(argThat(iif -> {
-            If iif1 = MetaStorageWriteHandler.toIf(iif);
+        }).when(metastore).invoke(
+                argThat(condition -> {
+                    Optional<byte[]> dataNodeKeyOptional = Arrays.stream(toCondition(condition).keys())
+                            .filter(op -> startsWith(op, zoneDataNodesKey().bytes()))
+                            .findFirst();
 
-            byte[][] keysFromIf = iif1.cond().keys();
+                    dataNodeKeyOptional.ifPresent(bytes -> dataNodeKey[0] = bytes);
 
-            Optional<byte[]> dataNodeKeyOptional = Arrays.stream(keysFromIf)
-                    .filter(op -> startsWith(op, zoneDataNodesKey().bytes()))
-                    .findFirst();
-
-            dataNodeKeyOptional.ifPresent(bytes -> dataNodeKey[0] = bytes);
-
-            return dataNodeKeyOptional.isPresent();
-        }));
+                    return dataNodeKeyOptional.isPresent();
+                }),
+                anyList(),
+                anyList()
+        );
 
         createZone(getCatalogManager(node), "zone1", INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null, DEFAULT_STORAGE_PROFILE);
 
@@ -876,24 +876,26 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
     }
 
     private void blockMetaStorageUpdates(MetaStorageManager metaStorageManager) {
-        doThrow(new RuntimeException("Expected")).when(metaStorageManager).invoke(argThat(iif -> {
-            If iif1 = MetaStorageWriteHandler.toIf(iif);
+        doThrow(new RuntimeException("Expected")).when(metaStorageManager).invoke(
+                any(),
+                argThat(operations -> {
+                    byte[] keyScaleUpBytes = zoneScaleUpChangeTriggerKeyPrefix().bytes();
+                    byte[] keyScaleDownBytes = zoneScaleDownChangeTriggerKeyPrefix().bytes();
+                    byte[] keyGlobalStateBytes = zonesRecoverableStateRevision().bytes();
 
-            byte[] keyScaleUpBytes = zoneScaleUpChangeTriggerKeyPrefix().bytes();
-            byte[] keyScaleDownBytes = zoneScaleDownChangeTriggerKeyPrefix().bytes();
-            byte[] keyGlobalStateBytes = zonesRecoverableStateRevision().bytes();
+                    boolean isScaleUpKey = operations.stream()
+                            .anyMatch(op -> startsWith(toByteArray(op.key()), keyScaleUpBytes));
+                    boolean isScaleDownKey = operations.stream()
+                            .anyMatch(op -> startsWith(toByteArray(op.key()), keyScaleDownBytes));
+                    boolean isGlobalStateChangeKey = operations.stream()
+                            .anyMatch(op -> startsWith(toByteArray(op.key()), keyGlobalStateBytes));
 
-            boolean isScaleUpKey = iif1.andThen().update().operations().stream()
-                    .anyMatch(op -> startsWith(toByteArray(op.key()), keyScaleUpBytes));
-            boolean isScaleDownKey = iif1.andThen().update().operations().stream()
-                    .anyMatch(op -> startsWith(toByteArray(op.key()), keyScaleDownBytes));
-            boolean isGlobalStateChangeKey = iif1.andThen().update().operations().stream()
-                    .anyMatch(op -> startsWith(toByteArray(op.key()), keyGlobalStateBytes));
-
-            return isScaleUpKey && startScaleUpBlocking
-                    || isScaleDownKey && startScaleDownBlocking
-                    || isGlobalStateChangeKey && startGlobalStateUpdateBlocking;
-        }));
+                    return isScaleUpKey && startScaleUpBlocking
+                            || isScaleDownKey && startScaleDownBlocking
+                            || isGlobalStateChangeKey && startGlobalStateUpdateBlocking;
+                }),
+                anyList()
+        );
     }
 
     private static <T extends IgniteComponent> T getStartedComponent(PartialNode node, Class<T> componentClass) {
