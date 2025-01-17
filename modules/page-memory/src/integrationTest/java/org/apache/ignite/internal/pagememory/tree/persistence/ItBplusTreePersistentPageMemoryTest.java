@@ -43,6 +43,7 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileConfigura
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -98,7 +99,7 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
      *
      * @throws Exception If failed.
      */
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23588")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23588")
     @Test
     @WithSystemProperty(key = USE_SEQUENCED_RW_LOCK, value = "true")
     @WithSystemProperty(key = BPLUS_TREE_TEST_SEED, value = "1161542256747481")
