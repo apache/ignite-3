@@ -19,7 +19,6 @@ package org.apache.ignite.internal.partitiondistribution;
 
 import static java.util.stream.Collectors.toList;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -42,7 +41,9 @@ public class AssignmentsChain {
     private final List<AssignmentsLink> chain;
 
     private AssignmentsChain(List<AssignmentsLink> chain) {
-        this.chain = chain;
+        this.chain = chain.stream()
+                .map(assignmentsLink -> new AssignmentsLink(assignmentsLink, this::nextLink))
+                .collect(toList());
     }
 
     public List<AssignmentsLink> chain() {
@@ -50,37 +51,36 @@ public class AssignmentsChain {
     }
 
     /**
-     * Create a new {@link AssignmentsChain} with the last link in the chain replaced with the provided one.
+     * Replace the last link in the chain with the provided one.
      *
      * @param newLast New last link.
-     * @return new AssignmentsChain.
+     * @return the created {@link AssignmentsLink}
      */
-    public AssignmentsChain replaceLast(Assignments newLast, long configurationTerm, long configurationIndex) {
+    public AssignmentsLink replaceLast(Assignments newLast, long configurationTerm, long configurationIndex) {
         assert !chain.isEmpty() : "Assignments chain is empty.";
 
-        List<AssignmentsLink> newChain = new ArrayList<>(chain);
+        AssignmentsLink link = new AssignmentsLink(newLast, configurationTerm, configurationIndex, this::nextLink);
 
-        newChain.set(newChain.size() - 1, new AssignmentsLink(newLast, configurationTerm, configurationIndex));
+        chain.set(chain.size() - 1, link);
 
-        return new AssignmentsChain(newChain);
+        return link;
     }
 
     /**
-     * Create a new {@link AssignmentsChain} with a new link added to the chain.
+     * Add a new link to the end of the chain.
      *
      * @param newLast New last link.
-     * @return new AssignmentsChain.
+     * @return the created {@link AssignmentsLink}
      */
-    public AssignmentsChain addLast(Assignments newLast, long configurationTerm, long configurationIndex) {
+    public AssignmentsLink addLast(Assignments newLast, long configurationTerm, long configurationIndex) {
         assert !chain.isEmpty() : "Assignments chain is empty.";
 
-        List<AssignmentsLink> newChain = new ArrayList<>(chain);
+        AssignmentsLink link = new AssignmentsLink(newLast, configurationTerm, configurationIndex, this::nextLink);
 
-        newChain.add(new AssignmentsLink(newLast, configurationTerm, configurationIndex));
+        chain.add(link);
 
-        return new AssignmentsChain(newChain);
+        return link;
     }
-
 
     /**
      * Gets the next link in the chain after the given link.
@@ -88,19 +88,23 @@ public class AssignmentsChain {
      * @param link The link to get the next one from.
      * @return The next link in the chain, or {@code null} if the given link is the last one in the chain.
      */
-    public @Nullable AssignmentsLink nextLink(AssignmentsLink link) {
+    private @Nullable AssignmentsLink nextLink(AssignmentsLink link) {
         int i = chain.indexOf(link);
 
         return i < 0 || i == chain().size() - 1 ? null : chain.get(i + 1);
     }
 
+    public AssignmentsLink firstLink() {
+        return chain.get(0);
+    }
+
     /**
-     * Returns the last {@link AssignmentsLink} in the chain that contains the specified node.
-     * {@code}
+     * Returns the last {@link AssignmentsLink} in the chain that contains the specified node. {@code}
      * <pre>
      *   on input link1([A,B,C,D,E,F,G]) > link2([E,F,G]) > link3([G])
      *   chain.lastLink(F) should return link2(E,F,G).
      * </pre>
+     *
      * @param nodeConsistentId The consistent identifier of the node to search for.
      * @return The last {@link AssignmentsLink} that contains the node, or {@code null} if no such link exists.
      */
@@ -125,12 +129,9 @@ public class AssignmentsChain {
      * @param assignments Partition assignments.
      */
     public static AssignmentsChain of(long configurationTerm, long configurationIndex, Assignments... assignments) {
-        List<AssignmentsLink> links =
-                Stream.of(assignments)
-                        .map(assignment -> new AssignmentsLink(assignment, configurationTerm, configurationIndex))
-                        .collect(toList());
-
-        return new AssignmentsChain(links);
+        return of(Stream.of(assignments)
+                .map(assignment -> new AssignmentsLink(assignment, configurationTerm, configurationIndex, null))
+                .collect(toList()));
     }
 
     /**
@@ -138,7 +139,7 @@ public class AssignmentsChain {
      *
      * @param assignmentsChain Chain of partition assignments.
      */
-    public static AssignmentsChain of(List<AssignmentsLink> assignmentsChain) {
+    static AssignmentsChain of(List<AssignmentsLink> assignmentsChain) {
         return new AssignmentsChain(assignmentsChain);
     }
 

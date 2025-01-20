@@ -552,16 +552,15 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
               else
                 ms.chain = ms.chain + pending/stable // [A,B,C,D,E,F,G] => [A,B,C,D,E,F,G] -> [E]
         */
-        AssignmentsChain newAssignmentsChain;
         if (!pendingAssignments.force() && !pendingAssignments.fromReset()) {
-            newAssignmentsChain = AssignmentsChain.of(configurationTerm, configurationIndex, newStable);
+            return AssignmentsChain.of(configurationTerm, configurationIndex, newStable);
         } else if (!pendingAssignments.force() && pendingAssignments.fromReset()) {
-            newAssignmentsChain = assignmentsChain.replaceLast(newStable, configurationTerm, configurationIndex);
+            assignmentsChain.replaceLast(newStable, configurationTerm, configurationIndex);
         } else {
-            newAssignmentsChain = assignmentsChain.addLast(newStable, configurationTerm, configurationIndex);
+            assignmentsChain.addLast(newStable, configurationTerm, configurationIndex);
         }
 
-        return newAssignmentsChain;
+        return assignmentsChain;
     }
 
     /**

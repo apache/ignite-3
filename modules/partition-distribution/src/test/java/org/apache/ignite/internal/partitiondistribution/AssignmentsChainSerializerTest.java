@@ -59,8 +59,7 @@ class AssignmentsChainSerializerTest {
         AssignmentsChain originalAssignmentsChain =
                 AssignmentsChain.of(2, 4, testAssignments1(force, fromReset));
 
-        originalAssignmentsChain =
-                originalAssignmentsChain.addLast(testAssignments2(force, fromReset), 3, 5);
+        originalAssignmentsChain.addLast(testAssignments2(force, fromReset), 3, 5);
 
         byte[] bytes = VersionedSerialization.toBytes(originalAssignmentsChain, serializer);
         AssignmentsChain restoredAssignmentsChain = VersionedSerialization.fromBytes(bytes, serializer);

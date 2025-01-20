@@ -57,7 +57,7 @@ class AssignmentsLinkSerializerTest {
             @Values(booleans = {false, true}) boolean fromReset
     ) {
         AssignmentsLink originalAssignmentsLink =
-                new AssignmentsLink(testAssignments(force, fromReset), 2, 4);
+                new AssignmentsLink(testAssignments(force, fromReset), 2, 4, null);
 
         byte[] bytes = VersionedSerialization.toBytes(originalAssignmentsLink, serializer);
         AssignmentsLink restoredAssignmentsLink = VersionedSerialization.fromBytes(bytes, serializer);
