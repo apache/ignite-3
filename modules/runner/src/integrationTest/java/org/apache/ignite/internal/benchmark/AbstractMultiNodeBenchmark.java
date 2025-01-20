@@ -90,23 +90,33 @@ public class AbstractMultiNodeBenchmark {
         startCluster();
 
         try {
-            var queryEngine = igniteImpl.queryEngine();
+            // Create a default zone on the cluster's start-up.
+            createDefaultZoneOnStartup();
 
-            var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount()
-                    + ", replicas=" + replicaCount() + ", storage_profiles ='" + DEFAULT_STORAGE_PROFILE + "'";
-
-            getAllFromCursor(
-                    await(queryEngine.queryAsync(
-                            SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, null, createZoneStatement
-                    ))
-            );
-
-            createTable(TABLE_NAME);
+            // Create a default table on the cluster's start-up.
+            createDefaultTableOnStartup();
         } catch (Throwable th) {
             nodeTearDown();
 
             throw th;
         }
+    }
+
+    protected void createDefaultZoneOnStartup() {
+        var queryEngine = igniteImpl.queryEngine();
+
+        var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount()
+                + ", replicas=" + replicaCount() + ", storage_profiles ='" + DEFAULT_STORAGE_PROFILE + "'";
+
+        getAllFromCursor(
+                await(queryEngine.queryAsync(
+                        SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, null, createZoneStatement
+                ))
+        );
+    }
+
+    protected void createDefaultTableOnStartup() {
+        createTable(TABLE_NAME);
     }
 
     protected void createTable(String tableName) {
