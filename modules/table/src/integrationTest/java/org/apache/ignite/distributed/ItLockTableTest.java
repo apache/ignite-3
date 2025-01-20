@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -36,7 +37,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -89,9 +89,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     protected static RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration
-    protected static GcConfiguration gcConfig;
-
     @InjectConfiguration("mock: { deadlockPreventionPolicy: { waitTimeout: -1, txIdComparator: NONE } }")
     protected static TransactionConfiguration txConfiguration;
 
@@ -100,6 +97,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     protected static StorageUpdateConfiguration storageUpdateConfiguration;
+
+    @InjectConfiguration("mock.properties: { lockMapSize: \"" + CACHE_SIZE + "\", rawSlotsMaxSize: \"131072\" }")
+    private static SystemLocalConfiguration systemLocalConfiguration;
 
     private ItTxTestCluster txTestCluster;
 
@@ -144,9 +144,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         txConfiguration,
                         clusterService,
                         replicaSvc,
-                        new HeapLockManager(
-                                131072,
-                                CACHE_SIZE),
+                        new HeapLockManager(systemLocalConfiguration),
                         clockService,
                         generator,
                         placementDriver,

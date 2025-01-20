@@ -121,6 +121,8 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 {6, 6},
                 {7, null}
         });
+
+        gatherStatistics();
     }
 
     @Test
@@ -747,6 +749,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testIndexedNullableFieldGreaterThanFilter() {
         assertQuery("SELECT * FROM T1 WHERE val > 4")
+                .disableRules("LogicalTableScanConverterRule")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
                 .returns(5, 5)
                 .returns(6, 6)
@@ -815,6 +818,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testIndexedNullableFieldLessThanFilter() {
         assertQuery("SELECT * FROM T1 WHERE val <= 5")
+                .disableRules("LogicalTableScanConverterRule")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
                 .returns(3, 3)
                 .returns(4, 4)

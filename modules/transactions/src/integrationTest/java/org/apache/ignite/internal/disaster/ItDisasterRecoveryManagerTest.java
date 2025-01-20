@@ -77,7 +77,8 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         CompletableFuture<Void> restartPartitionsFuture = node.disasterRecoveryManager().restartPartitions(
                 Set.of(node.name()),
                 ZONE_NAME,
-                SqlCommon.DEFAULT_SCHEMA_NAME + "." + TABLE_NAME,
+                SqlCommon.DEFAULT_SCHEMA_NAME,
+                TABLE_NAME,
                 Set.of(partitionId)
         );
 

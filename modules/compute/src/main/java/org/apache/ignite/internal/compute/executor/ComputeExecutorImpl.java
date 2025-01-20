@@ -45,6 +45,7 @@ import org.apache.ignite.internal.compute.task.TaskExecutionContextImpl;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
@@ -61,6 +62,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private final ComputeStateMachine stateMachine;
 
+    private final TopologyService topologyService;
+
     private PriorityQueueExecutor executorService;
 
     /**
@@ -69,15 +72,18 @@ public class ComputeExecutorImpl implements ComputeExecutor {
      * @param ignite Ignite instance for public API access.
      * @param stateMachine Compute jobs state machine.
      * @param configuration Compute configuration.
+     * @param topologyService Topology service.
      */
     public ComputeExecutorImpl(
             Ignite ignite,
             ComputeStateMachine stateMachine,
-            ComputeConfiguration configuration
+            ComputeConfiguration configuration,
+            TopologyService topologyService
     ) {
         this.ignite = ignite;
         this.configuration = configuration;
         this.stateMachine = stateMachine;
+        this.topologyService = topologyService;
     }
 
     @Override
@@ -90,7 +96,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         assert executorService != null;
 
         AtomicBoolean isInterrupted = new AtomicBoolean();
-        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
+        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader, options.partition());
         ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass);
         Marshaller<T, byte[]> inputMarshaller = jobInstance.inputMarshaller();
         Marshaller<R, byte[]> resultMarshaller = jobInstance.resultMarshaller();
@@ -101,7 +107,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 options.maxRetries()
         );
 
-        return new JobExecutionInternal<>(execution, isInterrupted, null, false);
+        return new JobExecutionInternal<>(execution, isInterrupted, null, false, topologyService.localMember());
     }
 
     private static <T, R> Callable<CompletableFuture<ComputeJobDataHolder>> unmarshalExecMarshal(

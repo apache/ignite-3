@@ -28,6 +28,7 @@ import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,7 +42,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <T> the type of the job result.
  */
-class FailSafeJobExecution<T> implements JobExecution<T>, MarshallerProvider<T> {
+class FailSafeJobExecution<T> implements CancellableJobExecution<T>, MarshallerProvider<T> {
     private static final IgniteLogger LOG = Loggers.forClass(FailSafeJobExecution.class);
 
     /**
@@ -62,9 +63,9 @@ class FailSafeJobExecution<T> implements JobExecution<T>, MarshallerProvider<T> 
     /**
      * Link to the current job execution object. It can be updated when the job is restarted on another node.
      */
-    private final AtomicReference<JobExecution<T>> runningJobExecution;
+    private final AtomicReference<CancellableJobExecution<T>> runningJobExecution;
 
-    FailSafeJobExecution(JobExecution<T> runningJobExecution) throws RuntimeException {
+    FailSafeJobExecution(CancellableJobExecution<T> runningJobExecution) throws RuntimeException {
         this.resultFuture = new CompletableFuture<>();
         this.runningJobExecution = new AtomicReference<>(runningJobExecution);
 
@@ -103,7 +104,7 @@ class FailSafeJobExecution<T> implements JobExecution<T>, MarshallerProvider<T> 
         });
     }
 
-    void updateJobExecution(JobExecution<T> jobExecution) {
+    void updateJobExecution(CancellableJobExecution<T> jobExecution) {
         LOG.debug("Updating job execution: {}", jobExecution);
 
         runningJobExecution.set(jobExecution);
@@ -164,6 +165,11 @@ class FailSafeJobExecution<T> implements JobExecution<T>, MarshallerProvider<T> 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return runningJobExecution.get().changePriorityAsync(newPriority);
+    }
+
+    @Override
+    public ClusterNode node() {
+        return runningJobExecution.get().node();
     }
 
     /**

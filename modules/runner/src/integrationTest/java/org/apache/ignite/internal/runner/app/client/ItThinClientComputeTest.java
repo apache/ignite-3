@@ -25,9 +25,13 @@ import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.JobExecutionMatcher.jobExecutionWithResultStatusAndNode;
+import static org.apache.ignite.internal.testframework.matchers.JobExecutionMatcher.jobExecutionWithStatus;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.internal.testframework.matchers.TaskStateMatcher.taskStateWithStatus;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -37,6 +41,8 @@ import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasItem;
@@ -57,6 +63,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -67,11 +74,14 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.IgniteClientConnectionException;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
@@ -86,7 +96,7 @@ import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.deployment.DeploymentUnit;
-import org.apache.ignite.internal.compute.TaskToJobExecutionWrapper;
+import org.apache.ignite.internal.compute.JobTaskStatusMapper;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.IgniteException;
@@ -145,7 +155,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         CancelHandle cancelHandle = CancelHandle.create();
 
         JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-        CompletableFuture<Void> execution = entryNode.compute().executeAsync(JobTarget.node(executeNode), job, cancelHandle.token(), null);
+        CompletableFuture<Void> execution = entryNode.compute().executeAsync(JobTarget.node(executeNode), job, null, cancelHandle.token());
 
         cancelHandle.cancel();
 
@@ -161,7 +171,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         JobDescriptor<Object, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
         CompletableFuture<Void> runFut = IgniteTestUtils.runAsync(() ->  entryNode.compute()
-                .execute(JobTarget.node(executeNode), job, cancelHandle.token(), null));
+                .execute(JobTarget.node(executeNode), job, null, cancelHandle.token()));
 
         cancelHandle.cancel();
 
@@ -170,35 +180,34 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void computeExecuteBroadcastAsyncWithCancelHandle() {
-        IgniteClient entryNode = client();
-        Set<ClusterNode> executeNodes = Set.of(node(0), node(1));
-
         CancelHandle cancelHandle = CancelHandle.create();
 
-        CompletableFuture<Map<ClusterNode, Object>> executions = entryNode.compute().executeBroadcastAsync(
-                executeNodes,
-                JobDescriptor.builder(InfiniteJob.class.getName()).build(), cancelHandle.token(), 100L);
-
-        cancelHandle.cancel();
-
-        assertThrows(ExecutionException.class, () -> executions.get(10, TimeUnit.SECONDS));
-    }
-
-    @Test
-    void computeExecuteBroadcastWithCancelHandle() {
-        IgniteClient entryNode = client();
-        Set<ClusterNode> executeNodes = Set.of(node(0), node(1));
-
-        CancelHandle cancelHandle = CancelHandle.create();
-
-        CompletableFuture<Map<ClusterNode, Object>> runFut = IgniteTestUtils.runAsync(() -> entryNode.compute().executeBroadcast(
-                executeNodes,
-                JobDescriptor.builder(InfiniteJob.class.getName()).build(), cancelHandle.token(), 100L)
+        CompletableFuture<Collection<Void>> results = client().compute().executeAsync(
+                BroadcastJobTarget.nodes(node(0), node(1)),
+                JobDescriptor.builder(InfiniteJob.class).build(),
+                100L,
+                cancelHandle.token()
         );
 
         cancelHandle.cancel();
 
-        assertThrows(ExecutionException.class, () -> runFut.get(10, TimeUnit.SECONDS));
+        assertThat(results, willThrow(ComputeException.class));
+    }
+
+    @Test
+    void computeExecuteBroadcastWithCancelHandle() {
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        CompletableFuture<Collection<Void>> runFut = IgniteTestUtils.runAsync(() -> client().compute().execute(
+                BroadcastJobTarget.nodes(node(0), node(1)),
+                JobDescriptor.builder(InfiniteJob.class).build(),
+                100L,
+                cancelHandle.token()
+        ));
+
+        cancelHandle.cancel();
+
+        assertThat(runFut, willThrow(ComputeException.class));
     }
 
     @Test
@@ -208,7 +217,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         CancelHandle cancelHandle = CancelHandle.create();
 
         CompletableFuture<Void> execution = entryNode.compute()
-                .executeMapReduceAsync(TaskDescriptor.builder(InfiniteMapReduceTask.class).build(), cancelHandle.token(), null);
+                .executeMapReduceAsync(TaskDescriptor.builder(InfiniteMapReduceTask.class).build(), null, cancelHandle.token());
 
         cancelHandle.cancel();
 
@@ -217,10 +226,10 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnSpecificNodeAsync() {
-        JobExecution<String> execution1 = client().compute().submit(
+        JobExecution<String> execution1 = submit(
                 JobTarget.node(node(0)), JobDescriptor.builder(NodeNameJob.class).build(), null
         );
-        JobExecution<String> execution2 = client().compute().submit(
+        JobExecution<String> execution2 = submit(
                 JobTarget.node(node(1)), JobDescriptor.builder(NodeNameJob.class).build(), null
         );
 
@@ -233,21 +242,24 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testCancellingCompletedJob() {
-        JobExecution<String> execution = client().compute().submit(
+        CancelHandle cancelHandle = CancelHandle.create();
+        JobExecution<String> execution = submit(
                 JobTarget.node(node(0)),
-                JobDescriptor.builder(NodeNameJob.class).build(), null
+                JobDescriptor.builder(NodeNameJob.class).build(),
+                cancelHandle.token(),
+                null
         );
 
         assertThat(execution.resultAsync(), willBe("itcct_n_3344"));
 
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
 
-        assertThat(execution.cancelAsync(), willBe(false));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
     }
 
     @Test
     void testChangingPriorityCompletedJob() {
-        JobExecution<String> execution = client().compute().submit(
+        JobExecution<String> execution = submit(
                 JobTarget.node(node(0)),
                 JobDescriptor.builder(NodeNameJob.class).build(), null
         );
@@ -267,14 +279,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                 .builder(asyncJob ? AsyncSleepJob.class : SleepJob.class)
                 .build();
 
-        JobExecution<Void> execution1 = client().compute().submit(JobTarget.node(node(0)), sleepJob, sleepMs);
-        JobExecution<Void> execution2 = client().compute().submit(JobTarget.node(node(1)), sleepJob, sleepMs);
+        CancelHandle cancelHandle = CancelHandle.create();
+        JobExecution<Void> execution1 = submit(JobTarget.node(node(0)), sleepJob, cancelHandle.token(), sleepMs);
+        JobExecution<Void> execution2 = submit(JobTarget.node(node(1)), sleepJob, cancelHandle.token(), sleepMs);
 
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
-        assertThat(execution1.cancelAsync(), willBe(true));
-        assertThat(execution2.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(CANCELED)));
@@ -287,15 +299,18 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         JobTarget target = JobTarget.node(node(0));
 
         // Start 1 task in executor with 1 thread
-        JobExecution<Void> execution1 = client().compute().submit(target, sleepJob, sleepMs);
+        CancelHandle cancelHandle1 = CancelHandle.create();
+        JobExecution<Void> execution1 = submit(target, sleepJob, cancelHandle1.token(), sleepMs);
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
         // Start one more long lasting task
-        JobExecution<Void> execution2 = client().compute().submit(target, sleepJob, sleepMs);
+        CancelHandle cancelHandle2 = CancelHandle.create();
+        JobExecution<Void> execution2 = submit(target, sleepJob, cancelHandle2.token(), sleepMs);
         await().until(execution2::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Start third task
-        JobExecution<Void> execution3 = client().compute().submit(target, sleepJob, sleepMs);
+        CancelHandle cancelHandle3 = CancelHandle.create();
+        JobExecution<Void> execution3 = submit(target, sleepJob, cancelHandle3.token(), sleepMs);
         await().until(execution3::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         // Task 2 and 3 are not completed, in queue state
@@ -306,7 +321,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(execution3.changePriorityAsync(2), willBe(true));
 
         // Cancel task 1, task 3 should start executing
-        assertThat(execution1.cancelAsync(), willBe(true));
+        assertThat(cancelHandle1.cancelAsync(), willCompleteSuccessfully());
         await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
         await().until(execution3::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
@@ -314,8 +329,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(QUEUED)));
 
         // Cleanup
-        assertThat(execution2.cancelAsync(), willBe(true));
-        assertThat(execution3.cancelAsync(), willBe(true));
+        assertThat(cancelHandle2.cancelAsync(), willCompleteSuccessfully());
+        assertThat(cancelHandle3.cancelAsync(), willCompleteSuccessfully());
     }
 
     @Test
@@ -327,7 +342,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExecuteOnRandomNodeAsync() {
-        JobExecution<String> execution = client().compute().submit(
+        JobExecution<String> execution = submit(
                 JobTarget.anyNode(sortedNodes()), JobDescriptor.builder(NodeNameJob.class).build(), null);
 
         assertThat(
@@ -339,65 +354,63 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testBroadcastOneNode() {
-        Map<ClusterNode, JobExecution<String>> executionsPerNode = client().compute().submitBroadcast(
+        BroadcastExecution<String> broadcastExecution = submit(
                 Set.of(node(1)),
                 JobDescriptor.builder(NodeNameJob.class).build(),
-                null);
+                null
+        );
 
-        assertEquals(1, executionsPerNode.size());
-
-        JobExecution<String> execution = executionsPerNode.get(node(1));
-
-        assertThat(execution.resultAsync(), willBe("itcct_n_3345"));
-        assertThat(execution.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+        assertThat(broadcastExecution.executions(), contains(
+                jobExecutionWithResultStatusAndNode("itcct_n_3345", COMPLETED, node(1))
+        ));
     }
 
     @Test
     void testBroadcastAllNodes() {
-        Map<ClusterNode, JobExecution<String>> executionsPerNode = client().compute().submitBroadcast(
+        BroadcastExecution<String> broadcastExecution = submit(
                 new HashSet<>(sortedNodes()),
                 JobDescriptor.builder(NodeNameJob.class).build(),
                 null
         );
 
-        assertEquals(2, executionsPerNode.size());
-
-        JobExecution<String> execution1 = executionsPerNode.get(node(0));
-        JobExecution<String> execution2 = executionsPerNode.get(node(1));
-
-        assertThat(execution1.resultAsync(), willBe("itcct_n_3344"));
-        assertThat(execution2.resultAsync(), willBe("itcct_n_3345"));
-
-        assertThat(execution1.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
-        assertThat(execution2.stateAsync(), willBe(jobStateWithStatus(COMPLETED)));
+        assertThat(broadcastExecution.executions(), containsInAnyOrder(
+                jobExecutionWithResultStatusAndNode("itcct_n_3344", COMPLETED, node(0)),
+                jobExecutionWithResultStatusAndNode("itcct_n_3345", COMPLETED, node(1))
+        ));
     }
 
     @Test
     void testCancelBroadcastAllNodes() {
         int sleepMs = 1_000_000;
-        Map<ClusterNode, JobExecution<Void>> executionsPerNode = client().compute().submitBroadcast(
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        BroadcastExecution<Void> broadcastExecution = submit(
                 new HashSet<>(sortedNodes()),
                 JobDescriptor.builder(SleepJob.class).build(),
-                sleepMs);
+                cancelHandle.token(),
+                sleepMs
+        );
 
-        assertEquals(2, executionsPerNode.size());
+        Collection<JobExecution<Void>> executions = broadcastExecution.executions();
 
-        JobExecution<Void> execution1 = executionsPerNode.get(node(0));
-        JobExecution<Void> execution2 = executionsPerNode.get(node(1));
+        await().until(() -> executions, contains(
+                jobExecutionWithStatus(EXECUTING),
+                jobExecutionWithStatus(EXECUTING)
+        ));
 
-        await().until(execution1::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
-        await().until(execution2::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
+        cancelHandle.cancel();
 
-        assertThat(execution1.cancelAsync(), willBe(true));
-        assertThat(execution2.cancelAsync(), willBe(true));
+        await().until(() -> executions, contains(
+                jobExecutionWithStatus(CANCELED),
+                jobExecutionWithStatus(CANCELED)
+        ));
 
-        await().until(execution1::stateAsync, willBe(jobStateWithStatus(CANCELED)));
-        await().until(execution2::stateAsync, willBe(jobStateWithStatus(CANCELED)));
+        assertThat(broadcastExecution.resultsAsync(), willThrow(ComputeException.class));
     }
 
     @Test
     void testExecuteWithArgs() {
-        JobExecution<String> execution = client().compute().submit(
+        JobExecution<String> execution = submit(
                 JobTarget.anyNode(client().clusterNodes()), JobDescriptor.builder(ConcatJob.class).build(),
                 "1:2:3.3"
         );
@@ -409,7 +422,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testIgniteExceptionInJobPropagatesToClientWithMessageAndCodeAndTraceIdAsync() {
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submit(JobTarget.node(node(0)), JobDescriptor.builder(IgniteExceptionJob.class).build(), null)
+                submit(JobTarget.node(node(0)), JobDescriptor.builder(IgniteExceptionJob.class).build(), null)
         );
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
@@ -442,7 +455,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ValueSource(booleans = {true, false})
     void testExceptionInJobPropagatesToClientWithClassAndMessageAsync(boolean asyncJob) {
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submit(JobTarget.node(node(0)), JobDescriptor.builder(ExceptionJob.class).build(), asyncJob)
+                submit(JobTarget.node(node(0)), JobDescriptor.builder(ExceptionJob.class).build(), asyncJob)
         );
 
         assertComputeExceptionWithClassAndMessage(cause);
@@ -462,7 +475,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTraceAsync() {
         // Second node has sendServerExceptionStackTraceToClient enabled.
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submit(
+                submit(
                         JobTarget.node(node(1)), JobDescriptor.builder(ExceptionJob.class).build(), null
                 )
         );
@@ -482,14 +495,19 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     @Test
     void testExceptionInBroadcastJobPropagatesToClient() {
-        Map<ClusterNode, JobExecution<String>> executions = client().compute().submitBroadcast(
+        BroadcastExecution<String> broadcastExecution = submit(
                 Set.of(node(0), node(1)),
-                JobDescriptor.builder(ExceptionJob.class).build(), null);
+                JobDescriptor.builder(ExceptionJob.class).build(),
+                null
+        );
 
-        assertComputeExceptionWithClassAndMessage(getExceptionInJobExecutionAsync(executions.get(node(0))));
+        Map<String, JobExecution<String>> executions = broadcastExecution.executions().stream()
+                .collect(Collectors.toMap(execution -> execution.node().name(), Function.identity()));
+
+        assertComputeExceptionWithClassAndMessage(getExceptionInJobExecutionAsync(executions.get(node(0).name())));
 
         // Second node has sendServerExceptionStackTraceToClient enabled.
-        assertComputeExceptionWithStackTrace(getExceptionInJobExecutionAsync(executions.get(node(1))));
+        assertComputeExceptionWithStackTrace(getExceptionInJobExecutionAsync(executions.get(node(1).name())));
     }
 
     @Test
@@ -497,7 +515,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var key = Tuple.create().set(COLUMN_KEY, 1);
 
         IgniteException cause = getExceptionInJobExecutionAsync(
-                client().compute().submit(JobTarget.colocated(TABLE_NAME, key), JobDescriptor.builder(ExceptionJob.class).build(), null));
+                submit(JobTarget.colocated(TABLE_NAME, key), JobDescriptor.builder(ExceptionJob.class).build(), null));
 
         assertComputeExceptionWithClassAndMessage(cause);
     }
@@ -522,9 +540,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         // Second node has sendServerExceptionStackTraceToClient enabled.
         var key = Tuple.create().set(COLUMN_KEY, 2);
 
-        IgniteCompute igniteCompute = client().compute();
         IgniteException cause = getExceptionInJobExecutionAsync(
-                igniteCompute.submit(JobTarget.colocated(TABLE_NAME, key), JobDescriptor.builder(ExceptionJob.class).build(), null)
+                submit(JobTarget.colocated(TABLE_NAME, key), JobDescriptor.builder(ExceptionJob.class).build(), null)
         );
 
         assertComputeExceptionWithStackTrace(cause);
@@ -551,9 +568,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var key = new TestPojo(1);
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
 
-        IgniteCompute igniteCompute = client().compute();
         IgniteException cause = getExceptionInJobExecutionAsync(
-                igniteCompute.submit(JobTarget.colocated(
+                submit(JobTarget.colocated(
                         TABLE_NAME, key, mapper), JobDescriptor.builder(ExceptionJob.class).build(), null
                 )
         );
@@ -580,9 +596,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var key = new TestPojo(2);
         Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
 
-        IgniteCompute igniteCompute = client().compute();
         IgniteException cause = getExceptionInJobExecutionAsync(
-                igniteCompute.submit(JobTarget.colocated(TABLE_NAME, key, mapper), JobDescriptor.builder(ExceptionJob.class).build(), null)
+                submit(JobTarget.colocated(TABLE_NAME, key, mapper), JobDescriptor.builder(ExceptionJob.class).build(), null)
         );
 
         assertComputeExceptionWithStackTrace(cause);
@@ -609,6 +624,17 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         );
 
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
+
+        return (IgniteException) ex.getCause();
+    }
+
+    private static IgniteException getExceptionInTaskExecutionAsync(TaskExecution<String> execution) {
+        CompletionException ex = assertThrows(
+                CompletionException.class,
+                () -> execution.resultAsync().join()
+        );
+
+        assertThat(execution.stateAsync().thenApply(JobTaskStatusMapper::toJobState), willBe(jobStateWithStatus(FAILED)));
 
         return (IgniteException) ex.getCause();
     }
@@ -647,8 +673,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExecuteColocatedTupleRunsComputeJobOnKeyNode(int key, int port) {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
 
-        IgniteCompute igniteCompute = client().compute();
-        JobExecution<String> tupleExecution = igniteCompute.submit(
+        JobExecution<String> tupleExecution = submit(
                 JobTarget.colocated(TABLE_NAME, keyTuple), JobDescriptor.builder(NodeNameJob.class).build(), null
         );
 
@@ -663,9 +688,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExecuteColocatedPojoRunsComputeJobOnKeyNode(int key, int port) {
         var keyPojo = new TestPojo(key);
 
-        IgniteCompute igniteCompute = client().compute();
         Mapper<TestPojo> keyMapper = Mapper.of(TestPojo.class);
-        JobExecution<String> pojoExecution = igniteCompute.submit(
+        JobExecution<String> pojoExecution = submit(
                 JobTarget.colocated(TABLE_NAME, keyPojo, keyMapper), JobDescriptor.builder(NodeNameJob.class).build(), null);
 
         String expectedNode = "itcct_n_" + port;
@@ -680,13 +704,17 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var keyTuple = Tuple.create().set(COLUMN_KEY, key);
         int sleepMs = 1_000_000;
 
-        IgniteCompute igniteCompute = client().compute();
-        JobExecution<Void> tupleExecution = igniteCompute.submit(
-                JobTarget.colocated(TABLE_NAME, keyTuple), JobDescriptor.builder(SleepJob.class).build(), sleepMs);
+        CancelHandle cancelHandle = CancelHandle.create();
+        JobExecution<Void> tupleExecution = submit(
+                JobTarget.colocated(TABLE_NAME, keyTuple),
+                JobDescriptor.builder(SleepJob.class).build(),
+                cancelHandle.token(),
+                sleepMs
+        );
 
         await().until(tupleExecution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
-        assertThat(tupleExecution.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
         await().until(tupleExecution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
     }
@@ -697,14 +725,18 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var keyPojo = new TestPojo(key);
         int sleepMs = 1_000_000;
 
-        IgniteCompute igniteCompute = client().compute();
         Mapper<TestPojo> keyMapper = Mapper.of(TestPojo.class);
-        JobExecution<Void> pojoExecution = igniteCompute.submit(
-                JobTarget.colocated(TABLE_NAME, keyPojo, keyMapper), JobDescriptor.builder(SleepJob.class).build(), sleepMs);
+        CancelHandle cancelHandle = CancelHandle.create();
+        JobExecution<Void> pojoExecution = submit(
+                JobTarget.colocated(TABLE_NAME, keyPojo, keyMapper),
+                JobDescriptor.builder(SleepJob.class).build(),
+                cancelHandle.token(),
+                sleepMs
+        );
 
         await().until(pojoExecution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
-        assertThat(pojoExecution.cancelAsync(), willBe(true));
+        assertThat(cancelHandle.cancelAsync(), willCompleteSuccessfully());
 
         await().until(pojoExecution::stateAsync, willBe(jobStateWithStatus(CANCELED)));
     }
@@ -839,11 +871,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @ParameterizedTest
     @ValueSource(classes = {MapReduceExceptionOnSplitTask.class, MapReduceExceptionOnReduceTask.class})
     <I, M, T> void testExecuteMapReduceExceptionPropagation(Class<? extends MapReduceTask<I, M, T, String>> taskClass) {
-        IgniteCompute igniteCompute = client().compute();
         TaskDescriptor<I, String> taskDescriptor = TaskDescriptor.builder(taskClass).build();
-        IgniteException cause = getExceptionInJobExecutionAsync(new TaskToJobExecutionWrapper<>(
-                igniteCompute.submitMapReduce(taskDescriptor, null))
-        );
+        IgniteException cause = getExceptionInTaskExecutionAsync(client().compute().submitMapReduce(taskDescriptor, null));
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
         assertEquals(TRACE_ID, cause.traceId());

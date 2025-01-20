@@ -867,7 +867,14 @@ public class DataStreamerTests : IgniteTestsBase
 
         // Cancel the resulting enumerator before it's fully consumed. This stops the streamer.
         cts.Cancel();
-        Assert.ThrowsAsync<TaskCanceledException>(async () => await enumerator.MoveNextAsync());
+
+        Assert.ThrowsAsync<TaskCanceledException>(async () =>
+        {
+            while (await enumerator.MoveNextAsync())
+            {
+                // No-op.
+            }
+        });
 
         // Only part of the data was streamed.
         var streamedData = await TupleView.GetAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));

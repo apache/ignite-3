@@ -22,8 +22,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.sql.IgniteSql;
 import org.openjdk.jmh.annotations.Scope;
@@ -70,6 +73,12 @@ public abstract class AbstractTpcBenchmark extends AbstractMultiNodeBenchmark {
 
                 Files.createFile(workDir().resolve(DATASET_READY_MARK_FILE_NAME));
             }
+
+            SqlStatisticManagerImpl statisticManager = (SqlStatisticManagerImpl) ((SqlQueryProcessor) igniteImpl.queryEngine())
+                    .sqlStatisticManager();
+
+            statisticManager.forceUpdateAll();
+            statisticManager.lastUpdateStatisticFuture().get(10, TimeUnit.SECONDS);
         } catch (Throwable e) {
             nodeTearDown();
 

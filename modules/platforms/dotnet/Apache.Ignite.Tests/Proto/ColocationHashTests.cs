@@ -174,7 +174,7 @@ public class ColocationHashTests : IgniteTestsBase
         var schemas = table.GetFieldValue<IDictionary<int, Task<Schema>>>("_schemas");
         var schema = schemas[1].GetAwaiter().GetResult();
         var clusterNodes = await Client.GetClusterNodesAsync();
-        var jobTarget = JobTarget.AnyNode(clusterNodes);
+        var jobTarget = JobTarget.AnyNode(clusterNodes.ToArray());
         var job = new JobDescriptor<object, int>(TableRowColocationHashJob);
 
         for (int i = 0; i < 100; i++)

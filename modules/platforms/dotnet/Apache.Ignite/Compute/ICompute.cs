@@ -17,9 +17,7 @@
 
 namespace Apache.Ignite.Compute;
 
-using System.Collections.Generic;
 using System.Threading.Tasks;
-using Network;
 
 /// <summary>
 /// Ignite Compute API provides distributed job execution functionality.
@@ -29,7 +27,7 @@ public interface ICompute
     /// <summary>
     /// Submits a compute job represented by the given class for an execution on one of the specified nodes.
     /// </summary>
-    /// <param name="target">Job execution target.</param>
+    /// <param name="target">Job execution target. See factory methods in <see cref="JobTarget"/>.</param>
     /// <param name="jobDescriptor">Job descriptor.</param>
     /// <param name="arg">Job argument.</param>
     /// <typeparam name="TTarget">Job target type.</typeparam>
@@ -43,18 +41,20 @@ public interface ICompute
         where TTarget : notnull;
 
     /// <summary>
-    /// Submits a compute job represented by the given class for an execution on all of the specified nodes.
+    /// Submits a compute job represented by the given class for an execution on the specified target.
     /// </summary>
-    /// <param name="nodes">Nodes to use for the job execution.</param>
+    /// <param name="target">Job target. See factory methods in <see cref="BroadcastJobTarget"/>.</param>
     /// <param name="jobDescriptor">Job descriptor.</param>
     /// <param name="arg">Job argument.</param>
+    /// <typeparam name="TTarget">Job target type.</typeparam>
     /// <typeparam name="TArg">Job argument type.</typeparam>
     /// <typeparam name="TResult">Job result type.</typeparam>
-    /// <returns>A map of <see cref="Task"/> representing the asynchronous operation for every node.</returns>
-    IDictionary<IClusterNode, Task<IJobExecution<TResult>>> SubmitBroadcast<TArg, TResult>(
-        IEnumerable<IClusterNode> nodes,
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    Task<IBroadcastExecution<TResult>> SubmitBroadcastAsync<TTarget, TArg, TResult>(
+        IBroadcastJobTarget<TTarget> target,
         JobDescriptor<TArg, TResult> jobDescriptor,
-        TArg arg);
+        TArg arg)
+        where TTarget : notnull;
 
     /// <summary>
     /// Submits a compute map-reduce task represented by the given class.

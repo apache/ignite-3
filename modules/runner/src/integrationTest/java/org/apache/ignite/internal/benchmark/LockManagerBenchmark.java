@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.benchmark;
 
+import static org.apache.ignite.internal.tx.impl.HeapLockManager.DEFAULT_SLOTS;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -60,8 +62,8 @@ public class LockManagerBenchmark {
      */
     @Setup
     public void setUp() {
-        lockManager = new HeapLockManager();
-        ((HeapLockManager) lockManager).start(new WaitDieDeadlockPreventionPolicy());
+        lockManager = new HeapLockManager(DEFAULT_SLOTS, DEFAULT_SLOTS);
+        lockManager.start(new WaitDieDeadlockPreventionPolicy());
         generator = new TransactionIdGenerator(0);
         clock = new TestHybridClock(() -> 0L);
     }

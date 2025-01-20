@@ -19,7 +19,7 @@ package org.apache.ignite.internal.deployunit;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.deployment.version.Version;
@@ -109,7 +109,7 @@ public class DeployMessagingService {
      * @param nodes Nodes where unit deployed.
      * @return Downloaded deployment unit content.
      */
-    CompletableFuture<UnitContent> downloadUnitContent(String id, Version version, List<String> nodes) {
+    CompletableFuture<UnitContent> downloadUnitContent(String id, Version version, Collection<String> nodes) {
         DownloadUnitRequest request = messageFactory.downloadUnitRequest()
                 .id(id)
                 .version(version.render())
@@ -122,7 +122,7 @@ public class DeployMessagingService {
                 .thenApply(message -> ((DownloadUnitResponse) message).unitContent());
     }
 
-    private ClusterNode resolveClusterNode(List<String> nodes) {
+    private ClusterNode resolveClusterNode(Collection<String> nodes) {
         return nodes.stream().map(node -> clusterService.topologyService().getByConsistentId(node))
                 .filter(Objects::nonNull)
                 .findAny()

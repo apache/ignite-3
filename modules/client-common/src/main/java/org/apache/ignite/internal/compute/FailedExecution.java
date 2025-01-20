@@ -17,43 +17,45 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.compute.ComputeUtils.convertToComputeFuture;
-import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wraps the future of {@link JobExecution} converting exceptions thrown by the delegate to public.
+ * Job execution implementation which will return failed future with specified error from all methods.
  *
- * @param <R> Result type.
+ * @param <R> Job result type.
  */
-class JobExecutionFutureWrapper<R> implements JobExecution<R> {
-    private final CompletableFuture<JobExecution<R>> delegate;
+public class FailedExecution<R> implements JobExecution<R> {
 
-    JobExecutionFutureWrapper(CompletableFuture<JobExecution<R>> delegate) {
-        this.delegate = delegate;
+    private final Throwable error;
+
+    public FailedExecution(Throwable error) {
+        this.error = error;
     }
 
     @Override
     public CompletableFuture<R> resultAsync() {
-        return convertToComputeFuture(delegate.thenCompose(JobExecution::resultAsync));
+        return failedFuture(error);
     }
 
     @Override
     public CompletableFuture<@Nullable JobState> stateAsync() {
-        return convertToPublicFuture(delegate.thenCompose(JobExecution::stateAsync));
-    }
-
-    @Override
-    public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return convertToPublicFuture(delegate.thenCompose(JobExecution::cancelAsync));
+        return failedFuture(error);
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return convertToPublicFuture(delegate.thenCompose(jobExecution -> jobExecution.changePriorityAsync(newPriority)));
+        return failedFuture(error);
+    }
+
+    @Override
+    public ClusterNode node() {
+        throw sneakyThrow(error);
     }
 }

@@ -49,7 +49,7 @@ public class ExecutionManager {
 
     private final Cleaner<JobExecution<?>> cleaner = new Cleaner<>();
 
-    private final Map<UUID, JobExecution<?>> executions = new ConcurrentHashMap<>();
+    private final Map<UUID, CancellableJobExecution<?>> executions = new ConcurrentHashMap<>();
 
     ExecutionManager(ComputeConfiguration computeConfiguration, TopologyService topologyService) {
         this.computeConfiguration = computeConfiguration;
@@ -62,7 +62,7 @@ public class ExecutionManager {
      * @param jobId Job id.
      * @param execution Job execution.
      */
-    void addExecution(UUID jobId, JobExecution<?> execution) {
+    void addExecution(UUID jobId, CancellableJobExecution<?> execution) {
         executions.put(jobId, execution);
         execution.resultAsync().whenComplete((r, throwable) -> cleaner.scheduleRemove(jobId));
     }
@@ -137,7 +137,7 @@ public class ExecutionManager {
      *         cancelled (either it's not yet started, or it's already completed), or {@code null} if there's no job with the specified id.
      */
     public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
-        JobExecution<?> execution = executions.get(jobId);
+        CancellableJobExecution<?> execution = executions.get(jobId);
         if (execution != null) {
             return execution.cancelAsync();
         }
