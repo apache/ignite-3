@@ -47,6 +47,7 @@ import org.apache.ignite.client.handler.requests.compute.ClientComputeCancelRequ
 import org.apache.ignite.client.handler.requests.compute.ClientComputeChangePriorityRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteMapReduceRequest;
+import org.apache.ignite.client.handler.requests.compute.ClientComputeExecutePartitionedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcCancelRequest;
@@ -783,6 +784,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientComputeExecuteColocatedRequest.process(
+                        in,
+                        out,
+                        compute,
+                        igniteTables,
+                        clusterService,
+                        notificationSender(requestId)
+                );
+
+            case ClientOp.COMPUTE_EXECUTE_PARTITIONED:
+                return ClientComputeExecutePartitionedRequest.process(
                         in,
                         out,
                         compute,

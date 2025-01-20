@@ -69,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
@@ -131,7 +132,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
             return completedFuture(unmarshalResult(
                     executeAsyncWithFailover(
-                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), cancellationToken, argHolder
+                            nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), argHolder, cancellationToken
                     ),
                     descriptor
             ));
@@ -153,8 +154,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                         descriptor.units(),
                                         descriptor.jobClassName(),
                                         descriptor.options(),
-                                        cancellationToken,
-                                        argHolder
+                                        argHolder,
+                                        cancellationToken
                                 )));
 
             } else {
@@ -165,8 +166,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                                 descriptor.units(),
                                 descriptor.jobClassName(),
                                 descriptor.options(),
-                                cancellationToken,
-                                argHolder
+                                argHolder,
+                                cancellationToken
                         ));
             }
 
@@ -263,8 +264,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         descriptor.units(),
                         descriptor.jobClassName(),
                         options,
-                        cancellationToken,
-                        argHolder
+                        argHolder,
+                        cancellationToken
                 ),
                 descriptor
         );
@@ -304,8 +305,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder arg
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         Set<ClusterNode> candidates = new HashSet<>();
         for (ClusterNode node : nodes) {
@@ -329,8 +330,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 units,
                 jobClassName,
                 options,
-                cancellationToken,
-                arg
+                arg,
+                cancellationToken
         );
     }
 
@@ -352,11 +353,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions jobExecutionOptions,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder arg
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
-        return executeOnOneNodeWithFailover(targetNode, nextWorkerSelector, units, jobClassName, options, cancellationToken, arg);
+        return executeOnOneNodeWithFailover(targetNode, nextWorkerSelector, units, jobClassName, options, arg, cancellationToken);
     }
 
     private JobExecution<ComputeJobDataHolder> executeOnOneNodeWithFailover(
@@ -365,14 +366,14 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder arg
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         if (isLocal(targetNode)) {
-            return new JobExecutionWrapper<>(computeComponent.executeLocally(options, units, jobClassName, cancellationToken, arg));
+            return new JobExecutionWrapper<>(computeComponent.executeLocally(options, units, jobClassName, arg, cancellationToken));
         } else {
             return new JobExecutionWrapper<>(computeComponent.executeRemotelyWithFailover(
-                    targetNode, nextWorkerSelector, units, jobClassName, options, cancellationToken, arg));
+                    targetNode, nextWorkerSelector, units, jobClassName, options, arg, cancellationToken));
         }
     }
 
@@ -404,13 +405,39 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder arg) {
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
         return primaryReplicaForPartitionByTupleKey(table, key)
                 .thenApply(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
-                        units, jobClassName, options, cancellationToken, arg
+                        units, jobClassName, options, arg, cancellationToken
+                ));
+    }
+
+    @Override
+    public CompletableFuture<JobExecution<ComputeJobDataHolder>> submitPartitionedInternal(
+            TableViewInternal table,
+            int partitionId,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions jobExecutionOptions,
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        ExecutionOptions options = ExecutionOptions.builder()
+                .priority(jobExecutionOptions.priority())
+                .maxRetries(jobExecutionOptions.maxRetries())
+                .partition(new HashPartition(partitionId))
+                .build();
+
+        return primaryReplicaForPartition(table, partitionId)
+                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                        primaryNode,
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-24027
+                        CompletableFutures::nullCompletedFuture,
+                        units, jobClassName, options, arg, cancellationToken
                 ));
     }
 
@@ -539,8 +566,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 deploymentUnits,
                 StreamerReceiverJob.class.getName(),
                 JobExecutionOptions.DEFAULT,
-                null,
-                SharedComputeUtils.marshalArgOrResult(payload, null));
+                SharedComputeUtils.marshalArgOrResult(payload, null),
+                null
+        );
 
         return jobExecution.resultAsync()
                 .handle((res, err) -> {
