@@ -18,63 +18,101 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.HashMap;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
-import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
+import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 
 /** Uses VaultManager to destroy raft group storages durably, using vault to store destruction intents. */
 public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestructionIntents {
+    /** Initial capacity (in bytes) of the buffer used for data output. */
+    private static final int INITIAL_BUFFER_CAPACITY = 64;
+
     private static final byte[] GROUP_STORAGE_DESTRUCTION_PREFIX = "destroy.group.storages.".getBytes(UTF_8);
     private static final ByteOrder BYTE_UTILS_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
 
-    private static final String PARTITION_GROUP_NAME = "partition";
-
-    private static final int RAFT_GROUPS = 3;
-
     private final VaultManager vault;
 
-    private final ConcurrentMap<String, RaftGroupOptionsConfigurer> configurerByName = new ConcurrentHashMap<>();
+    private final Function<ReplicationGroupId, String> groupNameResolver;
+
+    private final Map<String, Path> serverDataPathByGroupName;
+    private final Map<String, LogStorageFactory> logStorageFactoryByGroupName;
 
     /** Constructor. */
-    public VaultGroupStoragesDestructionIntents(VaultManager vault) {
+    public VaultGroupStoragesDestructionIntents(
+            VaultManager vault,
+            Map<String, LogStorageFactory> logStorageFactoryByGroupName,
+            Map<String, Path> serverDataPathByGroupName,
+            Function<ReplicationGroupId, String> groupNameResolver
+    ) {
         this.vault = vault;
+        this.logStorageFactoryByGroupName = logStorageFactoryByGroupName;
+        this.serverDataPathByGroupName = serverDataPathByGroupName;
+        this.groupNameResolver = groupNameResolver;
     }
 
     @Override
-    public void addGroupOptionsConfigurer(ReplicationGroupId groupId, RaftGroupOptionsConfigurer groupOptionsConfigurer) {
-        configurerByName.put(groupId.toString(), groupOptionsConfigurer);
+    public void saveDestroyStorageIntent(ReplicationGroupId groupId, DestroyStorageIntent destroyStorageIntent) {
+        vault.put(buildKey(destroyStorageIntent.nodeId()), toStorageBytes(groupId, destroyStorageIntent));
     }
 
-    @Override
-    public void addPartitionGroupOptionsConfigurer(RaftGroupOptionsConfigurer groupOptionsConfigurer) {
-        configurerByName.put(PARTITION_GROUP_NAME, groupOptionsConfigurer);
+    private byte[] toStorageBytes(ReplicationGroupId groupId, DestroyStorageIntent intent) {
+        String groupName = groupNameResolver.apply(groupId);
+
+        try (IgniteUnsafeDataOutput out = new IgniteUnsafeDataOutput(INITIAL_BUFFER_CAPACITY)) {
+            out.writeUTF(groupName);
+            out.writeBoolean(intent.isVolatile());
+
+            return out.array();
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, "Cannot serialize", e);
+        }
     }
 
-    @Override
-    public void saveDestroyStorageIntent(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
-        String configurerName = nodeId.groupId() instanceof PartitionGroupId ? PARTITION_GROUP_NAME : nodeId.groupId().toString();
+    private DestroyStorageIntent fromStorageBytes(byte[] key, byte[] value) {
+        String nodeId = nodeIdFromKey(key);
 
-        vault.put(
-                buildKey(nodeId.nodeIdStringForStorage()),
-                toBytes(new DestroyStorageIntent(configurerName, groupOptions.volatileStores()))
-        );
+        IgniteUnsafeDataInput in = new IgniteUnsafeDataInput(value);
+
+        try {
+            String groupName = in.readUTF();
+            boolean isVolatile = in.readBoolean();
+
+            DestroyStorageIntent intent = new DestroyStorageIntent(
+                    nodeId,
+                    logStorageFactoryByGroupName.get(groupName),
+                    serverDataPathByGroupName.get(groupName),
+                    isVolatile
+            );
+
+            if (in.available() != 0) {
+                throw new IOException(in.available() + " bytes left unread after deserializing " + intent);
+            }
+
+            return intent;
+        } catch (IOException e) {
+            throw new IgniteInternalException(INTERNAL_ERR, "Cannot deserialize", e);
+        }
+    }
+    private static String nodeIdFromKey(byte[] key) {
+        return new String(key, GROUP_STORAGE_DESTRUCTION_PREFIX.length, key.length - GROUP_STORAGE_DESTRUCTION_PREFIX.length, UTF_8);
     }
 
     @Override
@@ -94,53 +132,55 @@ public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestru
         return new ByteArray(key);
     }
 
-    private static String raftNodeIdFromKey(byte[] key) {
-        return new String(key, GROUP_STORAGE_DESTRUCTION_PREFIX.length, key.length - GROUP_STORAGE_DESTRUCTION_PREFIX.length, UTF_8);
-    }
-
     @Override
-    public Map<String, RaftGroupOptions> readGroupOptionsByNodeIdForDestruction() {
-        assert configurerByName.size() == RAFT_GROUPS
-                : "Configurers for CMG, metastorage and partitions must be added, got: " + configurerByName.keySet();
-
+    public Collection<DestroyStorageIntent> readDestroyStorageIntentsByName() {
         try (Cursor<VaultEntry> cursor = vault.prefix(new ByteArray(GROUP_STORAGE_DESTRUCTION_PREFIX))) {
-            Map<String, RaftGroupOptions> result = new HashMap<>();
+            Collection<DestroyStorageIntent> result = new ArrayList<>();
 
             while (cursor.hasNext()) {
                 VaultEntry next = cursor.next();
 
-                String nodeId = raftNodeIdFromKey(next.key().bytes());
+                DestroyStorageIntent intent = fromStorageBytes(next.key().bytes(), next.value());
 
-                // todo add serializer
-                DestroyStorageIntent intent = ByteUtils.fromBytes(next.value());
-
-                RaftGroupOptions groupOptions = intent.isVolatile
-                        ? RaftGroupOptions.defaults()
-                        : RaftGroupOptions.forPersistentStores();
-
-                RaftGroupOptionsConfigurer configurer = configurerByName.get(intent.configurerName);
-
-                if (configurer == null) {
-                    throw new IgniteInternalException("No configurer found for " + intent.configurerName);
-                }
-
-                configurer.configure(groupOptions);
-
-                result.put(nodeId, groupOptions);
+                result.add(intent);
             }
 
             return result;
         }
     }
 
-    private static class DestroyStorageIntent {
-        final boolean isVolatile;
+    public static class DestroyStorageIntent {
+        private final boolean isVolatile;
+        private final String raftNodeId;
+        private final LogStorageFactory logStorageFactory;
+        private final Path serverDataPath;
 
-        final String configurerName;
-
-        private DestroyStorageIntent(String configurerName, boolean isVolatile) {
-            this.configurerName = configurerName;
+        public DestroyStorageIntent(String raftNodeId, LogStorageFactory logStorageFactory, Path serverDataPath, boolean isVolatile) {
+            this.raftNodeId = raftNodeId;
+            this.logStorageFactory = logStorageFactory;
+            this.serverDataPath = serverDataPath;
             this.isVolatile = isVolatile;
+        }
+
+        public String nodeId() {
+            return raftNodeId;
+        }
+
+        public boolean isVolatile() {
+            return isVolatile;
+        }
+
+        public LogStorageFactory logStorageFactory() {
+            return logStorageFactory;
+        }
+
+        public Path serverDataPath() {
+            return serverDataPath;
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(DestroyStorageIntent.class, this);
         }
     }
 }

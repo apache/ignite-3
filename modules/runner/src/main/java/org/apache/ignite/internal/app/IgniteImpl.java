@@ -199,6 +199,7 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -295,6 +296,8 @@ import org.jetbrains.annotations.TestOnly;
 public class IgniteImpl implements Ignite {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(IgniteImpl.class);
+
+    private static final String PARTITION_GROUP_NAME = "partition-group";
 
     /** Ignite node name. */
     private final String name;
@@ -597,8 +600,6 @@ public class IgniteImpl implements Ignite {
 
         partitionsWorkDir = partitionsPath(systemConfiguration, workDir);
 
-        GroupStoragesDestructionIntents groupStorageDestructor = new VaultGroupStoragesDestructionIntents(vaultMgr);
-
         partitionsLogStorageFactory = SharedLogStorageFactoryUtils.create(
                 "table data log",
                 clusterSvc.nodeName(),
@@ -606,20 +607,14 @@ public class IgniteImpl implements Ignite {
                 raftConfiguration.fsync().value()
         );
 
-        raftMgr = new Loza(
-                clusterSvc,
-                metricManager,
-                raftConfiguration,
-                clock,
-                raftGroupEventsClientListener,
-                failureManager,
-                groupStorageDestructor
-        );
+        metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
 
-        MessagingService messagingServiceReturningToStorageOperationsPool = new JumpToExecutorByConsistentIdAfterSend(
-                clusterSvc.messagingService(),
-                name,
-                message -> threadPoolsManager.partitionOperationsExecutor()
+        msLogStorageFactory = SharedLogStorageFactoryUtils.create(
+                "meta-storage log",
+                clusterSvc.nodeName(),
+                metastorageWorkDir.raftLogPath(),
+                // If it changes, then it will be necessary to set LogSyncer to RocksDbKeyValueStorage.
+                true
         );
 
         cmgLogStorageFactory = SharedLogStorageFactoryUtils.create(
@@ -631,6 +626,47 @@ public class IgniteImpl implements Ignite {
 
         RaftGroupOptionsConfigurer cmgRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(cmgLogStorageFactory, cmgWorkDir.metaPath());
+
+        RaftGroupOptionsConfigurer msRaftConfigurer =
+                RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
+
+        partitionRaftConfigurer =
+                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
+
+        Map<String, LogStorageFactory> logStorageFactoryByGroupName = Map.of(
+                PARTITION_GROUP_NAME, partitionsLogStorageFactory,
+                MetastorageGroupId.INSTANCE.toString(), msLogStorageFactory,
+                CmgGroupId.INSTANCE.toString(), cmgLogStorageFactory
+        );
+
+        Map<String, Path> serverDataPathByGroupName = Map.of(
+                PARTITION_GROUP_NAME, partitionsWorkDir.metaPath(),
+                MetastorageGroupId.INSTANCE.toString(), metastorageWorkDir.metaPath(),
+                CmgGroupId.INSTANCE.toString(), cmgWorkDir.metaPath()
+        );
+
+        GroupStoragesDestructionIntents groupStoragesDestructionIntents = new VaultGroupStoragesDestructionIntents(
+                vaultMgr,
+                logStorageFactoryByGroupName,
+                serverDataPathByGroupName,
+                replicationGroupId -> replicationGroupId instanceof PartitionGroupId ? PARTITION_GROUP_NAME : replicationGroupId.toString()
+        );
+
+        raftMgr = new Loza(
+                clusterSvc,
+                metricManager,
+                raftConfiguration,
+                clock,
+                raftGroupEventsClientListener,
+                failureManager,
+                groupStoragesDestructionIntents
+        );
+
+        MessagingService messagingServiceReturningToStorageOperationsPool = new JumpToExecutorByConsistentIdAfterSend(
+                clusterSvc.messagingService(),
+                name,
+                message -> threadPoolsManager.partitionOperationsExecutor()
+        );
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
@@ -681,8 +717,6 @@ public class IgniteImpl implements Ignite {
                 cmgRaftConfigurer
         );
 
-        groupStorageDestructor.addGroupOptionsConfigurer(CmgGroupId.INSTANCE, cmgRaftConfigurer);
-
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
 
         var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
@@ -691,21 +725,6 @@ public class IgniteImpl implements Ignite {
                 Loza.FACTORY,
                 raftGroupEventsClientListener
         );
-
-        metastorageWorkDir = metastoragePath(systemConfiguration, workDir);
-
-        msLogStorageFactory = SharedLogStorageFactoryUtils.create(
-                "meta-storage log",
-                clusterSvc.nodeName(),
-                metastorageWorkDir.raftLogPath(),
-                // If it changes, then it will be necessary to set LogSyncer to RocksDbKeyValueStorage.
-                true
-        );
-
-        RaftGroupOptionsConfigurer msRaftConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(msLogStorageFactory, metastorageWorkDir.metaPath());
-
-        groupStorageDestructor.addGroupOptionsConfigurer(MetastorageGroupId.INSTANCE, cmgRaftConfigurer);
 
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
@@ -820,11 +839,6 @@ public class IgniteImpl implements Ignite {
         Marshaller raftMarshaller = new ThreadLocalPartitionCommandsMarshaller(clusterSvc.serializationRegistry());
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
-
-        partitionRaftConfigurer =
-                RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
-
-        groupStorageDestructor.addPartitionGroupOptionsConfigurer(partitionRaftConfigurer);
 
         replicaMgr = new ReplicaManager(
                 name,

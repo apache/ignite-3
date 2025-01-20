@@ -97,6 +97,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-workers'))
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
+    integrationTestImplementation project(':ignite-vault')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-runner')

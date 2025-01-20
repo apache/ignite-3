@@ -17,26 +17,18 @@
 
 package org.apache.ignite.internal.raft.storage;
 
-import java.util.Map;
-import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
-import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import java.util.Collection;
+import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents.DestroyStorageIntent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/** Persists and retrieves intent to complete storages destruction on node start. */
+/** Manages storages destruction on node start. */
 public interface GroupStoragesDestructionIntents {
-    /** Add configurer for CMG or metastorage raft storages. */
-    void addGroupOptionsConfigurer(ReplicationGroupId groupId, RaftGroupOptionsConfigurer groupOptionsConfigurer);
-
-    /** Add configurer for partitions raft storages. */
-    void addPartitionGroupOptionsConfigurer(RaftGroupOptionsConfigurer partitionRaftConfigurer);
-
     /** Save intent to destroy raft storages. */
-    void saveDestroyStorageIntent(RaftNodeId nodeId, RaftGroupOptions groupOptions);
+    void saveDestroyStorageIntent(ReplicationGroupId groupId, DestroyStorageIntent intent);
 
     /** Remove intent to destroy raft storages. */
     void removeDestroyStorageIntent(String nodeId);
 
     /** Returns group options needed to destroy raft storages, mapped by node id represented by String. */
-    Map<String, RaftGroupOptions> readGroupOptionsByNodeIdForDestruction();
+    Collection<DestroyStorageIntent> readDestroyStorageIntentsByName();
 }

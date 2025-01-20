@@ -73,6 +73,7 @@ import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
+import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents.DestroyStorageIntent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -532,15 +533,17 @@ public class JraftServerImpl implements RaftServer {
     }
 
     private static Path serverDataPathForNodeId(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
-        return serverDataPathForNodeId(nodeId.nodeIdStringForStorage(), groupOptions);
+        Path basePath = baseServerDataPath(groupOptions);
+
+        return getServerDataPath(basePath, nodeId);
     }
 
-    private static Path serverDataPathForNodeId(String nodeId, RaftGroupOptions groupOptions) {
+    private static Path baseServerDataPath(RaftGroupOptions groupOptions) {
         Path dataPath = groupOptions.serverDataPath();
 
-        assert dataPath != null : "Raft metadata path was not set, nodeId is " + nodeId;
+        assert dataPath != null : "Raft metadata path was not set";
 
-        return getServerDataPath(dataPath, nodeId);
+        return dataPath;
     }
 
     @Override
@@ -587,21 +590,31 @@ public class JraftServerImpl implements RaftServer {
 
     @Override
     public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
-        groupStoragesDestructionIntents.saveDestroyStorageIntent(nodeId, groupOptions);
+        DestroyStorageIntent intent = new DestroyStorageIntent(
+                nodeId.nodeIdStringForStorage(),
+                groupOptions.getLogStorageFactory(),
+                baseServerDataPath(groupOptions),
+                groupOptions.volatileStores()
+        );
 
-        destroyStorage(nodeId.nodeIdStringForStorage(), groupOptions, true);
+        groupStoragesDestructionIntents.saveDestroyStorageIntent(nodeId.groupId(), intent);
+
+        destroyStorage(intent, true);
     }
 
-    private void destroyStorage(String nodeId, RaftGroupOptions groupOptions, boolean destroyVolatile) {
-        LogStorageFactory logStorageFactory = groupOptions.getLogStorageFactory();
+    private void destroyStorage(
+            DestroyStorageIntent intent,
+            boolean destroyVolatile
+    ) {
+        String nodeId = intent.nodeId();
 
         try {
-            if (destroyVolatile || !groupOptions.volatileStores()) {
-                logStorageFactory.destroyLogStorage(nodeId);
+            if (destroyVolatile || !intent.isVolatile()) {
+                intent.logStorageFactory().destroyLogStorage(nodeId);
             }
 
             // This destroys both meta storage and snapshots storage as they are stored under nodeDataPath.
-            IgniteUtils.deleteIfExistsThrowable(serverDataPathForNodeId(nodeId, groupOptions));
+            IgniteUtils.deleteIfExistsThrowable(getServerDataPath(intent.serverDataPath(), nodeId));
         } catch (IOException e) {
             throw new IgniteInternalException("Failed to delete storage for node: " + nodeId, e);
         }
@@ -728,8 +741,8 @@ public class JraftServerImpl implements RaftServer {
     }
 
     private CompletableFuture<Void> completeRaftGroupStoragesDestruction(ExecutorService executor) {
-        return runAsync(() -> groupStoragesDestructionIntents.readGroupOptionsByNodeIdForDestruction()
-                .forEach((nodeId, groupOptions) -> destroyStorage(nodeId, groupOptions, false)), executor);
+        return runAsync(() -> groupStoragesDestructionIntents.readDestroyStorageIntentsByName()
+                .forEach(intent -> destroyStorage(intent, false)), executor);
     }
 
     /**
