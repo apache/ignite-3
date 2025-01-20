@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.apache.ignite.table.QualifiedName.DEFAULT_SCHEMA_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -43,7 +44,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSystemSchemaCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.schema.Column;
@@ -320,7 +321,6 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void doNotAllowFunctionsInNonPkColumns() {
         // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         assertThrowsSqlException(
@@ -336,13 +336,55 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         if (DEFINITION_SCHEMA.equals(schema) || INFORMATION_SCHEMA.equals(schema)) {
             IgniteImpl igniteImpl = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-            IgniteTestUtils.await(igniteImpl.catalogManager().execute(CreateSchemaCommand.builder().name(schema).build()));
+            IgniteTestUtils.await(igniteImpl.catalogManager().execute(CreateSystemSchemaCommand.builder().name(schema).build()));
         }
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Operations with system schemas are not allowed",
                 () -> sql(format("CREATE TABLE {}.SYS_TABLE (NAME VARCHAR PRIMARY KEY, SIZE BIGINT)", schema.toLowerCase())));
+    }
+
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    public void testCreateSystemSchemas(String schema) {
+        if (!DEFAULT_SCHEMA_NAME.equals(schema)) {
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    format("System schema can't be created [name={}]", schema),
+                    () -> sql(format("CREATE SCHEMA {}", schema.toLowerCase())));
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    format("System schema can't be created [name={}]", schema),
+                    () -> sql(format("CREATE SCHEMA {}", schema)));
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    format("System schema can't be created [name={}]", schema),
+                    () -> sql(format("CREATE SCHEMA \"{}\"", schema)));
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    public void testDropSystemSchemas(String schema) {
+        if (!DEFAULT_SCHEMA_NAME.equals(schema)) {
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    format("System schema can't be dropped [name={}]", schema),
+                    () -> sql(format("DROP SCHEMA {}", schema.toLowerCase())));
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    format("System schema can't be dropped [name={}]", schema),
+                    () -> sql(format("DROP SCHEMA {}", schema)));
+
+            assertThrowsSqlException(
+                    STMT_VALIDATION_ERR,
+                    format("System schema can't be dropped [name={}]", schema),
+                    () -> sql(format("DROP SCHEMA \"{}\"", schema)));
+        }
     }
 
     private static Stream<Arguments> reservedSchemaNames() {

@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.catalog.CatalogService.INFORMATION_SCHEMA;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
+import java.util.Locale;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.junit.jupiter.api.Test;
@@ -26,15 +29,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests to verify validation of {@link CreateSchemaCommand}.
+ * Tests to verify validation of {@link CreateSystemSchemaCommand}.
  */
 @SuppressWarnings({"ThrowableNotThrown"})
-public class CreateSchemaCommandValidationTest extends AbstractCommandValidationTest {
+public class CreateSystemSchemaCommandValidationTest extends AbstractCommandValidationTest {
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void schemaNameMustNotBeNullOrBlank(String name) {
-        CreateSchemaCommandBuilder builder = CreateSchemaCommand.builder().name(name);
+        CreateSystemSchemaCommandBuilder builder = CreateSystemSchemaCommand.builder().name(name);
 
         assertThrows(
                 CatalogValidationException.class,
@@ -44,23 +47,32 @@ public class CreateSchemaCommandValidationTest extends AbstractCommandValidation
     }
 
     @Test
+    void commandFailsWithNonSystemSchema() {
+        String schemaName = INFORMATION_SCHEMA.toLowerCase(Locale.ROOT);
+
+        Catalog catalog = catalogWithSchema(INFORMATION_SCHEMA);
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> CreateSystemSchemaCommand.builder().name(schemaName).build().get(catalog),
+                format("Not a system schema, schema: '{}'", schemaName)
+        );
+    }
+
+    @Test
     void commandFailsWhenSchemaAlreadyExists() {
-        String schemaName = "TEST";
+        CreateSystemSchemaCommandBuilder builder = CreateSystemSchemaCommand.builder().name(INFORMATION_SCHEMA);
 
-        CreateSchemaCommandBuilder builder = CreateSchemaCommand.builder().name(schemaName);
-
-        Catalog catalog = catalogWithSchema(schemaName);
+        Catalog catalog = catalogWithSchema(INFORMATION_SCHEMA);
 
         assertThrows(
                 CatalogValidationException.class,
                 () -> builder.build().get(catalog),
-                "Schema with name 'TEST' already exists"
+                format("Schema with name '{}' already exists", INFORMATION_SCHEMA)
         );
-
-        builder.ifNotExists(true).build().get(catalog);
     }
 
     private static Catalog catalogWithSchema(String schemaName) {
-        return catalog(CreateSchemaCommand.builder().name(schemaName).build());
+        return catalog(CreateSystemSchemaCommand.builder().name(schemaName).build());
     }
 }
