@@ -63,7 +63,11 @@ public class ClientTables implements IgniteTables {
             var res = new ArrayList<Table>(cnt);
 
             for (int i = 0; i < cnt; i++) {
-                res.add(new ClientTable(ch, marshallers, in.unpackInt(), in.unpackString()));
+                int id = in.unpackInt();
+                String name = in.unpackString();
+                @SuppressWarnings("unused") String schemaName = in.unpackStringNullable();
+
+                res.add(new ClientTable(ch, marshallers, id, name));
             }
 
             return res;
@@ -81,7 +85,12 @@ public class ClientTables implements IgniteTables {
     public CompletableFuture<Table> tableAsync(String name) {
         Objects.requireNonNull(name);
 
-        return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name),
+        return ch.serviceAsync(
+                ClientOp.TABLE_GET,
+                w -> {
+                    w.out().packString(name);
+                    w.out().packString(null); // Schema placeholder.
+                },
                 r -> r.in().tryUnpackNil() ? null : new ClientTable(ch, marshallers, r.in().unpackInt(), name));
     }
 }
