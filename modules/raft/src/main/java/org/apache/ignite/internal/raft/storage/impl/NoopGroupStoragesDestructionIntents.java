@@ -19,7 +19,7 @@ public class NoopGroupStoragesDestructionIntents implements GroupStoragesDestruc
     }
 
     @Override
-    public Collection<DestroyStorageIntent> readDestroyStorageIntentsByName() {
+    public Collection<DestroyStorageIntent> readDestroyStorageIntents() {
         return Collections.emptyList();
     }
 }

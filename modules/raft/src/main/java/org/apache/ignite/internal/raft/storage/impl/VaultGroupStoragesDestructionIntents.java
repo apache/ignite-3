@@ -133,7 +133,7 @@ public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestru
     }
 
     @Override
-    public Collection<DestroyStorageIntent> readDestroyStorageIntentsByName() {
+    public Collection<DestroyStorageIntent> readDestroyStorageIntents() {
         try (Cursor<VaultEntry> cursor = vault.prefix(new ByteArray(GROUP_STORAGE_DESTRUCTION_PREFIX))) {
             Collection<DestroyStorageIntent> result = new ArrayList<>();
 

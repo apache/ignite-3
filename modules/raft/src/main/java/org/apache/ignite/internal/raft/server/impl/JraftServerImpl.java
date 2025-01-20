@@ -741,7 +741,7 @@ public class JraftServerImpl implements RaftServer {
     }
 
     private CompletableFuture<Void> completeRaftGroupStoragesDestruction(ExecutorService executor) {
-        return runAsync(() -> groupStoragesDestructionIntents.readDestroyStorageIntentsByName()
+        return runAsync(() -> groupStoragesDestructionIntents.readDestroyStorageIntents()
                 .forEach(intent -> destroyStorage(intent, false)), executor);
     }
 
