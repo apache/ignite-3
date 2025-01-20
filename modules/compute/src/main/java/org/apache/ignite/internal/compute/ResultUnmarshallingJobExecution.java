@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,12 +55,12 @@ class ResultUnmarshallingJobExecution<R> implements JobExecution<R> {
     }
 
     @Override
-    public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return delegate.cancelAsync();
+    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
+        return delegate.changePriorityAsync(newPriority);
     }
 
     @Override
-    public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
-        return delegate.changePriorityAsync(newPriority);
+    public ClusterNode node() {
+        return delegate.node();
     }
 }

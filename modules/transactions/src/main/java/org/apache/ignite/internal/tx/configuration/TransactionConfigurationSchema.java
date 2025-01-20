@@ -31,13 +31,18 @@ public class TransactionConfigurationSchema {
     /** Default checking transaction interval. */
     public static final long DEFAULT_ABANDONED_CHECK_TS = 5_000;
 
-    /** Checking transaction interval. */
+    /** How often abandoned transactions are searched for (milliseconds). */
     @Range(min = 0)
     @Value(hasDefault = true)
     public final long abandonedCheckTs = DEFAULT_ABANDONED_CHECK_TS;
 
-    /** Timeout for implicit transactions. */
-    @Range(min = 0)
+    /** Default transaction timeout (milliseconds). */
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public final long timeout = 10_000;
+
+    /** Timeout for implicit transactions (milliseconds). */
+    @Range(min = 1)
     @Value(hasDefault = true)
     public final long implicitTransactionTimeout = 3_000;
 

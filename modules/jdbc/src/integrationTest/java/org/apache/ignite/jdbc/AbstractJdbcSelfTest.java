@@ -44,6 +44,8 @@ import org.junit.jupiter.api.function.Executable;
 public class AbstractJdbcSelfTest extends ClusterPerClassIntegrationTest {
     /** URL. */
     protected static final String URL = "jdbc:ignite:thin://127.0.0.1:10800";
+    /** Default schema. */
+    protected static final String DEFAULT_SCHEMA = "PUBLIC";
 
     /** Connection. */
     protected static Connection conn;
@@ -65,7 +67,7 @@ public class AbstractJdbcSelfTest extends ClusterPerClassIntegrationTest {
     public static void beforeAllBase(TestInfo testInfo) throws Exception {
         conn = DriverManager.getConnection(URL);
 
-        conn.setSchema("PUBLIC");
+        conn.setSchema(DEFAULT_SCHEMA);
     }
 
     /**
@@ -82,6 +84,7 @@ public class AbstractJdbcSelfTest extends ClusterPerClassIntegrationTest {
     @BeforeEach
     protected void setUpBase() throws Exception {
         conn.setAutoCommit(true);
+        conn.setSchema(DEFAULT_SCHEMA);
 
         stmt = conn.createStatement();
 

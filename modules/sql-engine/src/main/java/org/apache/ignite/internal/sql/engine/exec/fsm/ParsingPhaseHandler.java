@@ -61,7 +61,7 @@ class ParsingPhaseHandler implements ExecutionPhaseHandler {
                     result = query.executor.parse(query.sql);
                 }
 
-                if (shouldBeCached(result.queryType())) {
+                if (result.queryType().supportsParseResultCaching()) {
                     query.executor.updateParsedResultCache(query.sql, result);
                 }
 

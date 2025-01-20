@@ -59,8 +59,8 @@ public class IgniteMdRowCount extends RelMdRowCount {
 
     /** {@inheritDoc} */
     @Override
-    public Double getRowCount(Join rel, RelMetadataQuery mq) {
-        return rel.estimateRowCount(mq);
+    public @Nullable Double getRowCount(Join rel, RelMetadataQuery mq) {
+        return joinRowCount(mq, rel);
     }
 
     /** {@inheritDoc} */

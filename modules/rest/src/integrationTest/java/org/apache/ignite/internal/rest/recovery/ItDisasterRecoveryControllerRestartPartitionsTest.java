@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
+import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -42,6 +43,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
+import org.apache.ignite.internal.util.StringUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -54,7 +56,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
     private static final String TABLE_NAME = "first_ZONE_table";
 
-    private static final String QUALIFIED_TABLE_NAME = "PUBLIC." + TABLE_NAME;
+    private static final String QUALIFIED_TABLE_NAME = canonicalName("PUBLIC", TABLE_NAME);
 
     public static final String RESTART_PARTITIONS_ENDPOINT = "/partitions/restart";
 
@@ -86,7 +88,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
     @Test
     public void testRestartPartitionTableNotFound() {
-        String tableName = "unknown_table";
+        String tableName = canonicalName("PUBLIC", "unknown_table");
 
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST(RESTART_PARTITIONS_ENDPOINT,
                 new RestartPartitionsRequest(Set.of(), FIRST_ZONE, tableName, Set.of()));
@@ -95,8 +97,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
                 () -> client.toBlocking().exchange(post));
 
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-
-        assertThat(e.getMessage(), containsString("The table does not exist [name=" + tableName + "]"));
+        assertThat(e.getMessage(), containsString("The table does not exist [name=" + StringUtils.escapeQuotes(tableName) + "]"));
     }
 
     @Test

@@ -19,6 +19,8 @@ package org.apache.ignite.internal.compute;
 
 import java.util.Objects;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.table.partition.Partition;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Compute job execution options.
@@ -30,15 +32,19 @@ public class ExecutionOptions {
 
     private final int maxRetries;
 
+    private final @Nullable Partition partition;
+
     /**
      * Constructor.
      *
      * @param priority Job execution priority.
      * @param maxRetries Number of times to retry job execution in case of failure, 0 to not retry.
+     * @param partition Partition associated with this job.
      */
-    private ExecutionOptions(int priority, int maxRetries) {
+    private ExecutionOptions(int priority, int maxRetries, @Nullable Partition partition) {
         this.priority = priority;
         this.maxRetries = maxRetries;
+        this.partition = partition;
     }
 
     public static Builder builder() {
@@ -53,6 +59,10 @@ public class ExecutionOptions {
         return maxRetries;
     }
 
+    public @Nullable Partition partition() {
+        return partition;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -62,12 +72,12 @@ public class ExecutionOptions {
             return false;
         }
         ExecutionOptions that = (ExecutionOptions) o;
-        return priority == that.priority && maxRetries == that.maxRetries;
+        return priority == that.priority && maxRetries == that.maxRetries && Objects.equals(partition, that.partition);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(priority, maxRetries);
+        return Objects.hash(priority, maxRetries, partition);
     }
 
     /** Compose execution options.  */
@@ -81,6 +91,8 @@ public class ExecutionOptions {
 
         private int maxRetries;
 
+        private @Nullable Partition partition;
+
         public Builder priority(int priority) {
             this.priority = priority;
             return this;
@@ -91,8 +103,13 @@ public class ExecutionOptions {
             return this;
         }
 
+        public Builder partition(@Nullable Partition partition) {
+            this.partition = partition;
+            return this;
+        }
+
         public ExecutionOptions build() {
-            return new ExecutionOptions(priority, maxRetries);
+            return new ExecutionOptions(priority, maxRetries, partition);
         }
     }
 }

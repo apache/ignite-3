@@ -115,6 +115,8 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 + "int_col INTEGER NOT NULL, "
                 + "dec4_2_col DECIMAL(4,2) NOT NULL"
                 + ")");
+
+        gatherStatistics();
     }
 
     @ParameterizedTest
@@ -332,7 +334,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         assertQuery(sql)
                 .disableRules("HashJoinConverter", "MergeJoinConverter")
-                .matches(QueryChecker.matches(".*Join.*Exchange.*Scan.*Exchange.*Colocated.*Aggregate.*"))
+                .matches(QueryChecker.matches(".*Exchange.*Join.*Colocated.*Aggregate.*"))
                 .returns("val0", 50L)
                 .returns("val1", 50L)
                 .check();

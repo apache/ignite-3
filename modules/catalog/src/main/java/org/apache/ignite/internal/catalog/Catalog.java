@@ -31,7 +31,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -66,7 +65,6 @@ public class Catalog {
     private final long activationTimestamp;
     private final Map<String, CatalogSchemaDescriptor> schemasByName;
     private final Map<String, CatalogZoneDescriptor> zonesByName;
-    private final Map<String, CatalogTableDescriptor> tablesByName;
     private final @Nullable CatalogZoneDescriptor defaultZone;
 
     @IgniteToStringExclude
@@ -112,13 +110,6 @@ public class Catalog {
 
         schemasByName = schemas.stream().collect(toMapByName());
         zonesByName = zones.stream().collect(toMapByName());
-
-        tablesByName = new HashMap<>();
-        for (CatalogSchemaDescriptor schema : schemas) {
-            for (CatalogTableDescriptor table : schema.tables()) {
-                tablesByName.put(schema.name() + "." + table.name(), table);
-            }
-        }
 
         schemasById = schemas.stream().collect(toMapById());
         tablesById = schemas.stream().flatMap(s -> Arrays.stream(s.tables())).collect(toMapById());
@@ -167,22 +158,15 @@ public class Catalog {
     }
 
     /**
-     * Returns table descriptor by fully-qualified table name.
-     *
-     * @param qualifiedTableName Fully-qualified table name. Case-sensitive, without quotes.
-     * */
-    public @Nullable CatalogTableDescriptor table(String qualifiedTableName) {
-        return tablesByName.get(qualifiedTableName);
-    }
-
-    /**
-     * Returns table descriptor by table name and schema name.
+     * Returns table descriptor by table name and schema name. A shortcut method for {@code catalog.schema(schemaName).table(tableName)}.
      *
      * @param schemaName Schema name. Case-sensitive, without quotes.
      * @param tableName Table name without schema. Case-sensitive, without quotes.
+     * @return Table descriptor or {@code null} if schema or table not found.
      * */
     public @Nullable CatalogTableDescriptor table(String schemaName, String tableName) {
-        return tablesByName.get(schemaName + "." + tableName);
+        CatalogSchemaDescriptor schema = schema(schemaName);
+        return schema == null ? null : schema.table(tableName);
     }
 
     public Collection<CatalogTableDescriptor> tables() {

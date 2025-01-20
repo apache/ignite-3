@@ -24,7 +24,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
-import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.SchemaExistsException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
@@ -40,10 +40,17 @@ public class CreateSchemaCommand implements CatalogCommand {
 
     private final String schemaName;
 
-    private CreateSchemaCommand(String schemaName) {
+    private final boolean ifNotExists;
+
+    private CreateSchemaCommand(String schemaName, boolean ifNotExists) {
         validateIdentifier(schemaName, "Name of the schema");
 
         this.schemaName = schemaName;
+        this.ifNotExists = ifNotExists;
+    }
+
+    public boolean ifNotExists() {
+        return ifNotExists;
     }
 
     /** {@inheritDoc} */
@@ -51,11 +58,15 @@ public class CreateSchemaCommand implements CatalogCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         int id = catalog.objectIdGenState();
 
-        if (catalog.schema(schemaName) != null) {
-            throw new CatalogValidationException(format("Schema with name '{}' already exists", schemaName));
+        CatalogSchemaDescriptor schema = catalog.schema(schemaName);
+
+        if (ifNotExists && schema != null) {
+            return List.of();
+        } else if (schema != null) {
+            throw new SchemaExistsException(format("Schema with name '{}' already exists.", schemaName));
         }
 
-        CatalogSchemaDescriptor schema = new CatalogSchemaDescriptor(
+        CatalogSchemaDescriptor newSchema = new CatalogSchemaDescriptor(
                 id,
                 schemaName,
                 new CatalogTableDescriptor[0],
@@ -65,7 +76,7 @@ public class CreateSchemaCommand implements CatalogCommand {
         );
 
         return List.of(
-                new NewSchemaEntry(schema),
+                new NewSchemaEntry(newSchema),
                 new ObjectIdGenUpdateEntry(1)
         );
     }
@@ -80,6 +91,8 @@ public class CreateSchemaCommand implements CatalogCommand {
 
         private String name;
 
+        private boolean ifNotExists;
+
         /** {@inheritDoc} */
         @Override
         public CreateSchemaCommandBuilder name(String name) {
@@ -89,8 +102,15 @@ public class CreateSchemaCommand implements CatalogCommand {
 
         /** {@inheritDoc} */
         @Override
+        public CreateSchemaCommandBuilder ifNotExists(boolean value) {
+            this.ifNotExists = value;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public CatalogCommand build() {
-            return new CreateSchemaCommand(name);
+            return new CreateSchemaCommand(name, ifNotExists);
         }
     }
 }

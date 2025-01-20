@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
@@ -37,6 +38,16 @@ public class CatalogSchemaValidationTest extends BaseCatalogManagerTest {
                 manager.execute(CreateSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build()),
                 willThrowFast(CatalogValidationException.class, "Schema with name 'PUBLIC' already exists")
         );
+
+        assertThat(
+                manager.execute(CreateSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).ifNotExists(false).build()),
+                willThrowFast(CatalogValidationException.class, "Schema with name 'PUBLIC' already exists")
+        );
+
+        assertThat(
+                manager.execute(CreateSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).ifNotExists(true).build()),
+                willSucceedFast()
+        );
     }
 
     @Test
@@ -44,6 +55,16 @@ public class CatalogSchemaValidationTest extends BaseCatalogManagerTest {
         assertThat(
                 manager.execute(DropSchemaCommand.builder().name("NON_EXISTING").build()),
                 willThrowFast(CatalogValidationException.class, "Schema with name 'NON_EXISTING' not found")
+        );
+
+        assertThat(
+                manager.execute(DropSchemaCommand.builder().name("NON_EXISTING").ifExists(false).build()),
+                willThrowFast(CatalogValidationException.class, "Schema with name 'NON_EXISTING' not found")
+        );
+
+        assertThat(
+                manager.execute(DropSchemaCommand.builder().name("NON_EXISTING").ifExists(true).build()),
+                willSucceedFast()
         );
     }
 
