@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  * Contains the chain of changed assignments.
  */
 public class AssignmentsChain {
-
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Either remove default values or add proper javadoc.
     private static final long DEFAULT_CONF_TERM = -1;
     private static final long DEFAULT_CONF_IDX = -1;
 
@@ -96,7 +96,11 @@ public class AssignmentsChain {
 
     /**
      * Returns the last {@link AssignmentsLink} in the chain that contains the specified node.
-     *
+     * {@code}
+     * <pre>
+     *   on input link1([A,B,C,D,E,F,G]) > link2([E,F,G]) > link3([G])
+     *   chain.lastLink(F) should return link2(E,F,G).
+     * </pre>
      * @param nodeConsistentId The consistent identifier of the node to search for.
      * @return The last {@link AssignmentsLink} that contains the node, or {@code null} if no such link exists.
      */

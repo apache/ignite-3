@@ -17,9 +17,10 @@
 
 package org.apache.ignite.internal.partitiondistribution;
 
+import static java.util.stream.Collectors.toSet;
+
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -55,7 +56,7 @@ public class AssignmentsLink {
      */
 
     public boolean hasNode(String nodeConsistentId) {
-        return assignments.nodes().stream().map(Assignment::consistentId).anyMatch(nodeId -> nodeId.equals(nodeConsistentId));
+        return assignments.nodes().stream().map(Assignment::consistentId).anyMatch(consistentId -> consistentId.equals(nodeConsistentId));
     }
 
     /**
@@ -64,7 +65,7 @@ public class AssignmentsLink {
      * @return Set of consistent node identifiers.
      */
     public Set<String> nodeNames() {
-        return assignments.nodes().stream().map(Assignment::consistentId).collect(Collectors.toSet());
+        return assignments.nodes().stream().map(Assignment::consistentId).collect(toSet());
     }
 
     public long configurationIndex() {

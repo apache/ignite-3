@@ -523,7 +523,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             Assignments newStable,
             Assignments pendingAssignments,
             long configurationTerm,
-            long configurationIndex) {
+            long configurationIndex
+    ) {
         assert assignmentsChain != null : "Assignments chain cannot be null in HA mode.";
 
         assert !assignmentsChain.chain().isEmpty() : "Assignments chain cannot be empty on stable switch.";

@@ -1280,7 +1280,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertStableAssignments(node0, partId, initialAssignments);
 
-        assertAssignmentsChain(node0, partId, AssignmentsChain.of(-1, -1, initialAssignments));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(initialAssignments));
 
         // Write data(1) to all nodes.
         List<Throwable> errors = insertValues(table, partId, 0);
@@ -1479,7 +1479,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertStableAssignments(node0, partId, allAssignments);
 
-        assertAssignmentsChain(node0, partId, AssignmentsChain.of(-1, -1, allAssignments));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments));
 
         // Write data(1) to all seven nodes.
         List<Throwable> errors = insertValues(table, partId, 0);
@@ -1575,7 +1575,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertStableAssignments(node0, partId, initialAssignments);
 
-        assertAssignmentsChain(node0, partId, AssignmentsChain.of(-1, -1, initialAssignments));
+        assertAssignmentsChain(node0, partId, AssignmentsChain.of(initialAssignments));
 
         // Write data(1) to all nodes.
         List<Throwable> errors = insertValues(table, partId, 0);
