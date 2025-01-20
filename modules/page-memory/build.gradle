@@ -52,6 +52,7 @@ dependencies {
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation(testFixtures(project(':ignite-core')))
+    testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core
     testFixturesImplementation libs.auto.service.annotations
     testFixturesImplementation libs.jetbrains.annotations
@@ -62,7 +63,6 @@ dependencies {
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-configuration')))
-    integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.jetbrains.annotations
 
 }

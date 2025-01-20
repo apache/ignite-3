@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.tree.util;
+package org.apache.ignite.internal.pagememory.util;
+
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.Objects;
 import java.util.PrimitiveIterator;
@@ -203,8 +205,7 @@ public class Sequencer {
                     //noinspection WaitOrAwaitWithoutTimeout
                     mux.wait();
                 } catch (InterruptedException e) {
-                    //noinspection deprecation
-                    throw new IgniteInternalException(e);
+                    throw new IgniteInternalException(INTERNAL_ERR,  e);
                 }
             }
         }

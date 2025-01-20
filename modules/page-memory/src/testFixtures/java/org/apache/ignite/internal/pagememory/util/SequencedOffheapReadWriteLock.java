@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.pagememory.tree.util;
+package org.apache.ignite.internal.pagememory.util;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
@@ -57,6 +57,7 @@ public class SequencedOffheapReadWriteLock extends OffheapReadWriteLock {
 
         LongList[] acquiredLocks = new LongList[threads];
         for (int i = 0; i < threads; i++) {
+            // We don't hold too many locks at the same time, 4 should be enough for the majority of cases.
             acquiredLocks[i] = new LongArrayList(4);
         }
 

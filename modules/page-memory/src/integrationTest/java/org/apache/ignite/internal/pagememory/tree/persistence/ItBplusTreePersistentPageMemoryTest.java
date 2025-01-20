@@ -38,7 +38,7 @@ import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManage
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTest;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
-import org.apache.ignite.internal.pagememory.tree.util.SequencedOffheapReadWriteLock;
+import org.apache.ignite.internal.pagememory.util.SequencedOffheapReadWriteLock;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
