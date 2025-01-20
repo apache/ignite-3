@@ -73,6 +73,7 @@ namespace Apache.Ignite.Internal.Table
                 {
                     var id = r.ReadInt32();
                     var name = r.ReadString();
+                    _ = r.ReadStringNullable(); // Schema name.
 
                     var table = _cachedTables.GetOrAdd(
                         id,
