@@ -1515,8 +1515,6 @@ public class IgniteImpl implements Ignite {
     private RuntimeException handleStartException(Throwable e) {
         String errMsg = "Unable to start [node=" + name + "]";
 
-        LOG.error(errMsg, e);
-
         IgniteException igniteException = new IgniteException(INTERNAL_ERR, errMsg, e);
 
         ExecutorService lifecycleExecutor = stopExecutor();
