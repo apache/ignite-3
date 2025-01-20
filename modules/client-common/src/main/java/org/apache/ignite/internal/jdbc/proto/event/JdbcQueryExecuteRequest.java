@@ -61,6 +61,7 @@ public class JdbcQueryExecuteRequest extends JdbcObservableTimeAwareRequest impl
      */
     private long correlationToken;
 
+    /** The latest time observed by client. */
     private long observableTime;
 
     /**
