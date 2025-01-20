@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.raft.storage;
 
 import java.util.Collection;
-import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents.DestroyStorageIntent;
+import org.apache.ignite.internal.raft.storage.impl.DestroyStorageIntent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /** Persists and retrieves intent to complete storages destruction on node start. */

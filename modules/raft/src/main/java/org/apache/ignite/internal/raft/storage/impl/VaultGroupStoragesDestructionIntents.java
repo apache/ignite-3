@@ -40,7 +40,7 @@ import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 
-/** Uses VaultManager to destroy raft group storages durably, using vault to store destruction intents. */
+/** Uses VaultManager to store destruction intents. */
 public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestructionIntents {
     /** Initial capacity (in bytes) of the buffer used for data output. */
     private static final int INITIAL_BUFFER_CAPACITY = 64;
@@ -146,41 +146,6 @@ public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestru
             }
 
             return result;
-        }
-    }
-
-    public static class DestroyStorageIntent {
-        private final boolean isVolatile;
-        private final String raftNodeId;
-        private final LogStorageFactory logStorageFactory;
-        private final Path serverDataPath;
-
-        public DestroyStorageIntent(String raftNodeId, LogStorageFactory logStorageFactory, Path serverDataPath, boolean isVolatile) {
-            this.raftNodeId = raftNodeId;
-            this.logStorageFactory = logStorageFactory;
-            this.serverDataPath = serverDataPath;
-            this.isVolatile = isVolatile;
-        }
-
-        public String nodeId() {
-            return raftNodeId;
-        }
-
-        public boolean isVolatile() {
-            return isVolatile;
-        }
-
-        public LogStorageFactory logStorageFactory() {
-            return logStorageFactory;
-        }
-
-        public Path serverDataPath() {
-            return serverDataPath;
-        }
-
-        @Override
-        public String toString() {
-            return S.toString(DestroyStorageIntent.class, this);
         }
     }
 }
