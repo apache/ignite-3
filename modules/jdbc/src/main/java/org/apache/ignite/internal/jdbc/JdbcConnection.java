@@ -128,6 +128,7 @@ public class JdbcConnection implements Connection {
      * Creates new connection.
      *
      * @param props Connection properties.
+     * @param observableTimeTracker Tracker of the latest time observed by client.
      */
     public JdbcConnection(ConnectionProperties props, AtomicLong observableTimeTracker) throws SQLException {
         this.connProps = props;
@@ -170,7 +171,7 @@ public class JdbcConnection implements Connection {
         holdability = HOLD_CURSORS_OVER_COMMIT;
     }
 
-    private TcpIgniteClient buildClient(String[] addrs, AtomicLong observableTime) {
+    private TcpIgniteClient buildClient(String[] addrs, AtomicLong observableTimestamp) {
         var cfg = new IgniteClientConfigurationImpl(
                 null,
                 addrs,
@@ -184,9 +185,10 @@ public class JdbcConnection implements Connection {
                 extractSslConfiguration(connProps),
                 false,
                 extractAuthenticationConfiguration(connProps),
-                IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT);
+                IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT
+        );
 
-        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTime));
+        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimestamp));
     }
 
     /**
@@ -863,7 +865,7 @@ public class JdbcConnection implements Connection {
         return connectionId;
     }
 
-    /** Returns an observable timestamp. */
+    /** Returns the latest time observed by client. */
     long observableTimestamp() {
         return client.channel().observableTimestamp();
     }

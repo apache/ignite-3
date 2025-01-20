@@ -90,15 +90,14 @@ public class TcpIgniteClient implements IgniteClient {
      */
     private String clusterName;
 
-
     /**
      * Constructor.
      *
      * @param cfg Config.
-     * @param observableTime Tracker of the latest time observed by client.
+     * @param observableTimestamp Holder of the latest time observed by client.
      */
-    private TcpIgniteClient(IgniteClientConfiguration cfg, AtomicLong observableTime) {
-        this(TcpClientChannel::createAsync, cfg, observableTime);
+    private TcpIgniteClient(IgniteClientConfiguration cfg, AtomicLong observableTimestamp) {
+        this(TcpClientChannel::createAsync, cfg, observableTimestamp);
     }
 
     /**
@@ -106,16 +105,16 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @param chFactory Channel factory.
      * @param cfg Config.
-     * @param observableTime Tracker of the latest time observed by client.
+     * @param observableTimestamp Holder of the latest time observed by client.
      */
-    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, @Nullable AtomicLong observableTime) {
+    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, AtomicLong observableTimestamp) {
         assert chFactory != null;
         assert cfg != null;
 
         this.cfg = cfg;
 
         metrics = new ClientMetricSource();
-        ch = new ReliableChannel(chFactory, cfg, metrics, observableTime);
+        ch = new ReliableChannel(chFactory, cfg, metrics, observableTimestamp);
         tables = new ClientTables(ch, marshallers);
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
@@ -165,14 +164,15 @@ public class TcpIgniteClient implements IgniteClient {
      * Initializes new instance of {@link IgniteClient} and establishes the connection.
      *
      * @param cfg Thin client configuration.
+     * @param observableTimestamp Holder of the latest time observed by client.
      * @return Future representing pending completion of the operation.
      */
-    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, AtomicLong tracker) {
+    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, AtomicLong observableTimestamp) {
         ErrorGroups.initialize();
 
         try {
             //noinspection resource: returned from method
-            var client = new TcpIgniteClient(cfg, tracker);
+            var client = new TcpIgniteClient(cfg, observableTimestamp);
 
             return client.initAsync().thenApply(x -> client);
         } catch (IgniteException e) {

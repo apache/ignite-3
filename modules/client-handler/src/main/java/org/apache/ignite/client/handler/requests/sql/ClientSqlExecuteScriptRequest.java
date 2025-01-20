@@ -50,7 +50,6 @@ public class ClientSqlExecuteScriptRequest {
         }
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        // TODO Thin client script execution is broken - should return observable time to client.
         var tsUpdater = HybridTimestampTracker.clientTracker(clientTs, ts -> {});
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-23646 Pass cancellation token to the query processor.

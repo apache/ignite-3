@@ -162,6 +162,7 @@ public class IgniteJdbcDriver implements Driver {
     /** Minor version. */
     private static final int MINOR_VER = ProtocolVersion.LATEST_VER.minor();
 
+    /** Tracker of the latest time observed by client. */
     private final AtomicLong observableTimeTracker = new AtomicLong();
 
     /** {@inheritDoc} */
@@ -180,7 +181,7 @@ public class IgniteJdbcDriver implements Driver {
 
     /** {@inheritDoc} */
     @Override
-    public boolean acceptsURL(String url) throws SQLException {
+    public boolean acceptsURL(String url) {
         return url.startsWith(URL_PREFIX);
     }
 

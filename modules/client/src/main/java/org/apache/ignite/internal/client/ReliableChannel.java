@@ -130,18 +130,18 @@ public final class ReliableChannel implements AutoCloseable {
      * @param chFactory Channel factory.
      * @param clientCfg Client config.
      * @param metrics Client metrics.
-     * @param observableTime Tracker of the latest time observed by client.
+     * @param observableTimestamp Holder of the latest time observed by client.
      */
     ReliableChannel(
             ClientChannelFactory chFactory,
             IgniteClientConfiguration clientCfg,
             ClientMetricSource metrics,
-            AtomicLong observableTime) {
+            AtomicLong observableTimestamp) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
         this.log = ClientUtils.logger(clientCfg, ReliableChannel.class);
         this.metrics = metrics;
-        this.observableTimestamp = Objects.requireNonNull(observableTime, "observableTime");
+        this.observableTimestamp = Objects.requireNonNull(observableTimestamp, "observableTime");
 
         connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);

@@ -73,7 +73,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
-import org.apache.ignite.sql.ResultSetMetadata;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeEach;
@@ -201,7 +200,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         JdbcStatementType type = JdbcStatementType.SELECT_STATEMENT_TYPE;
 
         await(eventHandler.queryAsync(
-                connectionId, createExecuteRequest(schema, "SELECT 1", type, false)
+                connectionId, createExecuteRequest(schema, false, "SELECT 1", type)
         ));
         verify(txManager, times(1)).beginExplicitRw(any(), any());
         await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", false, "UPDATE 1", "UPDATE 2")));
@@ -213,7 +212,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", false, "UPDATE 1", "UPDATE 2")));
         verify(txManager, times(2)).beginExplicitRw(any(), any());
         await(eventHandler.queryAsync(
-                connectionId, createExecuteRequest(schema, "SELECT 2", type, false)
+                connectionId, createExecuteRequest(schema, false, "SELECT 2", type)
         ));
         verify(txManager, times(2)).beginExplicitRw(any(), any());
         await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", false, "UPDATE 3", "UPDATE 4")));
@@ -232,7 +231,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         long connectionId = acquireConnectionId();
 
-        JdbcQueryExecuteRequest executeRequest = createExecuteRequest("schema", "SELECT 1", JdbcStatementType.SELECT_STATEMENT_TYPE, true);
+        JdbcQueryExecuteRequest executeRequest = createExecuteRequest("schema", true, "SELECT 1", JdbcStatementType.SELECT_STATEMENT_TYPE);
 
         CompletableFuture<? extends Response> resultFuture = eventHandler.queryAsync(connectionId, executeRequest);
 
@@ -262,7 +261,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         long connectionId = acquireConnectionId();
 
-        JdbcBatchPreparedStmntRequest executeRequest = createExecutePrepBatchRequest("schema", "SELECT 1");
+        JdbcBatchPreparedStmntRequest executeRequest = createExecutePrepBatchRequest("schema", true, "SELECT 1");
 
         CompletableFuture<? extends Response> resultFuture = eventHandler.batchPrepStatementAsync(connectionId, executeRequest);
 
@@ -303,7 +302,12 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
                                 tracker.update(ignoredTs);
                             }
 
-                            return CompletableFuture.completedFuture(createEmptyQueryCursor());
+                            return CompletableFuture.completedFuture(new AsyncSqlCursorImpl<>(
+                                    SqlQueryType.QUERY,
+                                    new ResultSetMetadataImpl(List.of()),
+                                    new IteratorToDataCursorAdapter<>(Collections.emptyIterator()),
+                                    null
+                            ));
                         });
 
         // Query (autocommit).
@@ -346,7 +350,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         // Prepared batch (autocommit).
         {
-            JdbcBatchPreparedStmntRequest executeRequest = createExecutePrepBatchRequest("schema", "SELECT 1");
+            JdbcBatchPreparedStmntRequest executeRequest = createExecutePrepBatchRequest("schema", true, "SELECT 1");
 
             await(eventHandler.batchPrepStatementAsync(connectionId, executeRequest));
 
@@ -395,8 +399,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         // Prepared batch (non-autocommit).
         {
-            JdbcBatchPreparedStmntRequest executeRequest = new JdbcBatchPreparedStmntRequest(
-                    "schema", "SELECT 1", Collections.singletonList(new Object[] {1}), false, 0, System.currentTimeMillis());
+            JdbcBatchPreparedStmntRequest executeRequest = createExecutePrepBatchRequest("schema", false, "SELECT 1");
 
             await(eventHandler.batchPrepStatementAsync(connectionId, executeRequest));
 
@@ -449,7 +452,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static JdbcQueryExecuteRequest createExecuteRequest(String schema, String query, JdbcStatementType type, boolean autoCommit) {
+    private static JdbcQueryExecuteRequest createExecuteRequest(String schema, boolean autoCommit, String query, JdbcStatementType type) {
         //noinspection DataFlowIssue
         return new JdbcQueryExecuteRequest(
                 type, schema, 1024, 1, query, null, autoCommit, false, 0, System.currentTimeMillis(), 0L
@@ -462,9 +465,9 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static JdbcBatchPreparedStmntRequest createExecutePrepBatchRequest(String schema, String query) {
+    private static JdbcBatchPreparedStmntRequest createExecutePrepBatchRequest(String schema, boolean autoCommit, String query) {
         return new JdbcBatchPreparedStmntRequest(
-                schema, query, Collections.singletonList(new Object[] {1}), true, 0, System.currentTimeMillis()
+                schema, query, Collections.singletonList(new Object[] {1}), autoCommit, 0, System.currentTimeMillis()
         );
     }
 
@@ -475,16 +478,5 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
                 return actual instanceof Response && checker.test((Response) actual) == Boolean.TRUE;
             }
         };
-    }
-
-    private static AsyncSqlCursor<InternalSqlRow> createEmptyQueryCursor() {
-        ResultSetMetadata emptyMeta = new ResultSetMetadataImpl(List.of());
-
-        return new AsyncSqlCursorImpl<>(
-                SqlQueryType.QUERY,
-                emptyMeta,
-                new IteratorToDataCursorAdapter<>(Collections.emptyIterator()),
-                null
-        );
     }
 }

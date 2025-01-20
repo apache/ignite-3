@@ -28,7 +28,7 @@ abstract class JdbcObservableTimeAwareRequest {
     @SuppressWarnings("TransientFieldInNonSerializableClass")
     private final transient AtomicReference<HybridTimestamp> observableTimeHolder = new AtomicReference<>();
 
-    /** Returns the holder containing the latest time observed by the client. */
+    /** Returns the holder with the latest time observed by client. */
     public AtomicReference<HybridTimestamp> observableTimeHolder() {
         return observableTimeHolder;
     }

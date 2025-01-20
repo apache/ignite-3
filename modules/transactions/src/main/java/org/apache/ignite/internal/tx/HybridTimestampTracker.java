@@ -101,7 +101,7 @@ public interface HybridTimestampTracker {
      * Creates an atomic HybridTimestampTracker instance that uses external {@link AtomicReference} to track and update the timestamp.
      *
      * @param timestampHolder Timestamp holder.
-     * @return A HybridTimestampTracker instance that uses the provided initial timestamp and update mechanism.
+     * @return A HybridTimestampTracker instance for tracking and updating a hybrid timestamp atomically.
      */
     static HybridTimestampTracker fromAtomicReference(AtomicReference<HybridTimestamp> timestampHolder) {
         return new HybridTimestampTracker() {
