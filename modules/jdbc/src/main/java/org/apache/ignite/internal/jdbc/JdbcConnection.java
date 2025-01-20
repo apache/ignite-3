@@ -23,6 +23,7 @@ import static java.sql.ResultSet.HOLD_CURSORS_OVER_COMMIT;
 import static java.sql.ResultSet.TYPE_FORWARD_ONLY;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CLIENT_CONNECTION_FAILED;
 import static org.apache.ignite.internal.jdbc.proto.SqlStateCode.CONNECTION_CLOSED;
+import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.sql.Array;
 import java.sql.Blob;
@@ -54,10 +55,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.BasicAuthenticator;
-import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientAuthenticator;
+import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPort;
+import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -127,7 +129,7 @@ public class JdbcConnection implements Connection {
      *
      * @param props Connection properties.
      */
-    public JdbcConnection(ConnectionProperties props) throws SQLException {
+    public JdbcConnection(ConnectionProperties props, AtomicLong observableTimeTracker) throws SQLException {
         this.connProps = props;
         autoCommit = true;
 
@@ -138,13 +140,7 @@ public class JdbcConnection implements Connection {
         qryTimeout = connProps.getQueryTimeout();
 
         try {
-            client = ((TcpIgniteClient) IgniteClient.builder()
-                    .addresses(addrs)
-                    .connectTimeout(netTimeout)
-                    .ssl(extractSslConfiguration(connProps))
-                    .authenticator(extractAuthenticationConfiguration(connProps))
-                    .build());
-
+            client = buildClient(addrs, observableTimeTracker);
         } catch (Exception e) {
             throw new SQLException("Failed to connect to server", CLIENT_CONNECTION_FAILED, e);
         }
@@ -172,6 +168,25 @@ public class JdbcConnection implements Connection {
         schema = normalizeSchema(connProps.getSchema());
 
         holdability = HOLD_CURSORS_OVER_COMMIT;
+    }
+
+    private TcpIgniteClient buildClient(String[] addrs, AtomicLong observableTime) {
+        var cfg = new IgniteClientConfigurationImpl(
+                null,
+                addrs,
+                netTimeout,
+                IgniteClientConfigurationImpl.DFLT_BACKGROUND_RECONNECT_INTERVAL,
+                null,
+                IgniteClientConfigurationImpl.DFLT_HEARTBEAT_INTERVAL,
+                IgniteClientConfigurationImpl.DFLT_HEARTBEAT_TIMEOUT,
+                null,
+                null,
+                extractSslConfiguration(connProps),
+                false,
+                extractAuthenticationConfiguration(connProps),
+                IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT);
+
+        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTime));
     }
 
     /**
@@ -846,6 +861,11 @@ public class JdbcConnection implements Connection {
     /** Returns an identifier of the connection. */
     long connectionId() {
         return connectionId;
+    }
+
+    /** Returns an observable timestamp. */
+    long observableTimestamp() {
+        return client.channel().observableTimestamp();
     }
 
     /** {@inheritDoc} */

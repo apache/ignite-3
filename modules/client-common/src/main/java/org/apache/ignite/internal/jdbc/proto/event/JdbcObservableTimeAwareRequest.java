@@ -17,47 +17,19 @@
 
 package org.apache.ignite.internal.jdbc.proto.event;
 
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Result of commit/rollback command.
+ * An extension to JDBC request that provides the ability to update and read client observable time.
  */
-public class JdbcFinishTxResult extends Response {
-    /** Observable timestamp used only on server side. */
+abstract class JdbcObservableTimeAwareRequest {
+    /** Holds the latest time observed by client. */
     @SuppressWarnings("TransientFieldInNonSerializableClass")
-    private final transient @Nullable HybridTimestamp observableTime;
+    private final transient AtomicReference<HybridTimestamp> observableTimeHolder = new AtomicReference<>();
 
-    /**
-     * Default constructor is used for deserialization.
-     */
-    public JdbcFinishTxResult() {
-        this.observableTime = null;
-    }
-
-    /**
-     * Constructor.
-     */
-    public JdbcFinishTxResult(@Nullable HybridTimestamp observableTime) {
-        this.observableTime = observableTime;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param status Status code.
-     * @param err    Error message.
-     */
-    public JdbcFinishTxResult(int status, String err) {
-        super(status, err);
-
-        this.observableTime = null;
-    }
-
-    /**
-     * Returns transaction observable time.
-     */
-    public @Nullable HybridTimestamp observableTime() {
-        return observableTime;
+    /** Returns the holder containing the latest time observed by the client. */
+    public AtomicReference<HybridTimestamp> observableTimeHolder() {
+        return observableTimeHolder;
     }
 }

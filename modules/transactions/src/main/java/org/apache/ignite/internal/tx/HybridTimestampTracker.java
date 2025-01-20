@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLo
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
@@ -92,6 +93,29 @@ public interface HybridTimestampTracker {
             @Override
             public void update(@Nullable HybridTimestamp ts) {
                 updateTs.accept(ts);
+            }
+        };
+    }
+
+    /**
+     * Creates an atomic HybridTimestampTracker instance that uses external {@link AtomicReference} to track and update the timestamp.
+     *
+     * @param timestampHolder Timestamp holder.
+     * @return A HybridTimestampTracker instance that uses the provided initial timestamp and update mechanism.
+     */
+    static HybridTimestampTracker fromAtomicReference(AtomicReference<HybridTimestamp> timestampHolder) {
+        return new HybridTimestampTracker() {
+            /** Timestamp. */
+            private final AtomicReference<HybridTimestamp> timestamp = timestampHolder;
+
+            @Override
+            public @Nullable HybridTimestamp get() {
+                return timestamp.get();
+            }
+
+            @Override
+            public void update(HybridTimestamp ts) {
+                timestamp.updateAndGet(x -> (x == null || x.compareTo(ts) < 0) ? ts : x);
             }
         };
     }

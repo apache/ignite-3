@@ -25,8 +25,10 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -42,28 +44,36 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
-import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl.JdbcConnectionContext;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.sql.ResultSetMetadataImpl;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
+import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeEach;
@@ -136,11 +146,11 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
             registryCloseLatch.countDown();
             assertThat(startTxLatch.await(timeout, TimeUnit.SECONDS), is(true));
 
-            return null;
+            return mock(InternalTransaction.class);
         });
 
         CompletableFuture<JdbcBatchExecuteResult> fut = IgniteTestUtils.runAsync(() ->
-                eventHandler.batchAsync(connectionId, createExecuteBatchRequest("x", "QUERY")).get()
+                eventHandler.batchAsync(connectionId, createExecuteBatchRequest("x", false, "QUERY")).get()
         );
 
         assertThat(registryCloseLatch.await(timeout, TimeUnit.SECONDS), is(true));
@@ -164,7 +174,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         long connectionId = acquireConnectionId();
 
-        await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("x", "UPDATE 1")));
+        await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("x", false, "UPDATE 1")));
 
         verify(txManager).beginExplicitRw(any(), any());
         verify(tx, times(0)).rollbackAsync();
@@ -191,22 +201,22 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         JdbcStatementType type = JdbcStatementType.SELECT_STATEMENT_TYPE;
 
         await(eventHandler.queryAsync(
-                connectionId, createExecuteRequest(schema, "SELECT 1", type)
+                connectionId, createExecuteRequest(schema, "SELECT 1", type, false)
         ));
         verify(txManager, times(1)).beginExplicitRw(any(), any());
-        await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", "UPDATE 1", "UPDATE 2")));
+        await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", false, "UPDATE 1", "UPDATE 2")));
         verify(txManager, times(1)).beginExplicitRw(any(), any());
 
         await(eventHandler.finishTxAsync(connectionId, false));
         verify(tx).rollbackAsync();
 
-        await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", "UPDATE 1", "UPDATE 2")));
+        await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", false, "UPDATE 1", "UPDATE 2")));
         verify(txManager, times(2)).beginExplicitRw(any(), any());
         await(eventHandler.queryAsync(
-                connectionId, createExecuteRequest(schema, "SELECT 2", type)
+                connectionId, createExecuteRequest(schema, "SELECT 2", type, false)
         ));
         verify(txManager, times(2)).beginExplicitRw(any(), any());
-        await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", "UPDATE 3", "UPDATE 4")));
+        await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", false, "UPDATE 3", "UPDATE 4")));
         verify(txManager, times(2)).beginExplicitRw(any(), any());
 
         await(eventHandler.finishTxAsync(connectionId, true));
@@ -222,7 +232,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         long connectionId = acquireConnectionId();
 
-        JdbcQueryExecuteRequest executeRequest = createExecuteRequest("schema", "SELECT 1", JdbcStatementType.SELECT_STATEMENT_TYPE);
+        JdbcQueryExecuteRequest executeRequest = createExecuteRequest("schema", "SELECT 1", JdbcStatementType.SELECT_STATEMENT_TYPE, true);
 
         CompletableFuture<? extends Response> resultFuture = eventHandler.queryAsync(connectionId, executeRequest);
 
@@ -237,7 +247,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         long connectionId = acquireConnectionId();
 
-        JdbcBatchExecuteRequest executeRequest = createExecuteBatchRequest("schema", "SELECT 1");
+        JdbcBatchExecuteRequest executeRequest = createExecuteBatchRequest("schema", true, "SELECT 1");
 
         CompletableFuture<? extends Response> resultFuture = eventHandler.batchAsync(connectionId, executeRequest);
 
@@ -259,6 +269,147 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         assertFalse(resultFuture.isDone(), "Future must not be completed until cancellation request is sent");
 
         cancelAndVerify(connectionId, executeRequest.correlationToken(), resultFuture);
+    }
+
+    @Test
+    void handlerTracksObservableTimeFromClient() {
+        HybridTimestamp clientTs = HybridTimestamp.hybridTimestamp(200L);
+        HybridTimestamp updatedTs = HybridTimestamp.hybridTimestamp(300L);
+        HybridTimestamp ignoredTs = HybridTimestamp.hybridTimestamp(100L);
+        HybridTimestamp txTime = HybridTimestamp.hybridTimestamp(50L);
+
+        long connectionId = acquireConnectionId();
+
+        AtomicReference<HybridTimestamp> fromClient = new AtomicReference<>();
+
+        HybridTimestampTracker txTracker = HybridTimestampTracker.atomicTracker(txTime);
+        InternalTransaction rwTx = mock(InternalTransaction.class);
+        when(rwTx.commitAsync()).thenReturn(nullCompletedFuture());
+        when(rwTx.rollbackAsync()).thenReturn(nullCompletedFuture());
+        when(rwTx.observableTimestamp()).thenReturn(txTracker.get());
+        when(txManager.beginExplicitRw(any(), any())).thenReturn(rwTx);
+
+        when(queryProcessor.queryAsync(any(), any(HybridTimestampTracker.class), any(), any(), any(), any(Object[].class)))
+                        .thenAnswer(invocation -> {
+                            HybridTimestampTracker tracker = invocation.getArgument(1);
+                            InternalTransaction explicitTx = invocation.getArgument(2);
+
+                            if (explicitTx == null || explicitTx.isReadOnly()) {
+                                fromClient.set(tracker.get());
+
+                                tracker.update(updatedTs);
+
+                                // Time should only increase, smaller values should be ignored.
+                                tracker.update(ignoredTs);
+                            }
+
+                            return CompletableFuture.completedFuture(createEmptyQueryCursor());
+                        });
+
+        // Query (autocommit).
+        {
+            JdbcQueryExecuteRequest executeRequest = new JdbcQueryExecuteRequest(
+                    JdbcStatementType.SELECT_STATEMENT_TYPE,
+                    "schema",
+                    1024,
+                    1,
+                    "SELECT 1",
+                    new Object[0],
+                    true,
+                    false,
+                    0,
+                    System.currentTimeMillis(),
+                    clientTs.longValue()
+            );
+
+            await(eventHandler.queryAsync(connectionId, executeRequest));
+
+            assertThat("Must take into account the value from the request",
+                    fromClient.get(), equalTo(clientTs));
+            assertThat("Should return the updated tracker value to the client.",
+                    executeRequest.observableTimeHolder().get(), equalTo(updatedTs));
+        }
+
+        fromClient.set(null);
+
+        // Batch (autocommit).
+        {
+            JdbcBatchExecuteRequest executeRequest = createExecuteBatchRequest("schema", true, "SELECT 1");
+
+            await(eventHandler.batchAsync(connectionId, executeRequest));
+
+            assertThat("No value should be passed from the client.",
+                    fromClient.get(), nullValue());
+            assertThat("Should return the updated tracker value to the client.",
+                    executeRequest.observableTimeHolder().get(), equalTo(updatedTs));
+        }
+
+        // Prepared batch (autocommit).
+        {
+            JdbcBatchPreparedStmntRequest executeRequest = createExecutePrepBatchRequest("schema", "SELECT 1");
+
+            await(eventHandler.batchPrepStatementAsync(connectionId, executeRequest));
+
+            assertThat("No value should be passed from the client.",
+                    fromClient.get(), nullValue());
+            assertThat("Should return the updated tracker value to the client.",
+                    executeRequest.observableTimeHolder().get(), equalTo(updatedTs));
+        }
+
+        // Query (non-autocommit).
+        {
+            JdbcQueryExecuteRequest executeRequest = new JdbcQueryExecuteRequest(
+                    JdbcStatementType.SELECT_STATEMENT_TYPE,
+                    "schema",
+                    1024,
+                    1,
+                    "SELECT 1",
+                    new Object[0],
+                    false,
+                    false,
+                    0,
+                    System.currentTimeMillis(),
+                    clientTs.longValue()
+            );
+
+            await(eventHandler.queryAsync(connectionId, executeRequest));
+
+            assertThat("Should not update observable time until tx commit.",
+                    executeRequest.observableTimeHolder().get(), nullValue());
+
+            // Rollback.
+            JdbcFinishTxResult res = await(eventHandler.finishTxAsync(connectionId, false));
+            assertThat("The observable time must not be returned when rolling back a tx.", res.observableTime(), nullValue());
+            verify(rwTx).rollbackAsync();
+        }
+
+        // Batch (non-autocommit).
+        {
+            JdbcBatchExecuteRequest executeRequest = createExecuteBatchRequest("schema", false, "SELECT 1");
+
+            await(eventHandler.batchAsync(connectionId, executeRequest));
+
+            assertThat("Should not update observable time until tx commit.",
+                    executeRequest.observableTimeHolder().get(), nullValue());
+        }
+
+        // Prepared batch (non-autocommit).
+        {
+            JdbcBatchPreparedStmntRequest executeRequest = new JdbcBatchPreparedStmntRequest(
+                    "schema", "SELECT 1", Collections.singletonList(new Object[] {1}), false, 0, System.currentTimeMillis());
+
+            await(eventHandler.batchPrepStatementAsync(connectionId, executeRequest));
+
+            assertThat("Should not update observable time until tx commit.",
+                    executeRequest.observableTimeHolder().get(), nullValue());
+        }
+
+        // Commit.
+        {
+            JdbcFinishTxResult res = await(eventHandler.finishTxAsync(connectionId, true));
+            assertThat(res.observableTime(), equalTo(txTime));
+            verify(rwTx).commitAsync();
+        }
     }
 
     private long acquireConnectionId() {
@@ -298,22 +449,22 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private static JdbcQueryExecuteRequest createExecuteRequest(String schema, String query, JdbcStatementType type) {
+    private static JdbcQueryExecuteRequest createExecuteRequest(String schema, String query, JdbcStatementType type, boolean autoCommit) {
         //noinspection DataFlowIssue
         return new JdbcQueryExecuteRequest(
-                type, schema, 1024, 1, query, null, false, false, 0, System.currentTimeMillis()
+                type, schema, 1024, 1, query, null, autoCommit, false, 0, System.currentTimeMillis(), 0L
         );
     }
 
-    private static JdbcBatchExecuteRequest createExecuteBatchRequest(String schema, String... statements) {
+    private static JdbcBatchExecuteRequest createExecuteBatchRequest(String schema, boolean autoCommit, String... statements) {
         return new JdbcBatchExecuteRequest(
-                schema, List.of(statements), false, 0, System.currentTimeMillis()
+                schema, List.of(statements), autoCommit, 0, System.currentTimeMillis()
         );
     }
 
     private static JdbcBatchPreparedStmntRequest createExecutePrepBatchRequest(String schema, String query) {
         return new JdbcBatchPreparedStmntRequest(
-                schema, query, Collections.singletonList(new Object[] {1}), false, 0, System.currentTimeMillis()
+                schema, query, Collections.singletonList(new Object[] {1}), true, 0, System.currentTimeMillis()
         );
     }
 
@@ -324,5 +475,16 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
                 return actual instanceof Response && checker.test((Response) actual) == Boolean.TRUE;
             }
         };
+    }
+
+    private static AsyncSqlCursor<InternalSqlRow> createEmptyQueryCursor() {
+        ResultSetMetadata emptyMeta = new ResultSetMetadataImpl(List.of());
+
+        return new AsyncSqlCursorImpl<>(
+                SqlQueryType.QUERY,
+                emptyMeta,
+                new IteratorToDataCursorAdapter<>(Collections.emptyIterator()),
+                null
+        );
     }
 }

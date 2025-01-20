@@ -92,6 +92,13 @@ public interface InternalTransaction extends Transaction {
     HybridTimestamp startTimestamp();
 
     /**
+     * Returns observable timestamp.
+     *
+     * @return observable timestamp.
+     */
+    @Nullable HybridTimestamp observableTimestamp();
+
+    /**
      * Get the transaction coordinator inconsistent ID.
      *
      * @return Transaction coordinator inconsistent ID.

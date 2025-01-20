@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -89,13 +90,15 @@ public class TcpIgniteClient implements IgniteClient {
      */
     private String clusterName;
 
+
     /**
      * Constructor.
      *
      * @param cfg Config.
+     * @param observableTime Tracker of the latest time observed by client.
      */
-    private TcpIgniteClient(IgniteClientConfiguration cfg) {
-        this(TcpClientChannel::createAsync, cfg);
+    private TcpIgniteClient(IgniteClientConfiguration cfg, AtomicLong observableTime) {
+        this(TcpClientChannel::createAsync, cfg, observableTime);
     }
 
     /**
@@ -103,15 +106,16 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @param chFactory Channel factory.
      * @param cfg Config.
+     * @param observableTime Tracker of the latest time observed by client.
      */
-    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg) {
+    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, @Nullable AtomicLong observableTime) {
         assert chFactory != null;
         assert cfg != null;
 
         this.cfg = cfg;
 
         metrics = new ClientMetricSource();
-        ch = new ReliableChannel(chFactory, cfg, metrics);
+        ch = new ReliableChannel(chFactory, cfg, metrics, observableTime);
         tables = new ClientTables(ch, marshallers);
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
@@ -154,11 +158,21 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
+        return startAsync(cfg, new AtomicLong());
+    }
+
+    /**
+     * Initializes new instance of {@link IgniteClient} and establishes the connection.
+     *
+     * @param cfg Thin client configuration.
+     * @return Future representing pending completion of the operation.
+     */
+    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, AtomicLong tracker) {
         ErrorGroups.initialize();
 
         try {
             //noinspection resource: returned from method
-            var client = new TcpIgniteClient(cfg);
+            var client = new TcpIgniteClient(cfg, tracker);
 
             return client.initAsync().thenApply(x -> client);
         } catch (IgniteException e) {

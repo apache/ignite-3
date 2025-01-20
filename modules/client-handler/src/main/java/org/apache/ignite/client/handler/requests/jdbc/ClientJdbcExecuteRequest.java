@@ -41,15 +41,12 @@ public class ClientJdbcExecuteRequest {
             JdbcQueryEventHandlerImpl handler
     ) {
         var req = new JdbcQueryExecuteRequest();
-
         long connectionId = in.unpackLong();
 
         req.readBinary(in);
 
         return handler.queryAsync(connectionId, req).thenAccept(res -> {
-            if (req.autoCommit()) {
-                out.meta(handler.getTimestampTracker().get());
-            }
+            out.meta(req.observableTimeHolder().get());
 
             res.writeBinary(out);
         });

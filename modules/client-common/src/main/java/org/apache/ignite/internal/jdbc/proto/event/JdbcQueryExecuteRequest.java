@@ -27,7 +27,7 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * JDBC query execute request.
  */
-public class JdbcQueryExecuteRequest implements ClientMessage {
+public class JdbcQueryExecuteRequest extends JdbcObservableTimeAwareRequest implements ClientMessage {
     /** Expected statement type. */
     private JdbcStatementType stmtType;
 
@@ -61,6 +61,8 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
      */
     private long correlationToken;
 
+    private long observableTime;
+
     /**
      * Default constructor. For deserialization purposes.
      */
@@ -91,7 +93,8 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
             boolean autoCommit,
             boolean multiStatement,
             long queryTimeoutMillis,
-            long correlationToken
+            long correlationToken,
+            long observableTime
     ) {
         Objects.requireNonNull(stmtType);
 
@@ -105,6 +108,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         this.multiStatement = multiStatement;
         this.queryTimeoutMillis = queryTimeoutMillis;
         this.correlationToken = correlationToken;
+        this.observableTime = observableTime;
     }
 
     /**
@@ -190,6 +194,10 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         return correlationToken;
     }
 
+    public long observableTime() {
+        return observableTime;
+    }
+
     /** {@inheritDoc} */
     @Override
     public void writeBinary(ClientMessagePacker packer) {
@@ -204,6 +212,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         packer.packObjectArrayAsBinaryTuple(args);
         packer.packLong(queryTimeoutMillis);
         packer.packLong(correlationToken);
+        packer.packLong(observableTime);
     }
 
     /** {@inheritDoc} */
@@ -220,6 +229,7 @@ public class JdbcQueryExecuteRequest implements ClientMessage {
         args = unpacker.unpackObjectArrayFromBinaryTuple();
         queryTimeoutMillis = unpacker.unpackLong();
         correlationToken = unpacker.unpackLong();
+        observableTime = unpacker.unpackLong();
     }
 
     /** {@inheritDoc} */

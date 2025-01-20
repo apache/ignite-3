@@ -26,6 +26,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -133,6 +134,12 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
 
             throw withCause(TransactionException::new, TX_ROLLBACK_ERR, e);
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable HybridTimestamp observableTimestamp() {
+        return observableTsTracker.get();
     }
 
     // TODO: remove after IGNITE-22721 gets resolved.

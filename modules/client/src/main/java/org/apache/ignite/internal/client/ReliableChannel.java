@@ -115,7 +115,7 @@ public final class ReliableChannel implements AutoCloseable {
     private final AtomicLong partitionAssignmentTimestamp = new AtomicLong();
 
     /** Observable timestamp, or causality token. Sent by the server with every response, and required by some requests. */
-    private final AtomicLong observableTimestamp = new AtomicLong();
+    private final AtomicLong observableTimestamp;
 
     /** Cluster id from the first handshake. */
     private final AtomicReference<UUID> clusterId = new AtomicReference<>();
@@ -129,15 +129,19 @@ public final class ReliableChannel implements AutoCloseable {
      *
      * @param chFactory Channel factory.
      * @param clientCfg Client config.
+     * @param metrics Client metrics.
+     * @param observableTime Tracker of the latest time observed by client.
      */
     ReliableChannel(
             ClientChannelFactory chFactory,
             IgniteClientConfiguration clientCfg,
-            ClientMetricSource metrics) {
+            ClientMetricSource metrics,
+            AtomicLong observableTime) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
         this.log = ClientUtils.logger(clientCfg, ReliableChannel.class);
         this.metrics = metrics;
+        this.observableTimestamp = Objects.requireNonNull(observableTime, "observableTime");
 
         connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);

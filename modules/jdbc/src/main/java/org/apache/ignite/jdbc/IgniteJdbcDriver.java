@@ -27,6 +27,7 @@ import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
@@ -161,6 +162,8 @@ public class IgniteJdbcDriver implements Driver {
     /** Minor version. */
     private static final int MINOR_VER = ProtocolVersion.LATEST_VER.minor();
 
+    private final AtomicLong observableTimeTracker = new AtomicLong();
+
     /** {@inheritDoc} */
     @Override
     public Connection connect(String url, Properties props) throws SQLException {
@@ -172,7 +175,7 @@ public class IgniteJdbcDriver implements Driver {
 
         connProps.init(url, props);
 
-        return new JdbcConnection(connProps);
+        return new JdbcConnection(connProps, observableTimeTracker);
     }
 
     /** {@inheritDoc} */
