@@ -105,8 +105,8 @@ public class FakeCompute implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder arg) {
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken) {
         if (Objects.equals(jobClassName, GET_UNITS)) {
             String unitString = units.stream().map(DeploymentUnit::render).collect(Collectors.joining(","));
             return completedExecution(unitString);
@@ -128,7 +128,7 @@ public class FakeCompute implements IgniteComputeInternal {
             Class<ComputeJob<Object, Object>> jobClass = ComputeUtils.jobClass(jobClassLoader, jobClassName);
             ComputeJob<Object, Object> job = ComputeUtils.instantiateJob(jobClass);
             CompletableFuture<Object> jobFut = job.executeAsync(
-                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader()),
+                    new JobExecutionContextImpl(ignite, new AtomicBoolean(), this.getClass().getClassLoader(), null),
                     SharedComputeUtils.unmarshalArgOrResult(arg, null, null));
 
             return jobExecution(jobFut != null ? jobFut : nullCompletedFuture());
@@ -146,12 +146,25 @@ public class FakeCompute implements IgniteComputeInternal {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable CancellationToken cancellationToken,
-            ComputeJobDataHolder args
+            ComputeJobDataHolder args,
+            @Nullable CancellationToken cancellationToken
     ) {
         return completedFuture(jobExecution(future != null
                 ? future
                 : completedFuture(SharedComputeUtils.marshalArgOrResult(nodeName, null))));
+    }
+
+    @Override
+    public CompletableFuture<JobExecution<ComputeJobDataHolder>> submitPartitionedInternal(
+            TableViewInternal table,
+            int partitionId,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return nullCompletedFuture();
     }
 
     @Override
@@ -169,8 +182,8 @@ public class FakeCompute implements IgniteComputeInternal {
                     descriptor.units(),
                     descriptor.jobClassName(),
                     descriptor.options(),
-                    cancellationToken,
-                    SharedComputeUtils.marshalArgOrResult(arg, null)
+                    SharedComputeUtils.marshalArgOrResult(arg, null),
+                    cancellationToken
             );
 
             return completedFuture(new JobExecution<>() {

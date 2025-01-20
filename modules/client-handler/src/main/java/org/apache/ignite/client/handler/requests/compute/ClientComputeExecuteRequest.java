@@ -72,7 +72,7 @@ public class ClientComputeExecuteRequest {
         ComputeJobDataHolder arg = unpackJobArgumentWithoutMarshaller(in);
 
         JobExecution<ComputeJobDataHolder> execution = compute.executeAsyncWithFailover(
-                candidates, deploymentUnits, jobClassName, options, null, arg
+                candidates, deploymentUnits, jobClassName, options, arg, null
         );
         // TODO https://issues.apache.org/jira/browse/IGNITE-24184
         sendResultAndState(completedFuture(execution), notificationSender);

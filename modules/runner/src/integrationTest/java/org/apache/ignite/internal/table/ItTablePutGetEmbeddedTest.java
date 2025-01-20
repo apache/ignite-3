@@ -26,7 +26,6 @@ import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -40,9 +39,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class ItTablePutGetEmbeddedTest extends ClusterPerClassIntegrationTest {
     @AfterEach
     void dropTables() {
-        for (Table table : tables().tables()) {
-            sql("DROP TABLE " + table.name());
-        }
+        dropAllTables();
     }
 
     @ParameterizedTest

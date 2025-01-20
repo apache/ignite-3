@@ -331,7 +331,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private Path workDir;
 
     @InjectExecutorService
-    private static ScheduledExecutorService commonScheduledExecutorService;
+    private ScheduledExecutorService commonScheduledExecutorService;
 
     private StaticNodeFinder finder;
 
@@ -1411,7 +1411,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
                     transactionInflights,
-                    lowWatermark
+                    lowWatermark,
+                    commonScheduledExecutorService
             );
 
             rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,

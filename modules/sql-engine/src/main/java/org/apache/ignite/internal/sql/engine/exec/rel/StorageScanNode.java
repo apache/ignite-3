@@ -36,7 +36,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
     /** Special value to highlights that all row were received and we are not waiting any more. */
     private static final int NOT_WAITING = -1;
 
-    private final Queue<RowT> inBuff = new LinkedBlockingQueue<>(inBufSize);
+    private Queue<RowT> inBuff = new LinkedBlockingQueue<>(inBufSize);
 
     private final @Nullable Predicate<RowT> filters;
 
@@ -105,6 +105,8 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         requested = 0;
         waiting = 0;
         dataRequested = false;
+
+        inBuff = new LinkedBlockingQueue<>(inBufSize);
 
         if (activeSubscription != null) {
             activeSubscription.cancel();
@@ -205,11 +207,14 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
 
     /** Subscriber which handle scan's rows. */
     private class SubscriberImpl implements Flow.Subscriber<RowT> {
+        private Queue<RowT> inBuffInner;
 
         /** {@inheritDoc} */
         @Override
         public void onSubscribe(Subscription subscription) {
             assert StorageScanNode.this.activeSubscription == null;
+
+            inBuffInner = inBuff;
 
             StorageScanNode.this.activeSubscription = subscription;
             subscription.request(waiting);
@@ -220,9 +225,9 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         public void onNext(RowT row) {
             // This method is called from outside query execution thread.
             // It is safe not to be aware about already closed execution flow.
-            inBuff.add(row);
+            inBuffInner.add(row);
 
-            if (inBuff.size() == inBufSize) {
+            if (inBuffInner.size() == inBufSize) {
                 context().execute(() -> {
                     waiting = 0;
                     push();

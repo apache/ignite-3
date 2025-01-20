@@ -71,8 +71,9 @@ public class ClientComputeExecuteColocatedRequest {
                     deploymentUnits,
                     jobClassName,
                     options,
-                    null,
-                    args);
+                    args,
+                    null
+            );
 
             sendResultAndState(jobExecutionFut, notificationSender);
 

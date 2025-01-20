@@ -47,6 +47,7 @@ import org.apache.ignite.client.handler.requests.compute.ClientComputeCancelRequ
 import org.apache.ignite.client.handler.requests.compute.ClientComputeChangePriorityRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteColocatedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteMapReduceRequest;
+import org.apache.ignite.client.handler.requests.compute.ClientComputeExecutePartitionedRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest;
 import org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest;
 import org.apache.ignite.client.handler.requests.jdbc.ClientJdbcCancelRequest;
@@ -139,6 +140,7 @@ import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
 import org.apache.ignite.sql.SqlBatchException;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Handles messages from thin clients.
@@ -776,6 +778,16 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                         notificationSender(requestId)
                 );
 
+            case ClientOp.COMPUTE_EXECUTE_PARTITIONED:
+                return ClientComputeExecutePartitionedRequest.process(
+                        in,
+                        out,
+                        compute,
+                        igniteTables,
+                        clusterService,
+                        notificationSender(requestId)
+                );
+
             case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
                 return ClientComputeExecuteMapReduceRequest.process(in, out, compute, notificationSender(requestId));
 
@@ -1110,5 +1122,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 AuthenticationEvent.USER_UPDATED,
                 AuthenticationEvent.USER_REMOVED
         );
+    }
+
+    @TestOnly
+    public ClientResourceRegistry resources() {
+        return resources;
     }
 }

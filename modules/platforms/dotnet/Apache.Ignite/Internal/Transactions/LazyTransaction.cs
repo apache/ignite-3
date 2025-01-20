@@ -197,6 +197,7 @@ internal sealed class LazyTransaction : ITransaction
         {
             var w = writer.MessageWriter;
             w.Write(_options.ReadOnly);
+            w.Write(_options.TimeoutMillis);
             w.Write(failoverSocket.ObservableTimestamp);
         }
     }

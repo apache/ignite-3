@@ -33,6 +33,8 @@ import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationExcept
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
+import org.apache.ignite.internal.catalog.SchemaExistsException;
+import org.apache.ignite.internal.catalog.SchemaNotFoundException;
 import org.apache.ignite.internal.catalog.TableExistsValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
 import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommand;
@@ -41,9 +43,11 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
+import org.apache.ignite.internal.catalog.commands.DropSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
@@ -93,7 +97,11 @@ public class DdlCommandHandler implements LifecycleAware {
      *         catalog, the result will be {@code null}.
      */
     public CompletableFuture<@Nullable Long> handle(CatalogCommand cmd) {
-        if (cmd instanceof CreateTableCommand) {
+        if (cmd instanceof CreateSchemaCommand) {
+            return handleCreateSchema((CreateSchemaCommand) cmd);
+        } else if (cmd instanceof DropSchemaCommand) {
+            return handleDropSchema((DropSchemaCommand) cmd);
+        } else if (cmd instanceof CreateTableCommand) {
             return handleCreateTable((CreateTableCommand) cmd);
         } else if (cmd instanceof DropTableCommand) {
             return handleDropTable((DropTableCommand) cmd);
@@ -195,6 +203,18 @@ public class DdlCommandHandler implements LifecycleAware {
     private CompletableFuture<@Nullable Long> handleDropIndex(DropIndexCommand cmd) {
         return catalogManager.execute(cmd)
                 .handle(handleModificationResult(cmd.ifExists(), IndexNotFoundValidationException.class));
+    }
+
+    /** Handles create schema command. */
+    private CompletableFuture<Long> handleCreateSchema(CreateSchemaCommand cmd) {
+        return catalogManager.execute(cmd)
+                .handle(handleModificationResult(cmd.ifNotExists(), SchemaExistsException.class));
+    }
+
+    /** Handles drop schema command. */
+    private CompletableFuture<Long> handleDropSchema(DropSchemaCommand cmd) {
+        return catalogManager.execute(cmd)
+                .handle(handleModificationResult(cmd.ifExists(), SchemaNotFoundException.class));
     }
 
     private BiFunction<Integer, Throwable, @Nullable Long> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {

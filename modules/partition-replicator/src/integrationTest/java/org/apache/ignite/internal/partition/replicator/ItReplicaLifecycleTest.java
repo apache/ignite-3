@@ -1237,7 +1237,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
                     transactionInflights,
-                    lowWatermark
+                    lowWatermark,
+                    threadPoolsManager.commonScheduler()
             );
 
             replicaManager = new ReplicaManager(

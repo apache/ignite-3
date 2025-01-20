@@ -654,4 +654,14 @@ public class ErrorGroups {
         /** Unmarshalling error. */
         public static final int UNMARSHALLING_ERR = MARSHALLING_ERR_GROUP.registerErrorCode((short) 3);
     }
+
+    /** REST service error group. */
+    @ErrorCodeGroup
+    public static class Rest {
+        /** REST service error group. */
+        public static final ErrorGroup REST_ERR_GROUP = registerGroup("REST", (short) 23);
+
+        /** Cluster has not yet been initialized or the node is in the process of stopping. */
+        public static final int CLUSTER_NOT_INIT_ERR = REST_ERR_GROUP.registerErrorCode((short) 1);
+    }
 }

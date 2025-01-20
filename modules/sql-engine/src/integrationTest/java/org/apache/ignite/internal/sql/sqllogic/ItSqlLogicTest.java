@@ -351,7 +351,8 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
                 .clusterName("cluster")
                 .clusterConfiguration("ignite {"
                         + "metaStorage.idleSyncTimeInterval: " + METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS + ",\n"
-                        + "gc.lowWatermark.dataAvailabilityTime: 5000,\n"
+                        // TODO: Set dataAvailabilityTime to 5000 after IGNITE-24002 is fixed.
+                        + "gc.lowWatermark.dataAvailabilityTime: 30000,\n"
                         + "gc.lowWatermark.updateInterval: 1000,\n"
                         + "metrics.exporters.logPush.exporterName: logPush,\n"
                         + "metrics.exporters.logPush.period: 5000\n"

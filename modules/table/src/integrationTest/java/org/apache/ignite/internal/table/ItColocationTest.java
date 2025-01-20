@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -100,6 +101,8 @@ import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
@@ -133,6 +136,7 @@ import org.mockito.stubbing.Answer;
  * Tests for data colocation.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItColocationTest extends BaseIgniteAbstractTest {
     /** Partitions count. */
     private static final int PARTS = 32;
@@ -162,6 +166,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectExecutorService
+    private static ScheduledExecutorService commonExecutor;
 
     private SchemaDescriptor schema;
 
@@ -202,7 +209,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
                 transactionInflights,
-                new TestLowWatermark()
+                new TestLowWatermark(),
+                commonExecutor
         ) {
             @Override
             public CompletableFuture<Void> finish(
