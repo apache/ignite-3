@@ -29,7 +29,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -133,7 +132,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         CountDownLatch registryCloseLatch = new CountDownLatch(1);
         long connectionId = acquireConnectionId();
 
-        when(txManager.begin(any(), eq(false))).thenAnswer(v -> {
+        when(txManager.beginExplicitRw(any(), any())).thenAnswer(v -> {
             registryCloseLatch.countDown();
             assertThat(startTxLatch.await(timeout, TimeUnit.SECONDS), is(true));
 
@@ -161,13 +160,13 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         InternalTransaction tx = mock(InternalTransaction.class);
 
         when(tx.rollbackAsync()).thenReturn(nullCompletedFuture());
-        when(txManager.begin(any(), eq(false))).thenReturn(tx);
+        when(txManager.beginExplicitRw(any(), any())).thenReturn(tx);
 
         long connectionId = acquireConnectionId();
 
         await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("x", "UPDATE 1")));
 
-        verify(txManager).begin(any(), eq(false));
+        verify(txManager).beginExplicitRw(any(), any());
         verify(tx, times(0)).rollbackAsync();
 
         resourceRegistry.close();
@@ -183,10 +182,10 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         InternalTransaction tx = mock(InternalTransaction.class);
         when(tx.commitAsync()).thenReturn(nullCompletedFuture());
         when(tx.rollbackAsync()).thenReturn(nullCompletedFuture());
-        when(txManager.begin(any(), eq(false))).thenReturn(tx);
+        when(txManager.beginExplicitRw(any(), any())).thenReturn(tx);
 
         long connectionId = acquireConnectionId();
-        verify(txManager, times(0)).begin(any(), eq(false));
+        verify(txManager, times(0)).beginExplicitRw(any(), any());
 
         String schema = "schema";
         JdbcStatementType type = JdbcStatementType.SELECT_STATEMENT_TYPE;
@@ -194,21 +193,21 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         await(eventHandler.queryAsync(
                 connectionId, createExecuteRequest(schema, "SELECT 1", type)
         ));
-        verify(txManager, times(1)).begin(any(), eq(false));
+        verify(txManager, times(1)).beginExplicitRw(any(), any());
         await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", "UPDATE 1", "UPDATE 2")));
-        verify(txManager, times(1)).begin(any(), eq(false));
+        verify(txManager, times(1)).beginExplicitRw(any(), any());
 
         await(eventHandler.finishTxAsync(connectionId, false));
         verify(tx).rollbackAsync();
 
         await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", "UPDATE 1", "UPDATE 2")));
-        verify(txManager, times(2)).begin(any(), eq(false));
+        verify(txManager, times(2)).beginExplicitRw(any(), any());
         await(eventHandler.queryAsync(
                 connectionId, createExecuteRequest(schema, "SELECT 2", type)
         ));
-        verify(txManager, times(2)).begin(any(), eq(false));
+        verify(txManager, times(2)).beginExplicitRw(any(), any());
         await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", "UPDATE 3", "UPDATE 4")));
-        verify(txManager, times(2)).begin(any(), eq(false));
+        verify(txManager, times(2)).beginExplicitRw(any(), any());
 
         await(eventHandler.finishTxAsync(connectionId, true));
         verify(tx).commitAsync();
@@ -223,7 +222,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         long connectionId = acquireConnectionId();
 
-        JdbcQueryExecuteRequest executeRequest = createExecuteRequest("schema", "SELECT 1", JdbcStatementType.SELECT_STATEMENT_TYPE); 
+        JdbcQueryExecuteRequest executeRequest = createExecuteRequest("schema", "SELECT 1", JdbcStatementType.SELECT_STATEMENT_TYPE);
 
         CompletableFuture<? extends Response> resultFuture = eventHandler.queryAsync(connectionId, executeRequest);
 

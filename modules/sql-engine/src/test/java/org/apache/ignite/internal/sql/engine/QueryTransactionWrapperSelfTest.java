@@ -131,7 +131,7 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
         );
         IgniteSqlStartTransaction txStartStmt = mock(IgniteSqlStartTransaction.class);
 
-        when(txManager.begin(any(), anyBoolean(), anyBoolean())).thenAnswer(inv -> {
+        when(txManager.beginExplicit(any(), anyBoolean(), any())).thenAnswer(inv -> {
             boolean implicit = inv.getArgument(1, Boolean.class);
 
             return NoOpTransaction.readWrite("test", implicit);
@@ -222,12 +222,11 @@ public class QueryTransactionWrapperSelfTest extends BaseIgniteAbstractTest {
     }
 
     private void prepareTransactionsMocks() {
-        when(txManager.begin(any(), anyBoolean(), anyBoolean())).thenAnswer(
+        when(txManager.beginExplicit(any(), anyBoolean(), any())).thenAnswer(
                 inv -> {
-                    boolean implicit = inv.getArgument(1, Boolean.class);
-                    boolean readOnly = inv.getArgument(2, Boolean.class);
+                    boolean readOnly = inv.getArgument(1, Boolean.class);
 
-                    return readOnly ? NoOpTransaction.readOnly("test-ro", implicit) : NoOpTransaction.readWrite("test-rw", implicit);
+                    return readOnly ? NoOpTransaction.readOnly("test-ro", false) : NoOpTransaction.readWrite("test-rw", false);
                 }
         );
     }

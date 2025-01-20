@@ -24,6 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -58,7 +59,12 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
         QueryTransactionWrapper result;
 
         if (tx == null) {
-            transaction = txManager.begin(observableTimeTracker, implicit, readOnly);
+            if (implicit) {
+                transaction = txManager.beginImplicit(observableTimeTracker, readOnly);
+            } else {
+                transaction = txManager.beginExplicit(observableTimeTracker, readOnly, InternalTxOptions.defaults());
+            }
+
             result = new QueryTransactionWrapperImpl(transaction, true, txTracker);
         } else {
             transaction = tx.unwrap();

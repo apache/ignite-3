@@ -786,7 +786,11 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     }
 
     private static Transaction beginReadOnlyTx(IgniteImpl node) {
-        return node.transactions().begin(new TransactionOptions().readOnly(true));
+        return node.transactions().begin(
+                new TransactionOptions()
+                        .readOnly(true)
+                        .timeoutMillis(Long.MAX_VALUE)
+        );
     }
 
     /**

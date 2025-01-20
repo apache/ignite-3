@@ -20,7 +20,6 @@ package org.apache.ignite.client.handler.requests.compute;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.packSubmitResult;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
 
 import java.util.List;
@@ -37,9 +36,9 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.table.IgniteTables;
 
 /**
- * Compute execute colocated request.
+ * Compute execute partitioned request.
  */
-public class ClientComputeExecuteColocatedRequest {
+public class ClientComputeExecutePartitionedRequest {
     /**
      * Processes the request.
      *
@@ -56,18 +55,22 @@ public class ClientComputeExecuteColocatedRequest {
             IgniteComputeInternal compute,
             IgniteTables tables,
             ClusterService cluster,
-            NotificationSender notificationSender) {
-        return readTableAsync(in, tables).thenCompose(table -> readTuple(in, table, true).thenCompose(keyTuple -> {
+            NotificationSender notificationSender
+    ) {
+        return readTableAsync(in, tables).thenCompose(table -> {
+            out.packInt(table.schemaView().lastKnownSchemaVersion());
+
+            int partitionId = in.unpackInt();
+
+            // Unpack job
             List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
             String jobClassName = in.unpackString();
             JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
             ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(in);
 
-            out.packInt(table.schemaView().lastKnownSchemaVersion());
-
-            CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
+            CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitPartitionedInternal(
                     table,
-                    keyTuple,
+                    partitionId,
                     deploymentUnits,
                     jobClassName,
                     options,
@@ -81,6 +84,6 @@ public class ClientComputeExecuteColocatedRequest {
             return jobExecutionFut.thenCompose(execution ->
                     execution.idAsync().thenAccept(jobId -> packSubmitResult(out, jobId, execution.node()))
             );
-        }));
+        });
     }
 }

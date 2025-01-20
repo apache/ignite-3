@@ -125,8 +125,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             ExecutionOptions options,
             List<DeploymentUnit> units,
             String jobClassName,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder arg
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution(
@@ -208,8 +208,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder arg
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         if (!busyLock.enterBusy()) {
             return new DelegatingJobExecution(
@@ -247,8 +247,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions options,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder arg
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     ) {
         CancellableJobExecution<ComputeJobDataHolder> result = new ComputeJobFailover(
                 this, logicalTopologyService, topologyService,
@@ -305,7 +305,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         executor.start();
         messaging.start((options, units, jobClassName, arg) ->
-                executeLocally(options, units, jobClassName, null, arg));
+                executeLocally(options, units, jobClassName, arg, null));
         executionManager.start();
         computeViewProvider.init(executionManager);
 
@@ -336,7 +336,8 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             JobContext context,
             ExecutionOptions options,
             String jobClassName,
-            @Nullable ComputeJobDataHolder arg) {
+            @Nullable ComputeJobDataHolder arg
+    ) {
         try {
             return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), arg);
         } catch (Throwable e) {

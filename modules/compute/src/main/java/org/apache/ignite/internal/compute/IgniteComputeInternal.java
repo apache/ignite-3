@@ -46,8 +46,8 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options Job execution options.
+     * @param arg Argument of the job.
      * @param cancellationToken Cancellation token or {@code null}.
-     * @param payload Arguments of the job.
      * @return CompletableFuture Job result.
      */
     // TODO https://issues.apache.org/jira/browse/IGNITE-24184
@@ -56,8 +56,8 @@ public interface IgniteComputeInternal extends IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder payload
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
     );
 
     /**
@@ -69,8 +69,8 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param units Deployment units. Can be empty.
      * @param jobClassName Name of the job class to execute.
      * @param options job execution options (priority, max retries).
+     * @param arg Argument of the job.
      * @param cancellationToken Cancellation token or {@code null}.
-     * @param payload Arguments of the job.
      * @return Job execution object.
      */
     CompletableFuture<JobExecution<ComputeJobDataHolder>> submitColocatedInternal(
@@ -79,8 +79,31 @@ public interface IgniteComputeInternal extends IgniteCompute {
             List<DeploymentUnit> units,
             String jobClassName,
             JobExecutionOptions options,
-            @Nullable CancellationToken cancellationToken,
-            @Nullable ComputeJobDataHolder payload);
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    );
+
+    /**
+     * Submits a job of the given class for the execution on the node where the given partition's primary replica is located.
+     *
+     * @param table Table whose partition is used to determine the node to execute the job on.
+     * @param partitionId Partition identifier.
+     * @param units Deployment units. Can be empty.
+     * @param jobClassName Name of the job class to execute.
+     * @param options job execution options (priority, max retries).
+     * @param arg Argument of the job.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @return Job execution object.
+     */
+    CompletableFuture<JobExecution<ComputeJobDataHolder>> submitPartitionedInternal(
+            TableViewInternal table,
+            int partitionId,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    );
 
     /**
      * Retrieves the current state of all jobs on all nodes in the cluster.
