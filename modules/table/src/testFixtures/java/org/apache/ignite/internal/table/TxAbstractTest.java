@@ -83,6 +83,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaListener;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.LockManager;
@@ -1735,7 +1736,7 @@ public abstract class TxAbstractTest extends TxInfrastructureTest {
                     }
 
                     while (!stop.get() && firstErr.get() == null) {
-                        InternalTransaction tx = clientTxManager().begin(timestampTracker, false, false);
+                        InternalTransaction tx = clientTxManager().beginExplicitRw(timestampTracker, InternalTxOptions.defaults());
 
                         var table = accounts.recordView();
 

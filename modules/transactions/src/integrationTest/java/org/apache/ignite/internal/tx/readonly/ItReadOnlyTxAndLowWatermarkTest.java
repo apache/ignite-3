@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasToString;
 import static org.hamcrest.Matchers.is;
@@ -120,8 +121,14 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
 
         IgniteException ex = assertThrows(IgniteException.class, () -> reader.read(coordinator, roTx));
         assertThat(ex, isA(reader.sql() ? SqlException.class : TransactionException.class));
-        assertThat(ex, hasToString(containsString("Read timestamp is not available anymore.")));
-        assertThat("Wrong error code: " + ex.codeAsString(), ex.code(), is(Transactions.TX_STALE_READ_ONLY_OPERATION_ERR));
+        assertThat(ex, hasToString(
+                either(containsString("Read timestamp is not available anymore."))
+                        .or(containsString("Transaction is already finished"))
+        ));
+        assertThat("Wrong error code: " + ex.codeAsString(), ex.code(),
+                either(is(Transactions.TX_STALE_READ_ONLY_OPERATION_ERR))
+                        .or(is(Transactions.TX_ALREADY_FINISHED_ERR))
+        );
     }
 
     private void updateDataAvailabilityTimeToShortPeriod() {

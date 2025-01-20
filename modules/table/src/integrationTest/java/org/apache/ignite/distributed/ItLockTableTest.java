@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -39,7 +40,9 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -65,6 +68,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test lock table.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItLockTableTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItLockTableTest.class);
 
@@ -100,6 +104,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock.properties: { lockMapSize: \"" + CACHE_SIZE + "\", rawSlotsMaxSize: \"131072\" }")
     private static SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectExecutorService
+    protected ScheduledExecutorService commonExecutor;
 
     private ItTxTestCluster txTestCluster;
 
@@ -152,7 +159,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         new TestLocalRwTxCounter(),
                         resourcesRegistry,
                         transactionInflights,
-                        lowWatermark
+                        lowWatermark,
+                        commonExecutor
                 );
             }
         };
