@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryApi;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
-import org.apache.ignite.internal.rest.sql.exception.SqlQueryCancelException;
 import org.apache.ignite.internal.rest.sql.exception.SqlQueryNotFoundException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
@@ -56,7 +55,13 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
 
     @Override
     public CompletableFuture<SqlQueryInfo> query(UUID queryId) {
-        return completedFuture(toSqlQuery(sqlQueryProcessor.runningQuery(queryId)));
+        return completedFuture(sqlQueryProcessor.runningQuery(queryId)).thenApply(queryInfo -> {
+            if (queryInfo == null) {
+                throw new SqlQueryNotFoundException(queryId.toString());
+            } else {
+                return toSqlQuery(queryInfo);
+            }
+        });
     }
 
     @Override
@@ -66,10 +71,8 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
     }
 
     private static CompletableFuture<Void> handleOperationResult(UUID queryId, @Nullable Boolean result) {
-        if (result == null) {
+        if (result != null && !result) {
             return failedFuture(new SqlQueryNotFoundException(queryId.toString()));
-        } else if (!result) {
-            return failedFuture(new SqlQueryCancelException(queryId.toString()));
         } else {
             return nullCompletedFuture();
         }

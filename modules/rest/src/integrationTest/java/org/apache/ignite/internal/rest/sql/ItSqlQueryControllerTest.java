@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.rest.sql;
 
 import static io.micronaut.http.HttpRequest.DELETE;
+import static io.micronaut.http.HttpStatus.NOT_FOUND;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.waitAtMost;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -39,7 +42,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -52,11 +54,6 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     @Inject
     @Client("http://localhost:10300" + SQL_QUERY_URL)
     HttpClient client;
-
-    @AfterEach
-    void tearDown() {
-        sql("DROP TABLE large_table");
-    }
 
     @Test
     void shouldReturnAllSqlQueries() {
@@ -80,15 +77,17 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
             assertThat(queryInfo.schema(), is("PUBLIC"));
             assertThat(queryInfo.type(), is("DML"));
         });
+
+        sql("DROP TABLE large_table");
     }
 
     @Test
     void shouldReturnSingleQuery() {
         // Create table
-        sql("CREATE TABLE large_table (id int primary key, value1 DOUBLE, value2 DOUBLE)");
+        sql("CREATE TABLE large_table1 (id int primary key, value1 DOUBLE, value2 DOUBLE)");
 
         // Run long running query async
-        String sql = "INSERT INTO large_table (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 10));";
+        String sql = "INSERT INTO large_table1 (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 10));";
         CompletableFuture.runAsync(() ->
                 sql(sql)
         );
@@ -100,30 +99,56 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
 
         SqlQueryInfo query = getSqlQuery(client, sqlQueryInfoEntry.getKey());
         assertThat(query, equalTo(sqlQueryInfoEntry.getValue()));
+
+        sql("DROP TABLE large_table1");
     }
 
     @Test
     void shouldCancelSqlQuery() {
         // Create table
-        sql("CREATE TABLE large_table (id int primary key, value1 DOUBLE, value2 DOUBLE)");
+        sql("CREATE TABLE large_table2 (id int primary key, value1 DOUBLE, value2 DOUBLE)");
 
         // Run long running query async
-        String sql = "INSERT INTO large_table (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 1000));";
+        String sql = "INSERT INTO large_table2 (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 1000))";
         CompletableFuture.runAsync(() ->
                 sql(sql)
         );
 
-        // Check count
-        await().untilAsserted(() -> {
-            Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
+        waitAtMost(Duration.ofSeconds(10)).until(() -> getSqlQueries(client), aMapWithSize(1));
+        Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
+        SqlQueryInfo queryInfo = queries.entrySet().iterator().next().getValue();
 
-            assertThat(queries, aMapWithSize(1));
-            SqlQueryInfo queryInfo = queries.entrySet().iterator().next().getValue();
+        cancelSqlQuery(client, queryInfo.id());
 
-            cancelSqlQuery(client, queryInfo.id());
+        assertThrowsProblem(
+                () -> getSqlQuery(client, queryInfo.id()),
+                NOT_FOUND,
+                isProblem().withDetail("Sql query not found [queryId=" + queryInfo.id() + "]")
+        );
 
-            waitAtMost(Duration.ofSeconds(10)).until(() -> getSqlQuery(client, queryInfo.id()), is(null));
-        });
+        sql("DROP TABLE large_table2");
+    }
+
+    @Test
+    void shouldReturnProblemIfRetrieveNonExistingSqlQuery() {
+        UUID queryId = UUID.randomUUID();
+
+        assertThrowsProblem(
+                () -> getSqlQuery(client, queryId),
+                NOT_FOUND,
+                isProblem().withDetail("Sql query not found [queryId=" + queryId + "]")
+        );
+    }
+
+    @Test
+    void shouldReturnProblemIfCancelNonExistingSqlQuery() {
+        UUID queryId = UUID.randomUUID();
+
+        assertThrowsProblem(
+                () -> cancelSqlQuery(client, queryId),
+                NOT_FOUND,
+                isProblem().withDetail("Sql query not found [queryId=" + queryId + "]")
+        );
     }
 
     private static Map<UUID, SqlQueryInfo> getSqlQueries(HttpClient client) {

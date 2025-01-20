@@ -584,6 +584,12 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         return executor.runningQueries();
     }
 
+    /**
+     * Returns {@link QueryInfo} for specified query id.
+     *
+     * @param queryId Unique query id.
+     * @return query info by query id.
+     */
     public @Nullable QueryInfo runningQuery(UUID queryId) {
         QueryExecutor executor = queryExecutor;
 

@@ -24,6 +24,7 @@ import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -143,5 +144,10 @@ public class SqlQueryInfo {
     @Override
     public int hashCode() {
         return Objects.hash(id, phase, type, schema, sql, startTime);
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }
