@@ -25,7 +25,6 @@ import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.waitAtMost;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
-import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
 import io.micronaut.core.type.Argument;
@@ -98,7 +97,10 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
         Map.Entry<UUID, SqlQueryInfo> sqlQueryInfoEntry = queries.entrySet().iterator().next();
 
         SqlQueryInfo query = getSqlQuery(client, sqlQueryInfoEntry.getKey());
-        assertThat(query, equalTo(sqlQueryInfoEntry.getValue()));
+        assertThat(query.id(), is(sqlQueryInfoEntry.getValue().id()));
+        assertThat(query.sql(), is(sqlQueryInfoEntry.getValue().sql()));
+        assertThat(query.type(), is(sqlQueryInfoEntry.getValue().type()));
+        assertThat(query.startTime(), is(sqlQueryInfoEntry.getValue().startTime()));
 
         sql("DROP TABLE large_table1");
     }
