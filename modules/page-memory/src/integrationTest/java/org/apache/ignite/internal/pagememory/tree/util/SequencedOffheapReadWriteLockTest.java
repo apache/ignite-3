@@ -68,7 +68,7 @@ class SequencedOffheapReadWriteLockTest {
         lock.startSequencing(() -> 0, 1);
         lock.setCurrentThreadId(0);
 
-        assertTrue(lock.readLock(addr , 1));
+        assertTrue(lock.readLock(addr, 1));
         lock.readUnlock(addr);
     }
 
