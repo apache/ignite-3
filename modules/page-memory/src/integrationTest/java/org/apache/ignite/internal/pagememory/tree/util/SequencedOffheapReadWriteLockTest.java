@@ -129,7 +129,12 @@ class SequencedOffheapReadWriteLockTest {
 
     @Test
     void testDeadlock() {
-        lock.startSequencing(iterate(List.of(0, 0, 1, 0, 1), 0), 2);
+        lock.startSequencing(iterate(List.of(
+                0, // Lock "addr". With for "addr2".
+                1, // Try locking "addr". Fail. No deadlock.
+                0, // Lock "addr2". Unlock "addr" and "addr2". Wait for "complete".
+                1 // Try locking "addr". Succeed. Unlock "addr". Complete.
+        ), 0), 2);
 
         IgniteTestUtils.runRace(
                 () -> {
