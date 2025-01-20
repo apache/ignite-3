@@ -360,6 +360,11 @@ public class QueryExecutor implements LifecycleAware {
                 .collect(Collectors.toList());
     }
 
+    public @Nullable QueryInfo runningQuery(UUID queryId) {
+        Query query = runningQueries.get(queryId);
+        return query != null ? new QueryInfo(query) : null;
+    }
+
     /** Aborts the query with the given query ID. */
     public CompletableFuture<Boolean> cancelQuery(UUID queryId) {
         Query query = runningQueries.get(queryId);

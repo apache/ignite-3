@@ -574,7 +574,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     }
 
     /** Returns the list of running queries. */
-    @TestOnly
     public List<QueryInfo> runningQueries() {
         QueryExecutor executor = queryExecutor;
 
@@ -583,6 +582,20 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         }
 
         return executor.runningQueries();
+    }
+
+    public @Nullable QueryInfo runningQuery(UUID queryId) {
+        QueryExecutor executor = queryExecutor;
+
+        if (executor == null) {
+            return null;
+        }
+
+        return queryExecutor.runningQuery(queryId);
+    }
+
+    public CompletableFuture<Boolean> cancelQuery(UUID queryId) {
+        return queryExecutor.cancelQuery(queryId);
     }
 
     @Override
