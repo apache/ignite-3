@@ -48,8 +48,18 @@ public class ClientTableGetRequest {
                 out.packNil();
             } else {
                 out.packInt(((TableViewInternal) table).tableId());
-                out.packString(IgniteNameUtils.quoteIfNeeded(table.name()));
+                out.packString(quoteTableNameIfNotAllUpper(table.name()));
             }
         });
+    }
+
+    private static String quoteTableNameIfNotAllUpper(String name) {
+        for (int i = 0; i < name.length(); i++) {
+            if (!Character.isUpperCase(name.charAt(i))) {
+                return IgniteNameUtils.quote(name);
+            }
+        }
+
+        return name;
     }
 }
