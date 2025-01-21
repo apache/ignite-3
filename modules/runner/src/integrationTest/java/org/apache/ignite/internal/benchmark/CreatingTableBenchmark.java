@@ -14,6 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.ignite.internal.benchmark;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -73,6 +74,9 @@ public class CreatingTableBenchmark extends AbstractMultiNodeBenchmark {
         // There is no need to create a table on start-up.
     }
 
+    /**
+     * Measures creating a new table in the default distribution zone.
+     */
     @Benchmark
     @Threads(1)
     @Warmup(iterations = 5, time = 5)

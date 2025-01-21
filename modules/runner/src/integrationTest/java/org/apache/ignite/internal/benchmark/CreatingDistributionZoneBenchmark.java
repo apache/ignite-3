@@ -82,6 +82,9 @@ public class CreatingDistributionZoneBenchmark extends AbstractMultiNodeBenchmar
         // There is no need to create a table on start-up.
     }
 
+    /**
+     * Measures creating a new empty distribution zone. The word `empty` means that the zone has no tables.
+     */
     @Benchmark
     @Threads(1)
     @Warmup(iterations = 5, time = 5)
