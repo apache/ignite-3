@@ -125,4 +125,11 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
         assertEquals("To see the full stack trace set clientConnector.sendServerExceptionStackTraceToClient:true",
                 ex.getCause().getCause().getCause().getCause().getMessage());
     }
+
+    @Test
+    void testServerReturnsActualTableName() {
+        Table table = client().tables().table("tbl1");
+
+        assertEquals("TBL1", table.name());
+    }
 }
