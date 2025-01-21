@@ -81,7 +81,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
                 .user(EventUser.system())
                 .build();
 
-        eventLog.log(() -> event);
+        eventLog.log(event);
 
         // Then event is written into the sink.
         assertThat(inMemoryCollectionSink.events(), contains(event));
@@ -110,7 +110,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
                 .user(EventUser.system())
                 .build();
 
-        eventLog.log(() -> event);
+        eventLog.log(event);
 
         // Then event is written into the sink.
         assertThat(inMemoryCollectionSink.events(), contains(event));
@@ -139,7 +139,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
                 .user(EventUser.system())
                 .build();
 
-        eventLog.log(() -> event);
+        eventLog.log(event);
 
         // Then event is written into the sink.
         assertThat(inMemoryCollectionSink.events(), hasSize(1));
@@ -150,7 +150,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
                 .user(EventUser.system())
                 .build();
 
-        eventLog.log(() -> event2);
+        eventLog.log(event2);
 
         // Then the event is not written into the sink.
         assertThat(inMemoryCollectionSink.events(), hasSize(1));
@@ -168,7 +168,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
         assertThat(inMemoryCollectionSink.events(), hasSize(1));
 
         // When log event2 again.
-        eventLog.log(() -> event2);
+        eventLog.log(event2);
 
         // Then the event2 is written into the sink.
         assertThat(inMemoryCollectionSink.events(), hasSize(2));
@@ -197,7 +197,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
                 .user(EventUser.system())
                 .build();
 
-        eventLog.log(() -> event);
+        eventLog.log(event);
 
         // Then event is written into the sink.
         assertThat(inMemoryCollectionSink.events(), hasSize(1));
@@ -209,7 +209,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
         )).get();
 
         // When log event again.
-        eventLog.log(() -> event);
+        eventLog.log(event);
 
         // Then the event is not written into the sink.
         assertThat(inMemoryCollectionSink.events(), hasSize(1));
@@ -221,7 +221,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
         )).get();
 
         // When log event again.
-        eventLog.log(() -> event);
+        eventLog.log(event);
 
         // Then the event is written into the sink.
         assertThat(inMemoryCollectionSink.events(), hasSize(2));

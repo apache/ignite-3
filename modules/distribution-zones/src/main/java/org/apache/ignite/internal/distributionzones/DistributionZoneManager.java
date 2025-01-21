@@ -76,6 +76,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -284,6 +285,8 @@ public class DistributionZoneManager extends
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
+            partitionDistributionResetTimeoutConfiguration.init();
+
             registerCatalogEventListenersOnStartManagerBusy();
 
             logicalTopologyService.addEventListener(topologyEventListener);
@@ -306,8 +309,6 @@ public class DistributionZoneManager extends
             // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
-
-            partitionDistributionResetTimeoutConfiguration.init();
 
             return allOf(
                     createOrRestoreZonesStates(recoveryRevision, catalogVersion),
@@ -400,6 +401,18 @@ public class DistributionZoneManager extends
             int partitionDistributionResetTimeoutSeconds,
             long causalityToken
     ) {
+        CompletableFuture<Revisions> recoveryFuture = metaStorageManager.recoveryFinishedFuture();
+
+        // At the moment of the first call to this method from configuration notifications,
+        // it is guaranteed that Meta Storage has been recovered.
+        assert recoveryFuture.isDone();
+
+        if (recoveryFuture.join().revision() >= causalityToken) {
+            // So, configuration already has the right value on configuration init
+            // and all timers started with the right configuration timeouts on recovery.
+            return;
+        }
+
         long updateTimestamp = timestampByRevision(causalityToken);
 
         if (updateTimestamp == -1) {
@@ -419,7 +432,7 @@ public class DistributionZoneManager extends
             ZoneState zoneState = zoneStateEntry.getValue();
 
             if (partitionDistributionResetTimeoutSeconds != INFINITE_TIMER_VALUE) {
-                Optional<Long> highestRevision = zoneState.highestRevision(true);
+                Optional<Long> highestRevision = zoneState.highestRevision();
 
                 assert highestRevision.isEmpty() || causalityToken >= highestRevision.get() : IgniteStringFormatter.format(
                         "Expected causalityToken that is greater or equal to already seen meta storage events: highestRevision={}, "
@@ -1711,6 +1724,17 @@ public class DistributionZoneManager extends
                     .filter(e -> e.getValue().addition == addition)
                     .max(Map.Entry.comparingByKey())
                     .map(Map.Entry::getKey);
+        }
+
+        /**
+         * Returns the highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()}.
+         *
+         * @return The highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()}.
+         */
+        Optional<Long> highestRevision() {
+            return topologyAugmentationMap().keySet()
+                    .stream()
+                    .max(Comparator.naturalOrder());
         }
 
         @TestOnly

@@ -228,6 +228,7 @@ namespace Apache.Ignite.Tests
                     case ClientOp.TableGet:
                     {
                         var tableName = reader.ReadString();
+                        _ = reader.ReadStringNullable(); // Schema name.
 
                         var tableId = tableName switch
                         {
@@ -241,6 +242,7 @@ namespace Apache.Ignite.Tests
                         {
                             using var arrayBufferWriter = new PooledArrayBuffer();
                             arrayBufferWriter.MessageWriter.Write(tableId);
+                            arrayBufferWriter.MessageWriter.WriteNil(); // Schema name.
 
                             Send(handler, requestId, arrayBufferWriter);
 
@@ -309,6 +311,7 @@ namespace Apache.Ignite.Tests
 
                     case ClientOp.TxBegin:
                         reader.Skip(); // Read only.
+                        reader.Skip(); // TimeoutMillis.
                         LastClientObservableTimestamp = reader.ReadInt64();
 
                         Send(handler, requestId, new byte[] { 0 }.AsMemory());
@@ -328,7 +331,8 @@ namespace Apache.Ignite.Tests
                             rw.Write(1);
                         }
 
-                        rw.Write(Guid.NewGuid());
+                        rw.Write(Guid.NewGuid()); // Job id.
+                        WriteNode(Node, ref rw);
 
                         Send(handler, requestId, resWriter);
                         Send(handler, requestId, pooledArrayBuffer, isNotification: true);
@@ -419,16 +423,7 @@ namespace Apache.Ignite.Tests
 
                         foreach (var node in ClusterNodes)
                         {
-                            writer.Write(4); // Field count.
-                            writer.Write(node.Id);
-                            writer.Write(node.Name);
-
-                            var addr = node.Address is IPEndPoint ip
-                                ? (ip.Address.ToString(), ip.Port)
-                                : (((DnsEndPoint)node.Address).Host, ((DnsEndPoint)node.Address).Port);
-
-                            writer.Write(addr.Item1);
-                            writer.Write(addr.Port);
+                            WriteNode(node, ref writer);
                         }
 
                         Send(handler, requestId, arrayBufferWriter);
@@ -450,6 +445,25 @@ namespace Apache.Ignite.Tests
             }
 
             handler.Disconnect(true);
+        }
+
+        private static (string Host, int Port) GetNodeAddress(IClusterNode node)
+        {
+            return node.Address is IPEndPoint ip
+                ? (ip.Address.ToString(), ip.Port)
+                : (((DnsEndPoint)node.Address).Host, ((DnsEndPoint)node.Address).Port);
+        }
+
+        private static void WriteNode(IClusterNode node, ref MsgPackWriter writer)
+        {
+            writer.Write(4); // Field count.
+
+            writer.Write(node.Id);
+            writer.Write(node.Name);
+
+            var (host, port) = GetNodeAddress(node);
+            writer.Write(host);
+            writer.Write(port);
         }
 
         private void Send(Socket socket, long requestId, PooledArrayBuffer writer, bool isError = false, bool isNotification = false)

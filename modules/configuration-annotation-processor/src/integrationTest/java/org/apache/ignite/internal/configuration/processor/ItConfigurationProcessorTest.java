@@ -284,7 +284,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         Compilation compilation = compile(schema);
 
         assertThat(compilation).failed();
-        assertThat(compilation).hadErrorContaining(schema + " must end with 'ConfigurationSchema'");
+        assertThat(compilation).hadErrorContaining(schema + ": Class name must end with 'ConfigurationSchema'");
     }
 
     /**
@@ -297,43 +297,37 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInjectedName0ConfigurationSchema"),
-                "@InjectedName org.apache.ignite.internal.configuration.processor.injectedname.ErrorInjectedName0ConfigurationSchema.name"
-                        + " field must be a String"
+                "Field 'name' must be a String"
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInjectedName1ConfigurationSchema"),
-                "org.apache.ignite.internal.configuration.processor.injectedname.ErrorInjectedName1ConfigurationSchema contains more than"
-                        + " one field with @InjectedName"
+                "Contains more than one field with @InjectedName: [name0, name1]."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInjectedName2ConfigurationSchema"),
-                "org.apache.ignite.internal.configuration.processor.injectedname.ErrorInjectedName2ConfigurationSchema.name must contain"
-                        + " only one @InjectedName"
+                "Field 'name' contains annotations conflicting with @InjectedName: @Value."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInjectedName3ConfigurationSchema"),
-                "@InjectedName org.apache.ignite.internal.configuration.processor.injectedname.ErrorInjectedName3ConfigurationSchema.name"
-                        + " can only be present in a class annotated with @Config or @PolymorphicConfig"
+                "@InjectedName can only be present in a class annotated with @Config or @PolymorphicConfig or @AbstractConfiguration."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInjectedName4ConfigurationSchema"),
-                "@InjectedName org.apache.ignite.internal.configuration.processor.injectedname.ErrorInjectedName4ConfigurationSchema.name2"
-                        + " can only be present in a class annotated with @Config or @PolymorphicConfig"
+                "@InjectedName can only be present in a class annotated with @Config or @PolymorphicConfig or @AbstractConfiguration."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInjectedName5ConfigurationSchema"),
-                "@InjectedName org.apache.ignite.internal.configuration.processor.injectedname.ErrorInjectedName5ConfigurationSchema.name2"
-                        + " can only be present in a class annotated with @Config or @PolymorphicConfig"
+                "@InjectedName can only be present in a class annotated with @Config or @PolymorphicConfig or @AbstractConfiguration."
         );
     }
 
@@ -347,15 +341,13 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorName0ConfigurationSchema"),
-                "@Name annotation can only be used with @ConfigValue: "
-                        + "org.apache.ignite.internal.configuration.processor.injectedname.ErrorName0ConfigurationSchema.simple"
+                "Field 'simple' annotated with @Name can only be used together with @ConfigValue."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorName1ConfigurationSchema"),
-                "Missing @Name for field: "
-                        + "org.apache.ignite.internal.configuration.processor.injectedname.ErrorName1ConfigurationSchema.simple"
+                "Missing @Name annotation for field 'simple'."
         );
     }
 
@@ -409,8 +401,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ErrorInternalId0ConfigurationSchema"),
-                "@InternalId org.apache.ignite.internal.configuration.processor.internalid.ErrorInternalId0ConfigurationSchema.id"
-                        + " field must be a UUID"
+                "Field 'id' must be a UUID."
         );
     }
 
@@ -437,39 +428,34 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         String packageName = "org.apache.ignite.internal.configuration.processor.abstractconfig.validation";
 
         // Let's check the incompatible configuration schema annotations.
-
-        Pattern incompatibleAnotationsPattern = Pattern.compile(
-                ".*ConfigurationProcessorException: Class with @.* is not allowed with @.*"
-        );
-
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "IncompatibleSchemaAnnotations0ConfigurationSchema"),
-                incompatibleAnotationsPattern
+                "Has incompatible set of annotations: @ConfigurationExtension and @AbstractConfiguration."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "IncompatibleSchemaAnnotations1ConfigurationSchema"),
-                incompatibleAnotationsPattern
+                "Has incompatible set of annotations: @PolymorphicConfig and @AbstractConfiguration."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "IncompatibleSchemaAnnotations2ConfigurationSchema"),
-                incompatibleAnotationsPattern
+                "Has incompatible set of annotations: @PolymorphicConfigInstance and @AbstractConfiguration."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "IncompatibleSchemaAnnotations3ConfigurationSchema"),
-                incompatibleAnotationsPattern
+                "Has incompatible set of annotations: @AbstractConfiguration and @Config."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "IncompatibleSchemaAnnotations4ConfigurationSchema"),
-                incompatibleAnotationsPattern
+                "Has incompatible set of annotations: @AbstractConfiguration and @ConfigurationRoot."
         );
 
         // Let's check other validations for abstract configuration.
@@ -477,19 +463,21 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "MustNotBeSuperClassConfigurationSchema"),
-                "Class with @AbstractConfiguration should not have a superclass"
+                "Must not have a superclass."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "MustNotContainPolymorphicIdConfigurationSchema"),
-                "Class with @AbstractConfiguration cannot have a field with @PolymorphicId"
+                "Must not have fields annotated with @PolymorphicId."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "FieldWithInjectedNameFromAbstractConfigMustContainsNameConfigurationSchema"),
-                "Missing @Name for field"
+                "Missing @Name annotation for field in superclass: "
+                        + "org.apache.ignite.internal.configuration.processor.abstractconfig.validation."
+                        + "FieldWithInjectedNameFromAbstractConfigMustContainsNameConfigurationSchema.config."
         );
 
         // Let's check the validation of the abstract configuration descendants.
@@ -497,13 +485,13 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ConfigRootCanExtendOnlyAbstractConfigurationConfigurationSchema"),
-                "Superclass must have @AbstractConfiguration"
+                "Superclass must be annotated with @AbstractConfiguration."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ConfigCanExtendOnlyAbstractConfigurationConfigurationSchema"),
-                "Superclass must have @AbstractConfiguration"
+                "Superclass must be annotated with @AbstractConfiguration."
         );
 
         // Let's check the search for a conflict of field names.
@@ -511,13 +499,15 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ConfigRootConflictFieldNamesWithAbstractConfigConfigurationSchema"),
-                "Duplicate field names are not allowed"
+                "Duplicate field names detected with the superclass "
+                        + "org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema: [name]."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ConfigConflictFieldNamesWithAbstractConfigConfigurationSchema"),
-                "Duplicate field names are not allowed"
+                "Duplicate field names detected with the superclass "
+                        + "org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema: [name]."
         );
 
         // Let's check @InjectedName for descendants of abstract configuration.
@@ -525,7 +515,9 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ConfigRootMustNotContainInjectedNameInAbstractConfigConfigurationSchema"),
-                "Field with @InjectedName in superclass are not allowed"
+                "Superclass org.apache.ignite.internal.configuration.processor.abstractconfig."
+                        + "AbstractConfigWithInjectedNameConfigurationSchema must not have fields annotated with "
+                        + "@InjectedName or @InternalId."
         );
 
         assertThrowsEx(
@@ -539,13 +531,16 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ConfigRootMustNotContainInternalIdInAbstractConfigConfigurationSchema"),
-                "Field with @InternalId in superclass are not allowed"
+                "Superclass org.apache.ignite.internal.configuration.processor.abstractconfig."
+                        + "AbstractConfigWithInternalIdConfigurationSchema must not have fields annotated with "
+                        + "@InjectedName or @InternalId."
         );
 
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "ConfigMustNotContainInternalIdWithAbstractConfigConfigurationSchema"),
-                "Field with @InternalId is already present in the superclass"
+                "Field with @InternalId is already present in the superclass "
+                        + "org.apache.ignite.internal.configuration.processor.abstractconfig.AbstractConfigConfigurationSchema."
         );
 
         // Let's check @Secret must be String.
@@ -553,7 +548,7 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
         assertThrowsEx(
                 IllegalStateException.class,
                 () -> batchCompile(packageName, "SecretMustBeStringConfigurationSchema"),
-                "must be String. Only String field can be annotated with @Secret"
+                "Field 'id' must be a String."
         );
     }
 
@@ -613,6 +608,62 @@ public class ItConfigurationProcessorTest extends AbstractProcessorTest {
 
         configConfigurationInterfaceContent.contains("extends " + getConfigurationInterfaceName(abstractConfigSchema).simpleName());
         configRootConfigurationInterfaceContent.contains("extends " + getConfigurationInterfaceName(abstractRootConfigSchema).simpleName());
+    }
+
+    @Test
+    void testSuccessInjectedValueFieldCodeGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.injectedvalue";
+
+        ClassName cls0 = ClassName.get(packageName, "ValidConfigurationSchema");
+
+        BatchCompilation batchCompile = batchCompile(cls0);
+
+        assertThat(batchCompile.getCompilationStatus()).succeededWithoutWarnings();
+
+        assertEquals(3, batchCompile.generated().size());
+
+        assertTrue(batchCompile.getBySchema(cls0).allGenerated());
+    }
+
+    @Test
+    void testMultipleInjectedValuesUnsuccessfulGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.injectedvalue";
+
+        ClassName cls0 = ClassName.get(packageName, "MultipleInjectedValuesConfigurationSchema");
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(cls0),
+                "Field marked as @InjectedValue must be the only \"value\" field in the schema, found: [firstValue, secondValue]"
+        );
+    }
+
+    @Test
+    void testValuesAndInjectedValueUnsuccessfulGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.injectedvalue";
+
+        ClassName cls0 = ClassName.get(packageName, "ValueAndInjectedValueConfigurationSchema");
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(cls0),
+                "Field marked as @InjectedValue must be the only \"value\" field in the schema, "
+                        + "found: [secondValue, firstValue, thirdValue]"
+        );
+    }
+
+    @Test
+    void testUnsupportedFieldTypeUnsuccessfulGeneration() {
+        String packageName = "org.apache.ignite.internal.configuration.processor.injectedvalue";
+
+        ClassName cls0 = ClassName.get(packageName, "UnsupportedFieldTypeConfigurationSchema");
+
+        assertThrowsEx(
+                IllegalStateException.class,
+                () -> batchCompile(cls0),
+                "Field 'firstValue' must have one of the following types: boolean, int, long, double, String, UUID "
+                        + "or an array of aforementioned types."
+        );
     }
 
     /**

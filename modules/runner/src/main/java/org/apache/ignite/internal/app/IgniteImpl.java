@@ -60,6 +60,7 @@ import org.apache.ignite.IgniteServer;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientHandlerModule;
+import org.apache.ignite.client.handler.ClientInboundMessageHandler;
 import org.apache.ignite.client.handler.ClusterInfo;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfiguration;
@@ -358,7 +359,7 @@ public class IgniteImpl implements Ignite {
     private final ReplicaManager replicaMgr;
 
     /** Transactions manager. */
-    private final TxManager txManager;
+    private final TxManagerImpl txManager;
 
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
@@ -971,7 +972,7 @@ public class IgniteImpl implements Ignite {
 
         var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver(), clockService);
 
-        LockManager lockMgr = new HeapLockManager();
+        LockManager lockMgr = new HeapLockManager(systemConfiguration);
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -989,10 +990,11 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
                 transactionInflights,
-                lowWatermark
+                lowWatermark,
+                threadPoolsManager.commonScheduler()
         );
 
-        systemViewManager.register((TxManagerImpl) txManager);
+        systemViewManager.register(txManager);
 
         resourceVacuumManager = new ResourceVacuumManager(
                 name,
@@ -1103,7 +1105,8 @@ public class IgniteImpl implements Ignite {
                 txManager,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                killCommandHandler
+                killCommandHandler,
+                eventLog
         );
 
         systemViewManager.register(qryEngine);
@@ -1129,7 +1132,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 logicalTopologyService,
                 new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory()),
-                new ComputeExecutorImpl(this, stateMachine, computeCfg),
+                new ComputeExecutorImpl(this, stateMachine, computeCfg, clusterSvc.topologyService()),
                 computeCfg
         );
 
@@ -1290,7 +1293,7 @@ public class IgniteImpl implements Ignite {
     /**
      * Starts ignite node.
      *
-     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * <p>When the returned future completes, the node is partially started and ready to accept the init command (that is, its
      * REST endpoint is functional).
      *
      * @return Future that will be completed when the node is started.
@@ -1877,15 +1880,15 @@ public class IgniteImpl implements Ignite {
         return partitionsLogStorageFactory;
     }
 
-    @TestOnly
-    public LogStorageFactory volatileLogStorageFactory() {
-        return volatileLogStorageFactoryCreator.factory(raftMgr.volatileRaft().logStorageBudget().value());
-    }
-
     /** Returns the node's transaction manager. */
     @TestOnly
     public TxManager txManager() {
         return txManager;
+    }
+
+    @TestOnly
+    public ClientInboundMessageHandler clientInboundMessageHandler() {
+        return clientHandlerModule.handler();
     }
 
     /** Returns the node's placement driver service. */

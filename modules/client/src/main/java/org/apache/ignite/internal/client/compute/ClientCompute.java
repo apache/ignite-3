@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.client.compute;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.client.TcpIgniteClient.unpackClusterNode;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -35,12 +37,17 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import org.apache.ignite.compute.AllNodesBroadcastJobTarget;
 import org.apache.ignite.compute.AnyNodeJobTarget;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.ColocatedJobTarget;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
+import org.apache.ignite.compute.TableJobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.client.PayloadInputChannel;
@@ -56,7 +63,10 @@ import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
+import org.apache.ignite.internal.compute.BroadcastJobExecutionImpl;
+import org.apache.ignite.internal.compute.FailedExecution;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ViewUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
@@ -66,6 +76,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -92,24 +103,104 @@ public class ClientCompute implements IgniteCompute {
         this.tables = tables;
     }
 
-    private <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T arg) {
+    @Override
+    public <T, R> CompletableFuture<JobExecution<R>> submitAsync(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
 
-        ClientJobExecution<R> execution = new ClientJobExecution<>(ch, submit0(target, descriptor, arg), descriptor.resultMarshaller(),
-                descriptor.resultClass());
+        return submit0(target, descriptor, arg).thenApply(submitResult -> {
+            ClientJobExecution<R> execution = new ClientJobExecution<>(
+                    ch,
+                    submitResult,
+                    descriptor.resultMarshaller(),
+                    descriptor.resultClass()
+            );
 
-        if (cancellationToken != null) {
-            CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
-        }
+            if (cancellationToken != null) {
+                CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+            }
 
-        return execution;
+            return execution;
+        });
     }
 
     @Override
-    public <T, R> JobExecution<R> submit(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable T arg) {
-        return submit(target, descriptor, null, arg);
+    public <T, R> CompletableFuture<BroadcastExecution<R>> submitAsync(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        Objects.requireNonNull(target);
+        Objects.requireNonNull(descriptor);
+
+        if (target instanceof AllNodesBroadcastJobTarget) {
+            AllNodesBroadcastJobTarget allNodesBroadcastTarget = (AllNodesBroadcastJobTarget) target;
+            Set<ClusterNode> nodes = allNodesBroadcastTarget.nodes();
+
+            //noinspection unchecked
+            CompletableFuture<SubmitResult>[] futures = nodes.stream()
+                    .map(node -> executeOnAnyNodeAsync(Set.of(node), descriptor, arg))
+                    .toArray(CompletableFuture[]::new);
+
+            return mapSubmitFutures(futures, descriptor, cancellationToken);
+        } else if (target instanceof TableJobTarget) {
+            TableJobTarget tableJobTarget = (TableJobTarget) target;
+            String tableName = tableJobTarget.tableName();
+            return getTable(tableName)
+                    .thenCompose(table -> table.partitionManager().primaryReplicasAsync())
+                    .thenCompose(replicas -> {
+                        //noinspection unchecked
+                        CompletableFuture<SubmitResult>[] futures = replicas.keySet().stream()
+                                .map(partition -> doExecutePartitionedAsync(tableName, partition, descriptor, arg))
+                                .toArray(CompletableFuture[]::new);
+
+                        return mapSubmitFutures(futures, descriptor, cancellationToken);
+                    });
+        }
+
+        throw new IllegalArgumentException("Unsupported job target: " + target);
+    }
+
+    private <T, R> CompletableFuture<BroadcastExecution<R>> mapSubmitFutures(
+            CompletableFuture<SubmitResult>[] futures,
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        // Wait for all the futures but don't fail resulting future, keep individual futures in executions.
+        return allOf(futures).handle((unused, throwable) -> new BroadcastJobExecutionImpl<>(
+                Arrays.stream(futures)
+                        .map(fut -> mapSubmitResult(descriptor, cancellationToken, fut))
+                        .collect(Collectors.toList())
+        ));
+    }
+
+    private <T, R> JobExecution<R> mapSubmitResult(
+            JobDescriptor<T, R> descriptor,
+            @Nullable CancellationToken cancellationToken,
+            CompletableFuture<SubmitResult> submitResultFut
+    ) {
+        SubmitResult submitResult;
+        try {
+            submitResult = submitResultFut.join();
+        } catch (Exception e) {
+            return new FailedExecution<>(ExceptionUtils.unwrapCause(e));
+        }
+        ClientJobExecution<R> execution = new ClientJobExecution<>(
+                ch,
+                submitResult,
+                descriptor.resultMarshaller(),
+                descriptor.resultClass()
+        );
+        if (cancellationToken != null) {
+            CancelHandleHelper.addCancelAction(cancellationToken, execution::cancelAsync, execution.resultAsync());
+        }
+        return execution;
     }
 
     private <T, R> CompletableFuture<SubmitResult> submit0(JobTarget target, JobDescriptor<T, R> descriptor, T arg) {
@@ -134,15 +225,23 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> CompletableFuture<R> executeAsync(JobTarget target, JobDescriptor<T, R> descriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submit(target, descriptor, cancellationToken, arg).resultAsync();
+    public <T, R> R execute(
+            JobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return sync(executeAsync(target, descriptor, arg, cancellationToken));
     }
 
     @Override
-    public <T, R> R execute(JobTarget target, JobDescriptor<T, R> descriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T arg) {
-        return sync(executeAsync(target, descriptor, cancellationToken, arg));
+    public <T, R> Collection<R> execute(
+            BroadcastJobTarget target,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return sync(executeAsync(target, descriptor, arg, cancellationToken));
     }
 
     private <T, R> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
@@ -181,41 +280,11 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> Map<ClusterNode, JobExecution<R>> submitBroadcast(Set<ClusterNode> nodes, JobDescriptor<T, R> descriptor,
-            @Nullable T arg) {
-        Objects.requireNonNull(nodes);
-        Objects.requireNonNull(descriptor);
-
-        Map<ClusterNode, JobExecution<R>> map = new HashMap<>(nodes.size());
-
-        for (ClusterNode node : nodes) {
-            JobExecution<R> execution = new ClientJobExecution<>(
-                    ch,
-                    executeOnAnyNodeAsync(Set.of(node), descriptor, arg),
-                    descriptor.resultMarshaller(),
-                    descriptor.resultClass()
-            );
-            if (map.put(node, execution) != null) {
-                throw new IllegalStateException("Node can't be specified more than once: " + node);
-            }
-        }
-
-        return map;
-    }
-
-    @Override
-    public <T, R> CompletableFuture<R> executeMapReduceAsync(TaskDescriptor<T, R> taskDescriptor,
-            @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return submitMapReduce(taskDescriptor, cancellationToken, arg).resultAsync();
-    }
-
-    @Override
-    public <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
-        return submitMapReduce(taskDescriptor, null, arg);
-    }
-
-    private <T, R> TaskExecution<R> submitMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken,
-            @Nullable T arg) {
+    public <T, R> TaskExecution<R> submitMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
         Objects.requireNonNull(taskDescriptor);
 
         ClientTaskExecution<R> clientExecution = new ClientTaskExecution<>(ch,
@@ -232,8 +301,12 @@ public class ClientCompute implements IgniteCompute {
     }
 
     @Override
-    public <T, R> R executeMapReduce(TaskDescriptor<T, R> taskDescriptor, @Nullable CancellationToken cancellationToken, @Nullable T arg) {
-        return sync(executeMapReduceAsync(taskDescriptor, cancellationToken, arg));
+    public <T, R> R executeMapReduce(
+            TaskDescriptor<T, R> taskDescriptor,
+            @Nullable T arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        return sync(executeMapReduceAsync(taskDescriptor, arg, cancellationToken));
     }
 
     private <T, R> CompletableFuture<SubmitTaskResult> doExecuteMapReduceAsync(TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
@@ -334,6 +407,47 @@ public class ClientCompute implements IgniteCompute {
                 null);
     }
 
+    private <T, R> CompletableFuture<SubmitResult> doExecutePartitionedAsync(
+            String tableName,
+            Partition partition,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        return getTable(tableName).thenCompose(table -> executePartitioned(table, partition, descriptor, arg)
+                .handle((res, err) -> handleMissingTable(
+                        tableName,
+                        res,
+                        err,
+                        () -> doExecutePartitionedAsync(tableName, partition, descriptor, arg))
+                )
+                .thenCompose(Function.identity()));
+    }
+
+    private static <T, R> CompletableFuture<SubmitResult> executePartitioned(
+            ClientTable t,
+            Partition partition,
+            JobDescriptor<T, R> descriptor,
+            @Nullable T arg
+    ) {
+        int partitionId = ((HashPartition) partition).partitionId();
+        return t.doSchemaOutOpAsync(
+                ClientOp.COMPUTE_EXECUTE_PARTITIONED,
+                (schema, outputChannel) -> {
+                    ClientMessagePacker w = outputChannel.out();
+
+                    w.packInt(t.tableId());
+
+                    w.packInt(partitionId);
+
+                    packJob(w, descriptor, arg);
+                },
+                ClientCompute::unpackSubmitResult,
+                PartitionAwarenessProvider.of(partitionId),
+                true,
+                null
+        );
+    }
+
     private CompletableFuture<ClientTable> getTable(String tableName) {
         // Cache tables by name to avoid extra network call on every executeColocated.
         var cached = tableCache.get(tableName);
@@ -413,7 +527,11 @@ public class ClientCompute implements IgniteCompute {
      */
     private static SubmitResult unpackSubmitResult(PayloadInputChannel ch) {
         //noinspection DataFlowIssue (reviewed)
-        return new SubmitResult(ch.in().unpackUuid(), ch.notificationFuture());
+        return new SubmitResult(
+                ch.in().unpackUuid(),
+                unpackClusterNode(ch),
+                ch.notificationFuture()
+        );
     }
 
     /**
@@ -434,7 +552,12 @@ public class ClientCompute implements IgniteCompute {
         }
 
         //noinspection DataFlowIssue (reviewed)
-        return new SubmitTaskResult(jobId, jobIds, ch.notificationFuture());
+        return new SubmitTaskResult(
+                jobId,
+                jobIds,
+                ch.clientChannel().protocolContext().clusterNode(), // Task is always executed on a client handler node
+                ch.notificationFuture()
+        );
     }
 
     private static <R> R sync(CompletableFuture<R> future) {

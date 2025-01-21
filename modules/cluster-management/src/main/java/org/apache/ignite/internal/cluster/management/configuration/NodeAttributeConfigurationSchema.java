@@ -19,7 +19,7 @@ package org.apache.ignite.internal.cluster.management.configuration;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.InjectedName;
-import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.annotation.InjectedValue;
 
 /**
  * Node's attribute configuration schema. User can specify any number of pairs (key, attribute) for a node through the local configuration
@@ -35,6 +35,6 @@ public class NodeAttributeConfigurationSchema {
     public String name;
 
     /** Node attribute field. */
-    @Value(hasDefault = true)
+    @InjectedValue(hasDefault = true)
     public String attribute = "";
 }

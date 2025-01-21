@@ -19,6 +19,7 @@ package org.apache.ignite.compute;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -53,15 +54,6 @@ public interface JobExecution<R> {
     }
 
     /**
-     * Cancels the job.
-     *
-     * @return The future which will be completed with {@code true} when the job is cancelled, {@code false} when the job couldn't be
-     *         cancelled (if it's already completed or in the process of cancelling), or {@code null} if the job no longer exists due to
-     *         exceeding the retention time limit.
-     */
-    CompletableFuture<@Nullable Boolean> cancelAsync();
-
-    /**
      * Changes job priority. After priority change job will be the last in the queue of jobs with the same priority.
      *
      * @param newPriority new priority.
@@ -70,4 +62,11 @@ public interface JobExecution<R> {
      *         retention time limit.
      */
     CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority);
+
+    /**
+     * A cluster node on which this job is executing.
+     *
+     * @return Node instance.
+     */
+    ClusterNode node();
 }

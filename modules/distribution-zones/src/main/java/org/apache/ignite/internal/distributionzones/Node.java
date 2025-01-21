@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import java.util.UUID;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Node representation that we store in data nodes.
@@ -65,6 +66,6 @@ public class Node {
 
     @Override
     public String toString() {
-        return nodeName;
+        return S.toString(Node.class, this);
     }
 }

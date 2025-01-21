@@ -119,7 +119,7 @@ import org.jetbrains.annotations.TestOnly;
  * Manager, responsible for "disaster recovery" operations.
  * Internally it triggers meta-storage updates, in order to acquire unique causality token.
  * As a reaction to these updates, manager performs actual recovery operations,
- * such as {@link #resetPartitions(String, String, Set, boolean, long)}.
+ * such as {@link #resetPartitions(String, String, String, Set, boolean, long)}.
  * More details are in the <a href="https://issues.apache.org/jira/browse/IGNITE-21140">epic</a>.
  */
 public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvider {
@@ -310,13 +310,20 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * so that a new leader could be elected.
      *
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
+     * @param schemaName Schema name. Case-sensitive, without quotes.
+     * @param tableName Table name. Case-sensitive, without quotes.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
      * @return Future that completes when partitions are reset.
      */
-    public CompletableFuture<Void> resetAllPartitions(String zoneName, String tableName, boolean manualUpdate, long triggerRevision) {
-        return resetPartitions(zoneName, tableName, emptySet(), manualUpdate, triggerRevision);
+    public CompletableFuture<Void> resetAllPartitions(
+            String zoneName,
+            String schemaName,
+            String tableName,
+            boolean manualUpdate,
+            long triggerRevision
+    ) {
+        return resetPartitions(zoneName, schemaName, tableName, emptySet(), manualUpdate, triggerRevision);
     }
 
     /**
@@ -326,12 +333,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * so that a new leader could be elected.
      *
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
+     * @param schemaName Schema name. Case-sensitive, without quotes.
+     * @param tableName Table name. Case-sensitive, without quotes.
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @return Future that completes when partitions are reset.
      */
-    public CompletableFuture<Void> resetPartitions(String zoneName, String tableName, Set<Integer> partitionIds) {
-        int tableId = tableDescriptor(catalogLatestVersion(), tableName).id();
+    public CompletableFuture<Void> resetPartitions(String zoneName, String schemaName, String tableName, Set<Integer> partitionIds) {
+        int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
 
         return resetPartitions(zoneName, Map.of(tableId, partitionIds), true, -1);
     }
@@ -343,15 +351,22 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * so that a new leader could be elected.
      *
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
+     * @param schemaName Schema name. Case-sensitive, without quotes.
+     * @param tableName Table name. Case-sensitive, without quotes.
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
      * @return Future that completes when partitions are reset.
      */
     private CompletableFuture<Void> resetPartitions(
-            String zoneName, String tableName, Set<Integer> partitionIds, boolean manualUpdate, long triggerRevision) {
-        int tableId = tableDescriptor(catalogLatestVersion(), tableName).id();
+            String zoneName,
+            String schemaName,
+            String tableName,
+            Set<Integer> partitionIds,
+            boolean manualUpdate,
+            long triggerRevision
+    ) {
+        int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
 
         return resetPartitions(zoneName, Map.of(tableId, partitionIds), manualUpdate, triggerRevision);
     }
@@ -395,13 +410,15 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      *
      * @param nodeNames Names specifying nodes to restart partitions. Case-sensitive, empty set means "all nodes".
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param tableName Fully-qualified table name. Case-sensitive, without quotes. Example: "PUBLIC.Foo".
+     * @param schemaName Schema name. Case-sensitive, without quotes.
+     * @param tableName Table name. Case-sensitive, without quotes.
      * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
      * @return Future that completes when partitions are restarted.
      */
     public CompletableFuture<Void> restartPartitions(
             Set<String> nodeNames,
             String zoneName,
+            String schemaName,
             String tableName,
             Set<Integer> partitionIds
     ) {
@@ -413,7 +430,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
 
-            CatalogTableDescriptor table = tableDescriptor(catalog, tableName);
+            CatalogTableDescriptor table = tableDescriptor(catalog, schemaName, tableName);
 
             checkPartitionsRange(partitionIds, Set.of(zone));
 
@@ -975,11 +992,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return catalog;
     }
 
-    private static CatalogTableDescriptor tableDescriptor(Catalog catalog, String tableName) {
-        CatalogTableDescriptor tableDescriptor = catalog.table(tableName);
+    private static CatalogTableDescriptor tableDescriptor(Catalog catalog, String schemaName, String tableName) {
+        CatalogTableDescriptor tableDescriptor = catalog.table(schemaName, tableName);
 
         if (tableDescriptor == null) {
-            throw new TableNotFoundException(tableName);
+            throw new TableNotFoundException(schemaName, tableName);
         }
 
         return tableDescriptor;

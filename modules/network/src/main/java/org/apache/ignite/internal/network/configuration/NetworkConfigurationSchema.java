@@ -35,9 +35,9 @@ public class NetworkConfigurationSchema {
     @Value(hasDefault = true)
     public final int port = DEFAULT_PORT;
 
-    /** Address (IP or hostname) to listen on. Will listen on all interfaces if empty. */
+    /** Addresses (IPs or hostnames) to listen on. Will listen on all interfaces if empty. */
     @Value(hasDefault = true)
-    public String listenAddress = "";
+    public String[] listenAddresses = new String[0];
 
     /**
      * Graceful shutdown of the Netty's EventExecutorGroup ensures that no tasks are submitted for

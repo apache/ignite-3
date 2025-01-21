@@ -157,7 +157,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     @Test
     public void testBindWithAddress() {
         String host = "127.0.0.7";
-        assertThat(serverCfg.listenAddress().update(host), willCompleteSuccessfully());
+        assertThat(serverCfg.listenAddresses().update(new String[]{host}), willCompleteSuccessfully());
 
         assertDoesNotThrow(() -> getServer(true));
 
@@ -181,7 +181,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     @Test
     public void testBindUnknownAddressFailed() {
         String address = "unknown-address";
-        assertThat(serverCfg.listenAddress().update(address), willCompleteSuccessfully());
+        assertThat(serverCfg.listenAddresses().update(new String[]{address}), willCompleteSuccessfully());
 
         AssertionFailedError e = assertThrows(AssertionFailedError.class, () -> getServer(true));
 

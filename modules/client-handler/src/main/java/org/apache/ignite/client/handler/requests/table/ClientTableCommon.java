@@ -44,6 +44,7 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -439,32 +440,53 @@ public class ClientTableCommon {
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
             // The direct transaction uses a current timestamp on the primary replica by definition.
-            tx = startTx(out, txManager, null, true, readOnly);
+            tx = startImplicitTx(out, txManager, null, readOnly);
         }
 
         return tx;
     }
 
     /**
-     * Start a transaction.
+     * Starts an explicit transaction.
      *
      * @param out Packer.
      * @param txManager Ignite transactions.
      * @param currentTs Current observation timestamp or {@code null} if it is not defined.
-     * @param implicit Implicit transaction flag.
      * @param readOnly Read only flag.
+     * @param options Transaction options.
      * @return Transaction.
      */
-    public static InternalTransaction startTx(
+    public static InternalTransaction startExplicitTx(
             ClientMessagePacker out,
             TxManager txManager,
             @Nullable HybridTimestamp currentTs,
-            boolean implicit,
+            boolean readOnly,
+            InternalTxOptions options
+    ) {
+        return txManager.beginExplicit(
+                HybridTimestampTracker.clientTracker(currentTs, ts -> {}),
+                readOnly,
+                options
+        );
+    }
+
+    /**
+     * Starts an implicit transaction.
+     *
+     * @param out Packer.
+     * @param txManager Ignite transactions.
+     * @param currentTs Current observation timestamp or {@code null} if it is not defined.
+     * @param readOnly Read only flag.
+     * @return Transaction.
+     */
+    public static InternalTransaction startImplicitTx(
+            ClientMessagePacker out,
+            TxManager txManager,
+            @Nullable HybridTimestamp currentTs,
             boolean readOnly
     ) {
-        return txManager.begin(
-                HybridTimestampTracker.clientTracker(currentTs, implicit ? out::meta : ts -> {}),
-                implicit,
+        return txManager.beginImplicit(
+                HybridTimestampTracker.clientTracker(currentTs, out::meta),
                 readOnly
         );
     }

@@ -56,11 +56,6 @@ class TaskExecutionWrapper<R> implements TaskExecution<R>, MarshallerProvider<R>
     }
 
     @Override
-    public CompletableFuture<@Nullable Boolean> cancelAsync() {
-        return convertToPublicFuture(delegate.cancelAsync());
-    }
-
-    @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return convertToPublicFuture(delegate.changePriorityAsync(newPriority));
     }

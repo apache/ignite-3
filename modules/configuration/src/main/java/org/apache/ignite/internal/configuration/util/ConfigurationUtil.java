@@ -56,6 +56,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.InjectedValue;
 import org.apache.ignite.configuration.annotation.InternalId;
 import org.apache.ignite.configuration.annotation.Name;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
@@ -443,7 +444,7 @@ public class ConfigurationUtil {
      * @return {@code true} if field represents primitive configuration.
      */
     public static boolean isValue(Field schemaField) {
-        return schemaField.isAnnotationPresent(Value.class);
+        return schemaField.isAnnotationPresent(Value.class) || schemaField.isAnnotationPresent(InjectedValue.class);
     }
 
     /**
@@ -497,6 +498,12 @@ public class ConfigurationUtil {
      */
     public static boolean hasDefault(Field field) {
         assert isValue(field) : field;
+
+        InjectedValue injectedValue = field.getAnnotation(InjectedValue.class);
+
+        if (injectedValue != null) {
+            return injectedValue.hasDefault();
+        }
 
         return field.getAnnotation(Value.class).hasDefault();
     }
@@ -1127,6 +1134,20 @@ public class ConfigurationUtil {
      */
     public static boolean isInjectedName(Field schemaField) {
         return schemaField.isAnnotationPresent(InjectedName.class);
+    }
+
+    /**
+     * Returns {@code true} if the given schema field contains the {@link InjectedValue} annotation.
+     */
+    public static boolean isInjectedValue(Field schemaField) {
+        return schemaField.isAnnotationPresent(InjectedValue.class);
+    }
+
+    /**
+     * Returns {@code true} if the given schema field is read-only.
+     */
+    public static boolean isReadOnly(Field schemaField) {
+        return isPolymorphicId(schemaField) || isInjectedName(schemaField) || isInternalId(schemaField);
     }
 
     /**

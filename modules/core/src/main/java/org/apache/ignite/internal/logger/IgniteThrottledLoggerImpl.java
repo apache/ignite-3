@@ -26,10 +26,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
 
 class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
+    /** Throttle interval in milliseconds (value is 5 min). */
+    private final long throttleIntervalMs = IgniteSystemProperties.getLong(LOG_THROTTLE_INTERVAL_MS, DEFAULT_LOG_THROTTLE_INTERVAL_MS);
+
     /** Logger delegate. */
     private final System.Logger delegate;
 
@@ -41,7 +45,7 @@ class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
 
         messagesMap = Caffeine.newBuilder()
                 .executor(executor)
-                .expireAfterWrite(THROTTLE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .expireAfterWrite(throttleIntervalMs, TimeUnit.MILLISECONDS)
                 .<LogThrottleKey, Long>build()
                 .asMap();
     }
@@ -285,7 +289,7 @@ class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
 
             long curTs = FastTimestamps.coarseCurrentTimeMillis();
 
-            if (loggedTs == null || curTs - loggedTs >= THROTTLE_TIMEOUT_MILLIS) {
+            if (loggedTs == null || curTs - loggedTs >= throttleIntervalMs) {
                 if (replace(msgKey, loggedTs, curTs)) {
                     if (throwable == null) {
                         delegate.log(level, message);

@@ -159,7 +159,7 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testCleanStates() throws InterruptedException {
+    public void testCleanStates() {
         assertThat(configuration.change(change -> change.changeStatesLifetimeMillis(100)), willCompleteSuccessfully());
 
         stateMachine = new InMemoryComputeStateMachine(configuration, "testNode");
@@ -168,23 +168,26 @@ public class InMemoryComputeStateMachineTest extends BaseIgniteAbstractTest {
         jobId = stateMachine.initJob();
         executeJob(false);
         completeJob(false);
-        ConditionFactory await = await().timeout(300, TimeUnit.MILLISECONDS);
-        await.untilAsserted(() -> assertThat(stateMachine.currentState(jobId), is(nullValue())));
+        // Default poll delay is equal to the poll interval. Cleaner also has initial delay equal to the ttl.
+        // So the check will happen only twice with 300 ms and 100 ms poll interval. If it happens just after we schedule remove then it
+        // will miss the state removal since removal will happen on the second pass
+        ConditionFactory await = await().atMost(400, TimeUnit.MILLISECONDS);
+        await.until(() -> stateMachine.currentState(jobId), is(nullValue()));
 
         jobId = stateMachine.initJob();
         executeJob(false);
         failJob(false);
-        await.untilAsserted(() -> assertThat(stateMachine.currentState(jobId), is(nullValue())));
+        await.until(() -> stateMachine.currentState(jobId), is(nullValue()));
 
         jobId = stateMachine.initJob();
         cancelJob(false);
-        await.untilAsserted(() -> assertThat(stateMachine.currentState(jobId), is(nullValue())));
+        await.until(() -> stateMachine.currentState(jobId), is(nullValue()));
 
         jobId = stateMachine.initJob();
         executeJob(false);
         cancelingJob(false);
         cancelJob(false);
-        await.untilAsserted(() -> assertThat(stateMachine.currentState(jobId), is(nullValue())));
+        await.until(() -> stateMachine.currentState(jobId), is(nullValue()));
 
         stateMachine.stop();
     }

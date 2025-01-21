@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThro
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -36,14 +37,16 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobTarget;
@@ -154,8 +157,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
     @Test
     public void killComputeJobFromLocal() {
         Ignite node = CLUSTER.aliveNode();
-        JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-        JobExecution<Void> execution = node.compute().submit(JobTarget.node(clusterNode(node)), job, null);
+        JobExecution<Void> execution = submit(node, JobDescriptor.builder(InfiniteJob.class).build());
 
         UUID jobId = await(execution.idAsync());
         assertThat(jobId, not(nullValue()));
@@ -242,8 +244,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
         // Single execution.
         {
-            JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-            JobExecution<Void> execution = local.compute().submit(JobTarget.node(clusterNode(local)), job, null);
+            JobExecution<Void> execution = submit(local, JobDescriptor.builder(InfiniteJob.class).build());
 
             UUID jobId = await(execution.idAsync());
             assertThat(jobId, not(nullValue()));
@@ -257,8 +258,7 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
         // Single execution with nowait.
         {
-            JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-            JobExecution<Void> execution = local.compute().submit(JobTarget.node(clusterNode(local)), job, null);
+            JobExecution<Void> execution = submit(local, JobDescriptor.builder(InfiniteJob.class).build());
 
             UUID jobId = await(execution.idAsync());
             assertThat(jobId, not(nullValue()));
@@ -272,10 +272,10 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
         // Multiple executions.
         {
             JobDescriptor<Void, Void> job = JobDescriptor.builder(InfiniteJob.class).units(List.of()).build();
-            Map<ClusterNode, JobExecution<Void>> executions = local.compute().submitBroadcast(
-                    Set.of(clusterNode(CLUSTER.node(0)), clusterNode(CLUSTER.node(1))), job, null);
+            Collection<JobExecution<Void>> executions = submit(local, Set.of(clusterNode(0), clusterNode(1)), job);
 
-            executions.forEach((node, execution) -> {
+            executions.forEach(execution -> {
+                ClusterNode node = execution.node();
                 UUID jobId = await(execution.idAsync());
                 assertThat(jobId, not(nullValue()));
                 assertThat("Node=" + node.name(), executeKillJob(remote, jobId), is(true));
@@ -330,5 +330,17 @@ public class ItSqlKillCommandTest extends BaseSqlIntegrationTest {
 
             SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor, matcher);
         });
+    }
+
+    private static JobExecution<Void> submit(Ignite node, JobDescriptor<Void, Void> job) {
+        CompletableFuture<JobExecution<Void>> executionFut = node.compute().submitAsync(JobTarget.node(clusterNode(node)), job, null);
+        assertThat(executionFut, willCompleteSuccessfully());
+        return executionFut.join();
+    }
+
+    private static Collection<JobExecution<Void>> submit(Ignite node, Set<ClusterNode> nodes, JobDescriptor<Void, Void> job) {
+        CompletableFuture<BroadcastExecution<Void>> executionFut = node.compute().submitAsync(BroadcastJobTarget.nodes(nodes), job, null);
+        assertThat(executionFut, willCompleteSuccessfully());
+        return executionFut.join().executions();
     }
 }

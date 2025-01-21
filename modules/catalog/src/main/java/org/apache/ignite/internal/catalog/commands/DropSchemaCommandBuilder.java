@@ -29,6 +29,9 @@ public interface DropSchemaCommandBuilder {
     /** Sets flag indicating forced deletion of a non-empty schema. */
     DropSchemaCommandBuilder cascade(boolean cascade);
 
+    /** Sets a flag indicating whether {@code IF EXISTS} option was specified. */
+    DropSchemaCommandBuilder ifExists(boolean ifExists);
+
     /** Returns a command with specified parameters. */
     CatalogCommand build();
 }

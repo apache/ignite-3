@@ -36,7 +36,6 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.messaging.RemoteJobExecution;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -50,7 +49,7 @@ public class ExecutionManager {
 
     private final Cleaner<JobExecution<?>> cleaner = new Cleaner<>();
 
-    private final Map<UUID, JobExecution<?>> executions = new ConcurrentHashMap<>();
+    private final Map<UUID, CancellableJobExecution<?>> executions = new ConcurrentHashMap<>();
 
     ExecutionManager(ComputeConfiguration computeConfiguration, TopologyService topologyService) {
         this.computeConfiguration = computeConfiguration;
@@ -63,7 +62,7 @@ public class ExecutionManager {
      * @param jobId Job id.
      * @param execution Job execution.
      */
-    void addExecution(UUID jobId, JobExecution<?> execution) {
+    void addExecution(UUID jobId, CancellableJobExecution<?> execution) {
         executions.put(jobId, execution);
         execution.resultAsync().whenComplete((r, throwable) -> cleaner.scheduleRemove(jobId));
     }
@@ -93,22 +92,9 @@ public class ExecutionManager {
     public CompletableFuture<?> resultAsync(UUID jobId) {
         JobExecution<?> execution = executions.get(jobId);
         if (execution != null) {
-            if (execution instanceof MarshallerProvider) {
-                MarshallerProvider provider = (MarshallerProvider) execution;
-                Marshaller<Object, byte[]> marshaller = provider.resultMarshaller();
-
-                // If result needs to be marshalled, then job execution request came from the client and we need to marshal the result and
-                // return the wrapper object back to the client handler node so it can pass the binary data directly back to client.
-                if (provider.marshalResult()) {
-                    return execution.resultAsync().thenApply(result -> ComputeUtils.marshalAndWrapResult(result, marshaller));
-                }
-
-                if (marshaller != null) {
-                    return execution.resultAsync().thenApply(marshaller::marshal);
-                }
-            }
             return execution.resultAsync();
         }
+
         return failedFuture(new ComputeException(RESULT_NOT_FOUND_ERR, "Job result not found for the job with ID: " + jobId));
     }
 
@@ -151,7 +137,7 @@ public class ExecutionManager {
      *         cancelled (either it's not yet started, or it's already completed), or {@code null} if there's no job with the specified id.
      */
     public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
-        JobExecution<?> execution = executions.get(jobId);
+        CancellableJobExecution<?> execution = executions.get(jobId);
         if (execution != null) {
             return execution.cancelAsync();
         }

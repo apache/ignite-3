@@ -66,11 +66,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
      */
     @AfterEach
     public void dropTables() {
-        var igniteTables = CLUSTER.aliveNode().tables();
-
-        for (var table : igniteTables.tables()) {
-            sql("DROP TABLE " + table.name());
-        }
+        dropAllTables();
     }
 
     /** Tests correctness with unicode. */
