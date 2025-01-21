@@ -45,6 +45,7 @@ public class ClientTablesGetRequest {
 
                 out.packInt(tableImpl.tableId());
                 out.packString(table.name());
+                out.packString(null); // Schema placeholder.
             }
         });
     }

@@ -97,6 +97,19 @@ conversion_result put_primitive_to_buffer(application_data_buffer &buffer, const
     }
 }
 
+std::vector<bytes_view> read_rows(protocol::reader &reader) {
+    auto size = reader.read_int32();
+
+    std::vector<bytes_view> rows;
+    rows.reserve(size);
+
+    for (std::int32_t row_idx = 0; row_idx < size; ++row_idx) {
+        rows.emplace_back(reader.read_binary());
+    }
+
+    return rows;
+}
+
 } // anonymous namespace
 
 namespace ignite {
@@ -327,25 +340,28 @@ sql_result data_query::make_request_execute() {
         m_connection.mark_transaction_non_empty();
 
         auto &response = res.first;
-        auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
-        m_query_id = reader->read_object_nullable<std::int64_t>();
+        protocol::reader reader(response.get_bytes_view());
+        m_query_id = reader.read_object_nullable<std::int64_t>();
 
-        m_has_rowset = reader->read_bool();
-        m_has_more_pages = reader->read_bool();
-        m_was_applied = reader->read_bool();
+        m_has_rowset = reader.read_bool();
+        m_has_more_pages = reader.read_bool();
+        m_was_applied = reader.read_bool();
+
         if (single) {
-            m_rows_affected = reader->read_int64();
+            m_rows_affected = reader.read_int64();
 
             if (m_has_rowset) {
-                auto columns = read_result_set_meta(*reader);
+                auto columns = read_result_set_meta(reader);
                 set_resultset_meta(std::move(columns));
-                auto page = std::make_unique<result_page>(std::move(response), std::move(reader));
+                auto rows = read_rows(reader);
+
+                auto page = std::make_unique<result_page>(std::move(response), std::move(rows));
                 m_cursor = std::make_unique<cursor>(std::move(page));
             }
 
             m_executed = true;
         } else {
-            auto affected_rows = reader->read_int64_array();
+            auto affected_rows = reader.read_int64_array();
             process_affected_rows(affected_rows);
         }
     });
@@ -396,8 +412,11 @@ sql_result data_query::make_request_fetch(std::unique_ptr<result_page> &page) {
         response = m_connection.sync_request(protocol::client_operation::SQL_CURSOR_NEXT_PAGE,
             [&](protocol::writer &writer) { writer.write(*m_query_id); });
 
-        auto reader = std::make_unique<protocol::reader>(response.get_bytes_view());
-        page = std::make_unique<result_page>(std::move(response), std::move(reader));
+        protocol::reader reader(response.get_bytes_view());
+        auto rows = read_rows(reader);
+        m_has_more_pages = reader.read_bool();
+
+        page = std::make_unique<result_page>(std::move(response), std::move(rows));
     });
 
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;

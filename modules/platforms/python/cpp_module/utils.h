@@ -17,13 +17,13 @@
 
 #pragma once
 
+#include <common_types.h>
 #include <ignite/common/bytes_view.h>
 #include <ignite/common/ignite_date.h>
 #include <ignite/common/ignite_time.h>
 #include <ignite/common/ignite_date_time.h>
 #include <ignite/common/ignite_timestamp.h>
 #include <ignite/common/ignite_duration.h>
-#include <ignite/common/big_decimal.h>
 
 #include <Python.h>
 
@@ -40,18 +40,31 @@
 
 
 namespace ignite {
+enum class sql_result;
 class diagnosable;
 }
 
 /**
- * Check ODBC object for errors, and set a proper Python exception, if there are.
+ * Check an ODBC object for errors, and set a proper Python exception, if there are.
+ *
+ * @param ret Return code of the previous operation.
  * @param diag Diagnosable object instance.
  * @return @c true if there is no error, and @c false, if there is an error.
  */
-bool check_errors(ignite::diagnosable& diag);
+bool check_errors(ignite::sql_result ret, ignite::diagnosable& diag);
 
 /**
- * Get current exception as a string.
+ * Check an ODBC object for errors, and set a proper Python exception, if there are.
+ *
+ * @param diag Diagnosable object instance.
+ * @return @c true if there is no error, and @c false, if there is an error.
+ */
+inline bool check_errors(ignite::diagnosable& diag) {
+    return check_errors(ignite::sql_result::AI_SUCCESS, diag);
+}
+
+/**
+ * Get the current exception as a string.
  *
  * @return Current exception as a string.
  */
@@ -66,7 +79,7 @@ std::string get_current_exception_as_string();
 const char* py_object_get_typename(PyObject* obj);
 
 /**
- * Get the the module instance.
+ * Get the module instance.
  *
  * @return Client's module.
  */
@@ -109,7 +122,7 @@ std::int64_t py_get_attr_int(PyObject* obj, const char* attr_name);
 
 /**
  * Get module's UUID class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return UUID class.
  */
@@ -117,7 +130,7 @@ PyObject* py_get_module_uuid_class();
 
 /**
  * Get module's DATE class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return DATE class.
  */
@@ -125,7 +138,7 @@ PyObject* py_get_module_date_class();
 
 /**
  * Get module's TIME class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return TIME class.
  */
@@ -133,7 +146,7 @@ PyObject* py_get_module_time_class();
 
 /**
  * Get module's DATETIME class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return DATETIME class.
  */
@@ -141,7 +154,7 @@ PyObject* py_get_module_datetime_class();
 
 /**
  * Get module's TIMESTAMP class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return TIMESTAMP class.
  */
@@ -149,7 +162,7 @@ PyObject* py_get_module_timestamp_class();
 
 /**
  * Get module's NUMBER class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return NUMBER class.
  */
@@ -157,7 +170,7 @@ PyObject* py_get_module_number_class();
 
 /**
  * Get module's DURATION class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return DURATION class.
  */
@@ -165,7 +178,7 @@ PyObject* py_get_module_duration_class();
 
 /**
  * Get module's Warning class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return Warning class.
  */
@@ -173,7 +186,7 @@ PyObject* py_get_module_warning_class();
 
 /**
  * Get module's InterfaceError class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return InterfaceError class.
  */
@@ -181,7 +194,7 @@ PyObject* py_get_module_interface_error_class();
 
 /**
  * Get module's DatabaseError class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return DatabaseError class.
  */
@@ -189,7 +202,7 @@ PyObject* py_get_module_database_error_class();
 
 /**
  * Get module's DataError class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return DataError class.
  */
@@ -197,7 +210,7 @@ PyObject* py_get_module_data_error_class();
 
 /**
  * Get module's OperationalError class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return OperationalError class.
  */
@@ -205,7 +218,7 @@ PyObject* py_get_module_operational_error_class();
 
 /**
  * Get module's IntegrityError class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return IntegrityError class.
  */
@@ -213,7 +226,7 @@ PyObject* py_get_module_integrity_error_class();
 
 /**
  * Get module's InternalError class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return InternalError class.
  */
@@ -221,7 +234,7 @@ PyObject* py_get_module_internal_error_class();
 
 /**
  * Get module's ProgrammingError class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return ProgrammingError class.
  */
@@ -229,7 +242,7 @@ PyObject* py_get_module_programming_error_class();
 
 /**
  * Get module's NotSupportedError class instance.
- * Faster then loading the class the ordinary way as the class is cached.
+ * Faster than loading the class the ordinary way as the class is cached.
  *
  * @return NotSupportedError class.
  */
@@ -238,7 +251,7 @@ PyObject* py_get_module_not_supported_error_class();
 /**
  * Create a new instance of pyignite3.UUID from an array of bytes.
  *
- * @param value Uuid.
+ * @param bytes A buffer containing a UUID.
  * @return A new instance of pyignite3.UUID.
  */
 PyObject* py_create_uuid(ignite::bytes_view bytes);
