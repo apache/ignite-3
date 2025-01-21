@@ -56,13 +56,11 @@ public class GroupStoragesContextResolver {
         );
     }
 
-    DestroyStorageContext getContext(RaftNodeId nodeId, LogStorageFactory logStorageFactory, boolean isVolatile) {
-        DestroyStorageIntent intent = new DestroyStorageIntent(
+    DestroyStorageIntent getIntent(RaftNodeId nodeId, boolean isVolatile) {
+        return new DestroyStorageIntent(
                 nodeId.nodeIdStringForStorage(),
                 groupNameResolver.apply(nodeId.groupId()),
                 isVolatile
         );
-
-        return new DestroyStorageContext(intent, logStorageFactory, serverDataPathByGroupName.get(intent.groupName()));
     }
 }

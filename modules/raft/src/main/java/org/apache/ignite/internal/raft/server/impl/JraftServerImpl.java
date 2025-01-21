@@ -596,15 +596,13 @@ public class JraftServerImpl implements RaftServer {
 
     @Override
     public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
-        DestroyStorageContext context = groupStoragesContextResolver.getContext(
-                nodeId,
-                groupOptions.getLogStorageFactory(),
-                groupOptions.volatileStores()
+        DestroyStorageIntent intent = groupStoragesContextResolver.getIntent(nodeId, groupOptions.volatileStores());
+
+        groupStoragesDestructionIntents.saveDestroyStorageIntent(nodeId.groupId(), intent);
+
+        destroyStorage(
+                new DestroyStorageContext(intent, groupOptions.getLogStorageFactory(), serverDataPathForNodeId(nodeId, groupOptions))
         );
-
-        groupStoragesDestructionIntents.saveDestroyStorageIntent(nodeId.groupId(), context.intent());
-
-        destroyStorage(context);
     }
 
     private void destroyStorage(

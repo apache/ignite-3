@@ -50,6 +50,8 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
+import org.apache.ignite.internal.raft.storage.impl.DestroyStorageContext;
+import org.apache.ignite.internal.raft.storage.impl.DestroyStorageIntent;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -112,6 +114,8 @@ public class Loza implements RaftManager {
      * @param raftConfiguration Raft configuration.
      * @param clock A hybrid logical clock.
      * @param failureManager Failure processor that is used to handle critical errors.
+     * @param groupStoragesDestructionIntents Storage to persist and retrieve {@link DestroyStorageIntent}.
+     * @param groupStoragesContextResolver Resolver to get {@link DestroyStorageContext} for storage destruction.
      */
     public Loza(
             ClusterService clusterNetSvc,
@@ -120,7 +124,7 @@ public class Loza implements RaftManager {
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
             FailureManager failureManager,
-            GroupStoragesDestructionIntents groupStorageDestructionIntents,
+            GroupStoragesDestructionIntents groupStoragesDestructionIntents,
             GroupStoragesContextResolver groupStoragesContextResolver
     ) {
         this.clusterNetSvc = clusterNetSvc;
@@ -139,7 +143,7 @@ public class Loza implements RaftManager {
                 options,
                 raftGroupEventsClientListener,
                 failureManager,
-                groupStorageDestructionIntents,
+                groupStoragesDestructionIntents,
                 groupStoragesContextResolver
         );
 
