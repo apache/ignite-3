@@ -2390,7 +2390,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private static boolean lastRebalanceWasGraceful(@Nullable AssignmentsChain assignmentsChain) {
         // Assignments chain is either empty (when there have been no stable switch yet) or contains a single element in chain.
-        return assignmentsChain == null || assignmentsChain.chain().size() == 1;
+        return assignmentsChain == null || assignmentsChain.size() == 1;
     }
 
     private static PartitionSet extendPartitionSet(@Nullable PartitionSet oldPartitionSet, int partitionId) {
