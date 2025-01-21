@@ -162,24 +162,24 @@ TEST_F(compute_test, execute_on_specific_node) {
 
 TEST_F(compute_test, execute_broadcast_one_node) {
     auto res = m_client.get_compute().submit_broadcast({get_node(1)}, m_node_name_job, {"42"});
+    auto execs = res.get_job_executions();
 
-    ASSERT_EQ(res.size(), 1);
+    ASSERT_EQ(execs.size(), 1);
 
-    EXPECT_EQ(res.begin()->first, get_node(1));
-
-    ASSERT_TRUE(res.begin()->second.has_value());
-    EXPECT_EQ(res.begin()->second.value().get_result()->get_primitive(), PLATFORM_TEST_NODE_RUNNER + "_242");
+    ASSERT_TRUE(execs.front().has_value());
+    EXPECT_EQ(execs.front().value().get_result()->get_primitive(), PLATFORM_TEST_NODE_RUNNER + "_242");
 }
 
 TEST_F(compute_test, execute_broadcast_all_nodes) {
     auto res = m_client.get_compute().submit_broadcast(get_node_set(), m_node_name_job, {"42"});
+    auto execs = res.get_job_executions();
 
-    ASSERT_EQ(res.size(), 4);
+    ASSERT_EQ(execs.size(), 4);
 
-    EXPECT_EQ(res[get_node(0)].value().get_result()->get_primitive(), get_node(0).get_name() + "42");
-    EXPECT_EQ(res[get_node(1)].value().get_result()->get_primitive(), get_node(1).get_name() + "42");
-    EXPECT_EQ(res[get_node(2)].value().get_result()->get_primitive(), get_node(2).get_name() + "42");
-    EXPECT_EQ(res[get_node(3)].value().get_result()->get_primitive(), get_node(3).get_name() + "42");
+    EXPECT_EQ(execs[0].value().get_result()->get_primitive(), get_node(0).get_name() + "42");
+    EXPECT_EQ(execs[1].value().get_result()->get_primitive(), get_node(1).get_name() + "42");
+    EXPECT_EQ(execs[2].value().get_result()->get_primitive(), get_node(2).get_name() + "42");
+    EXPECT_EQ(execs[3].value().get_result()->get_primitive(), get_node(3).get_name() + "42");
 }
 
 TEST_F(compute_test, job_error_propagates_to_client) {
@@ -393,12 +393,13 @@ TEST_F(compute_test, broadcast_unknown_unit_and_version) {
         .build();
 
     auto res = m_client.get_compute().submit_broadcast({get_node(1)}, job_desc, {});
+    auto execs = res.get_job_executions();
 
-    ASSERT_EQ(res.size(), 1);
+    ASSERT_EQ(execs.size(), 1);
 
-    auto &res1 = res[get_node(1)];
-    ASSERT_TRUE(res1.has_error());
-    EXPECT_THAT(res1.error().what_str(), ::testing::HasSubstr("Deployment unit unknown:1.2.3 doesn't exist"));
+    auto &exec1 = execs.front();
+    ASSERT_TRUE(exec1.has_error());
+    EXPECT_THAT(exec1.error().what_str(), ::testing::HasSubstr("Deployment unit unknown:1.2.3 doesn't exist"));
 }
 
 TEST_F(compute_test, execute_empty_unit_name) {

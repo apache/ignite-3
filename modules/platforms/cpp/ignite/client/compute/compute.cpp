@@ -30,22 +30,20 @@ void compute::submit_async(const std::vector<cluster_node> &nodes, std::shared_p
 }
 
 void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
-    const binary_object &arg,
-    ignite_callback<std::map<cluster_node, ignite_result<job_execution>>> callback) {
-    typedef std::map<cluster_node, ignite_result<job_execution>> result_type;
+    const binary_object &arg, ignite_callback<broadcast_execution> callback) {
 
     detail::arg_check::container_non_empty(nodes, "Nodes set");
     detail::arg_check::container_non_empty(descriptor->get_job_class_name(), "Job class name");
 
     struct result_group {
-        explicit result_group(std::int32_t cnt, ignite_callback<result_type> &&cb)
+        explicit result_group(std::int32_t cnt, ignite_callback<broadcast_execution> &&cb)
             : m_cnt(cnt)
             , m_callback(cb) {}
 
         std::mutex m_mutex;
-        result_type m_res_map;
+        std::vector<ignite_result<job_execution>> m_res_vector;
         std::int32_t m_cnt{0};
-        ignite_callback<result_type> m_callback;
+        ignite_callback<broadcast_execution> m_callback;
     };
 
     auto shared_res = std::make_shared<result_group>(std::int32_t(nodes.size()), std::move(callback));
@@ -56,10 +54,10 @@ void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, std::s
             auto &val = *shared_res;
 
             std::lock_guard<std::mutex> lock(val.m_mutex);
-            val.m_res_map.emplace(node, res);
+            val.m_res_vector.emplace_back(std::move(res));
             --val.m_cnt;
             if (val.m_cnt == 0)
-                val.m_callback(std::move(val.m_res_map));
+                val.m_callback(broadcast_execution(std::move(val.m_res_vector)));
         });
     }
 }

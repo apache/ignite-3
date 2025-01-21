@@ -17,17 +17,14 @@
 
 #pragma once
 
-#include "ignite/client/compute/deployment_unit.h"
+#include "ignite/client/compute/broadcast_execution.h"
 #include "ignite/client/compute/job_descriptor.h"
 #include "ignite/client/compute/job_execution.h"
-#include "ignite/client/compute/job_execution_options.h"
 #include "ignite/client/network/cluster_node.h"
 #include "ignite/client/table/ignite_tuple.h"
-#include "ignite/client/transaction/transaction.h"
 #include "ignite/common/binary_object.h"
 #include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
-#include "ignite/common/primitive.h"
 
 #include <map>
 #include <memory>
@@ -88,7 +85,7 @@ public:
      */
     IGNITE_API void submit_broadcast_async(const std::set<cluster_node> &nodes,
         std::shared_ptr<job_descriptor> descriptor, const binary_object &arg,
-        ignite_callback<std::map<cluster_node, ignite_result<job_execution>>> callback);
+        ignite_callback<broadcast_execution> callback);
 
     /**
      * Broadcast a compute job represented by the given class on all of the specified nodes.
@@ -98,10 +95,10 @@ public:
      * @param arg Job argument.
      * @return Job execution result.
      */
-    IGNITE_API std::map<cluster_node, ignite_result<job_execution>> submit_broadcast(
+    IGNITE_API broadcast_execution submit_broadcast(
         const std::set<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
         const binary_object &arg) {
-        return sync<std::map<cluster_node, ignite_result<job_execution>>>([&](auto callback) mutable {
+        return sync<broadcast_execution>([&](auto callback) mutable {
             submit_broadcast_async(nodes, descriptor, arg, std::move(callback));
         });
     }
