@@ -57,7 +57,7 @@ public class ClientTableGetRequest {
         for (int i = 0; i < name.length(); i++) {
             char ch = name.charAt(i);
 
-            if (Character.isDigit(ch)) {
+            if (Character.isDigit(ch) || ch == '_') {
                 continue;
             }
 
