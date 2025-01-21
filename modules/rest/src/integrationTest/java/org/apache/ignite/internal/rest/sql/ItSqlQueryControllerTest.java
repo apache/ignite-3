@@ -86,14 +86,14 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
         sql("CREATE TABLE large_table1 (id int primary key, value1 DOUBLE, value2 DOUBLE)");
 
         // Run long running query async
-        String sql = "INSERT INTO large_table1 (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 10));";
+        String sql = "INSERT INTO large_table1 (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 100));";
         CompletableFuture.runAsync(() ->
                 sql(sql)
         );
 
+        waitAtMost(Duration.ofSeconds(10)).until(() -> getSqlQueries(client), aMapWithSize(1));
         Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
 
-        assertThat(queries, aMapWithSize(1));
         Map.Entry<UUID, SqlQueryInfo> sqlQueryInfoEntry = queries.entrySet().iterator().next();
 
         SqlQueryInfo query = getSqlQuery(client, sqlQueryInfoEntry.getKey());
