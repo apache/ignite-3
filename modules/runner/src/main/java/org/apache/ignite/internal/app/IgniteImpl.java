@@ -291,7 +291,6 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -1201,7 +1200,6 @@ public class IgniteImpl implements Ignite {
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
     }
 
-    @NotNull
     private GroupStoragesContextResolver groupStoragesContextResolver() {
         Map<String, LogStorageFactory> logStorageFactoryByGroupName = Map.of(
                 PARTITION_GROUP_NAME, partitionsLogStorageFactory,
@@ -1215,12 +1213,11 @@ public class IgniteImpl implements Ignite {
                 CmgGroupId.INSTANCE.toString(), cmgWorkDir.metaPath()
         );
 
-        GroupStoragesContextResolver groupStoragesContextResolver = new GroupStoragesContextResolver(
+        return new GroupStoragesContextResolver(
                 replicationGroupId -> replicationGroupId instanceof PartitionGroupId ? PARTITION_GROUP_NAME : replicationGroupId.toString(),
                 serverDataPathByGroupName,
                 logStorageFactoryByGroupName
         );
-        return groupStoragesContextResolver;
     }
 
     private static ClusterInfo clusterInfo(ClusterStateStorageManager clusterStateStorageManager) {
