@@ -33,6 +33,33 @@ class AssignmentsLinkTest {
             .atOffset(ZoneOffset.UTC)
             .toInstant()
             .toEpochMilli();
+    
+    private static final Assignments ASSIGNMENTS0_4 = Assignments.of(
+            Set.of(
+                    Assignment.forPeer("node0"),
+                    Assignment.forPeer("node1"),
+                    Assignment.forPeer("node2"),
+                    Assignment.forPeer("node3"),
+                    Assignment.forPeer("node4")
+            ),
+            baseTimestamp(1)
+    );
+
+    private static final Assignments ASSIGNMENTS0_2 = Assignments.of(
+            Set.of(
+                    Assignment.forPeer("node0"),
+                    Assignment.forPeer("node1"),
+                    Assignment.forPeer("node2")
+            ),
+            baseTimestamp(2)
+    );
+
+    private static final Assignments ASSIGNMENTS_2 = Assignments.of(
+            Set.of(
+                    Assignment.forPeer("node2")
+            ),
+            baseTimestamp(3)
+    );
 
     private static long baseTimestamp(int logical) {
         return new HybridTimestamp(BASE_PHYSICAL_TIME, logical).longValue();
@@ -40,59 +67,32 @@ class AssignmentsLinkTest {
 
     @Test
     void testLastLink() {
-        Assignments assignments1 = Assignments.of(Set.of(
-                Assignment.forPeer("node0"),
-                Assignment.forPeer("node1"),
-                Assignment.forPeer("node2"),
-                Assignment.forPeer("node3"),
-                Assignment.forPeer("node4")
-        ), baseTimestamp(1));
-        AssignmentsChain chain = AssignmentsChain.of(assignments1);
+        AssignmentsChain chain = AssignmentsChain.of(ASSIGNMENTS0_4);
+        AssignmentsLink link1 = chain.firstLink();
 
-        Assignments assignments2 = Assignments.of(Set.of(
-                Assignment.forPeer("node0"),
-                Assignment.forPeer("node1"),
-                Assignment.forPeer("node2")
-        ), baseTimestamp(2));
-        AssignmentsLink link2 = chain.addLast(assignments2, 1, 1);
+        AssignmentsLink link2 = chain.addLast(ASSIGNMENTS0_2, 1, 1);
 
-        Assignments assignments3 = Assignments.of(Set.of(
-                Assignment.forPeer("node2")
-        ), baseTimestamp(3));
-        AssignmentsLink link3 = chain.addLast(assignments3, 2, 2);
+        AssignmentsLink link3 = chain.addLast(ASSIGNMENTS_2, 2, 2);
 
         assertThat(chain.lastLink("node0"), is(link2));
+        assertThat(chain.lastLink("node1"), is(link2));
         assertThat(chain.lastLink("node2"), is(link3));
-        assertThat(chain.lastLink("node4"), is(chain.firstLink()));
+        assertThat(chain.lastLink("node3"), is(link1));
+        assertThat(chain.lastLink("node4"), is(link1));
         assertThat(chain.lastLink("node10"), is(nullValue()));
     }
 
     @Test
     void testNextLink() {
-        Assignments assignments1 = Assignments.of(Set.of(
-                Assignment.forPeer("node0"),
-                Assignment.forPeer("node1"),
-                Assignment.forPeer("node2"),
-                Assignment.forPeer("node3"),
-                Assignment.forPeer("node4")
-        ), baseTimestamp(1));
-        AssignmentsChain chain = AssignmentsChain.of(assignments1);
+        AssignmentsChain chain = AssignmentsChain.of(ASSIGNMENTS0_4);
 
-        Assignments assignments2 = Assignments.of(Set.of(
-                Assignment.forPeer("node0"),
-                Assignment.forPeer("node1"),
-                Assignment.forPeer("node2")
-        ), baseTimestamp(2));
-        AssignmentsLink link2 = chain.addLast(assignments2, 1, 1);
+        AssignmentsLink link2 = chain.addLast(ASSIGNMENTS0_2, 1, 1);
 
-        Assignments assignments3 = Assignments.of(Set.of(
-                Assignment.forPeer("node2")
-        ), baseTimestamp(3));
-        AssignmentsLink link3 = chain.addLast(assignments3, 2, 2);
+        AssignmentsLink link3 = chain.addLast(ASSIGNMENTS_2, 2, 2);
 
         AssignmentsLink link1 = chain.firstLink();
 
-        assertThat(link1.assignments(), is(assignments1));
+        assertThat(link1.assignments(), is(ASSIGNMENTS0_4));
 
         assertThat(link1.nextLink(), is(link2));
         assertThat(link1.nextLink().nextLink(), is(link3));
