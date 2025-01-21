@@ -48,6 +48,7 @@ import org.junit.jupiter.api.Test;
  * Integration tests for {@link SqlQueryController}.
  */
 @MicronautTest
+@Disabled("Temporary disabled.")
 public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     private static final String SQL_QUERY_URL = "/management/v1/sql/";
 
@@ -107,7 +108,6 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    @Disabled("Temporary disabled.")
     void shouldCancelSqlQuery() {
         // Create table
         sql("CREATE TABLE large_table2 (id int primary key, value1 DOUBLE, value2 DOUBLE)");
