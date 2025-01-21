@@ -63,8 +63,8 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
         "secret",
         "schema",
         "timezone",
-        "page_size",
         "timeout",
+        "page_size",
         "autocommit",
         nullptr
     };
