@@ -83,11 +83,12 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         createTable("foo");
         createTable("bar");
 
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SCHEMA_NAME, clock.nowLong());
+        Catalog catalog = catalogManager.activeCatalog(clock.nowLong());
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
 
         assertThat(schema, is(notNullValue()));
 
-        CatalogTableDescriptor fooTable = catalogManager.table(SCHEMA_NAME, "foo", clock.nowLong());
+        CatalogTableDescriptor fooTable = schema.table("foo");
 
         assertThat(fooTable, is(notNullValue()));
 
@@ -108,7 +109,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testReplaceTableMissingTable() {
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SCHEMA_NAME, clock.nowLong());
+        Catalog catalog = catalogManager.activeCatalog(clock.nowLong());
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
 
         assertThat(schema, is(notNullValue()));
 
@@ -129,11 +131,12 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         createIndex(tableName, "foo");
         createIndex(tableName, "bar");
 
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SCHEMA_NAME, clock.nowLong());
+        Catalog catalog = catalogManager.activeCatalog(clock.nowLong());
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
 
         assertThat(schema, is(notNullValue()));
 
-        var fooIndex = (CatalogHashIndexDescriptor) catalogManager.aliveIndex(SCHEMA_NAME, "foo", clock.nowLong());
+        var fooIndex = (CatalogHashIndexDescriptor) schema.aliveIndex("foo");
 
         assertThat(fooIndex, is(notNullValue()));
 
@@ -156,7 +159,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testReplaceIndexMissingIndex() {
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SCHEMA_NAME, clock.nowLong());
+        Catalog catalog = catalogManager.activeCatalog(clock.nowLong());
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
 
         assertThat(schema, is(notNullValue()));
 
@@ -209,6 +213,8 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
 
-        return catalogManager.aliveIndex(SCHEMA_NAME, indexName, clock.nowLong()).id();
+        Catalog catalog = catalogManager.activeCatalog(clock.nowLong());
+        CatalogSchemaDescriptor schema = catalog.schema(SCHEMA_NAME);
+        return schema.aliveIndex(indexName).id();
     }
 }

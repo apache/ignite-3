@@ -52,7 +52,7 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
-    public CatalogTableDescriptor table(String schemaName, String tableName, long timestamp) {
+    public Catalog activeCatalog(long timestamp) {
         return null;
     }
 
@@ -69,11 +69,6 @@ public class FakeCatalogService implements CatalogService {
 
     @Override
     public Collection<CatalogTableDescriptor> tables(int catalogVersion) {
-        return null;
-    }
-
-    @Override
-    public CatalogIndexDescriptor aliveIndex(String schemaName, String indexName, long timestamp) {
         return null;
     }
 
@@ -98,22 +93,7 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
-    public CatalogSchemaDescriptor schema(int catalogVersion) {
-        return null;
-    }
-
-    @Override
-    public CatalogSchemaDescriptor schema(String schemaName, int catalogVersion) {
-        return null;
-    }
-
-    @Override
     public CatalogSchemaDescriptor schema(int schemaId, int catalogVersion) {
-        return null;
-    }
-
-    @Override
-    public CatalogZoneDescriptor zone(String zoneName, long timestamp) {
         return null;
     }
 
@@ -140,16 +120,6 @@ public class FakeCatalogService implements CatalogService {
 
     @Override
     public Collection<CatalogZoneDescriptor> zones(int catalogVersion) {
-        return null;
-    }
-
-    @Override
-    public CatalogSchemaDescriptor activeSchema(long timestamp) {
-        return null;
-    }
-
-    @Override
-    public CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
         return null;
     }
 

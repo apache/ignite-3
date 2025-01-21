@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -65,68 +64,40 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     @Nullable Catalog catalog(int catalogVersion);
 
-    /**
-     * Returns table descriptor by the given schema name and table name at given timestamp.
-     *
-     * @return Table descriptor or {@code null} if table not found.
-     */
-    @Nullable CatalogTableDescriptor table(String schemaName, String tableName, long timestamp);
+    Catalog activeCatalog(long timestamp);
 
-    /**
-     * Returns table descriptor by the given table ID and given timestamp.
-     *
-     * @return Table descriptor or {@code null} if table not found.
-     */
+    @Deprecated(forRemoval = true)
     @Nullable CatalogTableDescriptor table(int tableId, long timestamp);
 
-    /**
-     * Returns table descriptor by the given table ID and catalog version.
-     *
-     * @return Table descriptor or {@code null} if table not found.
-     */
+    @Deprecated(forRemoval = true)
     @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion);
 
+    @Deprecated(forRemoval = true)
     Collection<CatalogTableDescriptor> tables(int catalogVersion);
 
-    /**
-     * Returns a descriptor for <em>alive</em> index by the given schema name and index name at given timestamp,
-     * that is an index that has not been dropped yet at a given point in time.
-     *
-     * <p>This effectively means that the index must be present in the Catalog and not in the {@link CatalogIndexStatus#STOPPING}
-     * state.
-     */
-    @Nullable CatalogIndexDescriptor aliveIndex(String schemaName, String indexName, long timestamp);
-
+    @Deprecated(forRemoval = true)
     @Nullable CatalogIndexDescriptor index(int indexId, long timestamp);
 
-    /**
-     * Returns index descriptor by the given index ID and catalog version.
-     *
-     * @return Index descriptor or {@code null} if index not found.
-     */
+    @Deprecated(forRemoval = true)
     @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion);
 
+    @Deprecated(forRemoval = true)
     Collection<CatalogIndexDescriptor> indexes(int catalogVersion);
 
+    @Deprecated(forRemoval = true)
     List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId);
 
-    @Nullable CatalogSchemaDescriptor schema(int catalogVersion);
-
-    @Nullable CatalogSchemaDescriptor schema(@Nullable String schemaName, int catalogVersion);
-
+    @Deprecated(forRemoval = true)
     @Nullable CatalogSchemaDescriptor schema(int schemaId, int catalogVersion);
 
-    @Nullable CatalogZoneDescriptor zone(String zoneName, long timestamp);
-
+    @Deprecated(forRemoval = true)
     @Nullable CatalogZoneDescriptor zone(int zoneId, long timestamp);
 
+    @Deprecated(forRemoval = true)
     @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion);
 
+    @Deprecated(forRemoval = true)
     Collection<CatalogZoneDescriptor> zones(int catalogVersion);
-
-    @Nullable CatalogSchemaDescriptor activeSchema(long timestamp);
-
-    @Nullable CatalogSchemaDescriptor activeSchema(@Nullable String schemaName, long timestamp);
 
     int activeCatalogVersion(long timestamp);
 

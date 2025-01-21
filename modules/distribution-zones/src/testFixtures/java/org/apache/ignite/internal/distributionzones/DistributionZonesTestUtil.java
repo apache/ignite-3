@@ -667,7 +667,7 @@ public class DistributionZonesTestUtil {
      * @param timestamp Timestamp.
      */
     public static @Nullable Integer getZoneId(CatalogService catalogService, String zoneName, long timestamp) {
-        CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
+        CatalogZoneDescriptor zone = catalogService.activeCatalog(timestamp).zone(zoneName);
 
         return zone == null ? null : zone.id();
     }

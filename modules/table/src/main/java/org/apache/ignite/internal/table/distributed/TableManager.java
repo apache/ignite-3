@@ -2075,8 +2075,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
                     .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                        CatalogTableDescriptor tableDescriptor = catalogService.table(name.schemaName(), name.objectName(),
-                                now.longValue());
+                        Catalog catalog = catalogService.activeCatalog(now.longValue());
+                        CatalogTableDescriptor tableDescriptor = catalog.table(name.schemaName(), name.objectName());
 
                         // Check if the table has been deleted.
                         if (tableDescriptor == null) {

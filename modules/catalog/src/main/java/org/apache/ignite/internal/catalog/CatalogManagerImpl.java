@@ -192,15 +192,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable CatalogTableDescriptor table(String schemaName, String tableName, long timestamp) {
-        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(schemaName);
-        if (schema == null) {
-            return null;
-        }
-        return schema.table(tableName);
-    }
-
-    @Override
     public @Nullable CatalogTableDescriptor table(int tableId, long timestamp) {
         return catalogAt(timestamp).table(tableId);
     }
@@ -213,15 +204,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public Collection<CatalogTableDescriptor> tables(int catalogVersion) {
         return catalog(catalogVersion).tables();
-    }
-
-    @Override
-    public @Nullable CatalogIndexDescriptor aliveIndex(String schemaName, String indexName, long timestamp) {
-        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(schemaName);
-        if (schema == null) {
-            return null;
-        }
-        return schema.aliveIndex(indexName);
     }
 
     @Override
@@ -245,31 +227,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable CatalogSchemaDescriptor schema(int catalogVersion) {
-        return schema(SqlCommon.DEFAULT_SCHEMA_NAME, catalogVersion);
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor schema(String schemaName, int catalogVersion) {
-        Catalog catalog = catalog(catalogVersion);
-
-        if (catalog == null) {
-            return null;
-        }
-
-        return catalog.schema(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName);
-    }
-
-    @Override
     public @Nullable CatalogSchemaDescriptor schema(int schemaId, int catalogVersion) {
         Catalog catalog = catalog(catalogVersion);
 
         return catalog == null ? null : catalog.schema(schemaId);
-    }
-
-    @Override
-    public @Nullable CatalogZoneDescriptor zone(String zoneName, long timestamp) {
-        return catalogAt(timestamp).zone(zoneName);
     }
 
     @Override
@@ -285,16 +246,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public Collection<CatalogZoneDescriptor> zones(int catalogVersion) {
         return catalog(catalogVersion).zones();
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor activeSchema(long timestamp) {
-        return catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
-        return catalogAt(timestamp).schema(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName);
     }
 
     @Override
@@ -325,6 +276,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public @Nullable Catalog catalog(int catalogVersion) {
         return catalogByVer.get(catalogVersion);
+    }
+
+    @Override
+    public Catalog activeCatalog(long timestamp) {
+        return catalogAt(timestamp);
     }
 
     private Catalog catalogAt(long timestamp) {
