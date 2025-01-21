@@ -711,7 +711,7 @@ public class TestBuilders {
             );
 
             var clockWaiter = new ClockWaiter("test", clock, scheduledExecutor);
-            var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
+            var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter));
 
             Runnable initClosure = () -> {
                 assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());

@@ -343,7 +343,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         }
 
         {
-            QueryTransactionContext txContext = ImplicitTxContext.INSTANCE;
+            QueryTransactionContext txContext = ImplicitTxContext.create();
 
             ExplainPlan plan = (ExplainPlan) node.prepare("EXPLAIN PLAN FOR SELECT count(*) FROM test", txContext);
             assertThat(plan.plan().explain(), containsString("SelectCount"));

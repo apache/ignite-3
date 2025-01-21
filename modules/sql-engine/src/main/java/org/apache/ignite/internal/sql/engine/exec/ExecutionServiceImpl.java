@@ -480,7 +480,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             DdlPlan plan
     ) {
         CompletableFuture<Iterator<InternalSqlRow>> ret = ddlCmdHnd.handle(plan.command())
-                .thenApply(applied -> (applied ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator())
+                .thenApply(activationTime -> {
+                    if (activationTime == null) {
+                        return NOT_APPLIED_ANSWER.iterator();
+                    }
+
+                    QueryTransactionContext txCtx = operationContext.txContext();
+
+                    assert txCtx != null;
+
+                    txCtx.updateObservableTime(HybridTimestamp.hybridTimestamp(activationTime));
+
+                    return APPLIED_ANSWER.iterator();
+                })
                 .exceptionally(th -> {
                     throw convertDdlException(th);
                 });

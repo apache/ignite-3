@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
@@ -528,25 +527,6 @@ public class CatalogUtils {
                 // Rounding up to the closest millisecond to account for possibility of HLC.now() having different
                 // logical parts on different nodes of the cluster (see IGNITE-21084).
                 .roundUpToPhysicalTick();
-    }
-
-    /**
-     * Returns timestamp for which we'll wait after adding a new version to a Catalog.
-     *
-     * @param catalog Catalog version that has been added.
-     * @param partitionIdleSafeTimePropagationPeriodMsSupplier Supplies partition idle safe time propagation period in millis.
-     * @param maxClockSkewMillis Max clock skew in milliseconds.
-     */
-    public static HybridTimestamp clusterWideEnsuredActivationTsSafeForRoReads(
-            Catalog catalog,
-            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier,
-            long maxClockSkewMillis
-    ) {
-        HybridTimestamp clusterWideEnsuredActivationTs = clusterWideEnsuredActivationTimestamp(catalog.time(), maxClockSkewMillis);
-        // TODO: this addition has to be removed when IGNITE-20378 is implemented.
-        return clusterWideEnsuredActivationTs.addPhysicalTime(
-                partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + maxClockSkewMillis
-        );
     }
 
     /** Returns id of the default zone from given catalog, or {@code null} if default zone is not exist. */
