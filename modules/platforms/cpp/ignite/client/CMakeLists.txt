@@ -23,6 +23,7 @@ set(SOURCES
     ignite_client.cpp
     compute/compute.cpp
     compute/job_execution.cpp
+    compute/job_target.cpp
     sql/sql.cpp
     sql/result_set.cpp
     table/key_value_view.cpp
@@ -49,6 +50,7 @@ set(PUBLIC_HEADERS
     ignite_client_configuration.h
     ignite_logger.h
     type_mapping.h
+    compute/broadcast_execution.h
     compute/compute.h
     compute/deployment_unit.h
     compute/job_descriptor.h
@@ -56,6 +58,7 @@ set(PUBLIC_HEADERS
     compute/job_execution_options.h
     compute/job_state.h
     compute/job_status.h
+    compute/job_target.h
     detail/type_mapping_utils.h
     network/cluster_node.h
     sql/column_metadata.h

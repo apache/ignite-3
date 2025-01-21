@@ -18,11 +18,9 @@
 #pragma once
 
 #include "ignite/common/end_point.h"
+#include "ignite/common/uuid.h"
 
-#include <cstdint>
 #include <type_traits>
-#include <variant>
-#include <vector>
 
 namespace ignite {
 

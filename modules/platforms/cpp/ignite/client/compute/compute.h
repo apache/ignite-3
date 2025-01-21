@@ -20,13 +20,13 @@
 #include "ignite/client/compute/broadcast_execution.h"
 #include "ignite/client/compute/job_descriptor.h"
 #include "ignite/client/compute/job_execution.h"
+#include "ignite/client/compute/job_target.h"
 #include "ignite/client/network/cluster_node.h"
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/common/binary_object.h"
 #include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
 
-#include <map>
 #include <memory>
 #include <set>
 #include <utility>
