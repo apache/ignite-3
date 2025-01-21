@@ -45,6 +45,6 @@ public class AssignmentsLinkSerializer extends VersionedSerializer<AssignmentsLi
         long term = in.readVarInt();
         long index = in.readVarInt();
 
-        return new AssignmentsLink(assignments, term, index, null);
+        return new AssignmentsLink(assignments, term, index);
     }
 }

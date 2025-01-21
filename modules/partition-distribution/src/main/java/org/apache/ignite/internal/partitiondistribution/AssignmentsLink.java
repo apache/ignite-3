@@ -21,9 +21,7 @@ import static java.util.stream.Collectors.toSet;
 
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents a link in the chain of assignments.
@@ -35,42 +33,21 @@ public class AssignmentsLink {
     private final Assignments assignments;
     private final long configurationIndex;
     private final long configurationTerm;
-    private final Function<AssignmentsLink, AssignmentsLink> nextLinkFunc;
 
     AssignmentsLink(
             Assignments assignments,
             long configurationTerm,
-            long configurationIndex,
-            @Nullable Function<AssignmentsLink, AssignmentsLink> nextLinkFunc
+            long configurationIndex
     ) {
         this.assignments = assignments;
         this.configurationIndex = configurationIndex;
         this.configurationTerm = configurationTerm;
-        this.nextLinkFunc = nextLinkFunc;
-    }
-
-    AssignmentsLink(
-            AssignmentsLink other,
-            @Nullable Function<AssignmentsLink, AssignmentsLink> nextLinkFunc
-    ) {
-        this.assignments = other.assignments;
-        this.configurationIndex = other.configurationIndex;
-        this.configurationTerm = other.configurationTerm;
-        this.nextLinkFunc = nextLinkFunc;
     }
 
     public Assignments assignments() {
         return assignments;
     }
 
-    /**
-     * Gets the next link in the chain after the given link.
-     *
-     * @return The next link in the chain, or {@code null} if the given link is the last one in the chain.
-     */
-    public @Nullable AssignmentsLink nextLink() {
-        return nextLinkFunc == null ? null : nextLinkFunc.apply(this);
-    }
 
     /**
      * Checks if the specified node is part of the current assignments.

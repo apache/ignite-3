@@ -19,6 +19,7 @@ package org.apache.ignite.internal.partitiondistribution;
 
 import static java.util.stream.Collectors.toList;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -31,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Contains the chain of changed assignments.
  */
-public class AssignmentsChain {
+public class AssignmentsChain implements Iterable<AssignmentsLink> {
     // TODO https://issues.apache.org/jira/browse/IGNITE-24177 Either remove default values or add proper javadoc.
     private static final long DEFAULT_CONF_TERM = -1;
     private static final long DEFAULT_CONF_IDX = -1;
@@ -41,9 +42,9 @@ public class AssignmentsChain {
     private final List<AssignmentsLink> chain;
 
     private AssignmentsChain(List<AssignmentsLink> chain) {
-        this.chain = chain.stream()
-                .map(assignmentsLink -> new AssignmentsLink(assignmentsLink, this::nextLink))
-                .collect(toList());
+        assert !chain.isEmpty() : "Chain should not be empty";
+        
+        this.chain = chain;
     }
 
     public List<AssignmentsLink> chain() {
@@ -59,7 +60,7 @@ public class AssignmentsChain {
     public AssignmentsLink replaceLast(Assignments newLast, long configurationTerm, long configurationIndex) {
         assert !chain.isEmpty() : "Assignments chain is empty.";
 
-        AssignmentsLink link = new AssignmentsLink(newLast, configurationTerm, configurationIndex, this::nextLink);
+        AssignmentsLink link = new AssignmentsLink(newLast, configurationTerm, configurationIndex);
 
         chain.set(chain.size() - 1, link);
 
@@ -75,7 +76,7 @@ public class AssignmentsChain {
     public AssignmentsLink addLast(Assignments newLast, long configurationTerm, long configurationIndex) {
         assert !chain.isEmpty() : "Assignments chain is empty.";
 
-        AssignmentsLink link = new AssignmentsLink(newLast, configurationTerm, configurationIndex, this::nextLink);
+        AssignmentsLink link = new AssignmentsLink(newLast, configurationTerm, configurationIndex);
 
         chain.add(link);
 
@@ -88,7 +89,7 @@ public class AssignmentsChain {
      * @param link The link to get the next one from.
      * @return The next link in the chain, or {@code null} if the given link is the last one in the chain.
      */
-    private @Nullable AssignmentsLink nextLink(AssignmentsLink link) {
+    public @Nullable AssignmentsLink nextLink(AssignmentsLink link) {
         int i = chain.indexOf(link);
 
         return i < 0 || i == chain().size() - 1 ? null : chain.get(i + 1);
@@ -130,7 +131,7 @@ public class AssignmentsChain {
      */
     public static AssignmentsChain of(long configurationTerm, long configurationIndex, Assignments... assignments) {
         return of(Stream.of(assignments)
-                .map(assignment -> new AssignmentsLink(assignment, configurationTerm, configurationIndex, null))
+                .map(assignment -> new AssignmentsLink(assignment, configurationTerm, configurationIndex))
                 .collect(toList()));
     }
 
@@ -177,4 +178,8 @@ public class AssignmentsChain {
         return chain.hashCode();
     }
 
+    @Override
+    public Iterator<AssignmentsLink> iterator() {
+        return chain.iterator();
+    }
 }

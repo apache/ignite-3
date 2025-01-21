@@ -24,6 +24,7 @@ import static org.hamcrest.Matchers.nullValue;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneOffset;
+import java.util.Iterator;
 import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.junit.jupiter.api.Test;
@@ -33,7 +34,7 @@ class AssignmentsLinkTest {
             .atOffset(ZoneOffset.UTC)
             .toInstant()
             .toEpochMilli();
-    
+
     private static final Assignments ASSIGNMENTS0_4 = Assignments.of(
             Set.of(
                     Assignment.forPeer("node0"),
@@ -61,6 +62,11 @@ class AssignmentsLinkTest {
             baseTimestamp(3)
     );
 
+    private static final Assignments ASSIGNMENTS_EMPTY = Assignments.of(
+            Set.of(),
+            baseTimestamp(4)
+    );
+
     private static long baseTimestamp(int logical) {
         return new HybridTimestamp(BASE_PHYSICAL_TIME, logical).longValue();
     }
@@ -73,6 +79,8 @@ class AssignmentsLinkTest {
         AssignmentsLink link2 = chain.addLast(ASSIGNMENTS0_2, 1, 1);
 
         AssignmentsLink link3 = chain.addLast(ASSIGNMENTS_2, 2, 2);
+
+        chain.addLast(ASSIGNMENTS_EMPTY, 3, 3);
 
         assertThat(chain.lastLink("node0"), is(link2));
         assertThat(chain.lastLink("node1"), is(link2));
@@ -90,17 +98,23 @@ class AssignmentsLinkTest {
 
         AssignmentsLink link3 = chain.addLast(ASSIGNMENTS_2, 2, 2);
 
+        AssignmentsLink link4 = chain.addLast(ASSIGNMENTS_EMPTY, 3, 3);
+
         AssignmentsLink link1 = chain.firstLink();
 
         assertThat(link1.assignments(), is(ASSIGNMENTS0_4));
 
-        assertThat(link1.nextLink(), is(link2));
-        assertThat(link1.nextLink().nextLink(), is(link3));
-        assertThat(link1.nextLink().nextLink().nextLink(), is(nullValue()));
+        assertThat(chain.nextLink(link1), is(link2));
+        assertThat(chain.nextLink(link2), is(link3));
+        assertThat(chain.nextLink(link3), is(link4));
+        assertThat(chain.nextLink(link4), is(nullValue()));
 
-        assertThat(link2.nextLink(), is(link3));
-        assertThat(link2.nextLink().nextLink(), is(nullValue()));
+        Iterator<AssignmentsLink> iterator = chain.iterator();
 
-        assertThat(link3.nextLink(), is(nullValue()));
+        assertThat(iterator.next(), is(link1));
+        assertThat(iterator.next(), is(link2));
+        assertThat(iterator.next(), is(link3));
+        assertThat(iterator.next(), is(link4));
+        assertThat(iterator.hasNext(), is(false));
     }
 }
