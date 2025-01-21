@@ -35,9 +35,9 @@ public class AssignmentsChainSerializer extends VersionedSerializer<AssignmentsC
 
     @Override
     protected void writeExternalData(AssignmentsChain chain, IgniteDataOutput out) throws IOException {
-        out.writeVarInt(chain.chain().size());
+        out.writeVarInt(chain.size());
 
-        for (AssignmentsLink assignment : chain.chain()) {
+        for (AssignmentsLink assignment : chain) {
             AssignmentsLinkSerializer.INSTANCE.writeExternal(assignment, out);
         }
     }

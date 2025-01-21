@@ -43,12 +43,17 @@ public class AssignmentsChain implements Iterable<AssignmentsLink> {
 
     private AssignmentsChain(List<AssignmentsLink> chain) {
         assert !chain.isEmpty() : "Chain should not be empty";
-        
+
         this.chain = chain;
     }
 
-    public List<AssignmentsLink> chain() {
-        return chain;
+    /**
+     * Returns the number of links in this chain.
+     *
+     * @return the number of links in this chain.
+     */
+    public int size() {
+        return chain.size();
     }
 
     /**
@@ -92,7 +97,7 @@ public class AssignmentsChain implements Iterable<AssignmentsLink> {
     public @Nullable AssignmentsLink nextLink(AssignmentsLink link) {
         int i = chain.indexOf(link);
 
-        return i < 0 || i == chain().size() - 1 ? null : chain.get(i + 1);
+        return i < 0 || i == chain.size() - 1 ? null : chain.get(i + 1);
     }
 
     public AssignmentsLink firstLink() {

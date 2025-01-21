@@ -527,7 +527,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     ) {
         assert assignmentsChain != null : "Assignments chain cannot be null in HA mode.";
 
-        assert !assignmentsChain.chain().isEmpty() : "Assignments chain cannot be empty on stable switch.";
+        assert assignmentsChain.size() > 0 : "Assignments chain cannot be empty on stable switch.";
 
         /*
             This method covers the following case:

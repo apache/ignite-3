@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneOffset;
 import java.util.Base64;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -76,15 +77,21 @@ class AssignmentsChainSerializerTest {
     }
 
     private static void assertChainFromV1(AssignmentsChain restoredChain) {
-        assertThat(restoredChain.chain(), hasSize(2));
-        assertThat(restoredChain.chain().get(0).configurationIndex(), is(4L));
-        assertThat(restoredChain.chain().get(0).configurationTerm(), is(2L));
+        assertThat(restoredChain.size(), is(2));
+        Iterator<AssignmentsLink> iterator = restoredChain.iterator();
 
-        assertThat(restoredChain.chain().get(1).configurationIndex(), is(5L));
-        assertThat(restoredChain.chain().get(1).configurationTerm(), is(3L));
+        assertThat(iterator.hasNext(), is(true));
+        AssignmentsLink link0 = iterator.next();
+        assertThat(link0.configurationIndex(), is(4L));
+        assertThat(link0.configurationTerm(), is(2L));
 
-        assertNodes1FromV1(restoredChain.chain().get(0).assignments());
-        assertNodes2FromV1(restoredChain.chain().get(1).assignments());
+        assertThat(iterator.hasNext(), is(true));
+        AssignmentsLink link1 = iterator.next();
+        assertThat(link1.configurationIndex(), is(5L));
+        assertThat(link1.configurationTerm(), is(3L));
+
+        assertNodes1FromV1(link0.assignments());
+        assertNodes2FromV1(link1.assignments());
     }
 
     private static void assertNodes1FromV1(Assignments restoredAssignments) {
