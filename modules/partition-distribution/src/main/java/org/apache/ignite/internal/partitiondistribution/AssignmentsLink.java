@@ -85,7 +85,7 @@ public class AssignmentsLink {
 
         AssignmentsLink link = (AssignmentsLink) o;
         return configurationIndex == link.configurationIndex && configurationTerm == link.configurationTerm && Objects.equals(
-                assignments, link.assignments);
+                assignments, link.assignments) && assignments.timestamp() == link.assignments.timestamp();
     }
 
     @Override

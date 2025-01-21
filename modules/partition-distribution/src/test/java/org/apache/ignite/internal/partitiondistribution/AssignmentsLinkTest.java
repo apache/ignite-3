@@ -117,4 +117,26 @@ class AssignmentsLinkTest {
         assertThat(iterator.next(), is(link4));
         assertThat(iterator.hasNext(), is(false));
     }
+
+    @Test
+    void testSameAssignmentsInLinks() {
+        AssignmentsChain chain = AssignmentsChain.of(ASSIGNMENTS0_4);
+
+        AssignmentsLink link2 = chain.addLast(ASSIGNMENTS0_2, 1, 1);
+
+        AssignmentsLink link3 = chain.addLast(ASSIGNMENTS_2, 1, 1);
+
+        AssignmentsLink link4 = chain.addLast(Assignments.of(
+                Set.of(
+                        Assignment.forPeer("node0"),
+                        Assignment.forPeer("node1"),
+                        Assignment.forPeer("node2")
+                ),
+                baseTimestamp(5)
+        ), 1, 1);
+
+        assertThat(chain.nextLink(link2), is(link3));
+
+        assertThat(chain.nextLink(link4), is(nullValue()));
+    }
 }
