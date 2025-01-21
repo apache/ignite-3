@@ -39,9 +39,6 @@ public class GroupStoragesContextResolver {
             Map<String, Path> serverDataPathByGroupName,
             Map<String, LogStorageFactory> logStorageFactoryByGroupName
     ) {
-        assert serverDataPathByGroupName.size() == 3 : "CMG, Metastorage and raft partition groups must be present";
-        assert logStorageFactoryByGroupName.size() == 3 : "CMG, Metastorage and raft partition groups must be present";
-
         this.groupNameResolver = groupNameResolver;
         this.serverDataPathByGroupName = serverDataPathByGroupName;
         this.logStorageFactoryByGroupName = logStorageFactoryByGroupName;

@@ -453,10 +453,6 @@
     <inspection_tool class="BoundFieldAssignment" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="CStyleArrayDeclaration" enabled="true" level="INFORMATION" enabled_by_default="true" />
     <inspection_tool class="CallToNativeMethodWhileLocked" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="CallToSimpleGetterInClass" enabled="true" level="WARNING" enabled_by_default="true">
-      <option name="ignoreGetterCallsOnOtherObjects" value="false" />
-      <option name="onlyReportPrivateGetter" value="false" />
-    </inspection_tool>
     <inspection_tool class="CallToSimpleSetterInClass" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="ignoreSetterCallsOnOtherObjects" value="false" />
       <option name="onlyReportPrivateSetter" value="false" />
@@ -481,7 +477,6 @@
     <inspection_tool class="CheckNodeTest" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="CheckValidXmlInScriptTagBody" enabled="false" level="ERROR" enabled_by_default="false" />
     <inspection_tool class="CheckedExceptionClass" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="ClashingGetters" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="ClashingTraitMethods" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="ClassIndependentOfModule" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="ClassNewInstance" enabled="true" level="WARNING" enabled_by_default="true" />
@@ -568,7 +563,6 @@
     <inspection_tool class="FieldAccessedSynchronizedAndUnsynchronized" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="countGettersAndSetters" value="false" />
     </inspection_tool>
-    <inspection_tool class="FieldHasSetterButNoGetter" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="FieldHidesSuperclassField" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="m_ignoreInvisibleFields" value="true" />
     </inspection_tool>
@@ -1048,7 +1042,6 @@
       </option>
     </inspection_tool>
     <inspection_tool class="SuspiciousArrayCast" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="SuspiciousGetterSetter" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SuspiciousLiteralUnderscore" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SuspiciousLocalesLanguages" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SynchronizationOnStaticField" enabled="true" level="WARNING" enabled_by_default="true" />
