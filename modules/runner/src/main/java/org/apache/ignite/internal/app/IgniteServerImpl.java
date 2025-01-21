@@ -351,7 +351,7 @@ public class IgniteServerImpl implements IgniteServer {
             try {
                 return instance.stopAsync().thenRun(() -> {
                     synchronized (igniteChangeMutex) {
-                        LOG.info("Setting Ignite ref to null as shutdown is complete [name={}]", nodeName);
+                        LOG.info("Setting Ignite ref to null as shutdown is completed [name={}]", nodeName);
                         ignite = null;
                     }
                     joinFuture = null;
