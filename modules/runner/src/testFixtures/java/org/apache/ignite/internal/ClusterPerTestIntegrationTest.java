@@ -34,6 +34,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -255,5 +256,13 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         Ignite ignite = node(nodeIndex);
 
         return ClusterPerClassIntegrationTest.sql(ignite, null, null, null, sql, args);
+    }
+
+    protected ClusterNode clusterNode(int index) {
+        return clusterNode(node(index));
+    }
+
+    protected static ClusterNode clusterNode(Ignite node) {
+        return unwrapIgniteImpl(node).node();
     }
 }

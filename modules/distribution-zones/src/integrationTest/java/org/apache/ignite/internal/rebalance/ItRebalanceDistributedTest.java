@@ -331,7 +331,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private Path workDir;
 
     @InjectExecutorService
-    private static ScheduledExecutorService commonScheduledExecutorService;
+    private ScheduledExecutorService commonScheduledExecutorService;
 
     private StaticNodeFinder finder;
 
@@ -1217,7 +1217,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterIdService
             );
 
-            lockManager = new HeapLockManager();
+            lockManager = new HeapLockManager(systemConfiguration);
 
             MetricManager metricManager = new NoOpMetricManager();
 
@@ -1411,7 +1411,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
                     transactionInflights,
-                    lowWatermark
+                    lowWatermark,
+                    commonScheduledExecutorService
             );
 
             rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
@@ -1442,8 +1443,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager),
                     clockService,
-                    delayDurationMsSupplier,
-                    partitionIdleSafeTimePropagationPeriodMsSupplier
+                    delayDurationMsSupplier
             );
 
             indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);

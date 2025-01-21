@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,8 +32,10 @@ import org.jetbrains.annotations.Nullable;
 public class NodeWithAttributes {
     private final Node node;
 
+    @IgniteToStringInclude
     private final Map<String, String> userAttributes;
 
+    @IgniteToStringInclude
     private final List<String> storageProfiles;
 
     /**
@@ -107,6 +111,6 @@ public class NodeWithAttributes {
 
     @Override
     public String toString() {
-        return node.toString();
+        return S.toString(NodeWithAttributes.class, this);
     }
 }

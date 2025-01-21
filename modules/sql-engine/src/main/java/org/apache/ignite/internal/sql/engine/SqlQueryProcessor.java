@@ -36,7 +36,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.eventlog.api.EventLog;
@@ -189,8 +188,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
 
-    private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
-
     /** Metric manager. */
     private final MetricManager metricManager;
 
@@ -225,7 +222,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             MetricManager metricManager,
             SystemViewManager systemViewManager,
             FailureManager failureManager,
-            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier,
             PlacementDriver placementDriver,
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg,
@@ -248,7 +244,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
         this.failureManager = failureManager;
-        this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
@@ -306,7 +301,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.prepareSvc = prepareSvc;
 
         var ddlCommandHandler = registerService(
-                new DdlCommandHandler(catalogManager, clockService, partitionIdleSafeTimePropagationPeriodMsSupplier)
+                new DdlCommandHandler(catalogManager, clockService)
         );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(
@@ -550,14 +545,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         return sqlStatisticManager;
     }
 
-    private static boolean shouldBeCached(SqlQueryType queryType) {
-        return queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML;
-    }
-
     private ParsedResult parseAndCache(String sql) {
         ParsedResult result = queryExecutor.parse(sql);
 
-        if (shouldBeCached(result.queryType())) {
+        if (result.queryType().supportsParseResultCaching()) {
             queryExecutor.updateParsedResultCache(sql, result);
         }
 

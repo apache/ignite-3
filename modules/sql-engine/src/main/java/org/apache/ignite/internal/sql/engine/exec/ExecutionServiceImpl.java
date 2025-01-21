@@ -337,7 +337,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert txContext != null;
 
-        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(plan.type() != SqlQueryType.DML, false);
+        boolean readOnly = plan.type().implicitTransactionReadOnlyMode();
+        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(readOnly, false);
         InternalTransaction tx = txWrapper.unwrap();
 
         operationContext.notifyTxUsed(txWrapper);
@@ -449,8 +450,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert txContext != null;
 
-        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(((ExplainablePlan) plan).type() != SqlQueryType.DML, true);
-
+        QueryPlan queryPlan = (ExplainablePlan) plan;
+        boolean readOnly = queryPlan.type().implicitTransactionReadOnlyMode();
+        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(readOnly, true);
         operationContext.notifyTxUsed(txWrapper);
 
         PrefetchCallback prefetchCallback = new PrefetchCallback();
@@ -478,7 +480,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             DdlPlan plan
     ) {
         CompletableFuture<Iterator<InternalSqlRow>> ret = ddlCmdHnd.handle(plan.command())
-                .thenApply(applied -> (applied ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator())
+                .thenApply(activationTime -> {
+                    if (activationTime == null) {
+                        return NOT_APPLIED_ANSWER.iterator();
+                    }
+
+                    QueryTransactionContext txCtx = operationContext.txContext();
+
+                    assert txCtx != null;
+
+                    txCtx.updateObservableTime(HybridTimestamp.hybridTimestamp(activationTime));
+
+                    return APPLIED_ANSWER.iterator();
+                })
                 .exceptionally(th -> {
                     throw convertDdlException(th);
                 });

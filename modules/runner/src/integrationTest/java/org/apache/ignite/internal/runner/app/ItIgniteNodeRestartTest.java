@@ -472,7 +472,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.commonScheduler()
         );
 
-        var lockManager = new HeapLockManager();
+        var lockManager = new HeapLockManager(systemConfiguration);
 
         var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -631,7 +631,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
                 transactionInflights,
-                lowWatermark
+                lowWatermark,
+                threadPoolsManager.commonScheduler()
         );
 
         ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
@@ -674,8 +675,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockService,
-                delayDurationMsSupplier,
-                partitionIdleSafeTimePropagationPeriodMsSupplier
+                delayDurationMsSupplier
         );
 
         var indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
@@ -799,7 +799,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metricManager,
                 new SystemViewManagerImpl(name, catalogManager),
                 failureProcessor,
-                partitionIdleSafeTimePropagationPeriodMsSupplier,
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlClusterExtensionConfiguration.KEY).sql(),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),

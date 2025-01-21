@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
 import java.util.List;
 import java.util.Map;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -66,12 +68,15 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private ComputeConfiguration computeConfiguration;
 
+    @Mock(answer = RETURNS_DEEP_STUBS)
+    private TopologyService topologyService;
+
     private ComputeExecutor computeExecutor;
 
     @BeforeEach
     void setUp() {
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, "testNode");
-        computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration);
+        computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration, topologyService);
         computeExecutor.start();
     }
 

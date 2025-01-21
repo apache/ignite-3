@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -53,6 +54,48 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
                 manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()),
                 willThrowFast(CatalogValidationException.class, "Schema with name 'S1' already exists")
         );
+
+        assertThat(
+                manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).ifNotExists(true).build()),
+                willSucceedFast()
+        );
+    }
+
+    @Test
+    public void testCreateSchemaIfNotExists() {
+        {
+            assertThat(
+                    manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).ifNotExists(false).build()),
+                    willCompleteSuccessfully()
+            );
+
+            Catalog latestCatalog = latestCatalog();
+
+            assertNotNull(latestCatalog.schema(TEST_SCHEMA));
+            assertNotNull(latestCatalog.schema(SqlCommon.DEFAULT_SCHEMA_NAME));
+
+            assertThat(
+                    manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()),
+                    willThrowFast(CatalogValidationException.class, "Schema with name 'S1' already exists")
+            );
+        }
+
+        {
+            assertThat(
+                    manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA + "_1").ifNotExists(false).build()),
+                    willCompleteSuccessfully()
+            );
+
+            Catalog latestCatalog = latestCatalog();
+
+            assertNotNull(latestCatalog.schema(TEST_SCHEMA + "_1"));
+            assertNotNull(latestCatalog.schema(TEST_SCHEMA));
+
+            assertThat(
+                    manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA + "_1").ifNotExists(true).build()),
+                    willSucceedFast()
+            );
+        }
     }
 
     @Test
@@ -73,6 +116,21 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
                 manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).build()),
                 willThrowFast(CatalogValidationException.class, "Schema with name 'S1' not found")
         );
+    }
+
+    @Test
+    public void testDropIfExists() {
+        assertThat(manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).ifExists(true).build()), willCompleteSuccessfully());
+
+        assertThat(
+                manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).ifExists(false).build()),
+                willThrowFast(CatalogValidationException.class, "Schema with name 'S1' not found")
+        );
+
+        assertThat(manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()), willCompleteSuccessfully());
+
+        assertThat(manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).ifExists(true).build()), willCompleteSuccessfully());
+        assertThat(latestCatalog().schema(TEST_SCHEMA), nullValue());
     }
 
     @Test

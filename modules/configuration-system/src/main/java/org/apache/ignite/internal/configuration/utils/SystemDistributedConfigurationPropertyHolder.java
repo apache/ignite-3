@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.configuration.utils;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.function.Function;
+import java.util.function.ObjLongConsumer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedView;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
@@ -37,10 +37,10 @@ public class SystemDistributedConfigurationPropertyHolder<T> {
     private final SystemDistributedConfiguration systemDistributedConfig;
 
     /** Current value of target system distributed configuration property. */
-    private final AtomicReference<T> currentValue = new AtomicReference<>();
+    private volatile T currentValue;
 
     /** Listener, which receives (newValue, revision) on every configuration update. */
-    private final BiConsumer<T, Long> valueListener;
+    private final ObjLongConsumer<T> valueListener;
 
     /** Converter to translate {@link String} representation of property value to target type. */
     private final Function<String, T> propertyConverter;
@@ -56,7 +56,7 @@ public class SystemDistributedConfigurationPropertyHolder<T> {
      */
     public SystemDistributedConfigurationPropertyHolder(
             SystemDistributedConfiguration systemDistributedConfig,
-            BiConsumer<T, Long> valueListener,
+            ObjLongConsumer<T> valueListener,
             String propertyName,
             T defaultValue,
             Function<String, T> propertyConverter
@@ -70,7 +70,7 @@ public class SystemDistributedConfigurationPropertyHolder<T> {
         systemDistributedConfig.listen(ctx -> {
             updateSystemProperties(ctx.newValue(), ctx.storageRevision());
 
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         });
     }
 
@@ -89,7 +89,7 @@ public class SystemDistributedConfigurationPropertyHolder<T> {
      * @return Current value.
      */
     public T currentValue() {
-        return currentValue.get();
+        return currentValue;
     }
 
     /**
@@ -103,7 +103,7 @@ public class SystemDistributedConfigurationPropertyHolder<T> {
 
         T value = (systemPropertyView == null) ? defaultValue : propertyConverter.apply(systemPropertyView.propertyValue());
 
-        currentValue.set(value);
+        currentValue = value;
 
         if (revision != -1) {
             valueListener.accept(value, revision);

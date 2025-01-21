@@ -20,20 +20,29 @@ package org.apache.ignite.internal.compute;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
+import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.nullValue;
+import static org.hamcrest.Matchers.oneOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobDescriptor;
@@ -55,6 +64,11 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     private final DeploymentUnit unit = new DeploymentUnit("jobs", Version.parseVersion("1.0.0"));
 
     private final List<DeploymentUnit> units = List.of(unit);
+
+    @Override
+    protected int[] cmgMetastoreNodes() {
+        return new int[] { 0, 1 }; // Majority will be 0, 1
+    }
 
     @BeforeEach
     void deploy() throws IOException {
@@ -82,14 +96,43 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
     }
 
     @Test
+    void executeMultipleRemoteJobs() {
+        IgniteImpl ignite = unwrapIgniteImpl(node(0));
+        CompletableFuture<Set<String>> majority = ignite.clusterManagementGroupManager().majority();
+        assertThat(majority, will(contains(node(0).name(), node(1).name())));
+
+        assertThat(unwrapIgniteImpl(node(0)).deployment().nodeStatusAsync(unit.name(), unit.version()), willBe(DEPLOYED));
+        assertThat(unwrapIgniteImpl(node(1)).deployment().nodeStatusAsync(unit.name(), unit.version()), willBe(oneOf(UPLOADING, DEPLOYED)));
+        assertThat(unwrapIgniteImpl(node(2)).deployment().nodeStatusAsync(unit.name(), unit.version()), willBe(nullValue()));
+
+        // Execute concurrently on majority, unit should be in the uploading or deployed state at this point
+        List<CompletableFuture<String>> resultsMajority = IntStream.range(0, 3).mapToObj(i -> compute().executeAsync(
+                JobTarget.node(clusterNode(1)),
+                JobDescriptor.builder(toStringJobClass()).units(units()).build(),
+                42
+        )).collect(Collectors.toList());
+
+        // Execute concurrently on non-majority, unit is missing, will trigger on-demand deploy
+        List<CompletableFuture<String>> resultsMissing = IntStream.range(0, 3).mapToObj(i -> compute().executeAsync(
+                JobTarget.node(clusterNode(2)),
+                JobDescriptor.builder(toStringJobClass()).units(units()).build(),
+                42
+        )).collect(Collectors.toList());
+
+        assertThat(resultsMajority, everyItem(will(equalTo("42"))));
+        assertThat(resultsMissing, everyItem(will(equalTo("42"))));
+    }
+
+    @Test
     void executesJobWithNonExistingUnit() {
         Ignite entryNode = node(0);
 
         List<DeploymentUnit> nonExistingUnits = List.of(new DeploymentUnit("non-existing", "1.0.0"));
         CompletableFuture<String> result = entryNode.compute().executeAsync(
                 JobTarget.node(clusterNode(entryNode)),
-                JobDescriptor.<Object[], String>builder(toStringJobClassName()).units(nonExistingUnits).build(),
-                null);
+                JobDescriptor.builder(toStringJobClass()).units(nonExistingUnits).build(),
+                null
+        );
 
         CompletionException ex0 = assertThrows(CompletionException.class, result::join);
 

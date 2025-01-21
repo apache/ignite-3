@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Network.PORT_IN_USE_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -28,6 +29,7 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
 import java.net.SocketAddress;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -42,7 +44,6 @@ import org.apache.ignite.internal.network.serialization.PerSessionSerializationS
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
-import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -114,11 +115,11 @@ public class NettyServer {
     public CompletableFuture<Void> start() {
         synchronized (startStopLock) {
             if (stopped) {
-                throw new IgniteInternalException(Common.INTERNAL_ERR, "Attempted to start an already stopped server");
+                throw new IgniteInternalException(INTERNAL_ERR, "Attempted to start an already stopped server");
             }
 
             if (serverStartFuture != null) {
-                throw new IgniteInternalException(Common.INTERNAL_ERR, "Attempted to start an already started server");
+                throw new IgniteInternalException(INTERNAL_ERR, "Attempted to start an already started server");
             }
 
             ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
@@ -142,11 +143,21 @@ public class NettyServer {
                     });
 
             int port = configuration.port();
-            String address = configuration.listenAddress();
+            String[] addresses = configuration.listenAddresses();
 
             var bindFuture = new CompletableFuture<Channel>();
 
-            ChannelFuture channelFuture = address.isEmpty() ? bootstrap.bind(port) : bootstrap.bind(address, port);
+            ChannelFuture channelFuture;
+            if (addresses.length == 0) {
+                channelFuture = bootstrap.bind(port);
+            } else {
+                if (addresses.length > 1) {
+                    // TODO: IGNITE-22369 - support more than one listen address.
+                    throw new IgniteException(INTERNAL_ERR, "Only one listen address is allowed for now, but got " + List.of(addresses));
+                }
+
+                channelFuture = bootstrap.bind(addresses[0], port);
+            }
 
             channelFuture.addListener((ChannelFuture future) -> {
                 if (future.isSuccess()) {
@@ -154,9 +165,9 @@ public class NettyServer {
                 } else if (future.isCancelled()) {
                     bindFuture.cancel(true);
                 } else {
-                    String errorMessage = address.isEmpty()
+                    String errorMessage = addresses.length == 0
                             ? "Port " + port + " is not available."
-                            : String.format("Address %s:%d is not available", address, port);
+                            : String.format("Address %s:%d is not available", addresses[0], port);
                     bindFuture.completeExceptionally(new IgniteException(PORT_IN_USE_ERR, errorMessage, future.cause()));
                 }
             });

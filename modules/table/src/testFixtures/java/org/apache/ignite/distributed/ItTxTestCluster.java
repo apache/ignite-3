@@ -585,7 +585,8 @@ public class ItTxTestCluster {
                 partitionOperationsExecutor,
                 resourcesRegistry,
                 transactionInflights,
-                lowWatermark
+                lowWatermark,
+                executor
         );
     }
 
@@ -1074,7 +1075,8 @@ public class ItTxTestCluster {
                 partitionOperationsExecutor,
                 resourceRegistry,
                 clientTransactionInflights,
-                lowWatermark
+                lowWatermark,
+                executor
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(

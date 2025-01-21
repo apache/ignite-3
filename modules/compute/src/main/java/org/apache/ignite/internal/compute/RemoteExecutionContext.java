@@ -19,7 +19,6 @@ package org.apache.ignite.internal.compute;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 
 /**
@@ -76,7 +75,7 @@ class RemoteExecutionContext {
      *
      * @param jobExecution the new job execution object (supposed to be a restarted job but in another worker node).
      */
-    void updateJobExecution(JobExecution<ComputeJobDataHolder> jobExecution) {
+    void updateJobExecution(CancellableJobExecution<ComputeJobDataHolder> jobExecution) {
         failSafeJobExecution().updateJobExecution(jobExecution);
     }
 

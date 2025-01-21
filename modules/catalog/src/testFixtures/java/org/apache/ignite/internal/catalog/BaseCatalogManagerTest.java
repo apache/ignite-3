@@ -101,13 +101,10 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     protected CatalogManagerImpl manager;
 
     protected AtomicLong delayDuration = new AtomicLong();
-    protected AtomicLong partitionIdleSafeTimePropagationPeriod = new AtomicLong();
-
 
     @BeforeEach
     void setUp() {
         delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
-        partitionIdleSafeTimePropagationPeriod.set(CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
 
         metastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
@@ -119,8 +116,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         manager = new CatalogManagerImpl(
                 updateLog,
                 clockService,
-                delayDuration::get,
-                partitionIdleSafeTimePropagationPeriod::get
+                delayDuration::get
         );
 
         ComponentContext context = new ComponentContext();

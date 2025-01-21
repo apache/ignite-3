@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
+import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
@@ -36,7 +37,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
     private static final String TABLE_NAME = "first_ZONE_table";
 
-    private static final String QUALIFIED_TABLE_NAME = "PUBLIC." + TABLE_NAME;
+    private static final String QUALIFIED_TABLE_NAME = canonicalName("PUBLIC", TABLE_NAME);
 
     private static final int DEFAULT_PARTITION_COUNT = 25;
 
@@ -103,7 +104,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
     @Test
     public void testRestartPartitionTableNotFound() {
-        String unknownTable = "PUBLIC.unknown_table";
+        String unknownTable = canonicalName("PUBLIC", "unknown_table");
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, unknownTable,

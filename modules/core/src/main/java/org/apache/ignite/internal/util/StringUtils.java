@@ -204,4 +204,11 @@ public final class StringUtils {
 
         return new String(bytes, prefixLength, bytes.length - prefixLength, UTF_8);
     }
+
+    /**
+     * Escape double quotes in given string.
+     */
+    public static String escapeQuotes(String s) {
+        return s.replace("\"", "\\\"");
+    }
 }

@@ -26,9 +26,11 @@ import org.jetbrains.annotations.Nullable;
 
 /** Context that always creates implicit transaction. */
 public class ImplicitTxContext implements QueryTransactionContext {
-    public static final QueryTransactionContext INSTANCE = new ImplicitTxContext();
-
     private final HybridTimestampTracker observableTimeTracker = HybridTimestampTracker.atomicTracker(null);
+
+    public static ImplicitTxContext create() {
+        return new ImplicitTxContext();
+    }
 
     private ImplicitTxContext() { }
 
@@ -45,5 +47,9 @@ public class ImplicitTxContext implements QueryTransactionContext {
     @Override
     public void updateObservableTime(HybridTimestamp time) {
         observableTimeTracker.update(time);
+    }
+
+    public @Nullable HybridTimestamp observableTime() {
+        return observableTimeTracker.get();
     }
 }

@@ -18,15 +18,17 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Delegates {@link JobExecution} to the future of {@link JobExecutionInternal}.
  */
-class DelegatingJobExecution implements JobExecution<ComputeJobDataHolder> {
+class DelegatingJobExecution implements CancellableJobExecution<ComputeJobDataHolder> {
     private final CompletableFuture<JobExecutionInternal<ComputeJobDataHolder>> delegate;
 
     DelegatingJobExecution(CompletableFuture<JobExecutionInternal<ComputeJobDataHolder>> delegate) {
@@ -51,5 +53,15 @@ class DelegatingJobExecution implements JobExecution<ComputeJobDataHolder> {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return delegate.thenApply(jobExecutionInternal -> jobExecutionInternal.changePriority(newPriority));
+    }
+
+    @Override
+    public ClusterNode node() {
+        try {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24184
+            return delegate.thenApply(JobExecutionInternal::node).get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

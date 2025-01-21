@@ -320,7 +320,7 @@ public class TestNode implements LifecycleAware {
     public void initSchema(String script) {
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = queryExecutor.executeQuery(
                 SqlPropertiesHelper.emptyProperties(),
-                ImplicitTxContext.INSTANCE,
+                ImplicitTxContext.create(),
                 script,
                 null,
                 ArrayUtils.OBJECT_EMPTY_ARRAY
@@ -344,7 +344,7 @@ public class TestNode implements LifecycleAware {
 
     /** Executes the given query. */
     public AsyncSqlCursor<InternalSqlRow> executeQuery(@Nullable InternalTransaction tx, String query, Object... params) {
-        QueryTransactionContext txContext = tx == null ? ImplicitTxContext.INSTANCE : ExplicitTxContext.fromTx(tx);
+        QueryTransactionContext txContext = tx == null ? ImplicitTxContext.create() : ExplicitTxContext.fromTx(tx);
 
         return executeQuery(txContext, query, params);
     }
@@ -374,7 +374,7 @@ public class TestNode implements LifecycleAware {
                 .operationTime(clock.now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
-                .txContext(ImplicitTxContext.INSTANCE)
+                .txContext(ImplicitTxContext.create())
                 .parameters();
     }
 

@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Compute;
 using System;
 using System.Threading.Tasks;
 using Ignite.Compute;
+using Ignite.Network;
 
 /// <summary>
 /// Job execution.
@@ -39,9 +40,12 @@ internal sealed record JobExecution<T> : IJobExecution<T>
     /// <param name="id">Job id.</param>
     /// <param name="resultTask">Result task.</param>
     /// <param name="compute">Compute.</param>
-    public JobExecution(Guid id, Task<(T Result, JobState Status)> resultTask, Compute compute)
+    /// <param name="node">Job node.</param>
+    public JobExecution(Guid id, Task<(T Result, JobState Status)> resultTask, Compute compute, IClusterNode node)
     {
         Id = id;
+        Node = node;
+
         _resultTask = resultTask;
         _compute = compute;
 
@@ -51,6 +55,9 @@ internal sealed record JobExecution<T> : IJobExecution<T>
 
     /// <inheritdoc/>
     public Guid Id { get; }
+
+    /// <inheritdoc/>
+    public IClusterNode Node { get; }
 
     /// <inheritdoc/>
     public async Task<T> GetResultAsync()
@@ -77,10 +84,6 @@ internal sealed record JobExecution<T> : IJobExecution<T>
 
         return status;
     }
-
-    /// <inheritdoc/>
-    public async Task<bool?> CancelAsync() =>
-        await _compute.CancelJobAsync(Id).ConfigureAwait(false);
 
     /// <inheritdoc/>
     public async Task<bool?> ChangePriorityAsync(int priority) =>

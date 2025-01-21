@@ -27,8 +27,11 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.triggerZonePartitionsRebalance;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -41,6 +44,8 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -54,6 +59,8 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * // TODO: after switching to zone-based replication
  */
 public class DistributionZoneRebalanceEngineV2 {
+    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngine.class);
+
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
@@ -158,11 +165,36 @@ public class DistributionZoneRebalanceEngineV2 {
                 return nullCompletedFuture();
             }
 
-            Set<String> filteredDataNodes = filterDataNodes(
-                    dataNodes,
-                    zoneDescriptor,
-                    distributionZoneManager.nodesAttributes()
-            );
+            Map<UUID, NodeWithAttributes> nodesAttributes = distributionZoneManager.nodesAttributes();
+
+            Set<String> filteredDataNodes = filterDataNodes(dataNodes, zoneDescriptor, nodesAttributes);
+
+            if (LOG.isInfoEnabled()) {
+                var matchedNodes = new ArrayList<NodeWithAttributes>();
+                var filteredOutNodes = new ArrayList<NodeWithAttributes>();
+
+                for (Node dataNode : dataNodes) {
+                    NodeWithAttributes nodeWithAttributes = nodesAttributes.get(dataNode.nodeId());
+
+                    if (filteredDataNodes.contains(dataNode.nodeName())) {
+                        matchedNodes.add(nodeWithAttributes);
+                    } else {
+                        filteredOutNodes.add(nodeWithAttributes);
+                    }
+                }
+
+                if (!filteredOutNodes.isEmpty()) {
+                    LOG.info(
+                            "Some data nodes were filtered out because they don't match zone's attributes:"
+                                    + "\n\tzoneId={}\n\tfilter={}\n\tstorageProfiles={}'\n\tfilteredOutNodes={}\n\tremainingNodes={}",
+                            zoneDescriptor.id(),
+                            zoneDescriptor.filter(),
+                            zoneDescriptor.storageProfiles(),
+                            filteredOutNodes,
+                            matchedNodes
+                    );
+                }
+            }
 
             if (filteredDataNodes.isEmpty()) {
                 return nullCompletedFuture();
@@ -197,8 +229,7 @@ public class DistributionZoneRebalanceEngineV2 {
 
     /**
      * Calculate data nodes from the distribution zone for {@code zoneDescriptor} and {@code causalityToken} and trigger zones partitions
-     * rebalance. For more details see
-     * {@link ZoneRebalanceUtil#triggerZonePartitionsRebalance(CatalogZoneDescriptor, Set, long, MetaStorageManager)}
+     * rebalance. For more details see {@link ZoneRebalanceUtil#triggerZonePartitionsRebalance}.
      *
      * @param zoneDescriptor Zone descriptor.
      * @param causalityToken Causality token.

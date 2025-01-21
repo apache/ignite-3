@@ -42,6 +42,7 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.table.distributed.TableUtils.isDirectFlowApplicableTx;
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.CompletableFutures.completedOrFailedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
@@ -501,11 +502,11 @@ public class InternalTableImpl implements InternalTable {
     }
 
     private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.begin(observableTimestampTracker, true) : tx;
+        return tx == null ? txManager.beginImplicitRw(observableTimestampTracker) : tx;
     }
 
     private InternalTransaction startImplicitRoTxIfNeeded(@Nullable InternalTransaction tx) {
-        return tx == null ? txManager.begin(observableTimestampTracker, true, true) : tx;
+        return tx == null ? txManager.beginImplicitRo(observableTimestampTracker) : tx;
     }
 
     /**
@@ -1030,16 +1031,6 @@ public class InternalTableImpl implements InternalTable {
         return collectMultiRowsResponsesWithRestoreOrder(rowBatchByPartitionId.values());
     }
 
-    /**
-     * Checks whether the transaction meets the requirements for a direct transaction or not.
-     *
-     * @param tx Transaction of {@code null}.
-     * @return True of direct flow is applicable for the transaction.
-     */
-    private boolean isDirectFlowApplicableTx(@Nullable InternalTransaction tx) {
-        return tx == null || (tx.implicit() && tx.isReadOnly());
-    }
-
     private ReadWriteMultiRowPkReplicaRequest readWriteMultiRowPkReplicaRequest(
             RequestType requestType,
             Collection<? extends BinaryRow> rows,
@@ -1169,7 +1160,7 @@ public class InternalTableImpl implements InternalTable {
             int partition,
             @Nullable Long txStartTs
     ) {
-        InternalTransaction tx = txManager.begin(observableTimestampTracker, true);
+        InternalTransaction tx = txManager.beginImplicitRw(observableTimestampTracker);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
         assert rows.stream().allMatch(row -> partitionId(row) == partition) : "Invalid batch for partition " + partition;

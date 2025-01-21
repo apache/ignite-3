@@ -94,6 +94,7 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
@@ -102,6 +103,7 @@ import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DeferredDefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
+import org.apache.ignite.internal.catalog.commands.DropSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
@@ -121,9 +123,12 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateSchema;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropSchema;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropSchemaBehavior;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
@@ -265,9 +270,32 @@ public class DdlSqlToCommandConverter {
             return convertDropZone((IgniteSqlDropZone) ddlNode, ctx);
         }
 
+        if (ddlNode instanceof IgniteSqlCreateSchema) {
+            return convertCreateSchema((IgniteSqlCreateSchema) ddlNode, ctx);
+        }
+
+        if (ddlNode instanceof IgniteSqlDropSchema) {
+            return convertDropSchema((IgniteSqlDropSchema) ddlNode, ctx);
+        }
+
         throw new SqlException(STMT_VALIDATION_ERR, "Unsupported operation ["
                 + "sqlNodeKind=" + ddlNode.getKind() + "; "
                 + "querySql=\"" + ctx.query() + "\"]");
+    }
+
+    private CatalogCommand convertCreateSchema(IgniteSqlCreateSchema ddlNode, PlanningContext ctx) {
+        return CreateSchemaCommand.builder()
+                .name(deriveObjectName(ddlNode.name(), ctx, "schemaName"))
+                .ifNotExists(ddlNode.ifNotExists())
+                .build();
+    }
+
+    private CatalogCommand convertDropSchema(IgniteSqlDropSchema ddlNode, PlanningContext ctx) {
+        return DropSchemaCommand.builder()
+                .name(deriveObjectName(ddlNode.name(), ctx, "schemaName"))
+                .ifExists(ddlNode.ifExists())
+                .cascade(ddlNode.behavior() == IgniteSqlDropSchemaBehavior.CASCADE)
+                .build();
     }
 
     /**
