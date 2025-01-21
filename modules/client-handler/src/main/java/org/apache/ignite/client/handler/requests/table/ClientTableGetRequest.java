@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -47,7 +48,7 @@ public class ClientTableGetRequest {
                 out.packNil();
             } else {
                 out.packInt(((TableViewInternal) table).tableId());
-                out.packString(table.name());
+                out.packString(IgniteNameUtils.quote(table.name()));
             }
         });
     }
