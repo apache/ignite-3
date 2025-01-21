@@ -14,6 +14,8 @@
 # limitations under the License.
 import pytest
 
+from tests.conftest import TEST_PAGE_SIZE
+
 TEST_ROWS_NUM = 15
 
 
@@ -176,8 +178,13 @@ def test_cursor_iterable(table_name, cursor, drop_table_cleanup):
         check_row(i, row)
 
 
-def test_fetch_table_several_pages(table_name, cursor, drop_table_cleanup):
-    rows_num = 1025
+@pytest.mark.parametrize("rows_num", [
+    TEST_PAGE_SIZE - 1,
+    TEST_PAGE_SIZE,
+    TEST_PAGE_SIZE + 1,
+    TEST_PAGE_SIZE * 2,
+    TEST_PAGE_SIZE * 2 + 1])
+def test_fetch_table_several_pages(table_name, cursor, drop_table_cleanup, rows_num):
     create_and_populate_test_table(cursor, rows_num, table_name)
 
     cursor.execute(f"select id, data, fl from {table_name} order by id")

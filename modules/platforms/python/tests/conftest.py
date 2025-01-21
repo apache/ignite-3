@@ -22,6 +22,7 @@ from tests.util import check_cluster_started, start_cluster_gen, server_addresse
 logger = logging.getLogger('pyignite3')
 logger.setLevel(logging.DEBUG)
 
+TEST_PAGE_SIZE = 32
 
 @pytest.fixture()
 def table_name(request):
@@ -30,7 +31,7 @@ def table_name(request):
 
 @pytest.fixture()
 def connection():
-    conn = pyignite3.connect(address=server_addresses_basic)
+    conn = pyignite3.connect(address=server_addresses_basic, page_size=TEST_PAGE_SIZE)
     yield conn
     conn.close()
 
