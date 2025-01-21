@@ -147,15 +147,15 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
             nan = Float.NaN;
         }
 
-        assertQuery(format("select CAST('+Infinity' AS {})", type)).returns(positiveInfinity).check();
-        assertQuery(format("select CAST('Infinity' AS {})", type)).returns(positiveInfinity).check();
-        assertQuery(format("select CAST('-Infinity' AS {})", type)).returns(negativeInfinity).check();
-        assertQuery(format("select CAST('NaN' AS {})", type)).returns(nan).check();
+        assertQuery(format("SELECT CAST('+Infinity' AS {})", type)).returns(positiveInfinity).check();
+        assertQuery(format("SELECT CAST('Infinity' AS {})", type)).returns(positiveInfinity).check();
+        assertQuery(format("SELECT CAST('-Infinity' AS {})", type)).returns(negativeInfinity).check();
+        assertQuery(format("SELECT CAST('NaN' AS {})", type)).returns(nan).check();
 
-        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k < CAST('+Infinity' AS REAL)", type)).returns(0).check();
-        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k < CAST('Infinity' AS REAL)", type)).returns(0).check();
-        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k > CAST('-Infinity' AS REAL)", type)).returns(0).check();
-        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k <> CAST('NaN' AS REAL)", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k < CAST('+Infinity' AS {})", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k < CAST('Infinity' AS {})", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k > CAST('-Infinity' AS {})", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k <> CAST('NaN' AS {})", type)).returns(0).check();
     }
 
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
