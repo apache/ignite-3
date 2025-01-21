@@ -134,7 +134,12 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
 
         // Quoting is necessary.
         client().sql().execute(null, "CREATE TABLE IF NOT EXISTS \"tbl-2\" (key INTEGER PRIMARY KEY)");
-        Table table2 = client().tables().table("\"tbl-2\"");
-        assertEquals("\"tbl-2\"", table2.name());
+
+        try {
+            Table table2 = client().tables().table("\"tbl-2\"");
+            assertEquals("\"tbl-2\"", table2.name());
+        } finally {
+            client().sql().execute(null, "DROP TABLE \"tbl-2\"");
+        }
     }
 }
