@@ -351,17 +351,17 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         if (!DEFAULT_SCHEMA_NAME.equals(schema)) {
             assertThrowsSqlException(
                     STMT_VALIDATION_ERR,
-                    format("System schema can't be created [name={}]", schema),
+                    format("Reserved system schema with name '{}' can't be created.", schema),
                     () -> sql(format("CREATE SCHEMA {}", schema.toLowerCase())));
 
             assertThrowsSqlException(
                     STMT_VALIDATION_ERR,
-                    format("System schema can't be created [name={}]", schema),
+                    format("Reserved system schema with name '{}' can't be created.", schema),
                     () -> sql(format("CREATE SCHEMA {}", schema)));
 
             assertThrowsSqlException(
                     STMT_VALIDATION_ERR,
-                    format("System schema can't be created [name={}]", schema),
+                    format("Reserved system schema with name '{}' can't be created.", schema),
                     () -> sql(format("CREATE SCHEMA \"{}\"", schema)));
         }
     }

@@ -95,7 +95,8 @@ public class CatalogSchemaValidationTest extends BaseCatalogManagerTest {
         CatalogCommand createCmd = CreateSchemaCommand.builder().name(schemaName).build();
 
         assertThat(manager.execute(createCmd),
-                willThrowFast(CatalogValidationException.class, format("System schema can't be created [name={}]", schemaName))
+                willThrowFast(CatalogValidationException.class, format("Reserved system schema with name '{}' can't be created.",
+                        schemaName))
         );
     }
 

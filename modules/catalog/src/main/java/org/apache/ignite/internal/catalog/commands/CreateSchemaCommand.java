@@ -58,7 +58,7 @@ public class CreateSchemaCommand implements CatalogCommand {
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
         if (CatalogUtils.isSystemSchema(schemaName)) {
-            throw new CatalogValidationException("System schema can't be created [name={}].", schemaName);
+            throw new CatalogValidationException("Reserved system schema with name '{}' can't be created.", schemaName);
         }
 
         int id = catalog.objectIdGenState();
