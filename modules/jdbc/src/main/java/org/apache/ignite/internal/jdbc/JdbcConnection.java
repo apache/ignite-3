@@ -61,6 +61,7 @@ import org.apache.ignite.client.SslConfiguration;
 import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.client.IgniteClientConfigurationImpl;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -130,7 +131,7 @@ public class JdbcConnection implements Connection {
      * @param props Connection properties.
      * @param observableTimeTracker Tracker of the latest time observed by client.
      */
-    public JdbcConnection(ConnectionProperties props, AtomicLong observableTimeTracker) throws SQLException {
+    public JdbcConnection(ConnectionProperties props, HybridTimestampTracker observableTimeTracker) throws SQLException {
         this.connProps = props;
         autoCommit = true;
 
@@ -171,7 +172,7 @@ public class JdbcConnection implements Connection {
         holdability = HOLD_CURSORS_OVER_COMMIT;
     }
 
-    private TcpIgniteClient buildClient(String[] addrs, AtomicLong observableTimestamp) {
+    private TcpIgniteClient buildClient(String[] addrs, HybridTimestampTracker observableTimeTracker) {
         var cfg = new IgniteClientConfigurationImpl(
                 null,
                 addrs,
@@ -188,7 +189,7 @@ public class JdbcConnection implements Connection {
                 IgniteClientConfiguration.DFLT_OPERATION_TIMEOUT
         );
 
-        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimestamp));
+        return (TcpIgniteClient) sync(TcpIgniteClient.startAsync(cfg, observableTimeTracker));
     }
 
     /**

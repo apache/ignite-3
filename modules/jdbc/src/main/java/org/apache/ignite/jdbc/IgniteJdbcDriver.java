@@ -27,9 +27,9 @@ import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.jdbc.JdbcConnection;
 
@@ -163,7 +163,7 @@ public class IgniteJdbcDriver implements Driver {
     private static final int MINOR_VER = ProtocolVersion.LATEST_VER.minor();
 
     /** Tracker of the latest time observed by client. */
-    private final AtomicLong observableTimeTracker = new AtomicLong();
+    private final HybridTimestampTracker observableTimeTracker = HybridTimestampTracker.atomicTracker(null);
 
     /** {@inheritDoc} */
     @Override
