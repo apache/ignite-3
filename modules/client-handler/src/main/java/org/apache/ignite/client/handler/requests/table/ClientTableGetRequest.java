@@ -55,7 +55,13 @@ public class ClientTableGetRequest {
 
     private static String quoteTableNameIfNotAllUpper(String name) {
         for (int i = 0; i < name.length(); i++) {
-            if (!Character.isUpperCase(name.charAt(i))) {
+            char ch = name.charAt(i);
+
+            if (Character.isDigit(ch)) {
+                continue;
+            }
+
+            if (!Character.isUpperCase(ch)) {
                 return IgniteNameUtils.quote(name);
             }
         }
