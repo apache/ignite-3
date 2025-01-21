@@ -92,9 +92,9 @@ public interface InternalTransaction extends Transaction {
     HybridTimestamp startTimestamp();
 
     /**
-     * Returns observable timestamp.
+     * Returns an observable timestamp provided by the observable timestamp tracker.
      *
-     * @return observable timestamp.
+     * @return observable timestamp, or {@code null} if the observable time has not yet been initialized/updated.
      */
     @Nullable HybridTimestamp observableTimestamp();
 

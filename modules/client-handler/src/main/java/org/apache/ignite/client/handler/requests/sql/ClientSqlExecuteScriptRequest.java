@@ -49,6 +49,7 @@ public class ClientSqlExecuteScriptRequest {
             arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
         }
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24275 Script must return updated time to client.
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         var tsUpdater = HybridTimestampTracker.clientTracker(clientTs, ts -> {});
 

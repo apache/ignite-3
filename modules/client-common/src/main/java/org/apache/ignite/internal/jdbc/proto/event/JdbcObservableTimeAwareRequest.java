@@ -23,11 +23,11 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
  * An extension to JDBC request that provides the ability to update and read client observable time.
  */
 abstract class JdbcObservableTimeAwareRequest {
-    /** Holds the latest time observed by client. */
+    /** Tracker of the latest time observed by client. */
     @SuppressWarnings("TransientFieldInNonSerializableClass")
     private final transient HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
 
-    /** Returns the holder with the latest time observed by client. */
+    /** Returns the tracker of the latest time observed by client. */
     public HybridTimestampTracker timestampTracker() {
         return timestampTracker;
     }

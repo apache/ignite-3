@@ -43,9 +43,7 @@ public class ClientJdbcFinishTxRequest {
         boolean commit = in.unpackBoolean();
 
         return handler.finishTxAsync(connectionId, commit).thenAccept(res -> {
-            if (commit) {
-                out.meta(res.observableTime());
-            }
+            out.meta(res.observableTime());
 
             res.writeBinary(out);
         });
