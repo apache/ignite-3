@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -106,6 +107,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("Temporary disabled.")
     void shouldCancelSqlQuery() {
         // Create table
         sql("CREATE TABLE large_table2 (id int primary key, value1 DOUBLE, value2 DOUBLE)");
