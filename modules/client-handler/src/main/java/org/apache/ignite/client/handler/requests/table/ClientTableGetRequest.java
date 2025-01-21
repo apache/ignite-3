@@ -47,6 +47,7 @@ public class ClientTableGetRequest {
                 out.packNil();
             } else {
                 out.packInt(((TableViewInternal) table).tableId());
+                out.packString(table.name());
             }
         });
     }

@@ -82,6 +82,8 @@ public class ClientTables implements IgniteTables {
         Objects.requireNonNull(name);
 
         return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name),
-                r -> r.in().tryUnpackNil() ? null : new ClientTable(ch, marshallers, r.in().unpackInt(), name));
+                r -> r.in().tryUnpackNil()
+                        ? null
+                        : new ClientTable(ch, marshallers, r.in().unpackInt(), r.in().unpackString()));
     }
 }
