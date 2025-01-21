@@ -74,6 +74,7 @@ public class TestLozaFactory {
                 new GroupStoragesContextResolver(Object::toString, Map.of(), Map.of())
         );
     }
+
     /**
      * Factory method for {@link Loza}.
      *

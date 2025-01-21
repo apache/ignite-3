@@ -21,26 +21,37 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.jetbrains.annotations.Nullable;
 
+/** Contains {@link DestroyStorageIntent}, server data path and {@link LogStorageFactory} for storage destruction. */
 public class DestroyStorageContext {
     private final DestroyStorageIntent intent;
 
     private final @Nullable LogStorageFactory logStorageFactory;
     private final Path serverDataPath;
 
+    /**
+     * Constructor.
+     *
+     * @param intent Intent to destroy raft group storages.
+     * @param logStorageFactory factory managing log storage of the group.
+     * @param serverDataPath Path containing raft server metadata.
+     */
     public DestroyStorageContext(DestroyStorageIntent intent, @Nullable LogStorageFactory logStorageFactory, Path serverDataPath) {
         this.intent = intent;
         this.logStorageFactory = logStorageFactory;
         this.serverDataPath = serverDataPath;
     }
 
+    /** Returns the path containing raft server metadata. */
     public Path serverDataPath() {
         return serverDataPath;
     }
 
+    /** Returns the factory managing log storage of the group. */
     public @Nullable LogStorageFactory logStorageFactory() {
         return logStorageFactory;
     }
 
+    /** Returns the intent to destroy raft group storages. */
     public DestroyStorageIntent intent() {
         return intent;
     }
