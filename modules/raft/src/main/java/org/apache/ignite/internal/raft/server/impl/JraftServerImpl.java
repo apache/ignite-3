@@ -600,9 +600,7 @@ public class JraftServerImpl implements RaftServer {
 
         groupStoragesDestructionIntents.saveDestroyStorageIntent(nodeId.groupId(), intent);
 
-        destroyStorage(
-                new DestroyStorageContext(intent, groupOptions.getLogStorageFactory(), serverDataPathForNodeId(nodeId, groupOptions))
-        );
+        destroyStorage(new DestroyStorageContext(intent, groupOptions.getLogStorageFactory(), groupOptions.serverDataPath()));
     }
 
     private void destroyStorage(
