@@ -234,6 +234,7 @@ public class PersistentPageMemory implements PageMemory {
      * @param flushDirtyPageForReplacement Write callback invoked when a dirty page is removed for replacement.
      * @param checkpointTimeoutLock Checkpoint timeout lock.
      * @param pageSize Page size in bytes.
+     * @param rwLock Read-write lock for pages.
      */
     public PersistentPageMemory(
             PersistentPageMemoryProfileConfiguration storageProfileConfiguration,
@@ -245,7 +246,8 @@ public class PersistentPageMemory implements PageMemory {
             WriteDirtyPage flushDirtyPageForReplacement,
             CheckpointTimeoutLock checkpointTimeoutLock,
             // TODO: IGNITE-17017 Move to common config
-            int pageSize
+            int pageSize,
+            OffheapReadWriteLock rwLock
     ) {
         this.storageProfileView = (PersistentPageMemoryProfileView) storageProfileConfiguration.value();
         this.ioRegistry = ioRegistry;
@@ -258,7 +260,7 @@ public class PersistentPageMemory implements PageMemory {
 
         sysPageSize = pageSize + PAGE_OVERHEAD;
 
-        rwLock = new OffheapReadWriteLock(128);
+        this.rwLock = rwLock;
 
         String replacementMode = storageProfileView.replacementMode();
 
