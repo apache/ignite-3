@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toSet;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Represents a link in the chain of assignments.
@@ -33,6 +34,7 @@ public class AssignmentsLink {
     private final Assignments assignments;
     private final long configurationIndex;
     private final long configurationTerm;
+    private @Nullable AssignmentsLink next;
 
     AssignmentsLink(
             Assignments assignments,
@@ -46,6 +48,20 @@ public class AssignmentsLink {
 
     public Assignments assignments() {
         return assignments;
+    }
+
+    /**
+     * Gets the next link in the chain after the given link.
+     *
+     * @return The next link in the chain, or {@code null} if the given link is the last one in the chain.
+     */
+    public @Nullable AssignmentsLink next() {
+        return next;
+    }
+
+
+    void next(@Nullable AssignmentsLink next) {
+        this.next = next;
     }
 
     /**

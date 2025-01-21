@@ -69,6 +69,10 @@ public class AssignmentsChain implements Iterable<AssignmentsLink> {
 
         chain.set(chain.size() - 1, link);
 
+        if (chain.size() > 1) {
+            chain.get(chain.size() - 2).next(link);
+        }
+
         return link;
     }
 
@@ -83,21 +87,11 @@ public class AssignmentsChain implements Iterable<AssignmentsLink> {
 
         AssignmentsLink link = new AssignmentsLink(newLast, configurationTerm, configurationIndex);
 
+        chain.get(chain.size() - 1).next(link);
+
         chain.add(link);
 
         return link;
-    }
-
-    /**
-     * Gets the next link in the chain after the given link.
-     *
-     * @param link The link to get the next one from.
-     * @return The next link in the chain, or {@code null} if the given link is the last one in the chain.
-     */
-    public @Nullable AssignmentsLink nextLink(AssignmentsLink link) {
-        int i = chain.indexOf(link);
-
-        return i < 0 || i == chain.size() - 1 ? null : chain.get(i + 1);
     }
 
     public AssignmentsLink firstLink() {
@@ -146,6 +140,9 @@ public class AssignmentsChain implements Iterable<AssignmentsLink> {
      * @param assignmentsChain Chain of partition assignments.
      */
     static AssignmentsChain of(List<AssignmentsLink> assignmentsChain) {
+        for (int i = 1; i < assignmentsChain.size(); i++) {
+            assignmentsChain.get(i - 1).next(assignmentsChain.get(i));
+        }
         return new AssignmentsChain(assignmentsChain);
     }
 

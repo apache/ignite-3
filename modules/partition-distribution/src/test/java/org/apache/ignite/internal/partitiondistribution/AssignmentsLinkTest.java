@@ -104,11 +104,6 @@ class AssignmentsLinkTest {
 
         assertThat(link1.assignments(), is(ASSIGNMENTS0_4));
 
-        assertThat(chain.nextLink(link1), is(link2));
-        assertThat(chain.nextLink(link2), is(link3));
-        assertThat(chain.nextLink(link3), is(link4));
-        assertThat(chain.nextLink(link4), is(nullValue()));
-
         Iterator<AssignmentsLink> iterator = chain.iterator();
 
         assertThat(iterator.next(), is(link1));
@@ -116,6 +111,11 @@ class AssignmentsLinkTest {
         assertThat(iterator.next(), is(link3));
         assertThat(iterator.next(), is(link4));
         assertThat(iterator.hasNext(), is(false));
+
+        assertThat(link1.next(), is(link2));
+        assertThat(link2.next(), is(link3));
+        assertThat(link3.next(), is(link4));
+        assertThat(link4.next(), is(nullValue()));
     }
 
     @Test
@@ -135,8 +135,7 @@ class AssignmentsLinkTest {
                 baseTimestamp(5)
         ), 1, 1);
 
-        assertThat(chain.nextLink(link2), is(link3));
-
-        assertThat(chain.nextLink(link4), is(nullValue()));
+        assertThat(link2.next(), is(link3));
+        assertThat(link4.next(), is(nullValue()));
     }
 }
