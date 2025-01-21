@@ -59,4 +59,7 @@ public interface TpcTable {
      * @throws IOException In case of error.
      */
     Iterator<Object[]> dataProvider(Path pathToDataset) throws IOException;
+
+    /** Returns estimated size of a table for given scale factor. */
+    long estimatedSize(TpcScaleFactor sf);
 }

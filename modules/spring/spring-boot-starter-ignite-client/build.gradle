@@ -21,6 +21,11 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 
 description = "Starter for Apache Ignite 3"
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
 dependencies {
     api(project(":spring-boot-ignite-client-autoconfigure"))
     api(project(":ignite-client"))

@@ -26,6 +26,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -48,7 +49,7 @@ public class ItInternalTableReadOnlyScanTest extends ItAbstractInternalTableScan
 
     @Override
     protected InternalTransaction startTx() {
-        return internalTbl.txManager().begin(HYBRID_TIMESTAMP_TRACKER, false, true);
+        return internalTbl.txManager().beginExplicitRo(HYBRID_TIMESTAMP_TRACKER, InternalTxOptions.defaults());
     }
 
     @Override

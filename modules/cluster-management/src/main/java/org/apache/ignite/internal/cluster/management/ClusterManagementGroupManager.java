@@ -412,9 +412,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     }
 
     /**
-     * Returns the cluster state future or the future that will be resolved to null if the cluster is not initialized yet.
+     * Returns the cluster state future or the future that will be resolved to {@code null} if the cluster is not initialized yet or the
+     * local CMG raft service stops (for example, due to unsuccessful completion of cluster initialization).
      */
-    public CompletableFuture<ClusterState> clusterState() {
+    public CompletableFuture<@Nullable ClusterState> clusterState() {
         CompletableFuture<CmgRaftService> serviceFuture = raftService;
 
         return serviceFuture == null ? nullCompletedFuture() : serviceFuture.thenCompose(CmgRaftService::readClusterState);

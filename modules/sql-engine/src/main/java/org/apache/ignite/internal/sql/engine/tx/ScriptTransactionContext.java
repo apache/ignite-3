@@ -128,14 +128,12 @@ public class ScriptTransactionContext implements QueryTransactionContext {
 
     /** Registers a future statement cursor that must be closed before the transaction can be committed. */
     public void registerCursorFuture(SqlQueryType queryType, CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
-        if (queryType == SqlQueryType.DDL || queryType == SqlQueryType.EXPLAIN) {
-            return;
-        }
+        if (queryType.supportsTransactions()) {
+            ScriptTransactionWrapperImpl txWrapper = wrapper;
 
-        ScriptTransactionWrapperImpl txWrapper = wrapper;
-
-        if (txWrapper != null) {
-            txWrapper.registerCursorFuture(cursorFut);
+            if (txWrapper != null) {
+                txWrapper.registerCursorFuture(cursorFut);
+            }
         }
     }
 

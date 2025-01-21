@@ -20,6 +20,7 @@ package org.apache.ignite.internal.deployunit;
 import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.deployment.version.Version;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Unit meta data class.
@@ -122,11 +123,6 @@ public abstract class UnitStatus {
 
     @Override
     public String toString() {
-        return "UnitStatus{"
-                + "id='" + id + '\''
-                + ", version=" + version
-                + ", status=" + status
-                + ", opId=" + opId
-                + '}';
+        return S.toString(UnitStatus.class, this);
     }
 }

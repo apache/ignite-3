@@ -17,7 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.tx;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.startTx;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.startExplicitTx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -27,6 +27,7 @@ import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.TxManager;
 import org.jetbrains.annotations.Nullable;
 
@@ -52,12 +53,20 @@ public class ClientTransactionBeginRequest {
             ClientHandlerMetricSource metrics
     ) throws IgniteInternalCheckedException {
         boolean readOnly = in.unpackBoolean();
+        long timeoutMillis = in.unpackLong();
 
-        // Timestamp makes sense only for read-only transactions.
-        HybridTimestamp observableTs = readOnly ? HybridTimestamp.nullableHybridTimestamp(in.unpackLong()) : null;
+        HybridTimestamp observableTs = null;
+        if (readOnly) {
+            // Timestamp makes sense only for read-only transactions.
+            observableTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        }
+
+        InternalTxOptions txOptions = InternalTxOptions.builder()
+                .timeoutMillis(timeoutMillis)
+                .build();
 
         // NOTE: we don't use beginAsync here because it is synchronous anyway.
-        var tx = startTx(out, txManager, observableTs, false, readOnly);
+        var tx = startExplicitTx(out, txManager, observableTs, readOnly, txOptions);
 
         if (readOnly) {
             // For read-only tx, override observable timestamp that we send to the client:

@@ -21,23 +21,30 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.in;
-import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.BroadcastExecution;
+import org.apache.ignite.compute.BroadcastJobTarget;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
@@ -52,6 +59,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
@@ -217,14 +226,20 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         InteractiveJobs.initChannels(allNodeNames());
 
         // When start broadcast job.
-        Map<ClusterNode, JobExecution<Object>> executions = compute(entryNode).submitBroadcast(
-                clusterNodesByNames(workerCandidates(node(0), node(1), node(2))),
-                JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(), null);
+        CompletableFuture<BroadcastExecution<Object>> executionFut = compute(entryNode).submitAsync(
+                BroadcastJobTarget.nodes(clusterNode(0), clusterNode(1), clusterNode(2)),
+                JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(),
+                null
+        );
+
+        assertThat(executionFut, willCompleteSuccessfully());
+        BroadcastExecution<Object> broadcastExecution = executionFut.join();
+        Collection<JobExecution<Object>> executions = broadcastExecution.executions();
 
         // Then all three jobs are alive.
-        assertThat(executions.size(), is(3));
-        executions.forEach((node, execution) -> {
-            InteractiveJobs.byNode(node).assertAlive();
+        assertThat(executions, hasSize(3));
+        executions.forEach(execution -> {
+            InteractiveJobs.byNode(execution.node()).assertAlive();
             new TestingJobExecution<>(execution).assertExecuting();
         });
 
@@ -233,17 +248,19 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         stopNode(node(1));
 
         // Then two jobs are alive.
-        executions.forEach((node, execution) -> {
-            if (node.name().equals(stoppedNodeName)) {
+        executions.forEach(execution -> {
+            if (execution.node().name().equals(stoppedNodeName)) {
                 new TestingJobExecution<>(execution).assertFailed();
             } else {
-                InteractiveJobs.byNode(node).assertAlive();
+                InteractiveJobs.byNode(execution.node()).assertAlive();
                 new TestingJobExecution<>(execution).assertExecuting();
             }
         });
 
         // When.
         InteractiveJobs.all().finish();
+
+        assertThat(broadcastExecution.resultsAsync(), willThrow(ComputeException.class));
 
         // Then every job ran once because broadcast execution does not require failover.
         AllInteractiveJobsApi.assertEachCalledOnce();
@@ -257,7 +274,8 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         Set<String> remoteWorkerCandidates = workerCandidates(node(1), node(2));
 
         // When execute job.
-        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates);
+        CancelHandle cancelHandle = CancelHandle.create();
+        TestingJobExecution<String> execution = executeGlobalInteractiveJob(entryNode, remoteWorkerCandidates, cancelHandle.token());
 
         // Then one of candidates became a worker and run the job.
         String workerNodeName = InteractiveJobs.globalJob().currentWorkerName();
@@ -278,7 +296,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         assertThat(remoteWorkerCandidates, hasItem(failoverWorker));
 
         // When cancel job.
-        execution.cancelSync();
+        cancelHandle.cancel();
 
         // Then it is cancelled.
         execution.assertCancelled();
@@ -294,7 +312,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         // When start colocated job on node that is not primary replica.
         Ignite entryNode = anyNodeExcept(primaryReplica);
         TestingJobExecution<Object> execution = new TestingJobExecution<>(
-                compute(entryNode).submit(
+                compute(entryNode).submitAsync(
                         JobTarget.colocated(TABLE_NAME, Tuple.create(1).set("K", 1)),
                         JobDescriptor.builder(InteractiveJobs.globalJob().name()).build(),
                         null));
@@ -367,11 +385,16 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     }
 
     private TestingJobExecution<String> executeGlobalInteractiveJob(Ignite entryNode, Set<String> nodes) {
-        return new TestingJobExecution<>(
-                compute(entryNode).submit(
-                        JobTarget.anyNode(clusterNodesByNames(nodes)),
-                        JobDescriptor.builder(InteractiveJobs.globalJob().jobClass()).build(), null)
-        );
+        return executeGlobalInteractiveJob(entryNode, nodes, null);
+    }
+
+    private TestingJobExecution<String> executeGlobalInteractiveJob(Ignite entryNode, Set<String> nodes, CancellationToken token) {
+        return new TestingJobExecution<>(compute(entryNode).submitAsync(
+                JobTarget.anyNode(clusterNodesByNames(nodes)),
+                JobDescriptor.builder(InteractiveJobs.globalJob().jobClass()).build(),
+                null,
+                token
+        ));
     }
 
     abstract IgniteCompute compute(Ignite entryNode);

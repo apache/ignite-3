@@ -51,6 +51,7 @@ namespace Apache.Ignite
             DisasterRecovery.GroupCode => DisasterRecovery.GroupName,
             Embedded.GroupCode => Embedded.GroupName,
             Marshalling.GroupCode => Marshalling.GroupName,
+            Rest.GroupCode => Rest.GroupName,
 
             _ => UnknownGroupName
         };
@@ -717,6 +718,19 @@ namespace Apache.Ignite
 
             /// <summary> Unmarshalling error. </summary>
             public const int Unmarshalling = (GroupCode << 16) | (3 & 0xFFFF);
+        }
+
+        /// <summary> REST service errors. </summary>
+        public static class Rest
+        {
+            /// <summary> REST service group code. </summary>
+            public const short GroupCode = 23;
+
+            /// <summary> REST service group name. </summary>
+            public const String GroupName = "REST";
+
+            /// <summary> Common error. </summary>
+            public const int ClusterNotInit = (GroupCode << 16) | (1 & 0xFFFF);
         }
     }
 }

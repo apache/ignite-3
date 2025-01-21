@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Example: SELECT * FROM products WHERE category = 'Photo' OR subcategory ='Camera Media';
  *
- * <p>A query above will be rewritten to next (or equivalient similar query)
+ * <p>A query above will be rewritten to next (or equivalent similar query)
  *
  * <p>SELECT * FROM products WHERE category = 'Photo' UNION ALL SELECT * FROM products WHERE subcategory ='Camera Media' AND LNNVL(category,
  * 'Photo');
@@ -85,6 +85,8 @@ public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
                 {22, null, 0, null, 40, null},
                 {23, null, 0, null, 41, null},
         });
+
+        gatherStatistics();
     }
 
     /**

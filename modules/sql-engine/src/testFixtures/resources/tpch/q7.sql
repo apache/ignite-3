@@ -2,6 +2,7 @@
 -- noinspection SqlNoDataSourceInspectionForFile
 
 SELECT
+    /*+ NO_INDEX, DISABLE_RULE('MergeJoinConverter') */
     supp_nation,
     cust_nation,
     l_year,

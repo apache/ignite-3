@@ -288,7 +288,7 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
         assertNotNull(planner);
 
-        planner.setDisabledRules(Set.copyOf(Arrays.asList(disabledRules)));
+        planner.disableRules(Arrays.asList(disabledRules));
 
         return ctx;
     }

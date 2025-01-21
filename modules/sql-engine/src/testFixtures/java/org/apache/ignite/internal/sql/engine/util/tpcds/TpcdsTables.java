@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.Iterator;
+import org.apache.ignite.internal.sql.engine.util.TpcScaleFactor;
 import org.apache.ignite.internal.sql.engine.util.TpcTable;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
 import org.apache.ignite.sql.ColumnType;
@@ -38,6 +39,7 @@ import org.apache.ignite.sql.ColumnType;
 @SuppressWarnings("NonSerializableFieldInSerializableClass")
 public enum TpcdsTables implements TpcTable {
     CUSTOMER(
+            new long[] {100_000, 12_000_000, 30_000_000, 65_000_000, 80_000_000, 100_000_000},
             new Column("C_CUSTOMER_SK", INT32),
             new Column("C_CUSTOMER_ID", STRING),
             new Column("C_CURRENT_CDEMO_SK", INT32),
@@ -66,6 +68,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     WEB_PAGE(
+            new long[] {60, 3_000, 3_600, 4_002, 4_602, 5_004},
             new Column("WP_WEB_PAGE_SK", INT32),
             new Column("WP_WEB_PAGE_ID", STRING),
             new Column("WP_REC_START_DATE", DATE),
@@ -90,6 +93,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     STORE_SALES(
+            new long[] {2_880_404, 2_879_987_999L, 8_639_936_081L, 28_799_983_563L, 86_399_341_874L, 287_997_818_084L},
             new Column("SS_SOLD_DATE_SK", INT32),
             new Column("SS_SOLD_TIME_SK", INT32),
             new Column("SS_ITEM_SK", INT32),
@@ -125,6 +129,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     HOUSEHOLD_DEMOGRAPHICS(
+            new long[] {7_200, 7_200, 7_200, 7_200, 7_200, 7_200},
             new Column("HD_DEMO_SK", INT32),
             new Column("HD_INCOME_BAND_SK", INT32),
             new Column("HD_BUY_POTENTIAL", STRING),
@@ -139,6 +144,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     CATALOG_PAGE(
+            new long[] {11_718, 30_000, 36_000, 40_000, 46_000, 50_000},
             new Column("CP_CATALOG_PAGE_SK", INT32),
             new Column("CP_CATALOG_PAGE_ID", STRING),
             new Column("CP_START_DATE_SK", INT32),
@@ -157,6 +163,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     WEB_SITE(
+            new long[] {30, 54, 66, 78, 84, 96},
             new Column("WEB_SITE_SK", INT32),
             new Column("WEB_SITE_ID", STRING),
             new Column("WEB_REC_START_DATE", DATE),
@@ -195,6 +202,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     CUSTOMER_DEMOGRAPHICS(
+            new long[] {1_920_800, 1_920_800, 1_920_800, 1_920_800, 1_920_800, 1_920_800},
             new Column("CD_DEMO_SK", INT32),
             new Column("CD_GENDER", STRING),
             new Column("CD_MARITAL_STATUS", STRING),
@@ -213,6 +221,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     ITEM(
+            new long[] {18_000, 300_000, 360_000, 402_000, 462_000, 502_000},
             new Column("I_ITEM_SK", INT32),
             new Column("I_ITEM_ID", STRING),
             new Column("I_REC_START_DATE", DATE),
@@ -246,6 +255,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     WAREHOUSE(
+            new long[] {5, 20, 22, 25, 27, 30},
             new Column("W_WAREHOUSE_SK", INT32),
             new Column("W_WAREHOUSE_ID", STRING),
             new Column("W_WAREHOUSE_NAME", STRING),
@@ -270,6 +280,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     STORE_RETURNS(
+            new long[] {287_514, 287_999_764, 863_989_652, 2_879_970_104L, 8_639_952_111L, 28_800_018_820L},
             new Column("SR_RETURNED_DATE_SK", INT32),
             new Column("SR_RETURN_TIME_SK", INT32),
             new Column("SR_ITEM_SK", INT32),
@@ -301,6 +312,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     SHIP_MODE(
+            new long[] {20, 20, 20, 20, 20, 20},
             new Column("SM_SHIP_MODE_SK", INT32),
             new Column("SM_SHIP_MODE_ID", STRING),
             new Column("SM_TYPE", STRING),
@@ -316,6 +328,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     INCOME_BAND(
+            new long[] {20, 20, 20, 20, 20, 20},
             new Column("IB_INCOME_BAND_SK", INT32),
             new Column("IB_LOWER_BOUND", INT32),
             new Column("IB_UPPER_BOUND", INT32)
@@ -327,6 +340,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     TIME_DIM(
+            new long[] {86_400, 86_400, 86_400, 86_400, 86_400, 86_400},
             new Column("T_TIME_SK", INT32),
             new Column("T_TIME_ID", STRING),
             new Column("T_TIME", INT32),
@@ -346,6 +360,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     CATALOG_RETURNS(
+            new long[] {144_067, 143_996_756, 432_018_033, 1_440_033_112, 4_319_925_093L, 14_400_175_879L},
             new Column("CR_RETURNED_DATE_SK", INT32),
             new Column("CR_RETURNED_TIME_SK", INT32),
             new Column("CR_ITEM_SK", INT32),
@@ -385,6 +400,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     REASON(
+            new long[] {35, 65, 67, 70, 72, 75},
             new Column("R_REASON_SK", INT32),
             new Column("R_REASON_ID", STRING),
             new Column("R_REASON_DESC", STRING)
@@ -396,6 +412,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     STORE(
+            new long[] {12, 1_002, 1_350, 1_500, 1_704, 1_902},
             new Column("S_STORE_SK", INT32),
             new Column("S_STORE_ID", STRING),
             new Column("S_REC_START_DATE", DATE),
@@ -438,6 +455,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     INVENTORY(
+            new long[] {11_745_000, 783_000_000, 1_033_560_000, 1_311_525_000, 1_627_857_000, 1_965_337_830},
             new Column("INV_DATE_SK", INT32),
             new Column("INV_ITEM_SK", INT32),
             new Column("INV_WAREHOUSE_SK", INT32),
@@ -450,6 +468,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     WEB_SALES(
+            new long[] {719_384, 720_000_376, 2_159_968_881L, 7_199_963_324L, 21_600_036_511L, 71_999_670_164L},
             new Column("WS_SOLD_DATE_SK", INT32),
             new Column("WS_SOLD_TIME_SK", INT32),
             new Column("WS_SHIP_DATE_SK", INT32),
@@ -498,6 +517,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     DATE_DIM(
+            new long[] {73_049, 73_049, 73_049, 73_049, 73_049, 73_049},
             new Column("d_date_sk", INT32),
             new Column("d_date_id", STRING),
             new Column("d_date", DATE),
@@ -538,6 +558,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     CALL_CENTER(
+            new long[] {6, 42, 48, 54, 60, 60},
             new Column("CC_CALL_CENTER_SK", INT32),
             new Column("CC_CALL_CENTER_ID", STRING),
             new Column("CC_REC_START_DATE", DATE),
@@ -582,6 +603,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     WEB_RETURNS(
+            new long[] {71_763, 71_997_522, 216_003_761, 720_020_485, 2_160_007_345L, 7_199_904_459L},
             new Column("WR_RETURNED_DATE_SK", INT32),
             new Column("WR_RETURNED_TIME_SK", INT32),
             new Column("WR_ITEM_SK", INT32),
@@ -618,6 +640,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     PROMOTION(
+            new long[] {300, 1_500, 1_800, 2_000, 2_300, 2_500},
             new Column("P_PROMO_SK", INT32),
             new Column("P_PROMO_ID", STRING),
             new Column("P_START_DATE_SK", INT32),
@@ -648,6 +671,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     CUSTOMER_ADDRESS(
+            new long[] {50_000, 6_000_000, 15_000_000, 32_500_000, 40_000_000, 50_000_000},
             new Column("CA_ADDRESS_SK", INT32),
             new Column("CA_ADDRESS_ID", STRING),
             new Column("CA_STREET_NUMBER", STRING),
@@ -671,6 +695,7 @@ public enum TpcdsTables implements TpcTable {
     },
 
     CATALOG_SALES(
+            new long[] {1_441_548, 1_439_980_416, 4_320_078_880L, 14_399_964_710L, 43_200_404_822L, 143_999_334_399L},
             new Column("CS_SOLD_DATE_SK", INT32),
             new Column("CS_SOLD_TIME_SK", INT32),
             new Column("CS_SHIP_DATE_SK", INT32),
@@ -718,8 +743,10 @@ public enum TpcdsTables implements TpcTable {
     };
 
     private final Column[] columns;
+    private final long[] tableSizes;
 
-    TpcdsTables(Column... columns) {
+    TpcdsTables(long[] tableSizes, Column... columns) {
+        this.tableSizes = tableSizes;
         this.columns = columns;
     }
 
@@ -752,6 +779,11 @@ public enum TpcdsTables implements TpcTable {
         return Files.lines(pathToDataset.resolve(tableName() + ".dat"))
                 .map(this::csvLineToTableValues)
                 .iterator();
+    }
+
+    @Override
+    public long estimatedSize(TpcScaleFactor sf) {
+        return sf.size(tableSizes);
     }
 
     private Object[] csvLineToTableValues(String line) {

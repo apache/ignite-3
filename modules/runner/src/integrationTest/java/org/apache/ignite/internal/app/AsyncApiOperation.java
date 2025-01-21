@@ -31,9 +31,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import org.apache.ignite.compute.BroadcastJobTarget;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.internal.streamer.SimplePublisher;
@@ -136,11 +136,19 @@ enum AsyncApiOperation {
     SQL_EXECUTE_BATCH_STATEMENT(refs -> refs.sql.executeBatchAsync(null, refs.updateStatement, BatchedArguments.of(999))),
     SQL_EXECUTE_SCRIPT(refs -> refs.sql.executeScriptAsync(SELECT_IDS_QUERY)),
 
+    COMPUTE_SUBMIT(refs -> refs.compute.submitAsync(
+            anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null
+    )),
+    COMPUTE_SUBMIT_BROADCAST(refs -> refs.compute.submitAsync(
+            BroadcastJobTarget.nodes(refs.clusterNodes),
+            JobDescriptor.builder(NoOpJob.class).build(),
+            null
+    )),
     COMPUTE_EXECUTE(refs -> refs.compute.executeAsync(
             anyNode(refs.clusterNodes), JobDescriptor.builder(NoOpJob.class).build(), null
     )),
-    COMPUTE_EXECUTE_BROADCAST(refs -> refs.compute.executeBroadcastAsync(
-            Set.copyOf(refs.clusterNodes),
+    COMPUTE_EXECUTE_BROADCAST(refs -> refs.compute.executeAsync(
+            BroadcastJobTarget.nodes(refs.clusterNodes),
             JobDescriptor.builder(NoOpJob.class).build(),
             null
     )),

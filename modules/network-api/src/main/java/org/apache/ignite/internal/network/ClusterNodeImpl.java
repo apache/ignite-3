@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network;
 
 import java.util.UUID;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
@@ -109,6 +108,6 @@ public class ClusterNodeImpl implements ClusterNode {
 
     @Override
     public String toString() {
-        return S.toString(ClusterNodeImpl.class, this);
+        return String.format("{id=%s, name=%s, address=%s}", id, name, address);
     }
 }
