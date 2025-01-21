@@ -355,6 +355,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 clock
         );
 
+        assertThat(catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
+
         partialNodes.add(partialNode);
 
         return partialNode;
