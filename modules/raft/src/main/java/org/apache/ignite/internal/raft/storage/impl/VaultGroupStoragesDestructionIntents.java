@@ -23,17 +23,12 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Map;
-import java.util.function.Function;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
-import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
@@ -50,34 +45,19 @@ public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestru
 
     private final VaultManager vault;
 
-    private final Function<ReplicationGroupId, String> groupNameResolver;
-
-    private final Map<String, Path> serverDataPathByGroupName;
-    private final Map<String, LogStorageFactory> logStorageFactoryByGroupName;
-
     /** Constructor. */
-    public VaultGroupStoragesDestructionIntents(
-            VaultManager vault,
-            Map<String, LogStorageFactory> logStorageFactoryByGroupName,
-            Map<String, Path> serverDataPathByGroupName,
-            Function<ReplicationGroupId, String> groupNameResolver
-    ) {
+    public VaultGroupStoragesDestructionIntents(VaultManager vault) {
         this.vault = vault;
-        this.logStorageFactoryByGroupName = logStorageFactoryByGroupName;
-        this.serverDataPathByGroupName = serverDataPathByGroupName;
-        this.groupNameResolver = groupNameResolver;
     }
 
     @Override
     public void saveDestroyStorageIntent(ReplicationGroupId groupId, DestroyStorageIntent destroyStorageIntent) {
-        vault.put(buildKey(destroyStorageIntent.nodeId()), toStorageBytes(groupId, destroyStorageIntent));
+        vault.put(buildKey(destroyStorageIntent.nodeId()), toStorageBytes(destroyStorageIntent));
     }
 
-    private byte[] toStorageBytes(ReplicationGroupId groupId, DestroyStorageIntent intent) {
-        String groupName = groupNameResolver.apply(groupId);
-
+    private static byte[] toStorageBytes(DestroyStorageIntent intent) {
         try (IgniteUnsafeDataOutput out = new IgniteUnsafeDataOutput(INITIAL_BUFFER_CAPACITY)) {
-            out.writeUTF(groupName);
+            out.writeUTF(intent.groupName());
             out.writeBoolean(intent.isVolatile());
 
             return out.array();
@@ -86,19 +66,16 @@ public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestru
         }
     }
 
-    private DestroyStorageIntent fromStorageBytes(byte[] key, byte[] value) {
+    private static DestroyStorageIntent fromStorageBytes(byte[] key, byte[] value) {
         String nodeId = nodeIdFromKey(key);
 
-        IgniteUnsafeDataInput in = new IgniteUnsafeDataInput(value);
-
-        try {
+        try (IgniteUnsafeDataInput in = new IgniteUnsafeDataInput(value)) {
             String groupName = in.readUTF();
             boolean isVolatile = in.readBoolean();
 
             DestroyStorageIntent intent = new DestroyStorageIntent(
                     nodeId,
-                    logStorageFactoryByGroupName.get(groupName),
-                    serverDataPathByGroupName.get(groupName),
+                    groupName,
                     isVolatile
             );
 
@@ -111,6 +88,7 @@ public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestru
             throw new IgniteInternalException(INTERNAL_ERR, "Cannot deserialize", e);
         }
     }
+
     private static String nodeIdFromKey(byte[] key) {
         return new String(key, GROUP_STORAGE_DESTRUCTION_PREFIX.length, key.length - GROUP_STORAGE_DESTRUCTION_PREFIX.length, UTF_8);
     }

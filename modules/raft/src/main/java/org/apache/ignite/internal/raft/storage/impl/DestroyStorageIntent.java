@@ -9,14 +9,12 @@ import org.apache.ignite.internal.tostring.S;
 public class DestroyStorageIntent {
     private final boolean isVolatile;
     private final String raftNodeId;
-    private final LogStorageFactory logStorageFactory;
-    private final Path serverDataPath;
+    private final String groupName;
 
     /** Constructor. */
-    public DestroyStorageIntent(String raftNodeId, LogStorageFactory logStorageFactory, Path serverDataPath, boolean isVolatile) {
+    public DestroyStorageIntent(String raftNodeId, String groupName, boolean isVolatile) {
         this.raftNodeId = raftNodeId;
-        this.logStorageFactory = logStorageFactory;
-        this.serverDataPath = serverDataPath;
+        this.groupName = groupName;
         this.isVolatile = isVolatile;
     }
 
@@ -28,16 +26,12 @@ public class DestroyStorageIntent {
         return isVolatile;
     }
 
-    public LogStorageFactory logStorageFactory() {
-        return logStorageFactory;
-    }
-
-    public Path serverDataPath() {
-        return serverDataPath;
-    }
-
     @Override
     public String toString() {
         return S.toString(DestroyStorageIntent.class, this);
+    }
+
+    public String groupName() {
+        return groupName;
     }
 }

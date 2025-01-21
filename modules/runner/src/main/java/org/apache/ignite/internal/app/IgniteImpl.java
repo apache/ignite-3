@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPat
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.replicator.PartitionGroupId.PARTITION_GROUP_NAME;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -194,6 +195,7 @@ import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.configuration.RaftExtensionConfiguration;
+import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents;
@@ -296,8 +298,6 @@ import org.jetbrains.annotations.TestOnly;
 public class IgniteImpl implements Ignite {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(IgniteImpl.class);
-
-    private static final String PARTITION_GROUP_NAME = "partition-group";
 
     /** Ignite node name. */
     private final String name;
@@ -645,11 +645,12 @@ public class IgniteImpl implements Ignite {
                 CmgGroupId.INSTANCE.toString(), cmgWorkDir.metaPath()
         );
 
-        GroupStoragesDestructionIntents groupStoragesDestructionIntents = new VaultGroupStoragesDestructionIntents(
-                vaultMgr,
-                logStorageFactoryByGroupName,
+        GroupStoragesDestructionIntents groupStoragesDestructionIntents = new VaultGroupStoragesDestructionIntents(vaultMgr);
+
+        GroupStoragesContextResolver groupStoragesContextResolver = new GroupStoragesContextResolver(
+                replicationGroupId -> replicationGroupId instanceof PartitionGroupId ? PARTITION_GROUP_NAME : replicationGroupId.toString(),
                 serverDataPathByGroupName,
-                replicationGroupId -> replicationGroupId instanceof PartitionGroupId ? PARTITION_GROUP_NAME : replicationGroupId.toString()
+                logStorageFactoryByGroupName
         );
 
         raftMgr = new Loza(
@@ -659,7 +660,8 @@ public class IgniteImpl implements Ignite {
                 clock,
                 raftGroupEventsClientListener,
                 failureManager,
-                groupStoragesDestructionIntents
+                groupStoragesDestructionIntents,
+                groupStoragesContextResolver
         );
 
         MessagingService messagingServiceReturningToStorageOperationsPool = new JumpToExecutorByConsistentIdAfterSend(

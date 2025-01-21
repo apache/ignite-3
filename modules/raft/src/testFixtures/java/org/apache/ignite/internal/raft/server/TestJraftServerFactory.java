@@ -20,6 +20,8 @@ package org.apache.ignite.internal.raft.server;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
+import org.apache.ignite.internal.raft.storage.impl.NoopGroupStoragesDestructionIntents;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
@@ -60,11 +62,28 @@ public class TestJraftServerFactory {
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
+        return create(service, opts, raftGroupEventsClientListener, new NoopGroupStoragesDestructionIntents());
+    }
+
+    /**
+     * Factory method for {@link JraftServerImpl}.
+     *
+     * @param service Cluster service.
+     * @param opts Node Options.
+     * @param raftGroupEventsClientListener Raft events listener.
+     */
+    public static JraftServerImpl create(
+            ClusterService service,
+            NodeOptions opts,
+            RaftGroupEventsClientListener raftGroupEventsClientListener,
+            GroupStoragesDestructionIntents destructionIntents
+    ) {
         return new JraftServerImpl(
                 service,
                 opts,
                 raftGroupEventsClientListener,
-                new NoOpFailureManager()
+                new NoOpFailureManager(),
+                destructionIntents
         );
     }
 }
