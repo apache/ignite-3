@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.jdbc.proto.event;
 
-import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 
 /**
  * An extension to JDBC request that provides the ability to update and read client observable time.
@@ -26,10 +25,10 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 abstract class JdbcObservableTimeAwareRequest {
     /** Holds the latest time observed by client. */
     @SuppressWarnings("TransientFieldInNonSerializableClass")
-    private final transient AtomicReference<HybridTimestamp> observableTimeHolder = new AtomicReference<>();
+    private final transient HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
 
     /** Returns the holder with the latest time observed by client. */
-    public AtomicReference<HybridTimestamp> observableTimeHolder() {
-        return observableTimeHolder;
+    public HybridTimestampTracker timestampTracker() {
+        return timestampTracker;
     }
 }

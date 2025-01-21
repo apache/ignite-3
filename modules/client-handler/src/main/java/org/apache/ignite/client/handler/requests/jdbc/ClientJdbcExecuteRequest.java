@@ -21,6 +21,8 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcQueryExecuteRequest;
 
 /**
@@ -45,8 +47,11 @@ public class ClientJdbcExecuteRequest {
 
         req.readBinary(in);
 
+        HybridTimestampTracker timestampTracker = req.timestampTracker();
+        timestampTracker.update(HybridTimestamp.nullableHybridTimestamp(req.observableTime()));
+
         return handler.queryAsync(connectionId, req).thenAccept(res -> {
-            out.meta(req.observableTimeHolder().get());
+            out.meta(timestampTracker.get());
 
             res.writeBinary(out);
         });

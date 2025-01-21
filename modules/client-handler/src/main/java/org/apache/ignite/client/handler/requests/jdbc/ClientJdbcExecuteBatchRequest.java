@@ -47,7 +47,7 @@ public class ClientJdbcExecuteBatchRequest {
         req.readBinary(in);
 
         return handler.batchAsync(connectionId, req).thenAccept(res -> {
-            out.meta(req.observableTimeHolder().get());
+            out.meta(req.timestampTracker().get());
 
             res.writeBinary(out);
         });

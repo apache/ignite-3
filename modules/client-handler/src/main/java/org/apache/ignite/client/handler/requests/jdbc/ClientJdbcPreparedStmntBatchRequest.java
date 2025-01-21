@@ -47,7 +47,7 @@ public class ClientJdbcPreparedStmntBatchRequest {
         req.readBinary(in);
 
         return handler.batchPrepStatementAsync(connectionId, req).thenAccept(res -> {
-            out.meta(req.observableTimeHolder().get());
+            out.meta(req.timestampTracker().get());
 
             res.writeBinary(out);
         });

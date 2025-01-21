@@ -25,7 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.TxManager;
@@ -68,11 +68,9 @@ class JdbcConnectionContext {
      *
      * @return Transaction associated with the current connection.
      */
-    InternalTransaction getOrStartTransaction() {
+    InternalTransaction getOrStartTransaction(HybridTimestampTracker timestampTracker) {
         if (tx == null) {
-            HybridTimestampTracker timeTracker = HybridTimestampTracker.atomicTracker(null);
-
-            tx = txManager.beginExplicitRw(timeTracker, InternalTxOptions.defaults());
+            tx = txManager.beginExplicitRw(timestampTracker, InternalTxOptions.defaults());
         }
 
         return tx;

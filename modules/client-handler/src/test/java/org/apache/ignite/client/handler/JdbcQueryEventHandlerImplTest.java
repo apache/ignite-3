@@ -44,10 +44,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
@@ -68,7 +68,6 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.CancelHandleHelper;
@@ -272,14 +271,11 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void handlerTracksObservableTimeFromClient() {
-        HybridTimestamp clientTs = HybridTimestamp.hybridTimestamp(200L);
         HybridTimestamp updatedTs = HybridTimestamp.hybridTimestamp(300L);
         HybridTimestamp ignoredTs = HybridTimestamp.hybridTimestamp(100L);
         HybridTimestamp txTime = HybridTimestamp.hybridTimestamp(50L);
 
         long connectionId = acquireConnectionId();
-
-        AtomicReference<HybridTimestamp> fromClient = new AtomicReference<>();
 
         HybridTimestampTracker txTracker = HybridTimestampTracker.atomicTracker(txTime);
         InternalTransaction rwTx = mock(InternalTransaction.class);
@@ -294,8 +290,6 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
                             InternalTransaction explicitTx = invocation.getArgument(2);
 
                             if (explicitTx == null || explicitTx.isReadOnly()) {
-                                fromClient.set(tracker.get());
-
                                 tracker.update(updatedTs);
 
                                 // Time should only increase, smaller values should be ignored.
@@ -312,29 +306,14 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         // Query (autocommit).
         {
-            JdbcQueryExecuteRequest executeRequest = new JdbcQueryExecuteRequest(
-                    JdbcStatementType.SELECT_STATEMENT_TYPE,
-                    "schema",
-                    1024,
-                    1,
-                    "SELECT 1",
-                    new Object[0],
-                    true,
-                    false,
-                    0,
-                    System.currentTimeMillis(),
-                    clientTs.longValue()
-            );
+            JdbcQueryExecuteRequest executeRequest =
+                    createExecuteRequest("schema", true, "SELECT 1", JdbcStatementType.SELECT_STATEMENT_TYPE);
 
             await(eventHandler.queryAsync(connectionId, executeRequest));
 
-            assertThat("Must take into account the value from the request",
-                    fromClient.get(), equalTo(clientTs));
             assertThat("Should return the updated tracker value to the client.",
-                    executeRequest.observableTimeHolder().get(), equalTo(updatedTs));
+                    executeRequest.timestampTracker().get(), equalTo(updatedTs));
         }
-
-        fromClient.set(null);
 
         // Batch (autocommit).
         {
@@ -342,10 +321,8 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
             await(eventHandler.batchAsync(connectionId, executeRequest));
 
-            assertThat("No value should be passed from the client.",
-                    fromClient.get(), nullValue());
             assertThat("Should return the updated tracker value to the client.",
-                    executeRequest.observableTimeHolder().get(), equalTo(updatedTs));
+                    executeRequest.timestampTracker().get(), equalTo(updatedTs));
         }
 
         // Prepared batch (autocommit).
@@ -354,32 +331,19 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
             await(eventHandler.batchPrepStatementAsync(connectionId, executeRequest));
 
-            assertThat("No value should be passed from the client.",
-                    fromClient.get(), nullValue());
             assertThat("Should return the updated tracker value to the client.",
-                    executeRequest.observableTimeHolder().get(), equalTo(updatedTs));
+                    executeRequest.timestampTracker().get(), equalTo(updatedTs));
         }
 
         // Query (non-autocommit).
         {
-            JdbcQueryExecuteRequest executeRequest = new JdbcQueryExecuteRequest(
-                    JdbcStatementType.SELECT_STATEMENT_TYPE,
-                    "schema",
-                    1024,
-                    1,
-                    "SELECT 1",
-                    new Object[0],
-                    false,
-                    false,
-                    0,
-                    System.currentTimeMillis(),
-                    clientTs.longValue()
-            );
+            JdbcQueryExecuteRequest executeRequest =
+                    createExecuteRequest("schema", false, "SELECT 1", JdbcStatementType.SELECT_STATEMENT_TYPE);
 
             await(eventHandler.queryAsync(connectionId, executeRequest));
 
             assertThat("Should not update observable time until tx commit.",
-                    executeRequest.observableTimeHolder().get(), nullValue());
+                    executeRequest.timestampTracker().get(), nullValue());
 
             // Rollback.
             JdbcFinishTxResult res = await(eventHandler.finishTxAsync(connectionId, false));
@@ -394,7 +358,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
             await(eventHandler.batchAsync(connectionId, executeRequest));
 
             assertThat("Should not update observable time until tx commit.",
-                    executeRequest.observableTimeHolder().get(), nullValue());
+                    executeRequest.timestampTracker().get(), nullValue());
         }
 
         // Prepared batch (non-autocommit).
@@ -404,7 +368,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
             await(eventHandler.batchPrepStatementAsync(connectionId, executeRequest));
 
             assertThat("Should not update observable time until tx commit.",
-                    executeRequest.observableTimeHolder().get(), nullValue());
+                    executeRequest.timestampTracker().get(), nullValue());
         }
 
         // Commit.

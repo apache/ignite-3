@@ -33,7 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcQueryCursor;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
@@ -62,7 +62,6 @@ import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -148,24 +147,14 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         long correlationToken = req.correlationToken();
         CancellationToken token = connectionContext.registerExecution(correlationToken);
 
-        InternalTransaction tx;
-        HybridTimestampTracker timeTracker;
-
-        if (req.autoCommit()) {
-            tx = null;
-            req.observableTimeHolder().set(HybridTimestamp.nullableHybridTimestamp(req.observableTime()));
-            timeTracker = HybridTimestampTracker.fromAtomicReference(req.observableTimeHolder());
-        } else {
-            tx = connectionContext.getOrStartTransaction();
-            timeTracker = HybridTimestampTracker.emptyTracker();
-        }
-
+        HybridTimestampTracker timeTracker = req.timestampTracker();
         JdbcStatementType reqStmtType = req.getStmtType();
         String defaultSchemaName = req.schemaName();
         boolean multiStatement = req.multiStatement();
         ZoneId timeZoneId = connectionContext.timeZoneId();
         long timeoutMillis = req.queryTimeoutMillis();
 
+        InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction(timeTracker);
         SqlProperties properties = createProperties(reqStmtType, defaultSchemaName, multiStatement, timeZoneId, timeoutMillis);
 
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
@@ -228,12 +217,8 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             return CompletableFuture.completedFuture(new JdbcBatchExecuteResult(Response.STATUS_FAILED, "Connection is broken"));
         }
 
-        InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
-        HybridTimestampTracker timeTracker = tx == null
-                ? HybridTimestampTracker.fromAtomicReference(req.observableTimeHolder())
-                : HybridTimestampTracker.emptyTracker();
-
-        assert req.autoCommit() || tx != null;
+        HybridTimestampTracker timeTracker = req.timestampTracker();
+        InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction(timeTracker);
 
         long correlationToken = req.correlationToken();
         CancellationToken token = connectionContext.registerExecution(correlationToken);
@@ -278,10 +263,8 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             return CompletableFuture.completedFuture(new JdbcBatchExecuteResult(Response.STATUS_FAILED, "Connection is broken"));
         }
 
-        InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
-        HybridTimestampTracker timeTracker = tx == null
-                ? HybridTimestampTracker.fromAtomicReference(req.observableTimeHolder())
-                : HybridTimestampTracker.emptyTracker();
+        HybridTimestampTracker timeTracker = req.timestampTracker();
+        InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction(timeTracker);
 
         assert req.autoCommit() || tx != null;
 
