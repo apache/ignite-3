@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.raft.server;
 
+import java.util.Map;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.impl.NoopGroupStoragesDestructionIntents;
@@ -62,7 +64,13 @@ public class TestJraftServerFactory {
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
-        return create(service, opts, raftGroupEventsClientListener, new NoopGroupStoragesDestructionIntents());
+        return create(
+                service,
+                opts,
+                raftGroupEventsClientListener,
+                new NoopGroupStoragesDestructionIntents(),
+                new GroupStoragesContextResolver(Object::toString, Map.of(), Map.of())
+        );
     }
 
     /**
@@ -76,14 +84,16 @@ public class TestJraftServerFactory {
             ClusterService service,
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
-            GroupStoragesDestructionIntents destructionIntents
+            GroupStoragesDestructionIntents destructionIntents,
+            GroupStoragesContextResolver contextResolver
     ) {
         return new JraftServerImpl(
                 service,
                 opts,
                 raftGroupEventsClientListener,
                 new NoOpFailureManager(),
-                destructionIntents
+                destructionIntents,
+                contextResolver
         );
     }
 }
