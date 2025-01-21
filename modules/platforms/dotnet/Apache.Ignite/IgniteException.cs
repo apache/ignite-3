@@ -45,6 +45,11 @@ namespace Apache.Ignite
         }
 
         /// <summary>
+        /// Gets the group error prefix.
+        /// </summary>
+        public string ErrorPrefix => ErrorGroups.GetErrorPrefix(ErrorGroups.GetGroupCode(Code));
+
+        /// <summary>
         /// Gets the group name.
         /// </summary>
         public string GroupName => ErrorGroups.GetGroupName(ErrorGroups.GetGroupCode(Code));
@@ -72,6 +77,6 @@ namespace Apache.Ignite
         /// <summary>
         /// Gets the code as string.
         /// </summary>
-        public string CodeAsString => ErrorGroups.ErrPrefix + GroupName + '-' + ErrorCode;
+        public string CodeAsString => ErrorPrefix + '-' + GroupName + '-' + ErrorCode;
     }
 }

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.exception.handler;
 
-import static org.apache.ignite.lang.ErrorGroup.extractCauseMessage;
+import static org.apache.ignite.lang.ErrorGroups.extractCauseMessage;
 
 import java.sql.SQLException;
 import java.util.HashMap;
