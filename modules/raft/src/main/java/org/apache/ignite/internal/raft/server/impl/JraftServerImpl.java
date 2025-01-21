@@ -617,7 +617,7 @@ public class JraftServerImpl implements RaftServer {
 
             // This destroys both meta storage and snapshots storage as they are stored under nodeDataPath.
             IgniteUtils.deleteIfExistsThrowable(getServerDataPath(context.serverDataPath(), nodeId));
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new IgniteInternalException("Failed to delete storage for node: " + nodeId, e);
         }
 
