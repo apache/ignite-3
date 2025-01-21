@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.rest.transaction;
 
+import static io.micronaut.http.HttpStatus.NOT_FOUND;
+import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
+import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
@@ -65,6 +68,17 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
             assertThat(transactionInfo.state(), is("PENDING"));
             assertThat(transactionInfo.priority(), is("NORMAL"));
         });
+    }
+
+    @Test
+    void shouldReturnProblemIfRetrieveNonExistingTransaction() {
+        UUID transactionId = UUID.randomUUID();
+
+        assertThrowsProblem(
+                () -> getTransaction(client, transactionId),
+                NOT_FOUND,
+                isProblem().withDetail("Transaction not found [transactionId=" + transactionId + "]")
+        );
     }
 
     private static Map<UUID, TransactionInfo> getTransactions(HttpClient client) {

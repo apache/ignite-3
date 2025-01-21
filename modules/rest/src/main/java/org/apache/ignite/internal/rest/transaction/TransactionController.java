@@ -29,6 +29,7 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.transaction.TransactionApi;
 import org.apache.ignite.internal.rest.api.transaction.TransactionInfo;
+import org.apache.ignite.internal.rest.transaction.exception.TransactionNotFoundException;
 import org.apache.ignite.internal.tx.views.TransactionViewDataProvider;
 import org.apache.ignite.internal.tx.views.TxInfo;
 import org.jetbrains.annotations.Nullable;
@@ -54,7 +55,17 @@ public class TransactionController implements TransactionApi, ResourceHolder {
 
     @Override
     public CompletableFuture<TransactionInfo> transaction(UUID transactionId) {
-        return null;
+        return completedFuture(StreamSupport.stream(transactionViewDataProvider.dataSource().spliterator(), false)
+                .filter(tx -> tx.id().equals(transactionId))
+                .findAny()
+                .orElse(null))
+                .thenApply(txInfo -> {
+                    if (txInfo == null) {
+                        throw new TransactionNotFoundException(transactionId.toString());
+                    } else {
+                        return toTransaction(txInfo);
+                    }
+                });
     }
 
     @Override
