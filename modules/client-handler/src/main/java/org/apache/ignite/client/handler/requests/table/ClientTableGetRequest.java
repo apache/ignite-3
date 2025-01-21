@@ -48,7 +48,7 @@ public class ClientTableGetRequest {
                 out.packNil();
             } else {
                 out.packInt(((TableViewInternal) table).tableId());
-                out.packString(IgniteNameUtils.quote(table.name()));
+                out.packString(IgniteNameUtils.quoteIfNeeded(table.name()));
             }
         });
     }
