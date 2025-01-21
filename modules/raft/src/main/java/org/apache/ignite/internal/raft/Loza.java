@@ -114,7 +114,7 @@ public class Loza implements RaftManager {
      * @param raftConfiguration Raft configuration.
      * @param clock A hybrid logical clock.
      * @param failureManager Failure processor that is used to handle critical errors.
-     * @param groupStoragesDestructionIntents Storage to persist and retrieve {@link DestroyStorageIntent}.
+     * @param groupStoragesDestructionIntents Storage to persist {@link DestroyStorageIntent}.
      * @param groupStoragesContextResolver Resolver to get {@link DestroyStorageContext} for storage destruction.
      */
     public Loza(

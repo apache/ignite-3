@@ -26,7 +26,7 @@ import org.apache.ignite.internal.raft.storage.impl.DestroyStorageContext;
 import org.apache.ignite.internal.raft.storage.impl.DestroyStorageIntent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/** Resolves {@link LogStorageFactory} and server data path for given raft node or {@link DestroyStorageIntent}. */
+/** Resolves {@link LogStorageFactory} and server data path for given {@link DestroyStorageIntent}. */
 public class GroupStoragesContextResolver {
     private final Function<ReplicationGroupId, String> groupNameResolver;
 
@@ -46,18 +46,11 @@ public class GroupStoragesContextResolver {
 
     DestroyStorageContext getContext(DestroyStorageIntent intent) {
         LogStorageFactory logStorageFactory = intent.isVolatile() ? null : logStorageFactoryByGroupName.get(intent.groupName());
-        return new DestroyStorageContext(
-                intent,
-                logStorageFactory,
-                serverDataPathByGroupName.get(intent.groupName())
-        );
+
+        return new DestroyStorageContext(intent, logStorageFactory, serverDataPathByGroupName.get(intent.groupName()));
     }
 
     DestroyStorageIntent getIntent(RaftNodeId nodeId, boolean isVolatile) {
-        return new DestroyStorageIntent(
-                nodeId.nodeIdStringForStorage(),
-                groupNameResolver.apply(nodeId.groupId()),
-                isVolatile
-        );
+        return new DestroyStorageIntent(nodeId.nodeIdStringForStorage(), groupNameResolver.apply(nodeId.groupId()), isVolatile);
     }
 }

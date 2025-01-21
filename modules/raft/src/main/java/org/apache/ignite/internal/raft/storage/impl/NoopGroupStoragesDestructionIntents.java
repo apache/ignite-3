@@ -22,7 +22,7 @@ import java.util.Collections;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/* Storage that doesn't save intents to destroy group storages. Used for tests. */
+/** Storage that doesn't save intents to destroy group storages. Used for tests. */
 public class NoopGroupStoragesDestructionIntents implements GroupStoragesDestructionIntents {
     @Override
     public void saveDestroyStorageIntent(ReplicationGroupId groupId, DestroyStorageIntent intent) {

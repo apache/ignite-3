@@ -46,7 +46,7 @@ public class DestroyStorageContext {
         return serverDataPath;
     }
 
-    /** Returns the factory managing log storage of the group. */
+    /** Returns the factory managing log storage of the group. Null for volatile raft groups on startup. */
     public @Nullable LogStorageFactory logStorageFactory() {
         return logStorageFactory;
     }

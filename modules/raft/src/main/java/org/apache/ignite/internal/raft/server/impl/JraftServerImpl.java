@@ -166,7 +166,7 @@ public class JraftServerImpl implements RaftServer {
      * @param opts Default node options.
      * @param raftGroupEventsClientListener Raft events listener.
      * @param failureManager Failure processor that is used to handle critical errors.
-     * @param groupStoragesDestructionIntents Storage to persist and retrieve {@link DestroyStorageIntent}.
+     * @param groupStoragesDestructionIntents Storage to persist {@link DestroyStorageIntent}.
      * @param groupStoragesContextResolver Resolver to get {@link DestroyStorageContext} for storage destruction.
      */
     public JraftServerImpl(

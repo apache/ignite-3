@@ -291,6 +291,7 @@ import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -387,6 +388,8 @@ public class IgniteImpl implements Ignite {
     private final ComponentWorkingDir partitionsWorkDir;
 
     private final ComponentWorkingDir metastorageWorkDir;
+
+    private final ComponentWorkingDir cmgWorkDir;
 
     /** Client handler module. */
     private final ClientHandlerModule clientHandlerModule;
@@ -559,7 +562,7 @@ public class IgniteImpl implements Ignite {
 
         SystemLocalConfiguration systemConfiguration = nodeConfigRegistry.getConfiguration(SystemLocalExtensionConfiguration.KEY).system();
 
-        ComponentWorkingDir cmgWorkDir = cmgPath(systemConfiguration, workDir);
+        cmgWorkDir = cmgPath(systemConfiguration, workDir);
 
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
         clusterStateStorage = new RocksDbClusterStateStorage(cmgWorkDir.dbPath(), name);
@@ -637,25 +640,9 @@ public class IgniteImpl implements Ignite {
         partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
-        Map<String, LogStorageFactory> logStorageFactoryByGroupName = Map.of(
-                PARTITION_GROUP_NAME, partitionsLogStorageFactory,
-                MetastorageGroupId.INSTANCE.toString(), msLogStorageFactory,
-                CmgGroupId.INSTANCE.toString(), cmgLogStorageFactory
-        );
-
-        Map<String, Path> serverDataPathByGroupName = Map.of(
-                PARTITION_GROUP_NAME, partitionsWorkDir.metaPath(),
-                MetastorageGroupId.INSTANCE.toString(), metastorageWorkDir.metaPath(),
-                CmgGroupId.INSTANCE.toString(), cmgWorkDir.metaPath()
-        );
+        GroupStoragesContextResolver groupStoragesContextResolver = groupStoragesContextResolver();
 
         GroupStoragesDestructionIntents groupStoragesDestructionIntents = new VaultGroupStoragesDestructionIntents(vaultMgr);
-
-        GroupStoragesContextResolver groupStoragesContextResolver = new GroupStoragesContextResolver(
-                replicationGroupId -> replicationGroupId instanceof PartitionGroupId ? PARTITION_GROUP_NAME : replicationGroupId.toString(),
-                serverDataPathByGroupName,
-                logStorageFactoryByGroupName
-        );
 
         raftMgr = new Loza(
                 clusterSvc,
@@ -1212,6 +1199,28 @@ public class IgniteImpl implements Ignite {
         publicSql = new PublicApiThreadingIgniteSql(sql, asyncContinuationExecutor);
         publicCompute = new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
+    }
+
+    @NotNull
+    private GroupStoragesContextResolver groupStoragesContextResolver() {
+        Map<String, LogStorageFactory> logStorageFactoryByGroupName = Map.of(
+                PARTITION_GROUP_NAME, partitionsLogStorageFactory,
+                MetastorageGroupId.INSTANCE.toString(), msLogStorageFactory,
+                CmgGroupId.INSTANCE.toString(), cmgLogStorageFactory
+        );
+
+        Map<String, Path> serverDataPathByGroupName = Map.of(
+                PARTITION_GROUP_NAME, partitionsWorkDir.metaPath(),
+                MetastorageGroupId.INSTANCE.toString(), metastorageWorkDir.metaPath(),
+                CmgGroupId.INSTANCE.toString(), cmgWorkDir.metaPath()
+        );
+
+        GroupStoragesContextResolver groupStoragesContextResolver = new GroupStoragesContextResolver(
+                replicationGroupId -> replicationGroupId instanceof PartitionGroupId ? PARTITION_GROUP_NAME : replicationGroupId.toString(),
+                serverDataPathByGroupName,
+                logStorageFactoryByGroupName
+        );
+        return groupStoragesContextResolver;
     }
 
     private static ClusterInfo clusterInfo(ClusterStateStorageManager clusterStateStorageManager) {

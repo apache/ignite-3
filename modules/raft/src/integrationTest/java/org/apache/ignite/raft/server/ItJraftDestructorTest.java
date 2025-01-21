@@ -62,7 +62,7 @@ public class ItJraftDestructorTest extends JraftAbstractTest {
 
     @BeforeEach
     void setUp() {
-        server = startServer(0, x -> {}, opts -> {});
+        server = startServer();
 
         serverDataPath = serverWorkingDirs.get(0).basePath();
 
@@ -136,6 +136,10 @@ public class ItJraftDestructorTest extends JraftAbstractTest {
     private void restartServer() throws Exception {
         shutdownCluster();
 
-        startServer(0, x -> {}, opts -> {});
+        startServer();
+    }
+
+    private JraftServerImpl startServer() {
+        return startServer(0, x -> {}, opts -> {});
     }
 }
