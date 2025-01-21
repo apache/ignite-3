@@ -50,6 +50,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -123,6 +124,34 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT 1.1::float > 2").returns(false).check();
         assertQuery("SELECT '1.1'::float > 2").returns(false).check();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"FLOAT", "REAL", "DOUBLE"})
+    public void nonFiniteNumerics(String type) {
+        Number positiveInfinity;
+        Number negativeInfinity;
+        Number nan;
+
+        if ("DOUBLE".equals(type)) {
+            positiveInfinity = Double.POSITIVE_INFINITY;
+            negativeInfinity = Double.NEGATIVE_INFINITY;
+            nan = Double.NaN;
+        } else {
+            positiveInfinity = Float.POSITIVE_INFINITY;
+            negativeInfinity = Float.NEGATIVE_INFINITY;
+            nan = Float.NaN;
+        }
+
+        assertQuery(format("SELECT CAST('+Infinity' AS {})", type)).returns(positiveInfinity).check();
+        assertQuery(format("SELECT CAST('Infinity' AS {})", type)).returns(positiveInfinity).check();
+        assertQuery(format("SELECT CAST('-Infinity' AS {})", type)).returns(negativeInfinity).check();
+        assertQuery(format("SELECT CAST('NaN' AS {})", type)).returns(nan).check();
+
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k < CAST('+Infinity' AS {})", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k < CAST('Infinity' AS {})", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k > CAST('-Infinity' AS {})", type)).returns(0).check();
+        assertQuery(format("SELECT * FROM (VALUES(0)) AS t(k) WHERE k <> CAST('NaN' AS {})", type)).returns(0).check();
     }
 
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
