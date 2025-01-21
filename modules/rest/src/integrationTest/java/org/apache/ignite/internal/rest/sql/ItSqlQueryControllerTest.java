@@ -48,7 +48,7 @@ import org.junit.jupiter.api.Test;
  * Integration tests for {@link SqlQueryController}.
  */
 @MicronautTest
-@Disabled("Temporary disabled.")
+@Disabled("https://issues.apache.org/jira/browse/IGNITE-23488")
 public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     private static final String SQL_QUERY_URL = "/management/v1/sql/";
 

@@ -56,10 +56,10 @@ public interface TransactionApi {
     CompletableFuture<Collection<Transaction>> transactions();
 
     /**
-     * Retrieves the state of a specific transaction.
+     * Retrieves transaction info of the specified transaction.
      *
      * @param transactionId The unique identifier of the transaction.
-     * @return The state of the specified transaction.
+     * @return The transaction info of the specified transaction.
      */
     @Operation(summary = "Retrieve transaction state",
             description = "Fetches the current state of a specific transaction identified by transactionId.")

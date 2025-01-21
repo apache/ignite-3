@@ -47,7 +47,7 @@ public interface SqlQueryApi {
      *
      * @return A collection of all running sql queries.
      */
-    @Operation(summary = "Retrieve all all running sql queries.", description = "Fetches all running sql queries.")
+    @Operation(summary = "Retrieve all running sql queries.", description = "Fetches all running sql queries.")
     @ApiResponse(
             responseCode = "200",
             description = "Successfully retrieved all running sql queries.",
