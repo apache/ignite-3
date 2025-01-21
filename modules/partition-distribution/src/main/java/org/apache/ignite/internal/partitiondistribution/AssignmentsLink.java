@@ -59,7 +59,6 @@ public class AssignmentsLink {
         return next;
     }
 
-
     void next(@Nullable AssignmentsLink next) {
         this.next = next;
     }
@@ -70,7 +69,6 @@ public class AssignmentsLink {
      * @param nodeConsistentId The consistent identifier of the node to check.
      * @return {@code true} if the node is present in the assignments, otherwise {@code false}.
      */
-
     public boolean hasNode(String nodeConsistentId) {
         return assignments.nodes().stream().map(Assignment::consistentId).anyMatch(consistentId -> consistentId.equals(nodeConsistentId));
     }
