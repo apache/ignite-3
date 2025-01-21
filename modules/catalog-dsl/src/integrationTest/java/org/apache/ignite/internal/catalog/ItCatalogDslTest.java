@@ -32,7 +32,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IgniteCatalog;
@@ -46,7 +45,6 @@ import org.apache.ignite.internal.matcher.TableDefinitionMatcher;
 import org.apache.ignite.internal.matcher.ZoneDefinitionMatcher;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
@@ -192,43 +190,6 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 () -> sql("DROP TABLE " + POJO_KV_TABLE_NAME),
                 "Table with name " + toFullTableName(POJO_KV_TABLE_NAME) + " not found"
         );
-    }
-
-    @Test
-    void tableCreateAndDropWithQualifiedName() {
-        createTable();
-
-        QualifiedName name = QualifiedName.of("PUBLIC", POJO_KV_TABLE_NAME);
-
-        // When drop table by qualified name with defined schema
-        assertThat(catalog().dropTableAsync(name), willCompleteSuccessfully());
-
-        createTable();
-
-        name = QualifiedName.parse(POJO_KV_TABLE_NAME);
-
-        // When drop table by qualified name without schema
-        assertThat(catalog().dropTableAsync(name), willCompleteSuccessfully());
-
-        String missedSchemaName = "MISSEDSCHEMA";
-
-        QualifiedName nameWithMissedSchema = QualifiedName.of(missedSchemaName, POJO_KV_TABLE_NAME);
-
-        // Then table is dropped
-        assertThrows(
-                SqlException.class,
-                () -> catalog().dropTable(nameWithMissedSchema),
-                "Schema not found [schemaName=" + missedSchemaName + "]"
-        );
-    }
-
-    private static void createTable() {
-        TableDefinition tableDefinition = TableDefinition.builder(POJO_KV_TABLE_NAME)
-                .columns(column("id", ColumnType.INTEGER))
-                .primaryKey("id")
-                .build();
-
-        catalog().createTable(tableDefinition);
     }
 
     private static String toFullTableName(String tableName) {
@@ -377,28 +338,18 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
         assertThat(catalog().createTableAsync(definition), willCompleteSuccessfully());
 
-        assertThat(catalog().tableDefinitionAsync(POJO_KV_TABLE_NAME), willCompleteSuccessfully());
-
-        List<Supplier<TableDefinition>> apiCallVariations = List.of(
-                () -> catalog().tableDefinitionAsync(POJO_KV_TABLE_NAME).join(),
-                () -> catalog().tableDefinition(POJO_KV_TABLE_NAME),
-                () -> catalog().tableDefinition(QualifiedName.of("PUBLIC", POJO_KV_TABLE_NAME)),
-                () -> catalog().tableDefinition(QualifiedName.parse(POJO_KV_TABLE_NAME))
+        TableDefinition actual1 = catalog().tableDefinition(POJO_KV_TABLE_NAME);
+        assertThat(
+                actual1,
+                TableDefinitionMatcher.isTableDefinition()
+                        .withTableName(definition.tableName())
+                        .withZoneName(definition.zoneName())
+                        .withColumns(definition.columns())
+                        .withPkType(definition.primaryKeyType())
+                        .withPkColumns(definition.primaryKeyColumns())
+                        .withIndexes(definition.indexes())
+                        .withColocationColumns(definition.colocationColumns())
         );
-
-        for (Supplier<TableDefinition> supp : apiCallVariations) {
-            assertThat(
-                    supp.get(),
-                    TableDefinitionMatcher.isTableDefinition()
-                            .withTableName(definition.tableName())
-                            .withZoneName(definition.zoneName())
-                            .withColumns(definition.columns())
-                            .withPkType(definition.primaryKeyType())
-                            .withPkColumns(definition.primaryKeyColumns())
-                            .withIndexes(definition.indexes())
-                            .withColocationColumns(definition.colocationColumns())
-            );
-        }
     }
 
     @SuppressWarnings("DataFlowIssue")

@@ -29,7 +29,6 @@ import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingTable;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
-import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 
 /**
@@ -80,12 +79,12 @@ public class PublicApiThreadingIgniteCatalog implements IgniteCatalog, Wrapper {
     }
 
     @Override
-    public CompletableFuture<TableDefinition> tableDefinitionAsync(QualifiedName tableName) {
+    public CompletableFuture<TableDefinition> tableDefinitionAsync(String tableName) {
         return doAsyncOperation(() -> catalog.tableDefinitionAsync(tableName));
     }
 
     @Override
-    public TableDefinition tableDefinition(QualifiedName tableName) {
+    public TableDefinition tableDefinition(String tableName) {
         return execUserSyncOperation(() -> catalog.tableDefinition(tableName));
     }
 
@@ -116,7 +115,7 @@ public class PublicApiThreadingIgniteCatalog implements IgniteCatalog, Wrapper {
     }
 
     @Override
-    public CompletableFuture<Void> dropTableAsync(QualifiedName name) {
+    public CompletableFuture<Void> dropTableAsync(String name) {
         return doAsyncOperation(() -> catalog.dropTableAsync(name));
     }
 
@@ -126,7 +125,7 @@ public class PublicApiThreadingIgniteCatalog implements IgniteCatalog, Wrapper {
     }
 
     @Override
-    public void dropTable(QualifiedName name) {
+    public void dropTable(String name) {
         execUserSyncOperation(() -> catalog.dropTable(name));
     }
 
