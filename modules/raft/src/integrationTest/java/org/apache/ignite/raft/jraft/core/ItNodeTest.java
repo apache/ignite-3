@@ -3445,6 +3445,71 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testIndexAndTermArePropagatedToOnNewPeersConfigurationApplied() throws Exception {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
+        var raftGrpEvtsLsnr = mock(JraftGroupEventsListener.class);
+
+        AtomicLong term = new AtomicLong(-1);
+        AtomicLong index = new AtomicLong(-1);
+
+        cluster = new TestCluster(
+                "testIndexAndTermArePropagatedToOnNewPeersConfigurationApplied",
+                dataPath,
+                Collections.singletonList(peer0),
+                new LinkedHashSet<>(),
+                ELECTION_TIMEOUT_MILLIS,
+                (peerId, opts) -> {
+                    opts.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
+                    opts.setFsm(new MockStateMachine(peerId) {
+                        @Override
+                        public void onRawConfigurationCommitted(ConfigurationEntry conf) {
+                            term.set(conf.getId().getTerm());
+                            index.set(conf.getId().getIndex());
+                            super.onRawConfigurationCommitted(conf);
+                        }
+                    });
+                },
+                testInfo
+        );
+
+        assertTrue(cluster.start(peer0));
+
+        Node leader = cluster.waitAndGetLeader();
+
+        assertEquals(1, term.get());
+        assertEquals(1, index.get());
+
+        TestPeer newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
+        assertTrue(cluster.start(newPeer, false, 300));
+
+        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+
+        // Wait until new node node sees every other node, otherwise
+        // changePeersAndLearnersAsync can fail.
+        waitForTopologyOnEveryNode(1, cluster);
+
+        SynchronizedClosure done = new SynchronizedClosure();
+        leader.changePeersAndLearnersAsync(
+                new Configuration(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of()), leader.getCurrentTerm(),
+                done
+        );
+
+        assertEquals(done.await(), Status.OK());
+
+        assertTrue(waitForCondition(() -> cluster.getLeader().listAlivePeers().contains(newPeer.getPeerId()), 10_000));
+
+        // Leader hasn't been changed, term must stay the same
+        assertEquals(1, term.get());
+        // idx_2 == joint consensus, idx_3 is expected final cfg
+        assertEquals(3, index.get());
+
+        verify(
+                raftGrpEvtsLsnr,
+                times(1)).onNewPeersConfigurationApplied(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of(), term.get(), index.get()
+        );
+    }
+
+    @Test
+    public void testIndexAndTermOfCfgArePropagatedToSnapshotMeta() throws Exception {
+        TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
 
         AtomicLong term = new AtomicLong(-1);
         AtomicLong index = new AtomicLong(-1);
@@ -3453,7 +3518,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         AtomicLong metaIndex = new AtomicLong(-1);
 
         cluster = new TestCluster(
-                "testIndexAndTermArePropagatedToOnNewPeersConfigurationApplied",
+                "testIndexAndTermOfCfgArePropagatedToSnapshotMeta",
                 dataPath,
                 Collections.singletonList(peer0),
                 new LinkedHashSet<>(),
