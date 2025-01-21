@@ -60,6 +60,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
+import static org.apache.ignite.internal.lang.Pair.pair;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
@@ -115,9 +116,11 @@ import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventL
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lang.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -1021,6 +1024,7 @@ public class DistributionZoneManager extends
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> oldLogicalTopology,
             Set<NodeWithAttributes> newLogicalTopology,
+            NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> dataNodesHistory,
             DistributionZoneTimer scaleUpTimer,
             DistributionZoneTimer scaleDownTimer,
             Integer oldScaleUpAutoAdjust,
@@ -1029,12 +1033,10 @@ public class DistributionZoneManager extends
             Integer newScaleDownAutoAdjust,
             CatalogZoneDescriptor zoneDescriptor
     ) {
-        NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> dataNodesHistory = new TreeMap<>();
         NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> dataNodesChangesHistory = new TreeMap<>();
-
         Map.Entry<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodesEntry = dataNodesHistory.floorEntry(timestamp);
 
-        Set<NodeWithAttributes> currentDataNodes = currentDataNodes(
+        Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = currentDataNodes(
                 timestamp,
                 currentDataNodesEntry,
                 oldLogicalTopology,
@@ -1092,6 +1094,12 @@ public class DistributionZoneManager extends
                 }
             }
         }
+
+
+
+
+
+
         if (zoneDescriptor.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE
                 && zoneDescriptor.dataNodesAutoAdjustScaleUp() != INFINITE_TIMER_VALUE) {
             DistributionZoneTimer newScaleUpTimer = new DistributionZoneTimer(timestamp.addPhysicalTime())
@@ -1178,36 +1186,41 @@ public class DistributionZoneManager extends
 
     }
 
-    private static Set<NodeWithAttributes> currentDataNodes(
+    private static Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes(
             HybridTimestamp timestamp,
-            Map.Entry<HybridTimestamp,
-            @Nullable Set<NodeWithAttributes>> currentDataNodesEntry,
+            @Nullable Map.Entry<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodesEntry,
             Set<NodeWithAttributes> oldLogicalTopology,
             DistributionZoneTimer scaleUpTimer,
             DistributionZoneTimer scaleDownTimer,
             CatalogZoneDescriptor zoneDescriptor
     ) {
-        Set<NodeWithAttributes> dataNodes;
+        Set<NodeWithAttributes> currentDataNodes;
+        HybridTimestamp currentDataNodesTimestamp;
 
         if (currentDataNodesEntry == null) {
-            dataNodes = filterDataNodes(oldLogicalTopology, zoneDescriptor);
+            currentDataNodesTimestamp = HybridTimestamp.MIN_VALUE;
+            currentDataNodes = filterDataNodes(oldLogicalTopology, zoneDescriptor);
         } else {
-            dataNodes = currentDataNodesEntry.getValue();
+            currentDataNodesTimestamp = currentDataNodesEntry.getKey();
+            currentDataNodes = currentDataNodesEntry.getValue();
         }
 
-        HybridTimestamp cdnt = currentDataNodesEntry == null ? HybridTimestamp.MIN_VALUE : currentDataNodesEntry.getKey();
-        HybridTimestamp sutt = scaleUpTimer.timestamp;
-        HybridTimestamp sdtt = scaleUpTimer.timestamp;
+        long cdnt = currentDataNodesEntry == null ? HybridTimestamp.MIN_VALUE.longValue() : currentDataNodesEntry.getKey().longValue();
+        long sutt = scaleUpTimer.timestamp.longValue();
+        long sdtt = scaleDownTimer.timestamp.longValue();
+        long timestampLong = timestamp.longValue();
 
-        if (sutt.compareTo(cdnt) > 0 && sutt.compareTo(timestamp) <= 0) {
-            dataNodes = scaleUpTimer.nodes;
+        if (sutt > cdnt && sutt <= timestampLong) {
+            currentDataNodesTimestamp = scaleUpTimer.timestamp;
+            currentDataNodes = scaleUpTimer.nodes;
         }
 
-        if (sdtt.compareTo(cdnt) > 0 && sdtt.compareTo(sutt) > 0 && sdtt.compareTo(timestamp) <= 0) {
-            dataNodes = scaleDownTimer.nodes;
+        if (sdtt > cdnt && sdtt > sutt && sdtt <= timestampLong) {
+            currentDataNodesTimestamp = scaleDownTimer.timestamp;
+            currentDataNodes = scaleDownTimer.nodes;
         }
 
-        return dataNodes;
+        return pair(currentDataNodesTimestamp, currentDataNodes);
     }
 
     private static class DistributionZoneTimer {

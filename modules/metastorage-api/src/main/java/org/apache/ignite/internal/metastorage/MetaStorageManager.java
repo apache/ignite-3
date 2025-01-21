@@ -168,6 +168,14 @@ public interface MetaStorageManager extends IgniteComponent {
     List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound);
 
     /**
+     * Returns an entry for the given key locally. See also {@link #getLocally(ByteArray, long)}.
+     *
+     * @param key Key.
+     * @return Entry.
+     */
+    Entry getLocally(ByteArray key);
+
+    /**
      * Returns an entry for the given key and the revision upper bound locally.
      *
      * <p>This method doesn't wait for the storage's revision to become greater or equal to the revUpperBound parameter, so it is
