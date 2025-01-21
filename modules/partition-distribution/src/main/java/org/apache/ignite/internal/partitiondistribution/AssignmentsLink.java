@@ -48,7 +48,6 @@ public class AssignmentsLink {
         return assignments;
     }
 
-
     /**
      * Checks if the specified node is part of the current assignments.
      *
@@ -83,9 +82,9 @@ public class AssignmentsLink {
             return false;
         }
 
-        AssignmentsLink link = (AssignmentsLink) o;
-        return configurationIndex == link.configurationIndex && configurationTerm == link.configurationTerm && Objects.equals(
-                assignments, link.assignments) && assignments.timestamp() == link.assignments.timestamp();
+        AssignmentsLink other = (AssignmentsLink) o;
+        return configurationIndex == other.configurationIndex && configurationTerm == other.configurationTerm && Objects.equals(
+                assignments, other.assignments) && assignments.timestamp() == other.assignments.timestamp();
     }
 
     @Override
