@@ -78,10 +78,12 @@ import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -232,6 +234,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock = {profiles.default = {engine = \"aipersist\"}}")
     private StorageConfiguration storageConfiguration;
+
+    @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @Mock
     private ConfigurationRegistry configRegistry;
@@ -400,7 +405,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         var outerExceptionMsg = "Outer future is interrupted";
         assignmentsFuture.completeExceptionally(new TimeoutException(outerExceptionMsg));
         CompletableFuture<List<Assignments>> writtenAssignmentsFuture = tableManager
-                .writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+                .writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, outerExceptionMsg);
 
@@ -410,7 +415,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         var innerExceptionMsg = "Inner future is interrupted";
         invokeTimeoutFuture.completeExceptionally(new TimeoutException(innerExceptionMsg));
         when(msm.invoke(any(), anyList(), anyList())).thenReturn(invokeTimeoutFuture);
-        writtenAssignmentsFuture = tableManager.writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+        writtenAssignmentsFuture =
+                tableManager.writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, innerExceptionMsg);
     }
@@ -836,7 +842,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),
@@ -845,7 +851,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 logSyncer,
                 partitionReplicaLifecycleManager,
-                new MinimumRequiredTimeCollectorServiceImpl()
+                new MinimumRequiredTimeCollectorServiceImpl(),
+                systemDistributedConfiguration
         ) {
 
             @Override

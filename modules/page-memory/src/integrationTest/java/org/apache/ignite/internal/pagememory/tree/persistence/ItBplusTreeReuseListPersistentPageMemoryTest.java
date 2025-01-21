@@ -34,6 +34,7 @@ import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreeReusePageMemoryTest;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
+import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -70,7 +71,8 @@ public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusT
                 (fullPageId, buf, tag) -> {
                 },
                 mockCheckpointTimeoutLock(true),
-                PAGE_SIZE
+                PAGE_SIZE,
+                new OffheapReadWriteLock(128)
         );
     }
 

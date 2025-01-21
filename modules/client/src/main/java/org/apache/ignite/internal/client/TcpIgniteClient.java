@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
@@ -43,6 +44,7 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
 import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -124,10 +126,10 @@ public class TcpIgniteClient implements IgniteClient {
         }
 
         var metricManager = new MetricManagerImpl(ClientUtils.logger(cfg, MetricManagerImpl.class));
-        metricManager.start(List.of(new JmxExporter(ClientUtils.logger(cfg, JmxExporter.class))));
 
         metricManager.registerSource(metrics);
-        metrics.enable();
+        metricManager.enable(metrics);
+        metricManager.start(List.of(new JmxExporter(ClientUtils.logger(cfg, JmxExporter.class))));
 
         return metricManager;
     }
@@ -154,10 +156,14 @@ public class TcpIgniteClient implements IgniteClient {
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
         ErrorGroups.initialize();
 
-        //noinspection resource: returned from method
-        var client = new TcpIgniteClient(cfg);
+        try {
+            //noinspection resource: returned from method
+            var client = new TcpIgniteClient(cfg);
 
-        return client.initAsync().thenApply(x -> client);
+            return client.initAsync().thenApply(x -> client);
+        } catch (IgniteException e) {
+            return failedFuture(e);
+        }
     }
 
     /** {@inheritDoc} */

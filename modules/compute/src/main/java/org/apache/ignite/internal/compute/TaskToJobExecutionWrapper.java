@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.task.TaskExecution;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -28,11 +29,13 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <R> Job result type.
  */
-public class TaskToJobExecutionWrapper<R> implements JobExecution<R> {
-    private final TaskExecution<R> taskExecution;
+class TaskToJobExecutionWrapper<R> implements CancellableJobExecution<R> {
+    private final CancellableTaskExecution<R> taskExecution;
+    private final ClusterNode localNode;
 
-    public TaskToJobExecutionWrapper(TaskExecution<R> taskExecution) {
+    TaskToJobExecutionWrapper(CancellableTaskExecution<R> taskExecution, ClusterNode localNode) {
         this.taskExecution = taskExecution;
+        this.localNode = localNode;
     }
 
     @Override
@@ -42,19 +45,7 @@ public class TaskToJobExecutionWrapper<R> implements JobExecution<R> {
 
     @Override
     public CompletableFuture<@Nullable JobState> stateAsync() {
-        return taskExecution.stateAsync().thenApply(state -> {
-            if (state == null) {
-                return null;
-
-            }
-            return JobStateImpl.builder()
-                    .id(state.id())
-                    .createTime(state.createTime())
-                    .startTime(state.startTime())
-                    .finishTime(state.finishTime())
-                    .status(JobTaskStatusMapper.toJobStatus(state.status()))
-                    .build();
-        });
+        return taskExecution.stateAsync().thenApply(JobTaskStatusMapper::toJobState);
     }
 
     @Override
@@ -65,5 +56,10 @@ public class TaskToJobExecutionWrapper<R> implements JobExecution<R> {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(int newPriority) {
         return taskExecution.changePriorityAsync(newPriority);
+    }
+
+    @Override
+    public ClusterNode node() {
+        return localNode;
     }
 }

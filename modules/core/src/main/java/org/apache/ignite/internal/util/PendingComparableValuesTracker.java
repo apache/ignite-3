@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  * ability to wait for certain value, see {@link #waitFor(Comparable)}.
  */
 public class PendingComparableValuesTracker<T extends Comparable<T>, R> implements ManuallyCloseable {
-    private static final VarHandle CURRENT;
+    protected static final VarHandle CURRENT;
 
     private static final VarHandle CLOSE_GUARD;
 
@@ -55,7 +55,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
 
     /** Current value along with associated result. */
     @SuppressWarnings("FieldMayBeFinal") // Changed through CURRENT VarHandle.
-    private volatile Map.Entry<T, @Nullable R> current;
+    protected volatile Map.Entry<T, @Nullable R> current;
 
     /** Prevents double closing. */
     @SuppressWarnings("unused")
@@ -64,7 +64,7 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
     /** Busy lock to close synchronously. */
     private final IgniteStripedReadWriteLock busyLock = new IgniteStripedReadWriteLock();
 
-    private final Comparator<Map.Entry<T, @Nullable R>> comparator;
+    protected final Comparator<Map.Entry<T, @Nullable R>> comparator;
 
     /**
      * Constructor with initial value.
@@ -203,11 +203,11 @@ public class PendingComparableValuesTracker<T extends Comparable<T>, R> implemen
         return valueFutures.isEmpty();
     }
 
-    private boolean enterBusy() {
+    protected final boolean enterBusy() {
         return !busyLock.isWriteLockedByCurrentThread() && busyLock.readLock().tryLock();
     }
 
-    private void leaveBusy() {
+    protected final void leaveBusy() {
         busyLock.readLock().unlock();
     }
 

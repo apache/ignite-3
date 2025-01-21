@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
+
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlExplainLevel;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -53,6 +55,8 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     private final IgniteKeyValueModify modifyNode;
     private final ResultSetMetadata meta;
     private final ParameterMetadata parameterMetadata;
+
+    private volatile InsertExecution<?> operation;
 
     KeyValueModifyPlan(
             PlanId id,
@@ -112,26 +116,40 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
         return modifyNode;
     }
 
-    @Override
-    public <RowT> AsyncCursor<InternalSqlRow> execute(
-            ExecutionContext<RowT> ctx,
-            @Nullable InternalTransaction tx,
-            ExecutableTableRegistry tableRegistry,
-            @Nullable QueryPrefetchCallback firstPageReadyCallback
-    ) {
+    private <RowT> InsertExecution<RowT> operation(ExecutionContext<RowT> ctx, ExecutableTableRegistry tableRegistry) {
+        InsertExecution<RowT> operation = cast(this.operation);
+
+        if (operation != null) {
+            return operation;
+        }
+
         IgniteTable sqlTable = table();
         ExecutableTable execTable = tableRegistry.getTable(catalogVersion, sqlTable.id());
 
         List<RexNode> expressions = modifyNode.expressions();
 
-        Supplier<RowT> rowSupplier = ctx.expressionFactory()
+        SqlRowProvider<RowT> rowSupplier = ctx.expressionFactory()
                 .rowSource(expressions);
 
-        UpdatableTable updatableTable = execTable.updatableTable();
+        UpdatableTable table = execTable.updatableTable();
 
-        CompletableFuture<Iterator<InternalSqlRow>> result = updatableTable.insert(
-                tx, ctx, rowSupplier.get()
-        ).thenApply(none -> List.<InternalSqlRow>of(new InternalSqlRowSingleLong(1L)).iterator());
+        operation = new InsertExecution<>(table, rowSupplier);
+
+        this.operation = operation;
+
+        return operation;
+    }
+
+    @Override
+    public <RowT> AsyncCursor<InternalSqlRow> execute(
+            ExecutionContext<RowT> ctx,
+            InternalTransaction tx,
+            ExecutableTableRegistry tableRegistry,
+            @Nullable QueryPrefetchCallback firstPageReadyCallback
+    ) {
+        InsertExecution<RowT> operation = operation(ctx, tableRegistry);
+
+        CompletableFuture<Iterator<InternalSqlRow>> result = operation.perform(ctx, tx);
 
         if (firstPageReadyCallback != null) {
             result.whenComplete((res, err) -> firstPageReadyCallback.onPrefetchComplete(err));
@@ -140,6 +158,24 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
         ctx.scheduleTimeout(result);
 
         return new AsyncWrapper<>(result, Runnable::run);
+    }
+
+    private static class InsertExecution<RowT> {
+        private final UpdatableTable table;
+        private final SqlRowProvider<RowT> rowSupplier;
+
+        private InsertExecution(
+                UpdatableTable table,
+                SqlRowProvider<RowT> rowSupplier
+        ) {
+            this.table = table;
+            this.rowSupplier = rowSupplier;
+        }
+
+        CompletableFuture<Iterator<InternalSqlRow>> perform(ExecutionContext<RowT> ctx, InternalTransaction tx) {
+            return table.insert(tx, ctx, rowSupplier.get(ctx))
+                    .thenApply(none -> List.<InternalSqlRow>of(new InternalSqlRowSingleLong(1L)).iterator());
+        }
     }
 
     public int catalogVersion() {

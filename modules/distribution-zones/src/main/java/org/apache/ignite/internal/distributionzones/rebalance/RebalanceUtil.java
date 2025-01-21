@@ -53,6 +53,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -62,6 +63,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
@@ -132,6 +134,7 @@ public class RebalanceUtil {
      * @param tableDescriptor Table descriptor.
      * @param partId Unique identifier of a partition.
      * @param dataNodes Data nodes.
+     * @param partitions Number of partitions.
      * @param replicas Number of replicas for a table.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
@@ -143,12 +146,15 @@ public class RebalanceUtil {
             CatalogTableDescriptor tableDescriptor,
             TablePartitionId partId,
             Collection<String> dataNodes,
+            int partitions,
             int replicas,
             long revision,
             MetaStorageManager metaStorageMgr,
             int partNum,
             Set<Assignment> tableCfgPartAssignments,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            Set<String> aliveNodes,
+            ConsistencyMode consistencyMode
     ) {
         ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
 
@@ -158,7 +164,39 @@ public class RebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
-        Set<Assignment> partAssignments = calculateAssignmentForPartition(dataNodes, partNum, replicas);
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, partitions, replicas);
+
+        Set<Assignment> partAssignments;
+
+        if (consistencyMode == ConsistencyMode.HIGH_AVAILABILITY) {
+            // All complicated logic here is needed because we want to return back to stable nodes
+            // that are returned back after majority is lost and stable was narrowed.
+            // Let's consider example:
+            // stable = [A, B, C], dataNodes = [A, B, C]
+            // B, C left, stable = [A], dataNodes = [A, B, C]
+            // B returned, we want stable = [A, B], but in terms of data nodes they are not changed and equal [A, B, C]
+            // So, because scale up mechanism in this case won't adjust stable, we need to add B to stable manually.
+            // General idea is to filter offline nodes from data nodes, but we need to be careful and do not remove nodes
+            // bypassing scale down mechanism. If node is offline and presented in previous stable, we won't remove that node.
+
+            // First of all, we remove offline nodes from calculated assignments
+            Set<Assignment> resultingAssignments = calculatedAssignments
+                    .stream()
+                    .filter(a -> aliveNodes.contains(a.consistentId()))
+                    .collect(toSet());
+
+            // Here we re-introduce nodes that currently exist in the stable configuration
+            // but were previously removed without using the normal scale-down process.
+            for (Assignment assignment : tableCfgPartAssignments) {
+                if (calculatedAssignments.contains(assignment)) {
+                    resultingAssignments.add(assignment);
+                }
+            }
+
+            partAssignments = resultingAssignments;
+        } else {
+            partAssignments = calculatedAssignments;
+        }
 
         boolean isNewAssignments = !tableCfgPartAssignments.equals(partAssignments);
 
@@ -294,7 +332,8 @@ public class RebalanceUtil {
             Set<String> dataNodes,
             long storageRevision,
             MetaStorageManager metaStorageManager,
-            long assignmentsTimestamp
+            long assignmentsTimestamp,
+            Set<String> aliveNodes
     ) {
         int[] partitionIds = partitionIds(zoneDescriptor.partitions());
 
@@ -311,7 +350,8 @@ public class RebalanceUtil {
                             storageRevision,
                             metaStorageManager,
                             assignmentsTimestamp,
-                            stableAssignments
+                            stableAssignments,
+                            aliveNodes
                     );
                 });
     }
@@ -323,7 +363,8 @@ public class RebalanceUtil {
             long storageRevision,
             MetaStorageManager metaStorageManager,
             long assignmentsTimestamp,
-            Map<Integer, Assignments> tableAssignments
+            Map<Integer, Assignments> tableAssignments,
+            Set<String> aliveNodes
     ) {
         // tableAssignments should not be empty. It is checked for emptiness before calling this method.
         CompletableFuture<?>[] futures = new CompletableFuture[zoneDescriptor.partitions()];
@@ -337,12 +378,15 @@ public class RebalanceUtil {
                     tableDescriptor,
                     replicaGrpId,
                     dataNodes,
+                    zoneDescriptor.partitions(),
                     zoneDescriptor.replicas(),
                     storageRevision,
                     metaStorageManager,
                     partId,
                     tableAssignments.get(partId).nodes(),
-                    assignmentsTimestamp
+                    assignmentsTimestamp,
+                    aliveNodes,
+                    zoneDescriptor.consistencyMode()
             );
         }
 
@@ -406,6 +450,10 @@ public class RebalanceUtil {
 
     public static final byte[] PENDING_CHANGE_TRIGGER_PREFIX_BYTES = PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
 
+    public static final String ASSIGNMENTS_CHAIN_PREFIX = "assignments.chain.";
+
+    public static final byte[] ASSIGNMENTS_CHAIN_PREFIX_BYTES = ASSIGNMENTS_CHAIN_PREFIX.getBytes(UTF_8);
+
     /**
      * Key that is needed for skipping stale events of pending key change.
      *
@@ -448,6 +496,17 @@ public class RebalanceUtil {
      */
     public static ByteArray stablePartAssignmentsKey(TablePartitionId partId) {
         return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
+    }
+
+    /**
+     * Key for the graceful restart in HA mode.
+     *
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
+     * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-131%3A+Partition+Majority+Unavailability+Handling">HA mode</a>
+     */
+    public static ByteArray assignmentsChainKey(TablePartitionId partId) {
+        return new ByteArray(ASSIGNMENTS_CHAIN_PREFIX + partId);
     }
 
     /**
@@ -566,6 +625,24 @@ public class RebalanceUtil {
      * Returns partition assignments from meta storage locally.
      *
      * @param metaStorageManager Meta storage manager.
+     * @param tablePartitionId Table partition id.
+     * @param revision Revision.
+     * @return Returns partition assignments from meta storage locally or {@code null} if assignments is absent.
+     */
+    public static @Nullable Assignments stableAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            TablePartitionId tablePartitionId,
+            long revision
+    ) {
+        Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(tablePartitionId), revision);
+
+        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value());
+    }
+
+    /**
+     * Returns partition assignments from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
      * @param tableId Table id.
      * @param partitionNumber Partition number.
      * @param revision Revision.
@@ -578,9 +655,9 @@ public class RebalanceUtil {
             int partitionNumber,
             long revision
     ) {
-        Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)), revision);
+        Assignments assignments = stableAssignmentsGetLocally(metaStorageManager, new TablePartitionId(tableId, partitionNumber), revision);
 
-        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value()).nodes();
+        return assignments == null ? null : assignments.nodes();
     }
 
     /**
@@ -628,11 +705,11 @@ public class RebalanceUtil {
     ) {
         return IntStream.range(0, numberOfPartitions)
                 .mapToObj(p -> {
-                    Entry e = metaStorageManager.getLocally(stablePartAssignmentsKey(new TablePartitionId(tableId, p)), revision);
+                    Assignments assignments = stableAssignmentsGetLocally(metaStorageManager, new TablePartitionId(tableId, p), revision);
 
-                    assert e != null && !e.empty() && !e.tombstone() : e;
+                    assert assignments != null;
 
-                    return Assignments.fromBytes(e.value());
+                    return assignments;
                 })
                 .collect(toList());
     }
@@ -659,5 +736,43 @@ public class RebalanceUtil {
                     return e != null ? Assignments.fromBytes(e.value()) : null;
                 })
                 .collect(toList());
+    }
+
+    /**
+     * Returns assignments chains for all table partitions from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param tableId Table id.
+     * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
+     * @return Future with table assignments as a value.
+     */
+    public static List<AssignmentsChain> tableAssignmentsChainGetLocally(
+            MetaStorageManager metaStorageManager,
+            int tableId,
+            int numberOfPartitions,
+            long revision
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(p -> assignmentsChainGetLocally(metaStorageManager, new TablePartitionId(tableId, p), revision))
+                .collect(toList());
+    }
+
+    /**
+     * Returns assignments chain from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param tablePartitionId Table partition id.
+     * @param revision Revision.
+     * @return Returns assignments chain from meta storage locally or {@code null} if assignments is absent.
+     */
+    public static @Nullable AssignmentsChain assignmentsChainGetLocally(
+            MetaStorageManager metaStorageManager,
+            TablePartitionId tablePartitionId,
+            long revision
+    ) {
+        Entry e = metaStorageManager.getLocally(assignmentsChainKey(tablePartitionId), revision);
+
+        return e != null ? AssignmentsChain.fromBytes(e.value()) : null;
     }
 }

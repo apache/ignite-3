@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
@@ -106,6 +108,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -119,7 +122,7 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.tx.TransactionException;
@@ -159,11 +162,15 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private final ReplicationGroupId groupId;
 
     /** The thread updates safe time on the dummy replica. */
-    private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
+    private final SafeTimeValuesTracker safeTime;
 
     private final Object raftServiceMutex = new Object();
 
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
+
+    private static final ScheduledExecutorService COMMON_SCHEDULER = Executors.newSingleThreadScheduledExecutor(
+            new NamedThreadFactory("DummyInternalTable-common-scheduler-", true, LOG)
+    );
 
     /**
      * Creates a new local table.
@@ -213,7 +220,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 false,
                 null,
                 schema,
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
                 storageUpdateConfiguration,
                 txConfiguration,
@@ -370,12 +377,19 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     res.complete(r);
                                 }
                             }
+
+                            @Override
+                            public void patch(HybridTimestamp safeTs) {
+                                command().patch(safeTs);
+                            }
                         };
+
+                        clo.patch(CLOCK.now());
 
                         try {
                             partitionListener.onWrite(List.of(clo).iterator());
                         } catch (Throwable e) {
-                            res.completeExceptionally(new TransactionException(e));
+                            res.completeExceptionally(new TransactionException(0, e));
                         }
 
                         return res;
@@ -402,7 +416,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         IndexLocker pkLocker = new HashIndexLocker(indexId, true, this.txManager.lockManager(), row2Tuple);
 
-        safeTime = new PendingIndependentComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
+        safeTime = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
         PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, PART_ID, mvPartStorage);
         TableIndexStoragesSupplier indexes = createTableIndexStoragesSupplier(Map.of(pkStorage.get().id(), pkStorage.get()));
@@ -454,7 +468,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(ClusterNodeResolver.class),
                 resourcesRegistry,
                 schemaManager,
-                mock(IndexMetaStorage.class)
+                mock(IndexMetaStorage.class),
+                new TestLowWatermark()
         );
 
         partitionListener = new PartitionListener(
@@ -466,7 +481,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
                 schemaManager,
-                CLOCK_SERVICE,
                 mock(IndexMetaStorage.class),
                 LOCAL_NODE.id(),
                 mock(MinimumRequiredTimeCollectorService.class)
@@ -555,7 +569,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txConfiguration,
                 clusterService,
                 replicaSvc,
-                new HeapLockManager(1024, 1024),
+                HeapLockManager.smallInstance(),
                 CLOCK_SERVICE,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
@@ -563,7 +577,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
                 transactionInflights,
-                new TestLowWatermark()
+                new TestLowWatermark(),
+                COMMON_SCHEDULER
         );
 
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

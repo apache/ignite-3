@@ -57,15 +57,16 @@ public class ScriptTransactionContext implements QueryTransactionContext {
     /**
      * Starts a new implicit transaction if there is no external or script-driven transaction.
      *
-     * @param readOnly Type of the transaction to start if none is started.
+     * @param readOnly Indicates whether the read-only transaction or read-write transaction should be started.
+     * @param implicit Indicates whether the implicit transaction will be partially managed by the table storage.
      * @return Transaction wrapper.
      */
     @Override
-    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
+    public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit) {
         QueryTransactionWrapper wrapper = this.wrapper;
 
         if (wrapper == null) {
-            return txContext.getOrStartImplicit(readOnly);
+            return txContext.getOrStartSqlManaged(readOnly, implicit);
         }
 
         return wrapper;
@@ -107,7 +108,7 @@ public class ScriptTransactionContext implements QueryTransactionContext {
             }
 
             boolean readOnly = ((IgniteSqlStartTransaction) node).getMode() == IgniteSqlStartTransactionMode.READ_ONLY;
-            InternalTransaction tx = txContext.getOrStartImplicit(readOnly).unwrap();
+            InternalTransaction tx = txContext.getOrStartSqlManaged(readOnly, false).unwrap();
 
             this.wrapper = new ScriptTransactionWrapperImpl(tx, txTracker);
 
@@ -127,14 +128,12 @@ public class ScriptTransactionContext implements QueryTransactionContext {
 
     /** Registers a future statement cursor that must be closed before the transaction can be committed. */
     public void registerCursorFuture(SqlQueryType queryType, CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
-        if (queryType == SqlQueryType.DDL || queryType == SqlQueryType.EXPLAIN) {
-            return;
-        }
+        if (queryType.supportsTransactions()) {
+            ScriptTransactionWrapperImpl txWrapper = wrapper;
 
-        ScriptTransactionWrapperImpl txWrapper = wrapper;
-
-        if (txWrapper != null) {
-            txWrapper.registerCursorFuture(cursorFut);
+            if (txWrapper != null) {
+                txWrapper.registerCursorFuture(cursorFut);
+            }
         }
     }
 

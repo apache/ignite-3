@@ -34,33 +34,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * There is a test of table schema synchronization.
  */
-@ExtendWith(WorkDirectoryExtension.class)
 public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
     public static final String TABLE_NAME = "tbl1";
-
-    @Override
-    protected void customizeInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration("ignite.replication.rpcTimeout: 3000");
-    }
 
     /**
      * Test correctness of schema updates on lagged node.
@@ -143,7 +134,6 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      * Test correctness of schemes recovery after node restart.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23927")
     public void checkSchemasCorrectlyRestore() {
         Ignite ignite1 = cluster.node(1);
 
@@ -195,6 +185,18 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
     @Test
     public void testExpectReplicationTimeout() throws Exception {
         Ignite ignite0 = cluster.node(0);
+
+        // Change replication timeout to 3s that will be a reason for ReplicationTimeoutException will be thrown.
+        assertThat(
+                unwrapIgniteImpl(ignite0)
+                        .clusterConfiguration()
+                        .getConfiguration(ReplicationExtensionConfiguration.KEY)
+                        .replication()
+                        .rpcTimeout()
+                        .update(3000L),
+                willCompleteSuccessfully()
+        );
+
         Ignite ignite1 = cluster.node(1);
 
         createTable(ignite0, TABLE_NAME);

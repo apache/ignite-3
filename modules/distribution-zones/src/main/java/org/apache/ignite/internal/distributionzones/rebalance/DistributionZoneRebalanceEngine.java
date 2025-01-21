@@ -31,7 +31,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -43,7 +45,10 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.Node;
+import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
@@ -55,6 +60,8 @@ import org.jetbrains.annotations.TestOnly;
  * Zone rebalance manager.
  */
 public class DistributionZoneRebalanceEngine {
+    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngine.class);
+
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
@@ -220,11 +227,36 @@ public class DistributionZoneRebalanceEngine {
                 return nullCompletedFuture();
             }
 
-            Set<String> filteredDataNodes = filterDataNodes(
-                    dataNodes,
-                    zoneDescriptor,
-                    distributionZoneManager.nodesAttributes()
-            );
+            Map<UUID, NodeWithAttributes> nodesAttributes = distributionZoneManager.nodesAttributes();
+
+            Set<String> filteredDataNodes = filterDataNodes(dataNodes, zoneDescriptor, nodesAttributes);
+
+            if (LOG.isInfoEnabled()) {
+                var matchedNodes = new ArrayList<NodeWithAttributes>();
+                var filteredOutNodes = new ArrayList<NodeWithAttributes>();
+
+                for (Node dataNode : dataNodes) {
+                    NodeWithAttributes nodeWithAttributes = nodesAttributes.get(dataNode.nodeId());
+
+                    if (filteredDataNodes.contains(dataNode.nodeName())) {
+                        matchedNodes.add(nodeWithAttributes);
+                    } else {
+                        filteredOutNodes.add(nodeWithAttributes);
+                    }
+                }
+
+                if (!filteredOutNodes.isEmpty()) {
+                    LOG.info(
+                            "Some data nodes were filtered out because they don't match zone's attributes:"
+                                    + "\n\tzoneId={}\n\tfilter={}\n\tstorageProfiles={}'\n\tfilteredOutNodes={}\n\tremainingNodes={}",
+                            zoneDescriptor.id(),
+                            zoneDescriptor.filter(),
+                            zoneDescriptor.storageProfiles(),
+                            filteredOutNodes,
+                            matchedNodes
+                    );
+                }
+            }
 
             if (filteredDataNodes.isEmpty()) {
                 return nullCompletedFuture();
@@ -293,6 +325,11 @@ public class DistributionZoneRebalanceEngine {
     ) {
         List<CompletableFuture<?>> tableFutures = new ArrayList<>(tableDescriptors.size());
 
+        Set<String> aliveNodes = distributionZoneManager.logicalTopology(revision)
+                .stream()
+                .map(NodeWithAttributes::nodeName)
+                .collect(Collectors.toSet());
+
         for (CatalogTableDescriptor tableDescriptor : tableDescriptors) {
             tableFutures.add(RebalanceUtil.triggerAllTablePartitionsRebalance(
                     tableDescriptor,
@@ -300,7 +337,8 @@ public class DistributionZoneRebalanceEngine {
                     dataNodes,
                     revision,
                     metaStorageManager,
-                    assignmentsTimestamp
+                    assignmentsTimestamp,
+                    aliveNodes
             ));
         }
 

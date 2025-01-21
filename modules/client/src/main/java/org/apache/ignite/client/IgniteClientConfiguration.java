@@ -152,6 +152,7 @@ public interface IgniteClientConfiguration {
 
     /**
      * Gets a value indicating whether JMX metrics are enabled.
+     * See {@link IgniteClient.Builder#metricsEnabled(boolean)} for more details.
      *
      * @return {@code true} if metrics are enabled.
      */

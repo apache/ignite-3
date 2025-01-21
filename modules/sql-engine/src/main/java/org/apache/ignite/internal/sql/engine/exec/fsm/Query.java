@@ -19,11 +19,11 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
@@ -54,6 +54,7 @@ class Query {
     final QueryExecutor executor;
     final SqlProperties properties;
     final QueryTransactionContext txContext;
+    final AtomicReference<Throwable> error = new AtomicReference<>();
     final @Nullable CompletableFuture<AsyncSqlCursor<InternalSqlRow>> nextCursorFuture;
 
     // Below is volatile state populated during processing of particular stage for single statement execution
@@ -70,9 +71,6 @@ class Query {
     private final ConcurrentMap<ExecutionPhase, CompletableFuture<Void>> onPhaseStartedCallback = new ConcurrentHashMap<>();
 
     private volatile ExecutionPhase currentPhase = ExecutionPhase.REGISTERED;
-
-    /** Future that completes when this query is completed and removed from the running queries registry. */
-    private final CompletableFuture<Void> terminationDoneFuture = new CompletableFuture<>();
 
     /** Constructs the query. */
     Query(
@@ -137,29 +135,19 @@ class Query {
     }
 
     void onError(Throwable th) {
+        setError(th);
+
         moveTo(ExecutionPhase.TERMINATED);
 
         resultHolder.completeExceptionally(th);
     }
 
-    /**
-     * Self-registration of this query in the queries registry.
-     *
-     * @param runningQueries Running queries registry.
-     * @return A future that will complete when the query is removed from the registry.
-     */
-    CompletableFuture<?> register(Map<UUID, Query> runningQueries) {
-        Query old = runningQueries.put(id, this);
+    void setError(Throwable err) {
+        Throwable prevErr = error.compareAndExchange(null, err);
 
-        assert old == null : "Query with the same id already registered";
-
-        onPhaseStarted(ExecutionPhase.TERMINATED).whenComplete((ignored, ex) -> {
-            runningQueries.remove(id);
-
-            terminationDoneFuture.complete(null);
-        });
-
-        return terminationDoneFuture;
+        if (prevErr != null && prevErr != err) {
+            error.get().addSuppressed(err);
+        }
     }
 
     /**
@@ -170,6 +158,6 @@ class Query {
     CompletableFuture<Void> cancel() {
         cancel.cancel();
 
-        return terminationDoneFuture;
+        return onPhaseStarted(ExecutionPhase.TERMINATED);
     }
 }

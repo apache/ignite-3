@@ -184,6 +184,39 @@ public class DistributionZonesTestUtil {
         );
     }
 
+    /**
+     * Creates a distribution zone in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     * @param partitions Zone number of partitions.
+     * @param replicas Zone number of replicas.
+     * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch.
+     * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
+     * @param consistencyMode Zone consistency mode.
+     */
+    public static void createZone(
+            CatalogManager catalogManager,
+            String zoneName,
+            Integer partitions,
+            Integer replicas,
+            Integer dataNodesAutoAdjustScaleUp,
+            Integer dataNodesAutoAdjustScaleDown,
+            ConsistencyMode consistencyMode
+    ) {
+        createZone(
+                catalogManager,
+                zoneName,
+                partitions,
+                replicas,
+                dataNodesAutoAdjustScaleUp,
+                dataNodesAutoAdjustScaleDown,
+                null,
+                consistencyMode,
+                DEFAULT_STORAGE_PROFILE
+        );
+    }
+
     private static void createZone(
             CatalogManager catalogManager,
             String zoneName,

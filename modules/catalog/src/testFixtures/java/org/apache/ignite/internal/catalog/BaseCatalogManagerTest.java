@@ -101,13 +101,10 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     protected CatalogManagerImpl manager;
 
     protected AtomicLong delayDuration = new AtomicLong();
-    protected AtomicLong partitionIdleSafeTimePropagationPeriod = new AtomicLong();
-
 
     @BeforeEach
     void setUp() {
         delayDuration.set(CatalogManagerImpl.DEFAULT_DELAY_DURATION);
-        partitionIdleSafeTimePropagationPeriod.set(CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
 
         metastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
@@ -119,8 +116,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         manager = new CatalogManagerImpl(
                 updateLog,
                 clockService,
-                delayDuration::get,
-                partitionIdleSafeTimePropagationPeriod::get
+                delayDuration::get
         );
 
         ComponentContext context = new ComponentContext();
@@ -193,10 +189,11 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             @Nullable List<String> indexColumns,
             @Nullable List<CatalogColumnCollation> columnsCollations
     ) {
-        return createSortedIndexCommand(TABLE_NAME, indexName, unique, indexColumns, columnsCollations);
+        return createSortedIndexCommand(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, indexName, unique, indexColumns, columnsCollations);
     }
 
     protected static CatalogCommand createSortedIndexCommand(
+            String schemaName,
             String tableName,
             String indexName,
             boolean unique,
@@ -204,7 +201,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             @Nullable List<CatalogColumnCollation> columnsCollations
     ) {
         return CreateSortedIndexCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .schemaName(schemaName)
                 .tableName(tableName)
                 .indexName(indexName)
                 .unique(unique)
@@ -227,11 +224,23 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             List<String> primaryKeys,
             @Nullable List<String> colocationColumns
     ) {
-        return createTableCommandBuilder(tableName, columns, primaryKeys, colocationColumns)
+        return createTableCommand(SqlCommon.DEFAULT_SCHEMA_NAME, tableName, columns, primaryKeys, colocationColumns);
+    }
+
+    protected static CatalogCommand createTableCommand(
+            String schemaName,
+            String tableName,
+            List<ColumnParams> columns,
+            List<String> primaryKeys,
+            @Nullable List<String> colocationColumns
+    ) {
+        return createTableCommandBuilder(schemaName, tableName, columns, primaryKeys, colocationColumns)
                 .build();
     }
 
-    protected static CreateTableCommandBuilder createTableCommandBuilder(String tableName,
+    protected static CreateTableCommandBuilder createTableCommandBuilder(
+            String schemaName,
+            String tableName,
             List<ColumnParams> columns,
             List<String> primaryKeys, @Nullable List<String> colocationColumns) {
 
@@ -240,7 +249,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 .build();
 
         return CreateTableCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .schemaName(schemaName)
                 .tableName(tableName)
                 .columns(columns)
                 .primaryKey(primaryKey)

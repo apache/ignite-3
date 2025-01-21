@@ -444,6 +444,11 @@ public class IgniteMath {
             return value.floatValue();
         } else {
             double v = x.doubleValue();
+
+            if (!Double.isFinite(v)) {
+                return x.floatValue();
+            }
+
             if (v > UPPER_FLOAT_DOUBLE || v < LOWER_FLOAT_DOUBLE) {
                 throw outOfRangeForTypeException(SqlTypeName.REAL);
             }

@@ -27,7 +27,6 @@ import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.handler.ssl.SslContext;
@@ -35,6 +34,7 @@ import io.netty.handler.timeout.IdleStateHandler;
 import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.nio.channels.UnresolvedAddressException;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -62,7 +62,7 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -82,8 +82,8 @@ public class ClientHandlerModule implements IgniteComponent {
     /** Ignite tables API. */
     private final IgniteTablesInternal igniteTables;
 
-    /** Ignite transactions API. */
-    private final IgniteTransactionsImpl igniteTransactions;
+    /** Transaction manager. */
+    private final TxManager txManager;
 
     /** Cluster ID supplier. */
     private final Supplier<ClusterInfo> clusterInfoSupplier;
@@ -130,14 +130,14 @@ public class ClientHandlerModule implements IgniteComponent {
 
     @TestOnly
     @SuppressWarnings("unused")
-    private volatile ChannelHandler handler;
+    private volatile ClientInboundMessageHandler handler;
 
     /**
      * Constructor.
      *
      * @param queryProcessor Sql query processor.
      * @param igniteTables Ignite.
-     * @param igniteTransactions Transactions.
+     * @param txManager Transaction manager.
      * @param igniteCompute Compute.
      * @param clusterService Cluster.
      * @param bootstrapFactory Bootstrap factory.
@@ -152,7 +152,7 @@ public class ClientHandlerModule implements IgniteComponent {
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
             IgniteTablesInternal igniteTables,
-            IgniteTransactionsImpl igniteTransactions,
+            TxManager txManager,
             IgniteComputeInternal igniteCompute,
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
@@ -170,6 +170,7 @@ public class ClientHandlerModule implements IgniteComponent {
     ) {
         assert igniteTables != null;
         assert queryProcessor != null;
+        assert txManager != null;
         assert igniteCompute != null;
         assert clusterService != null;
         assert bootstrapFactory != null;
@@ -187,7 +188,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
-        this.igniteTransactions = igniteTransactions;
+        this.txManager = txManager;
         this.igniteCompute = igniteCompute;
         this.clusterService = clusterService;
         this.bootstrapFactory = bootstrapFactory;
@@ -335,16 +336,26 @@ public class ClientHandlerModule implements IgniteComponent {
                 .option(ChannelOption.AUTO_READ, false);
 
         int port = configuration.port();
-        String address = configuration.listenAddress();
+        String[] addresses = configuration.listenAddresses();
 
-        ChannelFuture channelFuture = address.isEmpty() ? bootstrap.bind(port) : bootstrap.bind(address, port);
+        ChannelFuture channelFuture;
+        if (addresses.length == 0) {
+            channelFuture = bootstrap.bind(port);
+        } else {
+            if (addresses.length > 1) {
+                // TODO: IGNITE-22369 - support more than one listen address.
+                throw new IgniteException(INTERNAL_ERR, "Only one listen address is allowed for now, but got " + List.of(addresses));
+            }
+
+            channelFuture = bootstrap.bind(addresses[0], port);
+        }
 
         channelFuture.addListener((ChannelFutureListener) bindFut -> {
             if (bindFut.isSuccess()) {
                 if (LOG.isInfoEnabled()) {
                     LOG.info(
                             "Thin client connector endpoint started successfully [{}]",
-                            (address.isEmpty() ? "" : "address=" + address + ",") + "port=" + port);
+                            (addresses.length == 0 ? "" : "address=" + addresses[0] + ",") + "port=" + port);
                 }
 
                 result.complete(bindFut.channel());
@@ -360,7 +371,7 @@ public class ClientHandlerModule implements IgniteComponent {
                 result.completeExceptionally(
                         new IgniteException(
                                 ADDRESS_UNRESOLVED_ERR,
-                                "Failed to start thin connector endpoint, unresolved socket address \"" + address + "\"",
+                                "Failed to start thin connector endpoint, unresolved socket address \"" + addresses[0] + "\"",
                                 bindFut.cause()
                         )
                 );
@@ -379,7 +390,7 @@ public class ClientHandlerModule implements IgniteComponent {
     private ClientInboundMessageHandler createInboundMessageHandler(ClientConnectorView configuration, long connectionId) {
         return new ClientInboundMessageHandler(
                 igniteTables,
-                igniteTransactions,
+                txManager,
                 queryProcessor,
                 configuration,
                 igniteCompute,
@@ -394,5 +405,10 @@ public class ClientHandlerModule implements IgniteComponent {
                 primaryReplicaTracker,
                 partitionOperationsExecutor
         );
+    }
+
+    @TestOnly
+    public ClientInboundMessageHandler handler() {
+        return handler;
     }
 }

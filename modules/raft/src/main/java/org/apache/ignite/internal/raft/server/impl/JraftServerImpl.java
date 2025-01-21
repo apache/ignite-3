@@ -34,6 +34,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
@@ -447,6 +448,10 @@ public class JraftServerImpl implements RaftServer {
             // Thread pools are shared by all raft groups.
             NodeOptions nodeOptions = opts.copy();
 
+            // When a new election starts on a node, it has local physical time higher than last generated safe ts
+            // because we wait out the clock skew.
+            nodeOptions.setElectionTimeoutMs(Math.max(nodeOptions.getElectionTimeoutMs(), groupOptions.maxClockSkew()));
+
             nodeOptions.setLogUri(nodeId.nodeIdStringForStorage());
 
             Path serverDataPath = serverDataPathForNodeId(nodeId, groupOptions);
@@ -544,18 +549,26 @@ public class JraftServerImpl implements RaftServer {
 
     @Override
     public boolean stopRaftNodes(ReplicationGroupId groupId) {
-        return nodes.entrySet().removeIf(e -> {
+        Set<RaftGroupService> servicesToStop = new HashSet<>();
+
+        boolean removed = nodes.entrySet().removeIf(e -> {
             RaftNodeId nodeId = e.getKey();
             RaftGroupService service = e.getValue();
 
             if (nodeId.groupId().equals(groupId)) {
-                service.shutdown();
+                servicesToStop.add(service);
 
                 return true;
             } else {
                 return false;
             }
         });
+
+        for (RaftGroupService service : servicesToStop) {
+            service.shutdown();
+        }
+
+        return removed;
     }
 
     @Override

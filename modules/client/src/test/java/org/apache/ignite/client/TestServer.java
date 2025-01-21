@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeInternalTable;
@@ -57,6 +58,8 @@ import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -73,7 +76,6 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManagerI
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -222,7 +224,17 @@ public class TestServer implements AutoCloseable {
         if (securityConfiguration == null) {
             authenticationManager = new DummyAuthenticationManager();
         } else {
-            authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
+            authenticationManager = new AuthenticationManagerImpl(securityConfiguration, new EventLog() {
+                @Override
+                public void log(Event event) {
+
+                }
+
+                @Override
+                public void log(String type, Supplier<Event> eventProvider) {
+
+                }
+            });
             assertThat(authenticationManager.startAsync(componentContext), willCompleteSuccessfully());
         }
 
@@ -248,7 +260,7 @@ public class TestServer implements AutoCloseable {
                 : new ClientHandlerModule(
                         ignite.queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
-                        (IgniteTransactionsImpl) ignite.transactions(),
+                        ignite.txManager(),
                         (IgniteComputeInternal) ignite.compute(),
                         clusterService,
                         bootstrapFactory,

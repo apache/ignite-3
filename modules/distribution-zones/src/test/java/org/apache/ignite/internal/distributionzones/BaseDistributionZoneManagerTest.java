@@ -21,7 +21,7 @@ import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -89,10 +89,8 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     private final List<IgniteComponent> components = new ArrayList<>();
 
-    @InjectConfiguration("mock.properties = {"
-            + PARTITION_DISTRIBUTION_RESET_TIMEOUT + ".propertyValue = \"" + IMMEDIATE_TIMER_VALUE + "\", "
-            + "}")
-    protected SystemDistributedConfiguration systemDistributedConfiguration;
+    @InjectConfiguration("mock.properties." + PARTITION_DISTRIBUTION_RESET_TIMEOUT + " = \"" + IMMEDIATE_TIMER_VALUE + "\"")
+    SystemDistributedConfiguration systemDistributedConfiguration;
 
     @BeforeEach
     void setUp() throws Exception {

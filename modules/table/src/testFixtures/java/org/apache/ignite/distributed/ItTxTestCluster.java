@@ -155,6 +155,7 @@ import org.apache.ignite.internal.table.impl.DummyValidationSchemasSource;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
@@ -172,6 +173,7 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -516,7 +518,8 @@ public class ItTxTestCluster {
                     clusterService.topologyService(),
                     clusterService.messagingService(),
                     transactionInflights,
-                    txMgr
+                    txMgr,
+                    lowWatermark
             );
 
             assertThat(txMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -573,7 +576,7 @@ public class ItTxTestCluster {
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 replicaSvc,
-                new HeapLockManager(),
+                HeapLockManager.smallInstance(),
                 clockService,
                 generator,
                 placementDriver,
@@ -582,7 +585,8 @@ public class ItTxTestCluster {
                 partitionOperationsExecutor,
                 resourcesRegistry,
                 transactionInflights,
-                lowWatermark
+                lowWatermark,
+                executor
         );
     }
 
@@ -707,8 +711,7 @@ public class ItTxTestCluster {
 
                 IndexLocker pkLocker = new HashIndexLocker(indexId, true, txManagers.get(assignment).lockManager(), row2Tuple);
 
-                PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
-                        new PendingComparableValuesTracker<>(clockServices.get(assignment).now());
+                SafeTimeValuesTracker safeTime = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
                 PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
                 PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, partId, mvPartStorage);
@@ -735,7 +738,6 @@ public class ItTxTestCluster {
                         storageIndexTracker,
                         catalogService,
                         schemaManager,
-                        clockServices.get(assignment),
                         mock(IndexMetaStorage.class),
                         // TODO use proper index.
                         clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
@@ -868,7 +870,8 @@ public class ItTxTestCluster {
                 clusterNodeResolver,
                 resourcesRegistry,
                 schemaRegistry,
-                mock(IndexMetaStorage.class)
+                mock(IndexMetaStorage.class),
+                lowWatermark
         );
     }
 
@@ -1063,7 +1066,7 @@ public class ItTxTestCluster {
                 client.messagingService(),
                 client.topologyService(),
                 clientReplicaSvc,
-                new HeapLockManager(),
+                HeapLockManager.smallInstance(),
                 clientClockService,
                 new TransactionIdGenerator(-1),
                 placementDriver,
@@ -1072,7 +1075,8 @@ public class ItTxTestCluster {
                 partitionOperationsExecutor,
                 resourceRegistry,
                 clientTransactionInflights,
-                lowWatermark
+                lowWatermark,
+                executor
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(
@@ -1081,7 +1085,8 @@ public class ItTxTestCluster {
                 client.topologyService(),
                 client.messagingService(),
                 clientTransactionInflights,
-                clientTxManager
+                clientTxManager,
+                lowWatermark
         );
 
         clientTxStateResolver = new TransactionStateResolver(
@@ -1136,5 +1141,9 @@ public class ItTxTestCluster {
 
     public Map<String, ClusterService> clusterServices() {
         return clusterServices;
+    }
+
+    public List<TxStateMeta> states() {
+        return new ArrayList<>(((TxManagerImpl) clientTxManager).states());
     }
 }

@@ -17,36 +17,96 @@
 
 package org.apache.ignite.internal.tx;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Hybrid timestamp tracker.
+ * Interface is used to provide a track timestamp into a transaction operation.
  */
-public class HybridTimestampTracker {
-    /** Timestamp. */
-    private final AtomicLong timestamp = new AtomicLong(NULL_HYBRID_TIMESTAMP);
+public interface HybridTimestampTracker {
+    /** This tracker do nothing.*/
+    HybridTimestampTracker EMPTY_TS_PROVIDER = new HybridTimestampTracker() {
+        @Override
+        public @Nullable HybridTimestamp get() {
+            return null;
+        }
+
+        @Override
+        public void update(@Nullable HybridTimestamp ts) {
+        }
+    };
 
     /**
-     * Get current tracked timestamp.
+     * Returns an empty HybridTimestampTracker instance that performs no operations.
      *
-     * @return Timestamp or {@code null} if the tracker has never updated.
+     * @return A HybridTimestampTracker instance that does nothing for both retrieval and update operations.
      */
-    public @Nullable HybridTimestamp get() {
-        return HybridTimestamp.nullableHybridTimestamp(timestamp.get());
+    static HybridTimestampTracker emptyTracker() {
+        return EMPTY_TS_PROVIDER;
     }
 
     /**
-     * Updates the tracked timestamp if a provided timestamp is greater.
+     * Creates an atomic HybridTimestampTracker instance that uses an {@link AtomicLong} to track and update the timestamp.
      *
-     * @param ts Timestamp to use for update.
+     * @param intTs The initial HybridTimestamp, or null if no initial timestamp is provided.
+     * @return A HybridTimestampTracker instance for tracking and updating a hybrid timestamp atomically.
      */
-    public void update(@Nullable HybridTimestamp ts) {
-        long tsVal = HybridTimestamp.hybridTimestampToLong(ts);
+    static HybridTimestampTracker atomicTracker(@Nullable HybridTimestamp intTs) {
+        return new HybridTimestampTracker() {
+            /** Timestamp. */
+            private final AtomicLong timestamp = new AtomicLong(hybridTimestampToLong(intTs));
 
-        timestamp.updateAndGet(x -> Math.max(x, tsVal));
+            @Override
+            public @Nullable HybridTimestamp get() {
+                return nullableHybridTimestamp(timestamp.get());
+            }
+
+            @Override
+            public void update(@Nullable HybridTimestamp ts) {
+                long tsVal = hybridTimestampToLong(ts);
+
+                timestamp.updateAndGet(x -> Math.max(x, tsVal));
+            }
+        };
     }
+
+    /**
+     * Creates a client-managed HybridTimestampTracker based on a given initial timestamp and an update consumer.
+     *
+     * @param intTs The initial HybridTimestamp, or null if no initial timestamp is provided.
+     * @param updateTs A Consumer that accepts a HybridTimestamp for managing updates to the timestamp.
+     * @return A HybridTimestampTracker instance that uses the provided initial timestamp and update mechanism.
+     */
+    static HybridTimestampTracker clientTracker(@Nullable HybridTimestamp intTs, Consumer<HybridTimestamp> updateTs) {
+        return new HybridTimestampTracker() {
+            @Override
+            public @Nullable HybridTimestamp get() {
+                return intTs;
+            }
+
+            @Override
+            public void update(@Nullable HybridTimestamp ts) {
+                updateTs.accept(ts);
+            }
+        };
+    }
+
+    /**
+     * Get the observable timestamp.
+     *
+     * @return Hybrid timestamp.
+     */
+    @Nullable HybridTimestamp get();
+
+    /**
+     * Updates the observable timestamp after an operation is executed.
+     *
+     * @param ts Hybrid timestamp.
+     */
+    void update(@Nullable HybridTimestamp ts);
 }

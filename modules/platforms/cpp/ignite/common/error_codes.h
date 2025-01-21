@@ -130,6 +130,7 @@ enum class code : underlying_t {
     TX_PRIMARY_REPLICA_EXPIRED = 0x7000c,
     TX_ALREADY_FINISHED = 0x7000d,
     TX_STALE_OPERATION = 0x7000e,
+    TX_STALE_READ_ONLY_OPERATION = 0x7000f,
 
     // Replicator group. Group code: 8
     REPLICA_COMMON = 0x80001,
@@ -140,7 +141,6 @@ enum class code : underlying_t {
     REPLICA_MISS = 0x80006,
     CURSOR_CLOSE = 0x80007,
     REPLICA_STOPPING = 0x80008,
-    REPLICATION_SAFE_TIME_REORDERING = 0x80009,
 
     // Storage group. Group code: 9
     INDEX_NOT_BUILT = 0x90001,
@@ -218,7 +218,10 @@ enum class code : underlying_t {
     // Marshalling group. Group code: 22
     COMMON = 0x160001,
     UNSUPPORTED_OBJECT_TYPE = 0x160002,
-    UNMARSHALLING = 0x160003
+    UNMARSHALLING = 0x160003,
+
+    // REST service group. Group code: 23
+    CLUSTER_NOT_INIT = 0x170001
 };
 
 } // namespace error

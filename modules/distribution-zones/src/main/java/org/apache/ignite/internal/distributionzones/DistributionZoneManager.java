@@ -31,6 +31,8 @@ import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIG
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForRecoverableStateChanges;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneCreation;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneRemoval;
@@ -66,6 +68,7 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -73,6 +76,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -98,8 +102,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.causalitydatanodes.CausalityDataNodesEngine;
-import org.apache.ignite.internal.distributionzones.configuration.DistributionZonesHighAvailabilityConfiguration;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -210,7 +214,7 @@ public class DistributionZoneManager extends
     private final ScheduledExecutorService rebalanceScheduler;
 
     /** Configuration of HA mode. */
-    private final DistributionZonesHighAvailabilityConfiguration configuration;
+    private final SystemDistributedConfigurationPropertyHolder<Integer> partitionDistributionResetTimeoutConfiguration;
 
     /**
      * Creates a new distribution zone manager.
@@ -264,15 +268,20 @@ public class DistributionZoneManager extends
                 catalogManager
         );
 
-        configuration = new DistributionZonesHighAvailabilityConfiguration(
+        partitionDistributionResetTimeoutConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
                 systemDistributedConfiguration,
-                this::onUpdatePartitionDistributionResetBusy
+                this::onUpdatePartitionDistributionResetBusy,
+                PARTITION_DISTRIBUTION_RESET_TIMEOUT,
+                PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE,
+                Integer::parseInt
         );
     }
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
+            partitionDistributionResetTimeoutConfiguration.init();
+
             registerCatalogEventListenersOnStartManagerBusy();
 
             logicalTopologyService.addEventListener(topologyEventListener);
@@ -295,8 +304,6 @@ public class DistributionZoneManager extends
             // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
-
-            configuration.start();
 
             return allOf(
                     createOrRestoreZonesStates(recoveryRevision, catalogVersion),
@@ -389,6 +396,18 @@ public class DistributionZoneManager extends
             int partitionDistributionResetTimeoutSeconds,
             long causalityToken
     ) {
+        CompletableFuture<Revisions> recoveryFuture = metaStorageManager.recoveryFinishedFuture();
+
+        // At the moment of the first call to this method from configuration notifications,
+        // it is guaranteed that Meta Storage has been recovered.
+        assert recoveryFuture.isDone();
+
+        if (recoveryFuture.join().revision() >= causalityToken) {
+            // So, configuration already has the right value on configuration init
+            // and all timers started with the right configuration timeouts on recovery.
+            return;
+        }
+
         long updateTimestamp = timestampByRevision(causalityToken);
 
         if (updateTimestamp == -1) {
@@ -408,7 +427,7 @@ public class DistributionZoneManager extends
             ZoneState zoneState = zoneStateEntry.getValue();
 
             if (partitionDistributionResetTimeoutSeconds != INFINITE_TIMER_VALUE) {
-                Optional<Long> highestRevision = zoneState.highestRevision(true);
+                Optional<Long> highestRevision = zoneState.highestRevision();
 
                 assert highestRevision.isEmpty() || causalityToken >= highestRevision.get() : IgniteStringFormatter.format(
                         "Expected causalityToken that is greater or equal to already seen meta storage events: highestRevision={}, "
@@ -921,7 +940,9 @@ public class DistributionZoneManager extends
                 .thenApply(StatementResult::getAsBoolean)
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
-                        LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
+                        if (!hasCauseOrSuppressed(e, NodeStoppingException.class)) {
+                            LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
+                        }
                     } else if (invokeResult) {
                         LOG.info("Update recoverable state for distribution zone manager [revision = {}]", revision);
                     } else {
@@ -944,7 +965,7 @@ public class DistributionZoneManager extends
         int autoAdjust = zone.dataNodesAutoAdjust();
         int autoAdjustScaleDown = zone.dataNodesAutoAdjustScaleDown();
         int autoAdjustScaleUp = zone.dataNodesAutoAdjustScaleUp();
-        int partitionReset = configuration.partitionDistributionResetTimeoutSeconds();
+        int partitionReset = partitionDistributionResetTimeoutConfiguration.currentValue();
 
         int zoneId = zone.id();
 
@@ -977,18 +998,18 @@ public class DistributionZoneManager extends
                                 zoneId
                         );
                     }
-                } else {
-                    if (autoAdjustScaleDown == IMMEDIATE_TIMER_VALUE) {
-                        futures.add(saveDataNodesToMetaStorageOnScaleDown(zoneId, revision));
-                    }
+                }
 
-                    if (autoAdjustScaleDown != INFINITE_TIMER_VALUE) {
-                        zonesState.get(zoneId).rescheduleScaleDown(
-                                autoAdjustScaleDown,
-                                () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, revision),
-                                zoneId
-                        );
-                    }
+                if (autoAdjustScaleDown == IMMEDIATE_TIMER_VALUE) {
+                    futures.add(saveDataNodesToMetaStorageOnScaleDown(zoneId, revision));
+                }
+
+                if (autoAdjustScaleDown != INFINITE_TIMER_VALUE) {
+                    zonesState.get(zoneId).rescheduleScaleDown(
+                            autoAdjustScaleDown,
+                            () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, revision),
+                            zoneId
+                    );
                 }
             }
         }
@@ -1499,6 +1520,17 @@ public class DistributionZoneManager extends
                     .filter(e -> e.getValue().addition == addition)
                     .max(Map.Entry.comparingByKey())
                     .map(Map.Entry::getKey);
+        }
+
+        /**
+         * Returns the highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()}.
+         *
+         * @return The highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()}.
+         */
+        Optional<Long> highestRevision() {
+            return topologyAugmentationMap().keySet()
+                    .stream()
+                    .max(Comparator.naturalOrder());
         }
 
         @TestOnly

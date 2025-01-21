@@ -241,6 +241,11 @@ public interface IgniteClient extends Ignite, AutoCloseable {
          * @return This instance.
          */
         public Builder heartbeatInterval(long heartbeatInterval) {
+            if (heartbeatInterval < 0) {
+                throw new IllegalArgumentException("Heartbeat interval [" + heartbeatInterval + "] "
+                        + "must be a non-negative integer value.");
+            }
+
             this.heartbeatInterval = heartbeatInterval;
 
             return this;
@@ -255,6 +260,11 @@ public interface IgniteClient extends Ignite, AutoCloseable {
          * @return This instance.
          */
         public Builder heartbeatTimeout(long heartbeatTimeout) {
+            if (heartbeatTimeout < 0) {
+                throw new IllegalArgumentException("Heartbeat timeout [" + heartbeatTimeout + "] "
+                        + "must be a non-negative integer value.");
+            }
+
             this.heartbeatTimeout = heartbeatTimeout;
 
             return this;
@@ -274,6 +284,18 @@ public interface IgniteClient extends Ignite, AutoCloseable {
 
         /**
          * Enables or disables JMX metrics.
+         *
+         * <p>When enabled, Ignite client will expose JMX metrics via the platform MBean server
+         * with bean name "org.apache.ignite:group=metrics,name=client".
+         *
+         * <p>Use {@code jconsole} or any other JMX client to view the metrics.
+         *
+         * <p>To get metrics programmatically:
+         * {@code MBeanServerInvocationHandler.newProxyInstance(ManagementFactory.getPlatformMBeanServer(),
+         * new ObjectName("org.apache.ignite:group=metrics,name=client"), DynamicMBean.class, false).getAttribute("ConnectionsActive")}
+         *
+         * <p>See <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/jmx/">Java Management Extensions (JMX)</a>
+         * for more information.
          *
          * @param metricsEnabled Metrics enabled flag.
          * @return This instance.

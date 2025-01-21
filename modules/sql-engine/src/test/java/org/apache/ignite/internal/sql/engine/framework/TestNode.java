@@ -30,8 +30,11 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
@@ -64,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryIdGenerator;
@@ -77,7 +81,9 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
+import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -176,6 +182,9 @@ public class TestNode implements LifecycleAware {
                 tableFunctionRegistry,
                 clockService,
                 null,
+                new ExpressionFactoryImpl<>(
+                        Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
+                ),
                 5_000
         ));
 
@@ -194,6 +203,7 @@ public class TestNode implements LifecycleAware {
         });
 
         queryExecutor = registerService(new QueryExecutor(
+                nodeName,
                 EmptyCacheFactory.INSTANCE,
                 0,
                 parserService,
@@ -206,7 +216,18 @@ public class TestNode implements LifecycleAware {
                 executionService,
                 SqlQueryProcessor.DEFAULT_PROPERTIES,
                 NoOpTransactionTracker.INSTANCE,
-                new QueryIdGenerator(nodeName.hashCode())
+                new QueryIdGenerator(nodeName.hashCode()),
+                new EventLog() {
+                    @Override
+                    public void log(Event event) {
+                        // No-op.
+                    }
+
+                    @Override
+                    public void log(String type, Supplier<Event> eventProvider) {
+                        // No-op.
+                    }
+                }
         ));
     }
 
@@ -299,7 +320,7 @@ public class TestNode implements LifecycleAware {
     public void initSchema(String script) {
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = queryExecutor.executeQuery(
                 SqlPropertiesHelper.emptyProperties(),
-                ImplicitTxContext.INSTANCE,
+                ImplicitTxContext.create(),
                 script,
                 null,
                 ArrayUtils.OBJECT_EMPTY_ARRAY
@@ -323,7 +344,7 @@ public class TestNode implements LifecycleAware {
 
     /** Executes the given query. */
     public AsyncSqlCursor<InternalSqlRow> executeQuery(@Nullable InternalTransaction tx, String query, Object... params) {
-        QueryTransactionContext txContext = tx == null ? ImplicitTxContext.INSTANCE : ExplicitTxContext.fromTx(tx);
+        QueryTransactionContext txContext = tx == null ? ImplicitTxContext.create() : ExplicitTxContext.fromTx(tx);
 
         return executeQuery(txContext, query, params);
     }
@@ -353,7 +374,7 @@ public class TestNode implements LifecycleAware {
                 .operationTime(clock.now())
                 .defaultSchemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
                 .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
-                .txContext(ImplicitTxContext.INSTANCE)
+                .txContext(ImplicitTxContext.create())
                 .parameters();
     }
 

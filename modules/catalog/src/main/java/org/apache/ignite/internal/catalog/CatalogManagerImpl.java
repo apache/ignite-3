@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -117,8 +117,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private final LongSupplier delayDurationMsSupplier;
 
-    private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
-
     private final CatalogSystemViewRegistry catalogSystemViewProvider;
 
     /** Busy lock to stop synchronously. */
@@ -141,7 +139,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      * Constructor.
      */
     public CatalogManagerImpl(UpdateLog updateLog, ClockService clockService) {
-        this(updateLog, clockService, () -> DEFAULT_DELAY_DURATION, () -> DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
+        this(updateLog, clockService, () -> DEFAULT_DELAY_DURATION);
     }
 
     /**
@@ -150,13 +148,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public CatalogManagerImpl(
             UpdateLog updateLog,
             ClockService clockService,
-            LongSupplier delayDurationMsSupplier,
-            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
+            LongSupplier delayDurationMsSupplier
     ) {
         this.updateLog = updateLog;
         this.clockService = clockService;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
-        this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
         this.catalogSystemViewProvider = new CatalogSystemViewRegistry(() -> catalogAt(clockService.nowLong()));
     }
 
@@ -480,10 +476,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private HybridTimestamp calcClusterWideEnsureActivationTime(Catalog catalog) {
-        return clusterWideEnsuredActivationTsSafeForRoReads(
-                catalog,
-                partitionIdleSafeTimePropagationPeriodMsSupplier,
-                clockService.maxClockSkewMillis());
+        return clusterWideEnsuredActivationTimestamp(catalog.time(), clockService.maxClockSkewMillis());
     }
 
     /**

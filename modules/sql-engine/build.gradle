@@ -54,6 +54,7 @@ dependencies {
     implementation project(':ignite-partition-distribution')
     implementation project(':ignite-low-watermark')
     implementation project(':ignite-sql-engine-api')
+    implementation project(':ignite-eventlog')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.caffeine
@@ -133,6 +134,7 @@ dependencies {
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation project(":ignite-network-api")
     integrationTestImplementation project(':ignite-sql-engine-api')
+    integrationTestImplementation project(':ignite-eventlog')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-schema'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
@@ -151,6 +153,7 @@ dependencies {
     testFixturesImplementation testFixtures(project(':ignite-runner'))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
+    testFixturesImplementation libs.awaitility
 }
 
 integrationTest {
@@ -161,4 +164,6 @@ integrationTest {
             it.excludeTags "sqllogic"
         }
     }
+
+    systemProperty "buildDirPath", project.buildDir.path
 }

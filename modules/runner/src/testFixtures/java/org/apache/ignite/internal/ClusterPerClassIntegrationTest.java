@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -34,27 +35,35 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -87,6 +96,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
             + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksdb"
             + "  },\n"
             + "  clientConnector.port: {},\n"
+            + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
             + "  rest.port: {},\n"
             + "  compute.threadPoolSize: 1,\n"
             + "  failureHandler.dumpThreadsOnFailure: false\n"
@@ -167,8 +177,56 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     /** Drops all visible tables. */
     protected static void dropAllTables() {
-        for (Table t : CLUSTER.aliveNode().tables().tables()) {
-            sql("DROP TABLE " + t.name());
+        Ignite aliveNode = CLUSTER.aliveNode();
+
+        for (Table t : aliveNode.tables().tables()) {
+            IgniteImpl ignite = unwrapIgniteImpl(aliveNode);
+            CatalogManager catalogManager = ignite.catalogManager();
+
+            int latestCatalogVersion = catalogManager.latestCatalogVersion();
+            Catalog latestCatalog = catalogManager.catalog(latestCatalogVersion);
+            assert latestCatalog != null;
+
+            TableImpl tableImpl = unwrapTableImpl(t);
+            int tableId = tableImpl.tableId();
+
+            for (CatalogSchemaDescriptor schema : latestCatalog.schemas()) {
+                for (CatalogTableDescriptor table : schema.tables()) {
+                    if (table.id() != tableId) {
+                        continue;
+                    }
+                    String schemaName = IgniteNameUtils.quote(schema.name());
+                    String tableName = IgniteNameUtils.quote(table.name());
+
+                    sql("DROP TABLE " + QualifiedName.of(schemaName, tableName).toCanonicalForm());
+                }
+            }
+        }
+    }
+
+    /** Drops all non-system schemas. */
+    protected static void dropAllSchemas() {
+        Ignite aliveNode = CLUSTER.aliveNode();
+        IgniteImpl ignite = unwrapIgniteImpl(aliveNode);
+        CatalogManager catalogManager = ignite.catalogManager();
+
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        Catalog latestCatalog = catalogManager.catalog(latestCatalogVersion);
+        assert latestCatalog != null;
+
+        Set<String> quotedSystemSchemas = CatalogUtils.SYSTEM_SCHEMAS.stream()
+                .map(IgniteNameUtils::quote)
+                .collect(Collectors.toSet());
+
+        quotedSystemSchemas.add(IgniteNameUtils.quote(QualifiedName.DEFAULT_SCHEMA_NAME));
+
+        for (CatalogSchemaDescriptor schema : latestCatalog.schemas()) {
+            String schemaName = IgniteNameUtils.quote(schema.name());
+
+            if (quotedSystemSchemas.contains(schemaName)) {
+                continue;
+            }
+            sql("DROP SCHEMA " + schemaName + " CASCADE");
         }
     }
 

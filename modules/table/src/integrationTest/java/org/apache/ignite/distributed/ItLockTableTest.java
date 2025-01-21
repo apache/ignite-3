@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -36,10 +38,11 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
@@ -65,6 +68,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test lock table.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItLockTableTest extends IgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItLockTableTest.class);
 
@@ -89,9 +93,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     protected static RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration
-    protected static GcConfiguration gcConfig;
-
     @InjectConfiguration("mock: { deadlockPreventionPolicy: { waitTimeout: -1, txIdComparator: NONE } }")
     protected static TransactionConfiguration txConfiguration;
 
@@ -101,9 +102,15 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration
     protected static StorageUpdateConfiguration storageUpdateConfiguration;
 
+    @InjectConfiguration("mock.properties: { lockMapSize: \"" + CACHE_SIZE + "\", rawSlotsMaxSize: \"131072\" }")
+    private static SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectExecutorService
+    protected ScheduledExecutorService commonExecutor;
+
     private ItTxTestCluster txTestCluster;
 
-    private HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
+    private HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
 
     /**
      * The constructor.
@@ -144,9 +151,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         txConfiguration,
                         clusterService,
                         replicaSvc,
-                        new HeapLockManager(
-                                131072,
-                                CACHE_SIZE),
+                        new HeapLockManager(systemLocalConfiguration),
                         clockService,
                         generator,
                         placementDriver,
@@ -154,7 +159,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         new TestLocalRwTxCounter(),
                         resourcesRegistry,
                         transactionInflights,
-                        lowWatermark
+                        lowWatermark,
+                        commonExecutor
                 );
             }
         };

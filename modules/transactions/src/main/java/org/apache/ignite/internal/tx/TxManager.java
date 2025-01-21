@@ -24,10 +24,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -37,45 +35,72 @@ import org.jetbrains.annotations.TestOnly;
  */
 public interface TxManager extends IgniteComponent {
     /**
-     * Starts a read-write transaction coordinated by a local node.
+     * Starts an implicit read-write transaction coordinated by a local node.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
-     * @param implicit Whether the transaction is implicit or not.
      * @return The transaction.
      */
-    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit);
+    default InternalTransaction beginImplicitRw(HybridTimestampTracker timestampTracker) {
+        return beginImplicit(timestampTracker, false);
+    }
 
     /**
-     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value. The transaction has
-     * {@link TxPriority#NORMAL} priority.
+     * Starts an implicit read-only transaction coordinated by a local node.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @return The transaction.
+     */
+    default InternalTransaction beginImplicitRo(HybridTimestampTracker timestampTracker) {
+        return beginImplicit(timestampTracker, true);
+    }
+
+    /**
+     * Starts an implicit transaction coordinated by a local node.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
+     * @return The transaction.
+     */
+    InternalTransaction beginImplicit(HybridTimestampTracker timestampTracker, boolean readOnly);
+
+    /**
+     * Starts an explicit read-write transaction coordinated by a local node.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @param options Transaction options.
+     * @return The transaction.
+     */
+    default InternalTransaction beginExplicitRw(HybridTimestampTracker timestampTracker, InternalTxOptions options) {
+        return beginExplicit(timestampTracker, false, options);
+    }
+
+    /**
+     * Starts an explicit read-only transaction coordinated by a local node.
+     *
+     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
+     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions.
+     * @param options Transaction options.
+     * @return The transaction.
+     */
+    default InternalTransaction beginExplicitRo(HybridTimestampTracker timestampTracker, InternalTxOptions options) {
+        return beginExplicit(timestampTracker, true, options);
+    }
+
+    /**
+     * Starts either read-write or read-only explicit transaction, depending on {@code readOnly} parameter value.
      *
      * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
      *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
-     * @param implicit Whether the transaction is implicit or not.
      * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
-     *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
-     * @return The started transaction.
-     * @throws IgniteInternalException with {@link Transactions#TX_READ_ONLY_TOO_OLD_ERR} if transaction much older than the data
-     *         available in the tables.
-     */
-    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly);
-
-    /**
-     * Starts either read-write or read-only transaction, depending on {@code readOnly} parameter value.
-     *
-     * @param timestampTracker Observable timestamp tracker is used to track a timestamp for either read-write or read-only
-     *         transaction execution. The tracker is also used to determine the read timestamp for read-only transactions. Each client
-     *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
-     * @param implicit Whether the transaction is implicit or not.
-     * @param readOnly {@code true} in order to start a read-only transaction, {@code false} in order to start read-write one.
-     *         Calling begin with readOnly {@code false} is an equivalent of TxManager#begin().
-     * @param priority Transaction priority. The priority is used to resolve conflicts between transactions. The higher priority is
-     *         the more likely the transaction will win the conflict.
+     * @param txOptions Options.
      * @return The started transaction.
      */
-    InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean implicit, boolean readOnly, TxPriority priority);
+    InternalTransaction beginExplicit(HybridTimestampTracker timestampTracker, boolean readOnly, InternalTxOptions txOptions);
 
     /**
      * Returns a transaction state meta.
@@ -118,6 +143,7 @@ public interface TxManager extends IgniteComponent {
      * @param timestampTracker Observable timestamp tracker. This tracker is used to track an observable timestamp and should be
      *         updated with commit timestamp of every committed transaction. Not null on commit.
      * @param txId Transaction id.
+     * @param ts The timestamp which is associated to txn completion.
      * @param commit {@code True} if a commit requested.
      */
     void finishFull(HybridTimestampTracker timestampTracker, UUID txId, @Nullable HybridTimestamp ts, boolean commit);

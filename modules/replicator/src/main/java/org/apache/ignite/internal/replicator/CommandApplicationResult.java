@@ -19,24 +19,25 @@ package org.apache.ignite.internal.replicator;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Replication command application result.
  */
 public final class CommandApplicationResult {
-    private final HybridTimestamp commitTs;
-    private final CompletableFuture<?> repFut;
+    private final @Nullable HybridTimestamp commitTs;
+    private final @Nullable CompletableFuture<?> repFut;
 
-    public CommandApplicationResult(HybridTimestamp commitTs, CompletableFuture<?> repFut) {
+    public CommandApplicationResult(@Nullable HybridTimestamp commitTs, @Nullable CompletableFuture<?> repFut) {
         this.commitTs = commitTs;
         this.repFut = repFut;
     }
 
-    public HybridTimestamp getCommitTimestamp() {
+    public @Nullable HybridTimestamp commitTimestamp() {
         return commitTs;
     }
 
-    public CompletableFuture<?> replicationFuture() {
+    public @Nullable CompletableFuture<?> replicationFuture() {
         return repFut;
     }
 }

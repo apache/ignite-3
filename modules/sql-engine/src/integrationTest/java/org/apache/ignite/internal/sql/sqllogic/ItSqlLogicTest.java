@@ -54,6 +54,7 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
@@ -142,6 +143,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @Tag("sqllogic")
 @ExtendWith({SystemPropertiesExtension.class, WorkDirectoryExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+// The following is to make sure we unlock LWM on data nodes promptly so that dropped tables are destroyed fast.
+@WithSystemProperty(key = ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "1000")
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql/group1")
 public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     private static final String SQL_LOGIC_TEST_INCLUDE_SLOW = "SQL_LOGIC_TEST_INCLUDE_SLOW";
@@ -348,8 +351,9 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
                 .clusterName("cluster")
                 .clusterConfiguration("ignite {"
                         + "metaStorage.idleSyncTimeInterval: " + METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS + ",\n"
-                        + "gc.lowWatermark.dataAvailabilityTime: 1010,\n"
-                        + "gc.lowWatermark.updateInterval: 3000,\n"
+                        // TODO: Set dataAvailabilityTime to 5000 after IGNITE-24002 is fixed.
+                        + "gc.lowWatermark.dataAvailabilityTime: 30000,\n"
+                        + "gc.lowWatermark.updateInterval: 1000,\n"
                         + "metrics.exporters.logPush.exporterName: logPush,\n"
                         + "metrics.exporters.logPush.period: 5000\n"
                         + "}")

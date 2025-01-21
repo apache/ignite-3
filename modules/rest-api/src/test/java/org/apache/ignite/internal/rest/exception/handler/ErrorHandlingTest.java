@@ -24,6 +24,7 @@ import static io.micronaut.http.HttpStatus.NOT_FOUND;
 import static io.micronaut.http.HttpStatus.UNAUTHORIZED;
 import static io.micronaut.http.HttpStatus.UNSUPPORTED_MEDIA_TYPE;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -84,10 +85,11 @@ public class ErrorHandlingTest {
                 arguments(new AuthenticationException("authentication-exception"), UNAUTHORIZED,
                         "Unauthorized", "authentication-exception"),
                 arguments(new AuthorizationException(null), UNAUTHORIZED, "Unauthorized", null),
-                arguments(new IgniteException("ignite-exception"), INTERNAL_SERVER_ERROR, "Internal Server Error", "ignite-exception"),
-                arguments(new IgniteInternalCheckedException("ignite-internal-exception"), INTERNAL_SERVER_ERROR,
+                arguments(new IgniteException(INTERNAL_ERR, "ignite-exception"), INTERNAL_SERVER_ERROR,
+                        "Internal Server Error", "ignite-exception"),
+                arguments(new IgniteInternalCheckedException(INTERNAL_ERR, "ignite-internal-exception"), INTERNAL_SERVER_ERROR,
                         "Internal Server Error", "ignite-internal-exception"),
-                arguments(new IgniteInternalException("ignite-internal-exception"), INTERNAL_SERVER_ERROR,
+                arguments(new IgniteInternalException(INTERNAL_ERR, "ignite-internal-exception"), INTERNAL_SERVER_ERROR,
                         "Internal Server Error", "ignite-internal-exception"),
                 arguments(new RuntimeException("runtime-exception"), INTERNAL_SERVER_ERROR, "Internal Server Error", "runtime-exception"),
                 arguments(new Exception("exception"), INTERNAL_SERVER_ERROR, "Internal Server Error", "exception"),

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
@@ -75,10 +76,8 @@ import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
-import org.awaitility.Awaitility;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -97,10 +96,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     protected static final int ROW_COUNT = 16;
 
     @AfterEach
-    public void dropTables() {
-        for (Table t : CLUSTER.aliveNode().tables().tables()) {
-            sql("DROP TABLE " + t.name());
-        }
+    public void dropTablesAndSchemas() {
+        dropAllTables();
+        dropAllSchemas();
     }
 
     @Test
@@ -380,7 +378,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         String queryRw = "UPDATE TEST SET VAL0=VAL0+1";
         if (explicit && readOnly) {
-            assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
+            assertThrowsSqlException(Sql.RUNTIME_ERR, "DML cannot be started by using read only transactions.",
                     () -> execute(outerTx, sql, queryRw));
         } else {
             checkDml(ROW_COUNT, outerTx, sql, queryRw);
@@ -616,8 +614,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
 
         // Check that data are inserted OK
-        List<List<Object>> res = sql("SELECT ID FROM TEST ORDER BY ID");
-        IntStream.range(0, ROW_COUNT * 2).forEach(i -> assertEquals(i, res.get(i).get(0)));
+        List<SqlRow> res = execute(igniteSql(), "SELECT ID FROM TEST ORDER BY ID").result();
+        IntStream.range(0, ROW_COUNT * 2).forEach(i -> assertEquals(i, res.get(i).intValue((0))));
 
         BatchedArguments args = BatchedArguments.of(-1, -1);
 
@@ -960,21 +958,21 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CompletableFuture<Void> scriptFut = IgniteTestUtils.runAsync(() -> executeScript(sql, token, script));
 
         // Wait until FIRST script statement is started to execute.
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), greaterThan(1)));
+        waitUntilRunningQueriesCount(greaterThan(1));
 
         assertThat(scriptFut.isDone(), is(false));
 
         cancelHandle.cancel();
 
-        expectQueryCancelled(() -> IgniteTestUtils.await(scriptFut));
+        expectQueryCancelled(() -> await(scriptFut));
 
-        assertThat(queryProcessor().runningQueriesCount(), is(0));
+        waitUntilRunningQueriesCount(is(0));
         assertThat(txManager().pending(), is(0));
 
         // Checks the exception that is thrown if a query is canceled before a cursor is obtained.
         expectQueryCancelled(() -> executeScript(sql, token, "SELECT 1; SELECT 2;"));
 
-        assertThat(queryProcessor().runningQueriesCount(), is(0));
+        waitUntilRunningQueriesCount(is(0));
         assertThat(txManager().pending(), is(0));
     }
 
@@ -995,7 +993,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         CompletableFuture<?> f = IgniteTestUtils.runAsync(() -> execute(sql, null, token, query));
 
         // Wait until the query starts executing.
-        Awaitility.await().untilAsserted(() -> assertThat(queryProcessor().runningQueriesCount(), greaterThan(0)));
+        waitUntilRunningQueriesCount(greaterThan(0));
         // Wait a bit more to improve failure rate.
         Thread.sleep(500);
 
@@ -1003,7 +1001,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         cancelHandle.cancel();
 
         // Query was actually cancelled.
-        assertThat(queryProcessor().runningQueriesCount(), is(0));
+        waitUntilRunningQueriesCount(is(0));
         expectQueryCancelled(() -> await(f));
         assertThat(txManager().pending(), is(0));
     }
@@ -1093,7 +1091,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 assertThat(killResultset.wasApplied(), is(true));
             }
 
-            assertThat(queryProcessor().runningQueriesCount(), is(0));
+            waitUntilRunningQueriesCount(is(0));
 
             assertThrowsSqlException(
                     Sql.EXECUTION_CANCELLED_ERR,
@@ -1109,6 +1107,96 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             try (ResultSet<SqlRow> killResultset = sql.execute(null, killQuery)) {
                 assertThat(killResultset.hasRowSet(), is(false));
                 assertThat(killResultset.wasApplied(), is(false));
+            }
+        }
+    }
+
+    @Test
+    public void useNonDefaultSchema() {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE SCHEMA schema1");
+        sql("CREATE TABLE schema1.t1 (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO schema1.t1 VALUES (1, 1), (2, 2)");
+
+        // Schema 2 has t1 as well
+
+        sql("CREATE SCHEMA schema2");
+        sql("CREATE TABLE schema2.t1 (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO schema2.t1 VALUES (1, 1), (2, 2), (3, 3)");
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .query("SELECT COUNT(*) FROM schema1.t1")
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(2, rs.next().longValue(0));
+            }
+        }
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .defaultSchema("schema1")
+                    .query("SELECT COUNT(*) FROM t1")
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(2, rs.next().longValue(0));
+            }
+        }
+
+        // Check schema 2
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .defaultSchema("schema2")
+                    .query(format("SELECT COUNT(*) FROM t1"))
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(3, rs.next().longValue(0));
+            }
+        }
+    }
+
+    @Test
+    public void useNonDefaultSchemaWithQuotedName() {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE SCHEMA schema1");
+        sql("CREATE TABLE schema1.\"T 1\" (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO schema1.\"T 1\" VALUES (1, 1), (2, 2)");
+
+        // Schema 2 has T1 as well
+
+        sql("CREATE SCHEMA \"ScheMa1\"");
+        sql("CREATE TABLE \"ScheMa1\".\"T 1\" (id INT PRIMARY KEY, val INT)");
+        sql("INSERT INTO \"ScheMa1\".\"T 1\" VALUES (1, 1), (2, 2), (3, 3)");
+
+        // Check schema 1
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .defaultSchema("schema1")
+                    .query("SELECT COUNT(*) FROM \"T 1\"")
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(2, rs.next().longValue(0));
+            }
+        }
+
+        // Check schema 2
+
+        {
+            Statement stmt = sql.statementBuilder()
+                    .defaultSchema("\"ScheMa1\"")
+                    .query(format("SELECT COUNT(*) FROM \"T 1\""))
+                    .build();
+
+            try (ResultSet<SqlRow> rs = executeForRead(sql, stmt)) {
+                assertEquals(3, rs.next().longValue(0));
             }
         }
     }

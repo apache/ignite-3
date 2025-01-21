@@ -84,8 +84,8 @@ class ItCatalogApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(CatalogAsyncOperation.class)
-    @Disabled("IGNITE-22687 or IGNITE-22688")
-    // TODO: enable this after IGNITE-22687 is fixed or after IGNITE-22688 (which will give possibility to distinguish the common FJP from
+    @Disabled("IGNITE-22687 or IGNITE-24204")
+    // TODO: enable this after IGNITE-22687 is fixed or after IGNITE-24204 (which will give possibility to distinguish the common FJP from
     // the user-supplied async continuation executor).
     void catalogFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(CatalogAsyncOperation operation) {
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(

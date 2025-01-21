@@ -61,7 +61,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
 import org.hamcrest.CustomMatcher;
@@ -85,7 +85,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
     private JdbcMetadataCatalog catalog;
 
     @Mock
-    private IgniteTransactionsImpl igniteTransactions;
+    private TxManager txManager;
 
     private ClientResourceRegistry resourceRegistry;
 
@@ -99,7 +99,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
                 queryProcessor,
                 catalog,
                 resourceRegistry,
-                igniteTransactions
+                txManager
         );
     }
 
@@ -132,7 +132,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         CountDownLatch registryCloseLatch = new CountDownLatch(1);
         long connectionId = acquireConnectionId();
 
-        when(igniteTransactions.begin()).thenAnswer(v -> {
+        when(txManager.beginExplicitRw(any(), any())).thenAnswer(v -> {
             registryCloseLatch.countDown();
             assertThat(startTxLatch.await(timeout, TimeUnit.SECONDS), is(true));
 
@@ -160,13 +160,13 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         InternalTransaction tx = mock(InternalTransaction.class);
 
         when(tx.rollbackAsync()).thenReturn(nullCompletedFuture());
-        when(igniteTransactions.begin()).thenReturn(tx);
+        when(txManager.beginExplicitRw(any(), any())).thenReturn(tx);
 
         long connectionId = acquireConnectionId();
 
         await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("x", "UPDATE 1")));
 
-        verify(igniteTransactions).begin();
+        verify(txManager).beginExplicitRw(any(), any());
         verify(tx, times(0)).rollbackAsync();
 
         resourceRegistry.close();
@@ -182,10 +182,10 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         InternalTransaction tx = mock(InternalTransaction.class);
         when(tx.commitAsync()).thenReturn(nullCompletedFuture());
         when(tx.rollbackAsync()).thenReturn(nullCompletedFuture());
-        when(igniteTransactions.begin()).thenReturn(tx);
+        when(txManager.beginExplicitRw(any(), any())).thenReturn(tx);
 
         long connectionId = acquireConnectionId();
-        verify(igniteTransactions, times(0)).begin();
+        verify(txManager, times(0)).beginExplicitRw(any(), any());
 
         String schema = "schema";
         JdbcStatementType type = JdbcStatementType.SELECT_STATEMENT_TYPE;
@@ -193,27 +193,26 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         await(eventHandler.queryAsync(
                 connectionId, createExecuteRequest(schema, "SELECT 1", type)
         ));
-        verify(igniteTransactions, times(1)).begin();
+        verify(txManager, times(1)).beginExplicitRw(any(), any());
         await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", "UPDATE 1", "UPDATE 2")));
-        verify(igniteTransactions, times(1)).begin();
+        verify(txManager, times(1)).beginExplicitRw(any(), any());
 
         await(eventHandler.finishTxAsync(connectionId, false));
         verify(tx).rollbackAsync();
 
         await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", "UPDATE 1", "UPDATE 2")));
-        verify(igniteTransactions, times(2)).begin();
+        verify(txManager, times(2)).beginExplicitRw(any(), any());
         await(eventHandler.queryAsync(
                 connectionId, createExecuteRequest(schema, "SELECT 2", type)
         ));
-        verify(igniteTransactions, times(2)).begin();
+        verify(txManager, times(2)).beginExplicitRw(any(), any());
         await(eventHandler.batchAsync(connectionId, createExecuteBatchRequest("schema", "UPDATE 3", "UPDATE 4")));
-        verify(igniteTransactions, times(2)).begin();
+        verify(txManager, times(2)).beginExplicitRw(any(), any());
 
         await(eventHandler.finishTxAsync(connectionId, true));
         verify(tx).commitAsync();
 
-        verify(igniteTransactions, times(5)).observableTimestampTracker();
-        verifyNoMoreInteractions(igniteTransactions);
+        verifyNoMoreInteractions(txManager);
         verify(queryProcessor, times(5)).queryAsync(any(), any(), any(), any(), any(), any(Object[].class));
     }
 
@@ -223,7 +222,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         long connectionId = acquireConnectionId();
 
-        JdbcQueryExecuteRequest executeRequest = createExecuteRequest("schema", "SELECT 1", JdbcStatementType.SELECT_STATEMENT_TYPE); 
+        JdbcQueryExecuteRequest executeRequest = createExecuteRequest("schema", "SELECT 1", JdbcStatementType.SELECT_STATEMENT_TYPE);
 
         CompletableFuture<? extends Response> resultFuture = eventHandler.queryAsync(connectionId, executeRequest);
 

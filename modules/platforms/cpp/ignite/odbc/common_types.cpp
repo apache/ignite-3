@@ -202,6 +202,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TX_PRIMARY_REPLICA_EXPIRED:
         case error::code::TX_ALREADY_FINISHED:
         case error::code::TX_STALE_OPERATION:
+        case error::code::TX_STALE_READ_ONLY_OPERATION:
             return sql_state::S25000_INVALID_TRANSACTION_STATE;
 
         // Replicator group. Group code: 8
@@ -215,7 +216,6 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::REPLICA_UNAVAILABLE:
         case error::code::REPLICA_MISS:
         case error::code::REPLICA_STOPPING:
-        case error::code::REPLICATION_SAFE_TIME_REORDERING:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Storage group. Group code: 9
@@ -309,6 +309,10 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::UNSUPPORTED_OBJECT_TYPE:
         case error::code::MARSHALLING_TYPE_MISMATCH:
         case error::code::UNMARSHALLING:
+            return sql_state::SHY000_GENERAL_ERROR;
+
+        // REST service group. Group code: 23
+        case error::code::CLUSTER_NOT_INIT:
             return sql_state::SHY000_GENERAL_ERROR;
     }
 

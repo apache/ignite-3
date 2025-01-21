@@ -767,6 +767,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && leftInBuf.isEmpty() && left == null
                 && !rightIt.hasNext()) {
             requested = 0;
+            hashStore.clear();
             downstream().end();
         }
     }

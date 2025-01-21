@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelledInternalException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Set;
@@ -77,7 +78,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
                 query.toString()
         ));
 
-        assertEquals(1, qryProc.runningQueriesCount());
+        assertEquals(1, qryProc.runningQueries().size());
 
         // Request cancellation.
         CompletableFuture<Void> cancelled = cancelHandle.cancelAsync();
@@ -87,7 +88,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
 
         await(cancelled);
 
-        assertEquals(0, qryProc.runningQueriesCount());
+        waitUntilRunningQueriesCount(is(0));
     }
 
     /** Calling {@link CancelHandle#cancel()} should cancel execution of multiple queries. */
@@ -135,7 +136,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
                 query.toString()
         ));
 
-        assertEquals(2, qryProc.runningQueriesCount());
+        assertEquals(2, qryProc.runningQueries().size());
 
         // Request cancellation.
         CompletableFuture<Void> cancelled = cancelHandle.cancelAsync();
@@ -146,7 +147,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
 
         await(cancelled);
 
-        assertEquals(0, qryProc.runningQueriesCount());
+        waitUntilRunningQueriesCount(is(0));
     }
 
     /** Starting a query with a cancelled token should trigger query cancellation. */
@@ -177,7 +178,7 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
 
         expectQueryCancelledInternalException(run);
 
-        assertEquals(0, qryProc.runningQueriesCount());
+        waitUntilRunningQueriesCount(is(0));
     }
 
     /** Calling {@link CancelHandle#cancel()} should cancel execution of queries that use executable plans. */
@@ -219,6 +220,6 @@ public class ItCancelQueryTest extends BaseSqlIntegrationTest {
 
         await(f);
 
-        assertEquals(0, qryProc.runningQueriesCount());
+        waitUntilRunningQueriesCount(is(0));
     }
 }

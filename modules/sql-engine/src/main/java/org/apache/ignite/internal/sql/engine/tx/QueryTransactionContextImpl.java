@@ -24,6 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -50,20 +51,20 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
         this.txTracker = txTracker;
     }
 
-    /**
-     * Starts an implicit transaction if there is no external transaction.
-     *
-     * @param readOnly Query type.
-     * @return Transaction wrapper.
-     */
+
+    /** {@inheritDoc} */
     @Override
-    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
+    public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit) {
         InternalTransaction transaction;
         QueryTransactionWrapper result;
 
         if (tx == null) {
-            // TODO: IGNITE-23604 SQL implicit transaction support. Coordinate the transaction implicit flag with the SQL one.
-            transaction = txManager.begin(observableTimeTracker, false, readOnly);
+            if (implicit) {
+                transaction = txManager.beginImplicit(observableTimeTracker, readOnly);
+            } else {
+                transaction = txManager.beginExplicit(observableTimeTracker, readOnly, InternalTxOptions.defaults());
+            }
+
             result = new QueryTransactionWrapperImpl(transaction, true, txTracker);
         } else {
             transaction = tx.unwrap();

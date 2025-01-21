@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -31,7 +32,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -77,6 +80,7 @@ import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -96,6 +100,7 @@ import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
@@ -139,6 +144,7 @@ import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
@@ -150,6 +156,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -730,6 +737,21 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    public void ensureRuntimeErrorIsPropagatedToFirstPageReadyCallbackKeyValuePlan() {
+        ExecutionService execService = executionServices.get(0);
+
+        SqlOperationContext ctx = createContext();
+        QueryPlan plan = prepare("SELECT * FROM test_tbl WHERE id=1/0", ctx);
+        assertThat(plan, instanceOf(KeyValueGetPlan.class));
+
+        AsyncDataCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
+
+        assertThrowsSqlException(Sql.RUNTIME_ERR, "Division by zero", () -> await(cursor.onFirstPageReady()));
+
+        assertThat(cursor.closeAsync(), willCompleteSuccessfully());
+    }
+
+    @Test
     public void testExecuteCancelled() {
         ExecutionService execService = executionServices.get(0);
 
@@ -958,7 +980,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     @Test
     public void testTimeoutSelectCount() {
         // SELECT COUNT(*) does not run in transactional context.
-        QueryTransactionContext txContext = ImplicitTxContext.INSTANCE;
+        QueryTransactionContext txContext = ImplicitTxContext.create();
 
         // Use a separate context, so planning won't timeout.
         SqlOperationContext planCtx = operationContext()
@@ -1111,7 +1133,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         QueryTransactionWrapper txWrapper = mock(QueryTransactionWrapper.class);
 
-        when(txContext.getOrStartImplicit(anyBoolean())).thenReturn(txWrapper);
+        when(txContext.getOrStartSqlManaged(anyBoolean(), anyBoolean())).thenReturn(txWrapper);
 
         when(txWrapper.unwrap()).thenReturn(tx);
         when(txWrapper.implicit()).thenReturn(tx.implicit());
@@ -1145,6 +1167,30 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertEquals(expectedEx, actualException);
 
         verify(txWrapper).rollback(any());
+    }
+
+    @Test
+    public void ddlExecutionUpdatesObservableTime() {
+        SqlOperationContext planCtx = operationContext().txContext(ImplicitTxContext.create()).build();
+        QueryPlan plan = prepare("CREATE TABLE x (id INTEGER PRIMARY KEY)", planCtx);
+
+        assertInstanceOf(DdlPlan.class, plan);
+
+        ExecutionServiceImpl<?> execService = executionServices.get(0);
+
+        HybridTimestamp expectedCatalogActivationTimestamp = HybridTimestamp.hybridTimestamp(100L);
+
+        DdlCommandHandler ddlCommandHandler = execService.ddlCommandHandler();
+        when(ddlCommandHandler.handle(any(CatalogCommand.class)))
+                .thenReturn(CompletableFuture.completedFuture(expectedCatalogActivationTimestamp.longValue()));
+
+        await(execService.executePlan(plan, planCtx));
+
+        ImplicitTxContext txCtx = (ImplicitTxContext) planCtx.txContext();
+
+        assertThat(txCtx, notNullValue());
+
+        assertThat(txCtx.observableTime(), equalTo(expectedCatalogActivationTimestamp));
     }
 
     private static Stream<Arguments> txTypes() {
@@ -1207,6 +1253,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps, tableFunctionRegistry),
                 clockService,
                 killCommandHandler,
+                new ExpressionFactoryImpl<>(
+                        Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
+                ),
                 SHUTDOWN_TIMEOUT
         );
 

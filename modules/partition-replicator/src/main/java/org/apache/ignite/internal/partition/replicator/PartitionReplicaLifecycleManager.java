@@ -82,7 +82,10 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
@@ -201,6 +204,9 @@ public class PartitionReplicaLifecycleManager extends
     /** A predicate that checks that the given assignment is corresponded to the local node. */
     private final Predicate<Assignment> isLocalNodeAssignment = assignment -> assignment.consistentId().equals(localNode().name());
 
+    /** Configuration of rebalance retries delay. */
+    private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
+
     /**
      * The constructor.
      *
@@ -214,6 +220,8 @@ public class PartitionReplicaLifecycleManager extends
      *         will be executed.
      * @param clockService Clock service.
      * @param placementDriver Placement driver.
+     * @param schemaSyncService Schema synchronization service.
+     * @param systemDistributedConfiguration System distributed configuration.
      */
     public PartitionReplicaLifecycleManager(
             CatalogManager catalogMgr,
@@ -227,7 +235,8 @@ public class PartitionReplicaLifecycleManager extends
             Executor partitionOperationsExecutor,
             ClockService clockService,
             PlacementDriver placementDriver,
-            SchemaSyncService schemaSyncService
+            SchemaSyncService schemaSyncService,
+            SystemDistributedConfiguration systemDistributedConfiguration
     ) {
         this.catalogMgr = catalogMgr;
         this.replicaMgr = replicaMgr;
@@ -242,6 +251,14 @@ public class PartitionReplicaLifecycleManager extends
         this.schemaSyncService = schemaSyncService;
 
         this.placementDriver = placementDriver;
+
+        rebalanceRetryDelayConfiguration = new SystemDistributedConfigurationPropertyHolder<>(
+                systemDistributedConfiguration,
+                (v, r) -> {},
+                DistributionZonesUtil.REBALANCE_RETRY_DELAY_MS,
+                DistributionZonesUtil.REBALANCE_RETRY_DELAY_DEFAULT,
+                Integer::parseInt
+        );
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
@@ -273,6 +290,8 @@ public class PartitionReplicaLifecycleManager extends
                 (CreateZoneEventParameters parameters) ->
                         inBusyLock(busyLock, () -> onCreateZone(parameters).thenApply((ignored) -> false))
         );
+
+        rebalanceRetryDelayConfiguration.init();
 
         return processZonesAndAssignmentsOnStart;
     }
@@ -454,7 +473,8 @@ public class PartitionReplicaLifecycleManager extends
                 busyLock,
                 createPartitionMover(replicaGrpId),
                 rebalanceScheduler,
-                this::calculateZoneAssignments
+                this::calculateZoneAssignments,
+                rebalanceRetryDelayConfiguration
         );
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
@@ -514,6 +534,7 @@ public class PartitionReplicaLifecycleManager extends
             ).thenApply(dataNodes -> calculateAssignmentForPartition(
                             dataNodes,
                             zonePartitionId.partitionId(),
+                            zoneDescriptor.partitions(),
                             zoneDescriptor.replicas()
                     )
             );
@@ -758,6 +779,7 @@ public class PartitionReplicaLifecycleManager extends
                         .thenCompose(dataNodes -> handleReduceChanged(
                                 metaStorageMgr,
                                 dataNodes,
+                                zoneDescriptor.partitions(),
                                 zoneDescriptor.replicas(),
                                 replicaGrpId,
                                 evt,

@@ -26,15 +26,20 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
 import org.apache.ignite.internal.sql.engine.util.InjectQueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
+import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -44,6 +49,7 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.function.Executable;
@@ -257,6 +263,28 @@ public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationT
      */
     protected SystemViewManagerImpl systemViewManager() {
         return (SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager();
+    }
+
+    /**
+     * Waits until the number of running queries matches the specified matcher.
+     *
+     * @param matcher Matcher to check the number of running queries.
+     * @throws AssertionError If after waiting the number of running queries still does not match the specified matcher.
+     */
+    protected void waitUntilRunningQueriesCount(Matcher<Integer> matcher) {
+        SqlTestUtils.waitUntilRunningQueriesCount(queryProcessor(), matcher);
+    }
+
+    protected static void gatherStatistics() {
+        SqlStatisticManagerImpl statisticManager = (SqlStatisticManagerImpl) ((SqlQueryProcessor) unwrapIgniteImpl(CLUSTER.aliveNode())
+                .queryEngine()).sqlStatisticManager();
+
+        statisticManager.forceUpdateAll();
+        try {
+            statisticManager.lastUpdateStatisticFuture().get(5_000, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /** An executable that retrieves the data from the specified cursor. */

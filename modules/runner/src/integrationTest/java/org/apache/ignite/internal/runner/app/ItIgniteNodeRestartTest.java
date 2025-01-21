@@ -113,6 +113,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfigWriteException;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
@@ -124,6 +125,8 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
@@ -469,7 +472,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.commonScheduler()
         );
 
-        var lockManager = new HeapLockManager();
+        var lockManager = new HeapLockManager(systemConfiguration);
 
         var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
 
@@ -628,7 +631,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
                 transactionInflights,
-                lowWatermark
+                lowWatermark,
+                threadPoolsManager.commonScheduler()
         );
 
         ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
@@ -637,7 +641,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.topologyService(),
                 clusterSvc.messagingService(),
                 transactionInflights,
-                txManager
+                txManager,
+                lowWatermark
         );
 
         var registry = new MetaStorageRevisionListenerRegistry(metaStorageMgr);
@@ -670,8 +675,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockService,
-                delayDurationMsSupplier,
-                partitionIdleSafeTimePropagationPeriodMsSupplier
+                delayDurationMsSupplier
         );
 
         var indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageMgr);
@@ -680,6 +684,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var dataNodesMock = dataNodesMockByNode.get(idx);
 
+        SystemDistributedConfiguration systemDistributedConfiguration =
+                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
+
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
@@ -687,7 +694,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 catalogManager,
                 rebalanceScheduler,
-                clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
+                systemDistributedConfiguration
         ) {
             @Override
             public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
@@ -731,7 +738,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
                 resourcesRegistry,
@@ -751,9 +758,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         threadPoolsManager.partitionOperationsExecutor(),
                         clockService,
                         placementDriverManager.placementDriver(),
-                        schemaSyncService
+                        schemaSyncService,
+                        systemDistributedConfiguration
                 ),
-                minTimeCollectorService
+                minTimeCollectorService,
+                systemDistributedConfiguration
         );
 
         var indexManager = new IndexManager(
@@ -764,6 +773,18 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 registry,
                 lowWatermark
         );
+
+        EventLog noopEventLog = new EventLog() {
+            @Override
+            public void log(Event event) {
+                // No-op.
+            }
+
+            @Override
+            public void log(String type, Supplier<Event> eventProvider) {
+                // No-op.
+            }
+        };
 
         SqlQueryProcessor qryEngine = new SqlQueryProcessor(
                 clusterSvc,
@@ -778,7 +799,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metricManager,
                 new SystemViewManagerImpl(name, catalogManager),
                 failureProcessor,
-                partitionIdleSafeTimePropagationPeriodMsSupplier,
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlClusterExtensionConfiguration.KEY).sql(),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
@@ -786,10 +806,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 txManager,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService())
+                new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService()),
+                noopEventLog
         );
 
-        sqlRef.set(new IgniteSqlImpl(qryEngine, new HybridTimestampTracker()));
+        sqlRef.set(new IgniteSqlImpl(qryEngine, HybridTimestampTracker.atomicTracker(null)));
 
         // Preparing the result map.
 
@@ -1006,8 +1027,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         stopNode(0);
 
         String newAttributesCfg = "{\n"
-                + "      region.attribute = \"US\"\n"
-                + "      storage.attribute = \"SSD\"\n"
+                + "      region = US\n"
+                + "      storage = SSD\n"
                 + "}";
 
         Map<String, String> newAttributesMap = Map.of("region", "US", "storage", "SSD");

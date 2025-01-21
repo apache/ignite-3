@@ -54,11 +54,7 @@ public class ItDivisionDecimalTest extends BaseSqlIntegrationTest {
      */
     @AfterAll
     public void dropTables() {
-        var igniteTables = CLUSTER.aliveNode().tables();
-
-        for (var table : igniteTables.tables()) {
-            sql("DROP TABLE " + table.name());
-        }
+        dropAllTables();
     }
 
 

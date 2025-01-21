@@ -36,9 +36,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -69,6 +69,7 @@ import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.ExecutionPhase;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
@@ -93,6 +94,7 @@ import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContextImpl;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
@@ -123,6 +125,9 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     /** Size of the table access cache. */
     private static final int TABLE_CACHE_SIZE = 1024;
+
+    /** Size of the compiled expressions cache. */
+    private static final int COMPILED_EXPRESSIONS_CACHE_SIZE = 1024;
 
     /** Number of the schemas in cache. */
     private static final int SCHEMA_CACHE_SIZE = 128;
@@ -183,8 +188,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
 
-    private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
-
     /** Metric manager. */
     private final MetricManager metricManager;
 
@@ -203,6 +206,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private final ScheduledExecutorService commonScheduler;
 
+    private final EventLog eventLog;
+
     /** Constructor. */
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
@@ -217,7 +222,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             MetricManager metricManager,
             SystemViewManager systemViewManager,
             FailureManager failureManager,
-            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier,
             PlacementDriver placementDriver,
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg,
@@ -225,7 +229,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             TxManager txManager,
             LowWatermark lowWaterMark,
             ScheduledExecutorService commonScheduler,
-            KillCommandHandler killCommandHandler
+            KillCommandHandler killCommandHandler,
+            EventLog eventLog
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -239,7 +244,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
         this.failureManager = failureManager;
-        this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
@@ -247,6 +251,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.txManager = txManager;
         this.commonScheduler = commonScheduler;
         this.killCommandHandler = killCommandHandler;
+        this.eventLog = eventLog;
+
         sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -295,7 +301,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.prepareSvc = prepareSvc;
 
         var ddlCommandHandler = registerService(
-                new DdlCommandHandler(catalogManager, clockService, partitionIdleSafeTimePropagationPeriodMsSupplier)
+                new DdlCommandHandler(catalogManager, clockService)
         );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(
@@ -340,10 +346,14 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 tableFunctionRegistry,
                 clockService,
                 killCommandHandler,
+                new ExpressionFactoryImpl<>(
+                        Commons.typeFactory(), COMPILED_EXPRESSIONS_CACHE_SIZE, CACHE_FACTORY
+                ),
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
 
         queryExecutor = registerService(new QueryExecutor(
+                clusterSrvc.topologyService().localMember().name(),
                 CACHE_FACTORY,
                 PARSED_RESULT_CACHE_SIZE,
                 new ParserServiceImpl(),
@@ -356,7 +366,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 executionSrvc,
                 DEFAULT_PROPERTIES,
                 txTracker,
-                new QueryIdGenerator(nodeName.hashCode())
+                new QueryIdGenerator(nodeName.hashCode()),
+                eventLog
         ));
 
         queriesViewProvider.init(queryExecutor);
@@ -534,14 +545,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         return sqlStatisticManager;
     }
 
-    private static boolean shouldBeCached(SqlQueryType queryType) {
-        return queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML;
-    }
-
     private ParsedResult parseAndCache(String sql) {
         ParsedResult result = queryExecutor.parse(sql);
 
-        if (shouldBeCached(result.queryType())) {
+        if (result.queryType().supportsParseResultCaching()) {
             queryExecutor.updateParsedResultCache(sql, result);
         }
 
@@ -559,12 +566,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         return (int) executor.runningQueries().stream()
                 .filter(info -> info.phase() == ExecutionPhase.EXECUTING && !info.script())
                 .count();
-    }
-
-    /** Returns the number of running queries. */
-    @TestOnly
-    public int runningQueriesCount() {
-        return runningQueries().size();
     }
 
     /** Returns the list of running queries. */

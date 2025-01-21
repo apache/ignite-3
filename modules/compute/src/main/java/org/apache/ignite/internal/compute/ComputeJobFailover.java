@@ -20,7 +20,6 @@ package org.apache.ignite.internal.compute;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -30,7 +29,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -43,10 +41,8 @@ import org.jetbrains.annotations.Nullable;
  * <p>If you want to execute a job on node1 and use node2 and node3 as failover candidates,
  * then you should create an instance of this class with workerNode = node1, failoverCandidates = [node2, node3] as arguments and call
  * {@link #failSafeExecute()}.
- *
- * @param <R> the type of the result of the job.
  */
-class ComputeJobFailover<R> {
+class ComputeJobFailover {
     private static final IgniteLogger LOG = Loggers.forClass(ComputeJobFailover.class);
 
     /**
@@ -84,10 +80,7 @@ class ComputeJobFailover<R> {
     /**
      * Context of the called job. Captures deployment units, jobClassName and arguments.
      */
-    private final RemoteExecutionContext<?, R> jobContext;
-
-    /** Cancellation token. */
-    @Nullable private final CancellationToken cancellationToken;
+    private final RemoteExecutionContext jobContext;
 
     /**
      * Creates a per-job instance.
@@ -101,8 +94,7 @@ class ComputeJobFailover<R> {
      * @param units deployment units.
      * @param jobClassName the name of the job class.
      * @param executionOptions execution options like priority or max retries.
-     * @param cancellationToken Cancellation token or {@code null}.
-     * @param args the arguments of the job.
+     * @param arg the arguments of the job.
      */
     ComputeJobFailover(
             ComputeComponent computeComponent,
@@ -114,17 +106,15 @@ class ComputeJobFailover<R> {
             List<DeploymentUnit> units,
             String jobClassName,
             ExecutionOptions executionOptions,
-            @Nullable CancellationToken cancellationToken,
-            Object args
+            @Nullable ComputeJobDataHolder arg
     ) {
         this.computeComponent = computeComponent;
         this.runningWorkerNode = new AtomicReference<>(workerNode);
         this.logicalTopologyService = logicalTopologyService;
         this.topologyService = topologyService;
         this.nextWorkerSelector = nextWorkerSelector;
-        this.jobContext = new RemoteExecutionContext<>(units, jobClassName, executionOptions, args);
+        this.jobContext = new RemoteExecutionContext(units, jobClassName, executionOptions, arg);
         this.executor = executor;
-        this.cancellationToken = cancellationToken;
     }
 
     /**
@@ -132,8 +122,8 @@ class ComputeJobFailover<R> {
      *
      * @return JobExecution with the result of the job and the status of the job.
      */
-    JobExecution<R> failSafeExecute() {
-        JobExecution<R> jobExecution = launchJobOn(runningWorkerNode.get());
+    CancellableJobExecution<ComputeJobDataHolder> failSafeExecute() {
+        CancellableJobExecution<ComputeJobDataHolder> jobExecution = launchJobOn(runningWorkerNode.get());
         jobContext.initJobExecution(new FailSafeJobExecution<>(jobExecution));
 
         LogicalTopologyEventListener nodeLeftEventListener = new OnNodeLeft();
@@ -143,16 +133,14 @@ class ComputeJobFailover<R> {
         return jobContext.failSafeJobExecution();
     }
 
-    private JobExecution<R> launchJobOn(ClusterNode runningWorkerNode) {
+    private CancellableJobExecution<ComputeJobDataHolder> launchJobOn(ClusterNode runningWorkerNode) {
         if (runningWorkerNode.name().equals(topologyService.localMember().name())) {
             return computeComponent.executeLocally(
-                    jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), cancellationToken,
-                    jobContext.arg()
+                    jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), jobContext.arg(), null
             );
         } else {
             return computeComponent.executeRemotely(
-                    jobContext.executionOptions(), runningWorkerNode, jobContext.units(), jobContext.jobClassName(), cancellationToken,
-                    jobContext.arg()
+                    jobContext.executionOptions(), runningWorkerNode, jobContext.units(), jobContext.jobClassName(), jobContext.arg(), null
             );
         }
     }
@@ -191,7 +179,7 @@ class ComputeJobFailover<R> {
                         LOG.info("Restarting the job {} on node {}.", jobContext.jobClassName(), nextWorker.name());
 
                         runningWorkerNode.set(nextWorker);
-                        JobExecution<R> jobExecution = launchJobOn(runningWorkerNode.get());
+                        CancellableJobExecution<ComputeJobDataHolder> jobExecution = launchJobOn(runningWorkerNode.get());
                         jobContext.updateJobExecution(jobExecution);
                     });
         }

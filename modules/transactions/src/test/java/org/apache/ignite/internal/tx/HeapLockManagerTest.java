@@ -17,16 +17,24 @@
 
 package org.apache.ignite.internal.tx;
 
+import static org.apache.ignite.internal.tx.impl.HeapLockManager.DEFAULT_SLOTS;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.arrayWithSize;
+import static org.hamcrest.Matchers.is;
+
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test class for {@link HeapLockManager}.
  */
 public class HeapLockManagerTest extends AbstractLockManagerTest {
     @Override
-    protected LockManager newInstance() {
-        HeapLockManager lockManager = new HeapLockManager();
+    protected LockManager newInstance(SystemLocalConfiguration systemLocalConfiguration) {
+        HeapLockManager lockManager = new HeapLockManager(systemLocalConfiguration);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         return lockManager;
     }
@@ -34,5 +42,24 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
     @Override
     protected LockKey lockKey() {
         return new LockKey(0, "test");
+    }
+
+    @Test
+    public void testDefaultConfiguration() {
+        assertThat(((HeapLockManager) lockManager).available(), is(DEFAULT_SLOTS));
+        assertThat(((HeapLockManager) lockManager).getSlots(), is(arrayWithSize(DEFAULT_SLOTS)));
+    }
+
+    @Test
+    public void testNonDefaultConfiguration(
+            @InjectConfiguration("mock.properties: { lockMapSize: \"42\", rawSlotsMaxSize: \"69\" }")
+            SystemLocalConfiguration systemLocalConfiguration
+    ) {
+        var lockManager = new HeapLockManager(systemLocalConfiguration);
+
+        lockManager.start(DeadlockPreventionPolicy.NO_OP);
+
+        assertThat(lockManager.available(), is(42));
+        assertThat(lockManager.getSlots(), is(arrayWithSize(69)));
     }
 }

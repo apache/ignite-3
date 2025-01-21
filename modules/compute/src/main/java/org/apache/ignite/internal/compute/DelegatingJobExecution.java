@@ -22,23 +22,21 @@ import java.util.concurrent.ExecutionException;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
-import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Delegates {@link JobExecution} to the future of {@link JobExecutionInternal}.
- *
- * @param <R> Result type.
  */
-class DelegatingJobExecution<R> implements JobExecution<R>, MarshallerProvider<R> {
-    private final CompletableFuture<JobExecutionInternal<R>> delegate;
+class DelegatingJobExecution implements CancellableJobExecution<ComputeJobDataHolder> {
+    private final CompletableFuture<JobExecutionInternal<ComputeJobDataHolder>> delegate;
 
-    DelegatingJobExecution(CompletableFuture<JobExecutionInternal<R>> delegate) {
+    DelegatingJobExecution(CompletableFuture<JobExecutionInternal<ComputeJobDataHolder>> delegate) {
         this.delegate = delegate;
     }
 
     @Override
-    public CompletableFuture<R> resultAsync() {
+    public CompletableFuture<ComputeJobDataHolder> resultAsync() {
         return delegate.thenCompose(JobExecutionInternal::resultAsync);
     }
 
@@ -58,18 +56,10 @@ class DelegatingJobExecution<R> implements JobExecution<R>, MarshallerProvider<R
     }
 
     @Override
-    public @Nullable Marshaller<R, byte[]> resultMarshaller() {
+    public ClusterNode node() {
         try {
-            return delegate.thenApply(JobExecutionInternal::resultMarshaller).get();
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Override
-    public boolean marshalResult() {
-        try {
-            return delegate.thenApply(JobExecutionInternal::marshalResult).get();
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24184
+            return delegate.thenApply(JobExecutionInternal::node).get();
         } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         }

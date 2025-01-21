@@ -44,6 +44,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -120,10 +121,10 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final Set<String> nodes3 = IntStream.of(5).mapToObj(i -> "nodes3_" + i).collect(toSet());
     private static final Set<String> nodes4 = IntStream.of(5).mapToObj(i -> "nodes4_" + i).collect(toSet());
 
-    private static final Set<Assignment> assignments1 = calculateAssignmentForPartition(nodes1, partNum, replicas);
-    private static final Set<Assignment> assignments2 = calculateAssignmentForPartition(nodes2, partNum, replicas);
-    private static final Set<Assignment> assignments3 = calculateAssignmentForPartition(nodes3, partNum, replicas);
-    private static final Set<Assignment> assignments4 = calculateAssignmentForPartition(nodes4, partNum, replicas);
+    private static final Set<Assignment> assignments1 = calculateAssignmentForPartition(nodes1, partNum, partNum + 1, replicas);
+    private static final Set<Assignment> assignments2 = calculateAssignmentForPartition(nodes2, partNum, partNum + 1, replicas);
+    private static final Set<Assignment> assignments3 = calculateAssignmentForPartition(nodes3, partNum, partNum + 1, replicas);
+    private static final Set<Assignment> assignments4 = calculateAssignmentForPartition(nodes4, partNum, partNum + 1, replicas);
 
     private static final long expectedPendingChangeTriggerKey = 10L;
 
@@ -193,7 +194,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
         MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
 
-        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID::randomUUID);
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID.randomUUID());
 
         lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
@@ -538,12 +539,15 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 tableDescriptor,
                 tablePartitionId,
                 nodesForNewAssignments,
+                partNum + 1,
                 replicas,
                 expectedPendingChangeTriggerKey,
                 metaStorageManager,
                 partNum,
                 tableCfgAssignments,
-                assignmentsTimestamp
+                assignmentsTimestamp,
+                Set.of(),
+                ConsistencyMode.STRONG_CONSISTENCY
         );
 
         byte[] actualStableBytes = keyValueStorage.get(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes()).value();

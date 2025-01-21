@@ -119,15 +119,20 @@ public class MockStateMachine extends StateMachineAdapter {
                 }
                 this.lastAppliedIndex.set(iter.getIndex());
                 this.logs.add(iter.getData().slice());
-                if (iter.done() != null) {
-                    iter.done().run(Status.OK());
-                }
+
+                executeCommand(iter);
             }
             finally {
                 this.lock.unlock();
             }
             this.appliedIndex = iter.getIndex();
             iter.next();
+        }
+    }
+
+    protected void executeCommand(Iterator iter) {
+        if (iter.done() != null) {
+            iter.done().run(Status.OK());
         }
     }
 

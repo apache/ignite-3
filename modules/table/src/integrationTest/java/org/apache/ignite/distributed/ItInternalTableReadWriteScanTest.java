@@ -27,6 +27,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.RollbackTxOnErrorPublisher;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -37,7 +38,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableScanTest {
     /** Timestamp tracker. */
-    private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = new HybridTimestampTracker();
+    private static final HybridTimestampTracker HYBRID_TIMESTAMP_TRACKER = HybridTimestampTracker.atomicTracker(null);
 
     @Override
     protected Publisher<BinaryRow> scan(int part, @Nullable InternalTransaction tx) {
@@ -71,7 +72,7 @@ public class ItInternalTableReadWriteScanTest extends ItAbstractInternalTableSca
 
     @Override
     protected InternalTransaction startTx() {
-        InternalTransaction tx = internalTbl.txManager().begin(HYBRID_TIMESTAMP_TRACKER, false);
+        InternalTransaction tx = internalTbl.txManager().beginExplicitRw(HYBRID_TIMESTAMP_TRACKER, InternalTxOptions.defaults());
 
         TablePartitionId tblPartId = new TablePartitionId(internalTbl.tableId(), ((TablePartitionId) internalTbl.groupId()).partitionId());
 

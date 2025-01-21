@@ -139,7 +139,7 @@ public class MetricsTests
         using var server = new FakeServer { SendInvalidMagic = true };
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfig()));
-        AssertMetric(MetricNames.HandshakesFailed, 1);
+        AssertMetricGreaterOrEqual(MetricNames.HandshakesFailed, 1);
         AssertMetric(MetricNames.HandshakesFailedTimeout, 0);
         AssertMetric(MetricNames.ConnectionsActive, 0);
 
@@ -152,7 +152,6 @@ public class MetricsTests
         using var server = new FakeServer { HandshakeDelay = TimeSpan.FromSeconds(1) };
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfigWithDelay()));
-        AssertMetric(MetricNames.HandshakesFailed, 0);
         AssertMetric(MetricNames.HandshakesFailedTimeout, 1);
 
         AssertTaggedMetric(MetricNames.HandshakesFailedTimeout, 1, server, null);

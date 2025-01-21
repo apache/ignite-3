@@ -55,27 +55,37 @@ public class IgniteRexBuilder extends RexBuilder {
             // IgniteCustomType: Not comparable types are not supported.
             assert value instanceof Comparable : "Not comparable IgniteCustomType:" + type + ". value: " + value;
             return makeLiteral((Comparable<?>) value, type, type.getSqlTypeName());
-        } else if (value != null && type.getSqlTypeName() == SqlTypeName.CHAR) {
-            if (type.isNullable()) {
-                RelDataType typeNotNull =
-                        typeFactory.createTypeWithNullability(type, false);
-                if (allowCast) {
-                    RexNode literalNotNull = makeLiteral(value, typeNotNull, allowCast);
-                    return makeAbstractCast(type, literalNotNull, false);
+        }
+
+        if (value != null) {
+            if (type.getSqlTypeName() == SqlTypeName.CHAR) {
+                if (type.isNullable()) {
+                    RelDataType typeNotNull =
+                            typeFactory.createTypeWithNullability(type, false);
+                    if (allowCast) {
+                        RexNode literalNotNull = makeLiteral(value, typeNotNull, allowCast);
+                        return makeAbstractCast(type, literalNotNull, false);
+                    }
+                }
+
+                NlsString string;
+                if (value instanceof NlsString) {
+                    string = (NlsString) value;
+                } else {
+                    assert type.getCharset() != null : type + ".getCharset() must not be null";
+                    string = new NlsString((String) value, type.getCharset().name(), type.getCollation());
+                }
+
+                return makeCharLiteral(string);
+            } else if (value instanceof String) {
+                if (type.getSqlTypeName() == SqlTypeName.DOUBLE) {
+                    value = Double.parseDouble((String) value);
+                } else if (type.getSqlTypeName() == SqlTypeName.REAL || type.getSqlTypeName() == SqlTypeName.FLOAT) {
+                    value = Float.parseFloat((String) value);
                 }
             }
-
-            NlsString string;
-            if (value instanceof NlsString) {
-                string = (NlsString) value;
-            } else {
-                assert type.getCharset() != null : type + ".getCharset() must not be null";
-                string = new NlsString((String) value, type.getCharset().name(), type.getCollation());
-            }
-
-            return makeCharLiteral(string);
-        } else {
-            return super.makeLiteral(value, type, allowCast, trim);
         }
+
+        return super.makeLiteral(value, type, allowCast, trim);
     }
 }

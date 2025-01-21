@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.network.serialization.Classes.getReadRe
 import static org.apache.ignite.internal.network.serialization.Classes.hasWriteReplace;
 import static org.apache.ignite.internal.network.serialization.Classes.isExternalizable;
 import static org.apache.ignite.internal.network.serialization.Classes.isSerializable;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.io.Externalizable;
 import java.io.ObjectInputStream;
@@ -213,7 +214,7 @@ public class ClassDescriptorFactory {
         }
 
         if (!hasPublicNoArgConstructor) {
-            throw new IgniteException(
+            throw new IgniteException(INTERNAL_ERR,
                 "Externalizable class " + clazz.getName() + " has no public no-arg constructor");
         }
     }

@@ -82,6 +82,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor.PrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursorExt.CancellationReason;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistry;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommand;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
@@ -102,6 +103,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
+import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.KillPlan;
@@ -114,7 +116,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.SourceAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.sql.engine.tx.NoopTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -122,6 +123,7 @@ import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
+import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -178,6 +180,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final KillCommandHandler killCommandHandler;
 
+    private final ExpressionFactory<RowT> expressionFactory;
+
     /**
      * Constructor.
      *
@@ -206,6 +210,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ImplementorFactory<RowT> implementorFactory,
             ClockService clockService,
             KillCommandHandler killCommandHandler,
+            ExpressionFactory<RowT> expressionFactory,
             long shutdownTimeout
     ) {
         this.localNode = topSrvc.localMember();
@@ -221,6 +226,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.implementorFactory = implementorFactory;
         this.clockService = clockService;
         this.killCommandHandler = killCommandHandler;
+        this.expressionFactory = expressionFactory;
         this.shutdownTimeout = shutdownTimeout;
     }
 
@@ -260,6 +266,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             TableFunctionRegistry tableFunctionRegistry,
             ClockService clockService,
             KillCommandHandler killCommandHandler,
+            ExpressionFactory<RowT> expressionFactory,
             long shutdownTimeout
     ) {
         return new ExecutionServiceImpl<>(
@@ -281,6 +288,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 ),
                 clockService,
                 killCommandHandler,
+                expressionFactory,
                 shutdownTimeout
         );
     }
@@ -329,7 +337,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert txContext != null;
 
-        QueryTransactionWrapper txWrapper = txContext.getOrStartImplicit(plan.type() != SqlQueryType.DML);
+        boolean readOnly = plan.type().implicitTransactionReadOnlyMode();
+        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(readOnly, false);
         InternalTransaction tx = txWrapper.unwrap();
 
         operationContext.notifyTxUsed(txWrapper);
@@ -354,7 +363,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 txWrapper,
                 dataCursor,
                 firstPageReady0,
-                queryManager::close
+                queryManager::close,
+                operationContext::notifyError
         ));
 
         return f.whenComplete((r, t) -> {
@@ -423,6 +433,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         ExecutionId executionId = nextExecutionId(operationContext.queryId());
         ExecutionContext<RowT> ectx = new ExecutionContext<>(
+                expressionFactory,
                 taskExecutor,
                 executionId,
                 localNode,
@@ -439,23 +450,29 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         assert txContext != null;
 
-        QueryTransactionWrapper txWrapper = txContext.explicitTx();
-
-        if (txWrapper == null) {
-            // underlying table will initiate transaction by itself, but we need stub to reuse
-            // TxAwareAsyncCursor
-            txWrapper = NoopTransactionWrapper.INSTANCE;
-        }
+        QueryPlan queryPlan = (ExplainablePlan) plan;
+        boolean readOnly = queryPlan.type().implicitTransactionReadOnlyMode();
+        QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(readOnly, true);
+        operationContext.notifyTxUsed(txWrapper);
 
         PrefetchCallback prefetchCallback = new PrefetchCallback();
 
-        AsyncCursor<InternalSqlRow> dataCursor = plan.execute(ectx, txWrapper.unwrap(), tableRegistry, prefetchCallback);
+        AsyncCursor<InternalSqlRow> dataCursor;
+
+        try {
+            dataCursor = plan.execute(ectx, txWrapper.unwrap(), tableRegistry, prefetchCallback);
+        } catch (Throwable t) {
+            prefetchCallback.onPrefetchComplete(t);
+
+            dataCursor = new AsyncWrapper<>(CompletableFuture.failedFuture(t), Runnable::run);
+        }
 
         return new TxAwareAsyncCursor<>(
                 txWrapper,
                 dataCursor,
                 prefetchCallback.prefetchFuture(),
-                reason -> nullCompletedFuture()
+                reason -> nullCompletedFuture(),
+                operationContext::notifyError
         );
     }
 
@@ -463,7 +480,19 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             DdlPlan plan
     ) {
         CompletableFuture<Iterator<InternalSqlRow>> ret = ddlCmdHnd.handle(plan.command())
-                .thenApply(applied -> (applied ? APPLIED_ANSWER : NOT_APPLIED_ANSWER).iterator())
+                .thenApply(activationTime -> {
+                    if (activationTime == null) {
+                        return NOT_APPLIED_ANSWER.iterator();
+                    }
+
+                    QueryTransactionContext txCtx = operationContext.txContext();
+
+                    assert txCtx != null;
+
+                    txCtx.updateObservableTime(HybridTimestamp.hybridTimestamp(activationTime));
+
+                    return APPLIED_ANSWER.iterator();
+                })
                 .exceptionally(th -> {
                     throw convertDdlException(th);
                 });
@@ -943,6 +972,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         private ExecutionContext<RowT> createContext(String initiatorNodeName, FragmentDescription desc, TxAttributes txAttributes) {
             return new ExecutionContext<>(
+                    expressionFactory,
                     taskExecutor,
                     executionId,
                     localNode,

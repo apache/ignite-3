@@ -202,6 +202,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
             if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && left == null && leftInBuf.isEmpty()) {
                 requested = 0;
+                rightMaterialized.clear();
                 downstream().end();
             }
         }
@@ -301,6 +302,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
             if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && left == null && leftInBuf.isEmpty()) {
                 requested = 0;
+                rightMaterialized.clear();
                 downstream().end();
             }
         }
@@ -429,6 +431,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
             if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && left == null
                     && leftInBuf.isEmpty() && rightNotMatchedIndexes.isEmpty()) {
                 requested = 0;
+                rightMaterialized.clear();
                 downstream().end();
             }
         }
@@ -581,6 +584,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
             if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && left == null
                     && leftInBuf.isEmpty() && rightNotMatchedIndexes.isEmpty()) {
                 requested = 0;
+                rightMaterialized.clear();
                 downstream().end();
             }
         }
@@ -649,6 +653,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
             if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && left == null
                     && leftInBuf.isEmpty()) {
+                rightMaterialized.clear();
                 downstream().end();
                 requested = 0;
             }
@@ -720,6 +725,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
             if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && left == null && leftInBuf.isEmpty()) {
                 requested = 0;
+                rightMaterialized.clear();
                 downstream().end();
             }
         }

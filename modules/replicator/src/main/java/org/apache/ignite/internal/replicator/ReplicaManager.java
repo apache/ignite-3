@@ -37,6 +37,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -49,6 +50,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -840,7 +842,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         raftGroupOptions.snapshotStorageFactory(snapshotFactory);
-
+        raftGroupOptions.maxClockSkew((int) clockService.maxClockSkewMillis());
         raftGroupOptions.commandsMarshaller(raftCommandsMarshaller);
 
         // TODO: The options will be used by Loza only. Consider rafactoring. see https://issues.apache.org/jira/browse/IGNITE-18273
@@ -922,7 +924,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         });
 
         return isRemovedFuture
-                .thenApply(v -> {
+                .thenApplyAsync(v -> {
                     try {
                         // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
                         raftManager.stopRaftNodes(replicaGrpId);
@@ -931,7 +933,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     }
 
                     return v;
-                });
+                }, replicaStateManager.replicaStartStopPool);
     }
 
     /** {@inheritDoc} */
@@ -1066,7 +1068,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     private NetworkMessage prepareReplicaResponse(boolean sendTimestamp, ReplicaResult result) {
         if (sendTimestamp) {
-            HybridTimestamp commitTs = result.applyResult().getCommitTimestamp();
+            HybridTimestamp commitTs = result.applyResult().commitTimestamp();
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result.result())
@@ -1109,13 +1111,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
-        HybridTimestamp proposedSafeTime = clockService.now();
-
-        lastIdleSafeTimeProposal = proposedSafeTime;
+        lastIdleSafeTimeProposal = clockService.now();
 
         for (Entry<ReplicationGroupId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
             try {
-                sendSafeTimeSyncIfReplicaReady(entry.getValue(), proposedSafeTime);
+                sendSafeTimeSyncIfReplicaReady(entry.getValue());
             } catch (Exception | AssertionError e) {
                 LOG.warn("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
             } catch (Error e) {
@@ -1126,7 +1126,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
     }
 
-    private void sendSafeTimeSyncIfReplicaReady(CompletableFuture<Replica> replicaFuture, HybridTimestamp proposedSafeTime) {
+    private void sendSafeTimeSyncIfReplicaReady(CompletableFuture<Replica> replicaFuture) {
         if (!isCompletedSuccessfully(replicaFuture)) {
             return;
         }
@@ -1135,12 +1135,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
                 .groupId(toReplicationGroupIdMessage(replica.groupId()))
-                .proposedSafeTime(proposedSafeTime)
                 .build();
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
-            if (ex != null) {
-                LOG.error("Could not advance safe time for {} to {}", ex, replica.groupId(), proposedSafeTime);
+            if (ex != null && !hasCauseOrSuppressed(ex, NodeStoppingException.class)
+                    && !hasCauseOrSuppressed(ex, CancellationException.class)) {
+                LOG.error("Could not advance safe time for {} to {}", ex, replica.groupId());
             }
         });
     }

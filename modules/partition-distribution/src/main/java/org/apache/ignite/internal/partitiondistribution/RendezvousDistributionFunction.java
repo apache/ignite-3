@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partitiondistribution;
 
+import static org.apache.ignite.internal.util.IgniteUtils.forEachIndexed;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,11 +30,13 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.IntFunction;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Partition distribution function for partitioned table based on Highest Random Weight algorithm. This function supports the following
@@ -54,7 +58,7 @@ import org.apache.ignite.internal.logger.Loggers;
  * </li>
  * </ul>
  */
-public class RendezvousDistributionFunction {
+public class RendezvousDistributionFunction implements DistributionAlgorithm {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RendezvousDistributionFunction.class);
 
@@ -70,28 +74,30 @@ public class RendezvousDistributionFunction {
     /**
      * Returns collection of nodes for specified partition.
      *
-     * @param part              Partition.
-     * @param nodes             Nodes.
-     * @param replicas          Number partition replicas.
-     * @param neighborhoodCache Neighborhood.
-     * @param exclNeighbors     If true neighbors are excluded, false otherwise.
-     * @param nodeFilter        Filter for nodes.
-     * @param aggregator        Function that creates a collection for the partition assignments.
+     * @param part                Partition.
+     * @param nodes               Nodes.
+     * @param replicas            Number partition replicas.
+     * @param consensusGroupSize  Number of consensus replicas.
+     * @param neighborhoodCache   Neighborhood.
+     * @param exclNeighbors       If true neighbors are excluded, false otherwise.
+     * @param nodeFilter          Filter for nodes.
+     * @param aggregator          Function that creates a collection for the partition assignments.
      * @return Assignment.
      */
-    public static <T extends Collection<String>> T assignPartition(
+    public static <T extends Collection<Assignment>> T assignPartition(
             int part,
-            List<String> nodes,
+            Collection<String> nodes,
             int replicas,
+            int consensusGroupSize,
             Map<String, Collection<String>> neighborhoodCache,
             boolean exclNeighbors,
-            BiPredicate<String, T> nodeFilter,
+            @Nullable BiPredicate<String, T> nodeFilter,
             IntFunction<T> aggregator
     ) {
         if (nodes.size() <= 1) {
             T res = aggregator.apply(1);
 
-            res.addAll(nodes);
+            nodes.stream().map(Assignment::forPeer).forEach(res::add);
 
             return res;
         }
@@ -99,22 +105,15 @@ public class RendezvousDistributionFunction {
         IgniteBiTuple<Long, String>[] hashArr =
                 (IgniteBiTuple<Long, String>[]) new IgniteBiTuple[nodes.size()];
 
-        for (int i = 0; i < nodes.size(); i++) {
-            String node = nodes.get(i);
-
+        forEachIndexed(nodes, (node, i) -> {
             long hash = hash(node.hashCode(), part);
 
             hashArr[i] = new IgniteBiTuple<>(hash, node);
-        }
+        });
 
         final int effectiveReplicas = replicas == Integer.MAX_VALUE ? nodes.size() : Math.min(replicas, nodes.size());
 
         Iterable<String> sortedNodes = new LazyLinearSortedContainer(hashArr, effectiveReplicas);
-
-        // REPLICATED cache case
-        if (replicas == Integer.MAX_VALUE) {
-            return replicatedAssign(nodes, sortedNodes, aggregator);
-        }
 
         Iterator<String> it = sortedNodes.iterator();
 
@@ -124,25 +123,35 @@ public class RendezvousDistributionFunction {
 
         String first = it.next();
 
-        res.add(first);
+        res.add(Assignment.forPeer(first));
 
         if (exclNeighbors) {
             allNeighbors.addAll(neighborhoodCache.get(first));
         }
 
-        // Select another replicas.
+        // Select other replicas.
         if (replicas > 1) {
+            int assignedConsensusReplicas = 1;
+
             while (it.hasNext() && res.size() < effectiveReplicas) {
                 String node = it.next();
 
                 if (exclNeighbors) {
                     if (!allNeighbors.contains(node)) {
-                        res.add(node);
+                        res.add(
+                                assignedConsensusReplicas++ < consensusGroupSize
+                                        ? Assignment.forPeer(node)
+                                        : Assignment.forLearner(node)
+                        );
 
                         allNeighbors.addAll(neighborhoodCache.get(node));
                     }
                 } else if (nodeFilter == null || nodeFilter.test(node, res)) {
-                    res.add(node);
+                    res.add(
+                            assignedConsensusReplicas++ < consensusGroupSize
+                                    ? Assignment.forPeer(node)
+                                    : Assignment.forLearner(node)
+                    );
                 }
             }
         }
@@ -157,7 +166,7 @@ public class RendezvousDistributionFunction {
                 String node = it.next();
 
                 if (!res.contains(node)) {
-                    res.add(node);
+                    res.add(Assignment.forPeer(node));
                 }
             }
 
@@ -170,33 +179,6 @@ public class RendezvousDistributionFunction {
         }
 
         assert res.size() <= effectiveReplicas;
-
-        return res;
-    }
-
-    /**
-     * Creates assignment for REPLICATED table.
-     *
-     * @param nodes       Topology.
-     * @param sortedNodes Sorted for specified partitions nodes.
-     * @param aggregator  Function that creates a collection for the partition assignments.
-     * @return Assignment.
-     */
-    private static <T extends Collection<String>> T replicatedAssign(List<String> nodes,
-            Iterable<String> sortedNodes, IntFunction<T> aggregator) {
-        String first = sortedNodes.iterator().next();
-
-        T res = aggregator.apply(nodes.size());
-
-        res.add(first);
-
-        for (String n : nodes) {
-            if (!n.equals(first)) {
-                res.add(n);
-            }
-        }
-
-        assert res.size() == nodes.size() : "Not enough replicas: " + res.size();
 
         return res;
     }
@@ -230,18 +212,20 @@ public class RendezvousDistributionFunction {
      * @param currentTopologySnapshot List of topology nodes.
      * @param partitions              Number of table partitions.
      * @param replicas                Number partition replicas.
+     * @param consensusGroupSize      Number of consensus replicas.
      * @param exclNeighbors           If true neighbors are excluded from the one partition assignment, false otherwise.
      * @param nodeFilter              Filter for nodes.
-     * @return List nodes by partition.
+     * @return List of assignments by partition.
      */
-    public static List<List<String>> assignPartitions(
+    public static List<Set<Assignment>> assignPartitions(
             Collection<String> currentTopologySnapshot,
             int partitions,
             int replicas,
+            int consensusGroupSize,
             boolean exclNeighbors,
-            BiPredicate<String, List<String>> nodeFilter
+            @Nullable BiPredicate<String, Set<Assignment>> nodeFilter
     ) {
-        return assignPartitions(currentTopologySnapshot, partitions, replicas, exclNeighbors, nodeFilter, ArrayList::new);
+        return assignPartitions(currentTopologySnapshot, partitions, replicas, consensusGroupSize, exclNeighbors, nodeFilter, HashSet::new);
     }
 
     /**
@@ -250,22 +234,25 @@ public class RendezvousDistributionFunction {
      * @param currentTopologySnapshot List of topology nodes.
      * @param partitions              Number of table partitions.
      * @param replicas                Number partition replicas.
+     * @param consensusGroupSize      Number of consensus replicas.
      * @param exclNeighbors           If true neighbors are excluded from the one partition assignment, false otherwise.
      * @param nodeFilter              Filter for nodes.
      * @param aggregator              Function that creates a collection for the partition assignments.
      * @return List nodes by partition.
      */
-    public static <T extends Collection<String>> List<T> assignPartitions(
+    public static <T extends Collection<Assignment>> List<T> assignPartitions(
             Collection<String> currentTopologySnapshot,
             int partitions,
             int replicas,
+            int consensusGroupSize,
             boolean exclNeighbors,
-            BiPredicate<String, T> nodeFilter,
+            @Nullable BiPredicate<String, T> nodeFilter,
             IntFunction<T> aggregator
     ) {
         assert partitions <= MAX_PARTITIONS_COUNT : "partitions <= " + MAX_PARTITIONS_COUNT;
         assert partitions > 0 : "parts > 0";
         assert replicas > 0 : "replicas > 0";
+        assert consensusGroupSize <= replicas : "consensusGroupSize should be less or equal to replicaFactor";
 
         List<T> assignments = new ArrayList<>(partitions);
 
@@ -274,12 +261,24 @@ public class RendezvousDistributionFunction {
         List<String> nodes = new ArrayList<>(currentTopologySnapshot);
 
         for (int i = 0; i < partitions; i++) {
-            T partAssignment = assignPartition(i, nodes, replicas, neighborhoodCache, exclNeighbors, nodeFilter, aggregator);
+            T partAssignment =
+                    assignPartition(i, nodes, replicas, consensusGroupSize, neighborhoodCache, exclNeighbors, nodeFilter, aggregator);
 
             assignments.add(partAssignment);
         }
 
         return assignments;
+    }
+
+    @Override
+    public List<Set<Assignment>> assignPartitions(
+            Collection<String> nodes,
+            List<List<String>> currentDistribution,
+            int partitions,
+            int replicaFactor,
+            int consensusGroupSize
+    ) {
+        return assignPartitions(nodes, partitions, replicaFactor, consensusGroupSize, false, null);
     }
 
     /**

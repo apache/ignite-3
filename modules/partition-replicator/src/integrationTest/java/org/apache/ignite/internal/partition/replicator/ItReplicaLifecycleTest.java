@@ -102,6 +102,7 @@ import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.NodeConfiguration;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -254,13 +255,13 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static SystemLocalConfiguration systemConfiguration;
 
-    @InjectConfiguration("mock.nodeAttributes: {region.attribute = US, storage.attribute = SSD}")
+    @InjectConfiguration("mock.nodeAttributes: {region = US, storage = SSD}")
     private static NodeAttributesConfiguration nodeAttributes1;
 
-    @InjectConfiguration("mock.nodeAttributes: {region.attribute = EU, storage.attribute = SSD}")
+    @InjectConfiguration("mock.nodeAttributes: {region = EU, storage = SSD}")
     private static NodeAttributesConfiguration nodeAttributes2;
 
-    @InjectConfiguration("mock.nodeAttributes: {region.attribute = UK, storage.attribute = SSD}")
+    @InjectConfiguration("mock.nodeAttributes: {region = UK, storage = SSD}")
     private static NodeAttributesConfiguration nodeAttributes3;
 
     @InjectConfiguration
@@ -393,7 +394,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         startNodes(testInfo, 3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -613,7 +614,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         startNodes(testInfo, 3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -646,7 +647,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         startNodes(testInfo, 3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 3).toArray()[0];
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1, 3).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -979,7 +980,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         private final IndexMetaStorage indexMetaStorage;
 
-        private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+        private final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 
         private volatile MvTableStorage mvTableStorage;
 
@@ -1031,7 +1032,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterIdHolder
             );
 
-            lockManager = new HeapLockManager();
+            lockManager = HeapLockManager.smallInstance();
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 
@@ -1234,7 +1235,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
                     transactionInflights,
-                    lowWatermark
+                    lowWatermark,
+                    threadPoolsManager.commonScheduler()
             );
 
             replicaManager = new ReplicaManager(
@@ -1263,8 +1265,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager),
                     clockService,
-                    delayDurationMsSupplier,
-                    partitionIdleSafeTimePropagationPeriodMsSupplier
+                    delayDurationMsSupplier
             );
 
             indexMetaStorage = new IndexMetaStorage(catalogManager, lowWatermark, metaStorageManager);
@@ -1276,6 +1277,9 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                     NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
 
+            SystemDistributedConfiguration systemDistributedConfiguration =
+                    clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
+
             distributionZoneManager = new DistributionZoneManager(
                     name,
                     registry,
@@ -1283,7 +1287,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     logicalTopologyService,
                     catalogManager,
                     rebalanceScheduler,
-                    clusterConfigRegistry.getConfiguration(SystemDistributedExtensionConfiguration.KEY).system()
+                    systemDistributedConfiguration
             );
 
             partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
@@ -1298,7 +1302,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.partitionOperationsExecutor(),
                     clockService,
                     placementDriver,
-                    schemaSyncService);
+                    schemaSyncService,
+                    systemDistributedConfiguration);
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                     .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
@@ -1340,7 +1345,8 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     indexMetaStorage,
                     partitionsLogStorageFactory,
                     partitionReplicaLifecycleManager,
-                    minTimeCollectorService
+                    minTimeCollectorService,
+                    systemDistributedConfiguration
             ) {
 
                 @Override

@@ -68,7 +68,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
-import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -79,6 +78,13 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Executes partition reset request to restore partition assignments when majority is not available.
+ *
+ * <p>The reset is executed in two stages - first we switch to a single node having the most up-to-date data,
+ * then we switch to other available nodes up to the configured replica factor, in the case of manual reset, and to the available nodes from
+ * the original group, in the case of the automatic reset.
+ */
 class GroupUpdateRequest implements DisasterRecoveryRequest {
     private static final IgniteLogger LOG = Loggers.forClass(GroupUpdateRequest.class);
 
@@ -270,6 +276,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     replicaGrpId,
                     aliveDataNodes,
                     aliveNodesConsistentIds,
+                    zoneDescriptor.partitions(),
                     zoneDescriptor.replicas(),
                     revision,
                     metaStorageManager,
@@ -291,6 +298,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             TablePartitionId partId,
             Collection<String> aliveDataNodes,
             Set<String> aliveNodesConsistentIds,
+            int partitions,
             int replicas,
             long revision,
             MetaStorageManager metaStorageMgr,
@@ -311,7 +319,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         }
 
         if (manualUpdate) {
-            enrichAssignments(partId, aliveDataNodes, replicas, partAssignments);
+            enrichAssignments(partId, aliveDataNodes, partitions, replicas, partAssignments);
         }
 
         Assignment nextAssignment = nextAssignment(localPartitionStateMessageByNode, partAssignments);
@@ -334,15 +342,41 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                 // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
                 isProposedPendingEqualsProposedPlanned
                         ? null
-                        : Assignments.toBytes(partAssignments, assignmentsTimestamp)
+                        : Assignments.toBytes(partAssignments, assignmentsTimestamp, true)
         );
 
-        return metaStorageMgr.invoke(invokeClosure).thenApply(StatementResult::getAsInt);
+        return metaStorageMgr.invoke(invokeClosure).thenApply(sr -> {
+            switch (UpdateStatus.valueOf(sr.getAsInt())) {
+                case PENDING_KEY_UPDATED:
+                    LOG.info(
+                            "Force update metastore pending partitions key [key={}, partition={}, table={}, newVal={}]",
+                            pendingChangeTriggerKey(partId).toString(),
+                            partId.partitionId(),
+                            partId.tableId(),
+                            nextAssignment
+                    );
+
+                    break;
+                case OUTDATED_UPDATE_RECEIVED:
+                    LOG.info(
+                            "Received outdated force rebalance trigger event [revision={}, partition={}, table={}]",
+                            revision,
+                            partId.partitionId(),
+                            partId.tableId()
+                    );
+
+                    break;
+                default:
+                    throw new IllegalStateException("Unknown return code for rebalance metastore multi-invoke");
+            }
+
+            return sr.getAsInt();
+        });
     }
 
     /**
-     * Returns an assignment with the most up to date log index, if there are more than one node with the same index,
-     * returns the first one in the lexicographic order.
+     * Returns an assignment with the most up to date log index, if there are more than one node with the same index, returns the first one
+     * in the lexicographic order.
      */
     private static Assignment nextAssignment(
             LocalPartitionStateMessageByNode localPartitionStateByNode,
@@ -393,19 +427,13 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
         return iif(notExists(pendingChangeTriggerKey).or(value(pendingChangeTriggerKey).lt(revisionBytes)),
-                iif(
-                        value(partAssignmentsPendingKey).ne(pendingAssignmentsBytes),
-                        ops(
-                                put(pendingChangeTriggerKey, revisionBytes),
-                                put(partAssignmentsPendingKey, pendingAssignmentsBytes),
-                                plannedAssignmentsBytes == null
-                                        ? remove(partAssignmentsPlannedKey)
-                                        : put(partAssignmentsPlannedKey, plannedAssignmentsBytes)
-                        ).yield(PENDING_KEY_UPDATED.ordinal()),
-                        ops(
-                                put(pendingChangeTriggerKey, revisionBytes)
-                        ).yield(PENDING_KEY_UPDATED.ordinal())
-                ),
+                ops(
+                        put(pendingChangeTriggerKey, revisionBytes),
+                        put(partAssignmentsPendingKey, pendingAssignmentsBytes),
+                        plannedAssignmentsBytes == null
+                                ? remove(partAssignmentsPlannedKey)
+                                : put(partAssignmentsPlannedKey, plannedAssignmentsBytes)
+                ).yield(PENDING_KEY_UPDATED.ordinal()),
                 ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
         );
     }
@@ -442,10 +470,11 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
     private static void enrichAssignments(
             TablePartitionId partId,
             Collection<String> aliveDataNodes,
+            int partitions,
             int replicas,
             Set<Assignment> partAssignments
     ) {
-        Set<Assignment> calcAssignments = calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), replicas);
+        Set<Assignment> calcAssignments = calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), partitions, replicas);
 
         for (Assignment calcAssignment : calcAssignments) {
             if (partAssignments.size() == replicas) {

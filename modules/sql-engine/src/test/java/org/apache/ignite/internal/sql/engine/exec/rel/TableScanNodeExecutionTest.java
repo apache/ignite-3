@@ -36,6 +36,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -75,6 +76,8 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -97,11 +100,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests execution flow of TableScanNode.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(ExecutorServiceExtension.class)
 public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> {
     private final LinkedList<AutoCloseable> closeables = new LinkedList<>();
 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
+
+    @InjectExecutorService
+    private ScheduledExecutorService commonExecutor;
 
     // Ensures that all data from TableScanNode is being propagated correctly.
     @Test
@@ -132,7 +139,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
         int i = 0;
 
-        HybridTimestampTracker timestampTracker = new HybridTimestampTracker();
+        HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
 
         String leaseholder = "local";
 
@@ -163,7 +170,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     txConfiguration,
                     clusterService,
                     replicaSvc,
-                    new HeapLockManager(1024, 1024),
+                    HeapLockManager.smallInstance(),
                     clockService,
                     new TransactionIdGenerator(0xdeadbeef),
                     placementDriver,
@@ -171,7 +178,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
                     transactionInflights,
-                    new TestLowWatermark()
+                    new TestLowWatermark(),
+                    commonExecutor
             );
 
             assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

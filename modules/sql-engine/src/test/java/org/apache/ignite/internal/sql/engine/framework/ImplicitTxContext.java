@@ -26,14 +26,16 @@ import org.jetbrains.annotations.Nullable;
 
 /** Context that always creates implicit transaction. */
 public class ImplicitTxContext implements QueryTransactionContext {
-    public static final QueryTransactionContext INSTANCE = new ImplicitTxContext();
+    private final HybridTimestampTracker observableTimeTracker = HybridTimestampTracker.atomicTracker(null);
 
-    private final HybridTimestampTracker observableTimeTracker = new HybridTimestampTracker();
+    public static ImplicitTxContext create() {
+        return new ImplicitTxContext();
+    }
 
     private ImplicitTxContext() { }
 
     @Override
-    public QueryTransactionWrapper getOrStartImplicit(boolean readOnly) {
+    public QueryTransactionWrapper getOrStartSqlManaged(boolean readOnly, boolean implicit) {
         return new QueryTransactionWrapperImpl(new NoOpTransaction("dummy", false), true, NoOpTransactionTracker.INSTANCE);
     }
 
@@ -45,5 +47,9 @@ public class ImplicitTxContext implements QueryTransactionContext {
     @Override
     public void updateObservableTime(HybridTimestamp time) {
         observableTimeTracker.update(time);
+    }
+
+    public @Nullable HybridTimestamp observableTime() {
+        return observableTimeTracker.get();
     }
 }
