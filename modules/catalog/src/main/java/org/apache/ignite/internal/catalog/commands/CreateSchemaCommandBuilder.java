@@ -27,6 +27,9 @@ public interface CreateSchemaCommandBuilder {
     /** Sets schema name. Should not be null or blank. */
     CreateSchemaCommandBuilder name(String name);
 
+    /** Sets a flag indicating whether {@code IF NOT EXISTS} option was specified. */
+    CreateSchemaCommandBuilder ifNotExists(boolean value);
+
     /** Creates new schema command. */
     CatalogCommand build();
 }

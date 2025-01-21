@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.tx.LockMode.IX;
 import static org.apache.ignite.internal.tx.LockMode.S;
 import static org.apache.ignite.internal.tx.LockMode.SIX;
 import static org.apache.ignite.internal.tx.LockMode.X;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,6 +47,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
+import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -53,19 +57,24 @@ import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests a LockManager implementation.
  */
+@ExtendWith(ConfigurationExtension.class)
 public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
-    private LockManager lockManager;
+    @InjectConfiguration
+    private SystemLocalConfiguration systemLocalConfiguration;
+
+    protected LockManager lockManager;
 
     @BeforeEach
     public void before() {
-        lockManager = newInstance();
+        lockManager = newInstance(systemLocalConfiguration);
     }
 
-    protected abstract LockManager newInstance();
+    protected abstract LockManager newInstance(SystemLocalConfiguration systemLocalConfiguration);
 
     protected abstract LockKey lockKey();
 
@@ -1214,7 +1223,7 @@ public abstract class AbstractLockManagerTest extends IgniteAbstractTest {
         }
 
         if (firstErr.get() != null) {
-            throw new IgniteException(firstErr.get());
+            throw new IgniteException(INTERNAL_ERR, firstErr.get());
         }
 
         log.info("After test readLocks={} writeLocks={} failedLocks={}", readLocks.sum(), writeLocks.sum(),

@@ -52,8 +52,8 @@ public class MetaStorageCompactionTriggerConfigurationTest extends BaseIgniteAbs
     @Test
     void testValidSystemPropertiesOnStart(
             @InjectConfiguration("mock.properties = {"
-                    + INTERVAL_SYSTEM_PROPERTY_NAME + ".propertyValue = \"100\", "
-                    + DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME + ".propertyValue = \"500\""
+                    + INTERVAL_SYSTEM_PROPERTY_NAME + " = \"100\", "
+                    + DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME + " = \"500\""
                     + "}")
             SystemDistributedConfiguration systemConfig
     ) {

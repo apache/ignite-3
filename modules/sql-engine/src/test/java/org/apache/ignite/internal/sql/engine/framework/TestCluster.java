@@ -53,8 +53,10 @@ public class TestCluster implements LifecycleAware {
     private final CatalogManager catalogManager;
     private final ConcurrentMap<String, ScannableTable> dataProvidersByTableName;
     private final ConcurrentMap<String, AssignmentsProvider> assignmentsProvidersByTableName;
+    private final ConcurrentMap<String, Long> tablesSize;
 
     TestCluster(
+            ConcurrentMap<String, Long> tablesSize,
             ConcurrentMap<String, ScannableTable> dataProvidersByTableName,
             ConcurrentMap<String, AssignmentsProvider> assignmentsProvidersByTableName,
             Map<String, TestNode> nodeByName,
@@ -64,6 +66,7 @@ public class TestCluster implements LifecycleAware {
             Runnable initClosure,
             RunnableX stopClosure
     ) {
+        this.tablesSize = tablesSize;
         this.dataProvidersByTableName = dataProvidersByTableName;
         this.assignmentsProvidersByTableName = assignmentsProvidersByTableName;
         this.nodeByName = nodeByName;
@@ -129,6 +132,10 @@ public class TestCluster implements LifecycleAware {
 
     public void setDataProvider(String tableName, ScannableTable dataProvider) {
         dataProvidersByTableName.put(tableName, dataProvider);
+    }
+
+    public void setTableSize(String name, long size) {
+        tablesSize.put(name, size);
     }
 
     private static class ComponentToLifecycleAwareAdaptor implements LifecycleAware {

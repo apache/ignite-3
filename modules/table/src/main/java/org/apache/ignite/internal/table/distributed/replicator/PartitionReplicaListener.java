@@ -163,6 +163,7 @@ import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.BinaryTupleComparator;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -171,11 +172,11 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.table.RowIdGenerator;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
 import org.apache.ignite.internal.table.distributed.SortedIndexLocker;
@@ -537,6 +538,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             txTs = opTsIfDirectRo;
         }
 
+        assert opTs == null || txTs == null || opTs.compareTo(txTs) >= 0 : "Tx started at " + txTs + ", but opTs precedes it: " + opTs
+                + "; request " + request;
+
         // Don't need to validate schema.
         if (opTs == null) {
             assert opTsIfDirectRo == null;
@@ -633,7 +637,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             leaderWithTerm.leader(),
                             replicaGrpId,
                             replicaGrpId.partitionId(),
-                            catalogService.table(replicaGrpId.tableId(), catalogService.latestCatalogVersion()).name()
+                            replicaGrpId.tableId()
                     );
 
                     return raftClient.changePeersAndLearnersAsync(peersConfigurationFromMessage(request), leaderWithTerm.term());
@@ -1364,7 +1368,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         int flags = request.flags();
 
-        var comparator = new BinaryTupleComparator(indexStorage.indexDescriptor().columns());
+        BinaryTupleComparator comparator = StorageUtils.binaryTupleComparator(indexStorage.indexDescriptor().columns());
 
         Predicate<IndexRow> isUpperBoundAchieved = indexRow -> {
             if (indexRow == null) {

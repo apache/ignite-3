@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -208,6 +209,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private final ScheduledExecutorService commonScheduler;
 
+    private final EventLog eventLog;
+
     /** Constructor. */
     public SqlQueryProcessor(
             ClusterService clusterSrvc,
@@ -230,7 +233,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             TxManager txManager,
             LowWatermark lowWaterMark,
             ScheduledExecutorService commonScheduler,
-            KillCommandHandler killCommandHandler
+            KillCommandHandler killCommandHandler,
+            EventLog eventLog
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -252,6 +256,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.txManager = txManager;
         this.commonScheduler = commonScheduler;
         this.killCommandHandler = killCommandHandler;
+        this.eventLog = eventLog;
+
         sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWaterMark);
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -352,6 +358,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         ));
 
         queryExecutor = registerService(new QueryExecutor(
+                clusterSrvc.topologyService().localMember().name(),
                 CACHE_FACTORY,
                 PARSED_RESULT_CACHE_SIZE,
                 new ParserServiceImpl(),
@@ -364,7 +371,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 executionSrvc,
                 DEFAULT_PROPERTIES,
                 txTracker,
-                new QueryIdGenerator(nodeName.hashCode())
+                new QueryIdGenerator(nodeName.hashCode()),
+                eventLog
         ));
 
         queriesViewProvider.init(queryExecutor);
@@ -542,14 +550,10 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         return sqlStatisticManager;
     }
 
-    private static boolean shouldBeCached(SqlQueryType queryType) {
-        return queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML;
-    }
-
     private ParsedResult parseAndCache(String sql) {
         ParsedResult result = queryExecutor.parse(sql);
 
-        if (shouldBeCached(result.queryType())) {
+        if (result.queryType().supportsParseResultCaching()) {
             queryExecutor.updateParsedResultCache(sql, result);
         }
 

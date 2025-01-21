@@ -539,18 +539,13 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestStatementTimeZoneWithAllZones([Values(true, false)] bool useNodaTime)
+        public async Task TestStatementTimeZoneWithAllZones()
         {
             using var client = await IgniteClient.StartAsync(GetConfig() with { LoggerFactory = NullLoggerFactory.Instance });
             var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP");
 
-            ICollection<string> zoneIds = useNodaTime
-                ? DateTimeZoneProviders.Tzdb.Ids
-                : TimeZoneInfo.GetSystemTimeZones().Select(x => x.Id).ToList();
-
-            var zoneProvider = useNodaTime
-                ? DateTimeZoneProviders.Tzdb
-                : DateTimeZoneProviders.Bcl;
+            ICollection<string> zoneIds = DateTimeZoneProviders.Tzdb.Ids;
+            var zoneProvider = DateTimeZoneProviders.Tzdb;
 
             List<Exception> failures = new();
 

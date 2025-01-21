@@ -136,7 +136,7 @@ public enum ClientOperationType {
     TUPLE_CONTAINS_ALL_KEYS,
 
     /**
-     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#submit(JobTarget, JobDescriptor, Object)}).
+     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#submitAsync(JobTarget, JobDescriptor, Object)}).
      */
     COMPUTE_EXECUTE,
 
@@ -151,7 +151,7 @@ public enum ClientOperationType {
     COMPUTE_GET_STATE,
 
     /**
-     * Cancel compute job ({@link org.apache.ignite.compute.JobExecution#cancelAsync()}).
+     * Cancel compute job.
      */
     COMPUTE_CANCEL,
 

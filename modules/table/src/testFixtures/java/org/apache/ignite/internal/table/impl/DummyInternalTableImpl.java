@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
@@ -106,6 +108,7 @@ import org.apache.ignite.internal.table.distributed.replicator.PartitionReplicaL
 import org.apache.ignite.internal.table.distributed.replicator.TransactionStateResolver;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
@@ -164,6 +167,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private final Object raftServiceMutex = new Object();
 
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
+
+    private static final ScheduledExecutorService COMMON_SCHEDULER = Executors.newSingleThreadScheduledExecutor(
+            new NamedThreadFactory("DummyInternalTable-common-scheduler-", true, LOG)
+    );
 
     /**
      * Creates a new local table.
@@ -382,7 +389,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         try {
                             partitionListener.onWrite(List.of(clo).iterator());
                         } catch (Throwable e) {
-                            res.completeExceptionally(new TransactionException(e));
+                            res.completeExceptionally(new TransactionException(0, e));
                         }
 
                         return res;
@@ -570,7 +577,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
                 transactionInflights,
-                new TestLowWatermark()
+                new TestLowWatermark(),
+                COMMON_SCHEDULER
         );
 
         assertThat(txManager.startAsync(new ComponentContext()), willCompleteSuccessfully());

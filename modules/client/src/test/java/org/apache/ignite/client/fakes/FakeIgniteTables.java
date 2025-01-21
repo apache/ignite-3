@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
@@ -106,7 +107,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         var oldTable = tables.putIfAbsent(name, newTable);
 
         if (oldTable != null) {
-            throw new IgniteException(TABLE_EXISTS);
+            throw new IgniteException(INTERNAL_ERR, TABLE_EXISTS);
         }
 
         tablesById.put(newTable.tableId(), newTable);

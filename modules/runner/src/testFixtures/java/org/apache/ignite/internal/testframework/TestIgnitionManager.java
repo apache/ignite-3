@@ -21,6 +21,7 @@ import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.SYNC;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static org.apache.ignite.internal.util.Constants.MiB;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.parser.ConfigDocument;
@@ -119,7 +120,7 @@ public class TestIgnitionManager {
 
             return IgniteServer.start(nodeName, configPath, workDir);
         } catch (IOException e) {
-            throw new IgniteException("Couldn't write node config.", e);
+            throw new IgniteException(INTERNAL_ERR, "Couldn't write node config.", e);
         }
     }
 
@@ -130,7 +131,7 @@ public class TestIgnitionManager {
         try {
             addDefaultsToConfigurationFile(null, configPath);
         } catch (IOException e) {
-            throw new IgniteException("Couldn't update node configuration file", e);
+            throw new IgniteException(INTERNAL_ERR, "Couldn't update node configuration file", e);
         }
     }
 

@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.ca
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 
 import java.nio.ByteBuffer;
+import java.util.Comparator;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
@@ -39,7 +40,6 @@ import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRow;
@@ -164,7 +164,7 @@ public interface SortedIndexTreeIo {
      */
     default int compare(
             DataPageReader dataPageReader,
-            BinaryTupleComparator binaryTupleComparator,
+            Comparator<ByteBuffer> binaryTupleComparator,
             int partitionId,
             long pageAddr,
             int idx,

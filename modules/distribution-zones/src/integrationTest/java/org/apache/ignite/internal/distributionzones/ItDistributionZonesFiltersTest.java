@@ -63,7 +63,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     private static final String TABLE_NAME = "table1";
 
     @Language("HOCON")
-    private static final String NODE_ATTRIBUTES = "{region.attribute = US, storage.attribute = SSD}";
+    private static final String NODE_ATTRIBUTES = "{region = US, storage = SSD}";
 
     private static final String STORAGE_PROFILES = String.format("'%s, %s'", DEFAULT_ROCKSDB_PROFILE_NAME, DEFAULT_AIPERSIST_PROFILE_NAME);
 
@@ -115,7 +115,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
 
         // This node do not pass the filter
-        @Language("HOCON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"SSD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region: EU, storage: SSD}";
 
         Ignite node = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
@@ -123,10 +123,10 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         node.sql().execute(null, createTableSql());
 
-        MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
+        MetaStorageManager metaStorageManager = IgniteTestUtils
                 .getFieldValue(node, IgniteImpl.class, "metaStorageMgr");
 
-        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node, IgniteImpl.class, "distributedTblMgr");
+        TableManager tableManager = IgniteTestUtils.getFieldValue(node, IgniteImpl.class, "distributedTblMgr");
 
         TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
 
@@ -140,7 +140,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
                 TIMEOUT_MILLIS
         );
 
-        @Language("HOCON") String secondNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+        @Language("HOCON") String secondNodeAttributes = "{region: US, storage: SSD}";
 
         // This node pass the filter but storage profiles of a node do not match zone's storage profiles.
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21387 recovery of this node is failing,
@@ -210,7 +210,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
                 TIMEOUT_MILLIS
         );
 
-        @Language("HOCON") String firstNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region: US, storage: SSD}";
 
         // This node pass the filter
         startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
@@ -265,7 +265,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
                 TIMEOUT_MILLIS
         );
 
-        @Language("HOCON") String firstNodeAttributes = "{region:{attribute:\"US\"},storage:{attribute:\"SSD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region: US, storage: SSD}";
 
         // This node pass the filter
         startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
@@ -306,7 +306,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         Ignite node0 = unwrapIgniteImpl(node(0));
 
         // This node passes the filter
-        @Language("HOCON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region: EU, storage: HDD}";
 
         Ignite node1 = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
@@ -324,7 +324,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         node1.sql().execute(null, createTableSql());
 
-        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
+        TableManager tableManager = IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
 
         TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
 
@@ -350,7 +350,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         IgniteImpl node0 = unwrapIgniteImpl(node(0));
 
         // This node passes the filter
-        @Language("HOCON") String firstNodeAttributes = "{region:{attribute:\"EU\"},storage:{attribute:\"HDD\"}}";
+        @Language("HOCON") String firstNodeAttributes = "{region: EU, storage: HDD}";
 
         startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 

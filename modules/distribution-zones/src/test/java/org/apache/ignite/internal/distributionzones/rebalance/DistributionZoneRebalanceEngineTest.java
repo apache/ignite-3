@@ -232,7 +232,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageCommandsFactory commandsFactory = new MetaStorageCommandsFactory();
 
-        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID::randomUUID);
+        CommandIdGenerator commandIdGenerator = new CommandIdGenerator(UUID.randomUUID());
 
         lenient().doAnswer(invocationClose -> {
             Iif iif = invocationClose.getArgument(0);
@@ -515,7 +515,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
                 if (expectedNodes != null) {
                     Set<String> expectedAssignments =
-                            calculateAssignmentForPartition(expectedNodes, j, zoneDescriptor.replicas())
+                            calculateAssignmentForPartition(expectedNodes, j, zoneDescriptor.partitions(), zoneDescriptor.replicas())
                                     .stream().map(Assignment::consistentId).collect(toSet());
 
                     assertNotNull(actualAssignmentsBytes);

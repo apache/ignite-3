@@ -43,6 +43,7 @@ import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeMessageTypes;
 import org.apache.ignite.internal.compute.ComputeMessagesFactory;
 import org.apache.ignite.internal.compute.ComputeUtils;
@@ -174,12 +175,12 @@ public class ComputeMessaging {
      * @param input Arguments of the job.
      * @return Job id future that will be completed when the job is submitted on the remote node.
      */
-    public <T> CompletableFuture<UUID> remoteExecuteRequestAsync(
+    public CompletableFuture<UUID> remoteExecuteRequestAsync(
             ExecutionOptions options,
             ClusterNode remoteNode,
             List<DeploymentUnit> units,
             String jobClassName,
-            T input
+            @Nullable ComputeJobDataHolder input
     ) {
         List<DeploymentUnitMsg> deploymentUnitMsgs = units.stream()
                 .map(ComputeUtils::toDeploymentUnitMsg)
@@ -199,7 +200,7 @@ public class ComputeMessaging {
     private void processExecuteRequest(JobStarter starter, ExecuteRequest request, ClusterNode sender, long correlationId) {
         List<DeploymentUnit> units = toDeploymentUnit(request.deploymentUnits());
 
-        JobExecution<Object> execution = starter.start(
+        JobExecution<ComputeJobDataHolder> execution = starter.start(
                 request.executeOptions(), units, request.jobClassName(), request.input()
         );
         execution.idAsync().whenComplete((jobId, err) -> sendExecuteResponse(jobId, err, sender, correlationId));
@@ -219,10 +220,9 @@ public class ComputeMessaging {
      *
      * @param remoteNode The job will be executed on this node.
      * @param jobId Job id.
-     * @param <R> Job result type
      * @return Job result.
      */
-    public <R> CompletableFuture<R> remoteJobResultRequestAsync(ClusterNode remoteNode, UUID jobId) {
+    public CompletableFuture<ComputeJobDataHolder> remoteJobResultRequestAsync(ClusterNode remoteNode, UUID jobId) {
         JobResultRequest jobResultRequest = messagesFactory.jobResultRequest()
                 .jobId(jobId)
                 .build();
@@ -233,10 +233,14 @@ public class ComputeMessaging {
 
     private void processJobResultRequest(JobResultRequest request, ClusterNode sender, long correlationId) {
         executionManager.resultAsync(request.jobId())
-                .whenComplete((result, err) -> sendJobResultResponse(result, err, sender, correlationId));
+                .whenComplete((result, err) -> sendJobResultResponse((ComputeJobDataHolder) result, err, sender, correlationId));
     }
 
-    private void sendJobResultResponse(@Nullable Object result, @Nullable Throwable ex, ClusterNode sender, long correlationId) {
+    private void sendJobResultResponse(
+            @Nullable ComputeJobDataHolder result,
+            @Nullable Throwable ex,
+            ClusterNode sender,
+            long correlationId) {
         JobResultResponse jobResultResponse = messagesFactory.jobResultResponse()
                 .result(result)
                 .throwable(ex)

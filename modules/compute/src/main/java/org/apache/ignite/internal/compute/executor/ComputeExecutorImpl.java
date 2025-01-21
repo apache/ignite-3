@@ -34,6 +34,7 @@ import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
+import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.compute.task.TaskExecutionContextImpl;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.marshalling.Marshaller;
 import org.jetbrains.annotations.Nullable;
@@ -60,6 +62,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private final ComputeStateMachine stateMachine;
 
+    private final TopologyService topologyService;
+
     private PriorityQueueExecutor executorService;
 
     /**
@@ -68,53 +72,60 @@ public class ComputeExecutorImpl implements ComputeExecutor {
      * @param ignite Ignite instance for public API access.
      * @param stateMachine Compute jobs state machine.
      * @param configuration Compute configuration.
+     * @param topologyService Topology service.
      */
     public ComputeExecutorImpl(
             Ignite ignite,
             ComputeStateMachine stateMachine,
-            ComputeConfiguration configuration
+            ComputeConfiguration configuration,
+            TopologyService topologyService
     ) {
         this.ignite = ignite;
         this.configuration = configuration;
         this.stateMachine = stateMachine;
+        this.topologyService = topologyService;
     }
 
     @Override
-    public <T, R> JobExecutionInternal<R> executeJob(
+    public <T, R> JobExecutionInternal<ComputeJobDataHolder> executeJob(
             ExecutionOptions options,
             Class<? extends ComputeJob<T, R>> jobClass,
             JobClassLoader classLoader,
-            T input
+            ComputeJobDataHolder input
     ) {
         assert executorService != null;
 
         AtomicBoolean isInterrupted = new AtomicBoolean();
-        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader);
+        JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader, options.partition());
         ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass);
         Marshaller<T, byte[]> inputMarshaller = jobInstance.inputMarshaller();
         Marshaller<R, byte[]> resultMarshaller = jobInstance.resultMarshaller();
 
-        // If input is of this type, this means that the request came from the thin client and packing the result to the byte array will be
-        // needed in any case. In order to minimize conversion, marshal the result here.
-        boolean marshalResult = input instanceof ComputeJobDataHolder;
-
-        QueueExecution<R> execution = executorService.submit(
-                unmarshalExecMarshal(input, jobClass, jobInstance, context, inputMarshaller),
+        QueueExecution<ComputeJobDataHolder> execution = executorService.submit(
+                unmarshalExecMarshal(input, jobClass, jobInstance, context, inputMarshaller, resultMarshaller),
                 options.priority(),
                 options.maxRetries()
         );
 
-        return new JobExecutionInternal<>(execution, isInterrupted, resultMarshaller, marshalResult);
+        return new JobExecutionInternal<>(execution, isInterrupted, null, false, topologyService.localMember());
     }
 
-    private static <T, R> Callable<CompletableFuture<R>> unmarshalExecMarshal(
-            T input,
+    private static <T, R> Callable<CompletableFuture<ComputeJobDataHolder>> unmarshalExecMarshal(
+            ComputeJobDataHolder input,
             Class<? extends ComputeJob<T, R>> jobClass,
             ComputeJob<T, R> jobInstance,
             JobExecutionContext context,
-            @Nullable Marshaller<T, byte[]> inputMarshaller
+            @Nullable Marshaller<T, byte[]> inputMarshaller,
+            @Nullable Marshaller<R, byte[]> resultMarshaller
     ) {
-        return () -> jobInstance.executeAsync(context, unmarshalOrNotIfNull(inputMarshaller, input, getJobExecuteArgumentType(jobClass)));
+        return () -> {
+            CompletableFuture<R> userJobFut = jobInstance.executeAsync(
+                    context, unmarshalOrNotIfNull(inputMarshaller, input, getJobExecuteArgumentType(jobClass)));
+
+            return userJobFut == null
+                    ? null
+                    : userJobFut.thenApply(r -> SharedComputeUtils.marshalArgOrResult(r, resultMarshaller));
+        };
     }
 
     @Override

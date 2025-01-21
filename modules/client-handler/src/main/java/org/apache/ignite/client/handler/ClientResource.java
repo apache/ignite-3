@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -43,7 +45,9 @@ public class ClientResource {
      */
     public <T> T get(Class<T> type) {
         if (!type.isInstance(obj)) {
-            throw new IgniteException("Incorrect resource type. Expected " + type.getName() + ", but got " + obj.getClass().getName());
+            throw new IgniteException(
+                    INTERNAL_ERR,
+                    "Incorrect resource type. Expected " + type.getName() + ", but got " + obj.getClass().getName());
         }
 
         return (T) obj;

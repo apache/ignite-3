@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.datatypes;
 
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 
 /**
  * Set of tests to ensure correctness of CAST expression to INTEGER
@@ -29,4 +31,9 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
  */
 @WithSystemProperty(key = "FAST_QUERY_OPTIMIZATION_ENABLED", value = "false")
 public class ItCastToIntWithoutFastQueryOptimizationTest extends ItCastToIntTest {
+    @BeforeAll
+    @AfterAll
+    public static void resetFlag() {
+        Commons.resetFastQueryOptimizationFlag();
+    }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.statistic;
 
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Collection;
 import java.util.List;
@@ -26,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -49,14 +51,13 @@ import org.jetbrains.annotations.TestOnly;
 public class SqlStatisticManagerImpl implements SqlStatisticManager {
     private static final IgniteLogger LOG = Loggers.forClass(SqlStatisticManagerImpl.class);
     private static final long DEFAULT_TABLE_SIZE = 1_000_000L;
-    private static final long MINIMUM_TABLE_SIZE = 1_000L;
     private static final ActualSize DEFAULT_VALUE = new ActualSize(DEFAULT_TABLE_SIZE, 0L);
 
     private final EventListener<ChangeLowWatermarkEventParameters> lwmListener = fromConsumer(this::onLwmChanged);
     private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
     private final EventListener<CreateTableEventParameters> createTableEventListener = fromConsumer(this::onTableCreate);
 
-    private volatile Future<Void> statisticUpdateFut = CompletableFuture.completedFuture(null);
+    private final AtomicReference<CompletableFuture<Void>> latestUpdateFut = new AtomicReference<>(nullCompletedFuture());
 
     /** A queue for deferred table destruction events. */
     private final LongPriorityQueue<DestroyTableEvent> destructionEventsQueue = new LongPriorityQueue<>(DestroyTableEvent::catalogVersion);
@@ -88,14 +89,13 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
      */
     @Override
     public long tableSize(int tableId) {
-        updateTableSizeStatistics(tableId);
-        long tableSize = tableSizeMap.getOrDefault(tableId, DEFAULT_VALUE).getSize();
+        updateTableSizeStatistics(tableId, false);
 
-        return Math.max(tableSize, MINIMUM_TABLE_SIZE);
+        return tableSizeMap.getOrDefault(tableId, DEFAULT_VALUE).getSize();
     }
 
     /** Update table size statistic in the background if it required. */
-    private void updateTableSizeStatistics(int tableId) {
+    private void updateTableSizeStatistics(int tableId, boolean force) {
         TableViewInternal tableView = tableManager.cachedTable(tableId);
         if (tableView == null) {
             LOG.debug("There is no table to update statistics [id={}].", tableId);
@@ -110,14 +110,14 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         long currTimestamp = FastTimestamps.coarseCurrentTimeMillis();
         long lastUpdateTime = tableSize.getTimestamp();
 
-        if (lastUpdateTime <= currTimestamp - thresholdTimeToPostponeUpdateMs) {
+        if (force || lastUpdateTime <= currTimestamp - thresholdTimeToPostponeUpdateMs) {
             // Prevent to run update for the same table twice concurrently.
-            if (!tableSizeMap.replace(tableId, tableSize, new ActualSize(tableSize.getSize(), currTimestamp))) {
+            if (!force && !tableSizeMap.replace(tableId, tableSize, new ActualSize(tableSize.getSize(), currTimestamp))) {
                 return;
             }
 
             // just request new table size in background.
-            statisticUpdateFut = tableView.internalTable().estimatedSize()
+            CompletableFuture<Void> updateResult = tableView.internalTable().estimatedSize()
                     .thenAccept(size -> {
                         // the table can be concurrently dropped and we shouldn't put new value in this case.
                         tableSizeMap.computeIfPresent(tableId, (k, v) -> new ActualSize(size, currTimestamp));
@@ -125,6 +125,8 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
                         LOG.info("Can't calculate size for table [id={}].", e, tableId);
                         return null;
                     });
+
+            latestUpdateFut.updateAndGet(prev -> prev == null ? updateResult : prev.thenCompose(none -> updateResult));
         }
     }
 
@@ -225,6 +227,16 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
      */
     @TestOnly
     public Future<Void> lastUpdateStatisticFuture() {
-        return statisticUpdateFut;
+        return latestUpdateFut.get();
+    }
+
+    /** Forcibly updates statistics for all known tables, ignoring throttling. */
+    @TestOnly
+    public void forceUpdateAll() {
+        List<Integer> tableIds = List.copyOf(tableSizeMap.keySet());
+
+        for (int tableId : tableIds) {
+            updateTableSizeStatistics(tableId, true);
+        }
     }
 }

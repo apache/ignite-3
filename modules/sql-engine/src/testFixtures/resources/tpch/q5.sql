@@ -2,6 +2,7 @@
 -- noinspection SqlNoDataSourceInspectionForFile
 
 SELECT
+    /*+ NO_INDEX, DISABLE_RULE('MergeJoinConverter') */
     n_name,
     sum(l_extendedprice * (1 - l_discount)) AS revenue
 FROM

@@ -64,6 +64,7 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
                 .operationTime(operationTime)
                 .txContext(query.txContext)
                 .txUsedListener(tx -> query.usedTransaction = tx)
+                .errorHandler(throwable -> query.setError(throwable))
                 .build();
 
         query.operationContext = operationContext;
@@ -92,12 +93,12 @@ class OptimizingPhaseHandler implements ExecutionPhaseHandler {
             return;
         }
 
-        if (SqlQueryType.DDL == queryType) {
-            throw new SqlException(RUNTIME_ERR, "DDL doesn't support transactions.");
+        if (!queryType.supportsExplicitTransactions()) {
+            throw new SqlException(RUNTIME_ERR, queryType.displayName() + " doesn't support transactions.");
         }
 
         if (SqlQueryType.DML == queryType && txWrapper.unwrap().isReadOnly()) {
-            throw new SqlException(RUNTIME_ERR, "DML query cannot be started by using read only transactions.");
+            throw new SqlException(RUNTIME_ERR, queryType.displayName() + " cannot be started by using read only transactions.");
         }
     }
 }

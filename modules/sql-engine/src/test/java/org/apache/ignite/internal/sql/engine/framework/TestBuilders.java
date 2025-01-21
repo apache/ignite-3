@@ -21,7 +21,6 @@ import static java.util.UUID.randomUUID;
 import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
-import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -75,6 +74,7 @@ import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -404,6 +404,15 @@ public class TestBuilders {
          * @return {@code this} for chaining.
          */
         ClusterBuilder registerSystemView(String nodeName, String systemViewName);
+
+        /**
+         * Sets a timeout for query optimization phase.
+         *
+         * @param value A planning timeout value.
+         * @param timeUnit A time unit.
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder planningTimeout(long value, TimeUnit timeUnit);
     }
 
     /**
@@ -615,6 +624,7 @@ public class TestBuilders {
         private final List<SystemView<?>> systemViews = new ArrayList<>();
         private final Map<String, Set<String>> nodeName2SystemView = new HashMap<>();
 
+        private long planningTimeout = TimeUnit.SECONDS.toMillis(15);
         private @Nullable DefaultDataProvider defaultDataProvider = null;
         private @Nullable DefaultAssignmentsProvider defaultAssignmentsProvider = null;
 
@@ -662,6 +672,13 @@ public class TestBuilders {
             return this;
         }
 
+        @Override
+        public ClusterBuilder planningTimeout(long value, TimeUnit timeUnit) {
+            this.planningTimeout = timeUnit.toMillis(value);
+
+            return this;
+        }
+
         /** {@inheritDoc} */
         @Override
         public TestCluster build() {
@@ -674,11 +691,10 @@ public class TestBuilders {
 
             var parserService = new ParserServiceImpl();
 
-            SqlStatisticManager sqlStatisticManager = tableId -> 10_000L;
-
-            var schemaManager = new SqlSchemaManagerImpl(catalogManager, sqlStatisticManager, CaffeineCacheFactory.INSTANCE, 0);
+            ConcurrentMap<String, Long> tablesSize = new ConcurrentHashMap<>();
+            var schemaManager = createSqlSchemaManager(catalogManager, tablesSize);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
-                    new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
+                    new DdlSqlToCommandConverter(), planningTimeout, PLANNING_THREAD_COUNT,
                     new NoOpMetricManager(), schemaManager);
 
             Map<String, List<String>> systemViewsByNode = new HashMap<>();
@@ -785,6 +801,7 @@ public class TestBuilders {
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
 
             return new TestCluster(
+                    tablesSize,
                     dataProvidersByTableName,
                     assignmentsProviderByTableName,
                     nodes,
@@ -871,6 +888,21 @@ public class TestBuilders {
             // Wait until all indices become available.
             await(indicesReadyFut);
         }
+    }
+
+    private static SqlSchemaManagerImpl createSqlSchemaManager(CatalogManager catalogManager, ConcurrentMap<String, Long> tablesSize) {
+        SqlStatisticManager sqlStatisticManager = tableId -> {
+            CatalogTableDescriptor descriptor = catalogManager.table(tableId, Long.MAX_VALUE);
+            long fallbackSize = 10_000;
+
+            if (descriptor == null) {
+                return fallbackSize;
+            }
+
+            return tablesSize.getOrDefault(descriptor.name(), 10_000L);
+        };
+
+        return new SqlSchemaManagerImpl(catalogManager, sqlStatisticManager, CaffeineCacheFactory.INSTANCE, 0);
     }
 
     private static class TableBuilderImpl implements TableBuilder {

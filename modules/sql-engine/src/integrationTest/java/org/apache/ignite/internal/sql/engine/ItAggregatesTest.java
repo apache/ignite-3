@@ -115,6 +115,8 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 + "int_col INTEGER NOT NULL, "
                 + "dec4_2_col DECIMAL(4,2) NOT NULL"
                 + ")");
+
+        gatherStatistics();
     }
 
     @ParameterizedTest

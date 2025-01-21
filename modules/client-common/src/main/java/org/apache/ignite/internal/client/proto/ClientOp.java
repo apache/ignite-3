@@ -183,6 +183,9 @@ public class ClientOp {
     /** Cancels the execution of JDBC statement. */
     public static final int JDBC_CANCEL = 68;
 
+    /** Execute partitioned compute job. */
+    public static final int COMPUTE_EXECUTE_PARTITIONED = 69;
+
     /** Reserved for extensions: min. */
     @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_START = 1000;

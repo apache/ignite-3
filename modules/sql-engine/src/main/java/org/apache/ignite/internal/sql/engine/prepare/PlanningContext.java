@@ -20,23 +20,27 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.ignite.internal.sql.engine.util.Commons.DISTRIBUTED_TRAITS_SET;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.sql.engine.util.Commons.shortRuleName;
 
 import com.google.common.collect.Multimap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.config.CalciteConnectionProperty;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.Context;
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptSchema;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
@@ -61,6 +65,7 @@ import org.apache.calcite.sql.validate.SqlValidatorUtil;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.RuleSet;
+import org.apache.calcite.tools.RuleSets;
 import org.apache.calcite.util.CancelFlag;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.rex.IgniteRexBuilder;
@@ -152,7 +157,7 @@ public final class PlanningContext implements Context {
     private final CancelFlag cancelFlag = new CancelFlag(new AtomicBoolean());
 
     /** Rules which should be excluded for planning. */
-    private Function<RuleSet, RuleSet> rulesFilter;
+    private final Set<String> rulesToDisable = new HashSet<>();
 
     private IgnitePlanner planner;
 
@@ -296,12 +301,23 @@ public final class PlanningContext implements Context {
 
     /** Get rules filer. */
     public RuleSet rules(RuleSet set) {
-        return rulesFilter != null ? rulesFilter.apply(set) : set;
+        if (rulesToDisable.isEmpty()) {
+            return set;
+        }
+
+        List<RelOptRule> filtered = new ArrayList<>();
+        for (RelOptRule r : set) {
+            if (!rulesToDisable.contains(shortRuleName(r))) {
+                filtered.add(r);
+            }
+        }
+
+        return RuleSets.ofList(filtered);
     }
 
-    /** Set rules filter. */
-    public void rulesFilter(Function<RuleSet, RuleSet> rulesFilter) {
-        this.rulesFilter = rulesFilter;
+    /** Add rule with given name to list of exclusions. */
+    public void disableRule(String ruleName) {
+        rulesToDisable.add(ruleName);
     }
 
     /** Set a flag indicating that the planning was canceled due to a timeout. */

@@ -17,33 +17,202 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.List;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
+import org.apache.ignite.internal.catalog.commands.DropSchemaCommand;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.junit.jupiter.api.Test;
 
 /** Tests for schema related commands. */
 public class CatalogSchemaTest extends BaseCatalogManagerTest {
+    private static final String TEST_SCHEMA = "S1";
 
     @Test
     public void testCreateSchema() {
-        String schemaName = "S1";
+        assertThat(manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()), willCompleteSuccessfully());
 
-        assertThat(manager.execute(CreateSchemaCommand.builder().name(schemaName).build()), willCompleteSuccessfully());
+        Catalog latestCatalog = latestCatalog();
 
-        Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
-
-        assertNotNull(latestCatalog);
-        assertNotNull(latestCatalog.schema(schemaName));
+        assertNotNull(latestCatalog.schema(TEST_SCHEMA));
         assertNotNull(latestCatalog.schema(SqlCommon.DEFAULT_SCHEMA_NAME));
 
         assertThat(
-                manager.execute(CreateSchemaCommand.builder().name(schemaName).build()),
+                manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()),
                 willThrowFast(CatalogValidationException.class, "Schema with name 'S1' already exists")
+        );
+
+        assertThat(
+                manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).ifNotExists(true).build()),
+                willSucceedFast()
+        );
+    }
+
+    @Test
+    public void testCreateSchemaIfNotExists() {
+        {
+            assertThat(
+                    manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).ifNotExists(false).build()),
+                    willCompleteSuccessfully()
+            );
+
+            Catalog latestCatalog = latestCatalog();
+
+            assertNotNull(latestCatalog.schema(TEST_SCHEMA));
+            assertNotNull(latestCatalog.schema(SqlCommon.DEFAULT_SCHEMA_NAME));
+
+            assertThat(
+                    manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()),
+                    willThrowFast(CatalogValidationException.class, "Schema with name 'S1' already exists")
+            );
+        }
+
+        {
+            assertThat(
+                    manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA + "_1").ifNotExists(false).build()),
+                    willCompleteSuccessfully()
+            );
+
+            Catalog latestCatalog = latestCatalog();
+
+            assertNotNull(latestCatalog.schema(TEST_SCHEMA + "_1"));
+            assertNotNull(latestCatalog.schema(TEST_SCHEMA));
+
+            assertThat(
+                    manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA + "_1").ifNotExists(true).build()),
+                    willSucceedFast()
+            );
+        }
+    }
+
+    @Test
+    public void testDropEmpty() {
+        int initialSchemasCount = latestCatalog().schemas().size();
+
+        assertThat(manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()), willCompleteSuccessfully());
+
+        assertThat(latestCatalog().schemas(), hasSize(initialSchemasCount + 1));
+
+        CatalogCommand cmd = DropSchemaCommand.builder().name(TEST_SCHEMA).build();
+
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        assertThat(latestCatalog().schema(TEST_SCHEMA), nullValue());
+        assertThat(latestCatalog().schemas(), hasSize(initialSchemasCount));
+
+        assertThat(
+                manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).build()),
+                willThrowFast(CatalogValidationException.class, "Schema with name 'S1' not found")
+        );
+    }
+
+    @Test
+    public void testDropIfExists() {
+        assertThat(manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).ifExists(true).build()), willCompleteSuccessfully());
+
+        assertThat(
+                manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).ifExists(false).build()),
+                willThrowFast(CatalogValidationException.class, "Schema with name 'S1' not found")
+        );
+
+        assertThat(manager.execute(CreateSchemaCommand.builder().name(TEST_SCHEMA).build()), willCompleteSuccessfully());
+
+        assertThat(manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).ifExists(true).build()), willCompleteSuccessfully());
+        assertThat(latestCatalog().schema(TEST_SCHEMA), nullValue());
+    }
+
+    @Test
+    public void testDropDefaultSchemaIsAllowed() {
+        CatalogCommand cmd = DropSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build();
+
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        assertThat(latestCatalog().schema(SqlCommon.DEFAULT_SCHEMA_NAME), nullValue());
+
+        assertThat(
+                manager.execute(simpleTable("test")),
+                willThrowFast(CatalogValidationException.class, "Schema with name 'PUBLIC' not found")
+        );
+    }
+
+    @Test
+    public void testDropNonEmpty() {
+        CatalogCommand newSchemaCmd = CreateSchemaCommand.builder().name(TEST_SCHEMA).build();
+        CatalogCommand newTableCmd = newTableCommand("T1");
+        CatalogCommand idxCmd = newIndexCommand("T1", "I1");
+
+        assertThat(
+                manager.execute(List.of(newSchemaCmd, newTableCmd, idxCmd)),
+                willCompleteSuccessfully()
+        );
+
+        // RESTRICT
+        {
+            assertThat(
+                    manager.execute(DropSchemaCommand.builder().name(TEST_SCHEMA).build()),
+                    willThrowFast(CatalogValidationException.class, "Schema 'S1' is not empty. Use CASCADE to drop it anyway.")
+            );
+
+            CatalogSchemaDescriptor schemaDescriptor = latestCatalog().schema(TEST_SCHEMA);
+
+            assertThat(schemaDescriptor, is(notNullValue()));
+            assertThat(schemaDescriptor.tables().length, is(1));
+        }
+
+        // CASCADE
+        {
+            assertThat(latestCatalog().tables(), hasSize(1));
+            assertThat(latestCatalog().indexes(), hasSize(2));
+
+            CatalogCommand dropCmd = DropSchemaCommand.builder().name(TEST_SCHEMA).cascade(true).build();
+
+            assertThat(manager.execute(dropCmd), willCompleteSuccessfully());
+
+            assertThat(latestCatalog().schema(TEST_SCHEMA), nullValue());
+            assertThat(latestCatalog().tables(), hasSize(0));
+            assertThat(latestCatalog().indexes(), hasSize(0));
+        }
+    }
+
+    private Catalog latestCatalog() {
+        Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
+
+        assertThat(latestCatalog, is(notNullValue()));
+
+        return latestCatalog;
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private static CatalogCommand newTableCommand(String tableName) {
+        return createTableCommand(
+                TEST_SCHEMA,
+                tableName,
+                List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)),
+                List.of("key1", "key2"),
+                List.of("key2")
+        );
+    }
+
+    @SuppressWarnings("SameParameterValue")
+    private static CatalogCommand newIndexCommand(String tableName, String indexName) {
+        return createSortedIndexCommand(
+                TEST_SCHEMA,
+                tableName,
+                indexName,
+                false,
+                List.of("key1"),
+                List.of(ASC_NULLS_LAST)
         );
     }
 }
