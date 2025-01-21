@@ -539,17 +539,11 @@ public class JraftServerImpl implements RaftServer {
     }
 
     private static Path serverDataPathForNodeId(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
-        Path basePath = baseServerDataPath(groupOptions);
-
-        return getServerDataPath(basePath, nodeId);
-    }
-
-    private static Path baseServerDataPath(RaftGroupOptions groupOptions) {
         Path dataPath = groupOptions.serverDataPath();
 
-        assert dataPath != null : "Raft metadata path was not set";
+        assert dataPath != null : "Raft metadata path was not set, nodeId is " + nodeId;
 
-        return dataPath;
+        return getServerDataPath(dataPath, nodeId);
     }
 
     @Override
@@ -614,7 +608,7 @@ public class JraftServerImpl implements RaftServer {
             }
 
             // This destroys both meta storage and snapshots storage as they are stored under nodeDataPath.
-            IgniteUtils.deleteIfExistsThrowable(getServerDataPath(context.serverDataPath(), nodeId));
+            IgniteUtils.deleteIfExists(getServerDataPath(context.serverDataPath(), nodeId));
         } catch (Exception e) {
             throw new IgniteInternalException("Failed to delete storage for node: " + nodeId, e);
         }
