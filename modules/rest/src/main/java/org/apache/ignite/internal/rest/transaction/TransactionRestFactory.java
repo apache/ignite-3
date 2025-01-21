@@ -21,27 +21,27 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.RestFactory;
-import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.views.TransactionViewDataProvider;
 
 /**
  * Factory that creates beans that are needed for {@link TransactionController}.
  */
 @Factory
 public class TransactionRestFactory implements RestFactory {
-    private TxManager txManager;
+    private TransactionViewDataProvider transactionViewDataProvider;
 
-    public TransactionRestFactory(TxManager txManager) {
-        this.txManager = txManager;
+    public TransactionRestFactory(TransactionViewDataProvider transactionViewDataProvider) {
+        this.transactionViewDataProvider = transactionViewDataProvider;
     }
 
     @Bean
     @Singleton
-    public TxManager txManager() {
-        return txManager;
+    public TransactionViewDataProvider transactionViewDataProvider() {
+        return transactionViewDataProvider;
     }
 
     @Override
     public void cleanResources() {
-        txManager = null;
+        transactionViewDataProvider = null;
     }
 }

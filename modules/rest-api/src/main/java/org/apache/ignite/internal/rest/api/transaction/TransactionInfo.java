@@ -28,7 +28,7 @@ import java.util.UUID;
  * Rest representation of transaction.
  */
 @Schema(name = "Transaction")
-public class Transaction {
+public class TransactionInfo {
 
     /**
      * Transaction ID.
@@ -71,7 +71,7 @@ public class Transaction {
      * @param startTime start time.
      */
     @JsonCreator
-    public Transaction(
+    public TransactionInfo(
             @JsonProperty("id") UUID id,
             @JsonProperty("state") String state,
             @JsonProperty("type") String type,

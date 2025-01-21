@@ -105,6 +105,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.TransactionInflights.ReadWriteTxContext;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.tx.views.LocksViewProvider;
+import org.apache.ignite.internal.tx.views.TransactionViewDataProvider;
 import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -201,6 +202,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private final ReplicaService replicaService;
 
     private final ScheduledExecutorService commonScheduler;
+
+    private final TransactionViewDataProvider txViewDataProvider = new TransactionViewDataProvider();
 
     private final TransactionsViewProvider txViewProvider = new TransactionsViewProvider();
 
@@ -846,7 +849,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             txStateVolatileStorage.start();
 
-            txViewProvider.init(localNodeId, lowWatermark.lockIds(), txStateVolatileStorage.statesMap());
+            txViewDataProvider.init(localNodeId, lowWatermark.lockIds(), txStateVolatileStorage.statesMap());
+
+            txViewProvider.init(txViewDataProvider.dataSource());
 
             orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
@@ -1041,6 +1046,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 txViewProvider.get(),
                 lockViewProvider.get()
         );
+    }
+
+    public TransactionViewDataProvider txViewDataProvider() {
+        return txViewDataProvider;
     }
 
     static class TransactionFailureHandler {

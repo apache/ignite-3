@@ -1246,7 +1246,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> disasterRecoveryFactory = () -> new DisasterRecoveryFactory(disasterRecoveryManager);
         Supplier<RestFactory> systemDisasterRecoveryFactory = () -> new SystemDisasterRecoveryFactory(systemDisasterRecoveryManager);
         Supplier<RestFactory> sqlQueryRestFactory = () -> new SqlQueryRestFactory(qryEngine);
-        Supplier<RestFactory> transactionRestFactory = () -> new TransactionRestFactory(txManager);
+        Supplier<RestFactory> transactionRestFactory = () -> new TransactionRestFactory(txManager.txViewDataProvider());
 
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestExtensionConfiguration.KEY).rest();
 

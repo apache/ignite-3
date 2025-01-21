@@ -50,10 +50,10 @@ public interface TransactionApi {
     @ApiResponse(
             responseCode = "200",
             description = "Successfully retrieved in progress transactions.",
-            content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = Transaction.class)))
+            content = @Content(mediaType = APPLICATION_JSON, array = @ArraySchema(schema = @Schema(implementation = TransactionInfo.class)))
     )
     @Get
-    CompletableFuture<Collection<Transaction>> transactions();
+    CompletableFuture<Collection<TransactionInfo>> transactions();
 
     /**
      * Retrieves transaction info of the specified transaction.
@@ -66,15 +66,15 @@ public interface TransactionApi {
     @ApiResponse(
             responseCode = "200",
             description = "Successfully retrieved the transaction state.",
-            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Transaction.class))
+            content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = TransactionInfo.class))
     )
     @ApiResponse(
             responseCode = "404",
             description = "Transaction not found.",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Problem.class))
     )
-    @Get("{transactionId}")
-    CompletableFuture<Transaction> transaction(@Schema(name = "transactionId",
+    @Get("/{transactionId}")
+    CompletableFuture<TransactionInfo> transaction(@Schema(name = "transactionId",
             description = "The unique identifier of the transaction.", requiredMode = REQUIRED) UUID transactionId
     );
 
@@ -100,7 +100,7 @@ public interface TransactionApi {
             description = "Transaction is in an illegal state.",
             content = @Content(mediaType = APPLICATION_JSON, schema = @Schema(implementation = Problem.class))
     )
-    @Delete("{transactionId}")
+    @Delete("/{transactionId}")
     CompletableFuture<Void> cancelTransaction(@Schema(name = "transactionId",
             description = "The unique identifier of the transaction.", requiredMode = REQUIRED) UUID transactionId
     );

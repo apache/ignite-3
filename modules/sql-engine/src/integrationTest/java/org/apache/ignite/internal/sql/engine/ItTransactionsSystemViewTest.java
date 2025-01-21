@@ -37,7 +37,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxPriority;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.internal.tx.views.TransactionsViewProvider;
+import org.apache.ignite.internal.tx.views.TransactionViewDataProvider;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.Transaction;
@@ -131,7 +131,7 @@ public class ItTransactionsSystemViewTest extends BaseSqlIntegrationTest {
                 // it returns the so-called "schema synchronization timestamp", and this timestamp
                 // may not be exactly the same that is the actual time when the transaction was created.
                 Instant.ofEpochMilli(TransactionIds.beginTimestamp(tx.id()).getPhysical()),
-                tx.isReadOnly() ? TransactionsViewProvider.READ_ONLY : TransactionsViewProvider.READ_WRITE,
+                tx.isReadOnly() ? TransactionViewDataProvider.READ_ONLY : TransactionViewDataProvider.READ_WRITE,
                 TransactionIds.priority(tx.id()).name()
         };
     }

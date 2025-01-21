@@ -17,14 +17,21 @@
 
 package org.apache.ignite.internal.rest.transaction;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import io.micronaut.http.annotation.Controller;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.rest.ResourceHolder;
-import org.apache.ignite.internal.rest.api.transaction.Transaction;
 import org.apache.ignite.internal.rest.api.transaction.TransactionApi;
-import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.rest.api.transaction.TransactionInfo;
+import org.apache.ignite.internal.tx.views.TransactionViewDataProvider;
+import org.apache.ignite.internal.tx.views.TxInfo;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * REST endpoint allows to manage transactions.
@@ -32,26 +39,45 @@ import org.apache.ignite.internal.tx.TxManager;
 @Controller("/management/v1/transaction")
 public class TransactionController implements TransactionApi, ResourceHolder {
 
-    public TransactionController(TxManager txManager) {
+    private TransactionViewDataProvider transactionViewDataProvider;
+
+    public TransactionController(TransactionViewDataProvider transactionViewDataProvider) {
+        this.transactionViewDataProvider = transactionViewDataProvider;
     }
 
     @Override
-    public CompletableFuture<Collection<Transaction>> transactions() {
-        return null;
+    public CompletableFuture<Collection<TransactionInfo>> transactions() {
+        return completedFuture(StreamSupport.stream(transactionViewDataProvider.dataSource().spliterator(), false)
+                .map(TransactionController::toTransaction)
+                .collect(Collectors.toList()));
     }
 
     @Override
-    public CompletableFuture<Transaction> transaction(UUID transactionId) {
+    public CompletableFuture<TransactionInfo> transaction(UUID transactionId) {
         return null;
     }
 
     @Override
     public CompletableFuture<Void> cancelTransaction(UUID transactionId) {
-        return null;
+        // Waiting https://issues.apache.org/jira/browse/IGNITE-23488
+        return nullCompletedFuture();
     }
 
     @Override
     public void cleanResources() {
+        transactionViewDataProvider = null;
+    }
 
+    private static @Nullable TransactionInfo toTransaction(TxInfo txInfo) {
+        if (txInfo == null) {
+            return null;
+        }
+        return new TransactionInfo(
+                UUID.fromString(txInfo.id()),
+                txInfo.state(),
+                txInfo.type(),
+                txInfo.priority(),
+                txInfo.startTime()
+        );
     }
 }
