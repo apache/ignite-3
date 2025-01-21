@@ -41,7 +41,6 @@ public class ClientTableGetRequest {
             IgniteTables tables
     ) {
         String tableName = in.unpackString();
-        in.unpackStringNullable(); // Skip schema name placeholder.
 
         return tables.tableAsync(tableName).thenAccept(table -> {
             if (table == null) {

@@ -228,7 +228,6 @@ namespace Apache.Ignite.Tests
                     case ClientOp.TableGet:
                     {
                         var tableName = reader.ReadString();
-                        _ = reader.ReadStringNullable(); // Schema name.
 
                         var tableId = tableName switch
                         {
@@ -242,7 +241,6 @@ namespace Apache.Ignite.Tests
                         {
                             using var arrayBufferWriter = new PooledArrayBuffer();
                             arrayBufferWriter.MessageWriter.Write(tableId);
-                            arrayBufferWriter.MessageWriter.WriteNil(); // Schema name.
 
                             Send(handler, requestId, arrayBufferWriter);
 

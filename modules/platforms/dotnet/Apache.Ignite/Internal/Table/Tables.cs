@@ -73,7 +73,6 @@ namespace Apache.Ignite.Internal.Table
                 {
                     var id = r.ReadInt32();
                     var name = r.ReadString();
-                    _ = r.ReadStringNullable(); // Schema name.
 
                     var table = _cachedTables.GetOrAdd(
                         id,
@@ -105,17 +104,17 @@ namespace Apache.Ignite.Internal.Table
 
             using var writer = ProtoCommon.GetMessageWriter();
             writer.MessageWriter.Write(name);
-            writer.MessageWriter.WriteNil(); // Schema name.
 
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
             return Read(resBuf.GetReader());
 
+            // ReSharper disable once LambdaExpressionMustBeStatic (requires .NET 5+)
             Table? Read(MsgPackReader r) =>
                 r.TryReadNil()
                     ? null
                     : _cachedTables.GetOrAdd(
                         r.ReadInt32(),
-                        static (int id, (string Name, Tables Tables) arg) => new Table(arg.Name, id, arg.Tables._socket, arg.Tables._sql),
+                        (int id, (string Name, Tables Tables) arg) => new Table(arg.Name, id, arg.Tables._socket, arg.Tables._sql),
                         (name, this));
         }
     }
