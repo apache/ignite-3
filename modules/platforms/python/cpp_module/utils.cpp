@@ -31,8 +31,10 @@
 
 bool check_errors(ignite::sql_result ret, ignite::diagnosable& diag) {
     auto &records = diag.get_diagnostic_records();
-    if (ret == ignite::sql_result::AI_SUCCESS || ret == ignite::sql_result::AI_SUCCESS_WITH_INFO)
+    if ((ret == ignite::sql_result::AI_SUCCESS || ret == ignite::sql_result::AI_SUCCESS_WITH_INFO)
+        && diag.get_diagnostic_records().is_successful()) {
         return true;
+    }
 
     auto error_class = py_get_module_interface_error_class();
     std::string err_msg;
