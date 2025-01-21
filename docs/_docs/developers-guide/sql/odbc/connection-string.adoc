@@ -55,11 +55,11 @@ This argument value is ignored if `ADDRESS` argument is specified.
 |`10800`
 
 |IDENTITY
-|Identity to use for authentication. Depending on the authenticator used on the server side, it can be a user name or another unique identifier. See the link:security/authentication[Authentication] topic for details.
+|Identity to use for authentication. Depending on the authenticator used on the server side, it can be a user name or another unique identifier. See the link:administrators-guide/security/authentication[Authentication] topic for details.
 |None.
 
 |SECRET
-|Secret to use for authentication. Depending on the authenticator used on the server side, it can be a user password or another type of user-specific secret. See the link:security/authentication[Authentication] topic for details.
+|Secret to use for authentication. Depending on the authenticator used on the server side, it can be a user password or another type of user-specific secret. See the link:administrators-guide/security/authentication[Authentication] topic for details.
 |None.
 
 |`SCHEMA`

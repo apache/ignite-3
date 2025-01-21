@@ -28,8 +28,9 @@ To use C# thin client, .NET 6.0 or newer is required.
 
 C# client is available via NuGet. To add it, use the `add package` command:
 
+[source, bash, subs="attributes,specialchars"]
 ----
-dotnet add package Apache.Ignite --version 3.0.0-beta2
+dotnet add package Ignite.Ignite --version {version}-g4d770d8f1f
 ----
 
 == Connecting to Cluster

@@ -12,34 +12,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-= Apache Ignite 3 Beta 2
+= Apache Ignite 3
 
-Apache Ignite 3 is a distributed database for high-performance computing with in-memory speed.
+== What Is Ignite?
 
-Apache Ignite 3 brings a number of improvements compared to Ignite 2:
+Ignite is a unified real-time platform developed by the company of the same name.
 
-* **Industry-standard libraries**: Ignite 3 switches from custom libraries used in Ignite 2 towards industry-standard libraries, bringing the latest developments from all over the world to your environment.
-- SWIM replaces Ring and Discovery protocols, bringing even better stability and performance on large topologies.
-- Raft replaces Ignite replication, providing an improved consensus algorithm, out of the box split brain protection and much more.
-- SQL Calcite replaces H2 engine used in Ignite 2.
-* **Pluggable storages**: With Ignite 3, you can choose the best storage for your needs. With this  release you can choose between page memory and RocksDB, and more options may be added later.
-* **New transaction protocol**: Ignite 3 provides a new custom protocol for handling transactions, built up on previous experience with Ignite 2. It brings multiple features such as read-only transactions, SQL transactions and much more.
-* **Dynamic configuration**: HOCON configuration replaces XML-based configuration of Ignite 2. All configuration properties can now be changed at runtime as well, by using API or command-line tool.
-* **Improved CLI tool**: The new Ignite tool that functions as a single sign-on for any operational, management, and development needs.
-* See a link:https://cwiki.apache.org/confluence/display/IGNITE/Proposals+for+Ignite+3.0[full list of improvements,window=_blank].
-//The link above os to AI, not GG - os that OK?
+Ignite is a platform that is designed to tackle speed and scale challenges. But
+what does that mean? In practice, it signifies that Ignite is capable of storing and processing your data
+across a cluster of interconnected machines that are deeply integrated into your environment.
 
-
-== Raft Consensus Algorithm
-
-Apache Ignite 3 is using Raft consensus algorithm. This comes with a large number of consistency improvements:
-
-=== Split Brain Protection
-
-Raft comes with a built-in election algorithm that provides protection from split-brain issues. When working with data, Raft select a leader and always trusts the elected leader. If an issue, for example a network partition, happens, the leader of the larger cluster will assume the role of the overall leader until the database is back in order, after which the other nodes will have their log updated to that of the leader. Commits to a smaller cluster will be rolled back.
-
-This way, Ignite 3 can recover from even the most dangerous cases of split-brain automatically.
-
-=== Fast Scalability
-
-In modern environments, it is often optimal to dynamically scale cluster size to meet user demands. With Raft, when a new node is added to the cluster, it automatically triggers the rebalancing procedure that moves data to a new node without requiring other nodes to redistribute load between themselves.
+Ignite APIs are developed in a way to minimize network traffic
+between cluster nodes and your applications. You can perform both distributed processing and distributed data storage for the applications.

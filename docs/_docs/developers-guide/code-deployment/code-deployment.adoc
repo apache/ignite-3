@@ -14,7 +14,7 @@
 // limitations under the License.
 = Code Deployment
 
-When working with Ignite, you may need to deploy user code to nodes. For example, you may need the code used in link:compute/compute[Distributed Computing].
+When working with Ignite, you may need to deploy user code to nodes. For example, you may need the code used in link:developers-guide/compute/compute[Distributed Computing].
 
 In Ignite 3, when you deploy user code to the cluster, it is saved as a *deployment unit*. Deployment units have a unique ID and are immutable. When you need to update code version, you will need to deploy a new unit.
 
