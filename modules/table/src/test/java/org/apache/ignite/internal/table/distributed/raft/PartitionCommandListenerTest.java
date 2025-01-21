@@ -620,11 +620,15 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void updatesGroupConfigurationOnConfigCommit() {
+        long index = raftIndex.incrementAndGet();
+
         commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                raftIndex.incrementAndGet(), 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
+                index, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
         ));
 
         RaftGroupConfiguration expectedConfig = new RaftGroupConfiguration(
+                index,
+                2,
                 List.of("peer"),
                 List.of("learner"),
                 List.of("old-peer"),

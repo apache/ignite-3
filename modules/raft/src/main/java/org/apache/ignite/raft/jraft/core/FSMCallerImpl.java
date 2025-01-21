@@ -603,6 +603,8 @@ public class FSMCallerImpl implements FSMCaller {
         }
 
         SnapshotMetaBuilder metaBuilder = msgFactory.snapshotMeta()
+            .cfgIndex(confEntry.getId().getIndex())
+            .cfgTerm(confEntry.getId().getTerm())
             .lastIncludedIndex(lastAppliedIndex)
             .lastIncludedTerm(this.lastAppliedTerm)
             .peersList(confEntry.getConf().getPeers().stream().map(Object::toString).collect(toList()))
@@ -700,7 +702,7 @@ public class FSMCallerImpl implements FSMCaller {
         // so we have to protect from this. In production, these methods never return null.
         if (meta.peersList() != null && meta.learnersList() != null) {
             ConfigurationEntry configurationEntry = new ConfigurationEntry(
-                    snapshotId.copy(),
+                    new LogId(meta.cfgIndex(), meta.cfgTerm()),
                     new Configuration(
                             meta.peersList().stream().map(PeerId::parsePeer).collect(toList()),
                             meta.learnersList().stream().map(PeerId::parsePeer).collect(toList())

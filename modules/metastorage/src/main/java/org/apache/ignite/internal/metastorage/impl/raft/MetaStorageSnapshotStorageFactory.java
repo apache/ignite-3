@@ -68,6 +68,8 @@ public class MetaStorageSnapshotStorageFactory implements SnapshotStorageFactory
         assert configuration != null;
 
         return new RaftMessagesFactory().snapshotMeta()
+                .cfgIndex(configuration.index())
+                .cfgTerm(configuration.term())
                 .lastIncludedIndex(indexWithTerm.index())
                 .lastIncludedTerm(indexWithTerm.term())
                 .peersList(configuration.peers())

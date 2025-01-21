@@ -126,6 +126,7 @@ import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
+import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.entity.Task;
 import org.apache.ignite.raft.jraft.entity.UserLog;
 import org.apache.ignite.raft.jraft.error.LogIndexOutOfBoundsException;
@@ -3444,10 +3445,12 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testIndexAndTermArePropagatedToOnNewPeersConfigurationApplied() throws Exception {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
-        var raftGrpEvtsLsnr = mock(JraftGroupEventsListener.class);
 
         AtomicLong term = new AtomicLong(-1);
         AtomicLong index = new AtomicLong(-1);
+
+        AtomicLong metaTerm = new AtomicLong(-1);
+        AtomicLong metaIndex = new AtomicLong(-1);
 
         cluster = new TestCluster(
                 "testIndexAndTermArePropagatedToOnNewPeersConfigurationApplied",
@@ -3456,12 +3459,22 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 new LinkedHashSet<>(),
                 ELECTION_TIMEOUT_MILLIS,
                 (peerId, opts) -> {
-                    opts.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
                     opts.setFsm(new MockStateMachine(peerId) {
+                        @Override
+                        public boolean onSnapshotLoad(SnapshotReader reader) {
+                            SnapshotMeta meta = reader.load();
+
+                            metaTerm.set(meta.cfgTerm());
+                            metaIndex.set(meta.cfgIndex());
+
+                            return super.onSnapshotLoad(reader);
+                        }
+
                         @Override
                         public void onRawConfigurationCommitted(ConfigurationEntry conf) {
                             term.set(conf.getId().getTerm());
                             index.set(conf.getId().getIndex());
+                            System.out.println("Index + term = " + index + " " + term);
                             super.onRawConfigurationCommitted(conf);
                         }
                     });
@@ -3477,9 +3490,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertEquals(1, index.get());
 
         TestPeer newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
-        assertTrue(cluster.start(newPeer, false, 300));
+        TestPeer otherPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 2);
 
-        verify(raftGrpEvtsLsnr, never()).onNewPeersConfigurationApplied(any(), any(), anyLong(), anyLong());
+        assertTrue(cluster.start(newPeer, false, 300));
+        assertTrue(cluster.start(otherPeer, false, 300));
 
         // Wait until new node node sees every other node, otherwise
         // changePeersAndLearnersAsync can fail.
@@ -3487,7 +3501,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         SynchronizedClosure done = new SynchronizedClosure();
         leader.changePeersAndLearnersAsync(
-                new Configuration(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of()), leader.getCurrentTerm(),
+                new Configuration(List.of(peer0.getPeerId(), newPeer.getPeerId(), otherPeer.getPeerId()), List.of()), leader.getCurrentTerm(),
                 done
         );
 
@@ -3495,15 +3509,33 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         assertTrue(waitForCondition(() -> cluster.getLeader().listAlivePeers().contains(newPeer.getPeerId()), 10_000));
 
+        assertTrue(cluster.stop(newPeer.getPeerId()));
+
+        // apply something more
+        sendTestTaskAndWait(leader);
+        triggerLeaderSnapshot(cluster, leader);
+
+        sendTestTaskAndWait(leader, 10);
+
+        triggerLeaderSnapshot(cluster, leader, 2);
+
+        //restart follower.
+        cluster.clean(newPeer.getPeerId());
+        assertTrue(cluster.start(newPeer, false, 300));
+
+        cluster.ensureSame();
+
+        assertEquals(3, cluster.getFsms().size());
+        for (MockStateMachine fsm : cluster.getFsms())
+            assertEquals(20, fsm.getLogs().size(), fsm.getPeerId().toString());
+
         // Leader hasn't been changed, term must stay the same
         assertEquals(1, term.get());
         // idx_2 == joint consensus, idx_3 is expected final cfg
         assertEquals(3, index.get());
 
-        verify(
-                raftGrpEvtsLsnr,
-                times(1)).onNewPeersConfigurationApplied(List.of(peer0.getPeerId(), newPeer.getPeerId()), List.of(), term.get(), index.get()
-        );
+        assertEquals(1, metaTerm.get());
+        assertEquals(3, metaIndex.get());
     }
 
     @Test

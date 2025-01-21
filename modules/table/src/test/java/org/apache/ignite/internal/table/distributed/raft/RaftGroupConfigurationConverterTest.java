@@ -32,6 +32,8 @@ class RaftGroupConfigurationConverterTest {
     @Test
     void convertsAndParses() {
         RaftGroupConfiguration configuration = new RaftGroupConfiguration(
+                13L,
+                37L,
                 List.of("peer"),
                 List.of("learner"),
                 List.of("old-peer"),

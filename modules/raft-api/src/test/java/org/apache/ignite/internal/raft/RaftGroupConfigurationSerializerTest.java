@@ -32,6 +32,8 @@ class RaftGroupConfigurationSerializerTest {
     @Test
     void serializationAndDeserializationWithoutNulls() {
         RaftGroupConfiguration originalConfig = new RaftGroupConfiguration(
+                13L,
+                37L,
                 List.of("peer1", "peer2"),
                 List.of("learner1", "learner2"),
                 List.of("old-peer1", "old-peer2"),
@@ -47,6 +49,8 @@ class RaftGroupConfigurationSerializerTest {
     @Test
     void serializationAndDeserializationWithNulls() {
         RaftGroupConfiguration originalConfig = new RaftGroupConfiguration(
+                13L,
+                37L,
                 List.of("peer1", "peer2"),
                 List.of("learner1", "learner2"),
                 null,
@@ -61,10 +65,12 @@ class RaftGroupConfigurationSerializerTest {
 
     @Test
     void v1CanBeDeserialized() {
-        byte[] bytes = Base64.getDecoder().decode("Ae++QwMGcGVlcjEGcGVlcjIDCWxlYXJuZXIxCWxlYXJuZXIyAwpvbGQtcGVlcjEKb2xkLXBlZXIyAw1vbGQ"
-                + "tbGVhcm5lcjENb2xkLWxlYXJuZXIy");
+        byte[] bytes = Base64.getDecoder().decode("Ae++Qw0AAAAAAAAAJQAAAAAAAAADBnBlZXIxBnBlZXIyAwlsZWFybmVyMQlsZWFybmVyMgMKb2xkLXBl"
+                + "ZXIxCm9sZC1wZWVyMgMNb2xkLWxlYXJuZXIxDW9sZC1sZWFybmVyMg==");
         RaftGroupConfiguration restoredConfig = VersionedSerialization.fromBytes(bytes, serializer);
 
+        assertThat(restoredConfig.index(), is(13L));
+        assertThat(restoredConfig.term(), is(37L));
         assertThat(restoredConfig.peers(), is(List.of("peer1", "peer2")));
         assertThat(restoredConfig.learners(), is(List.of("learner1", "learner2")));
         assertThat(restoredConfig.oldPeers(), is(List.of("old-peer1", "old-peer2")));

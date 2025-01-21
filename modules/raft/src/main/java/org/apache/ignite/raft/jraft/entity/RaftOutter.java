@@ -57,6 +57,10 @@ public final class RaftOutter {
 
         long lastIncludedTerm();
 
+        long cfgIndex();
+
+        long cfgTerm();
+
         @Nullable Collection<String> peersList();
 
         @Nullable Collection<String> oldPeersList();

@@ -63,6 +63,8 @@ public class SnapshotMetaUtils {
             @Nullable String primaryReplicaNodeName
     ) {
         PartitionSnapshotMetaBuilder metaBuilder = new PartitionReplicationMessagesFactory().partitionSnapshotMeta()
+                .cfgIndex(config.index())
+                .cfgTerm(config.term())
                 .lastIncludedIndex(logIndex)
                 .lastIncludedTerm(term)
                 .peersList(config.peers())

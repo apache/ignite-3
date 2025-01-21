@@ -32,10 +32,15 @@ import org.jetbrains.annotations.Nullable;
 public class RaftGroupConfiguration implements Serializable {
     private static final long serialVersionUID = 0;
 
+    private final long index;
+    private final long term;
+
     @IgniteToStringInclude
     private final List<String> peers;
     @IgniteToStringInclude
     private final List<String> learners;
+
+
 
     @IgniteToStringInclude
     private final @Nullable List<String> oldPeers;
@@ -46,11 +51,16 @@ public class RaftGroupConfiguration implements Serializable {
      * Creates a new instance.
      */
     public RaftGroupConfiguration(
+            long index,
+            long term,
             Collection<String> peers,
             Collection<String> learners,
             @Nullable Collection<String> oldPeers,
             @Nullable Collection<String> oldLearners
+
     ) {
+        this.index = index;
+        this.term = term;
         this.peers = List.copyOf(peers);
         this.learners = List.copyOf(learners);
         this.oldPeers = oldPeers == null ? null : List.copyOf(oldPeers);
@@ -62,11 +72,21 @@ public class RaftGroupConfiguration implements Serializable {
      */
     public static RaftGroupConfiguration fromCommittedConfiguration(CommittedConfiguration config) {
         return new RaftGroupConfiguration(
+                config.index(),
+                config.term(),
                 config.peers(),
                 config.learners(),
                 config.oldPeers(),
                 config.oldLearners()
         );
+    }
+
+    public long index() {
+        return index;
+    }
+
+    public long term() {
+        return term;
     }
 
     /**
@@ -121,7 +141,7 @@ public class RaftGroupConfiguration implements Serializable {
             return false;
         }
         RaftGroupConfiguration that = (RaftGroupConfiguration) o;
-        return Objects.equals(peers, that.peers) && Objects.equals(learners, that.learners)
+        return index == that.index && term == that.term && Objects.equals(peers, that.peers) && Objects.equals(learners, that.learners)
                 && Objects.equals(oldPeers, that.oldPeers) && Objects.equals(oldLearners, that.oldLearners);
     }
 

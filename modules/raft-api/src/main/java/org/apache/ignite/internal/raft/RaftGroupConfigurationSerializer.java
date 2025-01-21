@@ -34,6 +34,8 @@ public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGr
 
     @Override
     protected void writeExternalData(RaftGroupConfiguration config, IgniteDataOutput out) throws IOException {
+        out.writeLong(config.index());
+        out.writeLong(config.term());
         writeStringList(config.peers(), out);
         writeStringList(config.learners(), out);
         writeNullableStringList(config.oldPeers(), out);
@@ -57,12 +59,14 @@ public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGr
 
     @Override
     protected RaftGroupConfiguration readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
+        long index = in.readLong();
+        long term = in.readLong();
         List<String> peers = readStringList(in);
         List<String> learners = readStringList(in);
         List<String> oldPeers = readNullableStringList(in);
         List<String> oldLearners = readNullableStringList(in);
 
-        return new RaftGroupConfiguration(peers, learners, oldPeers, oldLearners);
+        return new RaftGroupConfiguration(index, term, peers, learners, oldPeers, oldLearners);
     }
 
     private static List<String> readStringList(IgniteDataInput in) throws IOException {
