@@ -121,7 +121,7 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // This node do not pass the filter
         @Language("HOCON") String firstNodeAttributes = "{region: EU, storage: SSD}";
 
-        Ignite node = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
+        Ignite node = unwrapIgniteImpl(startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS)));
 
         node.sql().execute(
                 null,
