@@ -648,6 +648,7 @@ public class ItTxTestCluster {
                 placementDriver,
                 clientTransactionInflights,
                 500,
+                500,
                 0,
                 null,
                 mock(StreamerReceiverRunner.class)

@@ -73,6 +73,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(PlacementDriver.class),
                 mock(TransactionInflights.class),
                 3_000,
+                3_000,
                 0,
                 null,
                 mock(StreamerReceiverRunner.class)
@@ -122,6 +123,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 HybridTimestampTracker.atomicTracker(null),
                 mock(PlacementDriver.class),
                 mock(TransactionInflights.class),
+                3_000,
                 3_000,
                 0,
                 null,

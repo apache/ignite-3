@@ -273,6 +273,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     mock(PlacementDriver.class),
                     mock(TransactionInflights.class),
                     3_000,
+                    3_000,
                     0,
                     null,
                     mock(StreamerReceiverRunner.class)

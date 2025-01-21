@@ -41,10 +41,29 @@ public class TransactionConfigurationSchema {
     @Value(hasDefault = true)
     public final long timeout = 10_000;
 
-    /** Timeout for implicit transactions (milliseconds). */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public final long implicitTransactionTimeout = 3_000;
+    public final long minRoTimeout = 1;
+
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public final long maxRoTimeout = Long.MAX_VALUE;
+
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public final long minRwTimeout = 1;
+
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public final long maxRwTimeout = Long.MAX_VALUE;
+
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public final long roTimeout = 10_000;
+
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public final long rwTimeout = 3_000;
 
     /** A transaction tries to take lock several times until it throws an exception {@lonk org.apache.ignite.tx.TransactionException}. */
     @Range(min = 0)
