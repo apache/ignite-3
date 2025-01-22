@@ -29,7 +29,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
@@ -219,7 +218,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
         }
 
         LOG.info("LockTable [emptySlots={} collisions={}]", empty, coll);
-        System.out.println(IgniteStringFormatter.format("LockTable [emptySlots={} collisions={}]", empty, coll));
 
         assertTrue(coll > 0);
 
