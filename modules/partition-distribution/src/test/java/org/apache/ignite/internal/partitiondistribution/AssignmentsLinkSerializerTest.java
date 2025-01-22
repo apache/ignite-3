@@ -28,7 +28,6 @@ import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneOffset;
 import java.util.Base64;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -37,11 +36,11 @@ import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.junitpioneer.jupiter.cartesian.CartesianTest.Values;
 
-class AssignmentsChainSerializerTest {
+class AssignmentsLinkSerializerTest {
     private static final String ASSIGNMENTS_CHAIN_SERIALIZED_WITH_V1 =
-            "Ae++QwMB775DAe++QwMEYWJjAQRkZWYAAFHCjAEA9AYAAwUB775DAe++QwIEZGVmAABRwowBAPQGAAQG";
+            "Ae++QwHvvkMDBGFiYwEEZGVmAABRwowBAPQGAAMF";
 
-    private final AssignmentsChainSerializer serializer = new AssignmentsChainSerializer();
+    private final AssignmentsLinkSerializer serializer = new AssignmentsLinkSerializer();
 
     private static final long BASE_PHYSICAL_TIME = LocalDateTime.of(2024, Month.JANUARY, 1, 0, 0)
             .atOffset(ZoneOffset.UTC)
@@ -57,44 +56,31 @@ class AssignmentsChainSerializerTest {
             @Values(booleans = {false, true}) boolean force,
             @Values(booleans = {false, true}) boolean fromReset
     ) {
-        AssignmentsChain originalAssignmentsChain =
-                AssignmentsChain.of(2, 4, testAssignments1(force, fromReset));
+        AssignmentsLink originalAssignmentsLink =
+                new AssignmentsLink(testAssignments(force, fromReset), 2, 4);
 
-        originalAssignmentsChain.addLast(testAssignments2(force, fromReset), 3, 5);
+        byte[] bytes = VersionedSerialization.toBytes(originalAssignmentsLink, serializer);
+        AssignmentsLink restoredAssignmentsLink = VersionedSerialization.fromBytes(bytes, serializer);
 
-        byte[] bytes = VersionedSerialization.toBytes(originalAssignmentsChain, serializer);
-        AssignmentsChain restoredAssignmentsChain = VersionedSerialization.fromBytes(bytes, serializer);
-
-        assertThat(restoredAssignmentsChain, equalTo(originalAssignmentsChain));
+        assertThat(restoredAssignmentsLink, equalTo(originalAssignmentsLink));
     }
 
     @Test
     void v1CanBeDeserialized() {
         byte[] bytes = Base64.getDecoder().decode(ASSIGNMENTS_CHAIN_SERIALIZED_WITH_V1);
-        AssignmentsChain restoredAssignmentsChain = VersionedSerialization.fromBytes(bytes, serializer);
+        AssignmentsLink restoredAssignmentsLink = VersionedSerialization.fromBytes(bytes, serializer);
 
-        assertChainFromV1(restoredAssignmentsChain);
+        assertLinkFromV1(restoredAssignmentsLink);
     }
 
-    private static void assertChainFromV1(AssignmentsChain restoredChain) {
-        assertThat(restoredChain.size(), is(2));
-        Iterator<AssignmentsLink> iterator = restoredChain.iterator();
+    private static void assertLinkFromV1(AssignmentsLink restoredLink) {
+        assertThat(restoredLink.configurationIndex(), is(4L));
+        assertThat(restoredLink.configurationTerm(), is(2L));
 
-        assertThat(iterator.hasNext(), is(true));
-        AssignmentsLink link0 = iterator.next();
-        assertThat(link0.configurationIndex(), is(4L));
-        assertThat(link0.configurationTerm(), is(2L));
-
-        assertThat(iterator.hasNext(), is(true));
-        AssignmentsLink link1 = iterator.next();
-        assertThat(link1.configurationIndex(), is(5L));
-        assertThat(link1.configurationTerm(), is(3L));
-
-        assertNodes1FromV1(link0.assignments());
-        assertNodes2FromV1(link1.assignments());
+        assertNodesFromV1(restoredLink.assignments());
     }
 
-    private static void assertNodes1FromV1(Assignments restoredAssignments) {
+    private static void assertNodesFromV1(Assignments restoredAssignments) {
         assertThat(restoredAssignments.nodes(), hasSize(2));
         List<Assignment> orderedNodes = restoredAssignments.nodes().stream()
                 .sorted(comparing(Assignment::consistentId))
@@ -109,27 +95,8 @@ class AssignmentsChainSerializerTest {
         assertThat(assignment2.isPeer(), is(false));
     }
 
-    private static void assertNodes2FromV1(Assignments restoredAssignments) {
-        assertThat(restoredAssignments.nodes(), hasSize(1));
-        List<Assignment> orderedNodes = restoredAssignments.nodes().stream()
-                .sorted(comparing(Assignment::consistentId))
-                .collect(toList());
-
-        Assignment assignment1 = orderedNodes.get(0);
-        assertThat(assignment1.consistentId(), is("def"));
-        assertThat(assignment1.isPeer(), is(false));
-    }
-
-    private static Assignments testAssignments1(boolean force, boolean fromReset) {
+    private static Assignments testAssignments(boolean force, boolean fromReset) {
         Set<Assignment> nodes = Set.of(Assignment.forPeer("abc"), Assignment.forLearner("def"));
-
-        return force
-                ? Assignments.forced(nodes, baseTimestamp(5))
-                : Assignments.of(nodes, baseTimestamp(5), fromReset);
-    }
-
-    private static Assignments testAssignments2(boolean force, boolean fromReset) {
-        Set<Assignment> nodes = Set.of(Assignment.forLearner("def"));
 
         return force
                 ? Assignments.forced(nodes, baseTimestamp(5))

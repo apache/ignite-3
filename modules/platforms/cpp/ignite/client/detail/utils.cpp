@@ -339,4 +339,18 @@ std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader &reade
     return res;
 }
 
+cluster_node read_cluster_node(protocol::reader &reader) {
+    auto fields_count = reader.read_int32();
+    assert(fields_count >= 4);
+
+    auto id = reader.read_uuid();
+    auto name = reader.read_string();
+    auto host = reader.read_string();
+    auto port = reader.read_uint16();
+
+    reader.skip(fields_count - 4);
+
+    return {std::move(id), std::move(name), end_point{std::move(host), port}};
+}
+
 } // namespace ignite::detail

@@ -39,7 +39,6 @@ namespace Apache.Ignite.Tests
 
             using var requestWriter = ProtoCommon.GetMessageWriter();
             requestWriter.MessageWriter.Write("non-existent-table");
-            requestWriter.MessageWriter.Write("my-schema");
 
             using var response = await socket.DoOutInOpAsync(ClientOp.TableGet, requestWriter);
             Assert.IsTrue(response.GetReader().TryReadNil());
