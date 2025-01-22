@@ -71,8 +71,8 @@ import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.DestroyStorageContext;
-import org.apache.ignite.internal.raft.storage.impl.DestroyStorageIntent;
+import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
+import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -166,8 +166,8 @@ public class JraftServerImpl implements RaftServer {
      * @param opts Default node options.
      * @param raftGroupEventsClientListener Raft events listener.
      * @param failureManager Failure processor that is used to handle critical errors.
-     * @param groupStoragesDestructionIntents Storage to persist {@link DestroyStorageIntent}.
-     * @param groupStoragesContextResolver Resolver to get {@link DestroyStorageContext} for storage destruction.
+     * @param groupStoragesDestructionIntents Storage to persist {@link StorageDestructionIntent}s.
+     * @param groupStoragesContextResolver Resolver to get {@link StoragesDestructionContext}s for storage destruction.
      */
     public JraftServerImpl(
             ClusterService service,
@@ -590,16 +590,14 @@ public class JraftServerImpl implements RaftServer {
 
     @Override
     public void destroyRaftNodeStorages(RaftNodeId nodeId, RaftGroupOptions groupOptions) {
-        DestroyStorageIntent intent = groupStoragesContextResolver.getIntent(nodeId, groupOptions.volatileStores());
+        StorageDestructionIntent intent = groupStoragesContextResolver.getIntent(nodeId, groupOptions.volatileStores());
 
-        groupStoragesDestructionIntents.saveDestroyStorageIntent(nodeId.groupId(), intent);
+        groupStoragesDestructionIntents.saveStorageDestructionIntent(nodeId.groupId(), intent);
 
-        destroyStorage(new DestroyStorageContext(intent, groupOptions.getLogStorageFactory(), groupOptions.serverDataPath()));
+        destroyStorages(new StoragesDestructionContext(intent, groupOptions.getLogStorageFactory(), groupOptions.serverDataPath()));
     }
 
-    private void destroyStorage(
-            DestroyStorageContext context
-    ) {
+    private void destroyStorages(StoragesDestructionContext context) {
         String nodeId = context.intent().nodeId();
 
         try {
@@ -607,13 +605,18 @@ public class JraftServerImpl implements RaftServer {
                 context.logStorageFactory().destroyLogStorage(nodeId);
             }
 
-            // This destroys both meta storage and snapshots storage as they are stored under nodeDataPath.
-            IgniteUtils.deleteIfExists(getServerDataPath(context.serverDataPath(), nodeId));
+            Path dataPath = getServerDataPath(context.serverDataPath(), nodeId);
+
+            // Current implementation of deleteIfExists throws an exception if directory doesn't exist.
+            if (Files.exists(dataPath)) {
+                // This destroys both meta storage and snapshots storage as they are stored under nodeDataPath.
+                IgniteUtils.deleteIfExistsThrowable(dataPath);
+            }
         } catch (Exception e) {
             throw new IgniteInternalException("Failed to delete storage for node: " + nodeId, e);
         }
 
-        groupStoragesDestructionIntents.removeDestroyStorageIntent(nodeId);
+        groupStoragesDestructionIntents.removeStorageDestructionIntent(nodeId);
     }
 
     @Override
@@ -735,9 +738,9 @@ public class JraftServerImpl implements RaftServer {
     }
 
     private CompletableFuture<Void> completeRaftGroupStoragesDestruction(ExecutorService executor) {
-        return runAsync(() -> groupStoragesDestructionIntents.readDestroyStorageIntents()
+        return runAsync(() -> groupStoragesDestructionIntents.readStorageDestructionIntents()
                 .stream().map(groupStoragesContextResolver::getContext)
-                .forEach(this::destroyStorage), executor);
+                .forEach(this::destroyStorages), executor);
     }
 
     /**

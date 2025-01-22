@@ -20,7 +20,6 @@ package org.apache.ignite.raft.server;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
-import static org.apache.ignite.internal.replicator.PartitionGroupId.PARTITION_GROUP_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
@@ -29,7 +28,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.spy;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -40,11 +38,9 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
-import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -60,7 +56,6 @@ import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.VaultGroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
-import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -226,24 +221,14 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         assertThat(vaultManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
-        Map<String, LogStorageFactory> logStorageFactoryByGroupName = Map.of(
-                PARTITION_GROUP_NAME, partitionsLogStorageFactory,
-                CmgGroupId.INSTANCE.toString(), partitionsLogStorageFactory,
-                MetastorageGroupId.INSTANCE.toString(), partitionsLogStorageFactory
-        );
-
-        Map<String, Path> serverDataPathByGroupName = Map.of(
-                PARTITION_GROUP_NAME, workingDir.basePath(),
-                CmgGroupId.INSTANCE.toString(), workingDir.basePath(),
-                MetastorageGroupId.INSTANCE.toString(), workingDir.basePath()
-        );
-
         GroupStoragesDestructionIntents groupStoragesDestructionIntents = new VaultGroupStoragesDestructionIntents(vaultManager);
 
+        String groupName = "testGroupName";
+
         GroupStoragesContextResolver groupStoragesContextResolver = new GroupStoragesContextResolver(
-                replicationGroupId -> replicationGroupId instanceof PartitionGroupId ? PARTITION_GROUP_NAME : replicationGroupId.toString(),
-                serverDataPathByGroupName,
-                logStorageFactoryByGroupName
+                replicationGroupId -> groupName,
+                Map.of(groupName, workingDir.basePath()),
+                Map.of(groupName, partitionsLogStorageFactory)
         );
 
         JraftServerImpl server = TestJraftServerFactory.create(

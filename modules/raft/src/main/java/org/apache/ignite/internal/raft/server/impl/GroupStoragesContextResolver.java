@@ -22,11 +22,11 @@ import java.util.Map;
 import java.util.function.Function;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.DestroyStorageContext;
-import org.apache.ignite.internal.raft.storage.impl.DestroyStorageIntent;
+import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
+import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
-/** Resolves {@link LogStorageFactory} and server data path for given {@link DestroyStorageIntent}. */
+/** Resolves {@link LogStorageFactory} and server data path for given {@link StorageDestructionIntent}. */
 public class GroupStoragesContextResolver {
     private final Function<ReplicationGroupId, String> groupNameResolver;
 
@@ -40,17 +40,17 @@ public class GroupStoragesContextResolver {
             Map<String, LogStorageFactory> logStorageFactoryByGroupName
     ) {
         this.groupNameResolver = groupNameResolver;
-        this.serverDataPathByGroupName = serverDataPathByGroupName;
-        this.logStorageFactoryByGroupName = logStorageFactoryByGroupName;
+        this.serverDataPathByGroupName = Map.copyOf(serverDataPathByGroupName);
+        this.logStorageFactoryByGroupName = Map.copyOf(logStorageFactoryByGroupName);
     }
 
-    DestroyStorageContext getContext(DestroyStorageIntent intent) {
+    StoragesDestructionContext getContext(StorageDestructionIntent intent) {
         LogStorageFactory logStorageFactory = intent.isVolatile() ? null : logStorageFactoryByGroupName.get(intent.groupName());
 
-        return new DestroyStorageContext(intent, logStorageFactory, serverDataPathByGroupName.get(intent.groupName()));
+        return new StoragesDestructionContext(intent, logStorageFactory, serverDataPathByGroupName.get(intent.groupName()));
     }
 
-    DestroyStorageIntent getIntent(RaftNodeId nodeId, boolean isVolatile) {
-        return new DestroyStorageIntent(nodeId.nodeIdStringForStorage(), groupNameResolver.apply(nodeId.groupId()), isVolatile);
+    StorageDestructionIntent getIntent(RaftNodeId nodeId, boolean isVolatile) {
+        return new StorageDestructionIntent(nodeId.nodeIdStringForStorage(), groupNameResolver.apply(nodeId.groupId()), isVolatile);
     }
 }

@@ -24,6 +24,8 @@ import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.impl.NoopGroupStoragesDestructionIntents;
+import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
+import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
 import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
@@ -79,21 +81,23 @@ public class TestJraftServerFactory {
      * @param service Cluster service.
      * @param opts Node Options.
      * @param raftGroupEventsClientListener Raft events listener.
+     * @param groupStoragesDestructionIntents Storage to persist {@link StorageDestructionIntent}s.
+     * @param groupStoragesContextResolver Resolver to get {@link StoragesDestructionContext}s for storage destruction.
      */
     public static JraftServerImpl create(
             ClusterService service,
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
-            GroupStoragesDestructionIntents destructionIntents,
-            GroupStoragesContextResolver contextResolver
+            GroupStoragesDestructionIntents groupStoragesDestructionIntents,
+            GroupStoragesContextResolver groupStoragesContextResolver
     ) {
         return new JraftServerImpl(
                 service,
                 opts,
                 raftGroupEventsClientListener,
                 new NoOpFailureManager(),
-                destructionIntents,
-                contextResolver
+                groupStoragesDestructionIntents,
+                groupStoragesContextResolver
         );
     }
 }

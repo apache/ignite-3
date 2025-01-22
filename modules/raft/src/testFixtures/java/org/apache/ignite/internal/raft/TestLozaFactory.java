@@ -26,6 +26,8 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.impl.NoopGroupStoragesDestructionIntents;
+import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
+import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 
 /** Utilities for creating {@link Loza} instances. */
@@ -69,9 +71,7 @@ public class TestLozaFactory {
                 raftConfig,
                 clock,
                 raftGroupEventsClientListener,
-                new NoOpFailureManager(),
-                new NoopGroupStoragesDestructionIntents(),
-                new GroupStoragesContextResolver(Object::toString, Map.of(), Map.of())
+                new NoOpFailureManager()
         );
     }
 
@@ -82,14 +82,16 @@ public class TestLozaFactory {
      * @param raftConfig Raft configuration.
      * @param clock A hybrid logical clock.
      * @param raftGroupEventsClientListener Raft event listener.
+     * @param groupStoragesDestructionIntents Storage to persist {@link StorageDestructionIntent}s.
+     * @param groupStoragesContextResolver Resolver to get {@link StoragesDestructionContext}s for storage destruction.
      */
     public static Loza create(
             ClusterService clusterNetSvc,
             RaftConfiguration raftConfig,
             HybridClock clock,
             RaftGroupEventsClientListener raftGroupEventsClientListener,
-            GroupStoragesDestructionIntents intents,
-            GroupStoragesContextResolver contextResolver
+            GroupStoragesDestructionIntents groupStoragesDestructionIntents,
+            GroupStoragesContextResolver groupStoragesContextResolver
     ) {
         return new Loza(
                 clusterNetSvc,
@@ -98,8 +100,8 @@ public class TestLozaFactory {
                 clock,
                 raftGroupEventsClientListener,
                 new NoOpFailureManager(),
-                intents,
-                contextResolver
+                groupStoragesDestructionIntents,
+                groupStoragesContextResolver
         );
     }
 }

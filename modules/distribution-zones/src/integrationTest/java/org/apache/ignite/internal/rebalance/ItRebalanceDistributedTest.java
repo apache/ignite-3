@@ -1239,9 +1239,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     raftConfiguration,
                     hybridClock,
                     raftGroupEventsClientListener,
-                    new NoOpFailureManager(),
-                    new NoopGroupStoragesDestructionIntents(),
-                    new GroupStoragesContextResolver(Objects::toString, Map.of(), Map.of())
+                    new NoOpFailureManager()
             ));
 
             var clusterStateStorage = new TestClusterStateStorage();

@@ -19,6 +19,7 @@ package org.apache.ignite.raft.server;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.times;
@@ -28,95 +29,50 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.stream.Stream;
-import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageException;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.junit.jupiter.api.BeforeEach;
+import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
 
 /** Tests that check that failed storage destruction is finished after server restart. */
 public class ItJraftDestructorTest extends JraftAbstractTest {
+    private static final int SERVER_INDEX = 0;
 
-    private static Stream<ReplicationGroupId> groupIdProvider() {
-        return Stream.of(
-                new TablePartitionId(0, 0),
-                CmgGroupId.INSTANCE,
-                MetastorageGroupId.INSTANCE
-        );
-    }
-
-    private JraftServerImpl server;
-    private Path serverDataPath;
-    private Peer peer;
-
-    @BeforeEach
-    void setUp() {
-        server = startServer();
-
-        serverDataPath = serverWorkingDirs.get(0).basePath();
-
-        String localNodeName = server.clusterService().topologyService().localMember().name();
-
-        peer = Objects.requireNonNull(initialMembersConf.peer(localNodeName));
-
-        LogStorageFactory logStorageFactory = logStorageFactories.get(0);
-
-        doThrow(LogStorageException.class).doCallRealMethod().when(logStorageFactory).destroyLogStorage(anyString());
-    }
-
-    @ParameterizedTest
-    @MethodSource("groupIdProvider")
-    void testFinishStorageDestructionAfterRestart(ReplicationGroupId replicationGroupId) throws Exception {
-        RaftNodeId nodeId = new RaftNodeId(replicationGroupId, peer);
-
-        destroyStorageFails(server, nodeId, serverDataPath, false);
-
-        Path nodeDataPath = createNodeDataDirectory(nodeId);
-
-        restartServer();
-
-        assertFalse(Files.exists(nodeDataPath));
+    @Test
+    void testFinishStorageDestructionAfterRestart() throws Exception {
+        doTestFinishStorageDestructionAfterRestart(false);
 
         // New log storage factory was created after restart.
-        verify(logStorageFactories.get(0), times(1)).destroyLogStorage(anyString());
+        verify(logStorageFactories.get(SERVER_INDEX), times(1)).destroyLogStorage(anyString());
     }
 
     @Test
-    void testVolatileLogsDontGetDestroyedOnRestart() throws Exception {
-        RaftNodeId nodeId = new RaftNodeId(new TablePartitionId(0, 0), peer);
-
-        destroyStorageFails(server, nodeId, serverDataPath, true);
-
-        Path nodeDataPath = createNodeDataDirectory(nodeId);
-
-        restartServer();
-
-        assertFalse(Files.exists(nodeDataPath));
+    void testVolatileLogStorageIsNotDestroyedOnRestart() throws Exception {
+        doTestFinishStorageDestructionAfterRestart(true);
 
         // New log storage factory was created after restart.
-        verify(logStorageFactories.get(0), times(0)).destroyLogStorage(anyString());
+        verify(logStorageFactories.get(SERVER_INDEX), times(0)).destroyLogStorage(anyString());
     }
 
-    private void destroyStorageFails(
-            JraftServerImpl server,
-            RaftNodeId nodeId,
-            Path serverDataPath,
-            boolean isVolatile
-    ) {
-        RaftGroupOptions groupOptions = isVolatile ? RaftGroupOptions.forVolatileStores() : RaftGroupOptions.forPersistentStores();
+    private void doTestFinishStorageDestructionAfterRestart(boolean isVolatile) throws Exception {
+        JraftServerImpl server = startServer(SERVER_INDEX);
+        Path serverDataPath = serverWorkingDirs.get(SERVER_INDEX).basePath();
 
-        groupOptions.setLogStorageFactory(logStorageFactories.get(0)).serverDataPath(serverDataPath);
+        RaftNodeId nodeId = getRaftNodeId(server);
+
+        Path nodeDataPath = createServerDataPathForNode(serverDataPath, nodeId);
+
+        // Log storage destruction must fail, so raft server will save the intent to destroy the storage
+        // and will complete it successfully on restart.
+        LogStorageFactory logStorageFactory = logStorageFactories.get(SERVER_INDEX);
+        doThrow(LogStorageException.class).doCallRealMethod().when(logStorageFactory).destroyLogStorage(anyString());
+
+        RaftGroupOptions groupOptions = getRaftGroupOptions(isVolatile, logStorageFactory, serverDataPath);
 
         assertThrows(
                 IgniteInternalException.class,
@@ -124,22 +80,40 @@ public class ItJraftDestructorTest extends JraftAbstractTest {
                 "Failed to delete storage for node: "
         );
 
-        verify(groupOptions.getLogStorageFactory(), times(1)).destroyLogStorage(anyString());
-    }
+        verify(logStorageFactory, times(1)).destroyLogStorage(anyString());
 
-    private Path createNodeDataDirectory(RaftNodeId nodeId) throws IOException {
-        Path nodeDataPath = JraftServerImpl.getServerDataPath(serverDataPath, nodeId);
+        // Node data path deletion happens after log storage destruction, so it should be intact.
+        assertTrue(Files.exists(nodeDataPath));
 
-        return Files.createDirectories(nodeDataPath);
-    }
-
-    private void restartServer() throws Exception {
         shutdownCluster();
 
-        startServer();
+        startServer(SERVER_INDEX);
+
+        assertFalse(Files.exists(nodeDataPath));
     }
 
-    private JraftServerImpl startServer() {
-        return startServer(0, x -> {}, opts -> {});
+    private RaftNodeId getRaftNodeId(JraftServerImpl server) {
+        String localNodeName = server.clusterService().topologyService().localMember().name();
+        Peer peer = Objects.requireNonNull(initialMembersConf.peer(localNodeName));
+
+        return new RaftNodeId(new TestReplicationGroupId("test"), peer);
+    }
+
+    private static Path createServerDataPathForNode(Path serverDataPath, RaftNodeId nodeId) throws IOException {
+        Path nodeDataPath = JraftServerImpl.getServerDataPath(serverDataPath, nodeId);
+
+        Files.createDirectories(nodeDataPath);
+
+        return nodeDataPath;
+    }
+
+    private static RaftGroupOptions getRaftGroupOptions(boolean isVolatile, LogStorageFactory logStorageFactory, Path serverDataPath) {
+        RaftGroupOptions groupOptions = isVolatile ? RaftGroupOptions.forVolatileStores() : RaftGroupOptions.forPersistentStores();
+        groupOptions.setLogStorageFactory(logStorageFactory).serverDataPath(serverDataPath);
+        return groupOptions;
+    }
+
+    private JraftServerImpl startServer(int index) {
+        return startServer(index, x -> {}, opts -> {});
     }
 }

@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPat
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
-import static org.apache.ignite.internal.replicator.PartitionGroupId.PARTITION_GROUP_NAME;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -300,6 +299,9 @@ import org.jetbrains.annotations.TestOnly;
 public class IgniteImpl implements Ignite {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(IgniteImpl.class);
+
+    /** Used for durable destruction purposes. */
+    private static final String PARTITION_GROUP_NAME = "partition";
 
     /** Ignite node name. */
     private final String name;
@@ -639,7 +641,7 @@ public class IgniteImpl implements Ignite {
         partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
-        GroupStoragesContextResolver groupStoragesContextResolver = groupStoragesContextResolver();
+        GroupStoragesContextResolver groupStoragesContextResolver = createGroupStoragesContextResolver();
 
         GroupStoragesDestructionIntents groupStoragesDestructionIntents = new VaultGroupStoragesDestructionIntents(vaultMgr);
 
@@ -1200,7 +1202,7 @@ public class IgniteImpl implements Ignite {
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
     }
 
-    private GroupStoragesContextResolver groupStoragesContextResolver() {
+    private GroupStoragesContextResolver createGroupStoragesContextResolver() {
         Map<String, LogStorageFactory> logStorageFactoryByGroupName = Map.of(
                 PARTITION_GROUP_NAME, partitionsLogStorageFactory,
                 MetastorageGroupId.INSTANCE.toString(), msLogStorageFactory,

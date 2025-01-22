@@ -1053,9 +1053,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     raftConfiguration,
                     hybridClock,
                     raftGroupEventsClientListener,
-                    new NoOpFailureManager(),
-                    new NoopGroupStoragesDestructionIntents(),
-                    new GroupStoragesContextResolver(Object::toString, Map.of(), Map.of())
+                    new NoOpFailureManager()
             );
 
             var clusterStateStorage = new TestClusterStateStorage();

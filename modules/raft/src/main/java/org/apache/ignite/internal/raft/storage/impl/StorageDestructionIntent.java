@@ -21,13 +21,13 @@ package org.apache.ignite.internal.raft.storage.impl;
 import org.apache.ignite.internal.tostring.S;
 
 /** Intent to destroy raft node's group storages. */
-public class DestroyStorageIntent {
+public class StorageDestructionIntent {
     private final boolean isVolatile;
     private final String raftNodeId;
     private final String groupName;
 
     /** Constructor. */
-    public DestroyStorageIntent(String raftNodeId, String groupName, boolean isVolatile) {
+    public StorageDestructionIntent(String raftNodeId, String groupName, boolean isVolatile) {
         this.raftNodeId = raftNodeId;
         this.groupName = groupName;
         this.isVolatile = isVolatile;
@@ -43,7 +43,7 @@ public class DestroyStorageIntent {
 
     @Override
     public String toString() {
-        return S.toString(DestroyStorageIntent.class, this);
+        return S.toString(StorageDestructionIntent.class, this);
     }
 
     public String groupName() {

@@ -25,17 +25,17 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 /** Storage that doesn't save intents to destroy group storages. Used for tests. */
 public class NoopGroupStoragesDestructionIntents implements GroupStoragesDestructionIntents {
     @Override
-    public void saveDestroyStorageIntent(ReplicationGroupId groupId, DestroyStorageIntent intent) {
+    public void saveStorageDestructionIntent(ReplicationGroupId groupId, StorageDestructionIntent intent) {
         // No-op.
     }
 
     @Override
-    public void removeDestroyStorageIntent(String nodeId) {
+    public void removeStorageDestructionIntent(String nodeId) {
         // No-op.
     }
 
     @Override
-    public Collection<DestroyStorageIntent> readDestroyStorageIntents() {
+    public Collection<StorageDestructionIntent> readStorageDestructionIntents() {
         return Collections.emptyList();
     }
 }

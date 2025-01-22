@@ -30,16 +30,13 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.Cursor;
-import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 
 /** Uses VaultManager to store destruction intents. */
 public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestructionIntents {
-    /** Initial capacity (in bytes) of the buffer used for data output. */
-    private static final int INITIAL_BUFFER_CAPACITY = 64;
-
     private static final byte[] GROUP_STORAGE_DESTRUCTION_PREFIX = "destroy.group.storages.".getBytes(UTF_8);
     private static final ByteOrder BYTE_UTILS_BYTE_ORDER = ByteOrder.BIG_ENDIAN;
 
@@ -51,50 +48,15 @@ public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestru
     }
 
     @Override
-    public void saveDestroyStorageIntent(ReplicationGroupId groupId, DestroyStorageIntent destroyStorageIntent) {
-        vault.put(buildKey(destroyStorageIntent.nodeId()), toStorageBytes(destroyStorageIntent));
-    }
-
-    private static byte[] toStorageBytes(DestroyStorageIntent intent) {
-        try (IgniteUnsafeDataOutput out = new IgniteUnsafeDataOutput(INITIAL_BUFFER_CAPACITY)) {
-            out.writeUTF(intent.groupName());
-            out.writeBoolean(intent.isVolatile());
-
-            return out.array();
-        } catch (IOException e) {
-            throw new IgniteInternalException(INTERNAL_ERR, "Cannot serialize", e);
-        }
-    }
-
-    private static DestroyStorageIntent fromStorageBytes(byte[] key, byte[] value) {
-        String nodeId = nodeIdFromKey(key);
-
-        try (IgniteUnsafeDataInput in = new IgniteUnsafeDataInput(value)) {
-            String groupName = in.readUTF();
-            boolean isVolatile = in.readBoolean();
-
-            DestroyStorageIntent intent = new DestroyStorageIntent(
-                    nodeId,
-                    groupName,
-                    isVolatile
-            );
-
-            if (in.available() != 0) {
-                throw new IOException(in.available() + " bytes left unread after deserializing " + intent);
-            }
-
-            return intent;
-        } catch (IOException e) {
-            throw new IgniteInternalException(INTERNAL_ERR, "Cannot deserialize", e);
-        }
-    }
-
-    private static String nodeIdFromKey(byte[] key) {
-        return new String(key, GROUP_STORAGE_DESTRUCTION_PREFIX.length, key.length - GROUP_STORAGE_DESTRUCTION_PREFIX.length, UTF_8);
+    public void saveStorageDestructionIntent(ReplicationGroupId groupId, StorageDestructionIntent storageDestructionIntent) {
+        vault.put(
+                buildKey(storageDestructionIntent.nodeId()),
+                VersionedSerialization.toBytes(storageDestructionIntent, StorageDestructionIntentSerializer.INSTANCE)
+        );
     }
 
     @Override
-    public void removeDestroyStorageIntent(String nodeId) {
+    public void removeStorageDestructionIntent(String nodeId) {
         vault.remove(buildKey(nodeId));
     }
 
@@ -111,14 +73,17 @@ public class VaultGroupStoragesDestructionIntents implements GroupStoragesDestru
     }
 
     @Override
-    public Collection<DestroyStorageIntent> readDestroyStorageIntents() {
+    public Collection<StorageDestructionIntent> readStorageDestructionIntents() {
         try (Cursor<VaultEntry> cursor = vault.prefix(new ByteArray(GROUP_STORAGE_DESTRUCTION_PREFIX))) {
-            Collection<DestroyStorageIntent> result = new ArrayList<>();
+            Collection<StorageDestructionIntent> result = new ArrayList<>();
 
             while (cursor.hasNext()) {
                 VaultEntry next = cursor.next();
 
-                DestroyStorageIntent intent = fromStorageBytes(next.key().bytes(), next.value());
+                StorageDestructionIntent intent = VersionedSerialization.fromBytes(
+                        next.value(),
+                        StorageDestructionIntentSerializer.INSTANCE
+                );
 
                 result.add(intent);
             }

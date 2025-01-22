@@ -21,9 +21,6 @@ package org.apache.ignite.internal.replicator;
  * A {@link ReplicationGroupId} which corresponds to partition of a partitioned object.
  */
 public interface PartitionGroupId extends ReplicationGroupId {
-    /** Used for durable destruction purposes. */
-    String PARTITION_GROUP_NAME = "partition";
-
     /** Returns ID of the partitioned object. */
     int objectId();
 
