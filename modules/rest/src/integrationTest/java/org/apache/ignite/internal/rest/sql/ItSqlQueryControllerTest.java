@@ -21,7 +21,6 @@ import static io.micronaut.http.HttpRequest.DELETE;
 import static io.micronaut.http.HttpStatus.NOT_FOUND;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
-import static org.awaitility.Awaitility.waitAtMost;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.is;
@@ -32,11 +31,9 @@ import io.micronaut.http.client.HttpClient;
 import io.micronaut.http.client.annotation.Client;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
@@ -102,17 +99,15 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void shouldCancelSqlQuery() {
-        // Create table
-        sql("CREATE TABLE large_table (id int primary key, value1 DOUBLE, value2 DOUBLE)");
+        String sql = "SELECT x FROM TABLE(SYSTEM_RANGE(1, 100));";
 
-        // Run long running query async
-        String sql = "INSERT INTO large_table (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 1000))";
-        CompletableFuture.runAsync(() ->
-                sql(sql)
-        );
-
-        waitAtMost(Duration.ofSeconds(10)).until(() -> getSqlQueries(client), aMapWithSize(1));
+        IgniteSql igniteSql = CLUSTER.aliveNode().sql();
+        // run query with results pageSize=1
+        ResultSet<SqlRow> rs = CLUSTER.aliveNode().sql()
+                .execute(null, igniteSql.statementBuilder().query(sql).pageSize(1).build());
+        // the query must be active until cursor is closed
         Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
+
         SqlQueryInfo queryInfo = queries.entrySet().iterator().next().getValue();
 
         cancelSqlQuery(client, queryInfo.id());
@@ -122,6 +117,8 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
                 NOT_FOUND,
                 isProblem().withDetail("Sql query not found [queryId=" + queryInfo.id() + "]")
         );
+
+        rs.close();
     }
 
     @Test
