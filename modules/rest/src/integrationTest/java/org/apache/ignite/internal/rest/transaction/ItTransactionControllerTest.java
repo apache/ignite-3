@@ -38,6 +38,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.transaction.TransactionInfo;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
@@ -77,15 +78,12 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
 
         sql(tx, "SELECT 1");
 
+        UUID transactionId = ((InternalTransaction) tx).id();
+
         // Check count of transactions
         await().untilAsserted(() -> {
-            Map<UUID, TransactionInfo> transactions = getTransactions(client);
-
-            assertThat(transactions, aMapWithSize(greaterThan(1)));
-            TransactionInfo transactionInfo = transactions.entrySet().iterator().next().getValue();
-
-            TransactionInfo transaction = getTransaction(client, transactionInfo.id());
-            assertThat(transaction.id(), is(transactionInfo.id()));
+            TransactionInfo transaction = getTransaction(client, transactionId);
+            assertThat(transaction.id(), is(transactionId));
             assertThat(transaction.type(), is("READ_WRITE"));
             assertThat(transaction.state(), is("PENDING"));
             assertThat(transaction.priority(), is("NORMAL"));
