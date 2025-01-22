@@ -27,7 +27,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Predicate;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryApi;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
@@ -62,7 +61,7 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
 
     @Override
     public CompletableFuture<SqlQueryInfo> query(UUID queryId) {
-        return completedFuture(sqlQueryInfos(uuid -> uuid.equals(queryId))).thenApply(queryInfo -> {
+        return completedFuture(sqlQueryInfos(queryId)).thenApply(queryInfo -> {
             if (queryInfo.isEmpty()) {
                 throw new SqlQueryNotFoundException(queryId.toString());
             } else {
@@ -92,22 +91,21 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
     }
 
     private List<SqlQueryInfo> sqlQueryInfos() {
-        return sqlQueryInfos(null);
+        return sqlQueryInfos("SELECT * FROM SYSTEM.SQL_QUERIES ORDER BY START_TIME");
     }
 
-    private List<SqlQueryInfo> sqlQueryInfos(Predicate<UUID> predicate) {
-        String sql = "SELECT * FROM SYSTEM.SQL_QUERIES ORDER BY START_TIME";
-        Statement sqlQueryStmt = igniteSql.createStatement(sql);
+    private List<SqlQueryInfo> sqlQueryInfos(UUID queryId) {
+        return sqlQueryInfos("SELECT * FROM SYSTEM.SQL_QUERIES WHERE ID='" + queryId.toString() + "'");
+    }
+
+    private List<SqlQueryInfo> sqlQueryInfos(String query) {
+        Statement sqlQueryStmt = igniteSql.createStatement(query);
         List<SqlQueryInfo> sqlQueryInfos = new ArrayList<>();
         try (ResultSet<SqlRow> resultSet = igniteSql.execute(null, sqlQueryStmt)) {
             while (resultSet.hasNext()) {
                 SqlRow row = resultSet.next();
                 // Skip original query to SYSTEM.SQL_QUERIES
-                if (row.stringValue("SQL").equals(sql)) {
-                    continue;
-                }
-                // Filter query by id if needed
-                if (predicate != null && !predicate.test(UUID.fromString(row.stringValue("ID")))) {
+                if (row.stringValue("SQL").equals(query)) {
                     continue;
                 }
                 sqlQueryInfos.add(new SqlQueryInfo(

@@ -21,7 +21,6 @@ import static io.micronaut.http.HttpRequest.DELETE;
 import static io.micronaut.http.HttpStatus.NOT_FOUND;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
-import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.waitAtMost;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
@@ -41,7 +40,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
-import org.junit.jupiter.api.AfterEach;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -55,53 +56,39 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     @Client("http://localhost:10300" + SQL_QUERY_URL)
     HttpClient client;
 
-    @AfterEach
-    void tearDown() {
-        try {
-            sql("DROP TABLE large_table");
-        } catch (Exception ignore) {
-            // nothing to do
-        }
-    }
-
     @Test
     void shouldReturnAllSqlQueries() {
-        // Create table
-        sql("CREATE TABLE large_table (id int primary key, value1 DOUBLE, value2 DOUBLE)");
+        String sql = "SELECT x FROM TABLE(SYSTEM_RANGE(1, 100));";
 
-        // Run long running query async
-        String sql = "INSERT INTO large_table (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 100));";
-        CompletableFuture.runAsync(() ->
-                sql(sql)
-        );
+        IgniteSql igniteSql = CLUSTER.aliveNode().sql();
+        // run query with results pageSize=1
+        ResultSet<SqlRow> rs = CLUSTER.aliveNode().sql()
+                .execute(null, igniteSql.statementBuilder().query(sql).pageSize(1).build());
+        // the query must be active until cursor is closed
+        Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
 
-        // Check count
-        await().untilAsserted(() -> {
-            Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
+        assertThat(queries, aMapWithSize(1));
+        SqlQueryInfo queryInfo = queries.entrySet().iterator().next().getValue();
 
-            assertThat(queries, aMapWithSize(1));
-            SqlQueryInfo queryInfo = queries.entrySet().iterator().next().getValue();
+        assertThat(queryInfo.sql(), is(sql));
+        assertThat(queryInfo.schema(), is("PUBLIC"));
+        assertThat(queryInfo.type(), is("QUERY"));
 
-            assertThat(queryInfo.sql(), is(sql));
-            assertThat(queryInfo.schema(), is("PUBLIC"));
-            assertThat(queryInfo.type(), is("DML"));
-        });
+        rs.close();
     }
 
     @Test
     void shouldReturnSingleQuery() {
-        // Create table
-        sql("CREATE TABLE large_table (id int primary key, value1 DOUBLE, value2 DOUBLE)");
+        String sql = "SELECT x FROM TABLE(SYSTEM_RANGE(1, 100));";
 
-        // Run long running query async
-        String sql = "INSERT INTO large_table (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 100));";
-        CompletableFuture.runAsync(() ->
-                sql(sql)
-        );
-
-        waitAtMost(Duration.ofSeconds(10)).until(() -> getSqlQueries(client), aMapWithSize(1));
+        IgniteSql igniteSql = CLUSTER.aliveNode().sql();
+        // run query with results pageSize=1
+        ResultSet<SqlRow> rs = CLUSTER.aliveNode().sql()
+                .execute(null, igniteSql.statementBuilder().query(sql).pageSize(1).build());
+        // the query must be active until cursor is closed
         Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
 
+        assertThat(queries, aMapWithSize(1));
         Map.Entry<UUID, SqlQueryInfo> sqlQueryInfoEntry = queries.entrySet().iterator().next();
 
         SqlQueryInfo query = getSqlQuery(client, sqlQueryInfoEntry.getKey());
@@ -109,6 +96,8 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
         assertThat(query.sql(), is(sqlQueryInfoEntry.getValue().sql()));
         assertThat(query.type(), is(sqlQueryInfoEntry.getValue().type()));
         assertThat(query.startTime(), is(sqlQueryInfoEntry.getValue().startTime()));
+
+        rs.close();
     }
 
     @Test

@@ -35,7 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rest.api.Problem;
 
 /**
- * API for managing transaction.
+ * API for managing transactions.
  */
 @Controller("/management/v1/transactions/")
 @Tag(name = "transactions")

@@ -26,7 +26,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Predicate;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.transaction.TransactionApi;
 import org.apache.ignite.internal.rest.api.transaction.TransactionInfo;
@@ -55,7 +54,7 @@ public class TransactionController implements TransactionApi, ResourceHolder {
 
     @Override
     public CompletableFuture<TransactionInfo> transaction(UUID transactionId) {
-        return completedFuture(transactionInfos(uuid -> uuid.equals(transactionId))).thenApply(transactionInfos -> {
+        return completedFuture(transactionInfos(transactionId)).thenApply(transactionInfos -> {
             if (transactionInfos.isEmpty()) {
                 throw new TransactionNotFoundException(transactionId.toString());
             } else {
@@ -76,21 +75,20 @@ public class TransactionController implements TransactionApi, ResourceHolder {
     }
 
     private List<TransactionInfo> transactionInfos() {
-        return transactionInfos(null);
+        return transactionInfos("SELECT * FROM SYSTEM.TRANSACTIONS ORDER BY START_TIME");
     }
 
-    private List<TransactionInfo> transactionInfos(Predicate<UUID> predicate) {
-        String sql = "SELECT * FROM SYSTEM.TRANSACTIONS ORDER BY START_TIME";
-        Statement transactionStmt = igniteSql.createStatement(sql);
+    private List<TransactionInfo> transactionInfos(UUID transactionId) {
+        return transactionInfos("SELECT * FROM SYSTEM.TRANSACTIONS WHERE ID='" + transactionId.toString() + "'");
+    }
+
+    private List<TransactionInfo> transactionInfos(String query) {
+        Statement transactionStmt = igniteSql.createStatement(query);
         List<TransactionInfo> transactionInfos = new ArrayList<>();
         try (ResultSet<SqlRow> resultSet = igniteSql.execute(null, transactionStmt)) {
             while (resultSet.hasNext()) {
                 SqlRow row = resultSet.next();
 
-                // Filter query by id if needed
-                if (predicate != null && !predicate.test(UUID.fromString(row.stringValue("ID")))) {
-                    continue;
-                }
                 transactionInfos.add(new TransactionInfo(
                         UUID.fromString(row.stringValue("ID")),
                         row.stringValue("COORDINATOR_NODE_ID"),
