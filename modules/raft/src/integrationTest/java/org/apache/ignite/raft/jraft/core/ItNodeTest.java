@@ -4587,17 +4587,30 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         this.sendTestTaskAndWait(node, 0, 10, err);
     }
 
-    // Note that waiting for the latch when tasks are applying doesn't guarantee that FSMCallerImpl.lastAppliedIndex
-    // will be updated immediately.
     private void sendTestTaskAndWait(Node node, int start, int amount,
                                      RaftError err) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(amount);
+        MockStateMachine stateMachine = (MockStateMachine) node.getOptions().getFsm();
+        long appliedIndexBeforeRunCommands = stateMachine.getAppliedIndex();
         for (int i = start; i < start + amount; i++) {
             ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes(UTF_8));
             Task task = new Task(data, new ExpectClosure(err, latch));
             node.apply(task);
         }
         waitLatch(latch);
+
+        if (err == RaftError.SUCCESS) {
+            // This check is needed to avoid a race with snapshots, since the latch may complete before FSMCallerImpl#lastAppliedIndex is
+            // updated and the snapshot creation starts.
+            assertTrue(
+                    waitForCondition(() -> stateMachine.getAppliedIndex() >= appliedIndexBeforeRunCommands + amount, 1_000),
+                    () -> String.format(
+                            "Failed to wait for last applied index update on node: "
+                                    + "[node=%s, appliedIndexBeforeRunCommands=%s, lastAppliedIndex=%s, amount=%s]",
+                            stateMachine.getPeerId(), appliedIndexBeforeRunCommands, stateMachine.getAppliedIndex(), amount
+                    )
+            );
+        }
     }
 
     private void sendTestTaskAndWait(Node node, int start,
