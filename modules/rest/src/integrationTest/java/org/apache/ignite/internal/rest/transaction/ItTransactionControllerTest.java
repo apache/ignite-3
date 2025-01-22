@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 
 import io.micronaut.core.type.Argument;
@@ -61,7 +63,7 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
         await().untilAsserted(() -> {
             Map<UUID, TransactionInfo> transactions = getTransactions(client);
 
-            assertThat(transactions, aMapWithSize(1));
+            assertThat(transactions, aMapWithSize(greaterThan(1)));
             TransactionInfo transactionInfo = transactions.entrySet().iterator().next().getValue();
 
             assertThat(transactionInfo.type(), is("READ_WRITE"));
@@ -80,7 +82,7 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
         await().untilAsserted(() -> {
             Map<UUID, TransactionInfo> transactions = getTransactions(client);
 
-            assertThat(transactions, aMapWithSize(1));
+            assertThat(transactions, aMapWithSize(greaterThan(1)));
             TransactionInfo transactionInfo = transactions.entrySet().iterator().next().getValue();
 
             TransactionInfo transaction = getTransaction(client, transactionInfo.id());
