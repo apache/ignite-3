@@ -23,6 +23,7 @@
 
 #include <set>
 #include <vector>
+#include <memory>
 
 namespace ignite {
 class ignite_tuple;
@@ -36,7 +37,6 @@ class job_target {
     friend class compute;
 public:
     // Default
-    job_target() = default;
     virtual ~job_target() = default;
 
     /**
@@ -69,6 +69,9 @@ public:
     [[nodiscard]] IGNITE_API static std::shared_ptr<job_target> colocated(std::string_view table_name, const ignite_tuple &key);
 
 protected:
+    // Default
+    job_target() = default;
+
     /**
      * Get the job type.
      *

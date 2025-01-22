@@ -22,6 +22,7 @@
 
 #include <set>
 #include <vector>
+#include <memory>
 
 namespace ignite {
 
@@ -31,7 +32,6 @@ namespace ignite {
 class broadcast_job_target {
 public:
     // Default
-    broadcast_job_target() = default;
     virtual ~broadcast_job_target() = default;
 
     /**
@@ -54,6 +54,10 @@ public:
      * @param vals Nodes.
      */
     [[nodiscard]] IGNITE_API static std::shared_ptr<broadcast_job_target> nodes(const std::vector<cluster_node> &vals);
+
+protected:
+    // Default
+    broadcast_job_target() = default;
 };
 
 
