@@ -207,7 +207,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testExecuteColocatedUpdatesTableCacheOnTableDrop(boolean forceLoadAssignment) {
-        String tableName = "drop-me";
+        String tableName = "DROP_ME";
 
         initServers(reqId -> false);
         createTable(tableName);

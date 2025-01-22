@@ -48,6 +48,15 @@ namespace Apache.Ignite.Tests.Table
         }
 
         [Test]
+        public async Task TestGetTableReturnsActualName()
+        {
+            var table = await Client.Tables.GetTableAsync("tBl1");
+
+            Assert.IsNotNull(table);
+            Assert.AreEqual("TBL1", table!.Name);
+        }
+
+        [Test]
         public async Task TestGetExistingTableReturnsSameInstanceEveryTime()
         {
             var table = await Client.Tables.GetTableAsync(TableName);

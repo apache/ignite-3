@@ -109,13 +109,22 @@ namespace Apache.Ignite.Internal.Table
             return Read(resBuf.GetReader());
 
             // ReSharper disable once LambdaExpressionMustBeStatic (requires .NET 5+)
-            Table? Read(MsgPackReader r) =>
-                r.TryReadNil()
-                    ? null
-                    : _cachedTables.GetOrAdd(
-                        r.ReadInt32(),
-                        (int id, (string Name, Tables Tables) arg) => new Table(arg.Name, id, arg.Tables._socket, arg.Tables._sql),
-                        (name, this));
+            Table? Read(MsgPackReader r)
+            {
+                if (r.TryReadNil())
+                {
+                    return null;
+                }
+
+                var tableId = r.ReadInt32();
+                var actualName = r.ReadString();
+
+                return _cachedTables.GetOrAdd(
+                    tableId,
+                    static (int id, (string ActualName, Tables Tables) arg) =>
+                        new Table(arg.ActualName, id, arg.Tables._socket, arg.Tables._sql),
+                    (actualName, this));
+            }
         }
     }
 }
