@@ -85,7 +85,7 @@
 - title: Administrator’s Guide
   url: administrators-guide/config/config
   items:
-    - title: GridGain Configuration
+    - title: Ignite Configuration
       url: administrators-guide/config/config
       items:
         - title: Node Configuration Parameters
