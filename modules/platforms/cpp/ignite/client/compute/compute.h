@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ignite/client/compute/broadcast_execution.h"
+#include "ignite/client/compute/broadcast_job_target.h"
 #include "ignite/client/compute/job_descriptor.h"
 #include "ignite/client/compute/job_execution.h"
 #include "ignite/client/compute/job_target.h"
@@ -27,8 +28,8 @@
 #include "ignite/common/ignite_result.h"
 
 #include <memory>
-#include <set>
 #include <utility>
+
 
 namespace ignite {
 
@@ -68,35 +69,35 @@ public:
     IGNITE_API job_execution submit(std::shared_ptr<job_target> target, std::shared_ptr<job_descriptor> descriptor,
         const binary_object &arg) {
         return sync<job_execution>([&](auto callback) mutable {
-            submit_async(std::move(target), descriptor, arg, std::move(callback));
+            submit_async(std::move(target), std::move(descriptor), arg, std::move(callback));
         });
     }
 
     /**
      * Broadcast a compute job represented by the given class for an execution on all the specified nodes.
      *
-     * @param nodes Nodes to use for the job execution.
+     * @param target Job target.
      * @param descriptor Descriptor.
      * @param arg Job argument.
      * @param callback A callback called on operation completion with jobs execution result.
      */
-    IGNITE_API void submit_broadcast_async(const std::set<cluster_node> &nodes,
+    IGNITE_API void submit_broadcast_async(std::shared_ptr<broadcast_job_target> target,
         std::shared_ptr<job_descriptor> descriptor, const binary_object &arg,
         ignite_callback<broadcast_execution> callback);
 
     /**
-     * Broadcast a compute job represented by the given class on all of the specified nodes.
+     * Broadcast a compute job represented by the given class on all the specified nodes.
      *
-     * @param nodes Nodes to use for the job execution.
+     * @param target Job target.
      * @param descriptor Descriptor.
      * @param arg Job argument.
      * @return Job execution result.
      */
     IGNITE_API broadcast_execution submit_broadcast(
-        const std::set<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
+        std::shared_ptr<broadcast_job_target> target, std::shared_ptr<job_descriptor> descriptor,
         const binary_object &arg) {
         return sync<broadcast_execution>([&](auto callback) mutable {
-            submit_broadcast_async(nodes, descriptor, arg, std::move(callback));
+            submit_broadcast_async(std::move(target), std::move(descriptor), arg, std::move(callback));
         });
     }
 

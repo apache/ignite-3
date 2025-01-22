@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-#include "ignite/client/compute/compute.h"
-
 #include "ignite/client/detail/argument_check_utils.h"
+#include "ignite/client/detail/compute/nodes_broadcast_job_target.h"
 #include <ignite/client/detail/compute/any_node_job_target.h>
 #include <ignite/client/detail/compute/colocated_job_target.h>
 #include "ignite/client/detail/compute/compute_impl.h"
+
+#include "ignite/client/compute/compute.h"
 
 namespace ignite {
 
@@ -49,10 +50,11 @@ void compute::submit_async(std::shared_ptr<job_target> target, std::shared_ptr<j
 
 }
 
-void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
-    const binary_object &arg, ignite_callback<broadcast_execution> callback) {
+void compute::submit_broadcast_async(std::shared_ptr<broadcast_job_target> target,
+    std::shared_ptr<job_descriptor> descriptor, const binary_object &arg,
+    ignite_callback<broadcast_execution> callback) {
 
-    detail::arg_check::container_non_empty(nodes, "Nodes set");
+    detail::arg_check::pointer_valid(target, "Target pointer");
     detail::arg_check::container_non_empty(descriptor->get_job_class_name(), "Job class name");
 
     struct result_group {
@@ -66,11 +68,12 @@ void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, std::s
         ignite_callback<broadcast_execution> m_callback;
     };
 
+    auto nodes = static_cast<detail::nodes_broadcast_job_target&>(*target).get_nodes();
     auto shared_res = std::make_shared<result_group>(std::int32_t(nodes.size()), std::move(callback));
 
     for (const auto &node : nodes) {
         std::set<cluster_node> candidates = {node};
-        m_impl->submit_to_nodes(candidates, descriptor, arg, [node, shared_res](auto &&res) {
+        m_impl->submit_to_nodes(candidates, descriptor, arg, [shared_res](auto &&res) {
             auto &val = *shared_res;
 
             std::lock_guard<std::mutex> lock(val.m_mutex);
