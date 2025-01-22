@@ -69,7 +69,8 @@ public interface BroadcastJobTarget {
      * Creates a job target for partitioned execution. For each partition in the provided table the job will be executed on a node that
      * holds the primary replica.
      *
-     * @param tableName Table name.
+     * @param tableName  Name of the table with SQL-parser style quotation, e.g.
+     *             "tbl0" - the table "TBL0" will be looked up, "\"Tbl0\"" - "Tbl0", etc.
      * @return Job target.
      */
     static BroadcastJobTarget table(String tableName) {

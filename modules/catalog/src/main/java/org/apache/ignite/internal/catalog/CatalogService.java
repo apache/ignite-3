@@ -73,7 +73,7 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     @Nullable CatalogTableDescriptor table(String schemaName, String tableName, long timestamp);
 
     /**
-     * Returns table descriptor by the given table ID and catalog version.
+     * Returns table descriptor by the given table ID and given timestamp.
      *
      * @return Table descriptor or {@code null} if table not found.
      */

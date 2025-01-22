@@ -18,7 +18,6 @@
 package org.apache.ignite.lang;
 
 import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
-import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 
 import java.util.UUID;
 import org.apache.ignite.table.QualifiedName;
@@ -28,15 +27,6 @@ import org.jetbrains.annotations.Nullable;
  * Exception is thrown when a specified table cannot be found.
  */
 public class TableNotFoundException extends IgniteException {
-    /**
-     * Creates an exception with the given table name.
-     *
-     * @param schemaName Schema name.
-     * @param tableName Table name.
-     */
-    public TableNotFoundException(String schemaName, String tableName) {
-        super(TABLE_NOT_FOUND_ERR, "The table does not exist [name=" + canonicalName(schemaName, tableName) + ']');
-    }
 
     /**
      * Creates an exception with the given table name.
