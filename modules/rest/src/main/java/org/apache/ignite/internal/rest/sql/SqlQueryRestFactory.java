@@ -21,7 +21,7 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.RestFactory;
-import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
+import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
 import org.apache.ignite.sql.IgniteSql;
 
 /**
@@ -31,11 +31,11 @@ import org.apache.ignite.sql.IgniteSql;
 public class SqlQueryRestFactory implements RestFactory {
     private IgniteSql igniteSql;
 
-    private KillCommandHandler killCommandHandler;
+    private KillHandlerRegistry killHandlerRegistry;
 
-    public SqlQueryRestFactory(IgniteSql igniteSql, KillCommandHandler killCommandHandler) {
+    public SqlQueryRestFactory(IgniteSql igniteSql, KillHandlerRegistry killHandlerRegistry) {
         this.igniteSql = igniteSql;
-        this.killCommandHandler = killCommandHandler;
+        this.killHandlerRegistry = killHandlerRegistry;
     }
 
     @Bean
@@ -46,13 +46,13 @@ public class SqlQueryRestFactory implements RestFactory {
 
     @Bean
     @Singleton
-    public KillCommandHandler killCommandHandler() {
-        return killCommandHandler;
+    public KillHandlerRegistry killHandlerRegistry() {
+        return killHandlerRegistry;
     }
 
     @Override
     public void cleanResources() {
         igniteSql = null;
-        killCommandHandler = null;
+        killHandlerRegistry = null;
     }
 }

@@ -33,7 +33,7 @@ import org.apache.ignite.internal.rest.api.sql.SqlQueryApi;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
 import org.apache.ignite.internal.rest.sql.exception.SqlQueryNotFoundException;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
-import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
+import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -48,11 +48,11 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
 
     private IgniteSql igniteSql;
 
-    private KillCommandHandler killCommandHandler;
+    private KillHandlerRegistry killHandlerRegistry;
 
-    public SqlQueryController(IgniteSql igniteSql, KillCommandHandler killCommandHandler) {
+    public SqlQueryController(IgniteSql igniteSql, KillHandlerRegistry killHandlerRegistry) {
         this.igniteSql = igniteSql;
-        this.killCommandHandler = killCommandHandler;
+        this.killHandlerRegistry = killHandlerRegistry;
     }
 
     @Override
@@ -73,7 +73,7 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
 
     @Override
     public CompletableFuture<Void> cancelQuery(UUID queryId) {
-        return killCommandHandler.handler(CancellableOperationType.QUERY).cancelAsync(queryId.toString())
+        return killHandlerRegistry.handler(CancellableOperationType.QUERY).cancelAsync(queryId.toString())
                 .thenCompose(result -> handleOperationResult(queryId, result));
     }
 
@@ -88,7 +88,7 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
     @Override
     public void cleanResources() {
         igniteSql = null;
-        killCommandHandler = null;
+        killHandlerRegistry = null;
     }
 
     private List<SqlQueryInfo> sqlQueryInfos() {
