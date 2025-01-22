@@ -160,8 +160,7 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
                     return null;
                 }
                 stateMachine.executeJob(jobId);
-            }
-            finally {
+            } finally {
                 executionLock.unlock();
             }
 

@@ -257,6 +257,7 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
             try {
                 new CountDownLatch(1).await();
             } catch (InterruptedException ignored) {
+                // ignored
             }
             return null;
         });
