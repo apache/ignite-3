@@ -102,6 +102,6 @@ public interface SqlQueryApi {
     )
     @Delete("queries/{queryId}")
     CompletableFuture<Void> cancelQuery(
-            @Schema(name = "query_id", description = "The unique identifier of the sql query.", requiredMode = REQUIRED) UUID queryId
+            @Schema(name = "queryId", description = "The unique identifier of the sql query.", requiredMode = REQUIRED) UUID queryId
     );
 }
