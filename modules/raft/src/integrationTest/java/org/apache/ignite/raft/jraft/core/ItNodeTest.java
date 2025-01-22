@@ -4587,8 +4587,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         this.sendTestTaskAndWait(node, 0, 10, err);
     }
 
-    // Note that waiting for the latch when tasks are applying doesn't guarantee that FSMCallerImpl.lastAppliedIndex
-    // will be updated immediately.
     private void sendTestTaskAndWait(Node node, int start, int amount,
                                      RaftError err) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(amount);
