@@ -216,7 +216,7 @@ public:
      * @param flags Flags.
      */
     [[nodiscard]] ignite_result<void> handle(
-        std::shared_ptr<node_connection>, bytes_view msg, std::int32_t flags) final {
+        std::shared_ptr<node_connection>, bytes_view msg, std::int32_t flags) override final {
         protocol::reader reader(msg);
 
         if (!test_flag(flags, protocol::response_flag::NOTIFICATION_FLAG)) {
@@ -225,7 +225,8 @@ public:
                     reader.skip();
 
                 auto id = reader.read_uuid();
-                m_execution = std::make_shared<job_execution_impl>(id, std::move(m_compute));
+                auto node = read_cluster_node(reader);
+                m_execution = std::make_shared<job_execution_impl>(id, std::move(node), std::move(m_compute));
                 return job_execution{m_execution};
             });
 
@@ -235,35 +236,34 @@ public:
             }
 
             return handle_res;
-        } else {
-            this->m_handling_complete = true;
-
-            std::optional<primitive> res{};
-            job_state state;
-
-            auto read_res = result_of_operation<void>([&]() {
-                res = unpack_compute_result(reader);
-                state = read_job_state(reader);
-            });
-
-            if (!m_execution) {
-                m_execution = std::make_shared<job_execution_impl>(state.id, std::move(m_compute));
-                result_of_operation<void>([&]() { this->m_callback(job_execution{m_execution}); });
-            }
-
-            if (read_res.has_error()) {
-                m_execution->set_error(read_res.error());
-
-                return read_res;
-            }
-
-            auto handle_res = result_of_operation<void>([&]() {
-                m_execution->set_result(res);
-                m_execution->set_final_state(state);
-            });
-
-            return handle_res;
         }
+
+        this->m_handling_complete = true;
+
+        std::optional<primitive> res{};
+        job_state state;
+
+        auto read_res = result_of_operation<void>([&]() {
+            res = unpack_compute_result(reader);
+            state = read_job_state(reader);
+        });
+
+        if (!m_execution) {
+            return ignite_result<void>{ignite_error{"Job result notification received before response"}};
+        }
+
+        if (read_res.has_error()) {
+            m_execution->set_error(read_res.error());
+
+            return read_res;
+        }
+
+        auto handle_res = result_of_operation<void>([&]() {
+            m_execution->set_result(res);
+            m_execution->set_final_state(state);
+        });
+
+        return handle_res;
     }
 
 private:
