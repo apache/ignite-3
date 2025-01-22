@@ -42,6 +42,8 @@ dependencies {
     implementation project(':ignite-security-api')
     implementation project(':ignite-compute')
     implementation project(':ignite-eventlog')
+    implementation project(':ignite-sql-engine')
+    implementation project(':ignite-sql-engine-api')
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-partition-replicator')
     implementation project(':ignite-system-disaster-recovery')

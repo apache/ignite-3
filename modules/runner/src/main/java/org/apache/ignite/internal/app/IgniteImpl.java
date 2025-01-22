@@ -472,6 +472,8 @@ public class IgniteImpl implements Ignite {
 
     private final EventLog eventLog;
 
+    private final KillCommandHandler killCommandHandler;
+
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
@@ -964,7 +966,7 @@ public class IgniteImpl implements Ignite {
         metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
         this.catalogCompactionRunner = catalogCompactionRunner;
 
-        KillCommandHandler killCommandHandler = new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService());
+        killCommandHandler = new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService());
 
         lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
                 params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
@@ -1244,7 +1246,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> computeRestFactory = () -> new ComputeRestFactory(compute);
         Supplier<RestFactory> disasterRecoveryFactory = () -> new DisasterRecoveryFactory(disasterRecoveryManager);
         Supplier<RestFactory> systemDisasterRecoveryFactory = () -> new SystemDisasterRecoveryFactory(systemDisasterRecoveryManager);
-        Supplier<RestFactory> sqlQueryRestFactory = () -> new SqlQueryRestFactory(sql);
+        Supplier<RestFactory> sqlQueryRestFactory = () -> new SqlQueryRestFactory(sql, killCommandHandler);
 
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestExtensionConfiguration.KEY).rest();
 

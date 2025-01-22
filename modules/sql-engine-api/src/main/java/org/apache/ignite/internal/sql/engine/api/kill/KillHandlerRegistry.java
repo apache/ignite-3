@@ -28,4 +28,12 @@ public interface KillHandlerRegistry {
      * @param handler Handler to register.
      */
     void register(OperationKillHandler handler);
+
+    /**
+     * Returns operation kill handler for specified operation type.
+     *
+     * @param type operation type.
+     * @return operation kill handler for specified operation type.
+     */
+    OperationKillHandler handler(CancellableOperationType type);
 }

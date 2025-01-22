@@ -32,6 +32,8 @@ import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryApi;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
 import org.apache.ignite.internal.rest.sql.exception.SqlQueryNotFoundException;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -46,8 +48,11 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
 
     private IgniteSql igniteSql;
 
-    public SqlQueryController(IgniteSql igniteSql) {
+    private KillCommandHandler killCommandHandler;
+
+    public SqlQueryController(IgniteSql igniteSql, KillCommandHandler killCommandHandler) {
         this.igniteSql = igniteSql;
+        this.killCommandHandler = killCommandHandler;
     }
 
     @Override
@@ -68,7 +73,8 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
 
     @Override
     public CompletableFuture<Void> cancelQuery(UUID queryId) {
-        return nullCompletedFuture();
+        return killCommandHandler.handler(CancellableOperationType.QUERY).cancelAsync(queryId.toString())
+                .thenCompose(result -> handleOperationResult(queryId, result));
     }
 
     private static CompletableFuture<Void> handleOperationResult(UUID queryId, @Nullable Boolean result) {
@@ -82,6 +88,7 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
     @Override
     public void cleanResources() {
         igniteSql = null;
+        killCommandHandler = null;
     }
 
     private List<SqlQueryInfo> sqlQueryInfos() {

@@ -42,7 +42,6 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -112,7 +111,6 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
         assertThat(query.startTime(), is(sqlQueryInfoEntry.getValue().startTime()));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23489")
     @Test
     void shouldCancelSqlQuery() {
         // Create table
@@ -149,7 +147,6 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23489")
     void shouldReturnProblemIfCancelNonExistingSqlQuery() {
         UUID queryId = UUID.randomUUID();
 
