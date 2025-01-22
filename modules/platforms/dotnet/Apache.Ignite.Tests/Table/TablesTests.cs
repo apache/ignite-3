@@ -72,7 +72,7 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestGetNonExistentTableReturnsNull()
         {
             var TableName = Guid.NewGuid().ToString();
-            var table = await Client.Tables.GetTableAsync($"\"{TableName\"");
+            var table = await Client.Tables.GetTableAsync($"\"{TableName}\"");
 
             Assert.IsNull(table);
         }
