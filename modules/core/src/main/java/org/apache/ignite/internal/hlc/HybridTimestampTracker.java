@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.hlc;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
