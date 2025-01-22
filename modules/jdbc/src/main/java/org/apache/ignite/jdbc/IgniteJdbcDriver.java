@@ -164,7 +164,10 @@ public class IgniteJdbcDriver implements Driver {
 
     /**
      * Tracker of the latest time observed by client.
-     * 
+     *
+     * <p>All connections created by this driver use the same tracker.
+     * This is done so that read-only transactions from different connections can observe changes made in other connections,
+     * which in turn ensures visibility of changes when working through the jdbc connection pool.
      */
     private final HybridTimestampTracker observableTimeTracker = HybridTimestampTracker.atomicTracker(null);
 
