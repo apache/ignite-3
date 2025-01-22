@@ -112,7 +112,6 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
