@@ -41,7 +41,7 @@ import org.junit.jupiter.api.BeforeEach;
  * Base class for client tests.
  */
 public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
-    protected static final String DEFAULT_TABLE = "default_test_table";
+    protected static final String DEFAULT_TABLE = "DEFAULT_TEST_TABLE";
 
     protected static TestServer testServer;
 

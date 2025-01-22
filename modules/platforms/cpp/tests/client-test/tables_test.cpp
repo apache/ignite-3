@@ -45,7 +45,7 @@ TEST_F(tables_test, tables_get_table) {
 
     auto table = tables.get_table("tbl1");
     ASSERT_TRUE(table.has_value());
-    EXPECT_EQ(table->get_name(), "tbl1");
+    EXPECT_EQ(table->get_name(), "TBL1");
 }
 
 TEST_F(tables_test, tables_get_table_async_promises) {
@@ -70,7 +70,7 @@ TEST_F(tables_test, tables_get_table_async_promises) {
 
     auto table = tablePromise->get_future().get();
     ASSERT_TRUE(table.has_value());
-    EXPECT_EQ(table->get_name(), "tbl1");
+    EXPECT_EQ(table->get_name(), "TBL1");
 }
 
 TEST_F(tables_test, tables_get_table_async_callbacks) {
@@ -113,7 +113,7 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
                 operation2->set_exception(std::make_exception_ptr(ignite_error("Table should not be null")));
                 return;
             }
-            if (table->get_name() != "tbl1") {
+            if (table->get_name() != "TBL1") {
                 operation2->set_exception(
                     std::make_exception_ptr(ignite_error("Table has unexpected name: " + table->get_name())));
                 return;

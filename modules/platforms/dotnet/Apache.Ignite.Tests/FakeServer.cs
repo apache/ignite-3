@@ -241,6 +241,7 @@ namespace Apache.Ignite.Tests
                         {
                             using var arrayBufferWriter = new PooledArrayBuffer();
                             arrayBufferWriter.MessageWriter.Write(tableId);
+                            arrayBufferWriter.MessageWriter.Write(tableName);
 
                             Send(handler, requestId, arrayBufferWriter);
 
