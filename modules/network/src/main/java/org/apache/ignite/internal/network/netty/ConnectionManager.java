@@ -140,9 +140,6 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider descriptorProvider = new DefaultRecoveryDescriptorProvider();
 
-    /** Network Configuration. */
-    private final NetworkView networkConfiguration;
-
     /** Thread pool used for connection management tasks (like disposing recovery descriptors on node left or on stop). */
     private final ExecutorService connectionMaintenanceExecutor;
 
@@ -151,10 +148,7 @@ public class ConnectionManager implements ChannelCreationListener {
 
     private final ChannelTypeRegistry channelTypeRegistry;
 
-    /** {@code null} if ssl is not {@link SslConfigurationSchema#enabled}. */
-    private final @Nullable SslContext serverSslContext;
-
-    /** {@code null} if ssl is not {@link SslConfigurationSchema#enabled}. */
+    /** {@code null} if SSL is not {@link SslConfigurationSchema#enabled}. */
     private final @Nullable SslContext clientSslContext;
 
     /**
@@ -222,19 +216,12 @@ public class ConnectionManager implements ChannelCreationListener {
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
-        this.networkConfiguration = networkConfiguration;
         this.failureManager = failureManager;
         this.channelTypeRegistry = channelTypeRegistry;
 
         SslView ssl = networkConfiguration.ssl();
 
-        if (ssl.enabled()) {
-            serverSslContext = SslContextProvider.createServerSslContext(ssl);
-            clientSslContext = SslContextProvider.createClientSslContext(ssl);
-        } else {
-            serverSslContext = null;
-            clientSslContext = null;
-        }
+        clientSslContext = ssl.enabled() ? SslContextProvider.createClientSslContext(ssl) : null;
 
         this.server = new NettyServer(
                 networkConfiguration,
@@ -242,7 +229,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 this::onMessage,
                 serializationService,
                 bootstrapFactory,
-                serverSslContext
+                ssl.enabled() ? SslContextProvider.createServerSslContext(ssl) : null
         );
 
         this.clientBootstrap = bootstrapFactory.createClientBootstrap();
@@ -458,7 +445,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 serializationService,
                 createClientHandshakeManager(channelType.id()),
                 this::onMessage,
-                this.networkConfiguration.ssl()
+                clientSslContext
         );
 
         client.start(clientBootstrap).whenComplete((sender, throwable) -> {

@@ -84,7 +84,7 @@ public class NettyServer {
     /** Flag indicating if {@link #stop()} has been called. */
     private boolean stopped;
 
-    /** {@code null} if ssl is not {@link SslConfigurationSchema#enabled}. */
+    /** {@code null} if SSL is not {@link SslConfigurationSchema#enabled}. */
     private final @Nullable SslContext sslContext;
 
     /**
@@ -95,7 +95,7 @@ public class NettyServer {
      * @param messageListener Message listener.
      * @param serializationService Serialization service.
      * @param bootstrapFactory Netty bootstrap factory.
-     * @param sslContext Server SSL context, {@code null} if ssl is not {@link SslConfigurationSchema#enabled}.
+     * @param sslContext Server SSL context, {@code null} if SSL is not {@link SslConfigurationSchema#enabled}.
      */
     public NettyServer(
             NetworkView configuration,
