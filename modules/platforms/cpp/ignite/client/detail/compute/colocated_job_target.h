@@ -19,6 +19,7 @@
 
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/compute/job_target.h"
+#include "ignite/client/detail/compute/job_target_type.h"
 
 namespace ignite::detail {
 

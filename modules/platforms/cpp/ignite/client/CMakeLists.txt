@@ -21,6 +21,7 @@ set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
     ignite_client.cpp
+    compute/broadcast_job_target.cpp
     compute/compute.cpp
     compute/job_execution.cpp
     compute/job_target.cpp
@@ -51,6 +52,7 @@ set(PUBLIC_HEADERS
     ignite_logger.h
     type_mapping.h
     compute/broadcast_execution.h
+    compute/broadcast_job_target.h
     compute/compute.h
     compute/deployment_unit.h
     compute/job_descriptor.h

@@ -17,39 +17,44 @@
 
 #pragma once
 
-#include "ignite/client/compute/job_target.h"
-#include "ignite/client/detail/compute/job_target_type.h"
+#include "ignite/common/detail/config.h"
+#include "ignite/client/network/cluster_node.h"
 
-namespace ignite::detail {
+#include <set>
+#include <vector>
+
+namespace ignite {
 
 /**
- * Job target represented by a set of nodes.
+ * Job execution target.
  */
-class any_node_job_target : public job_target {
+class broadcast_job_target {
 public:
     // Default
-    any_node_job_target() = default;
+    broadcast_job_target() = default;
+    virtual ~broadcast_job_target() = default;
 
     /**
-     * Constructor.
+     * Create a single node job target.
      *
-     * @param nodes Nodes.
+     * @param val Node.
      */
-    explicit any_node_job_target(std::set<cluster_node> &&nodes)
-        : m_nodes(std::move(nodes)) {}
+    [[nodiscard]] IGNITE_API static std::shared_ptr<broadcast_job_target> node(cluster_node val);
 
     /**
-     * Get nodes.
+     * Create a multiple node job target.
      *
-     * @return Nodes.
+     * @param vals Nodes.
      */
-    [[nodiscard]] const std::set<cluster_node> &get_nodes() const { return m_nodes; }
+    [[nodiscard]] IGNITE_API static std::shared_ptr<broadcast_job_target> nodes(std::set<cluster_node> vals);
 
-    [[nodiscard]] job_target_type get_type() const override { return job_target_type::ANY_NODE; }
-
-private:
-    /** Nodes. */
-    std::set<cluster_node> m_nodes;
+    /**
+     * Create a multiple node job target.
+     *
+     * @param vals Nodes.
+     */
+    [[nodiscard]] IGNITE_API static std::shared_ptr<broadcast_job_target> nodes(const std::vector<cluster_node> &vals);
 };
 
-} // namespace ignite::detail
+
+} // namespace ignite

@@ -29,7 +29,6 @@
 #include <memory>
 #include <set>
 #include <utility>
-#include <vector>
 
 namespace ignite {
 
@@ -103,9 +102,9 @@ public:
 
 private:
     /**
-     * Constructor
+     * Constructor.
      *
-     * @param impl Implementation
+     * @param impl Implementation.
      */
     explicit compute(std::shared_ptr<detail::compute_impl> impl)
         : m_impl(std::move(impl)) {}
