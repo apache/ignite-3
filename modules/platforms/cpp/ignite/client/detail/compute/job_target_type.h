@@ -15,27 +15,17 @@
  * limitations under the License.
  */
 
-#include "ignite/client/detail/ignite_client_impl.h"
-#include "ignite/client/detail/utils.h"
+#pragma once
 
 namespace ignite::detail {
 
+/**
+ * Job target type.
+ */
+enum class job_target_type {
+    ANY_NODE,
 
-void ignite_client_impl::get_cluster_nodes_async(ignite_callback<std::vector<cluster_node>> callback) {
-    auto reader_func = [](protocol::reader &reader) -> std::vector<cluster_node> {
-        std::vector<cluster_node> nodes;
-        auto size = reader.read_int32();
-        nodes.reserve(std::size_t(size));
-
-        for (std::int32_t node_idx = 0; node_idx < size; ++node_idx) {
-            nodes.emplace_back(read_cluster_node(reader));
-        }
-
-        return nodes;
-    };
-
-    m_connection->perform_request_rd<std::vector<cluster_node>>(
-        protocol::client_operation::CLUSTER_GET_NODES, std::move(reader_func), std::move(callback));
-}
+    COLOCATED,
+};
 
 } // namespace ignite::detail
