@@ -17,47 +17,24 @@
 
 package org.apache.ignite.internal.jdbc.proto.event;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Result of commit/rollback command.
+ * An extension to JDBC request that provides the ability to update and read client observable time.
  */
-public class JdbcFinishTxResult extends Response {
-    /** Observable timestamp used only on server side. */
+abstract class JdbcObservableTimeAwareRequest {
+    /** Tracker of the latest time observed by client. */
     @SuppressWarnings("TransientFieldInNonSerializableClass")
-    private final transient @Nullable HybridTimestamp observableTime;
+    private transient @Nullable HybridTimestampTracker timestampTracker;
 
-    /**
-     * Default constructor is used for deserialization.
-     */
-    public JdbcFinishTxResult() {
-        this.observableTime = null;
+    /** Returns the tracker of the latest time observed by client. */
+    public @Nullable HybridTimestampTracker timestampTracker() {
+        return timestampTracker;
     }
 
-    /**
-     * Constructor.
-     */
-    public JdbcFinishTxResult(@Nullable HybridTimestamp observableTime) {
-        this.observableTime = observableTime;
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param status Status code.
-     * @param err    Error message.
-     */
-    public JdbcFinishTxResult(int status, String err) {
-        super(status, err);
-
-        this.observableTime = null;
-    }
-
-    /**
-     * Returns transaction observable time.
-     */
-    public @Nullable HybridTimestamp observableTime() {
-        return observableTime;
+    /** Sets the tracker of the latest time observed by client. */
+    public void timestampTracker(HybridTimestampTracker tracker) {
+        this.timestampTracker = tracker;
     }
 }
