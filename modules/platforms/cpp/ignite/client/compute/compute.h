@@ -22,7 +22,6 @@
 #include "ignite/client/compute/job_execution.h"
 #include "ignite/client/compute/job_target.h"
 #include "ignite/client/network/cluster_node.h"
-#include "ignite/client/table/ignite_tuple.h"
 #include "ignite/common/binary_object.h"
 #include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
@@ -49,34 +48,33 @@ public:
     compute() = delete;
 
     /**
-     * Submits for execution a compute job represented by the given class for an execution on one of the specified
-     * nodes.
+     * Submits for execution a compute job represented by the given class for an execution on the specified target.
      *
-     * @param nodes Nodes to use for the job execution.
+     * @param target Job target.
      * @param descriptor Descriptor.
      * @param arg Job argument.
      * @param callback A callback called on operation completion with job execution result.
      */
-    IGNITE_API void submit_async(const std::vector<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
+    IGNITE_API void submit_async(std::shared_ptr<job_target> target, std::shared_ptr<job_descriptor> descriptor,
         const binary_object &arg, ignite_callback<job_execution> callback);
 
     /**
-     * Submits for execution a compute job represented by the given class on one of the specified nodes.
+     * Submits for execution a compute job represented by the given class on the specified target.
      *
-     * @param nodes Nodes to use for the job execution.
+     * @param target Job target.
      * @param descriptor Descriptor.
      * @param arg Job argument.
      * @return Job execution result.
      */
-    IGNITE_API job_execution submit(const std::vector<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
+    IGNITE_API job_execution submit(std::shared_ptr<job_target> target, std::shared_ptr<job_descriptor> descriptor,
         const binary_object &arg) {
         return sync<job_execution>([&](auto callback) mutable {
-            submit_async(nodes, descriptor, arg, std::move(callback));
+            submit_async(std::move(target), descriptor, arg, std::move(callback));
         });
     }
 
     /**
-     * Broadcast a compute job represented by the given class for an execution on all of the specified nodes.
+     * Broadcast a compute job represented by the given class for an execution on all the specified nodes.
      *
      * @param nodes Nodes to use for the job execution.
      * @param descriptor Descriptor.
@@ -100,35 +98,6 @@ public:
         const binary_object &arg) {
         return sync<broadcast_execution>([&](auto callback) mutable {
             submit_broadcast_async(nodes, descriptor, arg, std::move(callback));
-        });
-    }
-
-    /**
-     * Asynchronously executes a job represented by the given class on one node where the given key is located.
-     *
-     * @param table_name Name of the table to be used with @c key to determine target node.
-     * @param key Table key to be used to determine the target node for job execution.
-     * @param descriptor Descriptor.
-     * @param arg Job argument.
-     * @param callback A callback called on operation completion with job execution result.
-     */
-    IGNITE_API void submit_colocated_async(std::string_view table_name, const ignite_tuple &key,
-        std::shared_ptr<job_descriptor> descriptor, const binary_object &arg,
-        ignite_callback<job_execution> callback);
-
-    /**
-     * Synchronously executes a job represented by the given class on one node where the given key is located.
-     *
-     * @param table_name Name of the table to be used with @c key to determine target node.
-     * @param key Table key to be used to determine the target node for job execution.
-     * @param descriptor Descriptor.
-     * @param arg Job argument.
-     * @return Job execution result.
-     */
-    IGNITE_API job_execution submit_colocated(std::string_view table_name, const ignite_tuple &key,
-        std::shared_ptr<job_descriptor> descriptor, const binary_object &arg) {
-        return sync<job_execution>([&](auto callback) mutable {
-            submit_colocated_async(table_name, key, descriptor, arg, std::move(callback));
         });
     }
 

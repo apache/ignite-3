@@ -17,38 +17,15 @@
 
 #pragma once
 
-#include "ignite/client/compute/job_target.h"
-
 namespace ignite::detail {
 
 /**
- * Job target represented by a set of nodes.
+ * Job target type.
  */
-class any_node_job_target : public job_target {
-public:
-    // Default
-    any_node_job_target() = default;
+enum class job_target_type {
+    ANY_NODE,
 
-    /**
-     * Constructor.
-     *
-     * @param nodes Nodes.
-     */
-    explicit any_node_job_target(std::set<cluster_node> &&nodes)
-        : m_nodes(std::move(nodes)) {}
-
-    /**
-     * Get nodes.
-     *
-     * @return Nodes.
-     */
-    [[nodiscard]] const std::set<cluster_node> &get_nodes() const { return m_nodes; }
-
-    [[nodiscard]] job_target_type get_type() const override { return job_target_type::ANY_NODE; }
-
-private:
-    /** Nodes. */
-    std::set<cluster_node> m_nodes;
+    COLOCATED,
 };
 
 } // namespace ignite::detail

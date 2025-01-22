@@ -17,35 +17,48 @@
 
 #pragma once
 
+#include "ignite/common/detail/config.h"
 #include "ignite/client/network/cluster_node.h"
+#include "ignite/client/detail/compute/job_target_type.h"
 
 #include <set>
+#include <vector>
 
 namespace ignite {
 class ignite_tuple;
+class compute;
+class job_target;
 
 /**
- * Broadcast execution control object, provides information about the broadcast execution process and result.
+ * Job execution target.
  */
 class job_target {
+    friend class compute;
 public:
     // Default
     job_target() = default;
-    ~job_target() = default;
+    virtual ~job_target() = default;
 
     /**
      * Create a single node job target.
      *
      * @param node Node.
      */
-    [[nodiscard]] static std::shared_ptr<job_target> node(cluster_node node);
+    [[nodiscard]] IGNITE_API static std::shared_ptr<job_target> node(cluster_node node);
 
     /**
      * Create a multiple node job target.
      *
      * @param nodes Nodes.
      */
-    [[nodiscard]] static std::shared_ptr<job_target> any_node(std::set<cluster_node> nodes);
+    [[nodiscard]] IGNITE_API static std::shared_ptr<job_target> any_node(std::set<cluster_node> nodes);
+
+    /**
+     * Create a multiple node job target.
+     *
+     * @param nodes Nodes.
+     */
+    [[nodiscard]] IGNITE_API static std::shared_ptr<job_target> any_node(const std::vector<cluster_node> &nodes);
 
     /**
      * Creates a colocated job target for a specific table and key.
@@ -53,7 +66,16 @@ public:
      * @param table_name Table name.
      * @param key Key.
      */
-    [[nodiscard]] static std::shared_ptr<job_target> colocated(std::string_view table_name, const ignite_tuple &key);
+    [[nodiscard]] IGNITE_API static std::shared_ptr<job_target> colocated(std::string_view table_name, const ignite_tuple &key);
+
+protected:
+    /**
+     * Get the job type.
+     *
+     * @return Job type.
+     */
+    [[nodiscard]] virtual detail::job_target_type get_type() const = 0;
 };
+
 
 } // namespace ignite

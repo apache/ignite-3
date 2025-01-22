@@ -54,6 +54,8 @@ public:
      */
     [[nodiscard]] const ignite_tuple & get_key() const { return m_key; }
 
+    [[nodiscard]] job_target_type get_type() const override { return job_target_type::COLOCATED; }
+
 private:
     /** Table name. */
     std::string m_table_name;
@@ -62,4 +64,4 @@ private:
     ignite_tuple m_key;
 };
 
-} // namespace ignite
+} // namespace ignite::detail

@@ -16,17 +16,37 @@
  */
 
 #include "ignite/client/compute/compute.h"
+
 #include "ignite/client/detail/argument_check_utils.h"
+#include <ignite/client/detail/compute/any_node_job_target.h>
+#include <ignite/client/detail/compute/colocated_job_target.h>
 #include "ignite/client/detail/compute/compute_impl.h"
 
 namespace ignite {
 
-void compute::submit_async(const std::vector<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
+void compute::submit_async(std::shared_ptr<job_target> target, std::shared_ptr<job_descriptor> descriptor,
     const binary_object &arg, ignite_callback<job_execution> callback) {
-    detail::arg_check::container_non_empty(nodes, "Nodes container");
+    detail::arg_check::pointer_valid(target, "Target");
     detail::arg_check::container_non_empty(descriptor->get_job_class_name(), "Job class name");
 
-    m_impl->submit_to_nodes(nodes, descriptor, arg, std::move(callback));
+    switch (target->get_type()) {
+        case detail::job_target_type::ANY_NODE: {
+            auto any_node_target = static_cast<detail::any_node_job_target*>(target.get());
+            m_impl->submit_to_nodes(any_node_target->get_nodes(), descriptor, arg, std::move(callback));
+            break;
+        }
+
+        case detail::job_target_type::COLOCATED: {
+            auto colocated_target = static_cast<detail::colocated_job_target*>(target.get());
+            m_impl->submit_colocated_async(*colocated_target, descriptor, arg, std::move(callback));
+            break;
+        }
+
+        default: {
+            assert(false);
+        }
+    }
+
 }
 
 void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
@@ -49,7 +69,7 @@ void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, std::s
     auto shared_res = std::make_shared<result_group>(std::int32_t(nodes.size()), std::move(callback));
 
     for (const auto &node : nodes) {
-        std::vector<cluster_node> candidates = {node};
+        std::set<cluster_node> candidates = {node};
         m_impl->submit_to_nodes(candidates, descriptor, arg, [node, shared_res](auto &&res) {
             auto &val = *shared_res;
 
@@ -60,16 +80,6 @@ void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, std::s
                 val.m_callback(broadcast_execution(std::move(val.m_res_vector)));
         });
     }
-}
-
-void compute::submit_colocated_async(std::string_view table_name, const ignite_tuple &key,
-    std::shared_ptr<job_descriptor> descriptor, const binary_object &arg, ignite_callback<job_execution> callback) {
-    detail::arg_check::container_non_empty(table_name, "Table name");
-    detail::arg_check::tuple_non_empty(key, "Key tuple");
-    detail::arg_check::container_non_empty(descriptor->get_job_class_name(), "Job class name");
-
-    m_impl->submit_colocated_async(
-        std::string(table_name), key, descriptor, arg, std::move(callback));
 }
 
 } // namespace ignite

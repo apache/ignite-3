@@ -16,6 +16,8 @@
  */
 
 #include "ignite/client/detail/compute/compute_impl.h"
+
+#include "colocated_job_target.h"
 #include "ignite/client/detail/argument_check_utils.h"
 #include "ignite/client/detail/compute/job_execution_impl.h"
 #include "ignite/client/detail/utils.h"
@@ -275,7 +277,7 @@ private:
     std::shared_ptr<job_execution_impl> m_execution{};
 };
 
-void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
+void compute_impl::submit_to_nodes(const std::set<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
     const binary_object &arg, ignite_callback<job_execution> callback) {
 
     auto writer_func = [&nodes, &descriptor, arg](protocol::writer &writer) {
@@ -299,25 +301,24 @@ void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, std::
         protocol::client_operation::COMPUTE_EXECUTE, nullptr, writer_func, std::move(handler));
 }
 
-void compute_impl::submit_colocated_async(const std::string &table_name, const ignite_tuple &key,
-    std::shared_ptr<job_descriptor> descriptor, const binary_object &arg,
-    ignite_callback<job_execution> callback) {
+void compute_impl::submit_colocated_async(const colocated_job_target &target,
+    std::shared_ptr<job_descriptor> descriptor, const binary_object &arg, ignite_callback<job_execution> callback) {
     auto self = shared_from_this();
     auto conn = m_connection;
-    auto on_table_get = [self, table_name, key, descriptor, arg, conn, callback](auto &&res) mutable {
+    auto on_table_get = [self, target, descriptor, arg, conn, callback](auto &&res) mutable {
         if (res.has_error()) {
             callback({std::move(res.error())});
             return;
         }
         auto &table_opt = res.value();
         if (!table_opt) {
-            callback({ignite_error("Table does not exist: '" + table_name + "'")});
+            callback({ignite_error("Table does not exist: '" + target.get_table_name() + "'")});
             return;
         }
 
         auto table = table_impl::from_facade(*table_opt);
         table->template with_proper_schema_async<job_execution>(
-            callback, [self, table, key, descriptor, arg, conn](const schema &sch, auto callback) mutable {
+            callback, [self, table, key = target.get_key(), descriptor, arg, conn](const schema &sch, auto callback) mutable {
                 auto writer_func = [&key, &descriptor, &sch, &table, &arg](protocol::writer &writer) {
                     writer.write(table->get_id());
                     writer.write(sch.version);
@@ -338,7 +339,7 @@ void compute_impl::submit_colocated_async(const std::string &table_name, const i
             });
     };
 
-    m_tables->get_table_async(table_name, std::move(on_table_get));
+    m_tables->get_table_async(target.get_table_name(), std::move(on_table_get));
 }
 
 void compute_impl::get_state_async(uuid id, ignite_callback<std::optional<job_state>> callback) {
