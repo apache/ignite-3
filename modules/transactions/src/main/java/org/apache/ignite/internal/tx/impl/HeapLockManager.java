@@ -77,9 +77,6 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Additionally limits the lock map size.
  */
 public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventParameters> implements LockManager {
-    /** Table size. TODO make it configurable IGNITE-20694 */
-    private static final int SLOTS = 1_048_576;
-
     /** Table size. */
     public static final int DEFAULT_SLOTS = 1_048_576;
 
