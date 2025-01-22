@@ -54,6 +54,7 @@ public class ClientTableGetRequest {
     }
 
     private static String quoteTableNameIfNotAllUpper(String name) {
+        // TODO: IGNITE-24029 use QualifiedName.
         for (int i = 0; i < name.length(); i++) {
             char ch = name.charAt(i);
 
