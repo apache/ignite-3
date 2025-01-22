@@ -67,14 +67,14 @@ public:
      *
      * @return Job ID.
      */
-    [[nodiscard]] uuid get_id() const;
+    [[nodiscard]] IGNITE_API uuid get_id() const;
 
     /**
      * Gets the cluster node.
      *
      * @return Cluster node.
      */
-    [[nodiscard]] const cluster_node &get_node() const;
+    [[nodiscard]] IGNITE_API const cluster_node &get_node() const;
 
     /**
      * Gets the job execution state asynchronously. Can be @c nullopt if the job state no longer exists due to

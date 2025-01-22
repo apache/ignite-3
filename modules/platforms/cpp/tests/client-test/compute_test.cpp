@@ -176,10 +176,14 @@ TEST_F(compute_test, execute_broadcast_all_nodes) {
 
     ASSERT_EQ(execs.size(), 4);
 
-    EXPECT_EQ(execs[0].value().get_result()->get_primitive(), get_node(0).get_name() + "42");
-    EXPECT_EQ(execs[1].value().get_result()->get_primitive(), get_node(1).get_name() + "42");
-    EXPECT_EQ(execs[2].value().get_result()->get_primitive(), get_node(2).get_name() + "42");
-    EXPECT_EQ(execs[3].value().get_result()->get_primitive(), get_node(3).get_name() + "42");
+    std::sort(execs.begin(), execs.end(), [] (auto &n1, auto &n2) {
+        return n1.value().get_node().get_name() < n2.value().get_node().get_name();
+    });
+
+    EXPECT_EQ(execs[0].value().get_result()->get_primitive().get<std::string>(), get_node(0).get_name() + "42");
+    EXPECT_EQ(execs[1].value().get_result()->get_primitive().get<std::string>(), get_node(1).get_name() + "42");
+    EXPECT_EQ(execs[2].value().get_result()->get_primitive().get<std::string>(), get_node(2).get_name() + "42");
+    EXPECT_EQ(execs[3].value().get_result()->get_primitive().get<std::string>(), get_node(3).get_name() + "42");
 }
 
 TEST_F(compute_test, job_error_propagates_to_client) {

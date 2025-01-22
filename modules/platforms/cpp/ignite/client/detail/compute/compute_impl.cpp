@@ -173,7 +173,7 @@ void write_units(protocol::writer &writer, const std::vector<deployment_unit> &u
 }
 
 /**
- * Response handler implementation for a compute.
+ * Response handler implementation for a job compute.
  */
 class response_handler_compute final : public response_handler_adapter<job_execution> {
 public:
@@ -183,7 +183,9 @@ public:
     /**
      * Constructor.
      *
+     * @param compute Compute interface.
      * @param callback Callback.
+     * @param skip_schema Indicates whether we should skip schema on read.
      */
     explicit response_handler_compute(
         const std::shared_ptr<compute_impl> &compute, ignite_callback<job_execution> callback, bool skip_schema)
@@ -210,6 +212,29 @@ public:
     }
 
     /**
+     * Processes a job execution result, submitting it to job_execution.
+     *
+     * @return Operation result.
+     */
+    ignite_result<void> process_job_result() {
+        assert(m_result_received);
+
+        this->m_handling_complete = true;
+        if (m_read_result.has_error()) {
+            m_execution->set_error(m_read_result.error());
+
+            return m_read_result;
+        }
+
+        auto handle_res = result_of_operation<void>([&]() {
+            m_execution->set_result(m_execution_result);
+            m_execution->set_final_state(m_final_state);
+        });
+
+        return handle_res;
+    }
+
+    /**
      * Handle response.
      *
      * @param msg Message.
@@ -231,39 +256,24 @@ public:
             });
 
             auto handle_res = result_of_operation<void>([&]() { this->m_callback(std::move(read_res)); });
-            if (read_res.has_error()) {
-                return ignite_result<void>{std::move(read_res).error()};
+            if (handle_res.has_error() || !m_result_received) {
+                return handle_res;
             }
 
-            return handle_res;
+            return process_job_result();
         }
 
-        this->m_handling_complete = true;
-
-        std::optional<primitive> res{};
-        job_state state;
-
-        auto read_res = result_of_operation<void>([&]() {
-            res = unpack_compute_result(reader);
-            state = read_job_state(reader);
+        m_read_result = result_of_operation<void>([&]() {
+            m_execution_result = unpack_compute_result(reader);
+            m_final_state = read_job_state(reader);
+            m_result_received = true;
         });
 
         if (!m_execution) {
-            return ignite_result<void>{ignite_error{"Job result notification received before response"}};
+            return {};
         }
 
-        if (read_res.has_error()) {
-            m_execution->set_error(read_res.error());
-
-            return read_res;
-        }
-
-        auto handle_res = result_of_operation<void>([&]() {
-            m_execution->set_result(res);
-            m_execution->set_final_state(state);
-        });
-
-        return handle_res;
+        return process_job_result();
     }
 
 private:
@@ -275,6 +285,18 @@ private:
 
     /** Execution. */
     std::shared_ptr<job_execution_impl> m_execution{};
+
+    /** Indicates that we've already got a result notification. */
+    bool m_result_received{false};
+
+    /** Execution read result. */
+    ignite_result<void> m_read_result{};
+
+    /** Execution result. */
+    std::optional<primitive> m_execution_result{};
+
+    /** Final job stat. */
+    job_state m_final_state;
 };
 
 void compute_impl::submit_to_nodes(const std::set<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
