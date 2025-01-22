@@ -173,6 +173,8 @@ public class DistributionZoneManager extends
      */
     private final Map<Integer, ZoneState> zonesState = new ConcurrentHashMap<>();
 
+    private DataNodesManager dataNodesManager;
+
     /** Listener for a topology events. */
     private final LogicalTopologyEventListener topologyEventListener = new LogicalTopologyEventListener() {
         @Override
@@ -361,11 +363,29 @@ public class DistributionZoneManager extends
      * @return The future with data nodes for the zoneId.
      */
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
-        return causalityDataNodesEngine.dataNodes(causalityToken, catalogVersion, zoneId);
+        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
+
+        return dataNodesManager.dataNodes(zoneId, timestamp);
     }
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
-        int zoneId = parameters.zoneDescriptor().id();
+        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(parameters.causalityToken());
+        Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), parameters.causalityToken());
+
+        if (topologyEntry != null) {
+            Set<NodeWithAttributes> logicalTopology = deserializeLogicalTopologySet(topologyEntry.value());
+
+            dataNodesManager.onAutoAdjustAlteration(
+                    parameters.zoneDescriptor(),
+                    timestamp,
+                    // TODO probably previous descriptor should be passed in the event parameters
+                    0,
+                    0,
+                    logicalTopology
+            );
+        }
+
+        /*int zoneId = parameters.zoneDescriptor().id();
 
         int newScaleUp = parameters.zoneDescriptor().dataNodesAutoAdjustScaleUp();
 
@@ -397,7 +417,7 @@ public class DistributionZoneManager extends
             zoneState.stopScaleUp();
         }
 
-        return nullCompletedFuture();
+        return nullCompletedFuture();*/
     }
 
     private void onUpdatePartitionDistributionResetBusy(
@@ -455,7 +475,23 @@ public class DistributionZoneManager extends
     }
 
     private CompletableFuture<Void> onUpdateScaleDownBusy(AlterZoneEventParameters parameters) {
-        int zoneId = parameters.zoneDescriptor().id();
+        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(parameters.causalityToken());
+        Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), parameters.causalityToken());
+
+        if (topologyEntry != null) {
+            Set<NodeWithAttributes> logicalTopology = deserializeLogicalTopologySet(topologyEntry.value());
+
+            dataNodesManager.onAutoAdjustAlteration(
+                    parameters.zoneDescriptor(),
+                    timestamp,
+                    // TODO probably previous descriptor should be passed in the event parameters
+                    0,
+                    0,
+                    logicalTopology
+            );
+        }
+
+        /*int zoneId = parameters.zoneDescriptor().id();
 
         int newScaleDown = parameters.zoneDescriptor().dataNodesAutoAdjustScaleDown();
 
@@ -487,15 +523,24 @@ public class DistributionZoneManager extends
             zoneState.stopScaleDown();
         }
 
-        return nullCompletedFuture();
+        return nullCompletedFuture();*/
     }
 
     private CompletableFuture<Void> onUpdateFilter(AlterZoneEventParameters parameters) {
-        int zoneId = parameters.zoneDescriptor().id();
+        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(parameters.causalityToken());
+
+        Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), parameters.causalityToken());
+
+        if (topologyEntry != null) {
+            Set<NodeWithAttributes> logicalTopology = deserializeLogicalTopologySet(topologyEntry.value());
+
+            dataNodesManager.onZoneFilterChange(parameters.zoneDescriptor(), timestamp, logicalTopology);
+        }
+        /*int zoneId = parameters.zoneDescriptor().id();
 
         long causalityToken = parameters.causalityToken();
 
-        return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken);
+        return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken);*/
     }
 
     /**
@@ -872,7 +917,14 @@ public class DistributionZoneManager extends
         int catalogVersion = catalogManager.activeCatalogVersion(timestamp.longValue());
 
         for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
-            futures.add(scheduleTimers(zone, !addedNodes.isEmpty(), !removedNodes.isEmpty(), timestamp));
+            CompletableFuture<Void> f = dataNodesManager.onTopologyChangeZoneHandler(
+                    zone,
+                    timestamp,
+                    oldLogicalTopology,
+                    newLogicalTopology
+            );
+
+            futures.add(f);
 
             zoneIds.add(zone.id());
         }
@@ -1018,220 +1070,6 @@ public class DistributionZoneManager extends
         }
 
         return allOf(futures.toArray(CompletableFuture[]::new));
-    }
-
-    private CompletableFuture<Void> calculateTimersAndDataNodes(
-            HybridTimestamp timestamp,
-            Set<NodeWithAttributes> oldLogicalTopology,
-            Set<NodeWithAttributes> newLogicalTopology,
-            NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> dataNodesHistory,
-            DistributionZoneTimer scaleUpTimer,
-            DistributionZoneTimer scaleDownTimer,
-            Integer oldScaleUpAutoAdjust,
-            Integer oldScaleDownAutoAdjust,
-            Integer newScaleUpAutoAdjust,
-            Integer newScaleDownAutoAdjust,
-            CatalogZoneDescriptor zoneDescriptor
-    ) {
-        NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> dataNodesChangesHistory = new TreeMap<>();
-        Map.Entry<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodesEntry = dataNodesHistory.floorEntry(timestamp);
-
-        Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes = currentDataNodes(
-                timestamp,
-                currentDataNodesEntry,
-                oldLogicalTopology,
-                scaleUpTimer,
-                scaleDownTimer,
-                zoneDescriptor
-        );
-
-        Set<NodeWithAttributes> filteredNewTopology = filterDataNodes(newLogicalTopology, zoneDescriptor);
-
-        Set<NodeWithAttributes> addedNodes = filteredNewTopology.stream()
-                .filter(node -> !currentDataNodes.contains(node))
-                .collect(toSet());
-
-        Set<NodeWithAttributes> removedNodes = currentDataNodes.stream()
-                .filter(node -> !newLogicalTopology.contains(node))
-                .collect(toSet());
-
-        if ((!addedNodes.isEmpty() || !removedNodes.isEmpty()) && zoneDescriptor.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE) {
-            // TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
-            throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
-        } else {
-            int zoneId = zoneDescriptor.id();
-            int partitionResetDelay = partitionDistributionResetTimeoutConfiguration.currentValue();
-
-            if (!addedNodes.isEmpty()) {
-                if (zoneDescriptor.dataNodesAutoAdjustScaleUp() != INFINITE_TIMER_VALUE) {
-                    renewScaleUpTimer(zoneId, timestamp, zoneDescriptor.dataNodesAutoAdjustScaleUp(), currentDataNodes, addedNodes);
-
-                    zonesState.get(zoneId).rescheduleScaleUp(
-                            zoneDescriptor.dataNodesAutoAdjustScaleUp(),
-                            () -> renewDataNodesInMetaStorage(zoneId, timestamp),
-                            zoneId
-                    );
-                }
-            }
-
-            if (!removedNodes.isEmpty()) {
-                if (zoneDescriptor.consistencyMode() == HIGH_AVAILABILITY) {
-                    if (partitionResetDelay != INFINITE_TIMER_VALUE) {
-                        zonesState.get(zoneId).reschedulePartitionDistributionReset(
-                                partitionResetDelay,
-                                () -> fireTopologyReduceLocalEvent(timestamp, zoneId),
-                                zoneId
-                        );
-                    }
-                }
-
-                if (zoneDescriptor.dataNodesAutoAdjustScaleDown() != INFINITE_TIMER_VALUE) {
-                    zonesState.get(zoneId).rescheduleScaleDown(
-                            zoneDescriptor.dataNodesAutoAdjustScaleDown(),
-                            () -> renewDataNodesInMetaStorage(zoneId, timestamp),
-                            zoneId
-                    );
-                }
-            }
-        }
-
-
-
-
-
-
-        if (zoneDescriptor.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE
-                && zoneDescriptor.dataNodesAutoAdjustScaleUp() != INFINITE_TIMER_VALUE) {
-            DistributionZoneTimer newScaleUpTimer = new DistributionZoneTimer(timestamp.addPhysicalTime())
-        }
-
-        scheduleTimers(
-                zoneDescriptor,
-                addedNodes,
-                removedNodes,
-                timestamp,
-                oldLogicalTopology,
-                currentDataNodesEntry,
-                scaleUpTimer,
-                scaleDownTimer,
-                dataNodesChangesHistory
-        );
-
-        if (currentDataNodesEntry == null) {
-            newDataNodes = oldLogicalTopology;
-        } else {
-            newDataNodes = currentDataNodesEntry.getValue();
-        }
-
-        Set<NodeWithAttributes> nodesToRemove;
-
-        if (scaleDownTimer.timestamp <= timestamp) {
-            newDataNodes.removeAll(scaleDownTimer.nodes);
-            nodesToRemove = new HashSet<>();
-        } else {
-            nodesToRemove = scaleDownTimer.nodes;
-        }
-
-        nodesToRemove.addAll(removedNodes);
-
-        Set<NodeWithAttributes> nodesToAdd;
-
-        if (scaleUpTimer.timestamp <= timestamp) {
-            newDataNodes.addAll(scaleUpTimer.nodes);
-            nodesToAdd = new HashSet<>();
-        } else {
-            nodesToAdd = scaleUpTimer.nodes;
-        }
-
-        nodesToAdd.addAll(addedNodes);
-
-
-
-
-        dataNodesChangesHistory.put(scaleUpTimer.timestamp, scaleUpTimer.nodes);
-        dataNodesChangesHistory.put(scaleDownTimer.timestamp, scaleDownTimer.nodes);
-
-
-    }
-
-    private void renewScaleUpTimer(int zoneId, HybridTimestamp timestamp, int delay, Set<NodeWithAttributes> currentDataNodes,
-            Set<NodeWithAttributes> addedNodes) {
-        Set<NodeWithAttributes> dataNodesScaledUp = calculateDataNodesScaledUp(currentDataNodes, addedNodes, i);
-
-        renewScaleUpTimer(timestamp, dataNodesScaledUp);
-    }
-
-    private void renewScaleUpTimer(HybridTimestamp timestamp, Set<NodeWithAttributes> dataNodesScaledUp) {
-
-    }
-
-    private void renewScaleUpTimer(int zoneId, HybridTimestamp timestamp, int delay, Set<NodeWithAttributes> currentDataNodes,
-            Set<NodeWithAttributes> addedNodes) {
-        Set<NodeWithAttributes> dataNodesScaledUp = calculateDataNodesScaledDown(currentDataNodes, addedNodes, i);
-
-        renewScaleUpTimer(timestamp, dataNodesScaledUp);
-    }
-
-    private void renewScaleDownTimer(HybridTimestamp timestamp, Set<NodeWithAttributes> dataNodesScaledUp) {
-
-    }
-
-    private Set<NodeWithAttributes> calculateDataNodesScaledUp(Set<NodeWithAttributes> currentDataNodes, Set<NodeWithAttributes> addedNodes, int i) {
-    }
-
-    private Set<NodeWithAttributes> calculateDataNodesScaledDown(Set<NodeWithAttributes> currentDataNodes, Set<NodeWithAttributes> addedNodes, int i) {
-    }
-
-    private void renewDataNodesInMetaStorage(int zoneId, HybridTimestamp timestamp) {
-
-    }
-
-    private static Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes(
-            HybridTimestamp timestamp,
-            @Nullable Map.Entry<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodesEntry,
-            Set<NodeWithAttributes> oldLogicalTopology,
-            DistributionZoneTimer scaleUpTimer,
-            DistributionZoneTimer scaleDownTimer,
-            CatalogZoneDescriptor zoneDescriptor
-    ) {
-        Set<NodeWithAttributes> currentDataNodes;
-        HybridTimestamp currentDataNodesTimestamp;
-
-        if (currentDataNodesEntry == null) {
-            currentDataNodesTimestamp = HybridTimestamp.MIN_VALUE;
-            currentDataNodes = filterDataNodes(oldLogicalTopology, zoneDescriptor);
-        } else {
-            currentDataNodesTimestamp = currentDataNodesEntry.getKey();
-            currentDataNodes = currentDataNodesEntry.getValue();
-        }
-
-        long cdnt = currentDataNodesEntry == null ? HybridTimestamp.MIN_VALUE.longValue() : currentDataNodesEntry.getKey().longValue();
-        long sutt = scaleUpTimer.timestamp.longValue();
-        long sdtt = scaleDownTimer.timestamp.longValue();
-        long timestampLong = timestamp.longValue();
-
-        if (sutt > cdnt && sutt <= timestampLong) {
-            currentDataNodesTimestamp = scaleUpTimer.timestamp;
-            currentDataNodes = scaleUpTimer.nodes;
-        }
-
-        if (sdtt > cdnt && sdtt > sutt && sdtt <= timestampLong) {
-            currentDataNodesTimestamp = scaleDownTimer.timestamp;
-            currentDataNodes = scaleDownTimer.nodes;
-        }
-
-        return pair(currentDataNodesTimestamp, currentDataNodes);
-    }
-
-    private static class DistributionZoneTimer {
-        final HybridTimestamp timestamp;
-
-        final Set<NodeWithAttributes> nodes;
-
-        private DistributionZoneTimer(HybridTimestamp timestamp, Set<NodeWithAttributes> nodes) {
-            this.timestamp = timestamp;
-            this.nodes = nodes;
-        }
     }
 
     /**

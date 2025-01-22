@@ -4,6 +4,7 @@ import static java.util.Collections.emptySet;
 import static java.util.Optional.ofNullable;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.lang.Pair.pair;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
@@ -12,7 +13,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
-import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 
@@ -26,9 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -37,14 +34,16 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
 import org.jetbrains.annotations.Nullable;
 
-public class DataNodesManager implements LogicalTopologyEventListener {
+public class DataNodesManager {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DataNodesManager.class);
 
@@ -62,22 +61,7 @@ public class DataNodesManager implements LogicalTopologyEventListener {
         this.metaStorageManager = metaStorageManager;
     }
 
-    @Override
-    public void onNodeJoined(LogicalNode joinedNode, LogicalTopologySnapshot newTopology) {
-
-    }
-
-    @Override
-    public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
-
-    }
-
-    @Override
-    public void onTopologyLeap(LogicalTopologySnapshot newTopology) {
-
-    }
-
-    private CompletableFuture<Void> onTopologyChangeZoneHandler(
+    public CompletableFuture<Void> onTopologyChangeZoneHandler(
             CatalogZoneDescriptor zoneDescriptor,
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> oldLogicalTopology,
@@ -114,6 +98,13 @@ public class DataNodesManager implements LogicalTopologyEventListener {
                     .filter(node -> !newLogicalTopology.contains(node))
                     .collect(toSet());
 
+            if ((!addedNodes.isEmpty() || !removedNodes.isEmpty()) && zoneDescriptor.dataNodesAutoAdjust() != INFINITE_TIMER_VALUE) {
+                // TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
+                throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
+            }
+
+            // TODO deal with partition distribution reset
+
             DistributionZoneTimer newScaleUpTimer = new DistributionZoneTimer(
                     timestamp.addPhysicalTime(zoneDescriptor.dataNodesAutoAdjustScaleUp() * 1000L),
                     union(addedNodes, scaleUpTimer.timestamp.longValue() < timestamp.longValue() ? emptySet() : scaleUpTimer.nodes)
@@ -124,28 +115,25 @@ public class DataNodesManager implements LogicalTopologyEventListener {
                     union(removedNodes, scaleDownTimer.timestamp.longValue() < timestamp.longValue() ? emptySet() : scaleDownTimer.nodes)
             );
 
-            // TODO make new value for put
-            dataNodesHistory.history.put(timestamp, currentDataNodes.getSecond());
-
             return iif(
                     and(
-                            value(dataNodesHistoryKey(zoneId)).eq(DataNodesHistorySerializer.serialize(dataNodesHistory)),
+                            dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
                             and(
-                                    value(scaleUpTimerKey(zoneId)).eq(DistributionZoneTimerSerializer.serialize(scaleUpTimer)),
-                                    value(scaleDownTimerKey(zoneId)).eq(DistributionZoneTimerSerializer.serialize(scaleDownTimer))
+                                    timerEqualToOrNotExists(scaleUpTimerKey(zoneId), scaleUpTimer),
+                                    timerEqualToOrNotExists(scaleDownTimerKey(zoneId), scaleDownTimer)
                             )
                     ),
                     ops(
-                            put(dataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(dataNodesHistory)),
-                            put(scaleUpTimerKey(zoneId), DistributionZoneTimerSerializer.serialize(newScaleUpTimer)),
-                            put(scaleDownTimerKey(zoneId), DistributionZoneTimerSerializer.serialize(newScaleDownTimer))
+                            addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, currentDataNodes.getSecond()),
+                            renewTimer(scaleUpTimerKey(zoneId), newScaleUpTimer),
+                            renewTimer(scaleDownTimerKey(zoneId), newScaleDownTimer)
                     ).yield(true),
                     ops().yield(false)
             );
         });
     }
 
-    private CompletableFuture<Void> onZoneFilterChange(
+    public CompletableFuture<Void> onZoneFilterChange(
             CatalogZoneDescriptor zoneDescriptor,
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> logicalTopology
@@ -161,26 +149,20 @@ public class DataNodesManager implements LogicalTopologyEventListener {
 
             Set<NodeWithAttributes> dataNodes = filterDataNodes(logicalTopology, zoneDescriptor);
 
-            DataNodesHistory newHistory = new DataNodesHistory(new TreeMap<>(dataNodesHistory.history));
-
-            newHistory.history.put(timestamp, dataNodes);
-
             return iif(
-                    or(
-                            notExists(dataNodesHistoryKey(zoneId)),
-                            value(dataNodesHistoryKey(zoneId)).eq(DataNodesHistorySerializer.serialize(dataNodesHistory))
-                    ),
+                    dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
                     ops(
-                            put(dataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(dataNodesHistory)),
-                            put(scaleUpTimerKey(zoneId), DistributionZoneTimerSerializer.serialize(DEFAULT_TIMER)),
-                            put(scaleDownTimerKey(zoneId), DistributionZoneTimerSerializer.serialize(DEFAULT_TIMER))
+                            addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, dataNodes),
+                            clearTimer(scaleUpTimerKey(zoneId)),
+                            clearTimer(scaleDownTimerKey(zoneId)),
+                            clearTimer(resetTimerKey(zoneId))
                     ).yield(true),
                     ops().yield(false)
             );
         });
     }
 
-    private CompletableFuture<Void> onAutoAdjustAlteration(
+    public CompletableFuture<Void> onAutoAdjustAlteration(
             CatalogZoneDescriptor zoneDescriptor,
             HybridTimestamp timestamp,
             int oldAutoAdjustScaleUp,
@@ -224,22 +206,16 @@ public class DataNodesManager implements LogicalTopologyEventListener {
 
             return iif(
                     and(
-                            value(dataNodesHistoryKey(zoneId)).eq(DataNodesHistorySerializer.serialize(dataNodesHistory)),
+                            dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
                             and(
-                                    value(scaleUpTimerKey(zoneId)).eq(DistributionZoneTimerSerializer.serialize(scaleUpTimer)),
-                                    value(scaleDownTimerKey(zoneId)).eq(DistributionZoneTimerSerializer.serialize(scaleDownTimer))
+                                    timerEqualToOrNotExists(scaleUpTimerKey(zoneId), scaleUpTimer),
+                                    timerEqualToOrNotExists(scaleDownTimerKey(zoneId), scaleDownTimer)
                             )
                     ),
                     ops(
-                            put(dataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(dataNodesHistory)),
-                            put(
-                                    scaleUpTimerKey(zoneId),
-                                    newScaleUpTimer.timestamp.longValue() > timestamp.longValue() ? DistributionZoneTimerSerializer.serialize(newScaleUpTimer) : DEFAULT_TIMER
-                            ),
-                            put(
-                                    scaleDownTimerKey(zoneId),
-                                    newScaleDownTimer.timestamp.longValue() > timestamp.longValue() ? DistributionZoneTimerSerializer.serialize(newScaleDownTimer) : DEFAULT_TIMER
-                            )
+                            addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, currentDataNodes.getSecond()),
+                            renewTimerOrClearIfAlreadyApplied(scaleUpTimerKey(zoneId), timestamp, newScaleUpTimer),
+                            renewTimerOrClearIfAlreadyApplied(scaleDownTimerKey(zoneId), timestamp, newScaleDownTimer)
                     ).yield(true),
                     ops().yield(false)
             );
@@ -272,17 +248,14 @@ public class DataNodesManager implements LogicalTopologyEventListener {
                     zoneDescriptor
             );
 
-            DataNodesHistory newHistory = new DataNodesHistory(new TreeMap<>(dataNodesHistory.history));
-            newHistory.history.put(scaleUpTimer.timestamp, currentDataNodes.getSecond());
-
             return iif(
                     and(
-                            value(dataNodesHistoryKey(zoneId)).eq(DataNodesHistorySerializer.serialize(dataNodesHistory)),
-                            value(scaleUpTimerKey(zoneId)).eq(DistributionZoneTimerSerializer.serialize(scaleUpTimer0))
+                            dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
+                            timerEqualToOrNotExists(scaleUpTimerKey(zoneId), scaleUpTimer0)
                     ),
                     ops(
-                            put(dataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(newHistory)),
-                            put(scaleUpTimerKey(zoneId), DistributionZoneTimerSerializer.serialize(DEFAULT_TIMER))
+                            addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, scaleUpTimer.timestamp, currentDataNodes.getSecond()),
+                            clearTimer(scaleUpTimerKey(zoneId))
                     ).yield(true),
                     ops().yield(false)
             );
@@ -319,17 +292,14 @@ public class DataNodesManager implements LogicalTopologyEventListener {
                     zoneDescriptor
             );
 
-            DataNodesHistory newHistory = new DataNodesHistory(new TreeMap<>(dataNodesHistory.history));
-            newHistory.history.put(scaleDownTimer.timestamp, currentDataNodes.getSecond());
-
             return iif(
                     and(
-                            value(dataNodesHistoryKey(zoneId)).eq(DataNodesHistorySerializer.serialize(dataNodesHistory)),
-                            value(scaleDownTimerKey(zoneId)).eq(DistributionZoneTimerSerializer.serialize(scaleDownTimer0))
+                            dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
+                            timerEqualToOrNotExists(scaleDownTimerKey(zoneId), scaleDownTimer0)
                     ),
                     ops(
-                            put(dataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(newHistory)),
-                            put(scaleDownTimerKey(zoneId), DistributionZoneTimerSerializer.serialize(DEFAULT_TIMER))
+                            addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, scaleDownTimer.timestamp, currentDataNodes.getSecond()),
+                            clearTimer(scaleDownTimerKey(zoneId))
                     ).yield(true),
                     ops().yield(false)
             );
@@ -341,11 +311,11 @@ public class DataNodesManager implements LogicalTopologyEventListener {
     }
 
     public synchronized void rescheduleScaleUp(long delay, Runnable runnable, int zoneId) {
-
+        // TODO schedule the task
     }
 
     public synchronized void rescheduleScaleDown(long delay, Runnable runnable, int zoneId) {
-
+        // TODO schedule the task
     }
 
     private static Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes(
@@ -376,54 +346,104 @@ public class DataNodesManager implements LogicalTopologyEventListener {
 
         if (sutt > cdnt && sutt <= timestampLong) {
             currentDataNodesTimestamp = scaleUpTimer.timestamp;
-            currentDataNodes = scaleUpTimer.nodes;
+            currentDataNodes.addAll(filterDataNodes(scaleUpTimer.nodes, zoneDescriptor));
         }
 
         if (sdtt > cdnt && sdtt > sutt && sdtt <= timestampLong) {
             currentDataNodesTimestamp = scaleDownTimer.timestamp;
-            currentDataNodes = scaleDownTimer.nodes;
+            currentDataNodes.removeAll(scaleDownTimer.nodes);
         }
 
         return pair(currentDataNodesTimestamp, currentDataNodes);
     }
 
-    public void onFilterChanged() {
-
-    }
-
-    public void onAutoAdjustAlteration() {
-
-    }
-
     public CompletableFuture<Set<String>> dataNodes(int zoneId, HybridTimestamp timestamp) {
+        return getValueFromMetaStorage(dataNodesHistoryKey(zoneId), DataNodesHistorySerializer::deserialize)
+                .thenApply(history -> {
+                    Map.Entry<HybridTimestamp, Set<NodeWithAttributes>> entry = history.history.floorEntry(timestamp);
 
+                    if (entry == null) {
+                        return emptySet();
+                    }
+
+                    return entry.getValue().stream().map(NodeWithAttributes::nodeName).collect(toSet());
+                });
     }
 
     private DataNodesHistory dataNodesHistory(int zoneId) {
-        return ofNullable(getValueFromMetaStorage(dataNodesHistoryKey(zoneId), DataNodesHistorySerializer::deserialize))
+        return ofNullable(getValueFromMetaStorageLocally(dataNodesHistoryKey(zoneId), DataNodesHistorySerializer::deserialize))
                 .orElse(new DataNodesHistory(new TreeMap<>()));
     }
 
     private DistributionZoneTimer scaleUpTimer(int zoneId) {
-        return ofNullable(getValueFromMetaStorage(scaleUpTimerKey(zoneId), DistributionZoneTimerSerializer::deserialize))
+        return ofNullable(getValueFromMetaStorageLocally(scaleUpTimerKey(zoneId), DistributionZoneTimerSerializer::deserialize))
                 .orElse(DEFAULT_TIMER);
     }
 
     private DistributionZoneTimer scaleDownTimer(int zoneId) {
-        return ofNullable(getValueFromMetaStorage(scaleDownTimerKey(zoneId), DistributionZoneTimerSerializer::deserialize))
+        return ofNullable(getValueFromMetaStorageLocally(scaleDownTimerKey(zoneId), DistributionZoneTimerSerializer::deserialize))
                 .orElse(DEFAULT_TIMER);
     }
 
-    @Nullable
-    private <T> T getValueFromMetaStorage(ByteArray key, Function<byte[], T> deserializer) {
-        Entry e = metaStorageManager.getLocally(key);
+    private Condition dataNodesHistoryEqualToOrNotExists(int zoneId, DataNodesHistory history) {
+        return or(
+                notExists(dataNodesHistoryKey(zoneId)),
+                value(dataNodesHistoryKey(zoneId)).eq(DataNodesHistorySerializer.serialize(history))
+        );
+    }
 
+    private Condition timerEqualToOrNotExists(ByteArray timerKey, DistributionZoneTimer timer) {
+        return or(
+                notExists(timerKey),
+                or(
+                    value(timerKey).eq(DistributionZoneTimerSerializer.serialize(timer)),
+                    value(timerKey).eq(DistributionZoneTimerSerializer.serialize(DEFAULT_TIMER))
+                )
+        );
+    }
+
+    private Operation addNewEntryToDataNodesHistory(
+            int zoneId,
+            DataNodesHistory history,
+            HybridTimestamp timestamp,
+            Set<NodeWithAttributes> nodes
+    ) {
+        DataNodesHistory newHistory = new DataNodesHistory(new TreeMap<>(history.history));
+        newHistory.history.put(timestamp, nodes);
+
+        return put(dataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(newHistory));
+    }
+
+    private Operation renewTimer(ByteArray timerKey, DistributionZoneTimer timer) {
+        return put(timerKey, DistributionZoneTimerSerializer.serialize(timer));
+    }
+
+    private Operation renewTimerOrClearIfAlreadyApplied(ByteArray timerKey, HybridTimestamp timestamp, DistributionZoneTimer timer) {
+        DistributionZoneTimer newValue = timer.timestamp.longValue() > timestamp.longValue() ? timer : DEFAULT_TIMER;
+
+        return renewTimer(timerKey, newValue);
+    }
+
+    private Operation clearTimer(ByteArray timerKey) {
+        return put(timerKey, DistributionZoneTimerSerializer.serialize(DEFAULT_TIMER));
+    }
+
+    @Nullable
+    private <T> T getValueFromMetaStorageLocally(ByteArray key, Function<byte[], T> deserializer) {
+        return deserializeEntry(metaStorageManager.getLocally(key), deserializer);
+    }
+
+    private <T> CompletableFuture<T> getValueFromMetaStorage(ByteArray key, Function<byte[], T> deserializer) {
+        return metaStorageManager.get(key).thenApply(e -> deserializeEntry(e, deserializer));
+    }
+
+    @Nullable
+    private static <T> T deserializeEntry(@Nullable Entry e, Function<byte[], T> deserializer) {
         if (e == null || e.value() == null || e.empty() || e.tombstone()) {
             return null;
         } else {
             return deserializer.apply(e.value());
         }
-
     }
 
     private ByteArray dataNodesHistoryKey(int zoneId) {
@@ -436,6 +456,10 @@ public class DataNodesManager implements LogicalTopologyEventListener {
 
     private ByteArray scaleDownTimerKey(int zoneId) {
         return new ByteArray("scaleDownTimer_" + zoneId);
+    }
+
+    private ByteArray resetTimerKey(int zoneId) {
+        return new ByteArray("resetTimer_" + zoneId);
     }
 
     private CompletableFuture<Void> msInvokeWithRetry(Supplier<Iif> iifSupplier) {

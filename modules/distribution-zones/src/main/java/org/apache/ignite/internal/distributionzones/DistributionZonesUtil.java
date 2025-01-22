@@ -608,6 +608,16 @@ public class DistributionZonesUtil {
         return new HashSet<>(node.storageProfiles()).containsAll(zoneStorageProfilesNames);
     }
 
+    public static Set<NodeWithAttributes> filterDataNodes(
+            Set<NodeWithAttributes> dataNodes,
+            CatalogZoneDescriptor zoneDescriptor
+    ) {
+        return dataNodes.stream()
+                .filter(n -> filterNodeAttributes(n.userAttributes(), zoneDescriptor.filter()))
+                .filter(n -> filterStorageProfiles(n, zoneDescriptor.storageProfiles().profiles()))
+                .collect(toSet());
+    }
+
     /**
      * Filters {@code dataNodes} according to the provided filter and storage profiles from {@code zoneDescriptor}.
      * Nodes' attributes and storage profiles are taken from {@code nodesAttributes} map.
