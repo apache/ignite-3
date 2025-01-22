@@ -245,6 +245,7 @@ public:
         protocol::reader reader(msg);
 
         if (!test_flag(flags, protocol::response_flag::NOTIFICATION_FLAG)) {
+            std::lock_guard<std::mutex> guard(m_state_mutex);
             auto read_res = result_of_operation<job_execution>([&]() {
                 if (m_skip_schema)
                     reader.skip();
@@ -263,11 +264,12 @@ public:
             return process_job_result();
         }
 
+        std::lock_guard<std::mutex> guard(m_state_mutex);
         m_read_result = result_of_operation<void>([&]() {
             m_execution_result = unpack_compute_result(reader);
             m_final_state = read_job_state(reader);
-            m_result_received = true;
         });
+        m_result_received = true;
 
         if (!m_execution) {
             return {};
@@ -297,6 +299,9 @@ private:
 
     /** Final job stat. */
     job_state m_final_state;
+
+    /** State mutex. */
+    std::mutex m_state_mutex;
 };
 
 void compute_impl::submit_to_nodes(const std::set<cluster_node> &nodes, std::shared_ptr<job_descriptor> descriptor,
