@@ -19,8 +19,6 @@ package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -35,9 +33,10 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.intellij.lang.annotations.Language;
@@ -78,7 +77,7 @@ public class AbstractMultiNodeBenchmark {
 
     @Nullable
     protected String clusterConfiguration() {
-        return "";
+        return "ignite {}";
     }
 
     /**
@@ -90,8 +89,8 @@ public class AbstractMultiNodeBenchmark {
         startCluster();
 
         try {
-            // Create a default zone on the cluster's start-up.
-            createDefaultZoneOnStartup();
+            // Create a new zone on the cluster's start-up.
+            createDistributionZoneOnStartup();
 
             // Create a default table on the cluster's start-up.
             createDefaultTableOnStartup();
@@ -102,17 +101,13 @@ public class AbstractMultiNodeBenchmark {
         }
     }
 
-    protected void createDefaultZoneOnStartup() {
-        var queryEngine = igniteImpl.queryEngine();
-
+    protected void createDistributionZoneOnStartup() {
         var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount()
                 + ", replicas=" + replicaCount() + ", storage_profiles ='" + DEFAULT_STORAGE_PROFILE + "'";
 
-        getAllFromCursor(
-                await(queryEngine.queryAsync(
-                        SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, null, createZoneStatement
-                ))
-        );
+        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(null, createZoneStatement)) {
+            // No-op.
+        }
     }
 
     protected void createDefaultTableOnStartup() {
@@ -151,11 +146,9 @@ public class AbstractMultiNodeBenchmark {
 
         createTableStatement += "\nZONE " + ZONE_NAME;
 
-        getAllFromCursor(
-                await(igniteImpl.queryEngine().queryAsync(
-                        SqlPropertiesHelper.emptyProperties(), igniteImpl.observableTimeTracker(), null, null, createTableStatement
-                ))
-        );
+        try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(null, createTableStatement)) {
+            // No-op.
+        }
     }
 
     static void populateTable(String tableName, int size, int batchSize) {
@@ -235,15 +228,10 @@ public class AbstractMultiNodeBenchmark {
 
         String metaStorageNodeName = nodeName(BASE_PORT);
 
-        @Language("HOCON")
-        String clusterCfg = "ignite {\n"
-                + clusterConfiguration() + "\n"
-                + "}";
-
         InitParameters initParameters = InitParameters.builder()
                 .metaStorageNodeNames(metaStorageNodeName)
                 .clusterName("cluster")
-                .clusterConfiguration(clusterCfg)
+                .clusterConfiguration(clusterConfiguration())
                 .build();
 
         TestIgnitionManager.init(igniteServers.get(0), initParameters);

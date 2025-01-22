@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.benchmark;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.testframework.TestIgnitionManager.PRODUCTION_CLUSTER_CONFIG_STRING;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -51,8 +52,17 @@ public class CreatingTableBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"1", "3"})
     private int replicaCount;
 
+    @Param({"true", "false"})
+    private boolean populateTable;
+
     /** Tables counter. */
-    private AtomicInteger cnt = new AtomicInteger();
+    private final AtomicInteger cnt = new AtomicInteger();
+
+    @Override
+    protected String clusterConfiguration() {
+        // Return a magic string that explicitly requests production defaults.
+        return PRODUCTION_CLUSTER_CONFIG_STRING;
+    }
 
     @Override
     protected int nodes() {
@@ -88,7 +98,9 @@ public class CreatingTableBenchmark extends AbstractMultiNodeBenchmark {
 
         createTable(tableName);
 
-        populateTable(tableName, 1, 1);
+        if (populateTable) {
+            populateTable(tableName, 1, 1);
+        }
     }
 
     /**

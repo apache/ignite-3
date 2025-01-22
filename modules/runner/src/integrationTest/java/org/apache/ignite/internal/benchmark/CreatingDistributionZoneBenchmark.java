@@ -19,6 +19,7 @@ package org.apache.ignite.internal.benchmark;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.TestIgnitionManager.PRODUCTION_CLUSTER_CONFIG_STRING;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -55,7 +56,13 @@ public class CreatingDistributionZoneBenchmark extends AbstractMultiNodeBenchmar
     private int replicaCount;
 
     /** Distribution zones counter. */
-    private AtomicInteger cnt = new AtomicInteger();
+    private final AtomicInteger cnt = new AtomicInteger();
+
+    @Override
+    protected String clusterConfiguration() {
+        // Return a magic string that explicitly requests production defaults.
+        return PRODUCTION_CLUSTER_CONFIG_STRING;
+    }
 
     @Override
     protected int nodes() {
@@ -73,7 +80,7 @@ public class CreatingDistributionZoneBenchmark extends AbstractMultiNodeBenchmar
     }
 
     @Override
-    protected void createDefaultZoneOnStartup() {
+    protected void createDistributionZoneOnStartup() {
         // There is no need to create a zone on start-up.
     }
 
@@ -93,7 +100,6 @@ public class CreatingDistributionZoneBenchmark extends AbstractMultiNodeBenchmar
     @OutputTimeUnit(MILLISECONDS)
     public void createEmptyDistributionZone() {
         ZoneDefinition zone = ZoneDefinition.builder("zone_test_" + cnt.incrementAndGet())
-                .ifNotExists()
                 .partitions(partitionCount())
                 .replicas(replicaCount())
                 .storageProfiles(DEFAULT_STORAGE_PROFILE)
