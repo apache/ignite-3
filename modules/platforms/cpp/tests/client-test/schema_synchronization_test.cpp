@@ -100,7 +100,7 @@ TEST_F(schema_synchronization_test, upsert_add_column_compute) {
     m_client.get_sql().execute(nullptr, {"ALTER TABLE SCHEMA_SYN_TEST ADD COLUMN VAL2 INT"}, {});
     auto descriptor = job_descriptor::builder(NODE_NAME_JOB).build();
 
-    m_client.get_compute().submit_colocated("SCHEMA_SYN_TEST", {key}, descriptor, {}).get_result();
+    m_client.get_compute().submit(job_target::colocated("SCHEMA_SYN_TEST", {key}), descriptor, {}).get_result();
 }
 
 TEST_F(schema_synchronization_test, upsert_add_column_upsert_all) {
