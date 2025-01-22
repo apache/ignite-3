@@ -50,6 +50,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.IgniteException;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -246,6 +247,25 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
                 jobStateWithStatusAndCreateTimeStartTime(CANCELED, executingState.createTime(), executingState.startTime())
         );
         assertThat(execution.resultAsync(), willThrow(CancellationException.class));
+    }
+
+    @RepeatedTest(value = 10, failureThreshold = 1)
+    void cancelExecutionRace() {
+        initExecutor(1);
+
+        QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> {
+            try {
+                new CountDownLatch(1).await();
+            } catch (InterruptedException ignored) {
+            }
+            return null;
+        });
+
+        assertThat(execution.cancel(), is(true));
+
+        assertThat(execution.resultAsync(), willThrow(CancellationException.class));
+
+        assertThat(execution.state(), is(jobStateWithStatus(CANCELED)));
     }
 
     @Test
