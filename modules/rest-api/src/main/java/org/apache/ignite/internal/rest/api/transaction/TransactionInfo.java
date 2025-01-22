@@ -37,6 +37,12 @@ public class TransactionInfo {
     private final UUID id;
 
     /**
+     * Coordinator node.
+     */
+    @Schema(description = "Coordinator node.", requiredMode = RequiredMode.REQUIRED)
+    private final String node;
+
+    /**
      * Transaction state.
      */
     @Schema(description = "State.", requiredMode = RequiredMode.REQUIRED)
@@ -65,6 +71,7 @@ public class TransactionInfo {
      * Constructor.
      *
      * @param id transaction id.
+     * @param node coordinator node.
      * @param state transaction state.
      * @param type transaction type.
      * @param priority priority.
@@ -73,11 +80,13 @@ public class TransactionInfo {
     @JsonCreator
     public TransactionInfo(
             @JsonProperty("id") UUID id,
+            @JsonProperty("node") String node,
             @JsonProperty("state") String state,
             @JsonProperty("type") String type,
             @JsonProperty("priority") String priority,
             @JsonProperty("startTime") Instant startTime) {
         this.id = id;
+        this.node = node;
         this.state = state;
         this.type = type;
         this.priority = priority;
@@ -87,6 +96,11 @@ public class TransactionInfo {
     @JsonProperty("id")
     public UUID id() {
         return id;
+    }
+
+    @JsonProperty("node")
+    public String node() {
+        return node;
     }
 
     @JsonProperty("state")

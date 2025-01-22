@@ -219,7 +219,6 @@ import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.recovery.system.SystemDisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.sql.SqlQueryRestFactory;
-import org.apache.ignite.internal.rest.transaction.TransactionRestFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -1245,8 +1244,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> computeRestFactory = () -> new ComputeRestFactory(compute);
         Supplier<RestFactory> disasterRecoveryFactory = () -> new DisasterRecoveryFactory(disasterRecoveryManager);
         Supplier<RestFactory> systemDisasterRecoveryFactory = () -> new SystemDisasterRecoveryFactory(systemDisasterRecoveryManager);
-        Supplier<RestFactory> sqlQueryRestFactory = () -> new SqlQueryRestFactory(qryEngine);
-        Supplier<RestFactory> transactionRestFactory = () -> new TransactionRestFactory(txManager.txViewDataProvider());
+        Supplier<RestFactory> sqlQueryRestFactory = () -> new SqlQueryRestFactory(sql);
 
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestExtensionConfiguration.KEY).rest();
 
@@ -1261,8 +1259,7 @@ public class IgniteImpl implements Ignite {
                         computeRestFactory,
                         disasterRecoveryFactory,
                         systemDisasterRecoveryFactory,
-                        sqlQueryRestFactory,
-                        transactionRestFactory
+                        sqlQueryRestFactory
                 ),
                 restManager,
                 restConfiguration

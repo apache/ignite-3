@@ -44,9 +44,7 @@ dependencies {
     implementation project(':ignite-eventlog')
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-partition-replicator')
-    implementation project(':ignite-sql-engine')
     implementation project(':ignite-system-disaster-recovery')
-    implementation project(':ignite-transactions')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty

@@ -21,18 +21,20 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.micronaut.http.annotation.Controller;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.transaction.TransactionApi;
 import org.apache.ignite.internal.rest.api.transaction.TransactionInfo;
 import org.apache.ignite.internal.rest.transaction.exception.TransactionNotFoundException;
-import org.apache.ignite.internal.tx.views.TransactionViewDataProvider;
-import org.apache.ignite.internal.tx.views.TxInfo;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 
 /**
  * REST endpoint allows to manage transactions.
@@ -40,32 +42,26 @@ import org.jetbrains.annotations.Nullable;
 @Controller("/management/v1/transaction")
 public class TransactionController implements TransactionApi, ResourceHolder {
 
-    private TransactionViewDataProvider transactionViewDataProvider;
+    private IgniteSql igniteSql;
 
-    public TransactionController(TransactionViewDataProvider transactionViewDataProvider) {
-        this.transactionViewDataProvider = transactionViewDataProvider;
+    public TransactionController(IgniteSql igniteSql) {
+        this.igniteSql = igniteSql;
     }
 
     @Override
     public CompletableFuture<Collection<TransactionInfo>> transactions() {
-        return completedFuture(StreamSupport.stream(transactionViewDataProvider.dataSource().spliterator(), false)
-                .map(TransactionController::toTransaction)
-                .collect(Collectors.toList()));
+        return completedFuture(transactionInfos());
     }
 
     @Override
     public CompletableFuture<TransactionInfo> transaction(UUID transactionId) {
-        return completedFuture(StreamSupport.stream(transactionViewDataProvider.dataSource().spliterator(), false)
-                .filter(tx -> tx.id().equals(transactionId))
-                .findAny()
-                .orElse(null))
-                .thenApply(txInfo -> {
-                    if (txInfo == null) {
-                        throw new TransactionNotFoundException(transactionId.toString());
-                    } else {
-                        return toTransaction(txInfo);
-                    }
-                });
+        return completedFuture(transactionInfos(uuid -> uuid.equals(transactionId))).thenApply(transactionInfos -> {
+            if (transactionInfos.isEmpty()) {
+                throw new TransactionNotFoundException(transactionId.toString());
+            } else {
+                return transactionInfos.get(0);
+            }
+        });
     }
 
     @Override
@@ -76,19 +72,34 @@ public class TransactionController implements TransactionApi, ResourceHolder {
 
     @Override
     public void cleanResources() {
-        transactionViewDataProvider = null;
+        igniteSql = null;
     }
 
-    private static @Nullable TransactionInfo toTransaction(TxInfo txInfo) {
-        if (txInfo == null) {
-            return null;
+    private List<TransactionInfo> transactionInfos() {
+        return transactionInfos(null);
+    }
+
+    private List<TransactionInfo> transactionInfos(Predicate<UUID> predicate) {
+        String sql = "SELECT * FROM SYSTEM.TRANSACTIONS ORDER BY START_TIME";
+        Statement transactionStmt = igniteSql.createStatement(sql);
+        List<TransactionInfo> transactionInfos = new ArrayList<>();
+        try (ResultSet<SqlRow> resultSet = igniteSql.execute(null, transactionStmt)) {
+            while (resultSet.hasNext()) {
+                SqlRow row = resultSet.next();
+
+                // Filter query by id if needed
+                if (predicate != null && !predicate.test(UUID.fromString(row.stringValue("ID")))) {
+                    continue;
+                }
+                transactionInfos.add(new TransactionInfo(
+                        UUID.fromString(row.stringValue("ID")),
+                        row.stringValue("COORDINATOR_NODE_ID"),
+                        row.stringValue("STATE"),
+                        row.stringValue("TYPE"),
+                        row.stringValue("PRIORITY"),
+                        row.timestampValue("START_TIME")));
+            }
         }
-        return new TransactionInfo(
-                UUID.fromString(txInfo.id()),
-                txInfo.state(),
-                txInfo.type(),
-                txInfo.priority(),
-                txInfo.startTime()
-        );
+        return transactionInfos;
     }
 }

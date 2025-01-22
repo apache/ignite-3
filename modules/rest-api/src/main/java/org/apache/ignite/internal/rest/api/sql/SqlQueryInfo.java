@@ -22,7 +22,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.time.Instant;
-import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -38,6 +37,12 @@ public class SqlQueryInfo {
      */
     @Schema(description = "Sql query ID.", requiredMode = RequiredMode.REQUIRED)
     private final UUID id;
+
+    /**
+     * Initiator node.
+     */
+    @Schema(description = "Initiator node.", requiredMode = RequiredMode.REQUIRED)
+    private final String node;
 
     /**
      * Phase.
@@ -70,11 +75,11 @@ public class SqlQueryInfo {
     @Schema(description = "Start time.", requiredMode = RequiredMode.REQUIRED)
     private final Instant startTime;
 
-
     /**
      * Constructor.
      *
      * @param id query id.
+     * @param node initiator node.
      * @param phase query phase.
      * @param type query type.
      * @param schema schema.
@@ -84,12 +89,14 @@ public class SqlQueryInfo {
     @JsonCreator
     public SqlQueryInfo(
             @JsonProperty("id") UUID id,
+            @JsonProperty("node") String node,
             @JsonProperty("phase") String phase,
             @JsonProperty("type") @Nullable String type,
             @JsonProperty("schema") String schema,
             @JsonProperty("sql") String sql,
             @JsonProperty("startTime") Instant startTime) {
         this.id = id;
+        this.node = node;
         this.phase = phase;
         this.type = type;
         this.schema = schema;
@@ -100,6 +107,11 @@ public class SqlQueryInfo {
     @JsonProperty("id")
     public UUID id() {
         return id;
+    }
+
+    @JsonProperty("node")
+    public String node() {
+        return node;
     }
 
     @JsonProperty("phase")
@@ -125,25 +137,6 @@ public class SqlQueryInfo {
     @JsonProperty("startTime")
     public Instant startTime() {
         return startTime;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SqlQueryInfo queryInfo = (SqlQueryInfo) o;
-        return Objects.equals(id, queryInfo.id) && Objects.equals(phase, queryInfo.phase) && Objects.equals(type,
-                queryInfo.type) && Objects.equals(schema, queryInfo.schema) && Objects.equals(sql, queryInfo.sql)
-                && Objects.equals(startTime, queryInfo.startTime);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, phase, type, schema, sql, startTime);
     }
 
     @Override

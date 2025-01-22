@@ -21,27 +21,27 @@ import io.micronaut.context.annotation.Bean;
 import io.micronaut.context.annotation.Factory;
 import jakarta.inject.Singleton;
 import org.apache.ignite.internal.rest.RestFactory;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.sql.IgniteSql;
 
 /**
  * Factory that creates beans that are needed for {@link SqlQueryController}.
  */
 @Factory
 public class SqlQueryRestFactory implements RestFactory {
-    private SqlQueryProcessor sqlQueryProcessor;
+    private IgniteSql igniteSql;
 
-    public SqlQueryRestFactory(SqlQueryProcessor sqlQueryProcessor) {
-        this.sqlQueryProcessor = sqlQueryProcessor;
+    public SqlQueryRestFactory(IgniteSql igniteSql) {
+        this.igniteSql = igniteSql;
     }
 
     @Bean
     @Singleton
-    public SqlQueryProcessor sqlQueryProcessor() {
-        return sqlQueryProcessor;
+    public IgniteSql igniteSql() {
+        return igniteSql;
     }
 
     @Override
     public void cleanResources() {
-        sqlQueryProcessor = null;
+        igniteSql = null;
     }
 }

@@ -41,6 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -48,13 +49,21 @@ import org.junit.jupiter.api.Test;
  * Integration tests for {@link SqlQueryController}.
  */
 @MicronautTest
-@Disabled("https://issues.apache.org/jira/browse/IGNITE-23488")
 public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     private static final String SQL_QUERY_URL = "/management/v1/sql/";
 
     @Inject
     @Client("http://localhost:10300" + SQL_QUERY_URL)
     HttpClient client;
+
+    @AfterEach
+    void tearDown() {
+        try {
+            sql("DROP TABLE large_table");
+        } catch (Exception ignore) {
+            // nothing to do
+        }
+    }
 
     @Test
     void shouldReturnAllSqlQueries() {
@@ -78,17 +87,15 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
             assertThat(queryInfo.schema(), is("PUBLIC"));
             assertThat(queryInfo.type(), is("DML"));
         });
-
-        sql("DROP TABLE large_table");
     }
 
     @Test
     void shouldReturnSingleQuery() {
         // Create table
-        sql("CREATE TABLE large_table1 (id int primary key, value1 DOUBLE, value2 DOUBLE)");
+        sql("CREATE TABLE large_table (id int primary key, value1 DOUBLE, value2 DOUBLE)");
 
         // Run long running query async
-        String sql = "INSERT INTO large_table1 (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 100));";
+        String sql = "INSERT INTO large_table (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 100));";
         CompletableFuture.runAsync(() ->
                 sql(sql)
         );
@@ -103,17 +110,16 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
         assertThat(query.sql(), is(sqlQueryInfoEntry.getValue().sql()));
         assertThat(query.type(), is(sqlQueryInfoEntry.getValue().type()));
         assertThat(query.startTime(), is(sqlQueryInfoEntry.getValue().startTime()));
-
-        sql("DROP TABLE large_table1");
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23489")
     @Test
     void shouldCancelSqlQuery() {
         // Create table
-        sql("CREATE TABLE large_table2 (id int primary key, value1 DOUBLE, value2 DOUBLE)");
+        sql("CREATE TABLE large_table (id int primary key, value1 DOUBLE, value2 DOUBLE)");
 
         // Run long running query async
-        String sql = "INSERT INTO large_table2 (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 1000))";
+        String sql = "INSERT INTO large_table (id, value1, value2) SELECT x, RAND() * 100, RAND() * 100 FROM TABLE(SYSTEM_RANGE(1, 1000))";
         CompletableFuture.runAsync(() ->
                 sql(sql)
         );
@@ -129,8 +135,6 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
                 NOT_FOUND,
                 isProblem().withDetail("Sql query not found [queryId=" + queryInfo.id() + "]")
         );
-
-        sql("DROP TABLE large_table2");
     }
 
     @Test
@@ -145,6 +149,7 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23489")
     void shouldReturnProblemIfCancelNonExistingSqlQuery() {
         UUID queryId = UUID.randomUUID();
 

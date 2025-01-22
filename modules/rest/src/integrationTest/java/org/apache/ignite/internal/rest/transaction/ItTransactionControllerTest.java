@@ -71,6 +71,27 @@ public class ItTransactionControllerTest extends ClusterPerClassIntegrationTest 
     }
 
     @Test
+    void shouldReturnTransactionById() {
+        Transaction tx = node(0).transactions().begin();
+
+        sql(tx, "SELECT 1");
+
+        // Check count of transactions
+        await().untilAsserted(() -> {
+            Map<UUID, TransactionInfo> transactions = getTransactions(client);
+
+            assertThat(transactions, aMapWithSize(1));
+            TransactionInfo transactionInfo = transactions.entrySet().iterator().next().getValue();
+
+            TransactionInfo transaction = getTransaction(client, transactionInfo.id());
+            assertThat(transaction.id(), is(transactionInfo.id()));
+            assertThat(transaction.type(), is("READ_WRITE"));
+            assertThat(transaction.state(), is("PENDING"));
+            assertThat(transaction.priority(), is("NORMAL"));
+        });
+    }
+
+    @Test
     void shouldReturnProblemIfRetrieveNonExistingTransaction() {
         UUID transactionId = UUID.randomUUID();
 

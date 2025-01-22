@@ -22,16 +22,20 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.micronaut.http.annotation.Controller;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryApi;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
 import org.apache.ignite.internal.rest.sql.exception.SqlQueryNotFoundException;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.exec.fsm.QueryInfo;
+import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -40,34 +44,31 @@ import org.jetbrains.annotations.Nullable;
 @Controller("/management/v1/sql")
 public class SqlQueryController implements SqlQueryApi, ResourceHolder {
 
-    private SqlQueryProcessor sqlQueryProcessor;
+    private IgniteSql igniteSql;
 
-    public SqlQueryController(SqlQueryProcessor sqlQueryProcessor) {
-        this.sqlQueryProcessor = sqlQueryProcessor;
+    public SqlQueryController(IgniteSql igniteSql) {
+        this.igniteSql = igniteSql;
     }
 
     @Override
     public CompletableFuture<Collection<SqlQueryInfo>> queries() {
-        return completedFuture(sqlQueryProcessor.runningQueries().stream()
-                .map(SqlQueryController::toSqlQuery)
-                .collect(Collectors.toList()));
+        return completedFuture(sqlQueryInfos());
     }
 
     @Override
     public CompletableFuture<SqlQueryInfo> query(UUID queryId) {
-        return completedFuture(sqlQueryProcessor.runningQuery(queryId)).thenApply(queryInfo -> {
-            if (queryInfo == null) {
+        return completedFuture(sqlQueryInfos(uuid -> uuid.equals(queryId))).thenApply(queryInfo -> {
+            if (queryInfo.isEmpty()) {
                 throw new SqlQueryNotFoundException(queryId.toString());
             } else {
-                return toSqlQuery(queryInfo);
+                return queryInfo.get(0);
             }
         });
     }
 
     @Override
     public CompletableFuture<Void> cancelQuery(UUID queryId) {
-        return sqlQueryProcessor.cancelQuery(queryId)
-                .thenCompose(result -> handleOperationResult(queryId, result));
+        return nullCompletedFuture();
     }
 
     private static CompletableFuture<Void> handleOperationResult(UUID queryId, @Nullable Boolean result) {
@@ -80,20 +81,38 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
 
     @Override
     public void cleanResources() {
-        sqlQueryProcessor = null;
+        igniteSql = null;
     }
 
-    private static @Nullable SqlQueryInfo toSqlQuery(@Nullable QueryInfo queryInfo) {
-        if (queryInfo == null) {
-            return null;
+    private List<SqlQueryInfo> sqlQueryInfos() {
+        return sqlQueryInfos(null);
+    }
+
+    private List<SqlQueryInfo> sqlQueryInfos(Predicate<UUID> predicate) {
+        String sql = "SELECT * FROM SYSTEM.SQL_QUERIES ORDER BY START_TIME";
+        Statement sqlQueryStmt = igniteSql.createStatement(sql);
+        List<SqlQueryInfo> sqlQueryInfos = new ArrayList<>();
+        try (ResultSet<SqlRow> resultSet = igniteSql.execute(null, sqlQueryStmt)) {
+            while (resultSet.hasNext()) {
+                SqlRow row = resultSet.next();
+                // Skip original query to SYSTEM.SQL_QUERIES
+                if (row.stringValue("SQL").equals(sql)) {
+                    continue;
+                }
+                // Filter query by id if needed
+                if (predicate != null && !predicate.test(UUID.fromString(row.stringValue("ID")))) {
+                    continue;
+                }
+                sqlQueryInfos.add(new SqlQueryInfo(
+                        UUID.fromString(row.stringValue("ID")),
+                        row.stringValue("INITIATOR_NODE"),
+                        row.stringValue("PHASE"),
+                        row.stringValue("TYPE"),
+                        row.stringValue("SCHEMA"),
+                        row.stringValue("SQL"),
+                        row.timestampValue("START_TIME")));
+            }
         }
-        return new SqlQueryInfo(
-                queryInfo.id(),
-                queryInfo.phase().toString(),
-                queryInfo.queryType() != null ? queryInfo.queryType().toString() : null,
-                queryInfo.schema(),
-                queryInfo.sql(),
-                queryInfo.startTime()
-        );
+        return sqlQueryInfos;
     }
 }
