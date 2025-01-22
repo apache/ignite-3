@@ -28,6 +28,7 @@ import java.sql.Statement;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -147,7 +148,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
         long correlationToken = req.correlationToken();
         CancellationToken token = connectionContext.registerExecution(correlationToken);
 
-        HybridTimestampTracker timeTracker = req.timestampTracker();
+        HybridTimestampTracker timeTracker = Objects.requireNonNull(req.timestampTracker());
         JdbcStatementType reqStmtType = req.getStmtType();
         String defaultSchemaName = req.schemaName();
         boolean multiStatement = req.multiStatement();
@@ -217,7 +218,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             return CompletableFuture.completedFuture(new JdbcBatchExecuteResult(Response.STATUS_FAILED, "Connection is broken"));
         }
 
-        HybridTimestampTracker timeTracker = req.timestampTracker();
+        HybridTimestampTracker timeTracker = Objects.requireNonNull(req.timestampTracker());
         InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction(timeTracker);
 
         long correlationToken = req.correlationToken();
@@ -263,7 +264,7 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
             return CompletableFuture.completedFuture(new JdbcBatchExecuteResult(Response.STATUS_FAILED, "Connection is broken"));
         }
 
-        HybridTimestampTracker timeTracker = req.timestampTracker();
+        HybridTimestampTracker timeTracker = Objects.requireNonNull(req.timestampTracker());
         InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction(timeTracker);
 
         assert req.autoCommit() || tx != null;

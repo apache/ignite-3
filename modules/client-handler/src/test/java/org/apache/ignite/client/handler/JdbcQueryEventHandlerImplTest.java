@@ -425,21 +425,33 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
     private static JdbcQueryExecuteRequest createExecuteRequest(String schema, boolean autoCommit, String query, JdbcStatementType type) {
         //noinspection DataFlowIssue
-        return new JdbcQueryExecuteRequest(
+        JdbcQueryExecuteRequest request = new JdbcQueryExecuteRequest(
                 type, schema, 1024, 1, query, null, autoCommit, false, 0, System.currentTimeMillis(), 0L
         );
+
+        request.timestampTracker(HybridTimestampTracker.atomicTracker(null));
+
+        return request;
     }
 
     private static JdbcBatchExecuteRequest createExecuteBatchRequest(String schema, boolean autoCommit, String... statements) {
-        return new JdbcBatchExecuteRequest(
+        JdbcBatchExecuteRequest request = new JdbcBatchExecuteRequest(
                 schema, List.of(statements), autoCommit, 0, System.currentTimeMillis()
         );
+
+        request.timestampTracker(HybridTimestampTracker.atomicTracker(null));
+
+        return request;
     }
 
     private static JdbcBatchPreparedStmntRequest createExecutePrepBatchRequest(String schema, boolean autoCommit, String query) {
-        return new JdbcBatchPreparedStmntRequest(
+        JdbcBatchPreparedStmntRequest request = new JdbcBatchPreparedStmntRequest(
                 schema, query, Collections.singletonList(new Object[] {1}), autoCommit, 0, System.currentTimeMillis()
         );
+
+        request.timestampTracker(HybridTimestampTracker.atomicTracker(null));
+
+        return request;
     }
 
     private static Matcher<Response> responseThat(String description, Predicate<Response> checker) {

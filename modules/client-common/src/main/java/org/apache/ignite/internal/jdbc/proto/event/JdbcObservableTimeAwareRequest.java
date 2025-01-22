@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.jdbc.proto.event;
 
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An extension to JDBC request that provides the ability to update and read client observable time.
@@ -25,10 +26,15 @@ import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 abstract class JdbcObservableTimeAwareRequest {
     /** Tracker of the latest time observed by client. */
     @SuppressWarnings("TransientFieldInNonSerializableClass")
-    private final transient HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
+    private transient @Nullable HybridTimestampTracker timestampTracker;
 
     /** Returns the tracker of the latest time observed by client. */
-    public HybridTimestampTracker timestampTracker() {
+    public @Nullable HybridTimestampTracker timestampTracker() {
         return timestampTracker;
+    }
+
+    /** Sets the tracker of the latest time observed by client. */
+    public void timestampTracker(HybridTimestampTracker tracker) {
+        this.timestampTracker = tracker;
     }
 }

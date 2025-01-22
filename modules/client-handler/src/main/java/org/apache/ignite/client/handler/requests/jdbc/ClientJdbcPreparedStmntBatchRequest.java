@@ -21,6 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchPreparedStmntRequest;
 
 /**
@@ -46,8 +47,12 @@ public class ClientJdbcPreparedStmntBatchRequest {
 
         req.readBinary(in);
 
+        HybridTimestampTracker timestampTracker = HybridTimestampTracker.atomicTracker(null);
+        // Passing the tracker only to the server-side handler.
+        req.timestampTracker(timestampTracker);
+
         return handler.batchPrepStatementAsync(connectionId, req).thenAccept(res -> {
-            out.meta(req.timestampTracker().get());
+            out.meta(timestampTracker);
 
             res.writeBinary(out);
         });

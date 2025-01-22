@@ -47,8 +47,10 @@ public class ClientJdbcExecuteRequest {
 
         req.readBinary(in);
 
-        HybridTimestampTracker timestampTracker = req.timestampTracker();
-        timestampTracker.update(HybridTimestamp.nullableHybridTimestamp(req.observableTime()));
+        HybridTimestampTracker timestampTracker =
+                HybridTimestampTracker.atomicTracker(HybridTimestamp.nullableHybridTimestamp(req.observableTime()));
+        // Passing the tracker only to the server-side handler.
+        req.timestampTracker(timestampTracker);
 
         return handler.queryAsync(connectionId, req).thenAccept(res -> {
             out.meta(timestampTracker.get());
