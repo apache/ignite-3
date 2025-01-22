@@ -91,6 +91,11 @@ public abstract class PagesList extends DataStructure {
 
     /** Logger. */
     protected final IgniteLogger log;
+
+    /** Cached value of logger settings. Optimized to avoid extra virtual call. This code is very hot. */
+    private final boolean infoLogEnabled;
+
+    /** Cached value of logger settings. Optimized to avoid extra virtual call. This code is very hot. */
     private final boolean debugLogEnabled;
 
     /** Basket sizes. */
@@ -202,6 +207,7 @@ public abstract class PagesList extends DataStructure {
         super(pageListNamePrefix, grpId, null, partId, pageMem, lockLsnr, FLAG_AUX);
 
         this.log = log;
+        this.infoLogEnabled = log.isInfoEnabled();
         this.debugLogEnabled = log.isDebugEnabled();
         this.buckets = buckets;
         this.metaPageId = metaPageId;
@@ -404,7 +410,7 @@ public abstract class PagesList extends DataStructure {
         }
 
         if (lockedPages != 0) {
-            if (log.isInfoEnabled()) {
+            if (infoLogEnabled) {
                 log.info("Several pages were locked and weren't flushed on disk [grp={}, lockedPages={}]", grpName, lockedPages);
             }
 
