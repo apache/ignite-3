@@ -162,7 +162,10 @@ public class IgniteJdbcDriver implements Driver {
     /** Minor version. */
     private static final int MINOR_VER = ProtocolVersion.LATEST_VER.minor();
 
-    /** Tracker of the latest time observed by client. */
+    /**
+     * Tracker of the latest time observed by client.
+     * 
+     */
     private final HybridTimestampTracker observableTimeTracker = HybridTimestampTracker.atomicTracker(null);
 
     /** {@inheritDoc} */

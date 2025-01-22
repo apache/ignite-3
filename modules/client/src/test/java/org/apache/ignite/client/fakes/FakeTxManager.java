@@ -151,11 +151,6 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public @Nullable HybridTimestamp observableTimestamp() {
-                return tracker.get();
-            }
-
-            @Override
             public boolean implicit() {
                 return false;
             }

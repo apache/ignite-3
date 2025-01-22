@@ -122,11 +122,6 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public HybridTimestamp observableTimestamp() {
-        return transaction.observableTimestamp();
-    }
-
-    @Override
     public UUID coordinatorId() {
         return transaction.coordinatorId();
     }

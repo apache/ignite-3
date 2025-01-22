@@ -47,7 +47,7 @@ class JdbcConnectionContext {
 
     private final ConcurrentMap<Long, CancelHandle> cancelHandles = new ConcurrentHashMap<>();
 
-    private @Nullable InternalTransaction tx;
+    private @Nullable TxWithTimeTracker txWithTimeTracker;
 
     JdbcConnectionContext(
             TxManager txManager,
@@ -69,11 +69,13 @@ class JdbcConnectionContext {
      * @return Transaction associated with the current connection.
      */
     InternalTransaction getOrStartTransaction(HybridTimestampTracker timestampTracker) {
-        if (tx == null) {
-            tx = txManager.beginExplicitRw(timestampTracker, InternalTxOptions.defaults());
+        if (txWithTimeTracker == null) {
+            InternalTransaction tx = txManager.beginExplicitRw(timestampTracker, InternalTxOptions.defaults());
+
+            txWithTimeTracker = new TxWithTimeTracker(tx, timestampTracker);
         }
 
-        return tx;
+        return txWithTimeTracker.transaction();
     }
 
     /**
@@ -85,17 +87,17 @@ class JdbcConnectionContext {
      * @return Future that represents the pending completion of the operation.
      */
     CompletableFuture<@Nullable HybridTimestamp> finishTransactionAsync(boolean commit) {
-        InternalTransaction tx0 = tx;
+        TxWithTimeTracker txWithTimeTracker0 = txWithTimeTracker;
 
-        tx = null;
+        txWithTimeTracker = null;
 
-        if (tx0 == null) {
+        if (txWithTimeTracker0 == null) {
             return nullCompletedFuture();
         }
 
         return commit
-                ? tx0.commitAsync().thenApply(ignore -> tx0.observableTimestamp())
-                : tx0.rollbackAsync().thenApply(ignore -> null);
+                ? txWithTimeTracker0.transaction().commitAsync().thenApply(ignore -> txWithTimeTracker0.observableTimestamp())
+                : txWithTimeTracker0.transaction().rollbackAsync().thenApply(ignore -> null);
     }
 
     boolean valid() {
@@ -134,5 +136,23 @@ class JdbcConnectionContext {
         }
 
         return handle.cancelAsync();
+    }
+
+    private static class TxWithTimeTracker {
+        private final InternalTransaction transaction;
+        private final HybridTimestampTracker tracker;
+
+        private TxWithTimeTracker(InternalTransaction transaction, HybridTimestampTracker tracker) {
+            this.transaction = transaction;
+            this.tracker = tracker;
+        }
+
+        InternalTransaction transaction() {
+            return transaction;
+        }
+
+        @Nullable HybridTimestamp observableTimestamp() {
+            return tracker.get();
+        }
     }
 }

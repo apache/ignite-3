@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -277,12 +278,18 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
         long connectionId = acquireConnectionId();
 
-        HybridTimestampTracker txTracker = HybridTimestampTracker.atomicTracker(txTime);
+        AtomicReference<HybridTimestampTracker> txTrackerRef = new AtomicReference<>();
         InternalTransaction rwTx = mock(InternalTransaction.class);
-        when(rwTx.commitAsync()).thenReturn(nullCompletedFuture());
+        when(rwTx.commitAsync()).thenAnswer(ignore -> {
+            txTrackerRef.get().update(txTime);
+            return nullCompletedFuture();
+        });
         when(rwTx.rollbackAsync()).thenReturn(nullCompletedFuture());
-        when(rwTx.observableTimestamp()).thenReturn(txTracker.get());
-        when(txManager.beginExplicitRw(any(), any())).thenReturn(rwTx);
+        when(txManager.beginExplicitRw(any(HybridTimestampTracker.class), any())).thenAnswer(invocation -> {
+            txTrackerRef.set(invocation.getArgument(0));
+
+            return rwTx;
+        });
 
         when(queryProcessor.queryAsync(any(), any(HybridTimestampTracker.class), any(), any(), any(), any(Object[].class)))
                         .thenAnswer(invocation -> {
@@ -357,8 +364,8 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
             await(eventHandler.batchAsync(connectionId, executeRequest));
 
-            assertThat("Should not update observable time until tx commit.",
-                    executeRequest.timestampTracker().get(), nullValue());
+            assertThat("Should not update observable time until tx commit.", executeRequest.timestampTracker().get(), nullValue());
+            assertThat("Should not update observable time until tx commit.", txTrackerRef.get().get(), nullValue());
         }
 
         // Prepared batch (non-autocommit).
@@ -367,8 +374,8 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
             await(eventHandler.batchPrepStatementAsync(connectionId, executeRequest));
 
-            assertThat("Should not update observable time until tx commit.",
-                    executeRequest.timestampTracker().get(), nullValue());
+            assertThat("Should not update observable time until tx commit.", executeRequest.timestampTracker().get(), nullValue());
+            assertThat("Should not update observable time until tx commit.", txTrackerRef.get().get(), nullValue());
         }
 
         // Commit.
