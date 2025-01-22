@@ -55,13 +55,20 @@ public class CreatingDistributionZoneBenchmark extends AbstractMultiNodeBenchmar
     @Param({"1", "3"})
     private int replicaCount;
 
+    @Param({"true", "false"})
+    private boolean tinySchemaSyncWaits;
+
     /** Distribution zones counter. */
     private final AtomicInteger cnt = new AtomicInteger();
 
     @Override
     protected String clusterConfiguration() {
-        // Return a magic string that explicitly requests production defaults.
-        return PRODUCTION_CLUSTER_CONFIG_STRING;
+        if (tinySchemaSyncWaits) {
+            return super.clusterConfiguration();
+        } else {
+            // Return a magic string that explicitly requests production defaults.
+            return PRODUCTION_CLUSTER_CONFIG_STRING;
+        }
     }
 
     @Override

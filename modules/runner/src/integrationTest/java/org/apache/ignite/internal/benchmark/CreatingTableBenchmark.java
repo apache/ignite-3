@@ -55,13 +55,20 @@ public class CreatingTableBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"true", "false"})
     private boolean populateTable;
 
+    @Param({"true", "false"})
+    private boolean tinySchemaSyncWaits;
+
     /** Tables counter. */
     private final AtomicInteger cnt = new AtomicInteger();
 
     @Override
     protected String clusterConfiguration() {
-        // Return a magic string that explicitly requests production defaults.
-        return PRODUCTION_CLUSTER_CONFIG_STRING;
+        if (tinySchemaSyncWaits) {
+            return super.clusterConfiguration();
+        } else {
+            // Return a magic string that explicitly requests production defaults.
+            return PRODUCTION_CLUSTER_CONFIG_STRING;
+        }
     }
 
     @Override
