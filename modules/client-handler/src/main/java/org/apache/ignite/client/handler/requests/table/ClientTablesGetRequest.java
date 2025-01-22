@@ -17,11 +17,10 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
-
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.IgniteTables;
 
 /**
@@ -46,8 +45,25 @@ public class ClientTablesGetRequest {
                 var tableImpl = (TableViewInternal) table;
 
                 out.packInt(tableImpl.tableId());
-                out.packString(quote(table.name().objectName()));
+                out.packString(quoteTableNameIfNotAllUpper(table.name().objectName()));
             }
         });
+    }
+
+    private static String quoteTableNameIfNotAllUpper(String name) {
+        // TODO: IGNITE-24029 use QualifiedName.
+        for (int i = 0; i < name.length(); i++) {
+            char ch = name.charAt(i);
+
+            if (Character.isDigit(ch) || ch == '_') {
+                continue;
+            }
+
+            if (!Character.isUpperCase(ch)) {
+                return IgniteNameUtils.quote(name);
+            }
+        }
+
+        return name;
     }
 }

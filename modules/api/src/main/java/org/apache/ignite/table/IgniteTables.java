@@ -65,7 +65,9 @@ public interface IgniteTables {
      * @return Future that represents the pending completion of the operation.
      */
     default CompletableFuture<Table> tableAsync(String name) {
-        return tableAsync(QualifiedName.parse(name));
+        return CompletableFuture.completedFuture(name)
+                .thenApply(QualifiedName::parse)
+                .thenCompose(this::tableAsync);
     }
 
     /**
