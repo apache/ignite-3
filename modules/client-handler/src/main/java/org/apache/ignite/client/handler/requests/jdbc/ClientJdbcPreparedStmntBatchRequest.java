@@ -52,7 +52,7 @@ public class ClientJdbcPreparedStmntBatchRequest {
         req.timestampTracker(timestampTracker);
 
         return handler.batchPrepStatementAsync(connectionId, req).thenAccept(res -> {
-            out.meta(timestampTracker);
+            out.meta(timestampTracker.get());
 
             res.writeBinary(out);
         });
