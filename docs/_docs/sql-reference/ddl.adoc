@@ -61,13 +61,6 @@ Sequence(
 Terminal('STORAGE PROFILE'),
 NonTerminal('profile_name')
 )
-),
-Optional(
-Sequence(
-Terminal('EXPIRE'),
-Terminal('AT'),
-NonTerminal('expiry_column_name')
-)
 )
 )
 
@@ -77,7 +70,6 @@ Keywords and parameters:
 * `COLOCATE BY` - colocation key. The key can be composite. Primary key must include colocation key.
 * `ZONE` - sets the link:sql-reference/distribution-zones[Distribution Zone]. Can be specified as a case-sensitive string or case-insensitive identifier. Does not need to exists at the moment of table creation, and can be created before writing data.
 * `STORAGE PROFILE` - sets the link:administrators-guide/config/node-config#storage-configuration[storage profile] that will be used to store the table. Must be specified as a case-sensitive string.
-* `EXPIRE AT` - allows specifying a column with a point in time when a record should be deleted.
 
 Examples:
 
@@ -120,16 +112,6 @@ CREATE TABLE IF NOT EXISTS Person (
 ) PRIMARY ZONE MYZONE STORAGE PROFILE 'default'
 ----
 
-Creates a Person table where the records expire at timestamps in the `ttl` column:
-
-[source,sql]
-----
-CREATE TABLE IF NOT EXISTS Person ( 
-  id int PRIMARY KEY,
-  name varchar,
-  ttl timestamp
-) EXPIRE AT ttl
-----
 
 Creates a Person table where the default value if the `city_id` column is 1:
 
@@ -144,19 +126,6 @@ CREATE TABLE IF NOT EXISTS Person (
 )
 ----
 
-Creates a Person table with the `duration` column automatically set a week into the future:
-
-[source,sql]
-----
-CREATE TABLE IF NOT EXISTS Person (
-  id int primary key,
-  city_id int,
-  name varchar,
-  age int,
-  company varchar,
-  duration timestamp default CURRENT_TIMESTAMP + INTERVAL '7' DAYS
-)
-----
 
 
 
