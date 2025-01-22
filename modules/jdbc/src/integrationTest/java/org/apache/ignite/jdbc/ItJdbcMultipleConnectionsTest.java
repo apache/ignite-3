@@ -48,8 +48,10 @@ public class ItJdbcMultipleConnectionsTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testMultipleConnectionsSingleServer() throws SQLException {
-        try (Connection conn = DriverManager.getConnection(URL1)) {
-            checkUpdatesVisibility(conn, conn);
+        try (Connection conn1 = DriverManager.getConnection(URL1)) {
+            try (Connection conn2 = DriverManager.getConnection(URL1)) {
+                checkUpdatesVisibility(conn1, conn2);
+            }
         }
     }
 
