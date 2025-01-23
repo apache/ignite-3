@@ -30,8 +30,7 @@ import org.apache.ignite.internal.event.EventProducer;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Catalog service provides methods to access schema object's descriptors of exact version and/or last actual version at given timestamp,
- * which is logical point-in-time.
+ * Catalog service provides methods to access catalog snapshots of specific version or point-in-time.
  *
  * <p>Catalog service listens distributed schema update event, stores/restores schema evolution history (schema versions) for time-travelled
  * queries purposes and for lazy data evolution purposes.
@@ -41,7 +40,8 @@ import org.jetbrains.annotations.Nullable;
  *     <li>Events are fired in the metastore thread.</li>
  * </ul>
  *
- * <p>TBD: events
+ * @see CatalogEvent Full list of events, which is fired by the catalog service.
+ * @see CatalogManager The manager, which provides catalog manipulation methods and is responsible for managing distributed operations.
  */
 public interface CatalogService extends EventProducer<CatalogEvent, CatalogEventParameters> {
     /** System schema name. */
@@ -62,8 +62,20 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     /** Default storage profile. */
     String DEFAULT_STORAGE_PROFILE = "default";
 
+    /**
+     * Retrieves the catalog for the specified version.
+     *
+     * @param catalogVersion The version of the catalog to retrieve.
+     * @return The catalog for the specified version, or {@code null} if not found.
+     */
     @Nullable Catalog catalog(int catalogVersion);
 
+    /**
+     * Retrieves the catalog, which was actual at the specified timestamp.
+     *
+     * @param timestamp The point-in-time to retrieve the catalog of actual version.
+     * @return The active catalog at the specified timestamp.
+     */
     Catalog activeCatalog(long timestamp);
 
     @Deprecated(forRemoval = true)
@@ -99,18 +111,33 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     @Deprecated(forRemoval = true)
     Collection<CatalogZoneDescriptor> zones(int catalogVersion);
 
+    /**
+     * Retrieves the actual catalog version at the specified timestamp.
+     *
+     * @param timestamp The point-in-time to retrieve the actual catalog version.
+     * @return The active catalog version at the specified timestamp.
+     */
     int activeCatalogVersion(long timestamp);
 
-    /** Returns the earliest registered version of the catalog. */
+    /**
+     * Returns the earliest registered version of the catalog.
+     *
+     * @return The earliest registered version of the catalog.
+     */
     int earliestCatalogVersion();
 
-    /** Returns the latest registered version of the catalog. */
+    /**
+     * Returns the latest registered version of the catalog.
+     *
+     * @return The latest registered version of the catalog.
+     */
     int latestCatalogVersion();
 
     /**
      * Returns a future, which completes, when catalog of given version will be available.
      *
-     * @param version Catalog version to wait for.
+     * @param version The catalog version to wait for.
+     * @return A future that completes when the catalog of the given version becomes available.
      */
     CompletableFuture<Void> catalogReadyFuture(int version);
 

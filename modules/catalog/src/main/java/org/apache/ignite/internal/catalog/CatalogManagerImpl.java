@@ -86,8 +86,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     /** Safe time to wait before new Catalog version activation. */
     static final int DEFAULT_DELAY_DURATION = 0;
 
-    static final int DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD = 0;
-
     /**
      * Initial update token for a catalog descriptor, this token is valid only before the first call of
      * {@link UpdateEntry#applyUpdate(Catalog, long)}.
