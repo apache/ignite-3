@@ -92,7 +92,7 @@ public class CreatingDistributionZoneBenchmark extends AbstractMultiNodeBenchmar
     }
 
     @Override
-    protected void createDefaultTableOnStartup() {
+    protected void createTableOnStartup() {
         // There is no need to create a table on start-up.
     }
 
