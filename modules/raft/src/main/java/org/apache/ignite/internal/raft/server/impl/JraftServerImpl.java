@@ -730,57 +730,12 @@ public class JraftServerImpl implements RaftServer {
             return listener;
         }
 
-        /** {@inheritDoc} */
         @Override
         public void onApply(Iterator iter) {
+            var writeCommandIterator = new WriteCommandIterator(iter, marshaller);
+
             try {
-                listener.onWrite(new java.util.Iterator<>() {
-                    @Override
-                    public boolean hasNext() {
-                        return iter.hasNext();
-                    }
-
-                    @Override
-                    public CommandClosure<WriteCommand> next() {
-                        @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
-                        ByteBuffer data = iter.getData();
-
-                        WriteCommand command = done == null ? marshaller.unmarshall(data) : done.command();
-
-                        long commandIndex = iter.getIndex();
-                        long commandTerm = iter.getTerm();
-
-                        return new CommandClosure<>() {
-                            /** {@inheritDoc} */
-                            @Override
-                            public long index() {
-                                return commandIndex;
-                            }
-
-                            /** {@inheritDoc} */
-                            @Override
-                            public long term() {
-                                return commandTerm;
-                            }
-
-                            /** {@inheritDoc} */
-                            @Override
-                            public WriteCommand command() {
-                                return command;
-                            }
-
-                            /** {@inheritDoc} */
-                            @Override
-                            public void result(Serializable res) {
-                                if (done != null) {
-                                    done.result(res);
-                                }
-
-                                iter.next();
-                            }
-                        };
-                    }
-                });
+                listener.onWrite(writeCommandIterator);
             } catch (Throwable err) {
                 Status st;
 
@@ -790,8 +745,13 @@ public class JraftServerImpl implements RaftServer {
                     st = new Status(RaftError.ESTATEMACHINE, "Unknown state machine error.");
                 }
 
-                if (iter.done() != null) {
-                    iter.done().run(st);
+                // This is necessary so that IndexOutOfBoundsException is not thrown in a situation where the listener, when processing a
+                // command, catch any exception and does clo.result(throwable) (that actually advances the iterator) and then throws the
+                // caught exception.
+                Closure done = writeCommandIterator.doneForExceptionHandling();
+
+                if (done != null) {
+                    done.run(st);
                 }
 
                 iter.setErrorAndRollback(1, st);
@@ -882,6 +842,72 @@ public class JraftServerImpl implements RaftServer {
             super.onLeaderStop(status);
 
             listener.onLeaderStop();
+        }
+    }
+
+    private static class WriteCommandIterator implements java.util.Iterator<CommandClosure<WriteCommand>> {
+        private final Iterator iter;
+
+        private final Marshaller marshaller;
+
+        private @Nullable Closure latestDone;
+
+        private WriteCommandIterator(Iterator iter, Marshaller marshaller) {
+            this.iter = iter;
+            this.marshaller = marshaller;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return iter.hasNext();
+        }
+
+        @Override
+        public CommandClosure<WriteCommand> next() {
+            @Nullable Closure currentDone = iter.done();
+            latestDone = currentDone;
+
+            @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) currentDone;
+            ByteBuffer data = iter.getData();
+
+            WriteCommand command = done == null ? marshaller.unmarshall(data) : done.command();
+
+            long commandIndex = iter.getIndex();
+            long commandTerm = iter.getTerm();
+
+            return new CommandClosure<>() {
+                @Override
+                public long index() {
+                    return commandIndex;
+                }
+
+                @Override
+                public long term() {
+                    return commandTerm;
+                }
+
+                @Override
+                public WriteCommand command() {
+                    return command;
+                }
+
+                @Override
+                public void result(Serializable res) {
+                    if (done != null) {
+                        done.result(res);
+                    }
+
+                    iter.next();
+                }
+            };
+        }
+
+        private @Nullable Closure doneForExceptionHandling() {
+            if (latestDone == null) {
+                latestDone = iter.done();
+            }
+
+            return latestDone;
         }
     }
 }
