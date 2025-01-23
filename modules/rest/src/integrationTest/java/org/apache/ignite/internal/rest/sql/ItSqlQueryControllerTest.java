@@ -40,6 +40,7 @@ import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -57,68 +58,60 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     void shouldReturnAllSqlQueries() {
         String sql = "SELECT x FROM TABLE(SYSTEM_RANGE(1, 100));";
 
-        IgniteSql igniteSql = CLUSTER.aliveNode().sql();
         // run query with results pageSize=1
-        ResultSet<SqlRow> rs = CLUSTER.aliveNode().sql()
-                .execute(null, igniteSql.statementBuilder().query(sql).pageSize(1).build());
-        // the query must be active until cursor is closed
-        Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
+        try (ResultSet<SqlRow> ignored = runQuery(sql)) {
 
-        assertThat(queries, aMapWithSize(1));
-        SqlQueryInfo queryInfo = queries.entrySet().iterator().next().getValue();
+            // the query must be active until cursor is closed
+            Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
 
-        assertThat(queryInfo.sql(), is(sql));
-        assertThat(queryInfo.schema(), is("PUBLIC"));
-        assertThat(queryInfo.type(), is("QUERY"));
+            assertThat(queries, aMapWithSize(1));
+            SqlQueryInfo queryInfo = queries.entrySet().iterator().next().getValue();
 
-        rs.close();
+            assertThat(queryInfo.sql(), is(sql));
+            assertThat(queryInfo.schema(), is("PUBLIC"));
+            assertThat(queryInfo.type(), is("QUERY"));
+
+        }
     }
 
     @Test
     void shouldReturnSingleQuery() {
         String sql = "SELECT x FROM TABLE(SYSTEM_RANGE(1, 100));";
 
-        IgniteSql igniteSql = CLUSTER.aliveNode().sql();
-        // run query with results pageSize=1
-        ResultSet<SqlRow> rs = CLUSTER.aliveNode().sql()
-                .execute(null, igniteSql.statementBuilder().query(sql).pageSize(1).build());
-        // the query must be active until cursor is closed
-        Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
+        try (ResultSet<SqlRow> ignored = runQuery(sql)) {
+            // the query must be active until cursor is closed
+            Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
 
-        assertThat(queries, aMapWithSize(1));
-        Map.Entry<UUID, SqlQueryInfo> sqlQueryInfoEntry = queries.entrySet().iterator().next();
+            assertThat(queries, aMapWithSize(1));
+            Map.Entry<UUID, SqlQueryInfo> sqlQueryInfoEntry = queries.entrySet().iterator().next();
 
-        SqlQueryInfo query = getSqlQuery(client, sqlQueryInfoEntry.getKey());
-        assertThat(query.id(), is(sqlQueryInfoEntry.getValue().id()));
-        assertThat(query.sql(), is(sqlQueryInfoEntry.getValue().sql()));
-        assertThat(query.type(), is(sqlQueryInfoEntry.getValue().type()));
-        assertThat(query.startTime(), is(sqlQueryInfoEntry.getValue().startTime()));
+            SqlQueryInfo query = getSqlQuery(client, sqlQueryInfoEntry.getKey());
+            assertThat(query.id(), is(sqlQueryInfoEntry.getValue().id()));
+            assertThat(query.sql(), is(sqlQueryInfoEntry.getValue().sql()));
+            assertThat(query.type(), is(sqlQueryInfoEntry.getValue().type()));
+            assertThat(query.startTime(), is(sqlQueryInfoEntry.getValue().startTime()));
 
-        rs.close();
+        }
     }
 
     @Test
     void shouldCancelSqlQuery() {
         String sql = "SELECT x FROM TABLE(SYSTEM_RANGE(1, 100));";
 
-        IgniteSql igniteSql = CLUSTER.aliveNode().sql();
-        // run query with results pageSize=1
-        ResultSet<SqlRow> rs = CLUSTER.aliveNode().sql()
-                .execute(null, igniteSql.statementBuilder().query(sql).pageSize(1).build());
-        // the query must be active until cursor is closed
-        Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
+        try (ResultSet<SqlRow> ignored = runQuery(sql)) {
+            // the query must be active until cursor is closed
+            Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
 
-        SqlQueryInfo queryInfo = queries.entrySet().iterator().next().getValue();
+            SqlQueryInfo queryInfo = queries.entrySet().iterator().next().getValue();
 
-        cancelSqlQuery(client, queryInfo.id());
+            cancelSqlQuery(client, queryInfo.id());
 
-        assertThrowsProblem(
-                () -> getSqlQuery(client, queryInfo.id()),
-                NOT_FOUND,
-                isProblem().withDetail("Sql query not found [queryId=" + queryInfo.id() + "]")
-        );
-
-        rs.close();
+            assertThrowsProblem(
+                    () -> getSqlQuery(client, queryInfo.id()),
+                    NOT_FOUND,
+                    isProblem().withDetail("Sql query not found [queryId=" + queryInfo.id() + "]")
+            );
+        }
     }
 
     @Test
@@ -141,6 +134,13 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
                 NOT_FOUND,
                 isProblem().withDetail("Sql query not found [queryId=" + queryId + "]")
         );
+    }
+
+    private static ResultSet<SqlRow> runQuery(String sql) {
+        IgniteSql igniteSql = CLUSTER.aliveNode().sql();
+        Statement stmt = igniteSql.statementBuilder().query(sql).pageSize(1).build();
+
+        return CLUSTER.aliveNode().sql().execute(null, stmt);
     }
 
     private static Map<UUID, SqlQueryInfo> getSqlQueries(HttpClient client) {

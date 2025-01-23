@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.transaction;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.micronaut.http.annotation.Controller;
@@ -30,10 +31,13 @@ import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.transaction.TransactionApi;
 import org.apache.ignite.internal.rest.api.transaction.TransactionInfo;
 import org.apache.ignite.internal.rest.transaction.exception.TransactionNotFoundException;
+import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
+import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * REST endpoint allows to manage transactions.
@@ -43,8 +47,11 @@ public class TransactionController implements TransactionApi, ResourceHolder {
 
     private IgniteSql igniteSql;
 
-    public TransactionController(IgniteSql igniteSql) {
+    private KillHandlerRegistry killHandlerRegistry;
+
+    public TransactionController(IgniteSql igniteSql, KillHandlerRegistry killHandlerRegistry) {
         this.igniteSql = igniteSql;
+        this.killHandlerRegistry = killHandlerRegistry;
     }
 
     @Override
@@ -65,13 +72,27 @@ public class TransactionController implements TransactionApi, ResourceHolder {
 
     @Override
     public CompletableFuture<Void> cancelTransaction(UUID transactionId) {
-        // Waiting https://issues.apache.org/jira/browse/IGNITE-23488
-        return nullCompletedFuture();
+        // ToDo transaction cancelation is not implemented yet in KillHandlerRegistry https://issues.apache.org/jira/browse/IGNITE-24296
+        try {
+            return killHandlerRegistry.handler(CancellableOperationType.TRANSACTION).cancelAsync(transactionId.toString())
+                    .thenCompose(result -> handleOperationResult(transactionId, result));
+        } catch (Exception e) {
+            return nullCompletedFuture();
+        }
+    }
+
+    private static CompletableFuture<Void> handleOperationResult(UUID transactionId, @Nullable Boolean result) {
+        if (result != null && !result) {
+            return failedFuture(new TransactionNotFoundException(transactionId.toString()));
+        } else {
+            return nullCompletedFuture();
+        }
     }
 
     @Override
     public void cleanResources() {
         igniteSql = null;
+        killHandlerRegistry = null;
     }
 
     private List<TransactionInfo> transactionInfos() {
