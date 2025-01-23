@@ -190,11 +190,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable CatalogTableDescriptor table(int tableId, long timestamp) {
-        return catalogAt(timestamp).table(tableId);
-    }
-
-    @Override
     public @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion) {
         return catalog(catalogVersion).table(tableId);
     }
@@ -202,11 +197,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public Collection<CatalogTableDescriptor> tables(int catalogVersion) {
         return catalog(catalogVersion).tables();
-    }
-
-    @Override
-    public @Nullable CatalogIndexDescriptor index(int indexId, long timestamp) {
-        return catalogAt(timestamp).index(indexId);
     }
 
     @Override
@@ -229,11 +219,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         Catalog catalog = catalog(catalogVersion);
 
         return catalog == null ? null : catalog.schema(schemaId);
-    }
-
-    @Override
-    public @Nullable CatalogZoneDescriptor zone(int zoneId, long timestamp) {
-        return catalogAt(timestamp).zone(zoneId);
     }
 
     @Override

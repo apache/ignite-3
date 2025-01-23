@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
@@ -52,11 +53,11 @@ public class TableUtils {
     public static List<Integer> indexIdsAtRwTxBeginTs(CatalogService catalogService, UUID txId, int tableId) {
         HybridTimestamp beginTs = TransactionIds.beginTimestamp(txId);
 
-        int catalogVersion = catalogService.activeCatalogVersion(beginTs.longValue());
+        Catalog catalog = catalogService.activeCatalog(beginTs.longValue());
 
-        List<CatalogIndexDescriptor> indexes = catalogService.indexes(catalogVersion, tableId);
+        List<CatalogIndexDescriptor> indexes = catalog.indexes(tableId);
 
-        assert !indexes.isEmpty() : String.format("txId=%s, tableId=%s, catalogVersion=%s", txId, tableId, catalogVersion);
+        assert !indexes.isEmpty() : String.format("txId=%s, tableId=%s, catalogVersion=%s", txId, tableId, catalog.version());
 
         return view(indexes, CatalogObjectDescriptor::id);
     }

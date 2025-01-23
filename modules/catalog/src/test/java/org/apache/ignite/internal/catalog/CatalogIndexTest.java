@@ -387,7 +387,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     }
 
     private void dropIndex(int indexId) {
-        CatalogIndexDescriptor index = manager.index(indexId, Long.MAX_VALUE);
+        CatalogIndexDescriptor index = manager.activeCatalog(Long.MAX_VALUE).index(indexId);
         assertThat(index, is(notNullValue()));
 
         dropIndex(index.name());

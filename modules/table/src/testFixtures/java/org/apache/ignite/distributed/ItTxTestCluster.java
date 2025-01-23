@@ -65,6 +65,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -611,8 +612,11 @@ public class ItTxTestCluster {
         when(tableDescriptor.id()).thenReturn(tableId);
         when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
 
-        lenient().when(catalogService.table(eq(tableId), anyLong())).thenReturn(tableDescriptor);
-        lenient().when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
+        Catalog catalog = mock(Catalog.class);
+        lenient().when(catalog.table(eq(tableId))).thenReturn(tableDescriptor);
+
+        lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
+        lenient().when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
 
         List<Set<Assignment>> calculatedAssignments = calculateAssignments(
                 cluster.stream().map(ItTxTestCluster::extractConsistentId).collect(toList()),
@@ -635,7 +639,7 @@ public class ItTxTestCluster {
         CatalogIndexDescriptor pkCatalogIndexDescriptor = mock(CatalogIndexDescriptor.class);
         when(pkCatalogIndexDescriptor.id()).thenReturn(indexId);
 
-        when(catalogService.indexes(anyInt(), eq(tableId))).thenReturn(List.of(pkCatalogIndexDescriptor));
+        when(catalog.indexes(anyInt())).thenReturn(List.of(pkCatalogIndexDescriptor));
 
         InternalTableImpl internalTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, tableName),

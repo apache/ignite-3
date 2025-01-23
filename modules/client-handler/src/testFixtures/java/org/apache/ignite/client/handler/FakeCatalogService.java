@@ -18,6 +18,8 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
 import java.util.Collection;
@@ -40,26 +42,49 @@ import org.apache.ignite.internal.event.EventListener;
  * Fake catalog service.
  */
 public class FakeCatalogService implements CatalogService {
-    private final int partitions;
 
+    private final Catalog catalog;
+
+    /**
+     * Creates fake catalog service.
+     */
     public FakeCatalogService(int partitions) {
-        this.partitions = partitions;
+        catalog = mock(Catalog.class);
+
+        lenient().doAnswer(invocation -> new CatalogTableDescriptor(
+                invocation.getArgument(0),
+                0,
+                0,
+                "table",
+                0,
+                List.of(mock(CatalogTableColumnDescriptor.class)),
+                List.of(),
+                null,
+                DEFAULT_STORAGE_PROFILE)
+        ).when(catalog).table(anyInt());
+
+        lenient().doAnswer(invocation -> new CatalogZoneDescriptor(
+                invocation.getArgument(0),
+                "zone",
+                partitions,
+                0,
+                0,
+                0,
+                0,
+                "",
+                fromParams(Collections.emptyList()),
+                ConsistencyMode.STRONG_CONSISTENCY
+        )).when(catalog).zone(anyInt());
     }
 
     @Override
     public Catalog catalog(int catalogVersion) {
-        return null;
+        return catalog;
     }
 
     @Override
     public Catalog activeCatalog(long timestamp) {
-        return null;
-    }
-
-    @Override
-    public CatalogTableDescriptor table(int tableId, long timestamp) {
-        return new CatalogTableDescriptor(
-                tableId, 0, 0, "table", 0, List.of(mock(CatalogTableColumnDescriptor.class)), List.of(), null, DEFAULT_STORAGE_PROFILE);
+        return catalog;
     }
 
     @Override
@@ -69,11 +94,6 @@ public class FakeCatalogService implements CatalogService {
 
     @Override
     public Collection<CatalogTableDescriptor> tables(int catalogVersion) {
-        return null;
-    }
-
-    @Override
-    public CatalogIndexDescriptor index(int indexId, long timestamp) {
         return null;
     }
 
@@ -95,22 +115,6 @@ public class FakeCatalogService implements CatalogService {
     @Override
     public CatalogSchemaDescriptor schema(int schemaId, int catalogVersion) {
         return null;
-    }
-
-    @Override
-    public CatalogZoneDescriptor zone(int zoneId, long timestamp) {
-        return new CatalogZoneDescriptor(
-                zoneId,
-                "zone",
-                partitions,
-                0,
-                0,
-                0,
-                0,
-                "",
-                fromParams(Collections.emptyList()),
-                ConsistencyMode.STRONG_CONSISTENCY
-        );
     }
 
     @Override

@@ -418,7 +418,7 @@ public class DistributionZoneManager extends
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
             int zoneId = zoneStateEntry.getKey();
-            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, updateTimestamp);
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(updateTimestamp).zone(zoneId);
 
             if (zoneDescriptor == null || zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
                 continue;

@@ -79,16 +79,10 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     Catalog activeCatalog(long timestamp);
 
     @Deprecated(forRemoval = true)
-    @Nullable CatalogTableDescriptor table(int tableId, long timestamp);
-
-    @Deprecated(forRemoval = true)
     @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion);
 
     @Deprecated(forRemoval = true)
     Collection<CatalogTableDescriptor> tables(int catalogVersion);
-
-    @Deprecated(forRemoval = true)
-    @Nullable CatalogIndexDescriptor index(int indexId, long timestamp);
 
     @Deprecated(forRemoval = true)
     @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion);
@@ -101,9 +95,6 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     @Deprecated(forRemoval = true)
     @Nullable CatalogSchemaDescriptor schema(int schemaId, int catalogVersion);
-
-    @Deprecated(forRemoval = true)
-    @Nullable CatalogZoneDescriptor zone(int zoneId, long timestamp);
 
     @Deprecated(forRemoval = true)
     @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion);

@@ -833,7 +833,7 @@ public class TestBuilders {
                     indicesReadyFut = new CompletableFuture<>();
 
                     Consumer<MakeIndexAvailableEventParameters> indexAvailableHandler = params -> {
-                        CatalogIndexDescriptor index = catalogManager.index(params.indexId(), params.catalogVersion());
+                        CatalogIndexDescriptor index = catalogManager.catalog(params.catalogVersion()).index(params.indexId());
 
                         assertThat(index, is(notNullValue()));
 
@@ -892,7 +892,7 @@ public class TestBuilders {
 
     private static SqlSchemaManagerImpl createSqlSchemaManager(CatalogManager catalogManager, ConcurrentMap<String, Long> tablesSize) {
         SqlStatisticManager sqlStatisticManager = tableId -> {
-            CatalogTableDescriptor descriptor = catalogManager.table(tableId, Long.MAX_VALUE);
+            CatalogTableDescriptor descriptor = catalogManager.activeCatalog(Long.MAX_VALUE).table(tableId);
             long fallbackSize = 10_000;
 
             if (descriptor == null) {
