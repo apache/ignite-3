@@ -786,7 +786,8 @@ public class JraftServerImpl implements RaftServer {
                 }
 
                 // This is necessary so that IndexOutOfBoundsException is not thrown in a situation where the listener, when processing a
-                // command, catch any exception and does clo.result(throwable) and then throws the caught exception.
+                // command, catch any exception and does clo.result(throwable) (that actually advances the iterator) and then throws the
+                // caught exception.
                 Closure done = writeCommandIterator.doneForExceptionHandling();
 
                 if (done != null) {
