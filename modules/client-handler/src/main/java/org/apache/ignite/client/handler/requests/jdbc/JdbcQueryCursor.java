@@ -82,6 +82,12 @@ public class JdbcQueryCursor<T> implements AsyncSqlCursor<T> {
 
     /** {@inheritDoc} */
     @Override
+    public CompletableFuture<Void> cancelAsync(CancellationReason reason) {
+        return cur.cancelAsync(reason);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<Void> onClose() {
         return cur.onClose();
     }
