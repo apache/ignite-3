@@ -102,7 +102,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration
     protected static StorageUpdateConfiguration storageUpdateConfiguration;
 
-    @InjectConfiguration("mock.properties: { lockMapSize: \"" + CACHE_SIZE + "\", rawSlotsMaxSize: \"131072\" }")
+    @InjectConfiguration("mock.properties: { lockMapSize: \"" + CACHE_SIZE + " }")
     private static SystemLocalConfiguration systemLocalConfiguration;
 
     @InjectExecutorService

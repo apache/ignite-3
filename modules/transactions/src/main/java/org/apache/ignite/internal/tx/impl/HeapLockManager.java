@@ -83,8 +83,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     private static final String LOCK_MAP_SIZE_PROPERTY_NAME = "lockMapSize";
 
-    private static final String RAW_SLOTS_MAX_SIZE_PROPERTY_NAME = "rawSlotsMaxSize";
-
     /** Striped lock concurrency. */
     private static final int CONCURRENCY = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
 
@@ -95,9 +93,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     /** Lock map size. */
     private final int lockMapSize;
-
-    /** Raw slots size. */
-    private final int rawSlotsMaxSize;
 
     /** Mapped slots. */
     private ConcurrentHashMap<LockKey, LockState> locks;
@@ -120,29 +115,20 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      */
     @TestOnly
     public static HeapLockManager smallInstance() {
-        return new HeapLockManager(1024, 1024);
+        return new HeapLockManager(1024);
     }
 
     /** Constructor. */
     public HeapLockManager(SystemLocalConfiguration systemProperties) {
-        this(
-                intProperty(systemProperties, RAW_SLOTS_MAX_SIZE_PROPERTY_NAME, DEFAULT_SLOTS),
-                intProperty(systemProperties, LOCK_MAP_SIZE_PROPERTY_NAME, DEFAULT_SLOTS)
-        );
+        this(intProperty(systemProperties, LOCK_MAP_SIZE_PROPERTY_NAME, DEFAULT_SLOTS));
     }
 
     /**
      * Constructor.
      *
-     * @param rawSlotsMaxSize Raw slots size.
      * @param lockMapSize Lock map size.
      */
-    public HeapLockManager(int rawSlotsMaxSize, int lockMapSize) {
-        if (lockMapSize > rawSlotsMaxSize) {
-            throw new IllegalArgumentException("maxSize=" + rawSlotsMaxSize + " < mapSize=" + lockMapSize);
-        }
-
-        this.rawSlotsMaxSize = rawSlotsMaxSize;
+    public HeapLockManager(int lockMapSize) {
         this.lockMapSize = lockMapSize;
     }
 
@@ -178,7 +164,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             if (state == null) {
                 return failedFuture(new LockException(
                         ACQUIRE_LOCK_ERR,
-                        "Failed to acquire a lock due to lock table overflow [txId=" + txId + ", limit=" + rawSlotsMaxSize + ']'
+                        "Failed to acquire a lock due to lock table overflow [txId=" + txId + ", limit=" + lockMapSize + ']'
                 ));
             }
 
@@ -291,7 +277,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             do {
                 acquiredLocks = lockTableSize.get();
 
-                if (acquiredLocks < rawSlotsMaxSize) {
+                if (acquiredLocks < lockMapSize) {
                     v = new LockState();
                     v.key = k;
                 } else {
@@ -344,9 +330,11 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         synchronized (v.waiters) {
             if (v.waiters.isEmpty()) {
+                v.key = null;
+
                 int locks = lockTableSize.decrementAndGet();
 
-                assert locks >= 0;
+                assert locks >= 0 : "Lock table released more keys than it acquired.";
 
                 return null;
             } else {
@@ -1346,6 +1334,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     }
 
     public int available() {
-        return rawSlotsMaxSize - lockTableSize.get();
+        return lockMapSize - lockTableSize.get();
     }
 }

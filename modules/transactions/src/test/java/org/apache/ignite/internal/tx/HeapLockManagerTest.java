@@ -54,7 +54,7 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
     public void testLockTableOverflow() throws Exception {
         int maxSlots = 16;
 
-        HeapLockManager lockManager = new HeapLockManager(maxSlots, maxSlots);
+        HeapLockManager lockManager = new HeapLockManager(maxSlots);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
 
         UUID[] txs = new UUID[maxSlots];
@@ -90,7 +90,7 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
     public void testLockTooManyKeysInTx() throws Exception {
         int maxSlots = 16;
 
-        HeapLockManager lockManager = new HeapLockManager(maxSlots, maxSlots);
+        HeapLockManager lockManager = new HeapLockManager(maxSlots);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
 
         UUID txId = TestTransactionIds.newTransactionId();
@@ -123,7 +123,7 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
 
     @Test
     public void testNonDefaultConfiguration(
-            @InjectConfiguration("mock.properties: { lockMapSize: \"42\", rawSlotsMaxSize: \"69\" }")
+            @InjectConfiguration("mock.properties: { lockMapSize: \"42\" }")
             SystemLocalConfiguration systemLocalConfiguration
     ) {
         var lockManager = new HeapLockManager(systemLocalConfiguration);
