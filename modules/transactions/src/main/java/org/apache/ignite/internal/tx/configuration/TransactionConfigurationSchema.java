@@ -36,34 +36,15 @@ public class TransactionConfigurationSchema {
     @Value(hasDefault = true)
     public final long abandonedCheckTs = DEFAULT_ABANDONED_CHECK_TS;
 
-    /** Default transaction timeout (milliseconds). */
+    /** Default timeout for read-only transactions. 10 minutes. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public final long timeout = 10_000;
+    public final long readOnlyTimeout = 600_000;
 
+    /** Default timeout for read-write transactions. 30 seconds. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public final long minRoTimeout = 1;
-
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public final long maxRoTimeout = Long.MAX_VALUE;
-
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public final long minRwTimeout = 1;
-
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public final long maxRwTimeout = Long.MAX_VALUE;
-
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public final long roTimeout = 10_000;
-
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public final long rwTimeout = 3_000;
+    public final long readWriteTimeout = 30_000;
 
     /** A transaction tries to take lock several times until it throws an exception {@lonk org.apache.ignite.tx.TransactionException}. */
     @Range(min = 0)

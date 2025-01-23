@@ -681,8 +681,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             partitionReplicatorNodeRecovery.start();
 
-            roTransactionTimeout = txCfg.roTimeout().value();
-            rwTransactionTimeout = txCfg.rwTimeout().value();
+            roTransactionTimeout = txCfg.readOnlyTimeout().value();
+            rwTransactionTimeout = txCfg.readWriteTimeout().value();
 
             attemptsObtainLock = txCfg.attemptsObtainLock().value();
 

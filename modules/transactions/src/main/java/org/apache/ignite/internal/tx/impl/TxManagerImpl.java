@@ -475,7 +475,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     private long roExpirationPhysicalTimeFor(HybridTimestamp beginTimestamp, InternalTxOptions options) {
-        long effectiveTimeoutMillis = options.timeoutMillis() == 0 ? defaultTransactionTimeoutMillis() : options.timeoutMillis();
+        long effectiveTimeoutMillis = options.timeoutMillis() == 0 ? defaultReadOnlyTransactionTimeoutMillis() : options.timeoutMillis();
         return sumWithSaturation(beginTimestamp.getPhysical(), effectiveTimeoutMillis);
     }
 
@@ -493,8 +493,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         }
     }
 
-    private long defaultTransactionTimeoutMillis() {
-        return txConfig.timeout().value();
+    private long defaultReadOnlyTransactionTimeoutMillis() {
+        return txConfig.readOnlyTimeout().value();
     }
 
     /**
