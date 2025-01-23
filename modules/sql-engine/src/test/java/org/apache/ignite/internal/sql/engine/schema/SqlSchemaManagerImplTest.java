@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
@@ -38,9 +39,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
@@ -61,14 +60,11 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
-import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
-import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
@@ -489,48 +485,27 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                 createHashIndex("T1", "VAL1_IDX", "VAL1")
         )));
 
-        {
-            int versionAfter = catalogManager.latestCatalogVersion();
-            assertThat(versionAfter, equalTo(versionBefore + 1));
+        int versionAfter = catalogManager.latestCatalogVersion();
+        assertThat(versionAfter, equalTo(versionBefore + 1));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
+        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
+        assertNotNull(rootSchema);
 
-            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
-            assertNotNull(schemaPlus);
+        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        assertNotNull(schemaPlus);
 
-            IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
-            assertNull(index, "Index should not be available");
+        IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
+        assertNotNull(index, "Index should be available");
 
-            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
-            assertEquals(Set.of("T1_PK"), indexes.keySet());
-        }
+        assertThat(index.name(), equalTo("VAL1_IDX"));
+        assertThat(index.type(), equalTo(Type.HASH));
+        assertThat(index.collation(), equalTo(RelCollations.of(
+                new RelFieldCollation(1, Direction.CLUSTERED, NullDirection.UNSPECIFIED)
+        )));
 
-        makeIndexAvailable("VAL1_IDX");
-
-        {
-            int versionAfter = catalogManager.latestCatalogVersion();
-            assertThat(versionAfter, equalTo(versionBefore + 2));
-
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
-
-            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
-            assertNotNull(schemaPlus);
-
-            IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
-            assertNotNull(index);
-
-            assertThat(index.name(), equalTo("VAL1_IDX"));
-            assertThat(index.type(), equalTo(Type.HASH));
-            assertThat(index.collation(), equalTo(RelCollations.of(
-                    new RelFieldCollation(1, Direction.CLUSTERED, NullDirection.UNSPECIFIED)
-            )));
-
-            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
-            assertEquals(Set.of("T1_PK", "VAL1_IDX"), indexes.keySet());
-            assertSame(index, indexes.get("VAL1_IDX"), "VAL1_IDX cache entry");
-        }
+        Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+        assertThat(indexes.keySet(), containsInAnyOrder("T1_PK", "VAL1_IDX"));
+        assertSame(index, indexes.get("VAL1_IDX"), "VAL1_IDX cache entry");
     }
 
     @Test
@@ -544,79 +519,40 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                         List.of(CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.DESC_NULLS_LAST))
         )));
 
-        {
-            int versionAfter = catalogManager.latestCatalogVersion();
-            assertThat(versionAfter, equalTo(versionBefore + 1));
+        int versionAfter = catalogManager.latestCatalogVersion();
+        assertThat(versionAfter, equalTo(versionBefore + 1));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
+        SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
+        assertNotNull(rootSchema);
 
-            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
-            assertNotNull(schemaPlus);
+        SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+        assertNotNull(schemaPlus);
 
-            IgniteIndex index1 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
-            assertNull(index1);
+        IgniteIndex index1 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
+        assertNotNull(index1);
 
-            IgniteIndex index2 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
-            assertNull(index2);
+        IgniteIndex index2 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
+        assertNotNull(index2);
 
-            Map<String, IgniteIndex> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
-            assertEquals(Set.of("T1_PK"), indexes.keySet());
-        }
+        assertThat(index1.name(), equalTo("IDX1"));
+        assertThat(index1.type(), equalTo(Type.SORTED));
+        assertThat(index1.collation(), equalTo(RelCollations.of(
+                new RelFieldCollation(1, Direction.ASCENDING, NullDirection.FIRST),
+                new RelFieldCollation(2, Direction.ASCENDING, NullDirection.LAST)
+        )));
 
-        makeIndexAvailable("IDX1");
+        assertThat(index2.name(), equalTo("IDX2"));
+        assertThat(index2.type(), equalTo(Type.SORTED));
+        assertThat(index2.collation(), equalTo(RelCollations.of(
+                new RelFieldCollation(1, Direction.DESCENDING, NullDirection.FIRST),
+                new RelFieldCollation(2, Direction.DESCENDING, NullDirection.LAST)
+        )));
 
-        {
-            int versionAfter = catalogManager.latestCatalogVersion();
-            assertThat(versionAfter, equalTo(versionBefore + 2));
+        Map<String, IgniteIndex> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+        assertThat(indexes.keySet(), containsInAnyOrder("T1_PK", "IDX1", "IDX2"));
 
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
-
-            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
-            assertNotNull(schemaPlus);
-
-            IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
-            assertNotNull(index);
-
-            assertThat(index.name(), equalTo("IDX1"));
-            assertThat(index.type(), equalTo(Type.SORTED));
-            assertThat(index.collation(), equalTo(RelCollations.of(
-                    new RelFieldCollation(1, Direction.ASCENDING, NullDirection.FIRST),
-                    new RelFieldCollation(2, Direction.ASCENDING, NullDirection.LAST)
-            )));
-
-            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
-            assertEquals(Set.of("T1_PK", "IDX1"), indexes.keySet());
-            assertSame(index, indexes.get("IDX1"), "IDX1 cache entry");
-        }
-
-        makeIndexAvailable("IDX2");
-
-        {
-            int versionAfter = catalogManager.latestCatalogVersion();
-            assertThat(versionAfter, equalTo(versionBefore + 3));
-
-            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
-            assertNotNull(rootSchema);
-
-            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
-            assertNotNull(schemaPlus);
-
-            IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
-            assertNotNull(index);
-
-            assertThat(index.name(), equalTo("IDX2"));
-            assertThat(index.type(), equalTo(Type.SORTED));
-            assertThat(index.collation(), equalTo(RelCollations.of(
-                    new RelFieldCollation(1, Direction.DESCENDING, NullDirection.FIRST),
-                    new RelFieldCollation(2, Direction.DESCENDING, NullDirection.LAST)
-            )));
-
-            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
-            assertEquals(Set.of("T1_PK", "IDX1", "IDX2"), indexes.keySet());
-            assertSame(index, indexes.get("IDX2"), "IDX2 cache entry");
-        }
+        assertSame(index1, indexes.get("IDX1"), "IDX1 cache entry");
+        assertSame(index2, indexes.get("IDX2"), "IDX2 cache entry");
     }
 
     private Map<String, IgniteIndex> findTableIndexes(int catalogVersion, String schemaName, String tableName) {
@@ -625,19 +561,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         IgniteTable igniteTable = sqlSchemaManager.table(catalogVersion, table.id());
         return igniteTable.indexes();
-    }
-
-    private void makeIndexAvailable(String name) {
-        Map<String, CatalogIndexDescriptor> indices = catalogManager.indexes(catalogManager.latestCatalogVersion())
-                .stream().collect(Collectors.toMap(CatalogIndexDescriptor::name, Function.identity()));
-
-        CatalogIndexDescriptor indexDescriptor = indices.get(name);
-        assertNotNull(indexDescriptor, indices.toString());
-
-        CatalogCommand startBuilding = StartBuildingIndexCommand.builder().indexId(indexDescriptor.id()).build();
-        CatalogCommand makeAvailable = MakeIndexAvailableCommand.builder().indexId(indexDescriptor.id()).build();
-
-        await(catalogManager.execute(List.of(startBuilding, makeAvailable)));
     }
 
     @ParameterizedTest

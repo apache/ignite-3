@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -53,7 +54,7 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
         CatalogCommand cmd = AlterZoneCommand.builder().zoneName("not_existing_zone").build();
         assertThrows(
                 CatalogValidationException.class,
-                () -> cmd.get(catalogWithDefaultZone()),
+                () -> cmd.get(new UpdateContext(catalogWithDefaultZone())),
                 "Distribution zone with name 'not_existing_zone' not found"
         );
     }

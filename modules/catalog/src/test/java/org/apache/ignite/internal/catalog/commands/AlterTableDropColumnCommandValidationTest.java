@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.junit.jupiter.api.Assertions;
@@ -120,13 +121,13 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
     void exceptionIsThrownIfSchemaNotExists() {
         AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder();
 
-        Catalog catalog = catalogWithDefaultZone();
+        UpdateContext updateContext = new UpdateContext(catalogWithDefaultZone());
 
         CatalogCommand command = fillProperties(builder).schemaName(SCHEMA_NAME + "_UNK").build();
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(updateContext),
                 "Schema with name 'PUBLIC_UNK' not found"
         );
     }
@@ -141,7 +142,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 "Table with name 'PUBLIC.TEST' not found"
         );
     }
@@ -164,7 +165,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 "Column with name 'TEST_UNK' not found in table 'PUBLIC.TEST'"
         );
     }
@@ -191,7 +192,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 "Deleting column `C2` belonging to primary key is not allowed"
         );
     }
@@ -207,7 +208,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 "Deleting column 'VAL' used by index(es) [TEST_IDX], it is not allowed"
         );
     }
@@ -235,7 +236,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 "Deleting column 'VAL' used by index(es) [TEST_IDX], it is not allowed"
         );
     }
