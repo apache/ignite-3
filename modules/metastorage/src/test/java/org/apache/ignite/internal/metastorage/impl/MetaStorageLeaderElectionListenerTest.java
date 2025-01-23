@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
@@ -8,6 +25,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
@@ -18,9 +37,14 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
-public class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
+@ExtendWith(ConfigurationExtension.class)
+class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "foo";
+
+    @InjectConfiguration
+    private MetaStorageConfiguration metaStorageConfiguration;
 
     @Test
     void testSafeTimeSchedulerNotCreatedAfterStoppedTerm() {
@@ -35,7 +59,7 @@ public class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTes
         ClusterTimeImpl clusterTime = new ClusterTimeImpl(NODE_NAME, busyLock, new HybridClockImpl());
 
         CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut = new CompletableFuture<>();
-        CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture = completedFuture(mock(MetaStorageConfiguration.class));
+        CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture = completedFuture(metaStorageConfiguration);
 
         MetaStorageLeaderElectionListener listener = createMetaStorageLeaderElectionListener(
                 clusterTime,
@@ -44,13 +68,13 @@ public class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTes
                 metaStorageConfigurationFuture
         );
 
-        listener.onLeaderElected(thisNode,0);
+        listener.onLeaderElected(thisNode, 0);
 
         ClusterNode otherNode = new ClusterNodeImpl(UUID.randomUUID(), "other", new NetworkAddress("host", 1234));
         listener.onLeaderElected(otherNode, 1);
 
         metaStorageSvcFut.complete(mock(MetaStorageServiceImpl.class));
-        metaStorageConfigurationFuture.complete(mock(MetaStorageConfiguration.class));
+        metaStorageConfigurationFuture.complete(metaStorageConfiguration);
 
         listener.onLeaderElected(thisNode, 2);
     }
