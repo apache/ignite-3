@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.rest.transaction;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.micronaut.http.annotation.Controller;
@@ -75,17 +74,17 @@ public class TransactionController implements TransactionApi, ResourceHolder {
         // ToDo transaction cancelation is not implemented yet in KillHandlerRegistry https://issues.apache.org/jira/browse/IGNITE-24296
         try {
             return killHandlerRegistry.handler(CancellableOperationType.TRANSACTION).cancelAsync(transactionId.toString())
-                    .thenCompose(result -> handleOperationResult(transactionId, result));
+                    .thenApply(result -> handleOperationResult(transactionId, result));
         } catch (Exception e) {
             return nullCompletedFuture();
         }
     }
 
-    private static CompletableFuture<Void> handleOperationResult(UUID transactionId, @Nullable Boolean result) {
+    private static Void handleOperationResult(UUID transactionId, @Nullable Boolean result) {
         if (result != null && !result) {
-            return failedFuture(new TransactionNotFoundException(transactionId.toString()));
+            throw new TransactionNotFoundException(transactionId.toString());
         } else {
-            return nullCompletedFuture();
+            return null;
         }
     }
 

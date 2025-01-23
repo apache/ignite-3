@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
@@ -33,6 +34,7 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
@@ -64,13 +66,14 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
             // the query must be active until cursor is closed
             Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
 
-            assertThat(queries, aMapWithSize(1));
-            SqlQueryInfo queryInfo = queries.entrySet().iterator().next().getValue();
+            assertThat(queries, aMapWithSize(2));
+            SqlQueryInfo queryInfo = queries.entrySet().stream()
+                    .filter(e -> e.getValue().sql().equals(sql))
+                    .findFirst().map(Entry::getValue).orElse(null);
 
-            assertThat(queryInfo.sql(), is(sql));
+            assertThat(queryInfo, notNullValue());
             assertThat(queryInfo.schema(), is("PUBLIC"));
             assertThat(queryInfo.type(), is("QUERY"));
-
         }
     }
 
@@ -82,15 +85,18 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
             // the query must be active until cursor is closed
             Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
 
-            assertThat(queries, aMapWithSize(1));
-            Map.Entry<UUID, SqlQueryInfo> sqlQueryInfoEntry = queries.entrySet().iterator().next();
+            assertThat(queries, aMapWithSize(2));
+            SqlQueryInfo queryInfo = queries.entrySet().stream()
+                    .filter(e -> e.getValue().sql().equals(sql))
+                    .findFirst().map(Entry::getValue).orElse(null);
 
-            SqlQueryInfo query = getSqlQuery(client, sqlQueryInfoEntry.getKey());
-            assertThat(query.id(), is(sqlQueryInfoEntry.getValue().id()));
-            assertThat(query.sql(), is(sqlQueryInfoEntry.getValue().sql()));
-            assertThat(query.type(), is(sqlQueryInfoEntry.getValue().type()));
-            assertThat(query.startTime(), is(sqlQueryInfoEntry.getValue().startTime()));
+            assertThat(queryInfo, notNullValue());
 
+            SqlQueryInfo query = getSqlQuery(client, queryInfo.id());
+            assertThat(query.id(), is(queryInfo.id()));
+            assertThat(query.sql(), is(queryInfo.sql()));
+            assertThat(query.type(), is(queryInfo.type()));
+            assertThat(query.startTime(), is(queryInfo.startTime()));
         }
     }
 
@@ -102,7 +108,12 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
             // the query must be active until cursor is closed
             Map<UUID, SqlQueryInfo> queries = getSqlQueries(client);
 
-            SqlQueryInfo queryInfo = queries.entrySet().iterator().next().getValue();
+            assertThat(queries, aMapWithSize(2));
+            SqlQueryInfo queryInfo = queries.entrySet().stream()
+                    .filter(e -> e.getValue().sql().equals(sql))
+                    .findFirst().map(Entry::getValue).orElse(null);
+
+            assertThat(queryInfo, notNullValue());
 
             cancelSqlQuery(client, queryInfo.id());
 

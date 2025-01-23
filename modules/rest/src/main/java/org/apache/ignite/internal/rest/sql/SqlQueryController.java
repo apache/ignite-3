@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.rest.sql;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.micronaut.http.annotation.Controller;
 import java.util.ArrayList;
@@ -73,14 +71,14 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
     @Override
     public CompletableFuture<Void> cancelQuery(UUID queryId) {
         return killHandlerRegistry.handler(CancellableOperationType.QUERY).cancelAsync(queryId.toString())
-                .thenCompose(result -> handleOperationResult(queryId, result));
+                .thenApply(result -> handleOperationResult(queryId, result));
     }
 
-    private static CompletableFuture<Void> handleOperationResult(UUID queryId, @Nullable Boolean result) {
+    private static Void handleOperationResult(UUID queryId, @Nullable Boolean result) {
         if (result != null && !result) {
-            return failedFuture(new SqlQueryNotFoundException(queryId.toString()));
+            throw new SqlQueryNotFoundException(queryId.toString());
         } else {
-            return nullCompletedFuture();
+            return null;
         }
     }
 
@@ -104,10 +102,6 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
         try (ResultSet<SqlRow> resultSet = igniteSql.execute(null, sqlQueryStmt)) {
             while (resultSet.hasNext()) {
                 SqlRow row = resultSet.next();
-                // Skip original query to SYSTEM.SQL_QUERIES
-                if (row.stringValue("SQL").equals(query)) {
-                    continue;
-                }
                 sqlQueryInfos.add(new SqlQueryInfo(
                         UUID.fromString(row.stringValue("ID")),
                         row.stringValue("INITIATOR_NODE"),
