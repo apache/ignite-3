@@ -122,6 +122,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroup
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -215,7 +216,6 @@ import org.apache.ignite.internal.table.distributed.storage.NullStorageEngine;
 import org.apache.ignite.internal.table.distributed.storage.PartitionStorages;
 import org.apache.ignite.internal.table.distributed.wrappers.ExecutorInclinedPlacementDriver;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -702,32 +702,35 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return completedFuture(false);
         }
 
-        return inBusyLockAsync(busyLock, () -> {
-            List<CompletableFuture<?>> futs = new ArrayList<>();
+        return inBusyLockAsync(busyLock, () -> readyToProcessTableStarts
+                .thenCompose(v -> {
+                    Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
 
-            readyToProcessTableStarts.thenRun(() -> {
-                Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
+                    PartitionSet singlePartitionIdSet = PartitionSet.of(parameters.zonePartitionId().partitionId());
 
-                PartitionSet singlePartitionIdSet = PartitionSet.of(parameters.zonePartitionId().partitionId());
-
-                zoneTables.forEach(tbl -> {
-                    futs.add(inBusyLockAsync(busyLock,
-                            () -> supplyAsync(() -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet), ioExecutor))
-                            .thenCompose(identity())
-                            .thenRunAsync(() -> inBusyLock(busyLock, () -> {
-                                lowWatermark.getLowWatermarkSafe(lwm ->
-                                        registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
+                    CompletableFuture<?>[] futures = zoneTables.stream()
+                            .map(tbl -> {
+                                CompletableFuture<Void> createStoragesFuture = runAsync(
+                                        () -> inBusyLock(busyLock, () -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet)),
+                                        ioExecutor
                                 );
 
-                                preparePartitionResourcesAndLoadToZoneReplica(
-                                        tbl, parameters.zonePartitionId().partitionId(), parameters.zonePartitionId().zoneId());
-                            }), ioExecutor)
-                    );
-                });
-            });
+                                return createStoragesFuture
+                                        .thenRunAsync(() -> inBusyLock(busyLock, () -> {
+                                            lowWatermark.getLowWatermarkSafe(lwm ->
+                                                    registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView(), lwm)
+                                            );
 
-            return allOf(futs.toArray(new CompletableFuture[]{})).thenApply((unused) -> false);
-        });
+                                            preparePartitionResourcesAndLoadToZoneReplica(
+                                                    tbl, parameters.zonePartitionId().partitionId(), parameters.zonePartitionId().zoneId());
+                                        }), ioExecutor);
+                            })
+                            .toArray(CompletableFuture[]::new);
+
+                    return allOf(futures);
+                })
+                .thenApply((unused) -> false)
+        );
     }
 
     private CompletableFuture<Boolean> onZoneReplicaStopped(LocalPartitionReplicaEventParameters parameters) {
@@ -735,25 +738,29 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return completedFuture(false);
         }
 
-        return inBusyLockAsync(busyLock, () -> supplyAsync(() -> {
-            List<CompletableFuture<?>> futs = new ArrayList<>();
-
+        return inBusyLockAsync(busyLock, () -> {
             Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
 
-            zoneTables.forEach(table -> {
-                closePartitionTrackers(table.internalTable(), parameters.zonePartitionId().partitionId());
+            CompletableFuture<?>[] futures = zoneTables.stream()
+                    .map(table -> {
+                        closePartitionTrackers(table.internalTable(), parameters.zonePartitionId().partitionId());
 
-                TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), parameters.zonePartitionId().partitionId());
+                        TablePartitionId tablePartitionId = new TablePartitionId(
+                                table.tableId(),
+                                parameters.zonePartitionId().partitionId()
+                        );
 
-                mvGc.removeStorage(tablePartitionId);
+                        return mvGc.removeStorage(tablePartitionId)
+                                .thenComposeAsync(
+                                        v -> inBusyLockAsync(busyLock, () -> destroyPartitionStorages(tablePartitionId, table)),
+                                        ioExecutor
+                                );
+                    })
+                    .toArray(CompletableFuture[]::new);
 
-                futs.add(destroyPartitionStorages(tablePartitionId, table));
-            });
-
-            return allOf(futs.toArray(new CompletableFuture[]{}));
-        }, ioExecutor).thenCompose(identity())).thenApply((unused) -> false);
+            return allOf(futures);
+        }).thenApply((unused) -> false);
     }
-
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
         if (!PartitionReplicaLifecycleManager.ENABLED) {
@@ -2390,7 +2397,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private static boolean lastRebalanceWasGraceful(@Nullable AssignmentsChain assignmentsChain) {
         // Assignments chain is either empty (when there have been no stable switch yet) or contains a single element in chain.
-        return assignmentsChain == null || assignmentsChain.chain().size() == 1;
+        return assignmentsChain == null || assignmentsChain.size() == 1;
     }
 
     private static PartitionSet extendPartitionSet(@Nullable PartitionSet oldPartitionSet, int partitionId) {
@@ -3051,13 +3058,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private Set<TableImpl> zoneTables(int zoneId) {
-        return tablesPerZone.compute(zoneId, (id, tables) -> {
-            if (tables == null) {
-                tables = new HashSet<>();
-            }
-
-            return tables;
-        });
+        return tablesPerZone.computeIfAbsent(zoneId, id -> new HashSet<>());
     }
 
     private void addTableToZone(int zoneId, TableImpl table) {

@@ -36,6 +36,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.ClientTables;
 import org.apache.ignite.internal.client.tx.ClientTransactions;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -93,9 +94,10 @@ public class TcpIgniteClient implements IgniteClient {
      * Constructor.
      *
      * @param cfg Config.
+     * @param observableTimeTracker Tracker of the latest time observed by client.
      */
-    private TcpIgniteClient(IgniteClientConfiguration cfg) {
-        this(TcpClientChannel::createAsync, cfg);
+    private TcpIgniteClient(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
+        this(TcpClientChannel::createAsync, cfg, observableTimeTracker);
     }
 
     /**
@@ -103,15 +105,16 @@ public class TcpIgniteClient implements IgniteClient {
      *
      * @param chFactory Channel factory.
      * @param cfg Config.
+     * @param observableTimeTracker Tracker of the latest time observed by client.
      */
-    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg) {
+    private TcpIgniteClient(ClientChannelFactory chFactory, IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
         assert chFactory != null;
         assert cfg != null;
 
         this.cfg = cfg;
 
         metrics = new ClientMetricSource();
-        ch = new ReliableChannel(chFactory, cfg, metrics);
+        ch = new ReliableChannel(chFactory, cfg, metrics, observableTimeTracker);
         tables = new ClientTables(ch, marshallers);
         transactions = new ClientTransactions(ch);
         compute = new ClientCompute(ch, tables);
@@ -154,11 +157,22 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
+        return startAsync(cfg, HybridTimestampTracker.atomicTracker(null));
+    }
+
+    /**
+     * Initializes new instance of {@link IgniteClient} and establishes the connection.
+     *
+     * @param cfg Thin client configuration.
+     * @param observableTimeTracker Tracker of the latest time observed by client.
+     * @return Future representing pending completion of the operation.
+     */
+    public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg, HybridTimestampTracker observableTimeTracker) {
         ErrorGroups.initialize();
 
         try {
             //noinspection resource: returned from method
-            var client = new TcpIgniteClient(cfg);
+            var client = new TcpIgniteClient(cfg, observableTimeTracker);
 
             return client.initAsync().thenApply(x -> client);
         } catch (IgniteException e) {

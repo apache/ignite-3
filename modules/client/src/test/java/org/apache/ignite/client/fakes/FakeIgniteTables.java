@@ -55,17 +55,17 @@ import org.jetbrains.annotations.Nullable;
 public class FakeIgniteTables implements IgniteTablesInternal {
     public static final String TABLE_EXISTS = "Table exists";
 
-    public static final String TABLE_ALL_COLUMNS = "all-columns";
+    public static final String TABLE_ALL_COLUMNS = "ALL_COLUMNS";
 
-    public static final String TABLE_ONE_COLUMN = "one-column";
+    public static final String TABLE_ONE_COLUMN = "ONE_COLUMN";
 
-    public static final String TABLE_WITH_DEFAULT_VALUES = "default-columns";
+    public static final String TABLE_WITH_DEFAULT_VALUES = "DEFAULT_COLUMNS";
 
-    public static final String TABLE_COMPOSITE_KEY = "composite-key";
+    public static final String TABLE_COMPOSITE_KEY = "COMPOSITE_KEY";
 
-    public static final String TABLE_COLOCATION_KEY = "colocation-key";
+    public static final String TABLE_COLOCATION_KEY = "COLOCATION_KEY";
 
-    public static final String BAD_TABLE = "bad-table";
+    public static final String BAD_TABLE = "BAD_TABLE";
 
     public static final String BAD_TABLE_ERR = "Err!";
 

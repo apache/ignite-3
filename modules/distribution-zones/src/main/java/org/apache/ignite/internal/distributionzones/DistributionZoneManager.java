@@ -68,6 +68,7 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -939,7 +940,9 @@ public class DistributionZoneManager extends
                 .thenApply(StatementResult::getAsBoolean)
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
-                        LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
+                        if (!hasCauseOrSuppressed(e, NodeStoppingException.class)) {
+                            LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
+                        }
                     } else if (invokeResult) {
                         LOG.info("Update recoverable state for distribution zone manager [revision = {}]", revision);
                     } else {
