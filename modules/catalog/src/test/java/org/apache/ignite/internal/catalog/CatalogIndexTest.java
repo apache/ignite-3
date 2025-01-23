@@ -843,7 +843,11 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     }
 
     private List<Integer> tableIndexIds(int catalogVersion, int tableId) {
-        return manager.indexes(catalogVersion, tableId).stream().map(CatalogObjectDescriptor::id).collect(toList());
+        Catalog catalog = manager.catalog(catalogVersion);
+
+        assert catalog != null;
+
+        return catalog.indexes(tableId).stream().map(CatalogObjectDescriptor::id).collect(toList());
     }
 
     private int tableId(String tableName) {

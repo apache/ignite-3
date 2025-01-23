@@ -22,14 +22,11 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -85,46 +82,6 @@ public class FakeCatalogService implements CatalogService {
     @Override
     public Catalog activeCatalog(long timestamp) {
         return catalog;
-    }
-
-    @Override
-    public CatalogTableDescriptor table(int tableId, int catalogVersion) {
-        return null;
-    }
-
-    @Override
-    public Collection<CatalogTableDescriptor> tables(int catalogVersion) {
-        return null;
-    }
-
-    @Override
-    public CatalogIndexDescriptor index(int indexId, int catalogVersion) {
-        return null;
-    }
-
-    @Override
-    public Collection<CatalogIndexDescriptor> indexes(int catalogVersion) {
-        return null;
-    }
-
-    @Override
-    public List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId) {
-        return null;
-    }
-
-    @Override
-    public CatalogSchemaDescriptor schema(int schemaId, int catalogVersion) {
-        return null;
-    }
-
-    @Override
-    public CatalogZoneDescriptor zone(int zoneId, int catalogVersion) {
-        return null;
-    }
-
-    @Override
-    public Collection<CatalogZoneDescriptor> zones(int catalogVersion) {
-        return null;
     }
 
     @Override

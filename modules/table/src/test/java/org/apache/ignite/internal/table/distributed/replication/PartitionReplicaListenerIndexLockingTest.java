@@ -229,11 +229,10 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
         TestPartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(TABLE_ID, PART_ID, TEST_MV_PARTITION_STORAGE);
 
-        CatalogService catalogService = mock(CatalogService.class);
         Catalog catalog = mock(Catalog.class);
-
-        when(catalogService.catalog(anyInt())).thenReturn(catalog);
+        CatalogService catalogService = mock(CatalogService.class);
         when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
+        when(catalogService.catalog(anyInt())).thenReturn(catalog);
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
         when(tableDescriptor.tableVersion()).thenReturn(schemaDescriptor.version());

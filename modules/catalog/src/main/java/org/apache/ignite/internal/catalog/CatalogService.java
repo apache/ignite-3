@@ -17,13 +17,7 @@
 
 package org.apache.ignite.internal.catalog;
 
-import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.event.EventProducer;
@@ -77,30 +71,6 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      * @return The active catalog at the specified timestamp.
      */
     Catalog activeCatalog(long timestamp);
-
-    @Deprecated(forRemoval = true)
-    @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion);
-
-    @Deprecated(forRemoval = true)
-    Collection<CatalogTableDescriptor> tables(int catalogVersion);
-
-    @Deprecated(forRemoval = true)
-    @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion);
-
-    @Deprecated(forRemoval = true)
-    Collection<CatalogIndexDescriptor> indexes(int catalogVersion);
-
-    @Deprecated(forRemoval = true)
-    List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId);
-
-    @Deprecated(forRemoval = true)
-    @Nullable CatalogSchemaDescriptor schema(int schemaId, int catalogVersion);
-
-    @Deprecated(forRemoval = true)
-    @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion);
-
-    @Deprecated(forRemoval = true)
-    Collection<CatalogZoneDescriptor> zones(int catalogVersion);
 
     /**
      * Retrieves the actual catalog version at the specified timestamp.

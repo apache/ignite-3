@@ -257,19 +257,20 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         lenient().when(catalog.index(indexId)).thenReturn(indexDescriptor);
         lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
+        lenient().when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
 
         indexDescriptor = mock(CatalogIndexDescriptor.class);
 
         lenient().when(indexDescriptor.id()).thenReturn(indexId);
-        lenient().when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of(indexDescriptor));
-        lenient().when(catalogService.index(anyInt(), anyInt())).thenReturn(indexDescriptor);
+        lenient().when(catalog.indexes(anyInt())).thenReturn(List.of(indexDescriptor));
+        lenient().when(catalog.index(anyInt())).thenReturn(indexDescriptor);
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
 
         int tableVersion = SCHEMA.version();
 
         lenient().when(tableDescriptor.tableVersion()).thenReturn(tableVersion);
-        lenient().when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
+        lenient().when(catalog.table(anyInt())).thenReturn(tableDescriptor);
 
         indexMetaStorage = mock(IndexMetaStorage.class);
 

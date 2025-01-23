@@ -316,7 +316,7 @@ public class PartitionReplicaLifecycleManager extends
 
         for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
             int ver0 = ver;
-            catalogMgr.zones(ver).stream()
+            catalogMgr.catalog(ver).zones().stream()
                     .filter(zone -> startedZones.add(zone.id()))
                     .forEach(zoneDescriptor -> startZoneFutures.add(
                             calculateZoneAssignmentsAndCreateReplicationNodes(recoveryRevision, ver0, zoneDescriptor)));
@@ -519,13 +519,13 @@ public class PartitionReplicaLifecycleManager extends
             Long assignmentsTimestamp
     ) {
         return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
-            int catalogVersion = catalogMgr.activeCatalogVersion(assignmentsTimestamp);
+            Catalog catalog = catalogMgr.activeCatalog(assignmentsTimestamp);
 
-            CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(zonePartitionId.zoneId(), catalogVersion);
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
 
             int zoneId = zonePartitionId.zoneId();
 
-            return distributionZoneMgr.dataNodes(zoneDescriptor.updateToken(), catalogVersion, zoneId)
+            return distributionZoneMgr.dataNodes(zoneDescriptor.updateToken(), catalog.version(), zoneId)
                     .thenApply(dataNodes -> calculateAssignmentForPartition(
                             dataNodes,
                             zonePartitionId.partitionId(),
@@ -751,13 +751,13 @@ public class PartitionReplicaLifecycleManager extends
             long assignmentsTimestamp = assignments.timestamp();
 
             return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                int catalogVersion = catalogMgr.activeCatalogVersion(assignmentsTimestamp);
+                Catalog catalog = catalogMgr.activeCatalog(assignmentsTimestamp);
 
-                CatalogZoneDescriptor zoneDescriptor = catalogMgr.zone(replicaGrpId.zoneId(), catalogVersion);
+                CatalogZoneDescriptor zoneDescriptor = catalog.zone(replicaGrpId.zoneId());
 
                 long causalityToken = zoneDescriptor.updateToken();
 
-                return distributionZoneMgr.dataNodes(causalityToken, catalogVersion, replicaGrpId.zoneId())
+                return distributionZoneMgr.dataNodes(causalityToken, catalog.version(), replicaGrpId.zoneId())
                         .thenCompose(dataNodes -> handleReduceChanged(
                                 metaStorageMgr,
                                 dataNodes,

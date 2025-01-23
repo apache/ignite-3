@@ -63,6 +63,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -497,12 +498,12 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     }
 
     private void checkAssignments(Map<Integer, Set<String>> zoneNodes, Function<TablePartitionId, ByteArray> assignmentFunction) {
-        int catalogVersion = catalogManager.latestCatalogVersion();
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
-        catalogManager.tables(catalogVersion).forEach(tableDescriptor -> {
+        catalog.tables().forEach(tableDescriptor -> {
             int tableId = tableDescriptor.id();
 
-            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(tableDescriptor.zoneId(), catalogVersion);
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
 
             assertNotNull(zoneDescriptor, "tableName=" + tableDescriptor.name() + ", zoneId=" + tableDescriptor.zoneId());
 
@@ -582,14 +583,14 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         var tableId = getTableId(tableName);
         var zoneId = getZoneId(zoneName);
 
-        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, catalogManager.latestCatalogVersion());
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
         Set<String> initialDataNodes = Set.of("node0");
         List<Set<Assignment>> initialAssignments =
                 calculateAssignments(initialDataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas());
 
-        int catalogVersion = catalogManager.latestCatalogVersion();
-        long timestamp = catalogManager.catalog(catalogVersion).time();
+        long timestamp = catalog.time();
 
         for (int i = 0; i < initialAssignments.size(); i++) {
             var stableAssignmentPartitionKey = stablePartAssignmentsKey(new TablePartitionId(tableId, i)).bytes();

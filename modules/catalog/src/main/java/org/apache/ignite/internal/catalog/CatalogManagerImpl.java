@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
@@ -42,11 +41,7 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.Fireable;
@@ -187,48 +182,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         busyLock.block();
         versionTracker.close();
         return updateLog.stopAsync(componentContext);
-    }
-
-    @Override
-    public @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion) {
-        return catalog(catalogVersion).table(tableId);
-    }
-
-    @Override
-    public Collection<CatalogTableDescriptor> tables(int catalogVersion) {
-        return catalog(catalogVersion).tables();
-    }
-
-    @Override
-    public @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion) {
-        return catalog(catalogVersion).index(indexId);
-    }
-
-    @Override
-    public Collection<CatalogIndexDescriptor> indexes(int catalogVersion) {
-        return catalog(catalogVersion).indexes();
-    }
-
-    @Override
-    public List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId) {
-        return catalog(catalogVersion).indexes(tableId);
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor schema(int schemaId, int catalogVersion) {
-        Catalog catalog = catalog(catalogVersion);
-
-        return catalog == null ? null : catalog.schema(schemaId);
-    }
-
-    @Override
-    public @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion) {
-        return catalog(catalogVersion).zone(zoneId);
-    }
-
-    @Override
-    public Collection<CatalogZoneDescriptor> zones(int catalogVersion) {
-        return catalog(catalogVersion).zones();
     }
 
     @Override

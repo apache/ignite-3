@@ -269,7 +269,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         Catalog catalog = catalogManager.activeCatalog(timestamp);
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
-        List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalog.version(), catalogManager);
+        List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalog);
         Map<Integer, Set<Integer>> tablePartitionsToReset = new HashMap<>();
         for (CatalogTableDescriptor table : tables) {
             Set<Integer> partitionsToReset = new HashSet<>();

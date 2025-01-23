@@ -75,16 +75,16 @@ public class TableUtils {
         }
 
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
-        int lwmCatalogVersion = catalogService.activeCatalogVersion(lowWatermark.longValue());
+        Catalog lwmCatalog = catalogService.activeCatalog(lowWatermark.longValue());
 
-        Set<Integer> tableIds = catalogService.tables(lwmCatalogVersion).stream()
+        Set<Integer> tableIds = lwmCatalog.tables().stream()
                 .map(CatalogObjectDescriptor::id)
                 .collect(toCollection(HashSet::new));
 
         var res = new ArrayList<DroppedTableInfo>();
 
-        for (int catalogVersion = lwmCatalogVersion - 1; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
-            for (CatalogTableDescriptor table : catalogService.tables(catalogVersion)) {
+        for (int catalogVersion = lwmCatalog.version() - 1; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
+            for (CatalogTableDescriptor table : catalogService.catalog(catalogVersion).tables()) {
                 if (tableIds.add(table.id())) {
                     res.add(new DroppedTableInfo(table.id(), catalogVersion + 1));
                 }

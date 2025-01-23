@@ -644,8 +644,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         CatalogTableDescriptor table = manager.activeCatalog(clock.nowLong()).table(SCHEMA_NAME, TABLE_NAME);
 
-        assertNull(manager.table(table.id(), tableCreationVersion - 1));
-        assertSame(table, manager.table(table.id(), tableCreationVersion));
+        assertNull(manager.catalog(tableCreationVersion - 1).table(table.id()));
+        assertSame(table, manager.catalog(tableCreationVersion).table(table.id()));
     }
 
     @Test

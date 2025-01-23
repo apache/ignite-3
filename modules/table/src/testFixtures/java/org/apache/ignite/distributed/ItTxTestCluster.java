@@ -313,6 +313,8 @@ public class ItTxTestCluster {
 
     private CatalogService catalogService;
 
+    private Catalog catalog;
+
     private final AtomicInteger globalCatalogId = new AtomicInteger();
 
     protected final TestLowWatermark lowWatermark = new TestLowWatermark();
@@ -372,6 +374,9 @@ public class ItTxTestCluster {
         placementDriver = new TestPlacementDriver(firstNode);
 
         catalogService = mock(CatalogService.class);
+        catalog = mock(Catalog.class);
+        lenient().when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
+        lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
 
         LOG.info("The cluster has been started");
 
@@ -612,11 +617,7 @@ public class ItTxTestCluster {
         when(tableDescriptor.id()).thenReturn(tableId);
         when(tableDescriptor.tableVersion()).thenReturn(SCHEMA_VERSION);
 
-        Catalog catalog = mock(Catalog.class);
         lenient().when(catalog.table(eq(tableId))).thenReturn(tableDescriptor);
-
-        lenient().when(catalogService.catalog(anyInt())).thenReturn(catalog);
-        lenient().when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
 
         List<Set<Assignment>> calculatedAssignments = calculateAssignments(
                 cluster.stream().map(ItTxTestCluster::extractConsistentId).collect(toList()),
@@ -639,7 +640,7 @@ public class ItTxTestCluster {
         CatalogIndexDescriptor pkCatalogIndexDescriptor = mock(CatalogIndexDescriptor.class);
         when(pkCatalogIndexDescriptor.id()).thenReturn(indexId);
 
-        when(catalog.indexes(anyInt())).thenReturn(List.of(pkCatalogIndexDescriptor));
+        when(catalog.indexes(eq(tableId))).thenReturn(List.of(pkCatalogIndexDescriptor));
 
         InternalTableImpl internalTable = new InternalTableImpl(
                 QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, tableName),

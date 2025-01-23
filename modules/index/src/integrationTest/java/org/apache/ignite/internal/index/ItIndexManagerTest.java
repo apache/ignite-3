@@ -122,7 +122,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
         int latestCatalogVersion = catalogManager.latestCatalogVersion();
 
         return IntStream.rangeClosed(earliestCatalogVersion, latestCatalogVersion)
-                .mapToObj(catalogVersion -> catalogManager.indexes(catalogVersion, table.tableId()))
+                .mapToObj(catalogVersion -> catalogManager.catalog(catalogVersion).indexes(table.tableId()))
                 .flatMap(Collection::stream)
                 .map(CatalogObjectDescriptor::id)
                 .distinct()
