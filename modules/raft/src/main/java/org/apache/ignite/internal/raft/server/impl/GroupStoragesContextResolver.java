@@ -22,8 +22,8 @@ import java.util.Map;
 import java.util.function.Function;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
-import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
 import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
+import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /** Resolves {@link LogStorageFactory} and server data path for given {@link StorageDestructionIntent}. */
