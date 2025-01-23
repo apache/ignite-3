@@ -77,7 +77,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
 public class ClientComputeTest extends BaseIgniteAbstractTest {
-    private static final String TABLE_NAME = "tbl1";
+    private static final String TABLE_NAME = "TBL1";
 
     private FakeIgnite ignite1;
     private FakeIgnite ignite2;
@@ -197,10 +197,10 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
             var ex = assertThrows(CompletionException.class,
                     () -> client.compute().executeAsync(
-                            JobTarget.colocated("\"bad-tbl\"", key), JobDescriptor.builder("job").build(), null).join());
+                            JobTarget.colocated("\"bad_tbl\"", key), JobDescriptor.builder("job").build(), null).join());
 
             var tblNotFoundEx = (TableNotFoundException) ex.getCause();
-            assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=PUBLIC.\"bad-tbl\"]"));
+            assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=PUBLIC.\"bad_tbl\"]"));
             assertEquals(TABLE_NOT_FOUND_ERR, tblNotFoundEx.code());
         }
     }
