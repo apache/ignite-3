@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.exp.agg;
 
 import static org.apache.calcite.sql.type.SqlTypeName.ANY;
 import static org.apache.calcite.sql.type.SqlTypeName.BIGINT;
-import static org.apache.calcite.sql.type.SqlTypeName.BOOLEAN;
 import static org.apache.calcite.sql.type.SqlTypeName.DECIMAL;
 import static org.apache.calcite.sql.type.SqlTypeName.DOUBLE;
 import static org.apache.calcite.sql.type.SqlTypeName.VARBINARY;
@@ -35,6 +34,7 @@ import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.sql.fun.SqlLiteralAggFunction;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
@@ -61,11 +61,11 @@ public class Accumulators {
     /**
      * Returns a supplier that creates a accumulator functions for the given aggregate call.
      */
-    public Supplier<Accumulator> accumulatorFactory(AggregateCall call) {
-        return accumulatorFunctionFactory(call);
+    public Supplier<Accumulator> accumulatorFactory(AggregateCall call, RelDataType inputType) {
+        return accumulatorFunctionFactory(call, inputType);
     }
 
-    private Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call) {
+    private Supplier<Accumulator> accumulatorFunctionFactory(AggregateCall call, RelDataType inputType) {
         // Update documentation in IgniteCustomType when you add an aggregate
         // that can work for any type out of the box.
         switch (call.getAggregation().getName()) {
@@ -88,7 +88,8 @@ public class Accumulators {
             case "ANY_VALUE":
                 return anyValueFactory(call);
             case "LITERAL_AGG":
-                return LiteralVal.newAccumulator(typeFactory.createSqlType(BOOLEAN));
+                assert call.rexList.size() == 1 : "Incorrect number of pre-operands for LiteralAgg: " + call + ", input: " + inputType;
+                return LiteralVal.newAccumulator(call.rexList.get(0).getType());
             default:
                 throw new AssertionError(call.getAggregation().getName());
         }
@@ -254,12 +255,16 @@ public class Accumulators {
     }
 
     /**
-     * {@code LITERAL_AGG} accumulator, return {@code true} if incoming data is not empty, {@code false} otherwise. Calcite`s implementation
-     * RexImpTable#LiteralAggImplementor.
+     * {@code LITERAL_AGG} accumulator. Pseudo accumulator that accepts a single literal as an operand and returns that literal.
+     *
+     * @see SqlLiteralAggFunction
      */
-    public static class LiteralVal extends AnyVal {
+    public static class LiteralVal implements Accumulator {
+
+        private final RelDataType type;
+
         private LiteralVal(RelDataType type) {
-            super(type);
+            this.type = type;
         }
 
         public static Supplier<Accumulator> newAccumulator(RelDataType type) {
@@ -268,9 +273,29 @@ public class Accumulators {
 
         /** {@inheritDoc} */
         @Override
+        public void add(AccumulatorsState state, Object[] args) {
+            assert args.length == 1 : args.length;
+            // Literal Agg is called with the same argument.
+            state.set(args[0]);
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public void end(AccumulatorsState state, AccumulatorsState result) {
             Object val = state.get();
-            result.set(val != null);
+            result.set(val);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public List<RelDataType> argumentTypes(IgniteTypeFactory typeFactory) {
+            return List.of(typeFactory.createTypeWithNullability(type, true));
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public RelDataType returnType(IgniteTypeFactory typeFactory) {
+            return type;
         }
     }
 
