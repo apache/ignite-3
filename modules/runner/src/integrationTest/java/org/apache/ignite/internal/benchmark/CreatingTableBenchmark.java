@@ -100,7 +100,7 @@ public class CreatingTableBenchmark extends AbstractMultiNodeBenchmark {
     @Measurement(iterations = 5, time = 5)
     @BenchmarkMode(AverageTime)
     @OutputTimeUnit(MILLISECONDS)
-    public void createTableInDefaultZone() {
+    public void createTableInZone() {
         String tableName = "table_test_" + cnt.incrementAndGet();
 
         createTable(tableName);
