@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -98,6 +99,11 @@ import org.jetbrains.annotations.Nullable;
  * <p>Provides convenient access to the methods for optimization and execution of the queries.
  */
 public class TestNode implements LifecycleAware {
+    // Time of the preparation is limited by timeout in {@link PrepareService}.
+    // This timeout is more like second frontier to avoid tests being frozen
+    // forever in case of a bug in {@link PrepareService} timeouts mechanism.
+    private static final int AWAIT_PLAN_TIMEOUT_MINUTES = 10;
+
     private final String nodeName;
     private final QueryExecutor queryExecutor;
     private final PrepareService prepareService;
@@ -285,7 +291,7 @@ public class TestNode implements LifecycleAware {
         ParsedResult parsedResult = parserService.parse(query);
         SqlOperationContext ctx = createContext().parameters(params).build();
 
-        return await(prepareService.prepareAsync(parsedResult, ctx));
+        return awaitPlan(prepareService.prepareAsync(parsedResult, ctx));
     }
 
     /**
@@ -300,7 +306,7 @@ public class TestNode implements LifecycleAware {
         ParsedResult parsedResult = parserService.parse(query);
         SqlOperationContext ctx = createContext().txContext(txContext).build();
 
-        return await(prepareService.prepareAsync(parsedResult, ctx));
+        return awaitPlan(prepareService.prepareAsync(parsedResult, ctx));
     }
 
     /**
@@ -313,7 +319,7 @@ public class TestNode implements LifecycleAware {
     public QueryPlan prepare(ParsedResult parsedResult) {
         SqlOperationContext ctx = createContext().build();
 
-        return await(prepareService.prepareAsync(parsedResult, ctx));
+        return awaitPlan(prepareService.prepareAsync(parsedResult, ctx));
     }
 
     /** Executes the given script. */
@@ -382,6 +388,10 @@ public class TestNode implements LifecycleAware {
         services.add(service);
 
         return service;
+    }
+
+    private QueryPlan awaitPlan(CompletableFuture<QueryPlan> future) {
+        return await(future, AWAIT_PLAN_TIMEOUT_MINUTES, TimeUnit.MINUTES);
     }
 
     private static class IgniteComponentLifecycleAwareAdapter implements LifecycleAware {
