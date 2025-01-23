@@ -50,6 +50,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
+import org.apache.ignite.internal.raft.service.SafeTimeAwareCommandClosure;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
@@ -782,10 +784,12 @@ public class JraftServerImpl implements RaftServer {
 
                     @Override
                     public CommandClosure<WriteCommand> next() {
-                        @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) iter.done();
+                        @Nullable CommandClosure<WriteCommand> doneClo = (CommandClosure<WriteCommand>) iter.done();
                         ByteBuffer data = iter.getData();
 
-                        WriteCommand command = done == null ? marshaller.unmarshall(data) : done.command();
+                        WriteCommand command = doneClo == null ? marshaller.unmarshall(data) : doneClo.command();
+
+                        HybridTimestamp safeTs = doneClo == null ? null : doneClo.safeTimestamp();
 
                         long commandIndex = iter.getIndex();
                         long commandTerm = iter.getTerm();
@@ -803,6 +807,11 @@ public class JraftServerImpl implements RaftServer {
                                 return commandTerm;
                             }
 
+                            @Override
+                            public @Nullable HybridTimestamp safeTimestamp() {
+                                return safeTs;
+                            }
+
                             /** {@inheritDoc} */
                             @Override
                             public WriteCommand command() {
@@ -812,8 +821,8 @@ public class JraftServerImpl implements RaftServer {
                             /** {@inheritDoc} */
                             @Override
                             public void result(Serializable res) {
-                                if (done != null) {
-                                    done.result(res);
+                                if (doneClo != null) {
+                                    doneClo.result(res);
                                 }
 
                                 iter.next();

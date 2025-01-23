@@ -36,6 +36,7 @@ public class UpdateCommandResult implements Serializable {
     /** {@code true} if primary replica belongs to the raft group topology: peers and learners, (@code false) otherwise. */
     private final boolean primaryInPeersAndLearners;
 
+    /** The safe timestamp. */
     private final long safeTimestamp;
 
     /**

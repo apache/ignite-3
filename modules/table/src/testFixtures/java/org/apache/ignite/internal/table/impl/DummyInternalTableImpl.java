@@ -352,6 +352,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
                         long commandIndex = raftIndex.incrementAndGet();
 
+                        HybridTimestamp safeTs = CLOCK.now();
+
                         CompletableFuture<Serializable> res = new CompletableFuture<>();
 
                         // All read commands are handled directly throw partition replica listener.
@@ -364,7 +366,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
                             /** {@inheritDoc} */
                             @Override
-                            public WriteCommand command() {
+                            public HybridTimestamp safeTimestamp() {
+                                return safeTs;
+                            }
+
+                            /** {@inheritDoc} */
+                            @Override
+                            public @Nullable WriteCommand command() {
                                 return (WriteCommand) cmd;
                             }
 
@@ -377,14 +385,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     res.complete(r);
                                 }
                             }
-
-                            @Override
-                            public void patch(HybridTimestamp safeTs) {
-                                command().patch(safeTs);
-                            }
                         };
-
-                        clo.patch(CLOCK.now());
 
                         try {
                             partitionListener.onWrite(List.of(clo).iterator());

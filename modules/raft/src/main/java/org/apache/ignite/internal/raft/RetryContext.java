@@ -132,10 +132,7 @@ class RetryContext {
      * @return {@code this}.
      */
     RetryContext nextAttempt(Peer newTargetPeer) {
-        // We can avoid recreating the request if the target peer has not changed.
-        if (!newTargetPeer.equals(targetPeer)) {
-            request = requestFactory.apply(newTargetPeer);
-        }
+        request = requestFactory.apply(newTargetPeer);
 
         targetPeer = newTargetPeer;
 

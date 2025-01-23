@@ -46,6 +46,14 @@ public interface CommandClosure<R extends Command> {
     }
 
     /**
+     * Safe timestamp (replication begin time) of a command. {@code Null} if a command doesn't carry safe timestamp.
+     * Returns the safe time.
+     */
+    default @Nullable HybridTimestamp safeTimestamp() {
+        return null;
+    }
+
+    /**
      * Returns command.
      */
     R command();
@@ -56,11 +64,4 @@ public interface CommandClosure<R extends Command> {
      * @param res Execution result.
      */
     void result(@Nullable Serializable res);
-
-    /**
-     * Patches the command.
-     *
-     * @param safeTs Safe timestamp.
-     */
-    default void patch(HybridTimestamp safeTs) {}
 }
