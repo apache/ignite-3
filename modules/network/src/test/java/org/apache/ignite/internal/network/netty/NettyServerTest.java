@@ -202,19 +202,16 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
 
         when(registry.createDeserializer(anyShort(), anyShort()))
                 .thenReturn(new MessageDeserializer<>() {
-                    /** {@inheritDoc} */
                     @Override
                     public boolean readMessage(MessageReader reader) throws MessageMappingException {
                         return true;
                     }
 
-                    /** {@inheritDoc} */
                     @Override
                     public Class<NetworkMessage> klass() {
                         return NetworkMessage.class;
                     }
 
-                    /** {@inheritDoc} */
                     @Override
                     public NetworkMessage getMessage() {
                         return mock(NetworkMessage.class);
@@ -229,7 +226,8 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
                 () -> handshakeManager,
                 (message) -> {},
                 new SerializationService(registry, mock(UserObjectSerializationContext.class)),
-                bootstrapFactory
+                bootstrapFactory,
+                null
         );
 
         server.start().get(3, TimeUnit.SECONDS);
@@ -304,7 +302,8 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
                 this::mockHandshakeManager,
                 (message) -> {},
                 new SerializationService(registry, mock(UserObjectSerializationContext.class)),
-                bootstrapFactory
+                bootstrapFactory,
+                null
         );
 
         try {
