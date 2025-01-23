@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.rest.transaction;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import io.micronaut.http.annotation.Controller;
 import java.util.ArrayList;
@@ -26,9 +26,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.transaction.TransactionApi;
 import org.apache.ignite.internal.rest.api.transaction.TransactionInfo;
+import org.apache.ignite.internal.rest.transaction.exception.TransactionCancelException;
 import org.apache.ignite.internal.rest.transaction.exception.TransactionNotFoundException;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
@@ -43,6 +46,8 @@ import org.jetbrains.annotations.Nullable;
  */
 @Controller("/management/v1/transaction")
 public class TransactionController implements TransactionApi, ResourceHolder {
+
+    private static final IgniteLogger LOG = Loggers.forClass(TransactionController.class);
 
     private IgniteSql igniteSql;
 
@@ -76,7 +81,8 @@ public class TransactionController implements TransactionApi, ResourceHolder {
             return killHandlerRegistry.handler(CancellableOperationType.TRANSACTION).cancelAsync(transactionId.toString())
                     .thenApply(result -> handleOperationResult(transactionId, result));
         } catch (Exception e) {
-            return nullCompletedFuture();
+            LOG.error("Transaction {} can't be canceled.", transactionId, e);
+            return failedFuture(new TransactionCancelException(transactionId.toString()));
         }
     }
 

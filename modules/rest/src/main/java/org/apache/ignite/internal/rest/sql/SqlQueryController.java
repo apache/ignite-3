@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.sql;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import io.micronaut.http.annotation.Controller;
 import java.util.ArrayList;
@@ -25,9 +26,12 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryApi;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
+import org.apache.ignite.internal.rest.sql.exception.SqlQueryCancelException;
 import org.apache.ignite.internal.rest.sql.exception.SqlQueryNotFoundException;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.KillHandlerRegistry;
@@ -42,6 +46,8 @@ import org.jetbrains.annotations.Nullable;
  */
 @Controller("/management/v1/sql")
 public class SqlQueryController implements SqlQueryApi, ResourceHolder {
+
+    private static final IgniteLogger LOG = Loggers.forClass(SqlQueryController.class);
 
     private IgniteSql igniteSql;
 
@@ -70,8 +76,13 @@ public class SqlQueryController implements SqlQueryApi, ResourceHolder {
 
     @Override
     public CompletableFuture<Void> cancelQuery(UUID queryId) {
-        return killHandlerRegistry.handler(CancellableOperationType.QUERY).cancelAsync(queryId.toString())
-                .thenApply(result -> handleOperationResult(queryId, result));
+        try {
+            return killHandlerRegistry.handler(CancellableOperationType.QUERY).cancelAsync(queryId.toString())
+                    .thenApply(result -> handleOperationResult(queryId, result));
+        } catch (Exception e) {
+            LOG.error("Sql query {} can't be canceled.", queryId, e);
+            return failedFuture(new SqlQueryCancelException(queryId.toString()));
+        }
     }
 
     private static Void handleOperationResult(UUID queryId, @Nullable Boolean result) {
