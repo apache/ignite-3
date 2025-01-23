@@ -25,7 +25,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.Nullable;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -48,7 +47,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 @Fork(1)
-@Threads(32)
+@Threads(1)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.Throughput)
@@ -64,14 +63,8 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"false"})
     private boolean fsync;
 
-    @Param({"32"})
+    @Param({"8"})
     private int partitionCount;
-
-    @Param({"1048576", "131072", "1024"})
-    private int lockSlots;
-
-    @Param({"V1", "V2"})
-    private String useLocks;
 
     private static final AtomicInteger COUNTER = new AtomicInteger();
 
@@ -79,22 +72,9 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 
     @Override
     public void nodeSetUp() throws Exception {
-        System.setProperty("LOGIT_STORAGE_ENABLED", "true");
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "false");
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "false");
-        System.setProperty("IGNITE_USE_LOCKS", useLocks);
+        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
+        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "true");
         super.nodeSetUp();
-    }
-
-    @Override
-    protected @Nullable String clusterConfiguration() {
-        return String.format(
-                "system.properties: {"
-                        + "lockMapSize = \"%s\", "
-                        + "rawSlotsMaxSize = \"%s\""
-                        + "}",
-                lockSlots, lockSlots
-        );
     }
 
     /**
