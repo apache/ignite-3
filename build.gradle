@@ -66,7 +66,7 @@ ext {
             "-Dio.netty.tryReflectionSetAccessible=true",
             "-XX:+HeapDumpOnOutOfMemoryError",
             "-ea",
-            "-Xmx1g"
+            "-Xmx16g"
     ]
 
     compilerArgs = [
