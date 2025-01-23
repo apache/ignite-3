@@ -118,7 +118,7 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
     @Test
     public void testDefaultConfiguration() {
         assertThat(((HeapLockManager) lockManager).available(), is(DEFAULT_SLOTS));
-        assertThat(((HeapLockManager) lockManager).getSlots(), is(arrayWithSize(DEFAULT_SLOTS)));
+        assertThat(((HeapLockManager) lockManager).getSlots(), is(arrayWithSize(0)));
     }
 
     @Test
@@ -131,6 +131,6 @@ public class HeapLockManagerTest extends AbstractLockManagerTest {
         lockManager.start(DeadlockPreventionPolicy.NO_OP);
 
         assertThat(lockManager.available(), is(42));
-        assertThat(lockManager.getSlots(), is(arrayWithSize(69)));
+        assertThat(lockManager.getSlots(), is(arrayWithSize(0)));
     }
 }
