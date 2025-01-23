@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -56,7 +57,7 @@ public class ItJraftDestructorTest extends JraftAbstractTest {
         doTestFinishStorageDestructionAfterRestart(true);
 
         // New log storage factory was created after restart.
-        verify(logStorageFactories.get(SERVER_INDEX), times(0)).destroyLogStorage(anyString());
+        verify(logStorageFactories.get(SERVER_INDEX), never()).destroyLogStorage(anyString());
     }
 
     private void doTestFinishStorageDestructionAfterRestart(boolean isVolatile) throws Exception {

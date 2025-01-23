@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.raft;
 
-import java.util.Map;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
@@ -25,7 +24,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.storage.GroupStoragesDestructionIntents;
-import org.apache.ignite.internal.raft.storage.impl.NoopGroupStoragesDestructionIntents;
 import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
 import org.apache.ignite.internal.raft.storage.impl.StoragesDestructionContext;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;

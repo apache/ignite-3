@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.raft.storage.impl;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.ignite.internal.raft.storage.impl.StorageDestructionIntent;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
