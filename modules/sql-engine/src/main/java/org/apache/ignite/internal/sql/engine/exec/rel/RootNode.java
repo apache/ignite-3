@@ -130,7 +130,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     /** {@inheritDoc} */
     @Override
     public void closeInternal() {
-        context().execute(() -> sources().forEach(Commons::closeQuiet), this::onError);
+        this.execute(() -> sources().forEach(Commons::closeQuiet), this::onError);
     }
 
     /** {@inheritDoc} */
@@ -255,7 +255,7 @@ public class RootNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                     close();
                 } else if (inBuff.isEmpty() && waiting == 0) {
                     int req = waiting = inBufSize;
-                    context().execute(() -> source().request(req), this::onError);
+                    this.execute(() -> source().request(req), this::onError);
                 }
 
                 if (!outBuff.isEmpty() || waiting == -1) {

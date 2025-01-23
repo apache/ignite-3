@@ -290,7 +290,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                 throw new UnsupportedOperationException(modifyOp.name());
         }
 
-        modifyResult.whenComplete((r, e) -> context().execute(() -> {
+        modifyResult.whenComplete((r, e) -> this.execute(() -> {
             if (e != null) {
                 onError(e);
 

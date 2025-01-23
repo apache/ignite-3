@@ -446,6 +446,8 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
      * Node that always throws {@link IllegalAccessError} except for {@link #close()} and {@link #onRegister(Downstream)} methods.
      */
     static class CorruptedNode<T> implements Node<T> {
+        private volatile boolean closed;
+
         /** {@inheritDoc} */
         @Override
         public ExecutionContext<T> context() {
@@ -488,9 +490,15 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
             throw new IllegalAccessError();
         }
 
+        @Override
+        public boolean isClosed() {
+            return closed;
+        }
+
         /** {@inheritDoc} */
         @Override
         public void close() {
+            this.closed = true;
         }
     }
 
