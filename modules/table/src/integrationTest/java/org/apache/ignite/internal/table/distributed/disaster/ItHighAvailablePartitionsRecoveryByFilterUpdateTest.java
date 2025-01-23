@@ -98,7 +98,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         stopNodes(1);
 
         // Due to the fact that only one [0] node is suitable according to filter:
-        waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
     }
 
     @Test
@@ -119,7 +119,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         stopNodes(1);
 
         // Due to the fact that only one [0] node is suitable according to storage profiles:
-        waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
     }
 
     private void alterZoneSql(String filter, String zoneName) {

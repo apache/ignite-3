@@ -142,18 +142,34 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 .collect(Collectors.toUnmodifiableSet()));
     }
 
-    final void waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(
+    /**
+     * Wait for the 2 facts simultaneously.
+     *
+     * <ul>
+     *     <li>All planned rebalances have finished (pending and planned keys is empty).</li>
+     *     <li>Stable assignments is equal to expected</li>
+     * </ul>
+     *
+     * @param gatewayNode Node for communication with cluster and components.
+     * @param tableName Table name.
+     * @param partitionIds Set of target partition ids to check.
+     * @param nodes Expected set of nodes in stable assignments.
+     */
+    final void waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(
             IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
         partitionIds.forEach(p -> {
             try {
-                waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(gatewayNode, tableName, p, nodes);
+                waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(gatewayNode, tableName, p, nodes);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         });
     }
 
-    private void waitAndAssertEmptyRebalanceKeysAndStableAssignmentsOfPartitionEqualTo(
+    /**
+     * The same as the previous one, but for concrete partition.
+     */
+    private void waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(
             IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes
     ) throws InterruptedException {
         AtomicReference<Set<String>> stableNodes = new AtomicReference<>();
