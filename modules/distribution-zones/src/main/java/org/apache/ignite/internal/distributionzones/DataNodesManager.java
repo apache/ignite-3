@@ -15,6 +15,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.io.IOException;
 import java.util.Map;
@@ -59,6 +60,14 @@ public class DataNodesManager {
 
     public DataNodesManager(MetaStorageManager metaStorageManager) {
         this.metaStorageManager = metaStorageManager;
+    }
+
+    CompletableFuture<Void> startAsync() {
+        return nullCompletedFuture();
+    }
+
+    CompletableFuture<Void> stopAsync() {
+        return nullCompletedFuture();
     }
 
     public CompletableFuture<Void> onTopologyChangeZoneHandler(
@@ -220,6 +229,11 @@ public class DataNodesManager {
                     ops().yield(false)
             );
         });
+    }
+
+    public CompletableFuture<Void> onUpdatePartitionDistributionReset() {
+        // TODO
+        return nullCompletedFuture();
     }
 
     private CompletableFuture<Void> onScaleUpTimerChange(
@@ -484,6 +498,14 @@ public class DataNodesManager {
                     }
                 })
                 .thenCompose(Function.identity());
+    }
+
+    void onZoneCreate() {
+
+    }
+
+    void onZoneDrop() {
+
     }
 
     private static class DataNodesHistory {

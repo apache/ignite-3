@@ -694,7 +694,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorageMgr,
                 logicalTopologyService,
                 catalogManager,
-                rebalanceScheduler,
                 systemDistributedConfiguration
         ) {
             @Override

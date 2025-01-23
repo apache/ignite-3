@@ -1289,7 +1289,6 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     logicalTopologyService,
                     catalogManager,
-                    rebalanceScheduler,
                     systemDistributedConfiguration
             );
 
