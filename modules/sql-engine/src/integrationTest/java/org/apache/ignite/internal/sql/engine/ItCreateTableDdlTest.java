@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_PARSE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-import static org.apache.ignite.table.QualifiedName.DEFAULT_SCHEMA_NAME;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
@@ -348,43 +347,39 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("reservedSchemaNames")
     public void testCreateSystemSchemas(String schema) {
-        if (!DEFAULT_SCHEMA_NAME.equals(schema)) {
-            assertThrowsSqlException(
-                    STMT_VALIDATION_ERR,
-                    format("Reserved system schema with name '{}' can't be created.", schema),
-                    () -> sql(format("CREATE SCHEMA {}", schema.toLowerCase())));
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                format("Reserved system schema with name '{}' can't be created.", schema),
+                () -> sql(format("CREATE SCHEMA {}", schema.toLowerCase())));
 
-            assertThrowsSqlException(
-                    STMT_VALIDATION_ERR,
-                    format("Reserved system schema with name '{}' can't be created.", schema),
-                    () -> sql(format("CREATE SCHEMA {}", schema)));
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                format("Reserved system schema with name '{}' can't be created.", schema),
+                () -> sql(format("CREATE SCHEMA {}", schema)));
 
-            assertThrowsSqlException(
-                    STMT_VALIDATION_ERR,
-                    format("Reserved system schema with name '{}' can't be created.", schema),
-                    () -> sql(format("CREATE SCHEMA \"{}\"", schema)));
-        }
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                format("Reserved system schema with name '{}' can't be created.", schema),
+                () -> sql(format("CREATE SCHEMA \"{}\"", schema)));
     }
 
     @ParameterizedTest
     @MethodSource("reservedSchemaNames")
     public void testDropSystemSchemas(String schema) {
-        if (!DEFAULT_SCHEMA_NAME.equals(schema)) {
-            assertThrowsSqlException(
-                    STMT_VALIDATION_ERR,
-                    format("System schema can't be dropped [name={}]", schema),
-                    () -> sql(format("DROP SCHEMA {}", schema.toLowerCase())));
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                format("System schema can't be dropped [name={}]", schema),
+                () -> sql(format("DROP SCHEMA {}", schema.toLowerCase())));
 
-            assertThrowsSqlException(
-                    STMT_VALIDATION_ERR,
-                    format("System schema can't be dropped [name={}]", schema),
-                    () -> sql(format("DROP SCHEMA {}", schema)));
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                format("System schema can't be dropped [name={}]", schema),
+                () -> sql(format("DROP SCHEMA {}", schema)));
 
-            assertThrowsSqlException(
-                    STMT_VALIDATION_ERR,
-                    format("System schema can't be dropped [name={}]", schema),
-                    () -> sql(format("DROP SCHEMA \"{}\"", schema)));
-        }
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                format("System schema can't be dropped [name={}]", schema),
+                () -> sql(format("DROP SCHEMA \"{}\"", schema)));
     }
 
     private static Stream<Arguments> reservedSchemaNames() {
