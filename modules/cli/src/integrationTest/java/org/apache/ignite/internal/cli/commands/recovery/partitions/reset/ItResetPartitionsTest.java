@@ -80,7 +80,7 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
 
     @Test
     public void testResetPartitionTableNotFound() {
-        String unknownTable ="PUBLIC.unknown_table";
+        String unknownTable = "PUBLIC.unknown_table";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, unknownTable,
