@@ -159,7 +159,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
             IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
         partitionIds.forEach(p -> {
             try {
-                waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(gatewayNode, tableName, p, nodes);
+                waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpectedForPartition(gatewayNode, tableName, p, nodes);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -168,8 +168,10 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     /**
      * The same as the previous one, but for concrete partition.
+     *
+     * @see AbstractHighAvailablePartitionsRecoveryTest#waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected
      */
-    private void waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(
+    private void waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpectedForPartition(
             IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes
     ) throws InterruptedException {
         AtomicReference<Set<String>> stableNodes = new AtomicReference<>();
