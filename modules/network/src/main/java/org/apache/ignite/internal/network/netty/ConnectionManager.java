@@ -266,8 +266,6 @@ public class ConnectionManager implements ChannelCreationListener {
                 throw new IgniteInternalException("Attempted to start an already stopped connection manager");
             }
 
-
-
             server.start().get();
 
             LOG.info("Server started [address={}]", server.address());
