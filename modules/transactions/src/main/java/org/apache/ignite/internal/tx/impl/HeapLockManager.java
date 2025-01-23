@@ -44,6 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -87,6 +88,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /** Striped lock concurrency. */
     private static final int CONCURRENCY = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
 
+    private final AtomicInteger lockTableSize = new AtomicInteger();
+
     /** An unused state to avoid concurrent allocation. */
     private LockState removedLockState;
 
@@ -96,14 +99,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /** Raw slots size. */
     private final int rawSlotsMaxSize;
 
-    /** Empty slots. */
-    private final ConcurrentLinkedQueue<LockState> empty = new ConcurrentLinkedQueue<>();
-
     /** Mapped slots. */
     private ConcurrentHashMap<LockKey, LockState> locks;
-
-    /** Raw slots. */
-    private LockState[] slots;
 
     /** The policy. */
     private DeadlockPreventionPolicy deadlockPreventionPolicy;
@@ -165,17 +162,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 : null;
 
         locks = new ConcurrentHashMap<>(lockMapSize);
-
-        LockState[] tmp = new LockState[rawSlotsMaxSize];
-        for (int i = 0; i < tmp.length; i++) {
-            LockState lockState = new LockState();
-            if (i < lockMapSize) {
-                empty.add(lockState);
-            }
-            tmp[i] = lockState;
-        }
-
-        slots = tmp; // Atomic init.
     }
 
     @Override
@@ -298,13 +284,20 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      * @return A state matched with the key.
      */
     private @Nullable LockState acquireLockState(LockKey key) {
-        return locks.compute(key, (k, v) -> {
-            if (v == null) {
-                v = empty.poll();
-                if (v != null) {
+        return locks.computeIfAbsent(key, (k) -> {
+            int acquiredLocks;
+            LockState v;
+
+            do {
+                acquiredLocks = lockTableSize.get();
+
+                if (acquiredLocks < rawSlotsMaxSize) {
+                    v = new LockState();
                     v.key = k;
+                } else {
+                    return null;
                 }
-            }
+            } while (!lockTableSize.compareAndSet(acquiredLocks, acquiredLocks + 1));
 
             return v;
         });
@@ -325,10 +318,8 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /** {@inheritDoc} */
     @Override
     public boolean isEmpty() {
-        for (LockState slot : slots) {
-            if (slot.waitersCount() != 0) {
-                return false;
-            }
+        if (lockTableSize.get() != 0) {
+            return false;
         }
 
         for (CoarseLockState value : coarseMap.values()) {
@@ -353,8 +344,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         synchronized (v.waiters) {
             if (v.waiters.isEmpty()) {
-                v.key = null;
-                empty.add(v);
+                int locks = lockTableSize.decrementAndGet();
+
+                assert locks >= 0;
+
                 return null;
             } else {
                 return v;
@@ -879,7 +872,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * @return True if current waiter ready to notify, false otherwise.
          */
         private boolean isWaiterReadyToNotify(WaiterImpl waiter, boolean skipFail) {
-            for (Map.Entry<UUID, WaiterImpl> entry : waiters.tailMap(waiter.txId(), false).entrySet()) {
+            for (Entry<UUID, WaiterImpl> entry : waiters.tailMap(waiter.txId(), false).entrySet()) {
                 WaiterImpl tmp = entry.getValue();
                 LockMode mode = tmp.lockMode;
 
@@ -898,7 +891,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
                 }
             }
 
-            for (Map.Entry<UUID, WaiterImpl> entry : waiters.headMap(waiter.txId()).entrySet()) {
+            for (Entry<UUID, WaiterImpl> entry : waiters.headMap(waiter.txId()).entrySet()) {
                 WaiterImpl tmp = entry.getValue();
                 LockMode mode = tmp.lockMode;
 
@@ -1009,7 +1002,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             ArrayList<WaiterImpl> toNotify = new ArrayList<>();
             Set<UUID> toFail = new HashSet<>();
 
-            for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
+            for (Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
                 WaiterImpl tmp = entry.getValue();
 
                 if (tmp.hasLockIntent() && isWaiterReadyToNotify(tmp, true)) {
@@ -1020,7 +1013,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             }
 
             if (deadlockPreventionPolicy.usePriority() && deadlockPreventionPolicy.waitTimeout() >= 0) {
-                for (Map.Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
+                for (Entry<UUID, WaiterImpl> entry : waiters.entrySet()) {
                     WaiterImpl tmp = entry.getValue();
 
                     if (tmp.hasLockIntent() && isWaiterReadyToNotify(tmp, false)) {
@@ -1349,10 +1342,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @TestOnly
     public LockState[] getSlots() {
-        return slots;
+        return locks.values().toArray(new LockState[]{});
     }
 
     public int available() {
-        return empty.size();
+        return rawSlotsMaxSize - lockTableSize.get();
     }
 }
