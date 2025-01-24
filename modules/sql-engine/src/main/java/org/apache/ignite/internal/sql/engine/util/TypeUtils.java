@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.calcite.sql.type.SqlTypeName.BINARY_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.CHAR_TYPES;
+import static org.apache.calcite.sql.type.SqlTypeName.STRING_TYPES;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
@@ -704,7 +706,7 @@ public class TypeUtils {
         }
     }
 
-    /** Check limitation for character types and throws exception if row contains character sequence more than type defined.
+    /** Check limitation for character and binary types and throws exception if row contains character sequence more than type defined.
      *  <br>
      *  Store assignment section defines:
      *  If the declared type of T is fixed-length character string with length in characters L and
@@ -715,6 +717,11 @@ public class TypeUtils {
      *  <br>
      *  2) If one or more of the rightmost M-L characters of V are not space(s), then an
      *   exception condition is raised: data exception — string data, right truncation.
+     *  <br>
+     *  3) If the declared type of T is binary string and the length in octets of V is greater than the
+     *   maximum length in octets L of T, then the value of T is set to the first L octets of V, the
+     *   length in octets of T becomes L, and a completion condition is raised: warning — string
+     *   data, right truncation.
      */
     public static <RowT> RowT validateCharactersOverflowAndTrimIfPossible(
             RelDataType rowType,
@@ -722,9 +729,10 @@ public class TypeUtils {
             RowT row,
             Supplier<RowSchema> schema
     ) {
-        boolean containCharType = rowType.getFieldList().stream().anyMatch(t -> CHAR_TYPES.contains(t.getType().getSqlTypeName()));
+        boolean containTruncatedType =
+                rowType.getFieldList().stream().anyMatch(t -> STRING_TYPES.contains(t.getType().getSqlTypeName()));
 
-        if (!containCharType) {
+        if (!containTruncatedType) {
             return row;
         }
 
@@ -734,6 +742,15 @@ public class TypeUtils {
         for (int i = 0; i < colCount; ++i) {
             RelDataType colType = rowType.getFieldList().get(i).getType();
             Object data = rowHandler.get(i, row);
+
+            if (BINARY_TYPES.contains(colType.getSqlTypeName()) && data != null) {
+                assert data instanceof ByteString;
+                assert colType.getPrecision() != RelDataType.PRECISION_NOT_SPECIFIED;
+
+                if (((ByteString) data).length() > colType.getPrecision()) {
+                    throw new SqlException(STMT_VALIDATION_ERR, format("Value too long for type binary({})", colType.getPrecision()));
+                }
+            }
 
             // Skip null values and non-character types.
             if (!CHAR_TYPES.contains(colType.getSqlTypeName()) || data == null) {

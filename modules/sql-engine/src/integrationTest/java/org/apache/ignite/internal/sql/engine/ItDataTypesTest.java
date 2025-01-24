@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -629,18 +630,17 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void testCharTypesWithTrailingSpacesAreTrimmed() {
-        sql("create table limitedChar (pk int primary key, f1 VARCHAR(3))");
+        sql("create table limitedChar (pk int primary key, fb1 VARBINARY(2), f1 VARCHAR(3), fb2 VARBINARY(1))");
 
         try {
-            sql("insert into limitedChar values (1, 'a b     ')");
+            sql("insert into limitedChar values (1, x'01', 'a b     ', x'01')");
 
             assertQuery("select length(f1) from limitedChar")
                     .returns(3)
                     .check();
 
-            sql("insert into limitedChar values (2, 'a ' || ?)", "b     ");
+            sql("insert into limitedChar values (2, x'01', 'a ' || ?, x'01')", "b     ");
 
             assertQuery("select length(f1) from limitedChar")
                     .returns(3)
@@ -652,7 +652,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void insertCharLimitation() {
         sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
 
@@ -712,7 +711,6 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
 
     /** Test correctness of char types limitation against merge and update operations. */
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void charLimitationWithMergeUpdateOp() {
         try {
             sql("create table limitedChar (pk int primary key, f1 VARCHAR(2))");
@@ -745,6 +743,54 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
         } finally {
             sql("DROP TABLE IF EXISTS limitedChar");
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"BINARY", "VARBINARY"})
+    public void testErrorIfBinaryValueSizeGtThanTypePrecision(String type) {
+        sql(format("CREATE TABLE t(id INT PRIMARY KEY, val {}(5000))", type));
+        sql(format("CREATE TABLE t1(id INT PRIMARY KEY, val {}(5001))", type));
+        sql("INSERT INTO t VALUES(1, x'01')");
+
+        Object param = "1".repeat(5001).getBytes(StandardCharsets.UTF_8);
+        Object value = "1".repeat(10002);
+        sql(format("INSERT INTO t1 VALUES(2, x'{}')", value));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type binary(5000)",
+                () -> sql("INSERT INTO t VALUES(2, ?)", param)
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type binary(5000)",
+                () -> sql(format("INSERT INTO t VALUES(2, x'{}')", value))
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type binary(5000)",
+                () -> sql(format("INSERT INTO t VALUES(2, x'{}')", value))
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type binary(5000)",
+                () -> sql(format("UPDATE t SET val=x'{}' WHERE id=1", value))
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type binary(5000)",
+                () -> sql("INSERT INTO t SELECT id, val FROM t1")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Value too long for type binary(5000)",
+                () -> sql(format("INSERT INTO t SELECT * FROM (VALUES(2, x'{}')) as tk(k, v)", value))
+        );
     }
 
     @Test
