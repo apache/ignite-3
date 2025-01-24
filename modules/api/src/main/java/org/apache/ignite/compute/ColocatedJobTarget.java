@@ -46,8 +46,8 @@ public class ColocatedJobTarget implements JobTarget {
         this.keyMapper = keyMapper;
     }
 
-    public String tableName() {
-        return name.objectName();
+    public QualifiedName tableName() {
+        return name;
     }
 
     public Object key() {

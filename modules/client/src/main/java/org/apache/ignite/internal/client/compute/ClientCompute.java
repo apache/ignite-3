@@ -65,7 +65,6 @@ import org.apache.ignite.internal.client.table.ClientTupleSerializer;
 import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.internal.compute.BroadcastJobExecutionImpl;
 import org.apache.ignite.internal.compute.FailedExecution;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.ViewUtils;
@@ -75,7 +74,6 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedName;
-import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
@@ -216,8 +214,7 @@ public class ClientCompute implements IgniteCompute {
             ColocatedJobTarget colocatedTarget = (ColocatedJobTarget) target;
             var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
 
-            // need to be fixed after: https://issues.apache.org/jira/browse/IGNITE-24301 Fix Thin client protocol to use schema name
-            QualifiedName qualifiedName = QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, colocatedTarget.tableName());
+            QualifiedName qualifiedName = colocatedTarget.tableName();
 
             if (mapper != null) {
                 return doExecuteColocatedAsync(qualifiedName, colocatedTarget.key(), mapper, descriptor, arg);
