@@ -1,11 +1,18 @@
 package org.apache.ignite.internal.distributionzones;
 
+import static java.lang.Math.max;
 import static java.util.Collections.emptySet;
 import static java.util.Optional.ofNullable;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonePartitionResetTimerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.lang.Pair.pair;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -15,19 +22,21 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.Pair;
@@ -38,12 +47,17 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.internal.versioned.VersionedSerializer;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Manager for data nodes of distribution zones.
+ */
 public class DataNodesManager {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(DataNodesManager.class);
@@ -53,21 +67,36 @@ public class DataNodesManager {
     private final MetaStorageManager metaStorageManager;
 
     /**
-     * Map with states for distribution zones. States are needed to track nodes that we want to add or remove from the data nodes,
-     * schedule and stop scale up and scale down processes.
+     * Map with zone id as a key and set of zone timers as a value.
      */
-    private final Map<Integer, ZoneState> zonesState = new ConcurrentHashMap<>();
+    private final Map<Integer, ZoneTimers> zoneTimers  = new ConcurrentHashMap<>();
 
-    public DataNodesManager(MetaStorageManager metaStorageManager) {
+    /** Executor for scheduling tasks for scale up and scale down processes. */
+    private final StripedScheduledThreadPoolExecutor executor;
+
+    public DataNodesManager(String nodeName, MetaStorageManager metaStorageManager) {
         this.metaStorageManager = metaStorageManager;
+
+        executor = createZoneManagerExecutor(
+                Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
+                NamedThreadFactory.create(nodeName, "dst-zones-scheduler", LOG)
+        );
     }
 
-    CompletableFuture<Void> startAsync() {
-        return nullCompletedFuture();
+    void start(
+            Collection<CatalogZoneDescriptor> knownZones,
+            Set<NodeWithAttributes> logicalTopology
+    ) {
+        for (CatalogZoneDescriptor zone : knownZones) {
+            onScaleUpTimerChange(zone, logicalTopology);
+            onScaleDownTimerChange(zone, logicalTopology);
+        }
     }
 
-    CompletableFuture<Void> stopAsync() {
-        return nullCompletedFuture();
+    void stop() {
+        zoneTimers.forEach((k, zt) -> zt.stopAllTimers());
+
+        shutdownAndAwaitTermination(executor, 10, SECONDS);
     }
 
     public CompletableFuture<Void> onTopologyChangeZoneHandler(
@@ -128,14 +157,14 @@ public class DataNodesManager {
                     and(
                             dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
                             and(
-                                    timerEqualToOrNotExists(scaleUpTimerKey(zoneId), scaleUpTimer),
-                                    timerEqualToOrNotExists(scaleDownTimerKey(zoneId), scaleDownTimer)
+                                    timerEqualToOrNotExists(zoneScaleUpTimerKey(zoneId), scaleUpTimer),
+                                    timerEqualToOrNotExists(zoneScaleDownTimerKey(zoneId), scaleDownTimer)
                             )
                     ),
                     ops(
                             addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, currentDataNodes.getSecond()),
-                            renewTimer(scaleUpTimerKey(zoneId), newScaleUpTimer),
-                            renewTimer(scaleDownTimerKey(zoneId), newScaleDownTimer)
+                            renewTimer(zoneScaleUpTimerKey(zoneId), newScaleUpTimer),
+                            renewTimer(zoneScaleDownTimerKey(zoneId), newScaleDownTimer)
                     ).yield(true),
                     ops().yield(false)
             );
@@ -162,9 +191,9 @@ public class DataNodesManager {
                     dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
                     ops(
                             addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, dataNodes),
-                            clearTimer(scaleUpTimerKey(zoneId)),
-                            clearTimer(scaleDownTimerKey(zoneId)),
-                            clearTimer(resetTimerKey(zoneId))
+                            clearTimer(zoneScaleUpTimerKey(zoneId)),
+                            clearTimer(zoneScaleDownTimerKey(zoneId)),
+                            clearTimer(zonePartitionResetTimerKey(zoneId))
                     ).yield(true),
                     ops().yield(false)
             );
@@ -217,23 +246,30 @@ public class DataNodesManager {
                     and(
                             dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
                             and(
-                                    timerEqualToOrNotExists(scaleUpTimerKey(zoneId), scaleUpTimer),
-                                    timerEqualToOrNotExists(scaleDownTimerKey(zoneId), scaleDownTimer)
+                                    timerEqualToOrNotExists(zoneScaleUpTimerKey(zoneId), scaleUpTimer),
+                                    timerEqualToOrNotExists(zoneScaleDownTimerKey(zoneId), scaleDownTimer)
                             )
                     ),
                     ops(
                             addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, currentDataNodes.getSecond()),
-                            renewTimerOrClearIfAlreadyApplied(scaleUpTimerKey(zoneId), timestamp, newScaleUpTimer),
-                            renewTimerOrClearIfAlreadyApplied(scaleDownTimerKey(zoneId), timestamp, newScaleDownTimer)
+                            renewTimerOrClearIfAlreadyApplied(zoneScaleUpTimerKey(zoneId), timestamp, newScaleUpTimer),
+                            renewTimerOrClearIfAlreadyApplied(zoneScaleDownTimerKey(zoneId), timestamp, newScaleDownTimer)
                     ).yield(true),
                     ops().yield(false)
             );
         });
     }
 
-    public CompletableFuture<Void> onUpdatePartitionDistributionReset() {
-        // TODO
-        return nullCompletedFuture();
+    public void onUpdatePartitionDistributionReset(
+            int zoneId,
+            int partitionDistributionResetTimeoutSeconds,
+            Runnable task
+    ) {
+        if (partitionDistributionResetTimeoutSeconds == INFINITE_TIMER_VALUE) {
+            zoneTimers.computeIfAbsent(zoneId, ZoneTimers::new).partitionReset.stopScheduledTask();
+        } else {
+            zoneTimers.computeIfAbsent(zoneId, ZoneTimers::new).partitionReset.reschedule(partitionDistributionResetTimeoutSeconds, task);
+        }
     }
 
     private CompletableFuture<Void> onScaleUpTimerChange(
@@ -265,22 +301,22 @@ public class DataNodesManager {
             return iif(
                     and(
                             dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
-                            timerEqualToOrNotExists(scaleUpTimerKey(zoneId), scaleUpTimer0)
+                            timerEqualToOrNotExists(zoneScaleUpTimerKey(zoneId), scaleUpTimer0)
                     ),
                     ops(
                             addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, scaleUpTimer.timestamp, currentDataNodes.getSecond()),
-                            clearTimer(scaleUpTimerKey(zoneId))
+                            clearTimer(zoneScaleUpTimerKey(zoneId))
                     ).yield(true),
                     ops().yield(false)
             );
         });
 
-        rescheduleScaleUp(zoneDescriptor.dataNodesAutoAdjustScaleUp(), runnable, zoneId);
+        rescheduleScaleUp(delayInSeconds(scaleUpTimer.timestamp), runnable, zoneId);
 
         return completedFuture(null);
     }
 
-    private CompletableFuture<Void> onScaleDownTimerChange(
+    private void onScaleDownTimerChange(
             CatalogZoneDescriptor zoneDescriptor,
             Set<NodeWithAttributes> logicalTopology
     ) {
@@ -309,27 +345,44 @@ public class DataNodesManager {
             return iif(
                     and(
                             dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
-                            timerEqualToOrNotExists(scaleDownTimerKey(zoneId), scaleDownTimer0)
+                            timerEqualToOrNotExists(zoneScaleDownTimerKey(zoneId), scaleDownTimer0)
                     ),
                     ops(
                             addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, scaleDownTimer.timestamp, currentDataNodes.getSecond()),
-                            clearTimer(scaleDownTimerKey(zoneId))
+                            clearTimer(zoneScaleDownTimerKey(zoneId))
                     ).yield(true),
                     ops().yield(false)
             );
         });
 
-        rescheduleScaleDown(zoneDescriptor.dataNodesAutoAdjustScaleDown(), runnable, zoneId);
-
-        return completedFuture(null);
+        rescheduleScaleDown(delayInSeconds(scaleDownTimer.timestamp), runnable, zoneId);
     }
 
-    public synchronized void rescheduleScaleUp(long delay, Runnable runnable, int zoneId) {
-        // TODO schedule the task
+    private void onPartitionResetTimerChange(
+            CatalogZoneDescriptor zoneDescriptor,
+            Set<NodeWithAttributes> logicalTopology
+    ) {
+        // TODO
     }
 
-    public synchronized void rescheduleScaleDown(long delay, Runnable runnable, int zoneId) {
-        // TODO schedule the task
+    private long delayInSeconds(HybridTimestamp timerTimestamp) {
+        long currentTime = System.currentTimeMillis();
+
+        long delayMs = timerTimestamp.getPhysical() - currentTime;
+
+        return max(0, delayMs / 1000);
+    }
+
+    private void rescheduleScaleUp(long delayInSeconds, Runnable runnable, int zoneId) {
+        zoneTimers.computeIfAbsent(zoneId, ZoneTimers::new).scaleUp.reschedule(delayInSeconds, runnable);
+    }
+
+    private void rescheduleScaleDown(long delayInSeconds, Runnable runnable, int zoneId) {
+        zoneTimers.computeIfAbsent(zoneId, ZoneTimers::new).scaleDown.reschedule(delayInSeconds, runnable);
+    }
+
+    private void reschedulePartitionReset(long delayInSeconds, Runnable runnable, int zoneId) {
+        zoneTimers.computeIfAbsent(zoneId, ZoneTimers::new).partitionReset.reschedule(delayInSeconds, runnable);
     }
 
     private static Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes(
@@ -372,7 +425,7 @@ public class DataNodesManager {
     }
 
     public CompletableFuture<Set<String>> dataNodes(int zoneId, HybridTimestamp timestamp) {
-        return getValueFromMetaStorage(dataNodesHistoryKey(zoneId), DataNodesHistorySerializer::deserialize)
+        return getValueFromMetaStorage(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer::deserialize)
                 .thenApply(history -> {
                     Map.Entry<HybridTimestamp, Set<NodeWithAttributes>> entry = history.history.floorEntry(timestamp);
 
@@ -385,24 +438,24 @@ public class DataNodesManager {
     }
 
     private DataNodesHistory dataNodesHistory(int zoneId) {
-        return ofNullable(getValueFromMetaStorageLocally(dataNodesHistoryKey(zoneId), DataNodesHistorySerializer::deserialize))
+        return ofNullable(getValueFromMetaStorageLocally(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer::deserialize))
                 .orElse(new DataNodesHistory(new TreeMap<>()));
     }
 
     private DistributionZoneTimer scaleUpTimer(int zoneId) {
-        return ofNullable(getValueFromMetaStorageLocally(scaleUpTimerKey(zoneId), DistributionZoneTimerSerializer::deserialize))
+        return ofNullable(getValueFromMetaStorageLocally(zoneScaleUpTimerKey(zoneId), DistributionZoneTimerSerializer::deserialize))
                 .orElse(DEFAULT_TIMER);
     }
 
     private DistributionZoneTimer scaleDownTimer(int zoneId) {
-        return ofNullable(getValueFromMetaStorageLocally(scaleDownTimerKey(zoneId), DistributionZoneTimerSerializer::deserialize))
+        return ofNullable(getValueFromMetaStorageLocally(zoneScaleDownTimerKey(zoneId), DistributionZoneTimerSerializer::deserialize))
                 .orElse(DEFAULT_TIMER);
     }
 
     private Condition dataNodesHistoryEqualToOrNotExists(int zoneId, DataNodesHistory history) {
         return or(
-                notExists(dataNodesHistoryKey(zoneId)),
-                value(dataNodesHistoryKey(zoneId)).eq(DataNodesHistorySerializer.serialize(history))
+                notExists(zoneDataNodesHistoryKey(zoneId)),
+                value(zoneDataNodesHistoryKey(zoneId)).eq(DataNodesHistorySerializer.serialize(history))
         );
     }
 
@@ -416,7 +469,7 @@ public class DataNodesManager {
         );
     }
 
-    private Operation addNewEntryToDataNodesHistory(
+    public static Operation addNewEntryToDataNodesHistory(
             int zoneId,
             DataNodesHistory history,
             HybridTimestamp timestamp,
@@ -425,20 +478,20 @@ public class DataNodesManager {
         DataNodesHistory newHistory = new DataNodesHistory(new TreeMap<>(history.history));
         newHistory.history.put(timestamp, nodes);
 
-        return put(dataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(newHistory));
+        return put(zoneDataNodesHistoryKey(zoneId), DataNodesHistorySerializer.serialize(newHistory));
     }
 
-    private Operation renewTimer(ByteArray timerKey, DistributionZoneTimer timer) {
+    private static Operation renewTimer(ByteArray timerKey, DistributionZoneTimer timer) {
         return put(timerKey, DistributionZoneTimerSerializer.serialize(timer));
     }
 
-    private Operation renewTimerOrClearIfAlreadyApplied(ByteArray timerKey, HybridTimestamp timestamp, DistributionZoneTimer timer) {
+    private static Operation renewTimerOrClearIfAlreadyApplied(ByteArray timerKey, HybridTimestamp timestamp, DistributionZoneTimer timer) {
         DistributionZoneTimer newValue = timer.timestamp.longValue() > timestamp.longValue() ? timer : DEFAULT_TIMER;
 
         return renewTimer(timerKey, newValue);
     }
 
-    private Operation clearTimer(ByteArray timerKey) {
+    public static Operation clearTimer(ByteArray timerKey) {
         return put(timerKey, DistributionZoneTimerSerializer.serialize(DEFAULT_TIMER));
     }
 
@@ -458,22 +511,6 @@ public class DataNodesManager {
         } else {
             return deserializer.apply(e.value());
         }
-    }
-
-    private ByteArray dataNodesHistoryKey(int zoneId) {
-        return new ByteArray("dataNodesHistory_" + zoneId);
-    }
-
-    private ByteArray scaleUpTimerKey(int zoneId) {
-        return new ByteArray("scaleUpTimer_" + zoneId);
-    }
-
-    private ByteArray scaleDownTimerKey(int zoneId) {
-        return new ByteArray("scaleDownTimer_" + zoneId);
-    }
-
-    private ByteArray resetTimerKey(int zoneId) {
-        return new ByteArray("resetTimer_" + zoneId);
     }
 
     private CompletableFuture<Void> msInvokeWithRetry(Supplier<Iif> iifSupplier) {
@@ -500,16 +537,19 @@ public class DataNodesManager {
                 .thenCompose(Function.identity());
     }
 
-    void onZoneCreate() {
-
+    void onZoneDrop(int zoneId, HybridTimestamp timestamp) {
+        ZoneTimers zt = zoneTimers.remove(zoneId);
+        if (zt != null) {
+            zt.stopAllTimers();
+        }
     }
 
-    void onZoneDrop() {
-
-    }
-
-    private static class DataNodesHistory {
+    public static class DataNodesHistory {
         final NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> history;
+
+        public DataNodesHistory() {
+            this(new TreeMap<>());
+        }
 
         private DataNodesHistory(NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> history) {
             this.history = history;
@@ -517,24 +557,36 @@ public class DataNodesManager {
     }
 
     private static class DataNodesHistorySerializer extends VersionedSerializer<DataNodesHistory> {
-        /** Serializer instance. */
-        public static final DataNodesHistorySerializer INSTANCE = new DataNodesHistorySerializer();
+        private static final DataNodesHistorySerializer INSTANCE = new DataNodesHistorySerializer();
 
         @Override
         protected void writeExternalData(DataNodesHistory object, IgniteDataOutput out) throws IOException {
-
+            out.writeMap(
+                    object.history,
+                    (k, out0) -> out0.writeLong(k.longValue()),
+                    (v, out0) -> out0.writeCollection(v, NodeWithAttributesSerializer.INSTANCE::writeExternal)
+            );
         }
 
         @Override
         protected DataNodesHistory readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
-            return null;
+            NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> history = in.readMap(
+                    TreeMap::new,
+                    in0 -> HybridTimestamp.hybridTimestamp(in0.readLong()),
+                    in0 -> in0.readCollection(
+                            HashSet::new,
+                            NodeWithAttributesSerializer.INSTANCE::readExternal
+                    )
+            );
+
+            return new DataNodesHistory(history);
         }
 
-        public static byte[] serialize(DataNodesHistory dataNodesHistory) {
+        static byte[] serialize(DataNodesHistory dataNodesHistory) {
             return VersionedSerialization.toBytes(dataNodesHistory, INSTANCE);
         }
 
-        public static DataNodesHistory deserialize(byte[] bytes) {
+        static DataNodesHistory deserialize(byte[] bytes) {
             return VersionedSerialization.fromBytes(bytes, INSTANCE);
         }
     }
@@ -552,24 +604,71 @@ public class DataNodesManager {
 
     private static class DistributionZoneTimerSerializer extends VersionedSerializer<DistributionZoneTimer> {
         /** Serializer instance. */
-        public static final DistributionZoneTimerSerializer INSTANCE = new DistributionZoneTimerSerializer();
+        private static final DistributionZoneTimerSerializer INSTANCE = new DistributionZoneTimerSerializer();
 
         @Override
         protected void writeExternalData(DistributionZoneTimer object, IgniteDataOutput out) throws IOException {
-
+            out.writeLong(object.timestamp.longValue());
+            out.writeCollection(object.nodes, NodeWithAttributesSerializer.INSTANCE::writeExternal);
         }
 
         @Override
         protected DistributionZoneTimer readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
-            return null;
+            HybridTimestamp timestamp = HybridTimestamp.hybridTimestamp(in.readLong());
+            Set<NodeWithAttributes> nodes = in.readCollection(HashSet::new, NodeWithAttributesSerializer.INSTANCE::readExternal);
+
+            return new DistributionZoneTimer(timestamp, nodes);
         }
 
-        public static byte[] serialize(DistributionZoneTimer timer) {
+        static byte[] serialize(DistributionZoneTimer timer) {
             return VersionedSerialization.toBytes(timer, INSTANCE);
         }
 
-        public static DistributionZoneTimer deserialize(byte[] bytes) {
+        static DistributionZoneTimer deserialize(byte[] bytes) {
             return VersionedSerialization.fromBytes(bytes, INSTANCE);
+        }
+    }
+
+    private class ZoneTimerSchedule {
+        final int zoneId;
+        ScheduledFuture<?> taskFuture;
+        long delay;
+
+        ZoneTimerSchedule(int zoneId) {
+            this.zoneId = zoneId;
+        }
+
+        synchronized void reschedule(long delayInSeconds, Runnable task) {
+            stopScheduledTask();
+
+            taskFuture = executor.schedule(task, delayInSeconds, SECONDS);
+            delay = delayInSeconds;
+        }
+
+        synchronized void stopScheduledTask() {
+            if (taskFuture != null && delay > 0) {
+                taskFuture.cancel(false);
+
+                delay = 0;
+            }
+        }
+    }
+
+    private class ZoneTimers {
+        final ZoneTimerSchedule scaleUp;
+        final ZoneTimerSchedule scaleDown;
+        final ZoneTimerSchedule partitionReset;
+
+        ZoneTimers(int zoneId) {
+            this.scaleUp = new ZoneTimerSchedule(zoneId);
+            this.scaleDown = new ZoneTimerSchedule(zoneId);
+            this.partitionReset = new ZoneTimerSchedule(zoneId);
+        }
+
+        void stopAllTimers() {
+            scaleUp.stopScheduledTask();
+            scaleDown.stopScheduledTask();
+            partitionReset.stopScheduledTask();
         }
     }
 }

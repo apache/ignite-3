@@ -30,18 +30,20 @@ import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIG
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
+import static org.apache.ignite.internal.distributionzones.DataNodesManager.addNewEntryToDataNodesHistory;
+import static org.apache.ignite.internal.distributionzones.DataNodesManager.clearTimer;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForRecoverableStateChanges;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneCreation;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.conditionForZoneRemoval;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndTriggerKeys;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersionAndClusterId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonePartitionResetTimerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyClusterIdKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
@@ -49,10 +51,14 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notTombstone;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
@@ -90,6 +96,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
+import org.apache.ignite.internal.distributionzones.DataNodesManager.DataNodesHistory;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -108,11 +115,9 @@ import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.Revisions;
 import org.apache.ignite.internal.metastorage.WatchListener;
-import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
-import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
@@ -266,7 +271,7 @@ public class DistributionZoneManager extends
 
         busyLock.block();
 
-        // TODO DataNodesManager stop
+        dataNodesManager.stop();
 
         rebalanceEngine.stop();
 
@@ -390,16 +395,11 @@ public class DistributionZoneManager extends
                 continue;
             }
 
-            // TODO this
-            if (partitionDistributionResetTimeoutSeconds != INFINITE_TIMER_VALUE) {
-                /*zoneState.reschedulePartitionDistributionReset(
-                        partitionDistributionResetTimeoutSeconds,
-                        () -> fireTopologyReduceLocalEvent(causalityToken, zoneId),
-                        zoneId
-                );*/
-            } else {
-                //zoneState.stopPartitionDistributionReset();
-            }
+            dataNodesManager.onUpdatePartitionDistributionReset(
+                    zoneId,
+                    partitionDistributionResetTimeoutSeconds,
+                    () -> fireTopologyReduceLocalEvent(causalityToken, zoneId)
+            );
         }
     }
 
@@ -476,31 +476,9 @@ public class DistributionZoneManager extends
     }
 
     private CompletableFuture<Void> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
-        int zoneId = zone.id();
+        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
 
-        Set<Node> dataNodes = logicalTopology(causalityToken).stream().map(NodeWithAttributes::node).collect(toSet());
-
-        // TODO on create zone DataNodeManager
-
-        return initDataNodesAndTriggerKeysInMetaStorage(zoneId, causalityToken, dataNodes);
-    }
-
-    /**
-     * Restores timers that were scheduled before a node's restart. Take the highest revision from the
-     * {@link ZoneState#topologyAugmentationMap()}, schedule scale up/scale down timers.
-     *
-     * @param catalogVersion Catalog version.
-     * @return Future that represents the pending completion of the operation.
-     *         For the immediate timers it will be completed when data nodes will be updated in Meta Storage.
-     */
-    private CompletableFuture<Void> restoreTimers(int catalogVersion) {
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-        for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
-            // TODO this
-        }
-
-        return allOf(futures.toArray(CompletableFuture[]::new));
+        return initDataNodesKeysInMetaStorage(zone.id(), timestamp, filterDataNodes(logicalTopology(causalityToken), zone));
     }
 
     /**
@@ -509,14 +487,14 @@ public class DistributionZoneManager extends
      * if it passes the condition. It is called on the first creation of a zone.
      *
      * @param zoneId Unique id of a zone
-     * @param revision Revision of an event that has triggered this method.
+     * @param timestamp Timestamp of an event that has triggered this method.
      * @param dataNodes Data nodes.
      * @return Future reflecting the completion of initialisation of zone's keys in meta storage.
      */
-    private CompletableFuture<Void> initDataNodesAndTriggerKeysInMetaStorage(
+    private CompletableFuture<Void> initDataNodesKeysInMetaStorage(
             int zoneId,
-            long revision,
-            Set<Node> dataNodes
+            HybridTimestamp timestamp,
+            Set<NodeWithAttributes> dataNodes
     ) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
@@ -524,43 +502,47 @@ public class DistributionZoneManager extends
 
         try {
             // Update data nodes for a zone only if the corresponding data nodes keys weren't initialised in ms yet.
-            CompoundCondition triggerKeyCondition = conditionForZoneCreation(zoneId);
-
-            Update dataNodesAndTriggerKeyUpd = updateDataNodesAndTriggerKeys(
-                    zoneId,
-                    revision,
-                    DataNodesMapSerializer.serialize(toDataNodesMap(dataNodes))
+            Condition condition = and(
+                    notExists(zoneDataNodesHistoryKey(zoneId)),
+                    notTombstone(zoneDataNodesHistoryKey(zoneId))
             );
 
-            Iif iif = iif(triggerKeyCondition, dataNodesAndTriggerKeyUpd, ops().yield(false));
+            Update update = ops(
+                    addNewEntryToDataNodesHistory(zoneId, new DataNodesHistory(), timestamp, dataNodes),
+                    clearTimer(zoneScaleUpTimerKey(zoneId)),
+                    clearTimer(zoneScaleDownTimerKey(zoneId)),
+                    clearTimer(zonePartitionResetTimerKey(zoneId))
+            ).yield(true);
+
+            Iif iif = iif(condition, update, ops().yield(false));
 
             return metaStorageManager.invoke(iif)
                     .thenApply(StatementResult::getAsBoolean)
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
                             LOG.error(
-                                    "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
+                                    "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, timestamp = {}]",
                                     e,
                                     zoneId,
                                     dataNodes,
-                                    revision
+                                    timestamp
                             );
                         } else if (invokeResult) {
-                            LOG.info("Update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
+                            LOG.info("Update zones' dataNodes value [zoneId = {}, dataNodes = {}, timestamp = {}]",
                                     zoneId,
                                     dataNodes,
-                                    revision
+                                    timestamp
                             );
                         } else {
                             LOG.debug(
-                                    "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, revision = {}]",
+                                    "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, timestamp = {}]",
                                     zoneId,
                                     dataNodes,
-                                    revision
+                                    timestamp
                             );
                         }
                     }).thenCompose((ignored) -> nullCompletedFuture());
-        } finally {
+            } finally {
             busyLock.leaveBusy();
         }
     }
@@ -569,34 +551,39 @@ public class DistributionZoneManager extends
      * Method deletes data nodes value for the specified zone.
      *
      * @param zoneId Unique id of a zone
-     * @param revision Revision of an event that has triggered this method.
+     * @param timestamp Timestamp of an event that has triggered this method.
      */
-    private CompletableFuture<Void> removeTriggerKeysAndDataNodes(int zoneId, long revision) {
+    private CompletableFuture<Void> removeDataNodesKeys(int zoneId, HybridTimestamp timestamp) {
         if (!busyLock.enterBusy()) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
         }
 
         try {
-            SimpleCondition triggerKeyCondition = conditionForZoneRemoval(zoneId);
+            Condition condition = exists(zoneDataNodesHistoryKey(zoneId));
 
-            Update removeKeysUpd = deleteDataNodesAndTriggerKeys(zoneId, revision);
+            Update removeKeysUpd = ops(
+                    remove(zoneDataNodesHistoryKey(zoneId)),
+                    remove(zoneScaleUpTimerKey(zoneId)),
+                    remove(zoneScaleDownTimerKey(zoneId)),
+                    remove(zonePartitionResetTimerKey(zoneId))
+            ).yield(true);
 
-            Iif iif = iif(triggerKeyCondition, removeKeysUpd, ops().yield(false));
+            Iif iif = iif(condition, removeKeysUpd, ops().yield(false));
 
             return metaStorageManager.invoke(iif)
                     .thenApply(StatementResult::getAsBoolean)
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
                             LOG.error(
-                                    "Failed to delete zone's dataNodes keys [zoneId = {}, revision = {}]",
+                                    "Failed to delete zone's dataNodes keys [zoneId = {}, timestamp = {}]",
                                     e,
                                     zoneId,
-                                    revision
+                                    timestamp
                             );
                         } else if (invokeResult) {
-                            LOG.info("Delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
+                            LOG.info("Delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);
                         } else {
-                            LOG.debug("Failed to delete zone's dataNodes keys [zoneId = {}, revision = {}]", zoneId, revision);
+                            LOG.debug("Failed to delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);
                         }
                     })
                     .thenCompose(ignored -> nullCompletedFuture());
@@ -1297,23 +1284,24 @@ public class DistributionZoneManager extends
             Entry lastUpdateRevisionEntry = metaStorageManager.getLocally(zonesRecoverableStateRevision(), recoveryRevision);
 
             if (lastUpdateRevisionEntry.value() == null || topologyRevision > bytesToLongKeepingOrder(lastUpdateRevisionEntry.value())) {
-                return onLogicalTopologyUpdate(newLogicalTopology, recoveryRevision, catalogVersion);
-            } else {
-                return restoreTimers(catalogVersion);
+                HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(recoveryRevision);
+
+                return onLogicalTopologyUpdate(newLogicalTopology, timestamp);
             }
+
+            dataNodesManager.start(catalogManager.zones(catalogVersion), newLogicalTopology);
         }
 
         return nullCompletedFuture();
     }
 
     private CompletableFuture<Void> onDropZoneBusy(DropZoneEventParameters parameters) {
-        int zoneId = parameters.zoneId();
-
         long causalityToken = parameters.causalityToken();
 
-        return removeTriggerKeysAndDataNodes(zoneId, causalityToken).thenRun(() -> {
-            // TODO on drop zone DataNodeManager
-        });
+        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
+
+        return removeDataNodesKeys(parameters.zoneId(), timestamp)
+                .thenRun(() -> dataNodesManager.onZoneDrop(parameters.zoneId(), timestamp));
     }
 
     private class ManagerCatalogAlterZoneEventListener extends CatalogAlterZoneEventListener {

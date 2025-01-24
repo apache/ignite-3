@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
@@ -31,7 +30,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
-import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 
@@ -54,9 +52,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescr
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
@@ -74,13 +70,26 @@ public class DistributionZonesUtil {
     private static final String DISTRIBUTION_ZONE_PREFIX = "distributionZone.";
 
     /** Key prefix for zone's data nodes and trigger keys. */
-    private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = "distributionZone.dataNodes.";
+    private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = DISTRIBUTION_ZONE_PREFIX + "dataNodes.";
+
+    /** Key prefix for zone's data nodes history. */
+    private static final String DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "history.";
 
     /** Key prefix for zone's data nodes. */
     public static final String DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "value.";
 
     public static final byte[] DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES =
             DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX.getBytes(StandardCharsets.UTF_8);
+
+    /** Key prefix for zone's scale up timer. */
+    public static final String DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleUpTimer.";
+
+    /** Key prefix for zone's scale down timer. */
+    public static final String DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "scaleDownTimer.";
+
+    /** Key prefix for zone's partition reset timer. */
+    public static final String DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX
+            + "partitionResetTimer.";
 
     /** Key prefix for zone's scale up change trigger key. */
     private static final String DISTRIBUTION_ZONE_SCALE_UP_CHANGE_TRIGGER_PREFIX =
@@ -105,18 +114,11 @@ public class DistributionZonesUtil {
     /** Key prefix for zones' logical topology nodes. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "nodes";
 
-    /** Key prefix for zones' configurations in vault. */
-    private static final String DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT = "vault." + DISTRIBUTION_ZONE_PREFIX
-            + "versionedConfiguration.";
-
     /** Key prefix for zones' logical topology version. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_VERSION = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "version";
 
     /** Key prefix for zones' logical topology cluster ID. */
     private static final String DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_CLUSTER_ID = DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_PREFIX + "clusterId";
-
-    /** Key prefix that represents {@link ZoneState#topologyAugmentationMap()}.*/
-    private static final String DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_PREFIX = "distributionZones.topologyAugmentation.";
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_KEY = new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY);
@@ -139,14 +141,6 @@ public class DistributionZonesUtil {
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_CLUSTER_ID}. */
     private static final ByteArray DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_CLUSTER_ID_KEY =
             new ByteArray(DISTRIBUTION_ZONES_LOGICAL_TOPOLOGY_CLUSTER_ID);
-
-    /**
-     * The initial value of trigger revision in case when it is not initialized in the meta storage.
-     * It is possible because invoke to metastorage with the initialisation is async, and scale up/down propagation could be
-     * propagated first. Initial value is -1, because for default zone, we initialise trigger keys with metastorage's applied revision,
-     * which is 0 on a start.
-     */
-    private static final long INITIAL_TRIGGER_REVISION_VALUE = -1;
 
     /** ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_PREFIX}. */
     private static final ByteArray DISTRIBUTION_ZONES_DATA_NODES_KEY =
@@ -183,22 +177,52 @@ public class DistributionZonesUtil {
     }
 
     /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX}.
+     *
+     * @param zoneId Zone id.
+     * @return ByteArray representation.
+     */
+    public static ByteArray zoneDataNodesHistoryKey(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX + zoneId);
+    }
+
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX}.
+     *
+     * @param zoneId Zone id.
+     * @return ByteArray representation.
+     */
+    public static ByteArray zoneScaleUpTimerKey(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX + zoneId);
+    }
+
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX}.
+     *
+     * @param zoneId Zone id.
+     * @return ByteArray representation.
+     */
+    public static ByteArray zoneScaleDownTimerKey(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX + zoneId);
+    }
+
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX}.
+     *
+     * @param zoneId Zone id.
+     * @return ByteArray representation.
+     */
+    public static ByteArray zonePartitionResetTimerKey(int zoneId) {
+        return new ByteArray(DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX + zoneId);
+    }
+
+    /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX}.
      *
      * @return ByteArray representation.
      */
     public static ByteArray zoneDataNodesKey() {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES);
-    }
-
-    /**
-     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT}.
-     *
-     * @param zoneId Zone id.
-     * @return ByteArray representation.
-     */
-    public static ByteArray zoneVersionedConfigurationKey(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONES_VERSIONED_CONFIGURATION_VAULT + zoneId);
     }
 
     /**
@@ -282,23 +306,16 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * The key that represents {@link ZoneState#topologyAugmentationMap()} in the Meta Storage.
-     */
-    static ByteArray zoneTopologyAugmentation(int zoneId) {
-        return new ByteArray(DISTRIBUTION_ZONES_TOPOLOGY_AUGMENTATION_PREFIX + zoneId);
-    }
-
-    /**
      * Condition for creating all data nodes' related keys in Meta Storage. Condition passes only when
-     * {@link DistributionZonesUtil#zoneDataNodesKey(int)} not exists and not a tombstone in the Meta Storage.
+     * {@link DistributionZonesUtil#zoneDataNodesHistoryKey(int)} not exists and not a tombstone in the Meta Storage.
      *
-     * @param zoneId Distribution zone id
+     * @param zoneId Distribution zone id.
      * @return Update condition.
      */
     static CompoundCondition conditionForZoneCreation(int zoneId) {
         return and(
-                notExists(zoneDataNodesKey(zoneId)),
-                notTombstone(zoneDataNodesKey(zoneId))
+                notExists(zoneDataNodesHistoryKey(zoneId)),
+                notTombstone(zoneDataNodesHistoryKey(zoneId))
         );
     }
 
@@ -323,68 +340,8 @@ public class DistributionZonesUtil {
      * @return Update condition.
      */
     static SimpleCondition conditionForZoneRemoval(int zoneId) {
-        return exists(zoneDataNodesKey(zoneId));
+        return exists(zoneDataNodesHistoryKey(zoneId));
     }
-
-    /**
-     * Condition for updating {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} key.
-     * Update only if the revision of the event is newer than value in that trigger key.
-     *
-     * @param scaleUpTriggerRevision Trigger revision of scale up.
-     * @param scaleDownTriggerRevision Trigger revision of scale down.
-     * @param zoneId Zone id.
-     * @return Update condition.
-     */
-    static CompoundCondition triggerScaleUpScaleDownKeysCondition(long scaleUpTriggerRevision, long scaleDownTriggerRevision,  int zoneId) {
-        SimpleCondition scaleUpCondition;
-
-        if (scaleUpTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
-            scaleUpCondition = value(zoneScaleUpChangeTriggerKey(zoneId)).eq(longToBytesKeepingOrder(scaleUpTriggerRevision));
-        } else {
-            scaleUpCondition = notExists(zoneScaleUpChangeTriggerKey(zoneId));
-        }
-
-        SimpleCondition scaleDownCondition;
-
-        if (scaleDownTriggerRevision != INITIAL_TRIGGER_REVISION_VALUE) {
-            scaleDownCondition = value(zoneScaleDownChangeTriggerKey(zoneId)).eq(longToBytesKeepingOrder(scaleDownTriggerRevision));
-        } else {
-            scaleDownCondition = notExists(zoneScaleDownChangeTriggerKey(zoneId));
-        }
-
-        return and(scaleUpCondition, scaleDownCondition);
-    }
-
-    /**
-     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)}.
-     *
-     * @param zoneId Distribution zone id
-     * @param revision Revision of the event.
-     * @param nodes Data nodes.
-     * @return Update command for the meta storage.
-     */
-    static Update updateDataNodesAndScaleUpTriggerKey(int zoneId, long revision, byte[] nodes) {
-        return ops(
-                put(zoneDataNodesKey(zoneId), nodes),
-                put(zoneScaleUpChangeTriggerKey(zoneId), longToBytesKeepingOrder(revision))
-        ).yield(true);
-    }
-
-    /**
-     * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)}.
-     *
-     * @param zoneId Distribution zone id
-     * @param revision Revision of the event.
-     * @param nodes Data nodes.
-     * @return Update command for the meta storage.
-     */
-    static Update updateDataNodesAndScaleDownTriggerKey(int zoneId, long revision, byte[] nodes) {
-        return ops(
-                put(zoneDataNodesKey(zoneId), nodes),
-                put(zoneScaleDownChangeTriggerKey(zoneId), longToBytesKeepingOrder(revision))
-        ).yield(true);
-    }
-
 
     /**
      * Updates data nodes value for a zone and set {@code revision} to {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} and
@@ -504,34 +461,6 @@ public class DistributionZonesUtil {
 
     public static Map<UUID, NodeWithAttributes> deserializeNodesAttributes(byte[] bytes) {
         return NodesAttributesSerializer.deserialize(bytes);
-    }
-
-    /**
-     * Returns data nodes from the meta storage entry or empty map if the value is null.
-     *
-     * @param dataNodesEntry Meta storage entry with data nodes.
-     * @return Data nodes.
-     */
-    static Map<Node, Integer> extractDataNodes(Entry dataNodesEntry) {
-        if (!dataNodesEntry.empty()) {
-            return deserializeDataNodesMap(dataNodesEntry.value());
-        } else {
-            return emptyMap();
-        }
-    }
-
-    /**
-     * Returns a trigger revision from the meta storage entry or {@link INITIAL_TRIGGER_REVISION_VALUE} if the value is null.
-     *
-     * @param revisionEntry Meta storage entry with data nodes.
-     * @return Revision.
-     */
-    static long extractChangeTriggerRevision(Entry revisionEntry) {
-        if (!revisionEntry.empty()) {
-            return bytesToLongKeepingOrder(revisionEntry.value());
-        } else {
-            return INITIAL_TRIGGER_REVISION_VALUE;
-        }
     }
 
     /**

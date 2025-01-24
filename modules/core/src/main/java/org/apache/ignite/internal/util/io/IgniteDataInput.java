@@ -29,7 +29,11 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.BitSet;
+import java.util.Collection;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Extended data input.
@@ -417,5 +421,59 @@ public interface IgniteDataInput extends DataInput {
          * @return the materialized object
          */
         T materialize(byte[] buffer, int offset, int length);
+    }
+
+    /**
+     * Reads a collection.
+     *
+     * @param collectionSupplier Supplier to create a collection.
+     * @param elementReader Function to read an element.
+     * @return Collection.
+     */
+    default <T, C extends Collection<T>> C readCollection(
+            Supplier<C> collectionSupplier,
+            ObjectReader<T> elementReader
+    ) throws IOException {
+        int size = readVarIntAsInt();
+
+        C collection = collectionSupplier.get();
+
+        for (int i = 0; i < size; i++) {
+            collection.add(elementReader.read(this));
+        }
+
+        return collection;
+    }
+
+    /**
+     * Reads a map.
+     *
+     * @param mapSupplier Supplier to create a map.
+     * @param keyReader Function to read a key.
+     * @param valueReader Function to read a value.
+     * @return Map.
+     */
+    default <K, V, VV extends V, M extends Map<K, VV>> M readMap(
+            Supplier<M> mapSupplier,
+            ObjectReader<K> keyReader,
+            ObjectReader<VV> valueReader
+    ) throws IOException {
+        int size = readVarIntAsInt();
+
+        M map = mapSupplier.get();
+
+        for (int i = 0; i < size; i++) {
+            K key = keyReader.read(this);
+            VV value = valueReader.read(this);
+
+            map.put(key, value);
+        }
+
+        return map;
+    }
+
+    @FunctionalInterface
+    interface ObjectReader<T> {
+        T read(IgniteDataInput in) throws IOException;
     }
 }
