@@ -155,8 +155,8 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             try {
                 // If status is CANCELED here, then the job was in the QUEUED state when cancel was called, but executor already removed it
                 // from the queue. This could happen because the executor takes an entry without using the executionLock.
-                // Don't transition to EXECUTING state and don't run the job, return null here so that we can later check the same condition
-                // and cancel the result.
+                // Don't transition to EXECUTING state and don't run the job, throw an exception here so that we can later check it and
+                // cancel the result.
                 if (isCanceled()) {
                     throw new QueueEntryCanceledException();
                 }
