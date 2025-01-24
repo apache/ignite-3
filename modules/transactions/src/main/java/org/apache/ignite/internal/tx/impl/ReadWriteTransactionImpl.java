@@ -73,9 +73,10 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
             HybridTimestampTracker observableTsTracker,
             UUID id,
             UUID txCoordinatorId,
-            boolean implicit
+            boolean implicit,
+            long timeout
     ) {
-        super(txManager, observableTsTracker, id, txCoordinatorId, implicit);
+        super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout);
     }
 
     /** {@inheritDoc} */

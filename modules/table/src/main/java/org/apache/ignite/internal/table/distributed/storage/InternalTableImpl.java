@@ -198,10 +198,6 @@ public class InternalTableImpl implements InternalTable {
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
 
-    private final Supplier<Long> roTransactionTimeout;
-
-    private final Supplier<Long> rwTransactionTimeout;
-
     /** Attempts to take lock. */
     private final int attemptsObtainLock;
 
@@ -219,8 +215,6 @@ public class InternalTableImpl implements InternalTable {
      * @param clockService A hybrid logical clock service.
      * @param placementDriver Placement driver.
      * @param transactionInflights Transaction inflights.
-     * @param roTransactionTimeout Read-only transaction timeout.
-     * @param rwTransactionTimeout RW transaction timeout.
      * @param attemptsObtainLock Attempts to take lock.
      */
     public InternalTableImpl(
@@ -236,8 +230,6 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             TransactionInflights transactionInflights,
-            Supplier<Long> roTransactionTimeout,
-            Supplier<Long> rwTransactionTimeout,
             int attemptsObtainLock,
             Supplier<ScheduledExecutorService> streamerFlushExecutor,
             StreamerReceiverRunner streamerReceiverRunner
@@ -254,8 +246,6 @@ public class InternalTableImpl implements InternalTable {
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
         this.transactionInflights = transactionInflights;
-        this.roTransactionTimeout = roTransactionTimeout;
-        this.rwTransactionTimeout = rwTransactionTimeout;
         this.attemptsObtainLock = attemptsObtainLock;
         this.streamerFlushExecutor = streamerFlushExecutor;
         this.streamerReceiverRunner = streamerReceiverRunner;
@@ -372,7 +362,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, false, actualTx, actualTx.implicit()).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    long timeout = actualTx.isReadOnly() ? roTransactionTimeout.get() : rwTransactionTimeout.get();
+                    long timeout = actualTx.timeout();
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -492,7 +482,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, actualTx.implicit() && !singlePart, actualTx, full).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    long timeout = actualTx.isReadOnly() ? roTransactionTimeout.get() : rwTransactionTimeout.get();
+                    long timeout = actualTx.timeout();
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -1193,7 +1183,7 @@ public class InternalTableImpl implements InternalTable {
         // Will be finished in one RTT.
         return postEnlist(fut, false, tx, true).handle((r, e) -> {
             if (e != null) {
-                long timeout = tx.isReadOnly() ? roTransactionTimeout.get() : rwTransactionTimeout.get();
+                long timeout = tx.timeout();
 
                 long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
 

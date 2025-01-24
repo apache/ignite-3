@@ -209,8 +209,6 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
                 new TransactionInflights(placementDriver, clockService),
-                () -> 0L,
-                () -> 0L,
                 0,
                 () -> null,
                 mock(StreamerReceiverRunner.class)

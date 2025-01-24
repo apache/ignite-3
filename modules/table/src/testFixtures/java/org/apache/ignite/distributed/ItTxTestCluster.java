@@ -647,8 +647,6 @@ public class ItTxTestCluster {
                 timestampTracker,
                 placementDriver,
                 clientTransactionInflights,
-                () -> 500L,
-                () -> 500L,
                 0,
                 null,
                 mock(StreamerReceiverRunner.class)
