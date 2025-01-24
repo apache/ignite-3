@@ -227,13 +227,14 @@ public abstract class CreateAbstractIndexCommandValidationTest extends AbstractC
     void noExceptionIsThrownIfStoppingIndexWithGivenNameAlreadyExists() {
         String indexName = "IDX";
 
-        Catalog catalog = catalogWithIndex(indexName);
+        Catalog catalog = applyCommandsToCatalog(catalogWithDefaultZone(), createTableCommand(TABLE_NAME));
+        Catalog finalCatalog = applyCommandsToCatalog(catalog, createIndexCommand(TABLE_NAME, indexName));
 
         CatalogCommand createIndexCommand = prefilledBuilder().indexName(indexName).build();
 
-        assertThrows(CatalogValidationException.class, () -> applyCommandsToCatalog(catalog, createIndexCommand));
+        assertThrows(CatalogValidationException.class, () -> applyCommandsToCatalog(finalCatalog, createIndexCommand));
 
-        Catalog newCatalog = transitionIndexToStoppingState(catalog, indexName);
+        Catalog newCatalog = transitionIndexToStoppingState(finalCatalog, indexName);
 
         assertDoesNotThrow(() -> applyCommandsToCatalog(newCatalog, createIndexCommand));
     }

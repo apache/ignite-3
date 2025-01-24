@@ -260,7 +260,8 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
     void noExceptionIsThrownIfColumnBelongsToStoppingIndex() {
         String indexName = "TEST_IDX";
 
-        Catalog catalog = catalogWithIndex(indexName);
+        Catalog catalog = applyCommandsToCatalog(catalogWithDefaultZone(), createTableCommand(TABLE_NAME));
+        Catalog finalCatalog = applyCommandsToCatalog(catalog, createIndexCommand(TABLE_NAME, indexName));
 
         CatalogCommand dropColumnCommand = AlterTableDropColumnCommand.builder()
                 .schemaName(SCHEMA_NAME)
@@ -268,9 +269,9 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                 .columns(Set.of("VAL"))
                 .build();
 
-        Assertions.assertThrows(CatalogValidationException.class, () -> applyCommandsToCatalog(catalog, dropColumnCommand));
+        Assertions.assertThrows(CatalogValidationException.class, () -> applyCommandsToCatalog(finalCatalog, dropColumnCommand));
 
-        Catalog newCatalog = transitionIndexToStoppingState(catalog, indexName);
+        Catalog newCatalog = transitionIndexToStoppingState(finalCatalog, indexName);
 
         assertDoesNotThrow(() -> applyCommandsToCatalog(newCatalog, dropColumnCommand));
     }
