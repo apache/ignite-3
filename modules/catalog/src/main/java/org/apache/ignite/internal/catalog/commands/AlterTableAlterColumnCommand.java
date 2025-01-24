@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -91,7 +92,11 @@ public class AlterTableAlterColumnCommand extends AbstractTableCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName);
+        Optional<CatalogTableDescriptor> tableOpt = tableOrThrow(schema, tableName, ifTableExists);
+        if (tableOpt.isEmpty()) {
+            return List.of();
+        }
+        CatalogTableDescriptor table = tableOpt.get();
 
         CatalogTableColumnDescriptor origin = table.column(columnName);
 

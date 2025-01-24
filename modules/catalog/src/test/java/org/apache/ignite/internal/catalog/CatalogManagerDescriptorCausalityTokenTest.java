@@ -101,7 +101,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
                         List.of("key1", "key2"),
                         List.of("key2")
                 ))
-        );
+        ).getCatalogVersion();
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(tableCreationVersion - 1);
@@ -132,7 +132,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         // Validate another table creation.
         int secondTableCreationVersion = await(
                 manager.execute(simpleTable(TABLE_NAME_2))
-        );
+        ).getCatalogVersion();
 
         // Validate actual catalog. has both tables.
         schema = manager.schema(secondTableCreationVersion);
@@ -160,11 +160,11 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
     @Test
     public void testDropTable() {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
-        int secondTableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME_2)));
+        int secondTableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME_2))).getCatalogVersion();
 
         long beforeDropTimestamp = clock.nowLong();
 
-        int tableDropVersion = await(manager.execute(dropTableCommand(TABLE_NAME)));
+        int tableDropVersion = await(manager.execute(dropTableCommand(TABLE_NAME))).getCatalogVersion();
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(secondTableCreationVersion);
@@ -276,9 +276,9 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testCreateHashIndex() {
-        int tableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME)));
+        int tableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME))).getCatalogVersion();
 
-        int indexCreationVersion = await(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID"))));
+        int indexCreationVersion = await(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID")))).getCatalogVersion();
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(tableCreationVersion);
@@ -309,7 +309,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testCreateSortedIndex() {
-        int tableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME)));
+        int tableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME))).getCatalogVersion();
 
         CatalogCommand command = createSortedIndexCommand(
                 INDEX_NAME,
@@ -318,7 +318,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
                 List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
         );
 
-        int indexCreationVersion = await(manager.execute(command));
+        int indexCreationVersion = await(manager.execute(command)).getCatalogVersion();
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(tableCreationVersion);

@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -420,19 +421,22 @@ public class CatalogUtils {
      *
      * @param schema Schema to look up table in.
      * @param name Name of the table of interest.
-     * @return Table with given name. Never null.
+     * @param ifExists Flag indicated should be thrown the {@code TableNotFoundValidationException} for absent table or just return
+     *         empty Optional.
+     * @return Optional type contains table with given name or empty Optional in case table is absent and flag ifExists set.
      * @throws TableNotFoundValidationException If table with given name is not exists.
      */
-    public static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
+    public static Optional<CatalogTableDescriptor> tableOrThrow(CatalogSchemaDescriptor schema, String name, boolean ifExists)
+            throws TableNotFoundValidationException {
         name = Objects.requireNonNull(name, "tableName");
 
         CatalogTableDescriptor table = schema.table(name);
 
-        if (table == null) {
+        if (table == null && !ifExists) {
             throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found", schema.name(), name));
         }
 
-        return table;
+        return Optional.ofNullable(table);
     }
 
     /**
@@ -457,19 +461,22 @@ public class CatalogUtils {
      *
      * @param catalog Catalog to look up zone in.
      * @param name Name of the zone of interest.
-     * @return Zone with given name. Never null.
+     * @param ifExists Flag indicated should be thrown the {@code DistributionZoneNotFoundValidationException} for absent zone or
+     *         just return empty Optional.
+     * @return Optional type contains zone with given name or empty Optional in case zone is absent and flag ifExists set.
      * @throws DistributionZoneNotFoundValidationException If zone with given name is not exists.
      */
-    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws DistributionZoneNotFoundValidationException {
+    public static Optional<CatalogZoneDescriptor> zoneOrThrow(Catalog catalog, String name, boolean ifExists)
+            throws DistributionZoneNotFoundValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
 
-        if (zone == null) {
+        if (zone == null && !ifExists) {
             throw new DistributionZoneNotFoundValidationException(format("Distribution zone with name '{}' not found", name));
         }
 
-        return zone;
+        return Optional.ofNullable(zone);
     }
 
     /**
@@ -486,16 +493,20 @@ public class CatalogUtils {
      *
      * @param schema Schema to look up index in.
      * @param name Name of the index of interest.
+     * @param ifExists Flag indicated should be thrown the {@code IndexNotFoundValidationException} for absent index or just return
+     *         empty Optional.
+     * @return Optional type contains index with given name or empty Optional in case index is absent and flag ifExists set.
      * @throws IndexNotFoundValidationException If index does not exist.
      */
-    public static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
+    public static Optional<CatalogIndexDescriptor> indexOrThrow(CatalogSchemaDescriptor schema, String name, boolean ifExists)
+            throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = schema.aliveIndex(name);
 
-        if (index == null) {
+        if (index == null && !ifExists) {
             throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));
         }
 
-        return index;
+        return Optional.ofNullable(index);
     }
 
     /**

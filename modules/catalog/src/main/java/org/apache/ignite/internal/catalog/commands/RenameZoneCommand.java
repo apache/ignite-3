@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThr
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.List;
+import java.util.Optional;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -66,7 +67,11 @@ public class RenameZoneCommand extends AbstractZoneCommand {
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
-        CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
+        Optional<CatalogZoneDescriptor> zoneOpt = zoneOrThrow(catalog, zoneName, ifExists);
+        if (zoneOpt.isEmpty()) {
+            return List.of();
+        }
+        CatalogZoneDescriptor zone = zoneOpt.get();
 
         if (catalog.zone(newZoneName) != null) {
             throw new DistributionZoneExistsValidationException(format("Distribution zone with name '{}' already exists", newZoneName));

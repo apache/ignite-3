@@ -338,12 +338,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Integer> execute(CatalogCommand command) {
+    public CompletableFuture<CatalogApplyResult> execute(CatalogCommand command) {
         return saveUpdateAndWaitForActivation(command);
     }
 
     @Override
-    public CompletableFuture<Integer> execute(List<CatalogCommand> commands) {
+    public CompletableFuture<CatalogApplyResult> execute(List<CatalogCommand> commands) {
         if (nullOrEmpty(commands)) {
             return nullCompletedFuture();
         }
@@ -414,8 +414,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         LOG.info("Catalog history was truncated up to version=" + catalog.version());
     }
 
-    private CompletableFuture<Integer> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
-        CompletableFuture<Integer> resultFuture = new CompletableFuture<>();
+    private CompletableFuture<CatalogApplyResult> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
+        CompletableFuture<CatalogApplyResult> resultFuture = new CompletableFuture<>();
 
         saveUpdateEliminatingLocalConcurrency(updateProducer)
                 .thenCompose(this::awaitVersionActivation)
@@ -453,10 +453,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return resultFuture;
     }
 
-    private CompletableFuture<Integer> saveUpdateEliminatingLocalConcurrency(UpdateProducer updateProducer) {
+    private CompletableFuture<CatalogApplyResult> saveUpdateEliminatingLocalConcurrency(UpdateProducer updateProducer) {
         // Avoid useless and wasteful competition for the save catalog version by enforcing an order.
         synchronized (lastSaveUpdateFutureMutex) {
-            CompletableFuture<Integer> chainedFuture = lastSaveUpdateFuture
+            CompletableFuture<CatalogApplyResult> chainedFuture = lastSaveUpdateFuture
                     .thenCompose(unused -> saveUpdate(updateProducer, 0));
 
             // Suppressing any exception to make sure it doesn't ruin subsequent appends. The suppression is not a problem
@@ -465,6 +465,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
             return chainedFuture;
         }
+    }
+
+    private CompletableFuture<CatalogApplyResult> awaitVersionActivation(CatalogApplyResult catalogApplyResult) {
+        return awaitVersionActivation(catalogApplyResult.getCatalogVersion()).thenApply(unused -> catalogApplyResult);
     }
 
     private CompletableFuture<Integer> awaitVersionActivation(int version) {
@@ -487,7 +491,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      * @param attemptNo Ordinal number of an attempt.
      * @return Future that completes with the new Catalog version (if update was saved successfully) or an exception, otherwise.
      */
-    private CompletableFuture<Integer> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
+    private CompletableFuture<CatalogApplyResult> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -509,7 +513,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             }
 
             if (updates.isEmpty()) {
-                return completedFuture(catalog.version());
+                return completedFuture(CatalogApplyResult.notApplied(catalog.version()));
             }
 
             int newVersion = catalog.version() + 1;
@@ -523,7 +527,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                     .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
                     .thenCompose(result -> {
                         if (result) {
-                            return completedFuture(newVersion);
+                            return completedFuture(CatalogApplyResult.applied(newVersion));
                         }
 
                         return saveUpdate(updateProducer, attemptNo + 1);

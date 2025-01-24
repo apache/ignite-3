@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrT
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.util.List;
+import java.util.Optional;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -74,7 +75,11 @@ public class DropIndexCommand extends AbstractIndexCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        CatalogIndexDescriptor index = indexOrThrow(schema, indexName);
+        Optional<CatalogIndexDescriptor> indexOpt = indexOrThrow(schema, indexName, ifExists);
+        if (indexOpt.isEmpty()) {
+            return List.of();
+        }
+        CatalogIndexDescriptor index = indexOpt.get();
 
         CatalogTableDescriptor table = catalog.table(index.tableId());
 

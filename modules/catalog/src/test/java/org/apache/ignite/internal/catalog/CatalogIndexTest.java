@@ -93,9 +93,9 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateHashIndex() {
-        int tableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME)));
+        int tableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME))).getCatalogVersion();
 
-        int indexCreationVersion = await(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID"))));
+        int indexCreationVersion = await(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID")))).getCatalogVersion();
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(tableCreationVersion);
@@ -132,7 +132,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
                 List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
         );
 
-        int indexCreationVersion = await(manager.execute(command));
+        int indexCreationVersion = await(manager.execute(command)).getCatalogVersion();
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(indexCreationVersion - 1);

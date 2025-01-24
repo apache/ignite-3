@@ -119,6 +119,10 @@ public class CreateZoneCommand extends AbstractZoneCommand {
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
         if (catalog.zone(zoneName) != null) {
+            if (ifNotExists) {
+                return List.of();
+            }
+
             throw new DistributionZoneExistsValidationException(format("Distribution zone with name '{}' already exists", zoneName));
         }
 

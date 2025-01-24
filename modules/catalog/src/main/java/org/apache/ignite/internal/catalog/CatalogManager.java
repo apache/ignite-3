@@ -31,7 +31,7 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @param command Command to execute.
      * @return Future representing result of execution (it will be completed with the created catalog version).
      */
-    CompletableFuture<Integer> execute(CatalogCommand command);
+    CompletableFuture<CatalogApplyResult> execute(CatalogCommand command);
 
     /**
      * Executes given list of commands atomically. That is, either all commands will be applied at once
@@ -40,5 +40,5 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @param commands Commands to execute.
      * @return Future representing result of execution (it will be completed with the created catalog version).
      */
-    CompletableFuture<Integer> execute(List<CatalogCommand> commands);
+    CompletableFuture<CatalogApplyResult> execute(List<CatalogCommand> commands);
 }

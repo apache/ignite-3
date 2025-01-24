@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -78,7 +79,11 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName);
+        Optional<CatalogTableDescriptor> tableOpt = tableOrThrow(schema, tableName, ifTableExists);
+        if (tableOpt.isEmpty()) {
+            return List.of();
+        }
+        CatalogTableDescriptor table = tableOpt.get();
 
         Set<String> indexedColumns = aliveIndexesForTable(catalog, table.id())
                 .flatMap(AlterTableDropColumnCommand::indexColumnNames)

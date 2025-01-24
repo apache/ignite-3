@@ -125,7 +125,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
                 .colocationColumns(List.of("key2"))
                 .build();
 
-        int tableCreationVersion = await(manager.execute(command));
+        int tableCreationVersion = await(manager.execute(command)).getCatalogVersion();
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(tableCreationVersion - 1);
@@ -232,7 +232,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         long beforeDropTimestamp = clock.nowLong();
 
-        int tableDropVersion = await(manager.execute(dropTableCommand(TABLE_NAME)));
+        int tableDropVersion = await(manager.execute(dropTableCommand(TABLE_NAME))).getCatalogVersion();
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(tableDropVersion - 1);
@@ -642,7 +642,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
     @Test
     public void testGetTableByIdAndCatalogVersion() {
-        int tableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME)));
+        int tableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME))).getCatalogVersion();
 
         CatalogTableDescriptor table = manager.table(TABLE_NAME, clock.nowLong());
 

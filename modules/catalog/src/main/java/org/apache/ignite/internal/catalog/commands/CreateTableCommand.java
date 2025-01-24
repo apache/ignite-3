@@ -107,6 +107,10 @@ public class CreateTableCommand extends AbstractTableCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
+        if (ifTableExists && schema.table(tableName) != null) {
+            return List.of();
+        }
+
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
         CatalogZoneDescriptor zone;
@@ -117,7 +121,7 @@ public class CreateTableCommand extends AbstractTableCommand {
 
             zone = catalog.defaultZone();
         } else {
-            zone = zoneOrThrow(catalog, zoneName);
+            zone = zoneOrThrow(catalog, zoneName, false).orElseThrow();
         }
 
         if (storageProfile == null) {

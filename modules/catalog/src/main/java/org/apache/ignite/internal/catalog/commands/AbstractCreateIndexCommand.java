@@ -84,9 +84,13 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
+        if (ifNotExists && schema.aliveIndex(indexName) != null) {
+            return List.of();
+        }
+
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName);
+        CatalogTableDescriptor table = tableOrThrow(schema, tableName, false).orElseThrow();;
 
         assert columns != null;
 

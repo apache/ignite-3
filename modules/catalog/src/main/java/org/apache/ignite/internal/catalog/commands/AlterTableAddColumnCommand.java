@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -74,7 +75,11 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName);
+        Optional<CatalogTableDescriptor> tableOpt = tableOrThrow(schema, tableName, ifTableExists);
+        if (tableOpt.isEmpty()) {
+            return List.of();
+        }
+        CatalogTableDescriptor table = tableOpt.get();
 
         List<CatalogTableColumnDescriptor> columnDescriptors = new ArrayList<>();
 

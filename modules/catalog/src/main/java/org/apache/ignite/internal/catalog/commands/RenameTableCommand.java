@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrT
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 
 import java.util.List;
+import java.util.Optional;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -61,7 +62,11 @@ public class RenameTableCommand extends AbstractTableCommand {
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, newTableName);
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName);
+        Optional<CatalogTableDescriptor> tableOpt = tableOrThrow(schema, tableName, ifTableExists);
+        if (tableOpt.isEmpty()) {
+            return List.of();
+        }
+        CatalogTableDescriptor table = tableOpt.get();
 
         String newPkIndexName = pkIndexName(newTableName);
 

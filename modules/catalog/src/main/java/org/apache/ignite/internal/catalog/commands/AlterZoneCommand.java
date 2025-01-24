@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThr
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -105,7 +106,11 @@ public class AlterZoneCommand extends AbstractZoneCommand {
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
-        CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
+        Optional<CatalogZoneDescriptor> zoneOpt = zoneOrThrow(catalog, zoneName, ifExists);
+        if (zoneOpt.isEmpty()) {
+            return List.of();
+        }
+        CatalogZoneDescriptor zone = zoneOpt.get();
 
         CatalogZoneDescriptor descriptor = fromParamsAndPreviousValue(zone);
 
