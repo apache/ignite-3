@@ -27,13 +27,18 @@ public class LocalPartitionReplicaEventParameters implements EventParameters {
     /** Zone partition id. */
     private final ZonePartitionId zonePartitionId;
 
+    /** Event's revision. */
+    private final long revision;
+
     /**
      * Constructor.
      *
      * @param zonePartitionId Zone partition id.
+     * @param revision Event's revision.
      */
-    public LocalPartitionReplicaEventParameters(ZonePartitionId zonePartitionId) {
+    public LocalPartitionReplicaEventParameters(ZonePartitionId zonePartitionId, long revision) {
         this.zonePartitionId = zonePartitionId;
+        this.revision = revision;
     }
 
     /**
@@ -43,6 +48,15 @@ public class LocalPartitionReplicaEventParameters implements EventParameters {
      */
     public ZonePartitionId zonePartitionId() {
         return zonePartitionId;
+    }
+
+    /**
+     * Returns event's revision.
+     *
+     * @return Event's revision.
+     */
+    public long revision() {
+        return revision;
     }
 }
 

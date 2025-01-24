@@ -414,11 +414,15 @@ public class PartitionReplicaLifecycleManager extends
             CompletableFuture<List<Assignments>> assignmentsFutureAfterInvoke =
                     writeZoneAssignmentsToMetastore(zoneDescriptor.id(), assignmentsFuture);
 
-            return createZoneReplicationNodes(assignmentsFutureAfterInvoke, zoneDescriptor.id());
+            return createZoneReplicationNodes(assignmentsFutureAfterInvoke, zoneDescriptor.id(), causalityToken);
         });
     }
 
-    private CompletableFuture<Void> createZoneReplicationNodes(CompletableFuture<List<Assignments>> assignmentsFuture, int zoneId) {
+    private CompletableFuture<Void> createZoneReplicationNodes(
+            CompletableFuture<List<Assignments>> assignmentsFuture,
+            int zoneId,
+            long revision
+    ) {
         return inBusyLockAsync(busyLock, () -> assignmentsFuture.thenCompose(assignments -> {
             assert assignments != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
 
@@ -429,7 +433,9 @@ public class PartitionReplicaLifecycleManager extends
 
                 Assignment localMemberAssignment = localMemberAssignment(zoneAssignment);
 
-                partitionsStartFutures.add(createZonePartitionReplicationNode(zoneId, partId, localMemberAssignment, zoneAssignment));
+                partitionsStartFutures.add(
+                        createZonePartitionReplicationNode(zoneId, partId, localMemberAssignment, zoneAssignment, revision)
+                );
             }
 
             return allOf(partitionsStartFutures.toArray(new CompletableFuture<?>[0]));
@@ -444,13 +450,15 @@ public class PartitionReplicaLifecycleManager extends
      * @param partId Partition id.
      * @param localMemberAssignment Assignment of the local member, or null if local member is not part of the assignment.
      * @param stableAssignments Stable assignments.
+     * @param revision Event's revision.
      * @return Future that completes when a replica is started.
      */
     private CompletableFuture<Void> createZonePartitionReplicationNode(
             int zoneId,
             int partId,
             @Nullable Assignment localMemberAssignment,
-            Assignments stableAssignments
+            Assignments stableAssignments,
+            long revision
     ) {
         if (localMemberAssignment == null) {
             return nullCompletedFuture();
@@ -492,7 +500,8 @@ public class PartitionReplicaLifecycleManager extends
                             replicationGroupIds.add(replicaGrpId);
 
                             var eventParams = new LocalPartitionReplicaEventParameters(
-                                    new ZonePartitionId(replicaGrpId.zoneId(), replicaGrpId.partitionId())
+                                    new ZonePartitionId(replicaGrpId.zoneId(), replicaGrpId.partitionId()),
+                                    revision
                             );
 
                             return fireEvent(LocalPartitionReplicaEvent.AFTER_REPLICA_STARTED, eventParams);
@@ -853,7 +862,8 @@ public class PartitionReplicaLifecycleManager extends
                     zonePartitionId,
                     stableAssignments,
                     pendingAssignments,
-                    isRecovery
+                    isRecovery,
+                    revision
             );
         }, ioExecutor).thenCompose(identity());
     }
@@ -884,7 +894,8 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             Set<Assignment> stableAssignments,
             Assignments pendingAssignments,
-            boolean isRecovery
+            boolean isRecovery,
+            long revision
     ) {
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
@@ -898,15 +909,15 @@ public class PartitionReplicaLifecycleManager extends
                 .noneMatch(assignment -> assignment.consistentId().equals(localNode().name()));
 
         if (shouldStopLocalServices) {
-            return clientUpdateFuture.thenCompose(v -> stopAndDestroyPartition(zonePartitionId))
+            return clientUpdateFuture.thenCompose(v -> stopAndDestroyPartition(zonePartitionId, revision))
                     .thenAccept(v -> {});
         } else {
             return clientUpdateFuture;
         }
     }
 
-    private CompletableFuture<?> stopAndDestroyPartition(ZonePartitionId zonePartitionId) {
-        return weakStopPartition(zonePartitionId);
+    private CompletableFuture<?> stopAndDestroyPartition(ZonePartitionId zonePartitionId, long revision) {
+        return weakStopPartition(zonePartitionId, revision);
     }
 
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(
@@ -1019,7 +1030,8 @@ public class PartitionReplicaLifecycleManager extends
                     zoneId,
                     partitionId,
                     localMemberAssignment,
-                    computedStableAssignments
+                    computedStableAssignments,
+                    revision
             );
         } else if (pendingAssignmentsAreForced && localMemberAssignment != null) {
             localServicesStartFuture = runAsync(() -> {
@@ -1219,11 +1231,11 @@ public class PartitionReplicaLifecycleManager extends
         return Assignments.fromBytes(entry.value());
     }
 
-    private CompletableFuture<Void> weakStopPartition(ZonePartitionId zonePartitionId) {
+    private CompletableFuture<Void> weakStopPartition(ZonePartitionId zonePartitionId, long revision) {
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
-                () -> stopPartition(zonePartitionId).thenAccept(v -> {})
+                () -> stopPartition(zonePartitionId, revision).thenAccept(v -> {})
         );
     }
 
@@ -1233,7 +1245,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param zonePartitionId Partition ID.
      * @return Future that will be completed after all resources have been closed.
      */
-    private CompletableFuture<?> stopPartition(ZonePartitionId zonePartitionId) {
+    private CompletableFuture<?> stopPartition(ZonePartitionId zonePartitionId, long revision) {
         return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
             try {
                 return replicaMgr.stopReplica(zonePartitionId)
@@ -1241,8 +1253,10 @@ public class PartitionReplicaLifecycleManager extends
                             if (replicaWasStopped) {
                                 replicationGroupIds.remove(zonePartitionId);
 
-                                return fireEvent(LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED, new LocalPartitionReplicaEventParameters(
-                                        zonePartitionId));
+                                return fireEvent(
+                                        LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
+                                        new LocalPartitionReplicaEventParameters(zonePartitionId, revision)
+                                );
                             } else {
                                 return nullCompletedFuture();
                             }
@@ -1269,7 +1283,12 @@ public class PartitionReplicaLifecycleManager extends
                 int i = 0;
 
                 for (ZonePartitionId partitionId : partitionIds) {
-                    stopReplicaFutures[i++] = stopPartition(partitionId);
+                    catalogMgr.latestCatalogVersion();
+                    stopReplicaFutures[i++] = stopPartition(
+                            partitionId,
+                            // TODO: Due to IGNITE-23741 we shouldn't destroy partitions on node stop thus the revision will be removed.
+                            metaStorageMgr.appliedRevision()
+                    );
                 }
 
                 allOf(stopReplicaFutures).get(10, TimeUnit.SECONDS);

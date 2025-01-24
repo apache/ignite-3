@@ -747,7 +747,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 mvGc.removeStorage(tablePartitionId);
 
-                futs.add(destroyPartitionStorages(tablePartitionId, table));
+                futs.add(weakStopAndDestroyPartition(tablePartitionId, parameters.revision()));
             });
 
             return allOf(futs.toArray(new CompletableFuture[]{}));
