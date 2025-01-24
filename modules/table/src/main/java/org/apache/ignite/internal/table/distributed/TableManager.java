@@ -754,7 +754,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         return mvGc.removeStorage(tablePartitionId)
                                 .thenComposeAsync(
-                                        v -> inBusyLockAsync(busyLock, () -> weakStopAndDestroyPartition(tablePartitionId, parameters.revision())),
+                                        v -> inBusyLockAsync(busyLock, () -> weakStopAndDestroyPartition(
+                                                tablePartitionId,
+                                                parameters.revision())
+                                        ),
                                         ioExecutor
                                 );
                     })
