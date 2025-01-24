@@ -80,7 +80,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         }
 
         return new CatalogSortedIndexDescriptor(
-                indexId, indexName, tableId, unique, status, indexColumnDescriptors, false
+                indexId, indexName, tableId, unique, status, indexColumnDescriptors, status == CatalogIndexStatus.AVAILABLE
         );
     }
 
