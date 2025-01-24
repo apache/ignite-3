@@ -39,7 +39,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
@@ -60,11 +62,15 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
+import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
+import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
@@ -480,6 +486,57 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
     @Test
     public void testHashIndex() {
         int versionBefore = catalogManager.latestCatalogVersion();
+        await(catalogManager.execute(createDummyTable("T1")));
+        await(catalogManager.execute(createHashIndex("T1", "VAL1_IDX", "VAL1")));
+
+        {
+            int versionAfter = catalogManager.latestCatalogVersion();
+            assertThat(versionAfter, equalTo(versionBefore + 2));
+
+            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
+            assertNotNull(rootSchema);
+
+            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+            assertNotNull(schemaPlus);
+
+            IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
+            assertNull(index, "Index should not be available");
+
+            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK"), indexes.keySet());
+        }
+
+        makeIndexAvailable("VAL1_IDX");
+
+        {
+            int versionAfter = catalogManager.latestCatalogVersion();
+            assertThat(versionAfter, equalTo(versionBefore + 3));
+
+            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
+            assertNotNull(rootSchema);
+
+            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+            assertNotNull(schemaPlus);
+
+            IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "VAL1_IDX");
+            assertNotNull(index);
+
+            assertThat(index.name(), equalTo("VAL1_IDX"));
+            assertThat(index.type(), equalTo(Type.HASH));
+            assertThat(index.collation(), equalTo(RelCollations.of(
+                    new RelFieldCollation(1, Direction.CLUSTERED, NullDirection.UNSPECIFIED)
+            )));
+
+            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK", "VAL1_IDX"), indexes.keySet());
+            assertSame(index, indexes.get("VAL1_IDX"), "VAL1_IDX cache entry");
+        }
+    }
+
+    /** The index created with the table must be in the {@link CatalogIndexStatus#AVAILABLE} state. */
+    @Test
+    public void testHashIndexCreationWithTable() {
+        int versionBefore = catalogManager.latestCatalogVersion();
         await(catalogManager.execute(List.of(
                 createDummyTable("T1"),
                 createHashIndex("T1", "VAL1_IDX", "VAL1")
@@ -510,6 +567,93 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testSortedIndex() {
+        int versionBefore = catalogManager.latestCatalogVersion();
+        await(catalogManager.execute(createDummyTable("T1")));
+        await(catalogManager.execute(List.of(
+                createSortedIndex("T1", "IDX1", List.of("VAL1", "VAL2"),
+                        List.of(CatalogColumnCollation.ASC_NULLS_FIRST, CatalogColumnCollation.ASC_NULLS_LAST)),
+                createSortedIndex("T1", "IDX2", List.of("VAL1", "VAL2"),
+                        List.of(CatalogColumnCollation.DESC_NULLS_FIRST, CatalogColumnCollation.DESC_NULLS_LAST))
+        )));
+
+        {
+            int versionAfter = catalogManager.latestCatalogVersion();
+            assertThat(versionAfter, equalTo(versionBefore + 2));
+
+            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
+            assertNotNull(rootSchema);
+
+            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+            assertNotNull(schemaPlus);
+
+            IgniteIndex index1 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
+            assertNull(index1);
+
+            IgniteIndex index2 = findIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
+            assertNull(index2);
+
+            Map<String, IgniteIndex> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK"), indexes.keySet());
+        }
+
+        makeIndexAvailable("IDX1");
+
+        {
+            int versionAfter = catalogManager.latestCatalogVersion();
+            assertThat(versionAfter, equalTo(versionBefore + 3));
+
+            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
+            assertNotNull(rootSchema);
+
+            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+            assertNotNull(schemaPlus);
+
+            IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "IDX1");
+            assertNotNull(index);
+
+            assertThat(index.name(), equalTo("IDX1"));
+            assertThat(index.type(), equalTo(Type.SORTED));
+            assertThat(index.collation(), equalTo(RelCollations.of(
+                    new RelFieldCollation(1, Direction.ASCENDING, NullDirection.FIRST),
+                    new RelFieldCollation(2, Direction.ASCENDING, NullDirection.LAST)
+            )));
+
+            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK", "IDX1"), indexes.keySet());
+            assertSame(index, indexes.get("IDX1"), "IDX1 cache entry");
+        }
+
+        makeIndexAvailable("IDX2");
+
+        {
+            int versionAfter = catalogManager.latestCatalogVersion();
+            assertThat(versionAfter, equalTo(versionBefore + 4));
+
+            SchemaPlus rootSchema = sqlSchemaManager.schema(versionAfter);
+            assertNotNull(rootSchema);
+
+            SchemaPlus schemaPlus = rootSchema.getSubSchema(PUBLIC_SCHEMA_NAME);
+            assertNotNull(schemaPlus);
+
+            IgniteIndex index = findIndex(unwrapSchema(schemaPlus), "T1", "IDX2");
+            assertNotNull(index);
+
+            assertThat(index.name(), equalTo("IDX2"));
+            assertThat(index.type(), equalTo(Type.SORTED));
+            assertThat(index.collation(), equalTo(RelCollations.of(
+                    new RelFieldCollation(1, Direction.DESCENDING, NullDirection.FIRST),
+                    new RelFieldCollation(2, Direction.DESCENDING, NullDirection.LAST)
+            )));
+
+            Map<String, ?> indexes = findTableIndexes(versionAfter, PUBLIC_SCHEMA_NAME, "T1");
+            assertEquals(Set.of("T1_PK", "IDX1", "IDX2"), indexes.keySet());
+            assertSame(index, indexes.get("IDX2"), "IDX2 cache entry");
+        }
+    }
+
+    /** The index created with the table must be in the {@link CatalogIndexStatus#AVAILABLE} state. */
+    @Test
+    public void testSortedIndexCreationWithTable() {
         int versionBefore = catalogManager.latestCatalogVersion();
         await(catalogManager.execute(List.of(
                 createDummyTable("T1"),
@@ -561,6 +705,19 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         IgniteTable igniteTable = sqlSchemaManager.table(catalogVersion, table.id());
         return igniteTable.indexes();
+    }
+
+    private void makeIndexAvailable(String name) {
+        Map<String, CatalogIndexDescriptor> indices = catalogManager.indexes(catalogManager.latestCatalogVersion())
+                .stream().collect(Collectors.toMap(CatalogIndexDescriptor::name, Function.identity()));
+
+        CatalogIndexDescriptor indexDescriptor = indices.get(name);
+        assertNotNull(indexDescriptor, indices.toString());
+
+        CatalogCommand startBuilding = StartBuildingIndexCommand.builder().indexId(indexDescriptor.id()).build();
+        CatalogCommand makeAvailable = MakeIndexAvailableCommand.builder().indexId(indexDescriptor.id()).build();
+
+        await(catalogManager.execute(List.of(startBuilding, makeAvailable)));
     }
 
     @ParameterizedTest

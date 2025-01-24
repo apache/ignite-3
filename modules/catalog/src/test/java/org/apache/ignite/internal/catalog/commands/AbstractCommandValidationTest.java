@@ -197,7 +197,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         UpdateContext updateContext = new UpdateContext(catalog);
         for (CatalogCommand command : commandsToApply) {
             for (UpdateEntry updates : command.get(updateContext)) {
-                updateContext = new UpdateContext(updates.applyUpdate(updateContext.catalog(), INITIAL_CAUSALITY_TOKEN));
+                updateContext.updateCatalog(catalog0 -> updates.applyUpdate(catalog0, INITIAL_CAUSALITY_TOKEN));
             }
         }
 

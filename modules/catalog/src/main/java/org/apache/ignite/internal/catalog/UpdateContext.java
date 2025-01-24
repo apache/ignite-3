@@ -60,7 +60,7 @@ public class UpdateContext {
     }
 
     /** Applies specified action to the catalog. */
-    void updateCatalog(Function<Catalog, Catalog> updater) {
+    public void updateCatalog(Function<Catalog, Catalog> updater) {
         catalog = updater.apply(catalog);
     }
 }
