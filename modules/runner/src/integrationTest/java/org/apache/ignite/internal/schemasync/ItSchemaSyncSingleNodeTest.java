@@ -108,7 +108,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                     ex.getMessage(),
                     containsString(String.format(
                             "Table schema was updated after the transaction was started [table=%s, startSchema=1, operationSchema=2]",
-                            table.name()
+                            table.qualifiedName().objectName()
                     ))
             );
         } else {
