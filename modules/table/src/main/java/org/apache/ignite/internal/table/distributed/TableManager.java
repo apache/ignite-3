@@ -418,10 +418,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
-    private long roTransactionTimeout;
-
-    private long rwTransactionTimeout;
-
     private int attemptsObtainLock;
 
     @Nullable
@@ -680,9 +676,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             );
 
             partitionReplicatorNodeRecovery.start();
-
-            roTransactionTimeout = txCfg.readOnlyTimeout().value();
-            rwTransactionTimeout = txCfg.readWriteTimeout().value();
 
             attemptsObtainLock = txCfg.attemptsObtainLock().value();
 
@@ -1632,8 +1625,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 observableTimestampTracker,
                 executorInclinedPlacementDriver,
                 transactionInflights,
-                roTransactionTimeout,
-                rwTransactionTimeout,
+                () -> txCfg.readOnlyTimeout().value(),
+                () -> txCfg.readWriteTimeout().value(),
                 attemptsObtainLock,
                 this::streamerFlushExecutor,
                 Objects.requireNonNull(streamerReceiverRunner)

@@ -198,9 +198,9 @@ public class InternalTableImpl implements InternalTable {
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
 
-    private final long roTransactionTimeout;
+    private final Supplier<Long> roTransactionTimeout;
 
-    private final long rwTransactionTimeout;
+    private final Supplier<Long> rwTransactionTimeout;
 
     /** Attempts to take lock. */
     private final int attemptsObtainLock;
@@ -236,8 +236,8 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             TransactionInflights transactionInflights,
-            long roTransactionTimeout,
-            long rwTransactionTimeout,
+            Supplier<Long> roTransactionTimeout,
+            Supplier<Long> rwTransactionTimeout,
             int attemptsObtainLock,
             Supplier<ScheduledExecutorService> streamerFlushExecutor,
             StreamerReceiverRunner streamerReceiverRunner
@@ -372,7 +372,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, false, actualTx, actualTx.implicit()).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    long timeout = actualTx.isReadOnly() ? roTransactionTimeout : rwTransactionTimeout;
+                    long timeout = actualTx.isReadOnly() ? roTransactionTimeout.get() : rwTransactionTimeout.get();
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -492,7 +492,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, actualTx.implicit() && !singlePart, actualTx, full).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    long timeout = actualTx.isReadOnly() ? roTransactionTimeout : rwTransactionTimeout;
+                    long timeout = actualTx.isReadOnly() ? roTransactionTimeout.get() : rwTransactionTimeout.get();
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -1193,7 +1193,7 @@ public class InternalTableImpl implements InternalTable {
         // Will be finished in one RTT.
         return postEnlist(fut, false, tx, true).handle((r, e) -> {
             if (e != null) {
-                long timeout = tx.isReadOnly() ? roTransactionTimeout : rwTransactionTimeout;
+                long timeout = tx.isReadOnly() ? roTransactionTimeout.get() : rwTransactionTimeout.get();
 
                 long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
 

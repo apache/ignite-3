@@ -268,8 +268,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 tracker,
                 placementDriver,
                 transactionInflights,
-                3_000,
-                3_000,
+                () -> 3_000L,
+                () -> 3_000L,
                 0,
                 null,
                 mock(StreamerReceiverRunner.class)

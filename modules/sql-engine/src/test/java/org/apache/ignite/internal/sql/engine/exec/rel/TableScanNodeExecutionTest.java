@@ -272,8 +272,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     timestampTracker,
                     mock(PlacementDriver.class),
                     mock(TransactionInflights.class),
-                    3_000,
-                    3_000,
+                    () -> 3_000L,
+                    () -> 3_000L,
                     0,
                     null,
                     mock(StreamerReceiverRunner.class)
