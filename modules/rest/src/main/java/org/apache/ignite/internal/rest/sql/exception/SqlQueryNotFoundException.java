@@ -15,24 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.api.kill;
+package org.apache.ignite.internal.rest.sql.exception;
+
+import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
+
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * Registry of handlers that can abort a specific operation.
+ * Thrown when sql query not found.
  */
-public interface KillHandlerRegistry {
+public class SqlQueryNotFoundException extends IgniteInternalException {
     /**
-     * Registers a kill handler.
+     * Constructor.
      *
-     * @param handler Handler to register.
+     * @param queryId Sql query id.
      */
-    void register(OperationKillHandler handler);
-
-    /**
-     * Returns operation kill handler for specified operation type.
-     *
-     * @param type Operation type.
-     * @return Operation kill handler for specified operation type.
-     */
-    OperationKillHandler handler(CancellableOperationType type);
+    public SqlQueryNotFoundException(String queryId) {
+        super(ILLEGAL_ARGUMENT_ERR, "Sql query not found [queryId=" + queryId + ']');
+    }
 }
