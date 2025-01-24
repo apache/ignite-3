@@ -112,11 +112,36 @@ public class TestIgnitionManager {
      * @throws IgniteException If error occurs while reading node configuration.
      */
     public static IgniteServer start(String nodeName, @Nullable String configStr, Path workDir) {
+        return doStart(nodeName, configStr, workDir, true);
+    }
+
+    /**
+     * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
+     *
+     * <p>When this method returns, the node is partially started and ready to accept the init command (that is, its
+     * REST endpoint is functional).
+     *
+     * @param nodeName Name of the node. Must not be {@code null}.
+     * @param configStr Optional node configuration.
+     * @param workDir Path to the working directory.
+     * @return Completable future that resolves into an Ignite node after all components are started and the cluster initialization is
+     *         complete.
+     * @throws IgniteException If error occurs while reading node configuration.
+     */
+    public static IgniteServer startWithProductionDefaults(String nodeName, @Nullable String configStr, Path workDir) {
+        return doStart(nodeName, configStr, workDir, false);
+    }
+
+    private static IgniteServer doStart(String nodeName, @Nullable String configStr, Path workDir, boolean useTestDefaults) {
         try {
             Files.createDirectories(workDir);
             Path configPath = workDir.resolve(DEFAULT_CONFIG_NAME);
 
-            addDefaultsToConfigurationFile(configStr, configPath);
+            if (useTestDefaults) {
+                writeConfigurationFileApplyingTestDefaults(configStr, configPath);
+            } else {
+                writeConfigurationFile(configStr, configPath);
+            }
 
             return IgniteServer.start(nodeName, configPath, workDir);
         } catch (IOException e) {
@@ -127,21 +152,32 @@ public class TestIgnitionManager {
     /**
      * Writes default values into the configuration file, according to the same rules that are used in {@link #start(String, String, Path)}.
      */
-    public static void addDefaultsToConfigurationFile(Path configPath) {
+    public static void writeConfigurationFileApplyingTestDefaults(Path configPath) {
         try {
-            addDefaultsToConfigurationFile(null, configPath);
+            writeConfigurationFileApplyingTestDefaults(null, configPath);
         } catch (IOException e) {
             throw new IgniteException(INTERNAL_ERR, "Couldn't update node configuration file", e);
         }
     }
 
-    private static void addDefaultsToConfigurationFile(@Nullable String configStr, Path configPath) throws IOException {
+    private static void writeConfigurationFileApplyingTestDefaults(@Nullable String configStr, Path configPath) throws IOException {
         if (configStr == null && Files.exists(configPath)) {
             // Nothing to do.
             return;
         }
 
-        Files.writeString(configPath, applyTestDefaultsToConfig(configStr, DEFAULT_NODE_CONFIG), SYNC, CREATE, TRUNCATE_EXISTING);
+        String configStringToWrite = applyTestDefaultsToConfig(configStr, DEFAULT_NODE_CONFIG);
+
+        writeConfigurationFile(configStringToWrite, configPath);
+    }
+
+    private static void writeConfigurationFile(@Nullable String configStr, Path configPath) throws IOException {
+        if (configStr == null && Files.exists(configPath)) {
+            // Nothing to do.
+            return;
+        }
+
+        Files.writeString(configPath, configStr, SYNC, CREATE, TRUNCATE_EXISTING);
     }
 
     /**
