@@ -392,6 +392,8 @@ public class IgniteServerImpl implements IgniteServer {
 
         ackBanner();
 
+        logAvailableResources();
+
         return instance.startAsync().handle((result, throwable) -> {
             if (throwable != null) {
                 return CompletableFuture.<Void>failedFuture(throwable);
@@ -411,6 +413,11 @@ public class IgniteServerImpl implements IgniteServer {
 
             return completedFuture(result);
         }).thenCompose(identity());
+    }
+
+    private static void logAvailableResources() {
+        LOG.info("Available processors: {}", Runtime.getRuntime().availableProcessors());
+        LOG.info("Max heap: {}", Runtime.getRuntime().maxMemory());
     }
 
     @Override
