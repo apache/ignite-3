@@ -180,7 +180,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
      * Test that a lock table behaves correctly in case of lock cache overflow.
      */
     @Test
-    public void testCollision() {
+    public void testTakeMoreLocksThanAfford() {
         RecordView<Tuple> view = testTable.recordView();
 
         int i = 0;

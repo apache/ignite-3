@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.LongAdder;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -86,7 +86,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /** Striped lock concurrency. */
     private static final int CONCURRENCY = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
 
-    private final AtomicInteger lockTableSize = new AtomicInteger();
+    private final LongAdder lockTableSize = new LongAdder();
 
     /** An unused state to avoid concurrent allocation. */
     private LockState removedLockState;
@@ -271,21 +271,19 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      */
     private @Nullable LockState acquireLockState(LockKey key) {
         return locks.computeIfAbsent(key, (k) -> {
-            int acquiredLocks;
-            LockState v;
+            int acquiredLocks = lockTableSize.intValue();
 
-            do {
-                acquiredLocks = lockTableSize.get();
+            if (acquiredLocks < lockMapSize) {
+                lockTableSize.increment();
 
-                if (acquiredLocks < lockMapSize) {
-                    v = new LockState();
-                    v.key = k;
-                } else {
-                    return null;
-                }
-            } while (!lockTableSize.compareAndSet(acquiredLocks, acquiredLocks + 1));
+                LockState v = new LockState();
+                v.key = k;
 
-            return v;
+                return v;
+            } else {
+                return null;
+            }
+
         });
     }
 
@@ -304,7 +302,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /** {@inheritDoc} */
     @Override
     public boolean isEmpty() {
-        if (lockTableSize.get() != 0) {
+        if (lockTableSize.sum() != 0) {
             return false;
         }
 
@@ -332,9 +330,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
             if (v.waiters.isEmpty()) {
                 v.key = null;
 
-                int locks = lockTableSize.decrementAndGet();
-
-                assert locks >= 0 : "Lock table released more keys than it acquired.";
+                lockTableSize.decrement();
 
                 return null;
             } else {
@@ -1334,6 +1330,6 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     }
 
     public int available() {
-        return lockMapSize - lockTableSize.get();
+        return Math.max(lockMapSize - lockTableSize.intValue(), 0);
     }
 }
