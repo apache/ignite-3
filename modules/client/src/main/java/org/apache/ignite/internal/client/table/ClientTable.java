@@ -142,7 +142,7 @@ public class ClientTable implements Table {
 
     /** {@inheritDoc} */
     @Override
-    public QualifiedName name() {
+    public QualifiedName qualifiedName() {
         return name;
     }
 
