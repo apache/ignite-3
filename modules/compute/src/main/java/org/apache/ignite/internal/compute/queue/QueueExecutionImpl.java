@@ -154,10 +154,11 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
             executionLock.lock();
             try {
                 // If status is CANCELED here, then the job was in the QUEUED state when cancel was called, but executor already removed it
-                // from the queue. Don't transition to EXECUTING state and don't run the job, return null here so that we can later check
-                // the same condition and cancel the result.
+                // from the queue. This could happen because the executor takes an entry without using the executionLock.
+                // Don't transition to EXECUTING state and don't run the job, return null here so that we can later check the same condition
+                // and cancel the result.
                 if (isCanceled()) {
-                    return null;
+                    throw new QueueEntryCanceledException();
                 }
                 stateMachine.executeJob(jobId);
             } finally {
@@ -183,22 +184,20 @@ class QueueExecutionImpl<R> implements QueueExecution<R> {
 
         queueEntry.toFuture().whenComplete((r, throwable) -> {
             if (throwable != null) {
-                if (retries.decrementAndGet() >= 0) {
+                if (throwable instanceof QueueEntryCanceledException) {
+                    result.completeExceptionally(new CancellationException());
+                } else if (queueEntry.isInterrupted()) {
+                    stateMachine.cancelJob(jobId);
+                    result.completeExceptionally(throwable);
+                } else if (retries.decrementAndGet() >= 0) {
                     stateMachine.queueJob(jobId);
                     run();
                 } else {
-                    if (queueEntry.isInterrupted()) {
-                        stateMachine.cancelJob(jobId);
-                    } else {
-                        stateMachine.failJob(jobId);
-                    }
-
+                    stateMachine.failJob(jobId);
                     result.completeExceptionally(throwable);
                 }
             } else {
-                if (isCanceled()) {
-                    result.completeExceptionally(new CancellationException());
-                } else if (queueEntry.isInterrupted()) {
+                if (queueEntry.isInterrupted()) {
                     stateMachine.cancelJob(jobId);
                     result.completeExceptionally(new CancellationException());
                 } else {

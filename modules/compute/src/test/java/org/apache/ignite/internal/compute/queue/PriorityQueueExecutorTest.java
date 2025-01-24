@@ -351,6 +351,27 @@ public class PriorityQueueExecutorTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void retryTaskCancel() {
+        initExecutor(1);
+
+        AtomicInteger runTimes = new AtomicInteger();
+
+        int maxRetries = 5;
+
+        QueueExecution<Object> execution = priorityQueueExecutor.submit(() -> {
+            runTimes.incrementAndGet();
+            new CountDownLatch(1).await();
+            return null;
+        }, 0, maxRetries);
+
+        await().until(execution::state, jobStateWithStatus(EXECUTING));
+        execution.cancel();
+
+        await().until(execution::state, jobStateWithStatus(CANCELED));
+        assertThat(runTimes.get(), is(1));
+    }
+
+    @Test
     void retryTaskSuccess() {
         initExecutor(1);
 
