@@ -1263,7 +1263,7 @@ public class PartitionReplicaLifecycleManager extends
         try {
             allOf(stopPartitionsFuture).get(30, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            LOG.error("Unable to clean zones resources", e);
+            LOG.error("Unable to clean up zones resources", e);
         }
     }
 
