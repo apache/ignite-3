@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.testframework.matchers.JobExecutionMatc
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.internal.testframework.matchers.TaskStateMatcher.taskStateWithStatus;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
 import static org.awaitility.Awaitility.await;
@@ -745,18 +744,20 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     void testExecuteOnUnknownUnitWithLatestVersionThrows() {
         CompletionException ex = assertThrows(
                 CompletionException.class,
-                () -> {
-                    IgniteCompute igniteCompute = client().compute();
-                    JobTarget target = JobTarget.node(node(0));
-                    List<DeploymentUnit> units = List.of(new DeploymentUnit("u", "latest"));
-                    igniteCompute.executeAsync(target, JobDescriptor.builder(NodeNameJob.class).units(units).build(), null).join();
-                });
+                () -> client().compute().executeAsync(
+                        JobTarget.node(node(0)),
+                        JobDescriptor.builder(NodeNameJob.class)
+                                .units(List.of(new DeploymentUnit("u", "latest")))
+                                .build(),
+                        null
+                ).join());
 
         var cause = (IgniteException) ex.getCause();
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));
 
         // TODO IGNITE-19823 DeploymentUnitNotFoundException is internal, does not propagate to client.
-        assertEquals(INTERNAL_ERR, cause.code());
+        // Instead it maps to the generic ComputeException
+        assertEquals(COMPUTE_JOB_FAILED_ERR, cause.code());
     }
 
     @Test
@@ -775,7 +776,8 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertThat(cause.getMessage(), containsString("Deployment unit u:latest doesn't exist"));
 
         // TODO IGNITE-19823 DeploymentUnitNotFoundException is internal, does not propagate to client.
-        assertEquals(INTERNAL_ERR, cause.code());
+        // Instead it maps to the generic ComputeException
+        assertEquals(COMPUTE_JOB_FAILED_ERR, cause.code());
     }
 
     @Test

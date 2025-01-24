@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.compute;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest.packClusterNode;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
 import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
@@ -27,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
@@ -71,14 +71,15 @@ public class ClientComputeExecuteRequest {
         JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
         ComputeJobDataHolder arg = unpackJobArgumentWithoutMarshaller(in);
 
-        JobExecution<ComputeJobDataHolder> execution = compute.executeAsyncWithFailover(
+        CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
                 candidates, deploymentUnits, jobClassName, options, arg, null
         );
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24184
-        sendResultAndState(completedFuture(execution), notificationSender);
+        sendResultAndState(executionFut, notificationSender);
 
         //noinspection DataFlowIssue
-        return execution.idAsync().thenAccept(jobId -> packSubmitResult(out, jobId, execution.node()));
+        return executionFut.thenCompose(execution ->
+                execution.idAsync().thenAccept(jobId -> packSubmitResult(out, jobId, execution.node()))
+        );
     }
 
     private static Set<ClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
@@ -111,14 +112,20 @@ public class ClientComputeExecuteRequest {
             CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut,
             NotificationSender notificationSender
     ) {
-        return executionFut.thenCompose(execution ->
-                execution.resultAsync().whenComplete((val, err) ->
+        return executionFut.handle((execution, throwable) -> {
+            if (throwable != null) {
+                notificationSender.sendNotification(null, throwable);
+                return CompletableFuture.<ComputeJobDataHolder>failedFuture(throwable);
+            } else {
+                return execution.resultAsync().whenComplete((val, err) ->
                         execution.stateAsync().whenComplete((state, errState) ->
                                 notificationSender.sendNotification(w -> {
                                     Marshaller<Object, byte[]> marshaller = extractMarshaller(execution);
                                     ClientComputeJobPacker.packJobResult(val, marshaller, w);
                                     packJobState(w, state);
-                                }, err))));
+                                }, err)));
+            }
+        }).thenCompose(Function.identity());
     }
 
     static void packSubmitResult(ClientMessagePacker out, UUID jobId, ClusterNode node) {

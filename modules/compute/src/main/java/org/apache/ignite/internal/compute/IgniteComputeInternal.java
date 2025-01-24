@@ -50,8 +50,7 @@ public interface IgniteComputeInternal extends IgniteCompute {
      * @param cancellationToken Cancellation token or {@code null}.
      * @return CompletableFuture Job result.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24184
-    JobExecution<ComputeJobDataHolder> executeAsyncWithFailover(
+    CompletableFuture<JobExecution<ComputeJobDataHolder>> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,

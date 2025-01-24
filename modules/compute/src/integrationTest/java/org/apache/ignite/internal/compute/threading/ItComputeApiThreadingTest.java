@@ -92,30 +92,16 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     @CartesianTest
     void computeFuturesCompleteInContinuationsPool(@Enum ComputeAsyncOperation operation) {
-        IgniteCompute compute = computeForPublicUse();
+        CompletableFuture<?> executionFut = operation.executeOn(computeForPublicUse());
 
-        CompletableFuture<Thread> completerFuture = operation.executeOn(compute)
-                .thenApply(unused -> currentThread());
-
-        assertThat(completerFuture, willBe(either(is(currentThread())).or(asyncContinuationPool())));
-    }
-
-    private static IgniteCompute computeForPublicUse() {
-        return CLUSTER.aliveNode().compute();
+        assertThat(completerFuture(executionFut), willBe(either(is(currentThread())).or(asyncContinuationPool())));
     }
 
     @CartesianTest
     void computeFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(@Enum ComputeAsyncOperation operation) {
-        IgniteCompute compute = computeForInternalUse();
+        CompletableFuture<?> executionFut = operation.executeOn(computeForInternalUse());
 
-        CompletableFuture<Thread> completerFuture = operation.executeOn(compute)
-                .thenApply(unused -> currentThread());
-
-        assertThat(completerFuture, willBe(either(is(currentThread())).or(anIgniteThread())));
-    }
-
-    private static IgniteCompute computeForInternalUse() {
-        return Wrappers.unwrap(CLUSTER.aliveNode().compute(), IgniteComputeImpl.class);
+        assertThat(completerFuture(executionFut), willBe(either(is(currentThread())).or(anIgniteThread())));
     }
 
     @CartesianTest
@@ -128,10 +114,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
         assertThat(executionFut, willCompleteSuccessfully());
         JobExecution<?> execution = executionFut.join();
 
-        CompletableFuture<Thread> completerFuture = executionOperation.executeOn(execution)
-                        .thenApply(unused -> currentThread());
-
-        assertThat(completerFuture, willBe(
+        assertThat(completerFuture(executionOperation.executeOn(execution)), willBe(
                 either(is(currentThread())).or(asyncContinuationPool())
         ));
     }
@@ -146,10 +129,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
         assertThat(executionFut, willCompleteSuccessfully());
         JobExecution<?> execution = executionFut.join();
 
-        CompletableFuture<Thread> completerFuture = executionOperation.executeOn(execution)
-                .thenApply(unused -> currentThread());
-
-        assertThat(completerFuture, willBe(
+        assertThat(completerFuture(executionOperation.executeOn(execution)), willBe(
                 either(is(currentThread())).or(anIgniteThread())
         ));
     }
@@ -165,10 +145,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     ) {
         TaskExecution<?> execution = mapReduceOperation.executeOn(computeForPublicUse());
 
-        CompletableFuture<Thread> completerFuture = executionOperation.executeOn(execution)
-                .thenApply(unused -> currentThread());
-
-        assertThat(completerFuture, willBe(
+        assertThat(completerFuture(executionOperation.executeOn(execution)), willBe(
                 either(is(currentThread())).or(asyncContinuationPool())
         ));
     }
@@ -180,12 +157,21 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     ) {
         TaskExecution<?> execution = submitOperation.executeOn(computeForInternalUse());
 
-        CompletableFuture<Thread> completerFuture = executionOperation.executeOn(execution)
-                .thenApply(unused -> currentThread());
-
-        assertThat(completerFuture, willBe(
+        assertThat(completerFuture(executionOperation.executeOn(execution)), willBe(
                 either(is(currentThread())).or(anIgniteThread())
         ));
+    }
+
+    private static IgniteCompute computeForPublicUse() {
+        return CLUSTER.aliveNode().compute();
+    }
+
+    private static IgniteCompute computeForInternalUse() {
+        return Wrappers.unwrap(CLUSTER.aliveNode().compute(), IgniteComputeImpl.class);
+    }
+
+    private static CompletableFuture<Thread> completerFuture(CompletableFuture<?> future) {
+        return future.thenApply(unused -> currentThread());
     }
 
     private static class NoOpJob implements ComputeJob<Void, String> {
@@ -213,26 +199,31 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum ComputeAsyncOperation {
+        SUBMIT_ASYNC(compute -> compute.submitAsync(
+                JobTarget.anyNode(justNonEntryNode()),
+                JobDescriptor.builder(NoOpJob.class).build(),
+                null)),
+        SUBMIT_BROADCAST_ASYNC(compute -> compute.submitAsync(BroadcastJobTarget.nodes(justNonEntryNode()),
+                JobDescriptor.builder(NoOpJob.class).build(),
+                null)),
         EXECUTE_ASYNC(compute -> compute.executeAsync(
                 JobTarget.anyNode(justNonEntryNode()),
                 JobDescriptor.builder(NoOpJob.class).build(),
                 null)),
-        EXECUTE_COLOCATED_BY_TUPLE_ASYNC(compute ->
-                compute.executeAsync(
-                        JobTarget.colocated(TABLE_NAME, KEY_TUPLE),
-                        JobDescriptor.builder(NoOpJob.class).build(), null)),
-        EXECUTE_COLOCATED_BY_KEY_ASYNC(compute ->
-                compute.executeAsync(
-                        JobTarget.colocated(TABLE_NAME, KEY, Mapper.of(Integer.class)),
-                        JobDescriptor.builder(NoOpJob.class).build(),
-                        null)),
-        EXECUTE_BROADCAST_ASYNC(compute ->
-                compute.executeAsync(
-                        BroadcastJobTarget.nodes(justNonEntryNode()),
-                        JobDescriptor.builder(NoOpJob.class).build(),
-                        null)),
-        EXECUTE_MAP_REDUCE_ASYNC(compute -> compute
-                .executeMapReduceAsync(TaskDescriptor.builder(NoOpMapReduceTask.class).build(), null)
+        EXECUTE_COLOCATED_BY_TUPLE_ASYNC(compute -> compute.executeAsync(
+                JobTarget.colocated(TABLE_NAME, KEY_TUPLE),
+                JobDescriptor.builder(NoOpJob.class).build(), null)),
+        EXECUTE_COLOCATED_BY_KEY_ASYNC(compute -> compute.executeAsync(
+                JobTarget.colocated(TABLE_NAME, KEY, Mapper.of(Integer.class)),
+                JobDescriptor.builder(NoOpJob.class).build(),
+                null)),
+        EXECUTE_BROADCAST_ASYNC(compute -> compute.executeAsync(
+                BroadcastJobTarget.nodes(justNonEntryNode()),
+                JobDescriptor.builder(NoOpJob.class).build(),
+                null)),
+        EXECUTE_MAP_REDUCE_ASYNC(compute -> compute.executeMapReduceAsync(
+                TaskDescriptor.builder(NoOpMapReduceTask.class).build(),
+                null)
         );
 
         private final Function<IgniteCompute, CompletableFuture<?>> action;
@@ -247,8 +238,10 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum ComputeSubmitOperation {
-        SUBMIT(compute -> compute.submitAsync(JobTarget.anyNode(justNonEntryNode()), JobDescriptor.builder(NoOpJob.class).build(), null)),
-
+        SUBMIT_ASYNC(compute -> compute.submitAsync(
+                JobTarget.anyNode(justNonEntryNode()),
+                JobDescriptor.builder(NoOpJob.class).build(),
+                null)),
         SUBMIT_COLOCATED_BY_TUPLE(compute -> compute.submitAsync(
                 JobTarget.colocated(TABLE_NAME, KEY_TUPLE),
                 JobDescriptor.builder(NoOpJob.class).build(),
@@ -257,7 +250,7 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
                 JobTarget.colocated(TABLE_NAME, KEY, Mapper.of(Integer.class)),
                 JobDescriptor.builder(NoOpJob.class).build(), null)
         ),
-        SUBMIT_BROADCAST(compute -> compute
+        SUBMIT_BROADCAST_ASYNC(compute -> compute
                 .submitAsync(BroadcastJobTarget.nodes(justNonEntryNode()), JobDescriptor.builder(NoOpJob.class).build(), null)
                 .thenApply(broadcastExecution -> broadcastExecution.executions().iterator().next())
         );
@@ -274,9 +267,9 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum JobExecutionAsyncOperation {
-        RESULT_ASYNC(execution -> execution.resultAsync()),
-        STATE_ASYNC(execution -> execution.stateAsync()),
-        ID_ASYNC(execution -> execution.idAsync()),
+        RESULT_ASYNC(JobExecution::resultAsync),
+        STATE_ASYNC(JobExecution::stateAsync),
+        ID_ASYNC(JobExecution::idAsync),
         CHANGE_PRIORITY_ASYNC(execution -> execution.changePriorityAsync(1));
 
         private final Function<JobExecution<Object>, CompletableFuture<?>> action;
@@ -307,11 +300,11 @@ class ItComputeApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum TaskExecutionAsyncOperation {
-        STATES_ASYNC(execution -> execution.statesAsync()),
-        IDS_ASYNC(execution -> execution.idsAsync()),
-        RESULT_ASYNC(execution -> execution.resultAsync()),
-        STATE_ASYNC(execution -> execution.stateAsync()),
-        ID_ASYNC(execution -> execution.idAsync()),
+        STATES_ASYNC(TaskExecution::statesAsync),
+        IDS_ASYNC(TaskExecution::idsAsync),
+        RESULT_ASYNC(TaskExecution::resultAsync),
+        STATE_ASYNC(TaskExecution::stateAsync),
+        ID_ASYNC(TaskExecution::idAsync),
         CHANGE_PRIORITY_ASYNC(execution -> execution.changePriorityAsync(1));
 
         private final Function<TaskExecution<Object>, CompletableFuture<?>> action;

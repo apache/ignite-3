@@ -40,7 +40,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.compute.ComputeException;
-import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
@@ -200,10 +199,16 @@ public class ComputeMessaging {
     private void processExecuteRequest(JobStarter starter, ExecuteRequest request, ClusterNode sender, long correlationId) {
         List<DeploymentUnit> units = toDeploymentUnit(request.deploymentUnits());
 
-        JobExecution<ComputeJobDataHolder> execution = starter.start(
-                request.executeOptions(), units, request.jobClassName(), request.input()
-        );
-        execution.idAsync().whenComplete((jobId, err) -> sendExecuteResponse(jobId, err, sender, correlationId));
+        starter.start(request.executeOptions(), units, request.jobClassName(), request.input())
+                .whenComplete((execution, err) -> {
+                            if (err != null) {
+                                sendExecuteResponse(null, err, sender, correlationId);
+                            } else {
+                                execution.idAsync()
+                                        .whenComplete((jobId, idErr) -> sendExecuteResponse(jobId, idErr, sender, correlationId));
+                            }
+                        }
+                );
     }
 
     private void sendExecuteResponse(@Nullable UUID jobId, @Nullable Throwable ex, ClusterNode sender, Long correlationId) {
