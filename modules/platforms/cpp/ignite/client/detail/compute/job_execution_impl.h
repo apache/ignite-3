@@ -20,7 +20,6 @@
 #include "ignite/client/compute/job_execution.h"
 #include "ignite/client/compute/job_state.h"
 #include "ignite/client/detail/cluster_connection.h"
-#include "ignite/common/detail/config.h"
 #include "ignite/common/ignite_result.h"
 #include "ignite/common/primitive.h"
 #include "ignite/common/uuid.h"
@@ -41,10 +40,12 @@ public:
      * Constructor
      *
      * @param id Job ID.
+     * @param node Cluster node.
      * @param compute Compute.
      */
-    explicit job_execution_impl(uuid id, std::shared_ptr<compute_impl> &&compute)
+    explicit job_execution_impl(uuid id, cluster_node node, std::shared_ptr<compute_impl> &&compute)
         : m_id(id)
+        , m_node(std::move(node))
         , m_compute(compute) {}
 
     /**
@@ -55,9 +56,16 @@ public:
     [[nodiscard]] uuid get_id() const { return m_id; }
 
     /**
+     * Gets the cluster node.
+     *
+     * @return Cluster node.
+     */
+    [[nodiscard]] const cluster_node &get_node() const { return m_node; }
+
+    /**
      * Gets the job execution result asynchronously.
      *
-     * Only one callback can be submitted for this operation at a time, which means you can not call this method in
+     * Only one callback can be submitted for this operation at a time, which means you cannot call this method in
      * parallel.
      * @param callback Callback to be called when the operation is complete. Called with the job execution result.
      */
@@ -74,8 +82,8 @@ public:
      * Gets the job execution state. Can be @c nullopt if the job state no longer exists due to exceeding the
      * retention time limit.
      *
-     * @param callback Callback to be called when the operation is complete. Contains the job state. Can be @c nullopt
-     *  if the job state no longer exists due to exceeding the retention time limit.
+     * @param callback Callback to be called when the operation is complete. Contains the job state. It Can be
+     *  @c nullopt if the job state no longer exists due to exceeding the retention time limit.
      */
     void get_state_async(ignite_callback<std::optional<job_state>> callback);
 
@@ -96,22 +104,25 @@ public:
     /**
      * Cancels the job execution.
      *
-     * @param callback Callback to be called when the operation is complete. Contains cancel result.
+     * @param callback Callback to be called when the operation is complete. Contains a cancel result.
      */
     void cancel_async(ignite_callback<job_execution::operation_result> callback);
 
     /**
-     * Changes the job priority. After priority change the job will be the last in the queue of jobs with the same
+     * Changes the job priority. After priority change, the job will be the last in the queue of jobs with the same
      * priority.
      *
      * @param priority New priority.
-     * @param callback Callback to be called when the operation is complete. Contains operation result.
+     * @param callback Callback to be called when the operation is complete. Contains an operation result.
      */
     void change_priority_async(std::int32_t priority, ignite_callback<job_execution::operation_result> callback);
 
 private:
     /** Job ID. */
     const uuid m_id;
+
+    /** Cluster node. */
+    const cluster_node m_node;
 
     /** Compute. */
     std::shared_ptr<compute_impl> m_compute;

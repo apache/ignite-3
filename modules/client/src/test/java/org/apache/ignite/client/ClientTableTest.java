@@ -466,9 +466,9 @@ public class ClientTableTest extends AbstractClientTableTest {
 
     @Test
     public void testGetFromDroppedTableThrowsException() {
-        ((FakeIgniteTables) server.tables()).createTable("drop-me");
-        Table clientTable = client.tables().table("drop-me");
-        ((FakeIgniteTables) server.tables()).dropTable("drop-me");
+        ((FakeIgniteTables) server.tables()).createTable("\"drop-me\"");
+        Table clientTable = client.tables().table("\"drop-me\"");
+        ((FakeIgniteTables) server.tables()).dropTable("\"drop-me\"");
 
         Tuple tuple = Tuple.create().set("id", 1);
         var ex = assertThrows(IgniteException.class, () -> clientTable.recordView().get(null, tuple));

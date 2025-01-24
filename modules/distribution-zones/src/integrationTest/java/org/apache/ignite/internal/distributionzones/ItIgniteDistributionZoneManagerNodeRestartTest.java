@@ -75,6 +75,9 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
@@ -82,6 +85,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -136,7 +140,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Tests for checking {@link DistributionZoneManager} behavior after node's restart.
@@ -184,7 +189,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
      * @param idx Node index.
      * @return Partial node.
      */
-    private PartialNode startPartialNode(int idx) {
+    private PartialNode startPartialNode(int idx, Consumer<MetaStorageManager> metaStorageMocker) {
         String name = testNodeName(testInfo, idx);
 
         Path dir = workDir.resolve(name);
@@ -259,6 +264,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         var clock = new HybridClockImpl();
 
         metastore = spy(StandaloneMetaStorageManager.create(storage, clock, readOperationForCompactionTracker));
+
+        metaStorageMocker.accept(metastore);
 
         blockMetaStorageUpdates(metastore);
 
@@ -350,9 +357,15 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 clock
         );
 
+        assertThat(catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
+
         partialNodes.add(partialNode);
 
         return partialNode;
+    }
+
+    private PartialNode startPartialNode(int idx) {
+        return startPartialNode(idx, metaStorageManager -> {});
     }
 
     @AfterEach
@@ -395,14 +408,18 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertEquals(nodeAttributesBeforeRestart, nodeAttributesAfterRestart);
     }
 
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    public void testTopologyAugmentationMapRestoredAfterRestart(boolean defaultZone) throws Exception {
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    public void testTopologyAugmentationMapRestoredAfterRestart(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
         PartialNode node = startPartialNode(0);
 
         node.logicalTopology().putNode(A);
 
-        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, consistencyMode);
 
         node.logicalTopology().putNode(B);
         node.logicalTopology().putNode(C);
@@ -498,8 +515,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 Set.of(A, B),
                 TIMEOUT_MILLIS
         );
-
-        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
 
         startGlobalStateUpdateBlocking = true;
         startScaleUpBlocking = true;
@@ -604,13 +619,54 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
     }
 
-    @Test
-    public void testCreationZoneWhenDataNodesAreDeletedIsNotSuccessful() throws Exception {
-        PartialNode node = startPartialNode(0);
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    public void testCreationZoneWhenDataNodesAreDeletedIsNotSuccessful(ConsistencyMode consistencyMode) throws Exception {
+        var imitateConcurrentRemoval = new AtomicBoolean();
+
+        var dataNodeKey = new AtomicReference<ByteArray>();
+
+        PartialNode node = startPartialNode(0, metaStorageManager -> {
+            // In this mock we catch invocation of DistributionZoneManager.initDataNodesAndTriggerKeysInMetaStorage, where condition is
+            // based on presence of data node key in ms. After that we make this data node as a tombstone, so when logic of creation of a
+            // zone is run, there won't be any initialisation of data nodes keys. We try to imitate concurrent removal of a zone.
+            doAnswer(invocation -> {
+                ByteArray dataNodeKeyForZone = dataNodeKey.get();
+
+                // Here we remove data nodes value for newly created zone, so it is tombstone
+                assertThat(
+                        metaStorageManager.put(dataNodeKeyForZone, DataNodesMapSerializer.serialize(toDataNodesMap(emptySet()))),
+                        willCompleteSuccessfully()
+                );
+
+                assertThat(
+                        metaStorageManager.remove(dataNodeKeyForZone),
+                        willCompleteSuccessfully()
+                );
+
+                return invocation.callRealMethod();
+            }).when(metaStorageManager).invoke(argThat(iif -> {
+                if (!imitateConcurrentRemoval.get()) {
+                    return false;
+                }
+
+                If iif1 = MetaStorageWriteHandler.toIf(iif);
+
+                byte[][] keysFromIf = iif1.cond().keys();
+
+                Optional<ByteArray> dataNodeKeyOptional = Arrays.stream(keysFromIf)
+                        .filter(op -> startsWith(op, zoneDataNodesKey().bytes()))
+                        .findFirst()
+                        .map(ByteArray::new);
+
+                dataNodeKeyOptional.ifPresent(dataNodeKey::set);
+
+                return dataNodeKeyOptional.isPresent();
+            }));
+        });
 
         node.logicalTopology().putNode(A);
         node.logicalTopology().putNode(B);
-
         node.logicalTopology().putNode(C);
 
         Set<NodeWithAttributes> logicalTopology = Stream.of(A, B, C)
@@ -618,9 +674,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 .collect(toSet());
 
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
-        DistributionZoneManager finalDistributionZoneManager = distributionZoneManager;
 
-        assertTrue(waitForCondition(() -> logicalTopology.equals(finalDistributionZoneManager.logicalTopology()), TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> logicalTopology.equals(distributionZoneManager.logicalTopology()), TIMEOUT_MILLIS));
 
         int zoneId = getDefaultZoneId(node);
 
@@ -632,52 +687,36 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 TIMEOUT_MILLIS
         );
 
-        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
+        imitateConcurrentRemoval.set(true);
 
-        byte[][] dataNodeKey = new byte[1][1];
-
-        // In this mock we catch invocation of DistributionZoneManager.initDataNodesAndTriggerKeysInMetaStorage, where condition is based
-        // on presence of data node key in ms. After that we make this data node as a tombstone, so when logic of creation of a zone is
-        // run, there won't be any initialisation of data nodes keys. We try to imitate concurrent removal of a zone.
-        doAnswer(invocation -> {
-            ByteArray dataNodeKeyForZone = new ByteArray(dataNodeKey[0]);
-
-            // Here we remove data nodes value for newly created zone, so it is tombstone
-            metastore.put(dataNodeKeyForZone, DataNodesMapSerializer.serialize(toDataNodesMap(emptySet()))).get();
-
-            metastore.remove(dataNodeKeyForZone).get();
-
-            return invocation.callRealMethod();
-        }).when(metastore).invoke(argThat(iif -> {
-            If iif1 = MetaStorageWriteHandler.toIf(iif);
-
-            byte[][] keysFromIf = iif1.cond().keys();
-
-            Optional<byte[]> dataNodeKeyOptional = Arrays.stream(keysFromIf)
-                    .filter(op -> startsWith(op, zoneDataNodesKey().bytes()))
-                    .findFirst();
-
-            dataNodeKeyOptional.ifPresent(bytes -> dataNodeKey[0] = bytes);
-
-            return dataNodeKeyOptional.isPresent();
-        }));
-
-        createZone(getCatalogManager(node), "zone1", INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null, DEFAULT_STORAGE_PROFILE);
+        createZone(
+                getCatalogManager(node),
+                "zone1",
+                INFINITE_TIMER_VALUE,
+                INFINITE_TIMER_VALUE,
+                null,
+                consistencyMode,
+                DEFAULT_STORAGE_PROFILE
+        );
 
         // Assert that after creation of a zone, data nodes are still tombstone, but not the logical topology, as for default zone.
-        assertThat(metastore.get(new ByteArray(dataNodeKey[0])).thenApply(Entry::tombstone), willBe(true));
+        assertThat(metastore.get(dataNodeKey.get()).thenApply(Entry::tombstone), willBe(true));
     }
 
     private Set<NodeWithAttributes> deserializeLogicalTopologySet(byte[] bytes) {
         return DistributionZonesUtil.deserializeLogicalTopologySet(bytes);
     }
 
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    public void testLocalDataNodesAreRestoredAfterRestart(boolean defaultZone) throws Exception {
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    public void testLocalDataNodesAreRestoredAfterRestart(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
         PartialNode node = startPartialNode(0);
 
-        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, consistencyMode);
 
         node.logicalTopology().putNode(A);
         node.logicalTopology().putNode(B);
@@ -709,9 +748,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 Set.of(A), TIMEOUT_MILLIS);
     }
 
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    public void testScaleUpTimerIsRestoredAfterRestart(boolean defaultZone) throws Exception {
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    public void testScaleUpTimerIsRestoredAfterRestart(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
         PartialNode node = startPartialNode(0);
 
         node.logicalTopology().putNode(A);
@@ -719,7 +762,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertLogicalTopologyInMetastorage(Set.of(A, B), metastore);
 
-        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 1, 1);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 1, 1, consistencyMode);
 
         int zoneId = getZoneId(node, zoneName);
 
@@ -768,8 +811,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertDataNodesFromManager(distributionZoneManager, metastore::appliedRevision, catalogManager::latestCatalogVersion, zoneId,
                 Set.of(A, B, C), TIMEOUT_MILLIS);
 
-        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
-
         assertValueInStorage(
                 metastore,
                 zoneDataNodesKey(zoneId),
@@ -779,9 +820,13 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
     }
 
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    public void testScaleDownTimerIsRestoredAfterRestart(boolean defaultZone) throws Exception {
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    public void testScaleDownTimerIsRestoredAfterRestart(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
         PartialNode node = startPartialNode(0);
 
         node.logicalTopology().putNode(A);
@@ -792,7 +837,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
         CatalogManager catalogManager = getCatalogManager(node);
 
-        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 1, 1);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 1, 1, consistencyMode);
 
         int zoneId = getZoneId(node, zoneName);
 
@@ -829,8 +874,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 TIMEOUT_MILLIS
         );
 
-        metastore = findComponent(node.startedComponents(), MetaStorageManager.class);
-
         assertValueInStorage(
                 metastore,
                 zoneDataNodesKey(zoneId),
@@ -844,7 +887,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
             PartialNode node,
             boolean useDefaultZone,
             int scaleUp,
-            int scaleDown
+            int scaleDown,
+            ConsistencyMode consistencyMode
     ) throws Exception {
         String zoneName;
 
@@ -869,7 +913,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         } else {
             zoneName = ZONE_NAME;
 
-            createZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, null, DEFAULT_STORAGE_PROFILE);
+            createZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, null, consistencyMode, DEFAULT_STORAGE_PROFILE);
         }
 
         return zoneName;

@@ -40,7 +40,7 @@ public interface Table {
      *
      * @return Table name.
      */
-    String name();
+    QualifiedName name();
 
     /**
      * Gets the partition manager.

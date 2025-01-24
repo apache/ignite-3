@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
+import io.netty.handler.ssl.SslContext;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -57,6 +58,8 @@ import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.configuration.NetworkView;
+import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.SslView;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.recovery.DescriptorAcquiry;
@@ -67,6 +70,7 @@ import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.SerializationService;
+import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -136,9 +140,6 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Recovery descriptor provider. */
     private final RecoveryDescriptorProvider descriptorProvider = new DefaultRecoveryDescriptorProvider();
 
-    /** Network Configuration. */
-    private final NetworkView networkConfiguration;
-
     /** Thread pool used for connection management tasks (like disposing recovery descriptors on node left or on stop). */
     private final ExecutorService connectionMaintenanceExecutor;
 
@@ -146,6 +147,9 @@ public class ConnectionManager implements ChannelCreationListener {
     private final FailureManager failureManager;
 
     private final ChannelTypeRegistry channelTypeRegistry;
+
+    /** {@code null} if SSL is not {@link SslConfigurationSchema#enabled}. */
+    private final @Nullable SslContext clientSslContext;
 
     /**
      * Constructor.
@@ -212,16 +216,20 @@ public class ConnectionManager implements ChannelCreationListener {
         this.staleIdDetector = staleIdDetector;
         this.clusterIdSupplier = clusterIdSupplier;
         this.clientHandshakeManagerFactory = clientHandshakeManagerFactory;
-        this.networkConfiguration = networkConfiguration;
         this.failureManager = failureManager;
         this.channelTypeRegistry = channelTypeRegistry;
+
+        SslView ssl = networkConfiguration.ssl();
+
+        clientSslContext = ssl.enabled() ? SslContextProvider.createClientSslContext(ssl) : null;
 
         this.server = new NettyServer(
                 networkConfiguration,
                 this::createServerHandshakeManager,
                 this::onMessage,
                 serializationService,
-                bootstrapFactory
+                bootstrapFactory,
+                ssl.enabled() ? SslContextProvider.createServerSslContext(ssl) : null
         );
 
         this.clientBootstrap = bootstrapFactory.createClientBootstrap();
@@ -425,8 +433,7 @@ public class ConnectionManager implements ChannelCreationListener {
      * @param address Target address.
      * @return New netty client or {@code null} if we are stopping.
      */
-    @Nullable
-    private NettyClient connect(InetSocketAddress address, ChannelType channelType) {
+    private @Nullable NettyClient connect(InetSocketAddress address, ChannelType channelType) {
         if (stopping.get()) {
             return null;
         }
@@ -436,7 +443,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 serializationService,
                 createClientHandshakeManager(channelType.id()),
                 this::onMessage,
-                this.networkConfiguration.ssl()
+                clientSslContext
         );
 
         client.start(clientBootstrap).whenComplete((sender, throwable) -> {

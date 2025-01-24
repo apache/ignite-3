@@ -81,6 +81,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
@@ -119,7 +120,6 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher.InflightBatchRequestTracker;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
@@ -131,6 +131,8 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -159,7 +161,7 @@ public class InternalTableImpl implements InternalTable {
     private final StreamerReceiverRunner streamerReceiverRunner;
 
     /** Table name. */
-    private volatile String tableName;
+    private volatile QualifiedName tableName;
 
     /** Table identifier. */
     private final int tableId;
@@ -223,7 +225,7 @@ public class InternalTableImpl implements InternalTable {
      * @param attemptsObtainLock Attempts to take lock.
      */
     public InternalTableImpl(
-            String tableName,
+            QualifiedName tableName,
             int tableId,
             int partitions,
             ClusterNodeResolver clusterNodeResolver,
@@ -278,13 +280,13 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public String name() {
+    public QualifiedName name() {
         return tableName;
     }
 
     @Override
-    public void name(String newName) {
-        this.tableName = newName;
+    public synchronized void name(String newName) {
+        this.tableName = QualifiedNameHelper.fromNormalized(tableName.schemaName(), newName);
     }
 
     /**
@@ -818,9 +820,10 @@ public class InternalTableImpl implements InternalTable {
 
                 return replicaSvc.invoke(node, op.apply(tablePartitionId, enlistmentConsistencyToken(primaryReplica)));
             } catch (Throwable e) {
+                String canonicalName = tableName.toCanonicalForm();
                 throw new TransactionException(
                         INTERNAL_ERR,
-                        format("Failed to invoke the replica request [tableName={}, grp={}].", tableName, tablePartitionId),
+                        format("Failed to invoke the replica request [tableName={}, grp={}].", canonicalName, tablePartitionId),
                         e
                 );
             }

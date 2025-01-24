@@ -25,6 +25,7 @@ import org.apache.ignite.internal.table.partition.PublicApiThreadingPartitionMan
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -51,7 +52,7 @@ public class PublicApiThreadingTable implements Table, Wrapper {
     }
 
     @Override
-    public String name() {
+    public QualifiedName name() {
         return table.name();
     }
 

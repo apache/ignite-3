@@ -59,6 +59,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.TestStorageUtils;
@@ -86,6 +87,8 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     public static final List<ColumnParams> ALL_TYPES_COLUMN_PARAMS = allTypesColumnParams();
 
     protected static final int TEST_PARTITION = 12;
+
+    protected static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
     protected static final String TABLE_NAME = "FOO";
 
@@ -171,7 +174,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
                 DEFAULT_STORAGE_PROFILE
         );
 
-        when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
+        when(catalogService.table(eq(SCHEMA_NAME), eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
         when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
 
         createCatalogIndexDescriptor(tableId, pkIndexId, PK_INDEX_NAME, true, pkColumn.type());
@@ -482,14 +485,14 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     }
 
     void addToCatalog(CatalogIndexDescriptor indexDescriptor) {
-        when(catalogService.aliveIndex(eq(indexDescriptor.name()), anyLong())).thenReturn(indexDescriptor);
+        when(catalogService.aliveIndex(eq(SCHEMA_NAME), eq(indexDescriptor.name()), anyLong())).thenReturn(indexDescriptor);
         when(catalogService.index(eq(indexDescriptor.id()), anyInt())).thenReturn(indexDescriptor);
     }
 
     S createPkIndexStorage() {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor tableDescriptor = catalogService.table(SCHEMA_NAME, TABLE_NAME, clock.nowLong());
 
-        CatalogIndexDescriptor pkIndexDescriptor = catalogService.aliveIndex(PK_INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor pkIndexDescriptor = catalogService.aliveIndex(SCHEMA_NAME, PK_INDEX_NAME, clock.nowLong());
 
         return (S) tableStorage.getOrCreateIndex(
                 TEST_PARTITION,

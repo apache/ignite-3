@@ -32,6 +32,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.apache.ignite.table.QualifiedName;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -80,7 +81,7 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
     private static boolean containsPartition(Ignite node) {
         TableManager tableManager = unwrapTableManager(node.tables());
 
-        MvPartitionStorage storage = tableManager.tableView("TEST")
+        MvPartitionStorage storage = tableManager.tableView(QualifiedName.fromSimple("TEST"))
                 .internalTable()
                 .storage()
                 .getMvPartition(PARTITION_ID);

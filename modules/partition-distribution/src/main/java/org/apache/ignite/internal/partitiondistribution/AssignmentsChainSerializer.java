@@ -35,21 +35,22 @@ public class AssignmentsChainSerializer extends VersionedSerializer<AssignmentsC
 
     @Override
     protected void writeExternalData(AssignmentsChain chain, IgniteDataOutput out) throws IOException {
-        out.writeVarInt(chain.chain().size());
+        out.writeVarInt(chain.size());
 
-        for (Assignments assignment : chain.chain()) {
-            AssignmentsSerializer.INSTANCE.writeExternal(assignment, out);
+        for (AssignmentsLink assignment : chain) {
+            AssignmentsLinkSerializer.INSTANCE.writeExternal(assignment, out);
         }
     }
 
     @Override
     protected AssignmentsChain readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
         int length = in.readVarIntAsInt();
-        List<Assignments> assignmentsChain = new ArrayList<>(length);
+        List<AssignmentsLink> links = new ArrayList<>(length);
 
         for (int i = 0; i < length; i++) {
-            assignmentsChain.add(AssignmentsSerializer.INSTANCE.readExternal(in));
+            links.add(AssignmentsLinkSerializer.INSTANCE.readExternal(in));
         }
-        return AssignmentsChain.of(assignmentsChain);
+
+        return AssignmentsChain.of(links);
     }
 }

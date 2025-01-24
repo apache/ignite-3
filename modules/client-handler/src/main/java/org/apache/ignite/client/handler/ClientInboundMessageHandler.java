@@ -715,10 +715,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientTupleContainsAllKeysRequest.process(in, out, igniteTables, resources, txManager);
 
             case ClientOp.JDBC_CONNECT:
-                // TODO: IGNITE-24053 JDBC request ought to contain the client observation timestamp.
-                jdbcQueryEventHandler.getTimestampTracker().update(clockService.current());
-                out.meta(jdbcQueryEventHandler.getTimestampTracker().get());
-
                 return ClientJdbcConnectRequest.execute(in, out, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC:
@@ -821,6 +817,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(in, queryProcessor).thenRun(() -> {
                     if (out.meta() == null) {
+                        // TODO https://issues.apache.org/jira/browse/IGNITE-24275 Must set updated time instead of current time.
                         out.meta(clockService.current());
                     }
                 });

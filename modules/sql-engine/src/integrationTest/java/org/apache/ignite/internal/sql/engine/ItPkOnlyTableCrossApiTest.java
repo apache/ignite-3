@@ -238,7 +238,7 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("parameters")
     public void testSql(TestEnvironment env) {
-        String tableName = env.table().name();
+        String tableName = env.table().name().toCanonicalForm();
 
         env.runInTransaction(
                 rwTx -> sql(rwTx, "insert into " + tableName + " values (0, 'A'), (1, 'B')"),
@@ -259,7 +259,8 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
     public void testMixed(TestEnvironment env) {
         Table tab = env.table();
 
-        String sqlInsert = "insert into " + tab.name() + " values (%d, '%s')";
+        String tableName = tab.name().toCanonicalForm();
+        String sqlInsert = "insert into " + tableName + " values (%d, '%s')";
         String[] names = {"a", "b", "c", "d"};
 
         RecordView<Tuple> recordView = tab.recordView();
@@ -315,12 +316,12 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
 
                         assertTrue(binView.contains(tx, key));
 
-                        assertQuery(
-                                (InternalTransaction) tx, format("select * from {} where ID={} and NAME='{}'", tab.name(), i, names[i]))
+                        String message = format("select * from {} where ID={} and NAME='{}'", tableName, i, names[i]);
+                        assertQuery((InternalTransaction) tx, message)
                                 .returns(i, names[i]).check();
                     }
 
-                    assertQuery((InternalTransaction) tx, "select count(*) from " + tab.name()).returns(4L).check();
+                    assertQuery((InternalTransaction) tx, "select count(*) from " + tableName).returns(4L).check();
                 }
         );
     }
@@ -350,7 +351,7 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
     }
 
     private static String tableName(String engineName) {
-        return "test_" + engineName;
+        return "\"test_" + engineName + '"';
     }
 
     private static class KeyObject {
