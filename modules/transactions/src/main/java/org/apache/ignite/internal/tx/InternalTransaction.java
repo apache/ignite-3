@@ -125,7 +125,7 @@ public interface InternalTransaction extends Transaction {
     boolean isFinishingOrFinished();
 
     /**
-     * Returns the transaction timeout.
+     * Returns the transaction timeout in millis.
      *
      * @return The transaction timeout.
      */

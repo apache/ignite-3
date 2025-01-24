@@ -85,8 +85,8 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
         builder.clusterConfiguration("ignite {"
                 + "  transaction: {"
-                + "      roTimeout: 30000,"
-                + "      rwTimeout: 30000,"
+                + "      readOnlyTimeout: 30000,"
+                + "      readWriteTimeout: 30000,"
                 + "      txnResourceTtl: 2"
                 + "  },"
                 + "  replication: {"
