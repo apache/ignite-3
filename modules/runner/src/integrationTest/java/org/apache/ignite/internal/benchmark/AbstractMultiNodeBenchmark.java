@@ -209,7 +209,7 @@ public class AbstractMultiNodeBenchmark {
                 + "  rest.port: {},\n"
                 + "  raft.fsync = " + fsync() + ",\n"
                 + "  system.partitionsLogPath = \"" + logPath() + "\",\n"
-                + "  failureHandler.handler: {\n" 
+                + "  failureHandler.handler: {\n"
                 + "      type: \"" + StopNodeOrHaltFailureHandlerConfigurationSchema.TYPE + "\",\n"
                 + "      tryStop: true,\n"
                 + "      timeoutMillis: 60000,\n" // 1 minute for graceful shutdown
@@ -223,7 +223,7 @@ public class AbstractMultiNodeBenchmark {
             String config = IgniteStringFormatter.format(configTemplate, port, connectNodeAddr,
                     BASE_CLIENT_PORT + i, BASE_REST_PORT + i);
 
-            igniteServers.add(TestIgnitionManager.start(nodeName, config, workDir.resolve(nodeName)));
+            igniteServers.add(TestIgnitionManager.startWithProductionDefaults(nodeName, config, workDir.resolve(nodeName)));
         }
 
         String metaStorageNodeName = nodeName(BASE_PORT);

@@ -1015,7 +1015,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
             );
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
-            TestIgnitionManager.addDefaultsToConfigurationFile(configPath);
+            TestIgnitionManager.writeConfigurationFileApplyingTestDefaults(configPath);
 
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NodeConfiguration.KEY),

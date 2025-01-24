@@ -92,9 +92,9 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
      */
     public static final int DEFAULT_SLOTS = 1_048_576;
 
-    private static final String LOCK_MAP_SIZE_PROPERTY_NAME = "lockMapSize";
+    public static final String LOCK_MAP_SIZE_PROPERTY_NAME = "lockMapSize";
 
-    private static final String RAW_SLOTS_MAX_SIZE_PROPERTY_NAME = "rawSlotsMaxSize";
+    public static final String RAW_SLOTS_MAX_SIZE_PROPERTY_NAME = "rawSlotsMaxSize";
 
     /**
      * Striped lock concurrency.

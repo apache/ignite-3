@@ -125,6 +125,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -1191,7 +1192,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             ClientConnectorExtensionConfigurationSchema.class,
                             StorageExtensionConfigurationSchema.class,
                             PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
-                            VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class
+                            VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class,
+                            SystemLocalExtensionConfigurationSchema.class
                     ),
                     List.of(
                             PersistentPageMemoryProfileConfigurationSchema.class,
@@ -1200,7 +1202,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             Path configPath = workDir.resolve(testInfo.getDisplayName());
-            TestIgnitionManager.addDefaultsToConfigurationFile(configPath);
+            TestIgnitionManager.writeConfigurationFileApplyingTestDefaults(configPath);
 
             nodeCfgMgr = new ConfigurationManager(
                     List.of(NodeConfiguration.KEY),
