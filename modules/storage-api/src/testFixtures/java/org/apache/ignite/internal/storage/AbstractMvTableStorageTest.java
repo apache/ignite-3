@@ -69,6 +69,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -304,7 +305,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
      */
     @Test
     public void testDestroySortedIndexIndependence() {
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, clock.nowLong());
         assertThat(catalogTableDescriptor, is(notNullValue()));
 
         var catalogSortedIndex1 = new CatalogSortedIndexDescriptor(
@@ -358,7 +359,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
      */
     @Test
     public void testDestroyHashIndexIndependence() {
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, clock.nowLong());
         assertThat(catalogTableDescriptor, is(notNullValue()));
 
         var catalogHashIndex1 = new CatalogHashIndexDescriptor(

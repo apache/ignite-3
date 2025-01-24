@@ -404,7 +404,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+        CatalogTableDescriptor table = node.catalogManager().table(SCHEMA_NAME, "TEST", node.clock().nowLong());
 
         CatalogZoneDescriptor zone = getDefaultZone(node);
 
@@ -428,7 +428,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+        CatalogTableDescriptor table = node.catalogManager().table(SCHEMA_NAME, "TEST", node.clock().nowLong());
 
         assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
 
@@ -445,7 +445,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+        CatalogTableDescriptor table = node.catalogManager().table(SCHEMA_NAME, "TEST", node.clock().nowLong());
 
         assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
 
@@ -462,7 +462,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+        CatalogTableDescriptor table = node.catalogManager().table(SCHEMA_NAME, "TEST", node.clock().nowLong());
 
         assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
 

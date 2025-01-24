@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.criteria;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
+import static org.apache.ignite.table.QualifiedName.fromSimple;
 import static org.apache.ignite.table.criteria.Criteria.and;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
 import static org.apache.ignite.table.criteria.Criteria.equalTo;
@@ -45,6 +46,8 @@ import static org.junit.jupiter.params.provider.Arguments.of;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.Expression;
 import org.junit.jupiter.api.Test;
@@ -93,7 +96,7 @@ class SqlSerializerTest {
     @MethodSource
     void testCondition(Criteria criteria, String wherePart, Object[] arguments) {
         SqlSerializer ser = new SqlSerializer.Builder()
-                .tableName("test")
+                .tableName(fromSimple("test"))
                 .columns(Set.of("A"))
                 .where(criteria)
                 .build();
@@ -146,7 +149,7 @@ class SqlSerializerTest {
     @MethodSource
     void testExpression(Criteria criteria, String wherePart, Object[] arguments) {
         SqlSerializer ser = new SqlSerializer.Builder()
-                .tableName("test")
+                .tableName(fromSimple("test"))
                 .columns(Set.of("A", "B", "C"))
                 .where(criteria)
                 .build();
@@ -176,7 +179,7 @@ class SqlSerializerTest {
         IllegalArgumentException iae = assertThrows(
                 IllegalArgumentException.class,
                 () -> new SqlSerializer.Builder()
-                        .tableName("test")
+                        .tableName(fromSimple("test"))
                         .where(columnValue("a", equalTo("a")))
                         .build()
         );
@@ -186,7 +189,7 @@ class SqlSerializerTest {
         iae = assertThrows(
                 IllegalArgumentException.class,
                 () -> new SqlSerializer.Builder()
-                        .tableName("test")
+                        .tableName(fromSimple("test"))
                         .columns(Set.of("B"))
                         .where(columnValue("a", equalTo("a")))
                         .build()
@@ -198,19 +201,19 @@ class SqlSerializerTest {
     @Test
     void testQuote() {
         SqlSerializer ser = new SqlSerializer.Builder()
-                .tableName("Test")
+                .tableName(QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "Test"))
                 .columns(Set.of("Aa"))
                 .where(columnValue(quote("Aa"), equalTo(1)))
                 .build();
 
-        assertThat(ser.toString(), endsWith(format("FROM {} WHERE {} = ?", quote("Test"), quote("Aa"))));
+        assertThat(ser.toString(), endsWith(format("FROM PUBLIC.\"Test\" WHERE {} = ?", quote("Aa"))));
         assertArrayEquals(new Object[]{1}, ser.getArguments());
     }
 
     @Test
     void testIndexName() {
         SqlSerializer ser = new SqlSerializer.Builder()
-                .tableName("test")
+                .tableName(fromSimple("test"))
                 .indexName("idx_a")
                 .columns(Set.of("a"))
                 .where(columnValue(quote("a"), equalTo(1)))
@@ -220,7 +223,7 @@ class SqlSerializerTest {
         assertArrayEquals(new Object[]{1}, ser.getArguments());
 
         ser = new SqlSerializer.Builder()
-                .tableName("test")
+                .tableName(fromSimple("test"))
                 .indexName("PUBLIC.idx_a")
                 .columns(Set.of("a"))
                 .where(columnValue(quote("a"), equalTo(1)))
@@ -232,7 +235,7 @@ class SqlSerializerTest {
         IllegalArgumentException iae = assertThrows(
                 IllegalArgumentException.class,
                 () -> new SqlSerializer.Builder()
-                        .tableName("test")
+                        .tableName(fromSimple("test"))
                         .indexName("'idx_a'")
                         .columns(Set.of("a"))
                         .where(columnValue(quote("a"), equalTo(1)))
@@ -244,7 +247,7 @@ class SqlSerializerTest {
         iae = assertThrows(
                 IllegalArgumentException.class,
                 () -> new SqlSerializer.Builder()
-                        .tableName("test")
+                        .tableName(fromSimple("test"))
                         .indexName("1idx_a")
                         .columns(Set.of("a"))
                         .where(columnValue(quote("a"), equalTo(1)))

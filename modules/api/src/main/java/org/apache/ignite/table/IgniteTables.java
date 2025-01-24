@@ -45,7 +45,17 @@ public interface IgniteTables {
      *             "tbl0" - the table "TBL0" will be looked up, "\"Tbl0\"" - "Tbl0", etc.
      * @return Table identified by name or {@code null} if table doesn't exist.
      */
-    Table table(String name);
+    default Table table(String name) {
+        return table(QualifiedName.parse(name));
+    }
+
+    /**
+     * Gets a table with the specified name if that table exists.
+     *
+     * @param name Table name.
+     * @return Table identified by name or {@code null} if table doesn't exist.
+     */
+    Table table(QualifiedName name);
 
     /**
      * Gets a table with the specified name if that table exists.
@@ -54,5 +64,17 @@ public interface IgniteTables {
      *             "tbl0" - the table "TBL0" will be looked up, "\"Tbl0\"" - "Tbl0", etc.
      * @return Future that represents the pending completion of the operation.
      */
-    CompletableFuture<Table> tableAsync(String name);
+    default CompletableFuture<Table> tableAsync(String name) {
+        return CompletableFuture.completedFuture(name)
+                .thenApply(QualifiedName::parse)
+                .thenCompose(this::tableAsync);
+    }
+
+    /**
+     * Gets a table with the specified name if that table exists.
+     *
+     * @param name Table name.
+     * @return Future that represents the pending completion of the operation.
+     */
+    CompletableFuture<Table> tableAsync(QualifiedName name);
 }

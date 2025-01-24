@@ -56,6 +56,8 @@ import org.junit.jupiter.api.Test;
 
 /** For {@link CatalogUtils} testing. */
 public class CatalogUtilsTest extends BaseIgniteAbstractTest {
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     private static final String TABLE_NAME = "test_table";
 
     private static final String COLUMN_NAME = "key";
@@ -81,11 +83,11 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         createTable("foo");
         createTable("bar");
 
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong());
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SCHEMA_NAME, clock.nowLong());
 
         assertThat(schema, is(notNullValue()));
 
-        CatalogTableDescriptor fooTable = catalogManager.table("foo", clock.nowLong());
+        CatalogTableDescriptor fooTable = catalogManager.table(SCHEMA_NAME, "foo", clock.nowLong());
 
         assertThat(fooTable, is(notNullValue()));
 
@@ -106,7 +108,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testReplaceTableMissingTable() {
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong());
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SCHEMA_NAME, clock.nowLong());
 
         assertThat(schema, is(notNullValue()));
 
@@ -127,11 +129,11 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         createIndex(tableName, "foo");
         createIndex(tableName, "bar");
 
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong());
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SCHEMA_NAME, clock.nowLong());
 
         assertThat(schema, is(notNullValue()));
 
-        var fooIndex = (CatalogHashIndexDescriptor) catalogManager.aliveIndex("foo", clock.nowLong());
+        var fooIndex = (CatalogHashIndexDescriptor) catalogManager.aliveIndex(SCHEMA_NAME, "foo", clock.nowLong());
 
         assertThat(fooIndex, is(notNullValue()));
 
@@ -154,7 +156,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     @Test
     void testReplaceIndexMissingIndex() {
-        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SqlCommon.DEFAULT_SCHEMA_NAME, clock.nowLong());
+        CatalogSchemaDescriptor schema = catalogManager.activeSchema(SCHEMA_NAME, clock.nowLong());
 
         assertThat(schema, is(notNullValue()));
 
@@ -182,7 +184,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     private void createTable(String tableName) {
         CatalogCommand catalogCommand = CreateTableCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()))
                 // Any type of a primary key index can be used.
@@ -198,7 +200,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
     private int createIndex(String tableName, String indexName) {
         CatalogCommand catalogCommand = CreateHashIndexCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .indexName(indexName)
                 .columns(List.of(COLUMN_NAME))
@@ -207,6 +209,6 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
 
         assertThat(catalogManager.execute(catalogCommand), willCompleteSuccessfully());
 
-        return catalogManager.aliveIndex(indexName, clock.nowLong()).id();
+        return catalogManager.aliveIndex(SCHEMA_NAME, indexName, clock.nowLong()).id();
     }
 }

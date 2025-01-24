@@ -23,7 +23,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Utility class to provide direct access to internals of {@link TupleImpl}.
  */
-public class TupleHelper {
+public final class TupleHelper {
     /**
      * Returns value from a given tuple which corresponds to a specified column.
      * 
@@ -43,5 +43,9 @@ public class TupleHelper {
         }
 
         return tuple.valueOrDefault(IgniteNameUtils.quote(normalizedName), defaultValue);
+    }
+
+    private TupleHelper() {
+        // No-op.
     }
 }

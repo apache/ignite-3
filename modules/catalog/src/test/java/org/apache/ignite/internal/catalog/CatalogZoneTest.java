@@ -144,7 +144,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
             assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
             Catalog catalog = latestActiveCatalog();
-            CatalogTableDescriptor tab = Objects.requireNonNull(manager.table(TABLE_NAME, catalog.time()));
+            CatalogTableDescriptor tab = Objects.requireNonNull(manager.table(SCHEMA_NAME, TABLE_NAME, catalog.time()));
 
             assertEquals(catalog.defaultZone().id(), tab.zoneId());
         }
