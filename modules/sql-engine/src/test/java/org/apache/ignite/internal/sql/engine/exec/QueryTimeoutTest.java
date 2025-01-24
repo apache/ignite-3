@@ -62,7 +62,7 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
     private final AtomicBoolean ignoreCatalogUpdates = new AtomicBoolean(false);
 
     private static final SqlProperties PROPS_WITH_TIMEOUT = SqlPropertiesHelper.newBuilder()
-            // Relatively high timeout is set to make tests are stable on TC. The reason is that
+            // Relatively high timeout is set to make tests stable on TC. The reason is that
             // query have to make it to the final point which is varied from test to test in
             // order to 1) make sure timeout is handled properly at particular stages of query
             // execution, and 2) to fail with proper exception class.
@@ -127,7 +127,7 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
         assertThrows(
                 QueryCancelledException.class,
                 () -> gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "CREATE TABLE x (id INTEGER PRIMARY KEY, val INTEGER)"),
-                "Query timeout"
+                QueryCancelledException.TIMEOUT_MSG
         );
     }
 
@@ -136,7 +136,7 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
         assertThrows(
                 QueryCancelledException.class,
                 () -> gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "KILL QUERY '" + randomUUID() + '\''),
-                "Query timeout"
+                QueryCancelledException.TIMEOUT_MSG
         );
     }
 
@@ -148,7 +148,7 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
                 cursor.requestNextAsync(1),
                 willThrowWithCauseOrSuppressed(
                         QueryCancelledException.class,
-                        "Query timeout"
+                        QueryCancelledException.TIMEOUT_MSG
                 )
         );
     }
@@ -161,7 +161,7 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
                 cursor.requestNextAsync(1),
                 willThrowWithCauseOrSuppressed(
                         QueryCancelledException.class,
-                        "Query timeout"
+                        QueryCancelledException.TIMEOUT_MSG
                 )
         );
     }
@@ -171,7 +171,7 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
         assertThrows(
                 SqlException.class,
                 () -> gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "INSERT INTO my_table VALUES (?, ?)", 1, "1"),
-                "Query timeout"
+                QueryCancelledException.TIMEOUT_MSG
         );
     }
 
@@ -183,7 +183,7 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
                 cursor.requestNextAsync(1),
                 willThrowWithCauseOrSuppressed(
                         SqlException.class,
-                        "Query timeout"
+                        QueryCancelledException.TIMEOUT_MSG
                 )
         );
     }
@@ -193,7 +193,7 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
         assertThrows(
                 SqlException.class,
                 () -> gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "UPDATE my_table SET val = val || val"),
-                "Query timeout"
+                QueryCancelledException.TIMEOUT_MSG
         );
     }
 

@@ -359,7 +359,7 @@ public class TestBuilders {
         ClusterBuilder nodes(String firstNodeName, String... otherNodeNames);
 
         /**
-         * A decorator to wrap {@link CatalogManager} instance which will be used int test cluster.
+         * A decorator to wrap {@link CatalogManager} instance which will be used in the test cluster.
          *
          * <p>May be used to slow down or ignore certain catalog commands.
          *
