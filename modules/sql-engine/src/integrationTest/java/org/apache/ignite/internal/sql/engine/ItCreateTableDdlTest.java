@@ -484,19 +484,19 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for column 'ID' of type 'STRING' must be at least 1",
+                "VARCHAR length 0 must be between 1 and 65536 [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID VARCHAR(0) PRIMARY KEY, VAL0 INT)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for column 'ID' of type 'BYTE_ARRAY' must be at least 1",
+                "BINARY length 0 must be between 1 and 65536 [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID BINARY(0) PRIMARY KEY, VAL0 INT)")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Length for column 'ID' of type 'BYTE_ARRAY' must be at least 1",
+                "VARBINARY length 0 must be between 1 and 65536 [column=ID]",
                 () -> sql("CREATE TABLE TEST(ID VARBINARY(0) PRIMARY KEY, VAL0 INT)")
         );
     }
@@ -555,6 +555,86 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 STMT_VALIDATION_ERR,
                 "Type INTERVAL YEAR cannot be used in a column definition [column=P]",
                 () -> sql("ALTER TABLE TEST ADD COLUMN p INTERVAL YEAR")
+        );
+    }
+
+    @Test
+    public void testCreateTableWithIncorrectType() {
+        // Char
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "VARCHAR length 10000000 must be between 1 and 65536 [column=VAL]",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR(10000000) )")
+        );
+
+        // Binary
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "BINARY length 10000000 must be between 1 and 65536 [column=VAL]",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val BINARY(10000000) )")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "VARBINARY length 10000000 must be between 1 and 65536 [column=VAL]",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARBINARY(10000000) )")
+        );
+
+        // Decimal
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "DECIMAL precision 10000000 must be between 1 and 32767 [column=VAL]",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val DECIMAL(10000000) )")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "DECIMAL scale 10000000 must be between 0 and 32767 [column=VAL]",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val DECIMAL(100, 10000000) )")
+        );
+    }
+
+    @Test
+    public void testNotFittingDefaultValues() {
+        // Char
+
+        String longString = "1".repeat(101);
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL'",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARCHAR(100) DEFAULT '" + longString + "' )")
+        );
+
+        // Binary
+
+        String longByteString = "01".repeat(101);
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL'",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val BINARY(100) DEFAULT x'" + longByteString + "' )")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL'",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val VARBINARY(100) DEFAULT x'" + longByteString + "' )")
+        );
+
+        // Decimal
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL'",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val DECIMAL(5) DEFAULT 1000000 )")
+        );
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Invalid default value for column 'VAL'",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val DECIMAL(3, 2) DEFAULT 333.123 )")
         );
     }
 

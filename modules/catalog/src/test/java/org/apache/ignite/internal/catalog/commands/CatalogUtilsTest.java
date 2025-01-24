@@ -24,7 +24,12 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIn
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
 import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.sql.ColumnType.BYTE_ARRAY;
+import static org.apache.ignite.sql.ColumnType.DECIMAL;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.apache.ignite.sql.ColumnType.STRING;
+import static org.apache.ignite.sql.ColumnType.TIME;
+import static org.apache.ignite.sql.ColumnType.TIMESTAMP;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
@@ -36,6 +41,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -50,9 +56,13 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** For {@link CatalogUtils} testing. */
 public class CatalogUtilsTest extends BaseIgniteAbstractTest {
@@ -184,6 +194,66 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 .roundUpToPhysicalTick();
 
         assertEquals(expClusterWideActivationTs, clusterWideEnsuredActivationTimestamp(catalog.time(), TEST_MAX_CLOCK_SKEW_MILLIS));
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypesPrecision")
+    void testGetPrecision(ColumnType columnType, int min, int max) {
+        assertEquals(CatalogUtils.getMinPrecision(columnType), min, "min");
+        assertEquals(CatalogUtils.getMaxPrecision(columnType), max, "max");
+    }
+
+    private static Stream<Arguments> columnTypesPrecision() {
+        Stream<Arguments> types = Stream.of(
+                Arguments.of(DECIMAL, 1, 32767),
+                Arguments.of(TIME, 0, 9),
+                Arguments.of(TIMESTAMP, 0, 9)
+        );
+
+        Stream<Arguments> otherTypes = Arrays.stream(ColumnType.values())
+                .filter(t -> !t.precisionAllowed())
+                .map(t -> Arguments.of(t, -1, -1));
+
+        return Stream.concat(types, otherTypes);
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypesScale")
+    void testGetScale(ColumnType columnType, int min, int max) {
+        assertEquals(CatalogUtils.getMinScale(columnType), min, "min");
+        assertEquals(CatalogUtils.getMaxScale(columnType), max, "max");
+    }
+
+    private static Stream<Arguments> columnTypesScale() {
+        Stream<Arguments> types = Stream.of(
+                Arguments.of(DECIMAL, 0, 32767)
+        );
+
+        Stream<Arguments> otherTypes = Arrays.stream(ColumnType.values())
+                .filter(t -> !t.scaleAllowed())
+                .map(t -> Arguments.of(t, -1, -1));
+
+        return Stream.concat(types, otherTypes);
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnTypesLength")
+    void testGetLength(ColumnType columnType, int min, int max) {
+        assertEquals(CatalogUtils.getMinLength(columnType), min, "min");
+        assertEquals(CatalogUtils.getMaxLength(columnType), max, "max");
+    }
+
+    private static Stream<Arguments> columnTypesLength() {
+        Stream<Arguments> types = Stream.of(
+                Arguments.of(STRING, 1, 65536),
+                Arguments.of(BYTE_ARRAY, 1, 65536)
+        );
+
+        Stream<Arguments> otherTypes = Arrays.stream(ColumnType.values())
+                .filter(t -> !t.lengthAllowed())
+                .map(t -> Arguments.of(t, -1, -1));
+
+        return Stream.concat(types, otherTypes);
     }
 
     private void createTable(String tableName) {

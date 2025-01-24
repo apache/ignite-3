@@ -88,6 +88,11 @@ public class CatalogUtils {
     public static final int DEFAULT_SCALE = 0;
 
     /**
+     * Minimum precision for TIME and TIMESTAMP types.
+     */
+    public static final int MIN_TIME_PRECISION = 0;
+
+    /**
      * Maximum TIME and TIMESTAMP precision is implementation-defined.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 38
@@ -95,11 +100,21 @@ public class CatalogUtils {
     public static final int MAX_TIME_PRECISION = NativeTypes.MAX_TIME_PRECISION;
 
     /**
+     * Minimum DECIMAL precision.
+     */
+    public static final int MIN_DECIMAL_PRECISION = 1;
+
+    /**
      * Max DECIMAL precision is implementation-defined.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 25
      */
     public static final int MAX_DECIMAL_PRECISION = Short.MAX_VALUE;
+
+    /**
+     * Minimum DECIMAL scale.
+     */
+    public static final int MIN_DECIMAL_SCALE = 0;
 
     /**
      * Max DECIMAL scale is implementation-defined.
@@ -116,11 +131,31 @@ public class CatalogUtils {
     public static final int DEFAULT_LENGTH = 1;
 
     /**
-     * Max length for VARCHAR and VARBINARY is implementation defined.
+     * Default length for VARCHAR and VARBINARY is implementation defined.
      *
      * <p>SQL`16 part 2 section 6.1 syntax rule 8
      */
     public static final int DEFAULT_VARLEN_LENGTH = 2 << 15;
+
+    /**
+     * Maximum length for VARCHAR and VARBINARY types.
+     */
+    public static final int MAX_VARLEN_LENGTH = 2 << 15;
+
+    /**
+     * Minimum length for VARCHAR and VARBINARY types.
+     */
+    public static final int MIN_VARLEN_PRECISION = 1;
+
+    /**
+     * Minimum precision for interval types.
+     */
+    public static final int MIN_INTERVAL_TYPE_PRECISION = 1;
+
+    /**
+     * Maximum precision for interval types.
+     */
+    public static final int MAX_INTERVAL_TYPE_PRECISION = 10;
 
     public static final ConsistencyMode DEFAULT_CONSISTENCY_MODE = ConsistencyMode.STRONG_CONSISTENCY;
 
@@ -534,6 +569,133 @@ public class CatalogUtils {
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
 
         return defaultZone != null ? defaultZone.id() : null;
+    }
+
+
+    /**
+     * Returns the maximum supported precision for given type or {@code -1} if the type does not support precision.
+     *
+     * @param columnType Column type
+     * @return Maximum precision
+     */
+    public static int getMaxPrecision(ColumnType columnType) {
+        if (!columnType.precisionAllowed()) {
+            return -MIN_DECIMAL_PRECISION;
+        } else {
+            switch (columnType) {
+                case DECIMAL:
+                    return MAX_DECIMAL_PRECISION;
+                case TIME:
+                case DATETIME:
+                case TIMESTAMP:
+                    return MAX_TIME_PRECISION;
+                case DURATION:
+                case PERIOD:
+                    return MAX_INTERVAL_TYPE_PRECISION;
+                default:
+                    throw new IllegalArgumentException("Unexpected column type: " + columnType);
+            }
+        }
+    }
+
+    /**
+     * Returns the minimum supported precision for given type or {@code -1} if the type does not support precision.
+     *
+     * @param columnType Column type
+     * @return Minimum precision
+     */
+    public static int getMinPrecision(ColumnType columnType) {
+        if (!columnType.precisionAllowed()) {
+            return -1;
+        } else {
+            switch (columnType) {
+                case DECIMAL:
+                    return MIN_DECIMAL_PRECISION;
+                case TIME:
+                case DATETIME:
+                case TIMESTAMP:
+                    return MIN_TIME_PRECISION;
+                case DURATION:
+                case PERIOD:
+                    return MIN_INTERVAL_TYPE_PRECISION;
+                default:
+                    throw new IllegalArgumentException("Unexpected column type: " + columnType);
+            }
+        }
+    }
+
+    /**
+     * Returns the maximum supported length for given type or {@code -1} if the type does not support length.
+     *
+     * @param columnType Column type
+     * @return Maximum length
+     */
+    public static int getMaxLength(ColumnType columnType) {
+        if (!columnType.lengthAllowed()) {
+            return -1;
+        } else {
+            switch (columnType) {
+                case STRING:
+                case BYTE_ARRAY:
+                    return MAX_VARLEN_LENGTH;
+                default:
+                    throw new IllegalArgumentException("Unexpected column type: " + columnType);
+            }
+        }
+    }
+
+    /**
+     * Returns the minimum supported length for given type or {@code -1} if the type does not support length.
+     *
+     * @param columnType Column type
+     * @return Minimum length
+     */
+    public static int getMinLength(ColumnType columnType) {
+        if (!columnType.lengthAllowed()) {
+            return -1;
+        } else {
+            switch (columnType) {
+                case STRING:
+                case BYTE_ARRAY:
+                    return MIN_VARLEN_PRECISION;
+                default:
+                    throw new IllegalArgumentException("Unexpected column type: " + columnType);
+            }
+        }
+    }
+
+    /**
+     * Returns the maximum supported scale for given type or {@code -1} if the type does not support scale.
+     *
+     * @param columnType Column type
+     * @return Maximum scale
+     */
+    public static int getMaxScale(ColumnType columnType) {
+        if (!columnType.scaleAllowed()) {
+            return -1;
+        } else {
+            if (columnType == ColumnType.DECIMAL) {
+                return MAX_DECIMAL_SCALE;
+            }
+            throw new IllegalArgumentException("Unexpected column type: " + columnType);
+        }
+    }
+
+    /**
+     * Returns the minimum supported scale for given type or {@code -1} if the type does not support scale.
+     *
+     * @param columnType Column type
+     * @return Minimum scale
+     */
+    public static int getMinScale(ColumnType columnType) {
+        if (!columnType.scaleAllowed()) {
+            return -1;
+        } else {
+            if (columnType == ColumnType.DECIMAL) {
+                return MIN_DECIMAL_SCALE;
+            }
+            throw new IllegalArgumentException("Unexpected column type: " + columnType);
+        }
     }
 
     /**

@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -92,7 +93,7 @@ public class ItRecordBinaryViewApiTest extends ItRecordViewApiBaseTest {
 
         createTable(TABLE_BYTE_TYPE_MATCH, false,
                 List.of(new Column("ID", NativeTypes.INT64, false)),
-                List.of(new Column("VALUNLIMITED", NativeTypes.BYTES, true),
+                List.of(new Column("VALUNLIMITED", NativeTypes.blobOf(CatalogUtils.DEFAULT_VARLEN_LENGTH), true),
                         new Column("VALLIMITED", NativeTypes.blobOf(2), true))
         );
 

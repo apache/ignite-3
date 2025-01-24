@@ -376,8 +376,8 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
     @TestFactory
     public Stream<DynamicTest> testCustomTypes() {
         Consumer<StatementChecker> setup = (checker) -> {
-            checker.table("t1", "int_col", NativeTypes.INT32, "uuid_col", NativeTypes.UUID, "str_col", NativeTypes.STRING)
-                    .table("t2", "int_col", NativeTypes.INT32, "uuid_col", NativeTypes.UUID, "str_col", NativeTypes.STRING);
+            checker.table("t1", "int_col", NativeTypes.INT32, "uuid_col", NativeTypes.UUID, "str_col", NativeTypes.stringOf(65536))
+                    .table("t2", "int_col", NativeTypes.INT32, "uuid_col", NativeTypes.UUID, "str_col", NativeTypes.stringOf(65536));
         };
 
         return Stream.of(

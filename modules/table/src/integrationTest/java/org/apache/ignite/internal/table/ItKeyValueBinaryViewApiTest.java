@@ -58,7 +58,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     private final SchemaDescriptor schema = new SchemaDescriptor(
             1,
             new Column[]{new Column("ID", NativeTypes.INT64, false)},
-            new Column[]{new Column("VAL", NativeTypes.STRING, true)}
+            new Column[]{new Column("VAL", NativeTypes.stringOf(65536), true)}
     );
 
     @BeforeAll

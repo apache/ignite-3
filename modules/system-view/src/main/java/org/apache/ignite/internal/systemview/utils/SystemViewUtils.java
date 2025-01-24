@@ -141,8 +141,10 @@ public class SystemViewUtils {
             case STRING:
             case BYTES:
                 assert type instanceof VarlenNativeType : type.getClass().getCanonicalName();
+                VarlenNativeType varlenNativeType = (VarlenNativeType) type;
 
-                builder.length(((VarlenNativeType) type).length());
+                int maxLength = CatalogUtils.getMaxLength(typeSpec.asColumnType());
+                builder.length(Math.min(varlenNativeType.length(), maxLength));
                 break;
             case TIME:
             case DATETIME:
