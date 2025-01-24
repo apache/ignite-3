@@ -153,7 +153,7 @@ public class ClientCompute implements IgniteCompute {
             return mapSubmitFutures(futures, descriptor, cancellationToken);
         } else if (target instanceof TableJobTarget) {
             TableJobTarget tableJobTarget = (TableJobTarget) target;
-            String tableName = tableJobTarget.tableName();
+            QualifiedName tableName = tableJobTarget.tableName();
             return getTable(tableName)
                     .thenCompose(table -> table.partitionManager().primaryReplicasAsync())
                     .thenCompose(replicas -> {
@@ -216,10 +216,13 @@ public class ClientCompute implements IgniteCompute {
             ColocatedJobTarget colocatedTarget = (ColocatedJobTarget) target;
             var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
 
+            // need to be fixed after: https://issues.apache.org/jira/browse/IGNITE-24301 Fix Thin client protocol to use schema name
+            QualifiedName qualifiedName = QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, colocatedTarget.tableName());
+
             if (mapper != null) {
-                return doExecuteColocatedAsync(colocatedTarget.tableName(), colocatedTarget.key(), mapper, descriptor, arg);
+                return doExecuteColocatedAsync(qualifiedName, colocatedTarget.key(), mapper, descriptor, arg);
             } else {
-                return doExecuteColocatedAsync(colocatedTarget.tableName(), (Tuple) colocatedTarget.key(), descriptor, arg);
+                return doExecuteColocatedAsync(qualifiedName, (Tuple) colocatedTarget.key(), descriptor, arg);
             }
         }
 
@@ -247,7 +250,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private <T, R> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
-            String tableName,
+            QualifiedName tableName,
             Tuple key,
             JobDescriptor<T, R> descriptor,
             T arg
@@ -264,7 +267,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private <K, T, R> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
-            String tableName,
+            QualifiedName tableName,
             K key,
             Mapper<K> keyMapper,
             JobDescriptor<T, R> descriptor,
@@ -410,7 +413,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private <T, R> CompletableFuture<SubmitResult> doExecutePartitionedAsync(
-            String tableName,
+            QualifiedName tableName,
             Partition partition,
             JobDescriptor<T, R> descriptor,
             @Nullable T arg
@@ -450,19 +453,17 @@ public class ClientCompute implements IgniteCompute {
         );
     }
 
-    // TODO IGNITE-24033 Compute API should use QualifiedName.
-    private CompletableFuture<ClientTable> getTable(String tableName) {
+    private CompletableFuture<ClientTable> getTable(QualifiedName tableName) {
         // Cache tables by name to avoid extra network call on every executeColocated.
-        QualifiedName qualifiedName = QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
-        var cached = tableCache.get(qualifiedName);
+        var cached = tableCache.get(tableName);
 
         if (cached != null) {
             return completedFuture(cached);
         }
 
-        return tables.tableAsync(qualifiedName).thenApply(t -> {
+        return tables.tableAsync(tableName).thenApply(t -> {
             if (t == null) {
-                throw new TableNotFoundException(qualifiedName);
+                throw new TableNotFoundException(tableName);
             }
 
             ClientTable clientTable = (ClientTable) t;
@@ -473,7 +474,7 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private CompletableFuture<SubmitResult> handleMissingTable(
-            String tableName,
+            QualifiedName tableName,
             SubmitResult res,
             Throwable err,
             Supplier<CompletableFuture<SubmitResult>> retry
@@ -487,9 +488,7 @@ public class ClientCompute implements IgniteCompute {
 
             if (clientEx.code() == TABLE_ID_NOT_FOUND_ERR) {
                 // Table was dropped - remove from cache.
-                // TODO IGNITE-24033 Make Client API use QualifiedName.
-                QualifiedName qualifiedName = QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
-                tableCache.remove(qualifiedName);
+                tableCache.remove(tableName);
 
                 return retry.get();
             }
