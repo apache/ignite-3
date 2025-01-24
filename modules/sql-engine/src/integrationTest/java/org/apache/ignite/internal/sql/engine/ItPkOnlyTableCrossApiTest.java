@@ -238,7 +238,7 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("parameters")
     public void testSql(TestEnvironment env) {
-        String tableName = env.table().name().toCanonicalForm();
+        String tableName = env.table().name();
 
         env.runInTransaction(
                 rwTx -> sql(rwTx, "insert into " + tableName + " values (0, 'A'), (1, 'B')"),
@@ -259,7 +259,7 @@ public class ItPkOnlyTableCrossApiTest extends BaseSqlIntegrationTest {
     public void testMixed(TestEnvironment env) {
         Table tab = env.table();
 
-        String tableName = tab.name().toCanonicalForm();
+        String tableName = tab.name();
         String sqlInsert = "insert into " + tableName + " values (%d, '%s')";
         String[] names = {"a", "b", "c", "d"};
 

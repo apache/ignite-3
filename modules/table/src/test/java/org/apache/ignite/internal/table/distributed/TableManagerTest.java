@@ -469,7 +469,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         dropTable(DYNAMIC_TABLE_NAME);
         createTable(DYNAMIC_TABLE_NAME);
 
-        table = tableManager.tableView(table.name());
+        table = tableManager.tableView(table.qualifiedName());
 
         assertNotNull(table);
         assertNotEquals(oldTableId, table.tableId());

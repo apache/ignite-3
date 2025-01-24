@@ -1599,7 +1599,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }, ioExecutor)
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        LOG.error("Unable to stop table [name={}, tableId={}]", ex, table.name().toCanonicalForm(), table.tableId());
+                        LOG.error("Unable to stop table [name={}, tableId={}]", ex, table.name(), table.tableId());
                     }
                 });
     }
@@ -2223,7 +2223,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                             + "partition={}, table={}, localMemberAddress={}, pendingAssignments={}, revision={}]",
                                     stringKey,
                                     replicaGrpId.partitionId(),
-                                    table.name().toCanonicalForm(),
+                                    table.name(),
                                     localNode().address(),
                                     pendingAssignments,
                                     revision
@@ -2918,7 +2918,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private static @Nullable TableImpl findTableImplByName(Collection<TableImpl> tables, String name) {
-        return tables.stream().filter(table -> table.name().equals(QualifiedName.fromSimple(name))).findAny().orElse(null);
+        return tables.stream().filter(table -> table.qualifiedName().equals(QualifiedName.fromSimple(name))).findAny().orElse(null);
     }
 
     private void startTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {

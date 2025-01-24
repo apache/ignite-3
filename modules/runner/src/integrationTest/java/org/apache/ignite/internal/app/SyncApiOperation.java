@@ -53,6 +53,7 @@ enum SyncApiOperation {
     TABLES_TABLE(refs -> refs.tables.table(TEST_TABLE_NAME)),
 
     TABLE_NAME(refs -> refs.table.name()),
+    TABLE_QUALIFIED_NAME(refs -> refs.table.qualifiedName()),
     TABLE_KV_VIEW(refs -> refs.table.keyValueView()),
     TABLE_TYPED_KV_VIEW(refs -> refs.table.keyValueView(Integer.class, String.class)),
     TABLE_MAPPED_KV_VIEW(refs -> refs.table.keyValueView(Mapper.of(Integer.class), Mapper.of(String.class))),
