@@ -213,7 +213,7 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
                 for (int i = 0; i < rowsCnt; i++) {
                     downstream().push(new Object[]{r + i});
                 }
-            }, this::onError);
+            });
         }
     }
 

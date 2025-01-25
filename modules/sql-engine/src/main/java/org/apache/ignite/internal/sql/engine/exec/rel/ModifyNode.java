@@ -308,7 +308,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             requestNextBatchIfNeeded();
 
             tryEnd();
-        }, this::onError));
+        }));
     }
 
     private boolean needToFlush() {

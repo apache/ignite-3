@@ -39,6 +39,7 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
@@ -446,7 +447,6 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
      * Node that always throws {@link IllegalAccessError} except for {@link #close()} and {@link #onRegister(Downstream)} methods.
      */
     static class CorruptedNode<T> implements Node<T> {
-        private volatile boolean closed;
 
         /** {@inheritDoc} */
         @Override
@@ -491,14 +491,14 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
         }
 
         @Override
-        public boolean isClosed() {
-            return closed;
+        public void execute(RunnableX task) {
+            throw new IllegalAccessError();
         }
 
         /** {@inheritDoc} */
         @Override
         public void close() {
-            this.closed = true;
+
         }
     }
 

@@ -117,7 +117,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         requested = rowsCnt;
 
         if (!inLoop) {
-            this.execute(this::doPush, this::onError);
+            this.execute(this::doPush);
         }
     }
 
@@ -356,7 +356,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                                 ex
                         );
 
-                        this.execute(() -> onError(wrapperEx), this::onError);
+                        this.execute(() -> onError(wrapperEx));
                     }
                 });
     }
@@ -367,9 +367,9 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
      */
     public void onNodeLeft(String nodeName) {
         if (context().originatingNodeName().equals(nodeName) && srcNodeNames == null) {
-            this.execute(this::close, this::onError);
+            this.execute(this::close);
         } else if (srcNodeNames != null && srcNodeNames.contains(nodeName)) {
-            this.execute(() -> onNodeLeft0(nodeName), this::onError);
+            this.execute(() -> onNodeLeft0(nodeName));
         }
     }
 

@@ -37,7 +37,7 @@ import org.mockito.Mockito;
 /**
  * Test for {@link Node} class.
  */
-public class NodeSelfTest extends BaseIgniteAbstractTest {
+public class AbstractNodeSelfTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testClose() {
@@ -55,15 +55,15 @@ public class NodeSelfTest extends BaseIgniteAbstractTest {
         }).when(ctx).execute(any(RunnableX.class), any(Consumer.class));
 
         // Schedule task 1
-        node.execute(() -> node.request(1), node::onError);
+        node.execute(() -> node.request(1));
         assertEquals(1, node.callCount.get());
 
         // Schedule close
-        node.execute(node::close, node::onError);
+        node.execute(node::close);
         assertEquals(1, node.callCount.get());
 
         // Task is not called because the node was closed.
-        node.execute(() -> node.request(1), node::onError);
+        node.execute(() -> node.request(1));
         assertEquals(1, node.callCount.get());
 
         // The last task was not scheduled
@@ -98,15 +98,15 @@ public class NodeSelfTest extends BaseIgniteAbstractTest {
         }).when(ctx).execute(any(RunnableX.class), any(Consumer.class));
 
         // Schedule task 1
-        node.execute(() -> node.request(1), node::onError);
+        node.execute(() -> node.request(1));
         assertEquals(1, node.callCount.get());
 
         // Schedule task 2
-        node.execute(() -> node.request(1), node::onError);
+        node.execute(() -> node.request(1));
         assertEquals(2, node.callCount.get());
 
         // Task is not called because the node was closed.
-        node.execute(() -> node.request(1), node::onError);
+        node.execute(() -> node.request(1));
         assertEquals(2, node.callCount.get());
 
         // All tasks were scheduled

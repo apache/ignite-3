@@ -272,7 +272,7 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
                 taskScheduled.set(false);
 
                 flush();
-            }, source::onError);
+            });
         }
     }
 

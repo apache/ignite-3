@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.List;
-import java.util.function.Consumer;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
@@ -75,29 +74,9 @@ public interface Node<RowT> extends AutoCloseable {
     void rewind();
 
     /**
-     * Schedules the given action of this execution node.
+     * Schedules the given action of this execution node. If this code was closed, the task is ignored.
      *
      * @param task Task.
-     * @param onError Error handler.
      */
-    default void execute(RunnableX task, Consumer<Throwable> onError) {
-        if (this.isClosed()) {
-            return;
-        }
-
-        context().execute(() -> {
-            // If the node is closed, the task must be ignored.
-            if (this.isClosed()) {
-                return;
-            }
-            task.run();
-        }, onError);
-    }
-
-    /**
-     * Returns {@code true} if this node was closed.
-     *
-     * @return {@code true} if not was closed.
-     */
-    boolean isClosed();
+    void execute(RunnableX task);
 }

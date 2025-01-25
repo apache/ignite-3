@@ -263,7 +263,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
                     state = State.FILLING_LEFT;
                     leftSource().request(waitingLeft = leftInBufferSize);
-                }, this::onError);
+                });
 
                 break;
             case IDLE:
@@ -276,7 +276,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                     checkState();
 
                     join();
-                }, this::onError);
+                });
 
                 break;
 

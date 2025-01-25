@@ -83,7 +83,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         requested = rowsCnt;
 
         if (!inLoop) {
-            this.execute(this::push, this::onError);
+            this.execute(this::push);
         }
     }
 
@@ -166,7 +166,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
                 requested = 0;
                 downstream().end();
             } else {
-                this.execute(this::push, this::onError);
+                this.execute(this::push);
             }
         }
     }
@@ -231,7 +231,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
                 StorageScanNode.this.execute(() -> {
                     waiting = 0;
                     push();
-                }, StorageScanNode.this::onError);
+                });
             }
         }
 
@@ -240,7 +240,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         public void onError(Throwable throwable) {
             StorageScanNode.this.execute(() -> {
                 throw throwable;
-            }, StorageScanNode.this::onError);
+            });
         }
 
         /** {@inheritDoc} */
@@ -251,7 +251,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
                 waiting = 0;
 
                 push();
-            }, StorageScanNode.this::onError);
+            });
         }
     }
 }

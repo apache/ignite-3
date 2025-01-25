@@ -332,7 +332,7 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
-     * Executes a query task. To execute a task from a {@link Node} use {@link Node#execute(RunnableX, Consumer)} instead.
+     * Executes a query task. To execute a task from a {@link Node} use {@link Node#execute(RunnableX)} instead.
      *
      * @param task Query task.
      */
