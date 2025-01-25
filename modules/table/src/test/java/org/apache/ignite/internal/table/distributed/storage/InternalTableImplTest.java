@@ -43,6 +43,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.NullBinaryRow;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -60,7 +62,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     @Test
     void testUpdatePartitionTrackers() {
         InternalTableImpl internalTable = new InternalTableImpl(
-                "test",
+                QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
                 1,
                 1,
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
@@ -110,7 +112,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
     @Test
     void testRowBatchByPartitionId() {
         InternalTableImpl internalTable = new InternalTableImpl(
-                "test",
+                QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, "test"),
                 1,
                 3,
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),

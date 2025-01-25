@@ -125,8 +125,7 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
                         ArrayRowHandler.INSTANCE,
                         Map.of(),
                         null,
-                        SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
-                        null
+                        SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
                 ),
                 RelCollations.of(ImmutableIntList.copyOf(idxCols)),
                 (o1, o2) -> {

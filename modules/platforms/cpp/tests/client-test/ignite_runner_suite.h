@@ -38,9 +38,11 @@ using namespace std::string_view_literals;
  */
 class ignite_runner_suite : public virtual ::testing::Test {
 public:
-    static constexpr std::string_view TABLE_1 = "tbl1"sv;
-    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "tbl_all_columns"sv;
-    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS_SQL = "tbl_all_columns_sql"sv;
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24261 revert changing named to uppercase
+    static constexpr std::string_view TABLE_1 = "TBL1"sv;
+    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS = "TBL_ALL_COLUMNS"sv;
+    static constexpr std::string_view TABLE_NAME_ALL_COLUMNS_SQL = "TBL_ALL_COLUMNS_SQL"sv;
+
 
     inline static const std::string PLATFORM_TEST_NODE_RUNNER =
         "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";

@@ -572,7 +572,8 @@ namespace Apache.Ignite.Tests.Table
             using var deferDropTable = new DisposeAction(
                 () => Client.Sql.ExecuteAsync(null, "DROP TABLE TestBigPoco").GetAwaiter().GetResult());
 
-            var table = await Client.Tables.GetTableAsync("TestBigPoco");
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24258: Remove uppercase.
+            var table = await Client.Tables.GetTableAsync("TestBigPoco".ToUpperInvariant());
             var pocoView = table!.GetRecordView<Poco2>();
 
             var poco = new Poco2

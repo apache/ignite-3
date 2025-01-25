@@ -224,6 +224,7 @@ import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
 import org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.recovery.system.SystemDisasterRecoveryFactory;
+import org.apache.ignite.internal.rest.sql.SqlQueryRestFactory;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -480,6 +481,8 @@ public class IgniteImpl implements Ignite {
     private final IndexMetaStorage indexMetaStorage;
 
     private final EventLog eventLog;
+
+    private final KillCommandHandler killCommandHandler;
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
@@ -978,7 +981,7 @@ public class IgniteImpl implements Ignite {
         metaStorageMgr.addElectionListener(catalogCompactionRunner::updateCoordinator);
         this.catalogCompactionRunner = catalogCompactionRunner;
 
-        KillCommandHandler killCommandHandler = new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService());
+        killCommandHandler = new KillCommandHandler(name, logicalTopologyService, clusterSvc.messagingService());
 
         lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
                 params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
@@ -1277,6 +1280,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> computeRestFactory = () -> new ComputeRestFactory(compute);
         Supplier<RestFactory> disasterRecoveryFactory = () -> new DisasterRecoveryFactory(disasterRecoveryManager);
         Supplier<RestFactory> systemDisasterRecoveryFactory = () -> new SystemDisasterRecoveryFactory(systemDisasterRecoveryManager);
+        Supplier<RestFactory> sqlQueryRestFactory = () -> new SqlQueryRestFactory(sql, killCommandHandler);
 
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestExtensionConfiguration.KEY).rest();
 
@@ -1290,7 +1294,8 @@ public class IgniteImpl implements Ignite {
                         restManagerFactory,
                         computeRestFactory,
                         disasterRecoveryFactory,
-                        systemDisasterRecoveryFactory
+                        systemDisasterRecoveryFactory,
+                        sqlQueryRestFactory
                 ),
                 restManager,
                 restConfiguration

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.api.kill;
 /**
  * Registry of handlers that can abort a specific operation.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface KillHandlerRegistry {
     /**
      * Registers a kill handler.
@@ -28,4 +27,12 @@ public interface KillHandlerRegistry {
      * @param handler Handler to register.
      */
     void register(OperationKillHandler handler);
+
+    /**
+     * Returns operation kill handler for specified operation type.
+     *
+     * @param type Operation type.
+     * @return Operation kill handler for specified operation type.
+     */
+    OperationKillHandler handler(CancellableOperationType type);
 }

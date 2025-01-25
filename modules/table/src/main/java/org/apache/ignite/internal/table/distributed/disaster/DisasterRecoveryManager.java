@@ -112,6 +112,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -996,7 +997,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         CatalogTableDescriptor tableDescriptor = catalog.table(schemaName, tableName);
 
         if (tableDescriptor == null) {
-            throw new TableNotFoundException(schemaName, tableName);
+            throw new TableNotFoundException(QualifiedNameHelper.fromNormalized(schemaName, tableName));
         }
 
         return tableDescriptor;

@@ -39,8 +39,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.sql.engine.QueryCancel;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
@@ -97,8 +95,6 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private SharedState sharedState = new SharedState();
 
-    private final @Nullable QueryCancel cancel;
-
     /**
      * Constructor.
      *
@@ -112,7 +108,6 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param params Parameters.
      * @param txAttributes Transaction attributes.
      * @param timeZoneId Session time-zone ID.
-     * @param cancel Cancellation handle.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
@@ -125,8 +120,7 @@ public class ExecutionContext<RowT> implements DataContext {
             RowHandler<RowT> handler,
             Map<String, Object> params,
             TxAttributes txAttributes,
-            ZoneId timeZoneId,
-            @Nullable QueryCancel cancel
+            ZoneId timeZoneId
     ) {
         this.expressionFactory = expressionFactory;
         this.executor = executor;
@@ -138,7 +132,6 @@ public class ExecutionContext<RowT> implements DataContext {
         this.originatingNodeName = originatingNodeName;
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
-        this.cancel = cancel;
 
         Instant nowUtc = Instant.now();
         startTs = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
@@ -406,24 +399,6 @@ public class ExecutionContext<RowT> implements DataContext {
 
     public boolean isCancelled() {
         return cancelFlag.get();
-    }
-
-    /**
-     * Schedules a timeout task that is going to complete the given future exceptionally with a {@link QueryCancelledException},
-     * if timeout is set of this context.
-     */
-    public void scheduleTimeout(CompletableFuture<?> fut) {
-        if (cancel == null) {
-            return;
-        }
-
-        cancel.add(timeout -> {
-            if (!timeout) {
-                return;
-            }
-
-            fut.completeExceptionally(new QueryCancelledException(QueryCancelledException.TIMEOUT_MSG));
-        });
     }
 
     /** Creates {@link PartitionProvider} for the given source table. */

@@ -33,6 +33,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
+import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.AssignmentsProvider;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -52,12 +53,14 @@ public class TestCluster implements LifecycleAware {
     private final RunnableX stopClosure;
     private final CatalogManager catalogManager;
     private final ConcurrentMap<String, ScannableTable> dataProvidersByTableName;
+    private final ConcurrentMap<String, UpdatableTable> updatableTablesByName;
     private final ConcurrentMap<String, AssignmentsProvider> assignmentsProvidersByTableName;
     private final ConcurrentMap<String, Long> tablesSize;
 
     TestCluster(
             ConcurrentMap<String, Long> tablesSize,
             ConcurrentMap<String, ScannableTable> dataProvidersByTableName,
+            ConcurrentMap<String, UpdatableTable> updatableTablesByName,
             ConcurrentMap<String, AssignmentsProvider> assignmentsProvidersByTableName,
             Map<String, TestNode> nodeByName,
             CatalogManager catalogManager,
@@ -68,6 +71,7 @@ public class TestCluster implements LifecycleAware {
     ) {
         this.tablesSize = tablesSize;
         this.dataProvidersByTableName = dataProvidersByTableName;
+        this.updatableTablesByName = updatableTablesByName;
         this.assignmentsProvidersByTableName = assignmentsProvidersByTableName;
         this.nodeByName = nodeByName;
         this.components = List.of(
@@ -132,6 +136,10 @@ public class TestCluster implements LifecycleAware {
 
     public void setDataProvider(String tableName, ScannableTable dataProvider) {
         dataProvidersByTableName.put(tableName, dataProvider);
+    }
+
+    public void setUpdatableTable(String tableName, UpdatableTable table) {
+        updatableTablesByName.put(tableName, table);
     }
 
     public void setTableSize(String name, long size) {

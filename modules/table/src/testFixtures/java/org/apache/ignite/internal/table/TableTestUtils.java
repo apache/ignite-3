@@ -48,6 +48,8 @@ import org.jetbrains.annotations.Nullable;
 
 /** Utils to manage tables inside tests. */
 public class TableTestUtils {
+    public static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
+
     /** Table name. */
     public static final String TABLE_NAME = "TEST_TABLE";
 
@@ -194,7 +196,7 @@ public class TableTestUtils {
      * @param timestamp Timestamp.
      */
     public static @Nullable CatalogTableDescriptor getTable(CatalogService catalogService, String tableName, long timestamp) {
-        return catalogService.table(tableName, timestamp);
+        return catalogService.table(DEFAULT_SCHEMA_NAME, tableName, timestamp);
     }
 
     /**
@@ -206,7 +208,7 @@ public class TableTestUtils {
      * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogTableDescriptor getTableStrict(CatalogService catalogService, String tableName, long timestamp) {
-        CatalogTableDescriptor table = catalogService.table(tableName, timestamp);
+        CatalogTableDescriptor table = catalogService.table(DEFAULT_SCHEMA_NAME, tableName, timestamp);
 
         assertNotNull(table, "tableName=" + tableName + ", timestamp=" + timestamp);
 
@@ -287,7 +289,7 @@ public class TableTestUtils {
      * @param timestamp Timestamp.
      */
     public static @Nullable CatalogIndexDescriptor getIndex(CatalogService catalogService, String indexName, long timestamp) {
-        return catalogService.aliveIndex(indexName, timestamp);
+        return catalogService.aliveIndex(SCHEMA_NAME, indexName, timestamp);
     }
 
     /**
@@ -299,7 +301,7 @@ public class TableTestUtils {
      * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogIndexDescriptor getIndexStrict(CatalogService catalogService, String indexName, long timestamp) {
-        CatalogIndexDescriptor index = catalogService.aliveIndex(indexName, timestamp);
+        CatalogIndexDescriptor index = catalogService.aliveIndex(SCHEMA_NAME, indexName, timestamp);
 
         assertNotNull(index, "indexName=" + indexName + ", timestamp=" + timestamp);
 

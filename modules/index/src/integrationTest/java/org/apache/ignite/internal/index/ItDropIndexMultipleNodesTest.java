@@ -239,7 +239,7 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
 
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        return node.catalogManager().aliveIndex(INDEX_NAME, node.clock().nowLong()).id();
+        return node.catalogManager().aliveIndex(SCHEMA_NAME, INDEX_NAME, node.clock().nowLong()).id();
     }
 
     private static void createIndexBlindly() {
