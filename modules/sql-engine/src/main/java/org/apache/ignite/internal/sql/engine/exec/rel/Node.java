@@ -77,10 +77,10 @@ public interface Node<RowT> extends AutoCloseable {
     /**
      * Schedules the given action of this execution node.
      *
-     * @param action Task.
+     * @param task Task.
      * @param onError Error handler.
      */
-    default void execute(RunnableX action, Consumer<Throwable> onError) {
+    default void execute(RunnableX task, Consumer<Throwable> onError) {
         if (this.isClosed()) {
             return;
         }
@@ -90,7 +90,7 @@ public interface Node<RowT> extends AutoCloseable {
             if (this.isClosed()) {
                 return;
             }
-            action.run();
+            task.run();
         }, onError);
     }
 
