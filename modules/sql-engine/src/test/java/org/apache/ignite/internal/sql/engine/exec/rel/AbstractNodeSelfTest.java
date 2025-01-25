@@ -85,7 +85,7 @@ public class AbstractNodeSelfTest extends BaseIgniteAbstractTest {
                 // Add a call to close to check the following scenario:
                 // Node:
                 //   void someTask():
-                //     this.execute(anotherTask, onError)
+                //     this.execute(anotherTask)
                 //     ...
                 //     this.close()
                 //

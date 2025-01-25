@@ -74,7 +74,7 @@ public interface Node<RowT> extends AutoCloseable {
     void rewind();
 
     /**
-     * Schedules the given action of this execution node. If this code was closed, the task is ignored.
+     * Schedules the given action of this execution node. If this node was closed, the task is ignored.
      *
      * @param task Task.
      */
