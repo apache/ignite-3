@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -169,9 +170,8 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
                 SORTED_INDEX_NAME,
                 tableId,
                 false,
-                AVAILABLE,
-                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST)),
-                false
+                REGISTERED,
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
         CatalogHashIndexDescriptor hashIndex = new CatalogHashIndexDescriptor(
@@ -179,9 +179,8 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
                 HASH_INDEX_NAME,
                 tableId,
                 true,
-                AVAILABLE,
-                List.of("STRKEY"),
-                false
+                REGISTERED,
+                List.of("STRKEY")
         );
 
         CatalogIndexDescriptor pkIndex = new CatalogHashIndexDescriptor(
@@ -190,8 +189,7 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
                 tableId,
                 true,
                 AVAILABLE,
-                List.of(pkColumnName),
-                true
+                List.of(pkColumnName)
         );
 
         when(catalogService.table(eq(SCHEMA_NAME), eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);

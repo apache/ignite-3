@@ -88,8 +88,7 @@ public abstract class AbstractChangeIndexStatusCommandValidationTest extends Abs
                                 tableId,
                                 false,
                                 invalidPreviousIndexStatus,
-                                List.of(columnName),
-                                false
+                                List.of(columnName)
                         )
                 },
                 new CatalogSystemViewDescriptor[]{}

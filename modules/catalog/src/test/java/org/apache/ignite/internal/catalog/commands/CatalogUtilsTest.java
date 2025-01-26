@@ -143,8 +143,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 fooIndex.tableId(),
                 fooIndex.unique(),
                 fooIndex.status(),
-                fooIndex.columns(),
-                fooIndex.isCreatedWithTable()
+                fooIndex.columns()
         );
 
         CatalogSchemaDescriptor updatedSchema = replaceIndex(schema, bazIndex);

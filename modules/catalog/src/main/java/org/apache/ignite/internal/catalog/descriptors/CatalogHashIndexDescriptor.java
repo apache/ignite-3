@@ -48,7 +48,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
     public CatalogHashIndexDescriptor(int id, String name, int tableId, boolean unique, List<String> columns) {
-        this(id, name, tableId, unique, CatalogIndexStatus.REGISTERED, columns, INITIAL_CAUSALITY_TOKEN, false);
+        this(id, name, tableId, unique, CatalogIndexStatus.REGISTERED, columns, INITIAL_CAUSALITY_TOKEN);
     }
 
     /**
@@ -60,7 +60,6 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param unique Unique flag.
      * @param status Index status.
      * @param columns A list of indexed columns. Must not contains duplicates.
-     * @param isCreatedWithTable Flag indicating that this index has been created at the same time as its table.
      *
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
@@ -70,10 +69,9 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             int tableId,
             boolean unique,
             CatalogIndexStatus status,
-            List<String> columns,
-            boolean isCreatedWithTable
+            List<String> columns
     ) {
-        this(id, name, tableId, unique, status, columns, INITIAL_CAUSALITY_TOKEN, isCreatedWithTable);
+        this(id, name, tableId, unique, status, columns, INITIAL_CAUSALITY_TOKEN);
     }
 
     /**
@@ -86,7 +84,6 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param status Index status.
      * @param columns A list of indexed columns. Must not contains duplicates.
      * @param causalityToken Token of the update of the descriptor.
-     * @param isCreatedWithTable Flag indicating that this index has been created at the same time as its table.
      *
      * @throws IllegalArgumentException If columns list contains duplicates.
      */
@@ -97,10 +94,9 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             boolean unique,
             CatalogIndexStatus status,
             List<String> columns,
-            long causalityToken,
-            boolean isCreatedWithTable
+            long causalityToken
     ) {
-        super(CatalogIndexDescriptorType.HASH, id, name, tableId, unique, status, causalityToken, isCreatedWithTable);
+        super(CatalogIndexDescriptorType.HASH, id, name, tableId, unique, status, causalityToken);
 
         this.columns = List.copyOf(Objects.requireNonNull(columns, "columns"));
     }
@@ -124,10 +120,11 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             int tableId = input.readVarIntAsInt();
             boolean unique = input.readBoolean();
             CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
-            boolean isCreatedWithTable = input.readBoolean();
+            // Value is ignored, because 'isCreatedWithTable' flag has been removed.
+            input.readBoolean();
             List<String> columns = readStringCollection(input, ArrayList::new);
 
-            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, updateToken, isCreatedWithTable);
+            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, updateToken);
         }
 
         @Override
@@ -138,7 +135,8 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
             output.writeVarInt(descriptor.tableId());
             output.writeBoolean(descriptor.unique());
             output.writeByte(descriptor.status().id());
-            output.writeBoolean(descriptor.isCreatedWithTable());
+            // Value is ignored, because 'isCreatedWithTable' flag has been removed.
+            output.writeBoolean(false);
             writeStringCollection(descriptor.columns(), output);
         }
     }

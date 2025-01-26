@@ -79,9 +79,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
             ));
         }
 
-        return new CatalogSortedIndexDescriptor(
-                indexId, indexName, tableId, unique, status, indexColumnDescriptors, status == CatalogIndexStatus.AVAILABLE
-        );
+        return new CatalogSortedIndexDescriptor(indexId, indexName, tableId, unique, status, indexColumnDescriptors);
     }
 
     private void validate() {

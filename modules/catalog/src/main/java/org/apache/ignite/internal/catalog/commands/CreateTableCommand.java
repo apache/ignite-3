@@ -225,8 +225,7 @@ public class CreateTableCommand extends AbstractTableCommand {
                     tableId,
                     true,
                     AVAILABLE,
-                    indexColumns,
-                    true
+                    indexColumns
             );
         } else if (primaryKey instanceof TableHashPrimaryKey) {
             TableHashPrimaryKey hashPrimaryKey = (TableHashPrimaryKey) primaryKey;
@@ -236,8 +235,7 @@ public class CreateTableCommand extends AbstractTableCommand {
                     tableId,
                     true,
                     AVAILABLE,
-                    hashPrimaryKey.columns(),
-                    true
+                    hashPrimaryKey.columns()
             );
         } else {
             throw new IllegalArgumentException("Unexpected primary key type: " + primaryKey);

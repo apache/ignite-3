@@ -100,8 +100,7 @@ public class RenameIndexEntry implements UpdateEntry {
                 index.tableId(),
                 index.unique(),
                 index.status(),
-                index.columns(),
-                index.isCreatedWithTable()
+                index.columns()
         );
     }
 
@@ -112,8 +111,7 @@ public class RenameIndexEntry implements UpdateEntry {
                 index.tableId(),
                 index.unique(),
                 index.status(),
-                index.columns(),
-                index.isCreatedWithTable()
+                index.columns()
         );
     }
 
