@@ -70,7 +70,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
     }
 
     @Override
-    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status) {
+    protected CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status, boolean createdWithTable) {
         var indexColumnDescriptors = new ArrayList<CatalogIndexColumnDescriptor>(columns.size());
 
         for (int i = 0; i < columns.size(); i++) {
@@ -80,7 +80,7 @@ public class CreateSortedIndexCommand extends AbstractCreateIndexCommand {
         }
 
         return new CatalogSortedIndexDescriptor(
-                indexId, indexName, tableId, unique, status, indexColumnDescriptors, status == CatalogIndexStatus.AVAILABLE
+                indexId, indexName, tableId, unique, status, indexColumnDescriptors, createdWithTable
         );
     }
 

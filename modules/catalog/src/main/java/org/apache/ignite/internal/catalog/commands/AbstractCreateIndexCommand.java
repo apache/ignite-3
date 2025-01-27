@@ -75,7 +75,8 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         return ifNotExists;
     }
 
-    protected abstract CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status);
+    protected abstract CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status,
+            boolean createdWithTable);
 
     @Override
     public List<UpdateEntry> get(UpdateContext context) {
@@ -99,12 +100,14 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
             throw new CatalogValidationException("Unique index must include all colocation columns");
         }
 
-        CatalogIndexStatus status = context.baseCatalog().table(table.id()) == null
+        boolean indexCreatedWithTable = context.baseCatalog().table(table.id()) == null;
+
+        CatalogIndexStatus status = indexCreatedWithTable
                 ? CatalogIndexStatus.AVAILABLE
                 : CatalogIndexStatus.REGISTERED;
 
         return List.of(
-                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id(), status)),
+                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id(), status, indexCreatedWithTable)),
                 new ObjectIdGenUpdateEntry(1)
         );
     }
