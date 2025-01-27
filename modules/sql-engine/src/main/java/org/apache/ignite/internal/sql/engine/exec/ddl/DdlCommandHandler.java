@@ -132,32 +132,27 @@ public class DdlCommandHandler implements LifecycleAware {
 
     /** Handles rename zone command. */
     private CompletableFuture<@Nullable Long> handleRenameZone(RenameZoneCommand cmd) {
-        return catalogManager.execute(cmd)
-                .handle(handleModificationResult());
+        return catalogManager.execute(cmd).handle(handleModificationResult());
     }
 
     /** Handles alter zone command. */
     private CompletableFuture<@Nullable Long> handleAlterZone(AlterZoneCommand cmd) {
-        return catalogManager.execute(cmd)
-                .handle(handleModificationResult());
+        return catalogManager.execute(cmd).handle(handleModificationResult());
     }
 
     /** Handles alter zone set default command. */
     private CompletableFuture<@Nullable Long> handleAlterZoneSetDefault(AlterZoneSetDefaultCommand cmd) {
-        return catalogManager.execute(cmd)
-                .handle(handleModificationResult());
+        return catalogManager.execute(cmd).handle(handleModificationResult());
     }
 
     /** Handles drop distribution zone command. */
     private CompletableFuture<@Nullable Long> handleDropZone(DropZoneCommand cmd) {
-        return catalogManager.execute(cmd)
-                .handle(handleModificationResult());
+        return catalogManager.execute(cmd).handle(handleModificationResult());
     }
 
     /** Handles create table command. */
     private CompletableFuture<@Nullable Long> handleCreateTable(CreateTableCommand cmd) {
-        return catalogManager.execute(cmd)
-                .handle(handleModificationResult());
+        return catalogManager.execute(cmd).handle(handleModificationResult());
     }
 
     /** Handles drop table command. */
@@ -183,26 +178,23 @@ public class DdlCommandHandler implements LifecycleAware {
     /** Handles create index command. */
     private CompletableFuture<@Nullable Long> handleCreateIndex(AbstractCreateIndexCommand cmd) {
         return catalogManager.execute(cmd)
-                .thenCompose(catalogVersion -> inBusyLock(busyLock, () -> waitTillIndexBecomesAvailableOrRemoved(cmd, catalogVersion)))
+                .thenCompose(applyResult -> inBusyLock(busyLock, () -> waitTillIndexBecomesAvailableOrRemoved(cmd, applyResult)))
                 .handle(handleModificationResult());
     }
 
     /** Handles drop index command. */
     private CompletableFuture<@Nullable Long> handleDropIndex(DropIndexCommand cmd) {
-        return catalogManager.execute(cmd)
-                .handle(handleModificationResult());
+        return catalogManager.execute(cmd).handle(handleModificationResult());
     }
 
     /** Handles create schema command. */
     private CompletableFuture<Long> handleCreateSchema(CreateSchemaCommand cmd) {
-        return catalogManager.execute(cmd)
-                .handle(handleModificationResult());
+        return catalogManager.execute(cmd).handle(handleModificationResult());
     }
 
     /** Handles drop schema command. */
     private CompletableFuture<Long> handleDropSchema(DropSchemaCommand cmd) {
-        return catalogManager.execute(cmd)
-                .handle(handleModificationResult());
+        return catalogManager.execute(cmd).handle(handleModificationResult());
     }
 
     private BiFunction<CatalogApplyResult, Throwable, @Nullable Long> handleModificationResult() {
@@ -212,7 +204,7 @@ public class DdlCommandHandler implements LifecycleAware {
 
                 assert catalog != null;
 
-                return catalog.time();
+                return applyResult.isApplied() ? catalog.time() : null;
             }
 
             throw (err instanceof RuntimeException) ? (RuntimeException) err : new CompletionException(err);
@@ -223,6 +215,10 @@ public class DdlCommandHandler implements LifecycleAware {
             AbstractCreateIndexCommand cmd,
             CatalogApplyResult catalogApplyResult
     ) {
+        if(!catalogApplyResult.isApplied()) {
+            return CompletableFuture.completedFuture(catalogApplyResult);
+        }
+
         CompletableFuture<Void> future = inFlightFutures.registerFuture(new CompletableFuture<>());
 
         int creationCatalogVersion = catalogApplyResult.getCatalogVersion();
