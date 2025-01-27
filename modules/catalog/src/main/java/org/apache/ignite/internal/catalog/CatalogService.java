@@ -41,6 +41,7 @@ import org.jetbrains.annotations.Nullable;
  * @see CatalogEvent Full list of events, which is fired by the catalog service.
  * @see CatalogManager The manager, which provides catalog manipulation methods and is responsible for managing distributed operations.
  */
+// TODO https://issues.apache.org/jira/browse/IGNITE-24322: Fix links to the SchemaSyncService class in javadocs.
 public interface CatalogService extends EventProducer<CatalogEvent, CatalogEventParameters> {
     /** System schema name. */
     String SYSTEM_SCHEMA_NAME = "SYSTEM";
@@ -70,6 +71,7 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      * @param catalogVersion The version of the catalog to retrieve.
      * @return The catalog for the specified version, or {@code null} if not found.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24321: Get rid of @Nullable annotation and describe the @thrown exception.
     @Nullable Catalog catalog(int catalogVersion);
 
     /**
