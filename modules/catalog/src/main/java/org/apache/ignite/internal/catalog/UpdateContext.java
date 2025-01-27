@@ -44,8 +44,11 @@ public class UpdateContext {
 
     /**
      * Returns the catalog descriptor on the basis of which the command generates the list of updates.
-     * In the case of batch processing, this catalog instance contains the updates made by previous
+     *
+     * <p>In the case of batch processing, this catalog instance contains the updates made by previous
      * commands in the batch.
+     *
+     * @return Catalog descriptor.
      */
     public Catalog catalog() {
         return updatableCatalog;
