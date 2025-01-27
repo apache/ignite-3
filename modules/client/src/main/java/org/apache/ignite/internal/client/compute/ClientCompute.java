@@ -466,7 +466,7 @@ public class ClientCompute implements IgniteCompute {
             }
 
             ClientTable clientTable = (ClientTable) t;
-            tableCache.put(t.name(), clientTable);
+            tableCache.put(t.qualifiedName(), clientTable);
 
             return clientTable;
         });

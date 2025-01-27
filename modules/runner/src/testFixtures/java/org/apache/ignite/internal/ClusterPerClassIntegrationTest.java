@@ -172,7 +172,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     /** Drops all visible tables. */
     protected static void dropAllTables() {
         for (Table t : CLUSTER.aliveNode().tables().tables()) {
-            sql("DROP TABLE " + t.name().toCanonicalForm());
+            sql("DROP TABLE " + t.name());
         }
     }
 

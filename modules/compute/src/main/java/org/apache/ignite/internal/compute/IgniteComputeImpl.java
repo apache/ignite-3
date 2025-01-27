@@ -470,10 +470,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         return topologyService.getById(replicaMeta.getLeaseholderId());
                     }
 
-                    String tableName = table.name().toCanonicalForm();
                     throw new ComputeException(
                             Compute.PRIMARY_REPLICA_RESOLVE_ERR,
-                            "Can not find primary replica for [table=" + tableName + ", partition=" + partitionIndex + "]."
+                            "Can not find primary replica for [table=" + table.name() + ", partition=" + partitionIndex + "]."
                     );
                 });
     }

@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -90,8 +91,8 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -353,6 +354,26 @@ public class TestBuilders {
         ClusterBuilder nodes(String firstNodeName, String... otherNodeNames);
 
         /**
+         * A decorator to wrap {@link CatalogManager} instance which will be used in the test cluster.
+         *
+         * <p>May be used to slow down or ignore certain catalog commands.
+         *
+         * @param decorator A decorator function which accepts original manager and returns decorated one.
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder catalogManagerDecorator(Function<CatalogManager, CatalogManager> decorator);
+
+        /**
+         * Sets desired handlers for operation cancellation.
+         *
+         * <p>Cannot be used to cancel operation on test cluster, but may serve as mock.
+         *
+         * @param handlers The handlers to set.
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder operationKillHandlers(OperationKillHandler... handlers);
+
+        /**
          * Creates a table builder to add to the cluster.
          *
          * @return An instance of table builder.
@@ -526,9 +547,6 @@ public class TestBuilders {
         /** Sets the dynamic parameters this fragment will be executed with. */
         ExecutionContextBuilder dynamicParameters(Object... params);
 
-        /** Sets the query cancellation procedure. */
-        ExecutionContextBuilder queryCancel(QueryCancel queryCancel);
-
         /**
          * Builds the context object.
          *
@@ -544,7 +562,6 @@ public class TestBuilders {
         private QueryTaskExecutor executor = null;
         private ClusterNode node = null;
         private Object[] dynamicParams = ArrayUtils.OBJECT_EMPTY_ARRAY;
-        private QueryCancel queryCancel = null;
 
         /** {@inheritDoc} */
         @Override
@@ -587,13 +604,6 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public ExecutionContextBuilder queryCancel(QueryCancel queryCancel) {
-            this.queryCancel = queryCancel;
-            return this;
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public ExecutionContext<Object[]> build() {
             return new ExecutionContext<>(
                     new ExpressionFactoryImpl<>(
@@ -607,8 +617,7 @@ public class TestBuilders {
                     ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),
                     TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
-                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
-                    queryCancel
+                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
             );
         }
     }
@@ -620,6 +629,9 @@ public class TestBuilders {
         private final Map<String, Set<String>> nodeName2SystemView = new HashMap<>();
 
         private long planningTimeout = TimeUnit.SECONDS.toMillis(15);
+        private Function<CatalogManager, CatalogManager> catalogManagerDecorator = Function.identity();
+        private OperationKillHandler @Nullable [] killHandlers = null;
+
         private @Nullable DefaultDataProvider defaultDataProvider = null;
         private @Nullable DefaultAssignmentsProvider defaultAssignmentsProvider = null;
 
@@ -630,6 +642,22 @@ public class TestBuilders {
 
             nodeNames.add(firstNodeName);
             nodeNames.addAll(Arrays.asList(otherNodeNames));
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterBuilder catalogManagerDecorator(Function<CatalogManager, CatalogManager> decorator) {
+            this.catalogManagerDecorator = Objects.requireNonNull(decorator);
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterBuilder operationKillHandlers(OperationKillHandler... handlers) {
+            this.killHandlers = handlers;
 
             return this;
         }
@@ -682,7 +710,9 @@ public class TestBuilders {
             var clusterName = "test_cluster";
 
             HybridClock clock = new HybridClockImpl();
-            CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock);
+            CatalogManager catalogManager = catalogManagerDecorator.apply(
+                    CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock)
+            );
 
             var parserService = new ParserServiceImpl();
 
@@ -735,6 +765,7 @@ public class TestBuilders {
                     .collect(Collectors.toList());
 
             ConcurrentMap<String, ScannableTable> dataProvidersByTableName = new ConcurrentHashMap<>();
+            ConcurrentMap<String, UpdatableTable> updatableTablesByName = new ConcurrentHashMap<>();
             ConcurrentMap<String, AssignmentsProvider> assignmentsProviderByTableName = new ConcurrentHashMap<>();
 
             assignmentsProviderByTableName.put(
@@ -787,10 +818,12 @@ public class TestBuilders {
                                                 dataProvidersByTableName,
                                                 defaultDataProvider != null ? defaultDataProvider::get : null
                                         ),
+                                        updatableTablesByName::get,
                                         schemaManager
                                 ),
                                 ddlHandler,
-                                systemViewManager
+                                systemViewManager,
+                                killHandlers
                         );
                     })
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
@@ -798,6 +831,7 @@ public class TestBuilders {
             return new TestCluster(
                     tablesSize,
                     dataProvidersByTableName,
+                    updatableTablesByName,
                     assignmentsProviderByTableName,
                     nodes,
                     catalogManager,
@@ -1438,11 +1472,17 @@ public class TestBuilders {
     }
 
     private static class TestExecutableTableRegistry implements ExecutableTableRegistry {
-        private final Function<String, ScannableTable> tablesByName;
+        private final Function<String, ScannableTable> scannableTablesByName;
+        private final Function<String, UpdatableTable> updatableTablesByName;
         private final SqlSchemaManager schemaManager;
 
-        TestExecutableTableRegistry(Function<String, ScannableTable> tablesByName, SqlSchemaManager schemaManager) {
-            this.tablesByName = tablesByName;
+        TestExecutableTableRegistry(
+                Function<String, ScannableTable> scannableTablesByName,
+                Function<String, UpdatableTable> updatableTablesByName,
+                SqlSchemaManager schemaManager
+        ) {
+            this.scannableTablesByName = scannableTablesByName;
+            this.updatableTablesByName = updatableTablesByName;
             this.schemaManager = schemaManager;
         }
 
@@ -1455,7 +1495,7 @@ public class TestBuilders {
             return new ExecutableTable() {
                 @Override
                 public ScannableTable scannableTable() {
-                    ScannableTable scannableTable = tablesByName.apply(table.name());
+                    ScannableTable scannableTable = scannableTablesByName.apply(table.name());
 
                     assert scannableTable != null;
 
@@ -1468,7 +1508,21 @@ public class TestBuilders {
                         return Blackhole.INSTANCE;
                     }
 
-                    throw new UnsupportedOperationException();
+                    UpdatableTable updatableTable = updatableTablesByName.apply(table.name());
+
+                    assert updatableTable != null;
+
+                    return (UpdatableTable) Proxy.newProxyInstance(
+                            getClass().getClassLoader(),
+                            new Class<?> [] {UpdatableTable.class},
+                            (proxy, method, args) -> {
+                                if ("descriptor".equals(method.getName())) {
+                                    return table.descriptor();
+                                }
+
+                                return method.invoke(updatableTable, args); 
+                            }
+                    );
                 }
 
                 @Override

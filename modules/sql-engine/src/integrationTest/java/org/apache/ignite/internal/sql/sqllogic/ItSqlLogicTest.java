@@ -300,7 +300,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
     private void beforeTest() {
         if (RESTART_CLUSTER != RestartMode.TEST) {
             for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
-                try (ResultSet rs = CLUSTER_NODES.get(0).sql().execute(null, "DROP TABLE " + t.name().toCanonicalForm())) {
+                try (ResultSet rs = CLUSTER_NODES.get(0).sql().execute(null, "DROP TABLE " + t.name())) {
                     assertTrue(rs.wasApplied());
                 }
             }

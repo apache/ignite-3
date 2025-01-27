@@ -146,7 +146,7 @@ public class ScriptTransactionContext implements QueryTransactionContext {
         }
     }
 
-    /** Closes all associated cursors and rolls back the script-driven transaction. */
+    /** Rolls back the script-driven transaction. */
     public void onError(Throwable t) {
         ScriptTransactionWrapperImpl txWrapper = wrapper;
 

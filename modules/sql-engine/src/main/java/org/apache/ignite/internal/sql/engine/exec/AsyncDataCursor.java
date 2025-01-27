@@ -43,4 +43,17 @@ public interface AsyncDataCursor<T> extends AsyncCursor<T> {
      * @return A future representing result of operation.
      */
     CompletableFuture<Void> onFirstPageReady();
+
+    /** Terminates the query related to this cursor with provided reason. */
+    CompletableFuture<Void> cancelAsync(CancellationReason reason);
+
+    /** Reason of cancellation. */
+    enum CancellationReason {
+        /** User's request. This reason denotes normal completion of an execution. */
+        CLOSE,
+        /** Execution must be terminated abruptly due to an external request or an error. */
+        CANCEL,
+        /** Execution must be terminated abruptly due to specified timeout. */
+        TIMEOUT
+    }
 }
