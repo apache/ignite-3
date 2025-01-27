@@ -52,7 +52,7 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
-import org.apache.ignite.raft.jraft.util.BytesUtil;
+import org.apache.ignite.raft.jraft.util.BytesUtil;import org.jetbrains.annotations.Nullable;
 
 /**
  * Process action request.
@@ -190,9 +190,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             }
 
             @Override
-            public HybridTimestamp safeTimestamp() {
-                assert safeTs != null;
-
+            public @Nullable HybridTimestamp safeTimestamp() {
                 return safeTs;
             }
 
@@ -205,7 +203,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
 
             @Override
             public void safeTime(HybridTimestamp safeTs) {
-                assert this.safeTs == null : "Closure can be patched only once";
+                assert this.safeTs == null : "Safe time can be set only once";
                 // Apply binary patch.
                 node.getOptions().getCommandsMarshaller().patch(wrapper, safeTs);
                 // Avoid modifying WriteCommand object, because it's shared between raft pipeline threads.

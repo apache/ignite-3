@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.service;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The marker interface for a safe time aware command closure.
@@ -30,7 +31,7 @@ public interface SafeTimeAwareCommandClosure extends CommandClosure<WriteCommand
      * @return The timestamp.
      */
     @Override
-    HybridTimestamp safeTimestamp();
+    @Nullable HybridTimestamp safeTimestamp();
 
     /**
      * Set the safe time.
