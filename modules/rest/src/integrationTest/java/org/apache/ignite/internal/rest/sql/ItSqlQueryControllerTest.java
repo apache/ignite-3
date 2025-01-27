@@ -19,8 +19,10 @@ package org.apache.ignite.internal.rest.sql;
 
 import static io.micronaut.http.HttpRequest.DELETE;
 import static io.micronaut.http.HttpStatus.NOT_FOUND;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.rest.matcher.MicronautHttpResponseMatcher.assertThrowsProblem;
 import static org.apache.ignite.internal.rest.matcher.ProblemMatcher.isProblem;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.is;
@@ -39,10 +41,12 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.sql.SqlQueryInfo;
+import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -55,6 +59,11 @@ public class ItSqlQueryControllerTest extends ClusterPerClassIntegrationTest {
     @Inject
     @Client("http://localhost:10300" + SQL_QUERY_URL)
     HttpClient client;
+
+    @BeforeAll
+    void beforeAll() {
+        await(((SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager()).completeRegistration());
+    }
 
     @Test
     void shouldReturnAllSqlQueries() {
