@@ -20,38 +20,44 @@ package org.apache.ignite.internal.catalog;
 import java.util.function.Function;
 
 /**
- * Context contains two versions of the catalog: the original and the modified.
- * The original (source) version of a catalog can be used by a command from a
- * batch to determine whether certain changes have been made to the catalog
- * during processing of the current batch of commands.
+ * Context contains two instances of the catalog: the base one and the updated one.
+ *
+ * <p>During batch command processing, changes are generated and applied to
+ * the updated instance. The base catalog instance can be used by a command
+ * to determine whether certain changes have been made to the catalog during
+ * processing of the current batch of commands.
  *
  * @see BulkUpdateProducer
  */
 public class UpdateContext {
-    /** Source catalog descriptor. */
-    private final Catalog originalCatalog;
+    /** The base catalog descriptor. */
+    private final Catalog baseCatalog;
 
-    /** Catalog descriptor on the basis of which to generate the list of updates. */
-    private Catalog updatedCatalog;
+    /** The updatable catalog descriptor. */
+    private Catalog updatableCatalog;
 
     /** Constructor. */
     public UpdateContext(Catalog catalog) {
-        this.originalCatalog = catalog;
-        this.updatedCatalog = catalog;
+        this.baseCatalog = catalog;
+        this.updatableCatalog = catalog;
     }
 
-    /** Returns catalog descriptor. */
+    /**
+     * Returns the catalog descriptor on the basis of which the command generates the list of updates.
+     * In the case of batch processing, this catalog instance contains the updates made by previous
+     * commands in the batch.
+     */
     public Catalog catalog() {
-        return updatedCatalog;
+        return updatableCatalog;
     }
 
-    /** Returns source catalog before applying updates from batch. */
+    /** Returns base catalog as it was before any updates from the batch were applied. */
     public Catalog baseCatalog() {
-        return originalCatalog;
+        return baseCatalog;
     }
 
     /** Applies specified action to the catalog. */
     public void updateCatalog(Function<Catalog, Catalog> updater) {
-        updatedCatalog = updater.apply(updatedCatalog);
+        updatableCatalog = updater.apply(updatableCatalog);
     }
 }
