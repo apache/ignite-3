@@ -68,7 +68,6 @@ public class TestIgnitionManager {
             "ignite.storage.profiles.default_aimem.maxSize", Integer.toString(256 * MiB),
             "ignite.storage.profiles.default.engine", "aipersist",
             "ignite.storage.profiles.default.size", Integer.toString(256 * MiB),
-            "ignite.system.properties." + HeapLockManager.RAW_SLOTS_MAX_SIZE_PROPERTY_NAME, toDoubleQuotedString(16 * 1024),
             "ignite.system.properties." + HeapLockManager.LOCK_MAP_SIZE_PROPERTY_NAME, toDoubleQuotedString(16 * 1024)
     );
 

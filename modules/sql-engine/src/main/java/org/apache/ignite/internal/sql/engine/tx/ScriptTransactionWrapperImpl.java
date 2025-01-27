@@ -20,9 +20,7 @@ package org.apache.ignite.internal.sql.engine.tx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -31,9 +29,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -58,7 +56,7 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
     private final CompletableFuture<Void> txFinishFuture = new CompletableFuture<>();
 
     /** Opened cursors that must be closed before the transaction can complete. */
-    private final Map<UUID, CompletableFuture<? extends AsyncCursor<?>>> openedCursors = new HashMap<>();
+    private final Map<UUID, CompletableFuture<? extends AsyncDataCursor<?>>> openedCursors = new HashMap<>();
 
     private final Object mux = new Object();
 
@@ -87,8 +85,6 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
     @Override
     public CompletableFuture<Void> rollback(Throwable cause) {
-        Collection<CompletableFuture<? extends AsyncCursor<?>>> cursorsToClose;
-
         synchronized (mux) {
             if (rollbackCause != null) {
                 return txFinishFuture;
@@ -96,17 +92,6 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
 
             rollbackCause = cause;
             txState = State.ROLLBACK;
-
-            cursorsToClose = List.copyOf(openedCursors.values());
-        }
-
-        // Close all associated cursors on error.
-        for (CompletableFuture<? extends AsyncCursor<?>> fut : cursorsToClose) {
-            fut.whenComplete((cursor, ex) -> {
-                if (cursor != null) {
-                    cursor.closeAsync();
-                }
-            });
         }
 
         completeTx();
