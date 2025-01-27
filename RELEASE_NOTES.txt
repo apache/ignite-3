@@ -11,10 +11,12 @@ built on up-to-date technologies and designed from scratch to answer modern data
 The main feature set of Ignite 3 In-Memory Distributed Database includes:
 
 * Apache Calcite-based SQL engine
-* Distributed computing capabilities
-* Extensive REST API
-* HOCON-based dynamic configuration
-* Improved management and control tools
+* OpenAPI-compatible REST API
+* Dynamic configuration with HOCON support
+* Improved cluster management and control tools
 * Improved transaction protocol
-* RAFT-based architecture
-* SQL-first table management
+* Consensus-based architecture with Raft algorithm
+* Streamlined table and schema management
+
+
+
