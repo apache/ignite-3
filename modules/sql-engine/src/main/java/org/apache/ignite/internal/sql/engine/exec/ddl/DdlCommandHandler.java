@@ -271,7 +271,7 @@ public class DdlCommandHandler implements LifecycleAware {
         // explicitly.
         int latestVersion = catalogManager.latestCatalogVersion();
         for (int version = creationCatalogVersion + 1; version <= latestVersion; version++) {
-            CatalogIndexDescriptor indexAtVersion = catalogManager.index(index.id(), version);
+            CatalogIndexDescriptor indexAtVersion = catalogManager.catalog(version).index(index.id());
             if (indexAtVersion == null) {
                 // It's already removed.
                 future.complete(null);

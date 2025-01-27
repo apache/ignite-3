@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.index;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
@@ -107,14 +108,15 @@ public class IndexUtils {
         var indexIds = new IntOpenHashSet();
 
         for (int catalogVersion = latestCatalogVersion; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
-            CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
+            Catalog catalog = catalogService.catalog(catalogVersion);
+            CatalogTableDescriptor tableDescriptor = catalog.table(tableId);
 
             if (tableDescriptor == null) {
                 continue;
             }
 
             int ver0 = catalogVersion;
-            catalogService.indexes(catalogVersion, tableId).stream()
+            catalog.indexes(tableId).stream()
                     .filter(idx -> ver0 == latestCatalogVersion || idx.status() == CatalogIndexStatus.AVAILABLE) // Alive index
                     .filter(idx -> indexIds.add(idx.id())) // Filter duplicates
                     .forEach(idx -> registerIndexToTable(table, tableDescriptor, idx, partitionSet, schemaRegistry));

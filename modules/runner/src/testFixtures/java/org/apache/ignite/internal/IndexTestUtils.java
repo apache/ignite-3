@@ -18,12 +18,14 @@
 package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.sql.SqlCommon;
 
 /**
  * Utils to help to work with indexes in integration tests.
@@ -39,9 +41,11 @@ public class IndexTestUtils {
      */
     public static void waitForIndexToAppearInAnyState(String indexName, Ignite ignite) throws InterruptedException {
         IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
+        HybridClock clock = igniteImpl.clock();
+        CatalogManager catalogManager = igniteImpl.catalogManager();
 
         assertTrue(waitForCondition(
-                () -> igniteImpl.catalogManager().aliveIndex(DEFAULT_SCHEMA_NAME, indexName, igniteImpl.clock().nowLong()) != null,
+                () -> catalogManager.activeCatalog(clock.nowLong()).aliveIndex(SqlCommon.DEFAULT_SCHEMA_NAME, indexName) != null,
                 10_000
         ));
     }

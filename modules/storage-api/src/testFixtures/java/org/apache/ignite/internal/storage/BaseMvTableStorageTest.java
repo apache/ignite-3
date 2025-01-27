@@ -28,14 +28,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
-import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
@@ -89,20 +87,18 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
 
     protected StorageIndexDescriptor pkIdx;
 
-    protected final CatalogService catalogService = mock(CatalogService.class);
+    protected final Catalog catalog = mock(Catalog.class);
 
     protected final StorageIndexDescriptorSupplier indexDescriptorSupplier = new StorageIndexDescriptorSupplier() {
         @Override
         public @Nullable StorageIndexDescriptor get(int indexId) {
-            int catalogVersion = catalogService.latestCatalogVersion();
-
-            CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
+            CatalogIndexDescriptor indexDescriptor = catalog.index(indexId);
 
             if (indexDescriptor == null) {
                 return null;
             }
 
-            CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), catalogVersion);
+            CatalogTableDescriptor tableDescriptor = catalog.table(indexDescriptor.tableId());
 
             assertThat(tableDescriptor, is(notNullValue()));
 
@@ -135,7 +131,7 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
     /** Creates a table storage instance for testing. */
     protected abstract MvTableStorage createMvTableStorage();
 
-    private static void createTestTableAndIndexes(CatalogService catalogService) {
+    private static void createTestTableAndIndexes(Catalog catalog) {
         int id = 0;
 
         int schemaId = id++;
@@ -194,15 +190,15 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
                 true
         );
 
-        when(catalogService.table(eq(SCHEMA_NAME), eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
-        when(catalogService.aliveIndex(eq(SCHEMA_NAME), eq(SORTED_INDEX_NAME), anyLong())).thenReturn(sortedIndex);
-        when(catalogService.aliveIndex(eq(SCHEMA_NAME), eq(HASH_INDEX_NAME), anyLong())).thenReturn(hashIndex);
-        when(catalogService.aliveIndex(eq(SCHEMA_NAME), eq(PK_INDEX_NAME), anyLong())).thenReturn(pkIndex);
+        when(catalog.table(eq(SCHEMA_NAME), eq(TABLE_NAME))).thenReturn(tableDescriptor);
+        when(catalog.aliveIndex(eq(SCHEMA_NAME), eq(SORTED_INDEX_NAME))).thenReturn(sortedIndex);
+        when(catalog.aliveIndex(eq(SCHEMA_NAME), eq(HASH_INDEX_NAME))).thenReturn(hashIndex);
+        when(catalog.aliveIndex(eq(SCHEMA_NAME), eq(PK_INDEX_NAME))).thenReturn(pkIndex);
 
-        when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
-        when(catalogService.index(eq(sortedIndexId), anyInt())).thenReturn(sortedIndex);
-        when(catalogService.index(eq(hashIndexId), anyInt())).thenReturn(hashIndex);
-        when(catalogService.index(eq(pkIndexId), anyInt())).thenReturn(pkIndex);
+        when(catalog.table(eq(tableId))).thenReturn(tableDescriptor);
+        when(catalog.index(eq(sortedIndexId))).thenReturn(sortedIndex);
+        when(catalog.index(eq(hashIndexId))).thenReturn(hashIndex);
+        when(catalog.index(eq(pkIndexId))).thenReturn(pkIndex);
     }
 
     protected static <T> List<T> getAll(Cursor<T> cursor) {
@@ -217,16 +213,16 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
      * <p>This method *MUST* always be called in either subclass' constructor or setUp method.
      */
     protected final void initialize() {
-        createTestTableAndIndexes(catalogService);
+        createTestTableAndIndexes(catalog);
 
         this.tableStorage = createMvTableStorage();
 
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor catalogTableDescriptor = catalog.table(SCHEMA_NAME, TABLE_NAME);
         assertNotNull(catalogTableDescriptor);
 
-        CatalogIndexDescriptor catalogSortedIndexDescriptor = catalogService.aliveIndex(SCHEMA_NAME, SORTED_INDEX_NAME, clock.nowLong());
-        CatalogIndexDescriptor catalogHashIndexDescriptor = catalogService.aliveIndex(SCHEMA_NAME, HASH_INDEX_NAME, clock.nowLong());
-        CatalogIndexDescriptor catalogPkIndexDescriptor = catalogService.aliveIndex(SCHEMA_NAME, PK_INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor catalogSortedIndexDescriptor = catalog.aliveIndex(SCHEMA_NAME, SORTED_INDEX_NAME);
+        CatalogIndexDescriptor catalogHashIndexDescriptor = catalog.aliveIndex(SCHEMA_NAME, HASH_INDEX_NAME);
+        CatalogIndexDescriptor catalogPkIndexDescriptor = catalog.aliveIndex(SCHEMA_NAME, PK_INDEX_NAME);
 
         assertNotNull(catalogSortedIndexDescriptor);
         assertNotNull(catalogHashIndexDescriptor);

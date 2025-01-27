@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
@@ -42,11 +41,7 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.Fireable;
@@ -85,8 +80,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     /** Safe time to wait before new Catalog version activation. */
     static final int DEFAULT_DELAY_DURATION = 0;
-
-    static final int DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD = 0;
 
     /**
      * Initial update token for a catalog descriptor, this token is valid only before the first call of
@@ -192,112 +185,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable CatalogTableDescriptor table(String schemaName, String tableName, long timestamp) {
-        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(schemaName);
-        if (schema == null) {
-            return null;
-        }
-        return schema.table(tableName);
-    }
-
-    @Override
-    public @Nullable CatalogTableDescriptor table(int tableId, long timestamp) {
-        return catalogAt(timestamp).table(tableId);
-    }
-
-    @Override
-    public @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion) {
-        return catalog(catalogVersion).table(tableId);
-    }
-
-    @Override
-    public Collection<CatalogTableDescriptor> tables(int catalogVersion) {
-        return catalog(catalogVersion).tables();
-    }
-
-    @Override
-    public @Nullable CatalogIndexDescriptor aliveIndex(String schemaName, String indexName, long timestamp) {
-        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(schemaName);
-        if (schema == null) {
-            return null;
-        }
-        return schema.aliveIndex(indexName);
-    }
-
-    @Override
-    public @Nullable CatalogIndexDescriptor index(int indexId, long timestamp) {
-        return catalogAt(timestamp).index(indexId);
-    }
-
-    @Override
-    public @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion) {
-        return catalog(catalogVersion).index(indexId);
-    }
-
-    @Override
-    public Collection<CatalogIndexDescriptor> indexes(int catalogVersion) {
-        return catalog(catalogVersion).indexes();
-    }
-
-    @Override
-    public List<CatalogIndexDescriptor> indexes(int catalogVersion, int tableId) {
-        return catalog(catalogVersion).indexes(tableId);
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor schema(int catalogVersion) {
-        return schema(SqlCommon.DEFAULT_SCHEMA_NAME, catalogVersion);
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor schema(String schemaName, int catalogVersion) {
-        Catalog catalog = catalog(catalogVersion);
-
-        if (catalog == null) {
-            return null;
-        }
-
-        return catalog.schema(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName);
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor schema(int schemaId, int catalogVersion) {
-        Catalog catalog = catalog(catalogVersion);
-
-        return catalog == null ? null : catalog.schema(schemaId);
-    }
-
-    @Override
-    public @Nullable CatalogZoneDescriptor zone(String zoneName, long timestamp) {
-        return catalogAt(timestamp).zone(zoneName);
-    }
-
-    @Override
-    public @Nullable CatalogZoneDescriptor zone(int zoneId, long timestamp) {
-        return catalogAt(timestamp).zone(zoneId);
-    }
-
-    @Override
-    public @Nullable CatalogZoneDescriptor zone(int zoneId, int catalogVersion) {
-        return catalog(catalogVersion).zone(zoneId);
-    }
-
-    @Override
-    public Collection<CatalogZoneDescriptor> zones(int catalogVersion) {
-        return catalog(catalogVersion).zones();
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor activeSchema(long timestamp) {
-        return catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
-    }
-
-    @Override
-    public @Nullable CatalogSchemaDescriptor activeSchema(String schemaName, long timestamp) {
-        return catalogAt(timestamp).schema(schemaName == null ? SqlCommon.DEFAULT_SCHEMA_NAME : schemaName);
-    }
-
-    @Override
     public int activeCatalogVersion(long timestamp) {
         return catalogAt(timestamp).version();
     }
@@ -325,6 +212,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public @Nullable Catalog catalog(int catalogVersion) {
         return catalogByVer.get(catalogVersion);
+    }
+
+    @Override
+    public Catalog activeCatalog(long timestamp) {
+        return catalogAt(timestamp);
     }
 
     private Catalog catalogAt(long timestamp) {
