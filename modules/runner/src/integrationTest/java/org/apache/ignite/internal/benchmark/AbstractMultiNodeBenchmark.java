@@ -209,7 +209,7 @@ public class AbstractMultiNodeBenchmark {
                 + "  rest.port: {},\n"
                 + "  raft.fsync = " + fsync() + ",\n"
                 + "  system.partitionsLogPath = \"" + logPath() + "\",\n"
-                + "  failureHandler.handler: {\n" 
+                + "  failureHandler.handler: {\n"
                 + "      type: \"" + StopNodeOrHaltFailureHandlerConfigurationSchema.TYPE + "\",\n"
                 + "      tryStop: true,\n"
                 + "      timeoutMillis: 60000,\n" // 1 minute for graceful shutdown
