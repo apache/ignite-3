@@ -35,6 +35,7 @@ public interface SafeTimePropagatingCommand extends WriteCommand {
      */
     @Transient
     @WithSetter
+    @Override
     @Nullable HybridTimestamp safeTime();
 
     /**

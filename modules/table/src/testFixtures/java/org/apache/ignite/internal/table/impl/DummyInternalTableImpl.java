@@ -78,6 +78,7 @@ import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -352,7 +353,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
                         long commandIndex = raftIndex.incrementAndGet();
 
-                        HybridTimestamp safeTs = CLOCK.now();
+                        HybridTimestamp safeTs = cmd instanceof SafeTimePropagatingCommand ? CLOCK.now() : null;
 
                         CompletableFuture<Serializable> res = new CompletableFuture<>();
 

@@ -38,6 +38,7 @@ public interface MetaStorageWriteCommand extends WriteCommand {
      * command is saved into the Raft log (see {@link BeforeApplyHandler#onBeforeApply(Command)}.
      */
     @WithSetter
+    @Override
     @Nullable HybridTimestamp safeTime();
 
     /**

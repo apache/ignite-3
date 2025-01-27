@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.raft;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.Transient;
+import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,6 +32,15 @@ public interface WriteCommand extends Command {
      * @return The timestamp.
      */
     default @Nullable HybridTimestamp initiatorTime() {
+        return null;
+    }
+
+    /**
+     * Get safe timestamp.
+     *
+     * @return The timestamp.
+     */
+    default @Nullable HybridTimestamp safeTime() {
         return null;
     }
 }

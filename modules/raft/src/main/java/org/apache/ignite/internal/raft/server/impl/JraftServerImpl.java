@@ -789,7 +789,7 @@ public class JraftServerImpl implements RaftServer {
 
                         WriteCommand command = doneClo == null ? marshaller.unmarshall(data) : doneClo.command();
 
-                        HybridTimestamp safeTs = doneClo == null ? null : doneClo.safeTimestamp();
+                        HybridTimestamp safeTs = doneClo == null ? command.safeTime() : doneClo.safeTimestamp();
 
                         long commandIndex = iter.getIndex();
                         long commandTerm = iter.getTerm();
