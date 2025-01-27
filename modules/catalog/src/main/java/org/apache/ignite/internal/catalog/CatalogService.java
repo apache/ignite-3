@@ -31,7 +31,11 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Notes:</p>
  * <ul>
- *     <li>Events are fired in the metastore thread.</li>
+ *     <li>Each catalog update applied and registers a new catalog snapshot first, then fire catalog events.</li>
+ *     <li>Events are fired in the metastore thread in order they occurs.</li>
+ *     <li>The order, which listeners are notified for the same event, is undefined. See {@link #catalogReadyFuture(int)}</li>
+ *     <li>Catalog version readiness doesn't mean the version is active. Before getting active Catalog version by a timestamp, the user must
+ *     take care of the CatalogService has seen actual metadata. See SchemaSyncService#waitForMetadataCompleteness(long) for details.</li>
  * </ul>
  *
  * @see CatalogEvent Full list of events, which is fired by the catalog service.
@@ -71,6 +75,9 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     /**
      * Retrieves the catalog, which was actual at the specified timestamp.
      *
+     * <p>Note: the given timestamp must respect schema-synchronization timeout and it's up to user to wait for actual node metadata.
+     * See SchemaSyncService#waitForMetadataCompleteness(long) method for details.
+     *
      * @param timestamp The point-in-time to retrieve the catalog of actual version.
      * @return The active catalog at the specified timestamp.
      */
@@ -78,6 +85,9 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     /**
      * Retrieves the actual catalog version at the specified timestamp.
+     *
+     * <p>Note: the given timestamp must respect schema-synchronization timeout and it's up to user to wait for actual node metadata.
+     * See SchemaSyncService#waitForMetadataCompleteness(long) method for details.
      *
      * @param timestamp The point-in-time to retrieve the actual catalog version.
      * @return The active catalog version at the specified timestamp.
@@ -97,17 +107,18 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     /**
      * Returns the latest registered version of the catalog.
      *
-     * <p>Note: There is no guarantee, that all components have seen and processed all events related to this version.
-     * To make it safe to use this version across all the components, it must be guarded with {@link #catalogReadyFuture(int)} call.
+     * <p>Note: This version can be used to retrieve a latest Catalog snapshot, but gives no guarantees that all components have seen and
+     * processed all events related to this version. If you need this guarantee, please, use {@link #catalogReadyFuture(int)} method.
      *
      * @return The latest registered version of the catalog.
+     * @see #catalogReadyFuture(int)
      */
     int latestCatalogVersion();
 
     /**
      * Returns a future, which completes, when catalog of given version will be available.
      *
-     * <p>Note: Future completeness guarantees all components have seen and process the requested version. However, there is no guarantee
+     * <p>Note: The future completeness guarantees all components have seen and processed the requested version. However, no guarantee
      * the version is activated.
      *
      * @param version The catalog version to wait for.
