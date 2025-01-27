@@ -20,14 +20,16 @@ package org.apache.ignite.internal.sql.engine.exec.ddl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogApplyResult;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
@@ -39,8 +41,8 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.jetbrains.annotations.Nullable;
 
 /** DDL commands handler. */
 public class DdlCommandHandler implements LifecycleAware {
@@ -64,14 +66,45 @@ public class DdlCommandHandler implements LifecycleAware {
     }
 
     /**
+     * Submits given list of commands at once.
+     *
+     * <p>The whole list is submitted atomically. The result of applying of any individual command in case of conditional statements
+     * may be checked by calling {@link CatalogApplyResult#isApplied(int)} providing 0-based index of command in question. If exception
+     * is thrown during processing of any command from batch, then none of the commands will be applied.
+     *
+     * @param batch A batch of command to execute.
+     * @return Future containing result of applying a list of commands to catalog.
+     */
+    public CompletableFuture<CatalogApplyResult> handle(List<CatalogCommand> batch) {
+        CompletableFuture<CatalogApplyResult> fut = catalogManager.execute(batch);
+
+        List<AbstractCreateIndexCommand> createIndexCommands = batch.stream()
+                .filter(AbstractCreateIndexCommand.class::isInstance)
+                .map(AbstractCreateIndexCommand.class::cast)
+                .collect(Collectors.toList());
+
+        if (createIndexCommands.isEmpty()) {
+            return fut;
+        }
+
+        return fut.thenCompose(applyResult ->
+                inBusyLock(busyLock, () -> {
+                    List<CompletableFuture<CatalogApplyResult>> toWait = createIndexCommands.stream()
+                            .map(cmd -> waitTillIndexBecomesAvailableOrRemoved(cmd, applyResult))
+                            .collect(Collectors.toList());
+
+                    return CompletableFutures.allOf(toWait).thenApply(none -> applyResult);
+                })
+        );
+    }
+
+    /**
      * Handles ddl commands.
      *
      * @param cmd Catalog command.
-     * @return Future representing pending completion of the operation. If the command execution resulted in a modification of the catalog,
-     *         the result will be the activation timestamp of the new catalog version, if the command did not result in a change of the
-     *         catalog, the result will be {@code null}.
+     * @return Future containing result of applying a commands to catalog.
      */
-    public CompletableFuture<@Nullable Long> handle(CatalogCommand cmd) {
+    public CompletableFuture<CatalogApplyResult> handle(CatalogCommand cmd) {
         CompletableFuture<CatalogApplyResult> fut = catalogManager.execute(cmd);
 
         if (cmd instanceof AbstractCreateIndexCommand) {
@@ -79,18 +112,16 @@ public class DdlCommandHandler implements LifecycleAware {
                     inBusyLock(busyLock, () -> waitTillIndexBecomesAvailableOrRemoved((AbstractCreateIndexCommand) cmd, applyResult)));
         }
 
-        return fut.thenApply(applyResult -> applyResult.isApplied(0) ? applyResult.getCatalogTime() : null);
+        return fut;
     }
 
-    private CompletionStage<CatalogApplyResult> waitTillIndexBecomesAvailableOrRemoved(
+    private CompletableFuture<CatalogApplyResult> waitTillIndexBecomesAvailableOrRemoved(
             AbstractCreateIndexCommand cmd,
             CatalogApplyResult catalogApplyResult
     ) {
         if (!catalogApplyResult.isApplied(0)) {
             return CompletableFuture.completedFuture(catalogApplyResult);
         }
-
-        CompletableFuture<Void> future = inFlightFutures.registerFuture(new CompletableFuture<>());
 
         int creationCatalogVersion = catalogApplyResult.getCatalogVersion();
 
@@ -103,6 +134,13 @@ public class DdlCommandHandler implements LifecycleAware {
         CatalogIndexDescriptor index = schema.aliveIndex(cmd.indexName());
         assert index != null
                 : "Did not find index " + cmd.indexName() + " in schema " + cmd.schemaName() + " in version " + creationCatalogVersion;
+
+        // If index already has required state, no need to wait.
+        if (index.status() == CatalogIndexStatus.AVAILABLE) {
+            return CompletableFuture.completedFuture(catalogApplyResult);
+        }
+
+        CompletableFuture<Void> future = inFlightFutures.registerFuture(new CompletableFuture<>());
 
         EventListener<CatalogEventParameters> availabilityListener = EventListener.fromConsumer(event -> {
             if (((MakeIndexAvailableEventParameters) event).indexId() == index.id()) {

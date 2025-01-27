@@ -54,10 +54,11 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -407,6 +408,30 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
     }
 
+    @Override
+    public CompletableFuture<List<AsyncDataCursor<InternalSqlRow>>> executeDdlBatch(
+            List<DdlPlan> batch,
+            Consumer<HybridTimestamp> activationTimeListener
+    ) {
+        List<CatalogCommand> commands = batch.stream()
+                .map(DdlPlan::command)
+                .collect(Collectors.toList());
+
+        return ddlCmdHnd.handle(commands).thenApply(result -> {
+            activationTimeListener.accept(HybridTimestamp.hybridTimestamp(result.getCatalogTime()));
+
+            List<AsyncDataCursor<InternalSqlRow>> cursors = new ArrayList<>(commands.size());
+            for (int i = 0; i < commands.size(); i++) {
+
+                List<InternalSqlRow> resultSet = result.isApplied(i) ? APPLIED_ANSWER : NOT_APPLIED_ANSWER;
+
+                cursors.add(new IteratorToDataCursorAdapter<>(resultSet.iterator()));
+            }
+
+            return cursors;
+        });
+    }
+
     private AsyncDataCursor<InternalSqlRow> executeExecutablePlan(
             SqlOperationContext operationContext,
             ExecutablePlan plan
@@ -454,23 +479,17 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private AsyncDataCursor<InternalSqlRow> executeDdl(SqlOperationContext operationContext,
             DdlPlan plan
     ) {
-        CompletableFuture<Iterator<InternalSqlRow>> ret = ddlCmdHnd.handle(plan.command())
-                .thenApply(activationTime -> {
-                    if (activationTime == null) {
-                        return NOT_APPLIED_ANSWER.iterator();
-                    }
+        CompletableFuture<Iterator<InternalSqlRow>> ret = ddlCmdHnd.handle(plan.command()).thenApply(result -> {
+            QueryTransactionContext txCtx = operationContext.txContext();
 
-                    QueryTransactionContext txCtx = operationContext.txContext();
+            assert txCtx != null;
 
-                    assert txCtx != null;
+            txCtx.updateObservableTime(HybridTimestamp.hybridTimestamp(result.getCatalogTime()));
 
-                    txCtx.updateObservableTime(HybridTimestamp.hybridTimestamp(activationTime));
+            List<InternalSqlRow> resultSet = result.isApplied(0) ? APPLIED_ANSWER : NOT_APPLIED_ANSWER;
 
-                    return APPLIED_ANSWER.iterator();
-                })
-                .exceptionally(th -> {
-                    throw convertDdlException(th);
-                });
+            return resultSet.iterator();
+        });
 
         return new IteratorToDataCursorAdapter<>(ret, Runnable::run);
     }
@@ -494,23 +513,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 });
 
         return new IteratorToDataCursorAdapter<>(ret, Runnable::run);
-    }
-
-    private static RuntimeException convertDdlException(Throwable e) {
-        e = ExceptionUtils.unwrapCause(e);
-
-        if (e instanceof ConfigurationChangeException) {
-            assert e.getCause() != null;
-            // Cut off upper configuration error`s as uninformative.
-            e = e.getCause();
-        }
-
-        if (e instanceof IgniteInternalCheckedException) {
-            return new IgniteInternalException(INTERNAL_ERR, "Failed to execute DDL statement [stmt=" /* + qry.sql() */
-                    + ", err=" + e.getMessage() + ']', e);
-        }
-
-        return (e instanceof RuntimeException) ? (RuntimeException) e : new IgniteInternalException(INTERNAL_ERR, e);
     }
 
     @SuppressWarnings("MethodMayBeStatic")

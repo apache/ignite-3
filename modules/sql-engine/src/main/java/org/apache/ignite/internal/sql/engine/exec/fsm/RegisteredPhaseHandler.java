@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.fsm;
 
-/** Handler that kick starts query processing. */
+/** Handler that kick-starts query processing. */
 class RegisteredPhaseHandler implements ExecutionPhaseHandler {
     static final ExecutionPhaseHandler INSTANCE = new RegisteredPhaseHandler();
 
