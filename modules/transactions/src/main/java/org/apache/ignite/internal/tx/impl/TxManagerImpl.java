@@ -415,8 +415,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         if (!readOnly) {
             txStateVolatileStorage.initialize(txId, localNodeId);
+            long timeout = options.timeoutMillis() == 0 ? txConfig.readWriteTimeout().value() : options.timeoutMillis();
 
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, options.timeoutMillis());
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
         } else {
             return beginReadOnlyTransaction(timestampTracker, beginTimestamp, txId, implicit, options);
         }
@@ -447,8 +448,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         try {
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
 
+            long timeout = options.timeoutMillis() == 0 ? defaultReadOnlyTransactionTimeoutMillis() : options.timeoutMillis();
+
             var transaction = new ReadOnlyTransactionImpl(
-                    this, timestampTracker, txId, localNodeId, implicit, options.timeoutMillis(), readTimestamp, txFuture
+                    this, timestampTracker, txId, localNodeId, implicit, timeout, readTimestamp, txFuture
             );
 
             // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
