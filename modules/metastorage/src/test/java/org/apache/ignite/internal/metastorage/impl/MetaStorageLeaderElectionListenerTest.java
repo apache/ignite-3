@@ -18,7 +18,16 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -46,6 +55,10 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private MetaStorageConfiguration metaStorageConfiguration;
 
+    /**
+     * Reproducer for IGNITE-24262. If node lost leadership before Ignite is fully initialized, it could try to stop the safe time scheduler
+     * before it was started. Scheduler should not be created in this case, until node regains leadership.
+     */
     @Test
     void testSafeTimeSchedulerNotCreatedAfterStoppedTerm() {
         ClusterNode thisNode = new ClusterNodeImpl(
@@ -56,7 +69,7 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
 
         IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-        ClusterTimeImpl clusterTime = new ClusterTimeImpl(NODE_NAME, busyLock, new HybridClockImpl());
+        ClusterTimeImpl clusterTime = spy(new ClusterTimeImpl(NODE_NAME, busyLock, new HybridClockImpl()));
 
         CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut = new CompletableFuture<>();
         CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture = completedFuture(metaStorageConfiguration);
@@ -68,15 +81,37 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
                 metaStorageConfigurationFuture
         );
 
-        listener.onLeaderElected(thisNode, 0);
+        long initialTerm = 0;
+
+        listener.onLeaderElected(thisNode, initialTerm);
+
+        assertThat(listener.safeTimeSchedulerFuture(), willTimeoutFast());
+
+        // Futures are not completed yet, so safe time scheduler should not be started.
+        verifyNoInteractions(clusterTime);
+
+        long lostLeadershipTerm = 1;
 
         ClusterNode otherNode = new ClusterNodeImpl(UUID.randomUUID(), "other", new NetworkAddress("host", 1234));
-        listener.onLeaderElected(otherNode, 1);
+        listener.onLeaderElected(otherNode, lostLeadershipTerm);
+
+        // This node lost leadership, so safe time scheduler should not be created for previous terms.
+        verify(clusterTime, times(1)).stopSafeTimeScheduler(eq(lostLeadershipTerm));
 
         metaStorageSvcFut.complete(mock(MetaStorageServiceImpl.class));
         metaStorageConfigurationFuture.complete(metaStorageConfiguration);
 
-        listener.onLeaderElected(thisNode, 2);
+        // Future is completed, though it should not start scheduler.
+        assertThat(listener.safeTimeSchedulerFuture(), willBe(false));
+
+        verify(clusterTime, times(1)).startSafeTimeScheduler(any(), any(), eq(initialTerm));
+
+        long regainedLeadershipTerm = 2;
+
+        listener.onLeaderElected(thisNode, regainedLeadershipTerm);
+        verify(clusterTime, times(1)).startSafeTimeScheduler(any(), any(), eq(regainedLeadershipTerm));
+
+        assertThat(listener.safeTimeSchedulerFuture(), willBe(true));
     }
 
     private static MetaStorageLeaderElectionListener createMetaStorageLeaderElectionListener(

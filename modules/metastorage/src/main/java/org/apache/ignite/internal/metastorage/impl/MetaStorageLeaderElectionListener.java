@@ -38,6 +38,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Meta Storage leader election listener.
@@ -65,6 +66,14 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
      */
     @Nullable
     private CompletableFuture<Void> serializationFuture = null;
+
+    /**
+     * Last future trying to start a safe time scheduler. Completes with true if started successfully.
+     *
+     * <p>Multi-threaded access is guarded by {@code serializationFutureMux}.
+     */
+    @Nullable
+    private CompletableFuture<Boolean> startSafeTimeSchedulerFuture = null;
 
     private final Object serializationFutureMux = new Object();
 
@@ -146,7 +155,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 if (!weWerePreviousLeader) {
                     LOG.info("Node has been elected as the leader (and it wasn't previous leader), so starting doing secondary duties");
 
-                    startSafeTimeScheduler(term);
+                    startSafeTimeSchedulerFuture = startSafeTimeScheduler(term);
 
                     // The node was not previous leader, and it becomes a leader.
                     logicalTopologyService.addEventListener(logicalTopologyEventListener);
@@ -161,15 +170,14 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         }
     }
 
-    private void startSafeTimeScheduler(long term) {
-        metaStorageSvcFut
-                .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
-                    clusterTime.startSafeTimeScheduler(
-                            safeTime -> syncTimeIfSecondaryDutiesAreNotPaused(safeTime, service),
-                            metaStorageConfiguration,
-                            term
-                    );
-                })
+    private CompletableFuture<Boolean> startSafeTimeScheduler(long term) {
+        return metaStorageSvcFut
+                .thenCombine(metaStorageConfigurationFuture, (service, metaStorageConfiguration) ->
+                        clusterTime.startSafeTimeScheduler(
+                                safeTime -> syncTimeIfSecondaryDutiesAreNotPaused(safeTime, service),
+                                metaStorageConfiguration,
+                                term
+                        ))
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Unable to start Idle Safe Time scheduler", e);
@@ -201,6 +209,14 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         }
 
         return service.syncTime(safeTime, term);
+    }
+
+    @TestOnly
+    @Nullable
+    CompletableFuture<Boolean> safeTimeSchedulerFuture() {
+        synchronized (serializationFutureMux) {
+            return startSafeTimeSchedulerFuture;
+        }
     }
 
     private class MetaStorageLogicalTopologyEventListener implements LogicalTopologyEventListener {

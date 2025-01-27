@@ -70,7 +70,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
      *
      * <p>Concurrent access is guarded by {@code this}.
      */
-    private long lastSchedulerStoppedTerm;
+    private long lastSchedulerStoppedTerm = -1;
 
     @Override
     public long safeTimeLag() {
@@ -99,16 +99,17 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
      * Starts sync time scheduler.
      *
      * @param syncTimeAction Action that performs the time sync operation.
+     * @return If scheduler was started.
      */
-    public void startSafeTimeScheduler(SyncTimeAction syncTimeAction, MetaStorageConfiguration configuration, long term) {
+    public boolean startSafeTimeScheduler(SyncTimeAction syncTimeAction, MetaStorageConfiguration configuration, long term) {
         if (!busyLock.enterBusy()) {
-            return;
+            return false;
         }
 
         try {
             synchronized (this) {
                 if (lastSchedulerStoppedTerm > term) {
-                    return;
+                    return false;
                 }
 
                 assert safeTimeScheduler == null;
@@ -116,6 +117,8 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
                 safeTimeScheduler = new SafeTimeScheduler(syncTimeAction, configuration);
 
                 safeTimeScheduler.start();
+
+                return true;
             }
         } finally {
             busyLock.leaveBusy();
