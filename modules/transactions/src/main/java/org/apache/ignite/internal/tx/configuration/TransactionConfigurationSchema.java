@@ -39,7 +39,7 @@ public class TransactionConfigurationSchema {
     /** Default timeout for read-only transactions. 10 minutes. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public final long readOnlyTimeout = 600_000;
+    public final long readOnlyTimeout = TimeUnit.MINUTES.toMillis(10);
 
     /** Default timeout for read-write transactions. 30 seconds. */
     @Range(min = 1)
