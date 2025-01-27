@@ -117,7 +117,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
     private Map<String, PartialNode> cluster;
 
-    private volatile boolean blockFSMThread = false;
+    private volatile boolean blockFsmThread = false;
 
     private CountDownLatch l1 = new CountDownLatch(1);
     private CountDownLatch l2 = new CountDownLatch(1);
@@ -293,7 +293,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         sendSafeTimeSyncCommand(raftClient, initiatorClock.now());
 
-        blockFSMThread = true;
+        blockFsmThread = true;
 
         var fut = sendSafeTimeSyncCommandAsync(raftClient, initiatorClock.now());
         var fut2 = sendSafeTimeSyncCommandAsync(raftClient, initiatorClock.now());
@@ -305,7 +305,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         LOG.info("Unblocking FSM thread");
 
-        blockFSMThread = false;
+        blockFsmThread = false;
 
         l2.countDown();
 
@@ -386,7 +386,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     ) {
                         @Override
                         public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
-                            if (blockFSMThread) {
+                            if (blockFsmThread) {
                                 LOG.info("Blocked on FSM call: safeTs=" + safeTs.current());
                                 l1.countDown();
 

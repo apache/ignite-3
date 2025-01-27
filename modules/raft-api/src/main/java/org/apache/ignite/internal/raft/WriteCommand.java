@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.raft;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.annotations.Transient;
-import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.jetbrains.annotations.Nullable;
 
 /**

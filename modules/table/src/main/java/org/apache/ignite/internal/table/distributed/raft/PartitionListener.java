@@ -258,7 +258,6 @@ public class PartitionListener implements RaftGroupListener {
     /**
      * Handler for the {@link UpdateCommand}.
      *
-     * @param clo
      * @param cmd Command.
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
@@ -365,7 +364,7 @@ public class PartitionListener implements RaftGroupListener {
             advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
         }
 
-        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp: null, cmd.full());
+        replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? safeTimestamp : null, cmd.full());
 
         return new IgniteBiTuple<>(new UpdateCommandResult(true, isPrimaryInGroupTopology(), safeTimestamp.longValue()), true);
     }
