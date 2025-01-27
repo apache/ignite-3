@@ -48,7 +48,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog descriptor represents a snapshot of the database schema.
- * It contains information about schemas, tables, indexes, and zones available in the current version of the catalog.
+ *
+ * <p>It contains information about schemas, tables, indexes, and zones available in the current version of the catalog.
  */
 public class Catalog {
     private static <T extends CatalogObjectDescriptor> Collector<T, ?, Map<String, T>> toMapByName() {

@@ -57,7 +57,7 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     String DEFAULT_STORAGE_PROFILE = "default";
 
     /**
-     * Retrieves the catalog for the specified version.
+     * Retrieves the catalog of the specified version.
      *
      * @param catalogVersion The version of the catalog to retrieve.
      * @return The catalog for the specified version, or {@code null} if not found.
@@ -101,9 +101,4 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
      * @return A future that completes when the catalog of the given version becomes available.
      */
     CompletableFuture<Void> catalogReadyFuture(int version);
-
-    /**
-     * Returns a future, which completes when empty catalog is initialised. Otherwise this future completes upon startup.
-     */
-    CompletableFuture<Void> catalogInitializationFuture();
 }
