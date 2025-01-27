@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.calcite.rel.RelCollation;
@@ -41,6 +40,7 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.TestDownstream;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlComparator;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -435,15 +435,15 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
         if (setOf(SEMI, ANTI).contains(joinType)) {
             project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1]});
             RelCollation collation = RelCollations.of(ImmutableIntList.of(0, 1));
-            Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+            SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
-            sortNode = new SortNode<>(ctx, cmp);
+            sortNode = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));
         } else {
             project = new ProjectNode<>(ctx, r -> new Object[]{r[0], r[1], r[4]});
             RelCollation collation = RelCollations.of(ImmutableIntList.of(0, 1, 4));
-            Comparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
+            SqlComparator<Object[]> cmp = ctx.expressionFactory().comparator(collation);
 
-            sortNode = new SortNode<>(ctx, cmp);
+            sortNode = new SortNode<>(ctx, (r1, r2) -> cmp.compare(ctx, r1, r2));
         }
 
         sortNode.register(join);

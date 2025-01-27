@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.schema;
 
+import static org.apache.ignite.internal.sql.engine.metadata.IgniteMdPercentageOriginalRows.quotientForPercentage;
+
 import java.util.List;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
+import org.apache.calcite.rel.metadata.BuiltInMetadata.PercentageOriginalRows;
+import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.Schema;
@@ -40,7 +45,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Base implementation of {@link IgniteDataSource}.
  */
-public abstract class AbstractIgniteDataSource extends AbstractTable implements IgniteDataSource {
+public abstract class AbstractIgniteDataSource extends AbstractTable
+        implements IgniteDataSource, PercentageOriginalRows.Handler {
 
     private final String name;
 
@@ -149,5 +155,18 @@ public abstract class AbstractIgniteDataSource extends AbstractTable implements 
             return cls.cast(desc);
         }
         return super.unwrap(cls);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public @Nullable Double getPercentageOriginalRows(RelNode r, RelMetadataQuery mq) {
+        Double tableRowCount = statistic.getRowCount();
+        Double relRowCount = mq.getRowCount(r);
+
+        if (tableRowCount == null || relRowCount == null) {
+            return null;
+        }
+
+        return quotientForPercentage(relRowCount, tableRowCount);
     }
 }

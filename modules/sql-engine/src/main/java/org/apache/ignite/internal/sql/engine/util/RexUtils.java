@@ -55,7 +55,10 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TimeZone;
+import org.apache.calcite.DataContext.Variable;
 import org.apache.calcite.linq4j.Ord;
+import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
@@ -95,6 +98,8 @@ import org.apache.calcite.util.Util;
 import org.apache.calcite.util.Util.FoundOne;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
@@ -1222,6 +1227,108 @@ public class RexUtils {
             return builder.makeExactLiteral(newVal, type);
         } else {
             return builder.makeApproxLiteral(newVal, type);
+        }
+    }
+
+    /**
+     * Extracts the value of a literal and converts it to the specified type, 
+     * optionally adjusting for time zone offsets when dealing with 
+     * {@code TIMESTAMP_WITH_LOCAL_TIME_ZONE} literals.
+     *
+     * <p>This method processes a {@link RexLiteral} based on its SQL type, 
+     * extracting its value and converting it to the specified target type if needed.
+     * For numeric types, the literal value is converted according to the specified target type. 
+     * For {@code TIMESTAMP_WITH_LOCAL_TIME_ZONE} types, the value is adjusted 
+     * using the time zone provided in the {@link ExecutionContext}.
+     *
+     * @param context The execution context, used to retrieve the client's time zone.
+     * @param literal The literal to extract the value from.
+     * @param type The target type for conversion.
+     * @return The converted literal value, or {@code null} if the literal value is {@code null}.
+     */
+    public static @Nullable Object literalValue(ExecutionContext<?> context, RexLiteral literal, Class<?> type) {
+        RelDataType dataType = literal.getType();
+
+        if (SqlTypeUtil.isNumeric(dataType)) {
+            Number value = (Number) literal.getValue();
+            if (value == null) {
+                return null;
+            }
+
+            return convertNumericLiteral(dataType, value, type);
+        } else {
+            Object val = literal.getValueAs(type);
+
+            // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
+            if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                return IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) context.get(Variable.TIME_ZONE.camelName));
+            }
+
+            return val;
+        }
+    }
+
+    private static Object convertNumericLiteral(RelDataType dataType, Number value, Class<?> type) {
+        Primitive primitive = Primitive.ofBoxOr(type);
+        assert primitive != null || type == BigDecimal.class : "Neither primitive nor BigDecimal: " + type;
+
+        switch (dataType.getSqlTypeName()) {
+            case TINYINT:
+                byte b = IgniteMath.convertToByteExact(value);
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, b);
+                } else {
+                    return new BigDecimal(b);
+                }
+            case SMALLINT:
+                short s = IgniteMath.convertToShortExact(value);
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, s);
+                } else {
+                    return new BigDecimal(s);
+                }
+            case INTEGER:
+                int i = IgniteMath.convertToIntExact(value);
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, i);
+                } else {
+                    return new BigDecimal(i);
+                }
+            case BIGINT:
+                long l = IgniteMath.convertToLongExact(value);
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, l);
+                } else {
+                    return new BigDecimal(l);
+                }
+            case REAL:
+            case FLOAT:
+                float r = IgniteMath.convertToFloatExact(value);
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, r);
+                } else {
+                    // Preserve the exact form of a float value.
+                    return new BigDecimal(Float.toString(r));
+                }
+            case DOUBLE:
+                double d = IgniteMath.convertToDoubleExact(value);
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, d);
+                } else {
+                    // Preserve the exact form of a double value.
+                    return new BigDecimal(Double.toString(d));
+                }
+            case DECIMAL:
+                BigDecimal bd = IgniteSqlFunctions.toBigDecimal(value, dataType.getPrecision(), dataType.getScale());
+                assert bd != null;
+
+                if (primitive != null) {
+                    return Primitives.convertPrimitiveExact(primitive, bd);
+                } else {
+                    return bd;
+                }
+            default:
+                throw new IllegalStateException("Unexpected numeric type: " + dataType);
         }
     }
 

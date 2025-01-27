@@ -23,12 +23,14 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 
+import java.util.UUID;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.event.EventUser;
+import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +52,9 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         inMemoryCollectionSink = new InMemoryCollectionSink();
-        SinkFactory sinkFactory = new TestSinkFactory(inMemoryCollectionSink);
+        SinkFactoryImpl defaultFactory = new SinkFactoryImpl(new EventSerializerFactory().createEventSerializer(),
+                UUID::randomUUID, "default");
+        SinkFactory sinkFactory = new TestSinkFactory(defaultFactory, inMemoryCollectionSink);
         eventLog = new EventLogImpl(eventLogConfiguration, sinkFactory);
     }
 

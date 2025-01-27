@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -35,6 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteQueryProcessor;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
@@ -57,7 +59,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
-import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -153,13 +154,13 @@ public class TestClientHandlerModule implements IgniteComponent {
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         if (channel != null) {
-            throw new IgniteException("ClientHandlerModule is already started.");
+            throw new IgniteException(INTERNAL_ERR, "ClientHandlerModule is already started.");
         }
 
         try {
             channel = startEndpoint().channel();
         } catch (InterruptedException e) {
-            throw new IgniteException(e);
+            throw new IgniteException(INTERNAL_ERR, e);
         }
 
         return nullCompletedFuture();
@@ -217,7 +218,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                 new ResponseDelayHandler(responseDelay),
                                 new ClientInboundMessageHandler(
                                         (IgniteTablesInternal) ignite.tables(),
-                                        (IgniteTransactionsImpl) ignite.transactions(),
+                                        ((FakeIgnite) ignite).txManager(),
                                         new FakeIgniteQueryProcessor(),
                                         configuration,
                                         compute,
@@ -250,13 +251,13 @@ public class TestClientHandlerModule implements IgniteComponent {
         if (bindRes.isSuccess()) {
             ch = bindRes.channel();
         } else if (!(bindRes.cause() instanceof BindException)) {
-            throw new IgniteException(bindRes.cause());
+            throw new IgniteException(INTERNAL_ERR, bindRes.cause());
         }
 
         if (ch == null) {
             String msg = "Cannot start thin client connector endpoint. Port " + port + " is in use.";
 
-            throw new IgniteException(msg);
+            throw new IgniteException(INTERNAL_ERR, msg);
         }
 
         return ch.closeFuture();

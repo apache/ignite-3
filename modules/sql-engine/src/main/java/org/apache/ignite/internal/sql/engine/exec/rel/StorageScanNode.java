@@ -218,6 +218,8 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         /** {@inheritDoc} */
         @Override
         public void onNext(RowT row) {
+            // This method is called from outside query execution thread.
+            // It is safe not to be aware about already closed execution flow.
             inBuff.add(row);
 
             if (inBuff.size() == inBufSize) {

@@ -395,7 +395,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         startNodes(testInfo, 3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -616,7 +616,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         startNodes(testInfo, 3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1).toArray()[0];
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -649,7 +649,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
         startNodes(testInfo, 3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 3).toArray()[0];
+                nodes.values().stream().map(n -> n.name).collect(Collectors.toList()), 0, 1, 3).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -982,7 +982,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         private final IndexMetaStorage indexMetaStorage;
 
-        private final HybridTimestampTracker observableTimestampTracker = new HybridTimestampTracker();
+        private final HybridTimestampTracker observableTimestampTracker = HybridTimestampTracker.atomicTracker(null);
 
         private volatile MvTableStorage mvTableStorage;
 
@@ -1034,7 +1034,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                     clusterIdHolder
             );
 
-            lockManager = new HeapLockManager();
+            lockManager = HeapLockManager.smallInstance();
 
             var raftGroupEventsClientListener = new RaftGroupEventsClientListener();
 

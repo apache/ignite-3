@@ -18,7 +18,7 @@
 package org.apache.ignite.lang;
 
 import java.util.UUID;
-import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,7 +33,7 @@ public class MarshallerException extends IgniteException {
      * @param cause Non-null throwable cause.
      */
     public MarshallerException(String msg, @Nullable Throwable cause) {
-        super(Common.USER_OBJECT_SERIALIZATION_ERR, msg, cause);
+        super(Marshalling.COMMON_ERR, msg, cause);
     }
 
     /**

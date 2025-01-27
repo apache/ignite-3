@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.eventlog.ser;
 
+import java.util.Collection;
 import org.apache.ignite.internal.eventlog.api.Event;
 
 /** Event serializer. */
-@FunctionalInterface
 public interface EventSerializer {
     String serialize(Event event);
+
+    byte[] serialize(Collection<Event> event);
 }

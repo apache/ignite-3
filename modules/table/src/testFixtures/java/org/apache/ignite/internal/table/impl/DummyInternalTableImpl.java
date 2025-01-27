@@ -213,7 +213,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 false,
                 null,
                 schema,
-                new HybridTimestampTracker(),
+                HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
                 storageUpdateConfiguration,
                 txConfiguration,
@@ -382,7 +382,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         try {
                             partitionListener.onWrite(List.of(clo).iterator());
                         } catch (Throwable e) {
-                            res.completeExceptionally(new TransactionException(e));
+                            res.completeExceptionally(new TransactionException(0, e));
                         }
 
                         return res;
@@ -461,7 +461,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(ClusterNodeResolver.class),
                 resourcesRegistry,
                 schemaManager,
-                mock(IndexMetaStorage.class)
+                mock(IndexMetaStorage.class),
+                new TestLowWatermark()
         );
 
         partitionListener = new PartitionListener(
@@ -561,7 +562,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 txConfiguration,
                 clusterService,
                 replicaSvc,
-                new HeapLockManager(1024, 1024),
+                HeapLockManager.smallInstance(),
                 CLOCK_SERVICE,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,

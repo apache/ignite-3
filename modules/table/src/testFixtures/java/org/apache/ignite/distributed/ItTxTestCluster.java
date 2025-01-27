@@ -518,7 +518,8 @@ public class ItTxTestCluster {
                     clusterService.topologyService(),
                     clusterService.messagingService(),
                     transactionInflights,
-                    txMgr
+                    txMgr,
+                    lowWatermark
             );
 
             assertThat(txMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -575,7 +576,7 @@ public class ItTxTestCluster {
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 replicaSvc,
-                new HeapLockManager(),
+                HeapLockManager.smallInstance(),
                 clockService,
                 generator,
                 placementDriver,
@@ -868,7 +869,8 @@ public class ItTxTestCluster {
                 clusterNodeResolver,
                 resourcesRegistry,
                 schemaRegistry,
-                mock(IndexMetaStorage.class)
+                mock(IndexMetaStorage.class),
+                lowWatermark
         );
     }
 
@@ -1063,7 +1065,7 @@ public class ItTxTestCluster {
                 client.messagingService(),
                 client.topologyService(),
                 clientReplicaSvc,
-                new HeapLockManager(),
+                HeapLockManager.smallInstance(),
                 clientClockService,
                 new TransactionIdGenerator(-1),
                 placementDriver,
@@ -1081,7 +1083,8 @@ public class ItTxTestCluster {
                 client.topologyService(),
                 client.messagingService(),
                 clientTransactionInflights,
-                clientTxManager
+                clientTxManager,
+                lowWatermark
         );
 
         clientTxStateResolver = new TransactionStateResolver(

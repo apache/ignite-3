@@ -214,7 +214,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
     /** {@inheritDoc} */
     @Override
-    public void onNewPeersConfigurationApplied(PeersAndLearners configuration) {
+    public void onNewPeersConfigurationApplied(PeersAndLearners configuration, long term, long index) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -556,6 +556,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
      *
      * @param metaStorageMgr MetaStorage manager.
      * @param dataNodes Data nodes.
+     * @param partitions Partitions count.
      * @param replicas Replicas count.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
@@ -564,6 +565,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     public static CompletableFuture<Void> handleReduceChanged(
             MetaStorageManager metaStorageMgr,
             Collection<String> dataNodes,
+            int partitions,
             int replicas,
             ZonePartitionId partId,
             WatchEvent event,
@@ -580,7 +582,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             return nullCompletedFuture();
         }
 
-        Set<Assignment> assignments = calculateAssignmentForPartition(dataNodes, partId.partitionId(), replicas);
+        Set<Assignment> assignments = calculateAssignmentForPartition(dataNodes, partId.partitionId(), partitions, replicas);
 
         ByteArray pendingKey = pendingPartAssignmentsKey(partId);
 

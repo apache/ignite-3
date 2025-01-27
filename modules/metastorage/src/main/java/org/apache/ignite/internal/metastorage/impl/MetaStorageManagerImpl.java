@@ -479,7 +479,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 raftService,
                 busyLock,
                 clock,
-                () -> clusterService.topologyService().localMember().id()
+                clusterService.topologyService().localMember().id()
         );
     }
 

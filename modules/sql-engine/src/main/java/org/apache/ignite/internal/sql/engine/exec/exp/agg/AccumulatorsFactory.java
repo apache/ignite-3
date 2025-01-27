@@ -25,6 +25,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
 import java.lang.reflect.Modifier;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
@@ -54,20 +55,22 @@ import org.apache.ignite.internal.sql.engine.util.Primitives;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * AccumulatorsFactory.
- * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+ * A factory class for creating accumulators.
+ *
+ * <p>This class is responsible for creation of accumulators used for aggregation operations.
+ * It supports casting between different types, adapting input and output arguments, and
+ * ensuring proper handling of nullable types and other constraints.
+ *
+ * @param <RowT> The type of the row handled by the accumulators.
  */
-public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapper<RowT>>> {
+public class AccumulatorsFactory<RowT> {
     private static final LoadingCache<Pair<RelDataType, RelDataType>, Function<Object, Object>> CACHE =
             Caffeine.newBuilder().build(AccumulatorsFactory::cast0);
 
-    /**
-     * CastFunction interface.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
+    /** For internal use. Defines a function that cast a value to particular type. */
+    @SuppressWarnings("WeakerAccess") // used in code generation, must be public
+    @FunctionalInterface
     public interface CastFunction extends Function<Object, Object> {
-        @Override
-        Object apply(Object o);
     }
 
     private static Function<Object, Object> cast(RelDataType from, RelDataType to) {
@@ -108,10 +111,11 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         RexToLixTranslator.InputGetter getter =
                 new RexToLixTranslator.InputGetterImpl(
-                        List.of(
-                                Pair.of(EnumUtils.convert(in, Object.class, typeFactory.getJavaClass(from)),
-                                        PhysTypeImpl.of(typeFactory, rowType,
-                                                JavaRowFormat.SCALAR, false))));
+                        Map.of(
+                                EnumUtils.convert(in, Object.class, typeFactory.getJavaClass(from)),
+                                PhysTypeImpl.of(typeFactory, rowType, JavaRowFormat.SCALAR, false)
+                        )
+                );
 
         RexBuilder builder = Commons.rexBuilder();
         RexProgramBuilder programBuilder = new RexProgramBuilder(rowType, builder);
@@ -129,7 +133,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         return Commons.compile(CastFunction.class, Expressions.toString(List.of(decl), "\n", false));
     }
 
-    private final ExecutionContext<RowT> ctx;
+    private final IgniteTypeFactory typeFactory;
 
     private final AggregateType type;
 
@@ -138,30 +142,32 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
     private final List<WrapperPrototype> prototypes;
 
     /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Constructs the object.
+     *
+     * @param type The type of the aggregation phase.
+     * @param typeFactory The factory to use to create input and output types for conversion.
+     * @param aggCalls The list of aggregations to convert.
+     * @param inputRowType The type of the input.
      */
     public AccumulatorsFactory(
-            ExecutionContext<RowT> ctx,
             AggregateType type,
+            IgniteTypeFactory typeFactory,
             List<AggregateCall> aggCalls,
             RelDataType inputRowType
     ) {
-        this.ctx = ctx;
         this.type = type;
+        this.typeFactory = typeFactory;
         this.inputRowType = inputRowType;
 
-        var accumulators = new Accumulators(ctx.getTypeFactory());
+        var accumulators = new Accumulators(typeFactory);
         prototypes = Commons.transform(aggCalls, call -> new WrapperPrototype(accumulators, call));
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public List<AccumulatorWrapper<RowT>> get() {
-        return Commons.transform(prototypes, WrapperPrototype::get);
+    public List<AccumulatorWrapper<RowT>> get(ExecutionContext<RowT> context) {
+        return Commons.transform(prototypes, prototype -> prototype.apply(context));
     }
 
-    private final class WrapperPrototype implements Supplier<AccumulatorWrapper<RowT>> {
+    private final class WrapperPrototype implements Function<ExecutionContext<RowT>, AccumulatorWrapper<RowT>> {
         private Supplier<Accumulator> accFactory;
 
         private final Accumulators accumulators;
@@ -179,10 +185,10 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         /** {@inheritDoc} */
         @Override
-        public AccumulatorWrapper<RowT> get() {
+        public AccumulatorWrapper<RowT> apply(ExecutionContext<RowT> context) {
             Accumulator accumulator = accumulator();
 
-            return new AccumulatorWrapperImpl(accumulator, call, inAdapter, outAdapter);
+            return new AccumulatorWrapperImpl<>(context.rowHandler(), accumulator, call, inAdapter, outAdapter);
         }
 
         private Accumulator accumulator() {
@@ -206,7 +212,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             }
 
             List<RelDataType> inTypes = SqlTypeUtil.projectTypes(inputRowType, call.getArgList());
-            List<RelDataType> outTypes = accumulator.argumentTypes(ctx.getTypeFactory());
+            List<RelDataType> outTypes = accumulator.argumentTypes(typeFactory);
 
             if (call.getArgList().size() > outTypes.size()) {
                 throw new AssertionError("Unexpected number of arguments: "
@@ -236,18 +242,18 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
                 return Function.identity();
             }
 
-            RelDataType inType = accumulator.returnType(ctx.getTypeFactory());
+            RelDataType inType = accumulator.returnType(typeFactory);
             RelDataType outType = call.getType();
 
             return cast(inType, outType);
         }
 
         private RelDataType nonNull(RelDataType type) {
-            return ctx.getTypeFactory().createTypeWithNullability(type, false);
+            return typeFactory.createTypeWithNullability(type, false);
         }
     }
 
-    private final class AccumulatorWrapperImpl implements AccumulatorWrapper<RowT> {
+    private static final class AccumulatorWrapperImpl<RowT> implements AccumulatorWrapper<RowT> {
         private final Accumulator accumulator;
 
         private final Function<Object[], Object[]> inAdapter;
@@ -267,11 +273,13 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         private final boolean distinct;
 
         AccumulatorWrapperImpl(
+                RowHandler<RowT> handler,
                 Accumulator accumulator,
                 AggregateCall call,
                 Function<Object[], Object[]> inAdapter,
                 Function<Object, Object> outAdapter
         ) {
+            this.handler = handler;
             this.accumulator = accumulator;
             this.inAdapter = inAdapter;
             this.outAdapter = outAdapter;
@@ -282,8 +290,6 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             argList = call.getArgList();
             ignoreNulls = call.ignoreNulls();
             filterArg = call.hasFilter() ? call.filterArg : -1;
-
-            handler = ctx.rowHandler();
         }
 
         @Override
@@ -298,7 +304,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
 
         @Override
         public Object @Nullable [] getArguments(RowT row) {
-            if (type != AggregateType.REDUCE && filterArg >= 0 && !Boolean.TRUE.equals(handler.get(filterArg, row))) {
+            if (filterArg >= 0 && !Boolean.TRUE.equals(handler.get(filterArg, row))) {
                 return null;
             }
 

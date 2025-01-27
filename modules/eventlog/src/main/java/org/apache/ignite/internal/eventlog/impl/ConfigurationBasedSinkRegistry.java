@@ -79,7 +79,9 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
 
             guard.writeLock().lock();
             try {
+                cache.values().forEach(Sink::stop);
                 cache.clear();
+
                 cacheByChannel.clear();
                 for (SinkView sinkView : newListValue) {
                     Sink sink = sinkFactory.createSink(sinkView);

@@ -24,9 +24,9 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Endpoint;
 import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.internal.metrics.exporters.otlp.OtlpPushMetricExporter;
-import org.apache.ignite.internal.metrics.exporters.validator.EndpointValidator;
 import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.SslConfigurationValidator;
 
@@ -41,7 +41,7 @@ public class OtlpExporterConfigurationSchema extends ExporterConfigurationSchema
 
     /** String in "host:port" format. */
     @Value
-    @EndpointValidator
+    @Endpoint
     public String endpoint;
 
     /** OTLP protocol. */
