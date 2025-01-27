@@ -45,6 +45,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
@@ -60,6 +61,8 @@ import org.junit.jupiter.api.AfterEach;
  */
 @SuppressWarnings("JUnitTestMethodInProductSource")
 public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
+    protected static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     protected static final String TABLE_NAME = "FOO";
 
     protected static final String PK_INDEX_NAME = pkIndexName(TABLE_NAME);
@@ -191,10 +194,10 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
                 true
         );
 
-        when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
-        when(catalogService.aliveIndex(eq(SORTED_INDEX_NAME), anyLong())).thenReturn(sortedIndex);
-        when(catalogService.aliveIndex(eq(HASH_INDEX_NAME), anyLong())).thenReturn(hashIndex);
-        when(catalogService.aliveIndex(eq(PK_INDEX_NAME), anyLong())).thenReturn(pkIndex);
+        when(catalogService.table(eq(SCHEMA_NAME), eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
+        when(catalogService.aliveIndex(eq(SCHEMA_NAME), eq(SORTED_INDEX_NAME), anyLong())).thenReturn(sortedIndex);
+        when(catalogService.aliveIndex(eq(SCHEMA_NAME), eq(HASH_INDEX_NAME), anyLong())).thenReturn(hashIndex);
+        when(catalogService.aliveIndex(eq(SCHEMA_NAME), eq(PK_INDEX_NAME), anyLong())).thenReturn(pkIndex);
 
         when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
         when(catalogService.index(eq(sortedIndexId), anyInt())).thenReturn(sortedIndex);
@@ -218,12 +221,12 @@ public abstract class BaseMvTableStorageTest extends BaseMvStoragesTest {
 
         this.tableStorage = createMvTableStorage();
 
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, clock.nowLong());
         assertNotNull(catalogTableDescriptor);
 
-        CatalogIndexDescriptor catalogSortedIndexDescriptor = catalogService.aliveIndex(SORTED_INDEX_NAME, clock.nowLong());
-        CatalogIndexDescriptor catalogHashIndexDescriptor = catalogService.aliveIndex(HASH_INDEX_NAME, clock.nowLong());
-        CatalogIndexDescriptor catalogPkIndexDescriptor = catalogService.aliveIndex(PK_INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor catalogSortedIndexDescriptor = catalogService.aliveIndex(SCHEMA_NAME, SORTED_INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor catalogHashIndexDescriptor = catalogService.aliveIndex(SCHEMA_NAME, HASH_INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor catalogPkIndexDescriptor = catalogService.aliveIndex(SCHEMA_NAME, PK_INDEX_NAME, clock.nowLong());
 
         assertNotNull(catalogSortedIndexDescriptor);
         assertNotNull(catalogHashIndexDescriptor);

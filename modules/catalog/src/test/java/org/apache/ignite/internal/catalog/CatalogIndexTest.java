@@ -78,7 +78,6 @@ import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StoppingIndexEventParameters;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -88,8 +87,6 @@ import org.mockito.ArgumentCaptor;
 
 /** Tests for index related commands. */
 public class CatalogIndexTest extends BaseCatalogManagerTest {
-
-    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
     @Test
     public void testCreateHashIndex() {
@@ -102,7 +99,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
         assertNotNull(schema);
         assertNull(schema.aliveIndex(INDEX_NAME));
-        assertNull(manager.aliveIndex(INDEX_NAME, 123L));
+        assertNull(manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, 123L));
 
         // Validate actual catalog
         schema = manager.schema(indexCreationVersion);
@@ -110,7 +107,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.aliveIndex(INDEX_NAME);
 
         assertNotNull(schema);
-        assertSame(index, manager.aliveIndex(INDEX_NAME, clock.nowLong()));
+        assertSame(index, manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong()));
         assertSame(index, manager.index(index.id(), clock.nowLong()));
 
         // Validate newly created hash index
@@ -139,7 +136,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
         assertNotNull(schema);
         assertNull(schema.aliveIndex(INDEX_NAME));
-        assertNull(manager.aliveIndex(INDEX_NAME, 123L));
+        assertNull(manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, 123L));
         assertNull(manager.index(4, 123L));
 
         // Validate actual catalog
@@ -148,7 +145,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) schema.aliveIndex(INDEX_NAME);
 
         assertNotNull(schema);
-        assertSame(index, manager.aliveIndex(INDEX_NAME, clock.nowLong()));
+        assertSame(index, manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong()));
         assertSame(index, manager.index(index.id(), clock.nowLong()));
 
         // Validate newly created sorted index
@@ -183,10 +180,10 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertEquals(SCHEMA_NAME, schema.name());
         assertSame(schema, manager.activeSchema(beforeDropTimestamp));
 
-        assertSame(table, manager.table(TABLE_NAME, beforeDropTimestamp));
+        assertSame(table, manager.table(SCHEMA_NAME, TABLE_NAME, beforeDropTimestamp));
         assertSame(table, manager.table(table.id(), beforeDropTimestamp));
 
-        assertSame(index, manager.aliveIndex(INDEX_NAME, beforeDropTimestamp));
+        assertSame(index, manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, beforeDropTimestamp));
         assertSame(index, manager.index(index.id(), beforeDropTimestamp));
 
         // Validate actual catalog
@@ -197,11 +194,11 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertSame(schema, manager.activeSchema(clock.nowLong()));
 
         assertNull(schema.table(TABLE_NAME));
-        assertNull(manager.table(TABLE_NAME, clock.nowLong()));
+        assertNull(manager.table(SCHEMA_NAME, TABLE_NAME, clock.nowLong()));
         assertNull(manager.table(table.id(), clock.nowLong()));
 
         assertThat(schema.aliveIndex(INDEX_NAME), is(nullValue()));
-        assertThat(manager.aliveIndex(INDEX_NAME, clock.nowLong()), is(nullValue()));
+        assertThat(manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong()), is(nullValue()));
         assertThat(manager.index(index.id(), clock.nowLong()), is(nullValue()));
     }
 
@@ -212,13 +209,14 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL"))), willCompleteSuccessfully());
 
-        int indexId = manager.aliveIndex(INDEX_NAME, clock.nowLong()).id();
+
+        int indexId = manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong()).id();
 
         startBuildingIndex(indexId);
         makeIndexAvailable(indexId);
 
-        int tableId = manager.table(TABLE_NAME, clock.nowLong()).id();
-        int pkIndexId = manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()).id();
+        int tableId = manager.table(SCHEMA_NAME, TABLE_NAME, clock.nowLong()).id();
+        int pkIndexId = manager.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME), clock.nowLong()).id();
 
         assertNotEquals(tableId, indexId);
 
@@ -259,7 +257,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         createSomeIndex(TABLE_NAME, INDEX_NAME);
 
         int catalogVersion = manager.latestCatalogVersion();
-        CatalogIndexDescriptor index1 = manager.aliveIndex(INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor index1 = manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong());
         assertNotNull(index1);
 
         int indexId1 = index1.id();
@@ -269,12 +267,12 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         // Drop index.
         dropIndex(INDEX_NAME);
         removeIndex(indexId1);
-        assertNull(manager.aliveIndex(INDEX_NAME, clock.nowLong()));
+        assertNull(manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong()));
 
         // Re-create index with same name.
         createSomeSortedIndex(TABLE_NAME, INDEX_NAME);
 
-        CatalogIndexDescriptor index2 = manager.aliveIndex(INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor index2 = manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong());
         assertNotNull(index2);
         assertThat(index2.indexType(), equalTo(CatalogIndexDescriptorType.SORTED));
 
@@ -378,7 +376,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
     private void dropIndex(String indexName) {
         assertThat(
-                manager.execute(DropIndexCommand.builder().indexName(indexName).schemaName(SqlCommon.DEFAULT_SCHEMA_NAME).build()),
+                manager.execute(DropIndexCommand.builder().indexName(indexName).schemaName(SCHEMA_NAME).build()),
                 willCompleteSuccessfully()
         );
     }
@@ -754,7 +752,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
         long beforeRename = clock.nowLong();
 
-        CatalogIndexDescriptor index = manager.aliveIndex(INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor index = manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong());
         assertThat(index, is(notNullValue()));
 
         int indexId = index.id();
@@ -763,22 +761,22 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         renameIndex(INDEX_NAME, INDEX_NAME_2);
 
         // Ensure index is available by new name.
-        assertThat(manager.aliveIndex(INDEX_NAME, clock.nowLong()), is(nullValue()));
+        assertThat(manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong()), is(nullValue()));
 
-        index = manager.aliveIndex(INDEX_NAME_2, clock.nowLong());
+        index = manager.aliveIndex(SCHEMA_NAME, INDEX_NAME_2, clock.nowLong());
         assertThat(index, is(notNullValue()));
         assertThat(index.id(), is(indexId));
         assertThat(index.name(), is(INDEX_NAME_2));
 
         // Ensure renamed index is available for historical queries.
-        CatalogIndexDescriptor oldDescriptor = manager.aliveIndex(INDEX_NAME, beforeRename);
+        CatalogIndexDescriptor oldDescriptor = manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, beforeRename);
         assertThat(oldDescriptor, is(notNullValue()));
         assertThat(oldDescriptor.id(), is(indexId));
 
         // Ensure can create new index with same name.
         createSomeIndex(TABLE_NAME, INDEX_NAME);
 
-        index = manager.aliveIndex(INDEX_NAME, clock.nowLong());
+        index = manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong());
         assertThat(index, is(notNullValue()));
         assertThat(index.id(), not(indexId));
     }
@@ -787,23 +785,23 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     public void testRenamePkIndex() {
         createSomeTable(TABLE_NAME);
 
-        CatalogTableDescriptor table = manager.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor table = manager.table(SCHEMA_NAME, TABLE_NAME, clock.nowLong());
         assertThat(table, is(notNullValue()));
 
-        assertThat(manager.aliveIndex(INDEX_NAME, clock.nowLong()), is(nullValue()));
-        assertThat(manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()), is(notNullValue()));
+        assertThat(manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong()), is(nullValue()));
+        assertThat(manager.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME), clock.nowLong()), is(notNullValue()));
 
         int primaryKeyIndexId = table.primaryKeyIndexId();
 
         // Rename index.
         renameIndex(pkIndexName(TABLE_NAME), INDEX_NAME);
 
-        CatalogIndexDescriptor index = manager.aliveIndex(INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor index = manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong());
         assertThat(index, is(notNullValue()));
         assertThat(index.id(), is(primaryKeyIndexId));
         assertThat(index.name(), is(INDEX_NAME));
 
-        assertThat(manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()), is(nullValue()));
+        assertThat(manager.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME), clock.nowLong()), is(nullValue()));
     }
 
     @Test
@@ -821,7 +819,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     }
 
     private int indexId(String indexName) {
-        CatalogIndexDescriptor index = manager.aliveIndex(indexName, clock.nowLong());
+        CatalogIndexDescriptor index = manager.aliveIndex(SCHEMA_NAME, indexName, clock.nowLong());
 
         assertNotNull(index, indexName);
 
@@ -833,7 +831,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     }
 
     private int tableId(String tableName) {
-        CatalogTableDescriptor table = manager.table(tableName, clock.nowLong());
+        CatalogTableDescriptor table = manager.table(SCHEMA_NAME, tableName, clock.nowLong());
 
         assertNotNull(table, tableName);
 
@@ -849,7 +847,7 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
 
     private void createSomeSortedIndex(String tableName, String indexName) {
         CatalogCommand newSortedIndexCommand = createSortedIndexCommand(
-                SqlCommon.DEFAULT_SCHEMA_NAME, tableName, indexName, false, List.of("key1"), List.of(ASC_NULLS_LAST));
+                SCHEMA_NAME, tableName, indexName, false, List.of("key1"), List.of(ASC_NULLS_LAST));
 
         assertThat(manager.execute(newSortedIndexCommand), willCompleteSuccessfully());
     }

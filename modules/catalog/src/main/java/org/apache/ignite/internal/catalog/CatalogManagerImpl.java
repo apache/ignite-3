@@ -192,8 +192,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable CatalogTableDescriptor table(String tableName, long timestamp) {
-        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
+    public @Nullable CatalogTableDescriptor table(String schemaName, String tableName, long timestamp) {
+        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(schemaName);
         if (schema == null) {
             return null;
         }
@@ -216,8 +216,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp) {
-        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(SqlCommon.DEFAULT_SCHEMA_NAME);
+    public @Nullable CatalogIndexDescriptor aliveIndex(String schemaName, String indexName, long timestamp) {
+        CatalogSchemaDescriptor schema = catalogAt(timestamp).schema(schemaName);
         if (schema == null) {
             return null;
         }
@@ -379,7 +379,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                         .filter(DEFAULT_FILTER)
                         .storageProfilesParams(
-                                List.of(StorageProfileParams.builder().storageProfile(CatalogService.DEFAULT_STORAGE_PROFILE).build())
+                                List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build())
                         )
                         .build(),
                 AlterZoneSetDefaultCommand.builder()

@@ -151,6 +151,7 @@ import org.mockito.quality.Strictness;
 public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static final String NODE_NAME = "testNode1";
     private static final String ZONE_NAME = "zone1";
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
     private static final String TABLE_NAME = "testTable";
     private static final String INDEX_NAME = "testIndex1";
     private static final String INDEXED_COLUMN_NAME = "columnName";
@@ -243,7 +244,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         createTable(TABLE_NAME);
         createIndex(TABLE_NAME, INDEX_NAME);
 
-        int tableId = catalogManager.table(TABLE_NAME, Long.MAX_VALUE).id();
+        int tableId = catalogManager.table(SCHEMA_NAME, TABLE_NAME, Long.MAX_VALUE).id();
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
         verify(txStateTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreateTxStateStorage(anyInt());

@@ -96,7 +96,6 @@ import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.RenameTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.TypeSafeMatcher;
 import org.jetbrains.annotations.Nullable;
@@ -108,7 +107,6 @@ import org.junit.jupiter.params.provider.EnumSource.Mode;
 /** Tests for table related commands. */
 public class CatalogTableTest extends BaseCatalogManagerTest {
 
-    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
     private static final String NEW_COLUMN_NAME = "NEWCOL";
     private static final String NEW_COLUMN_NAME_2 = "NEWCOL2";
     private static final int DFLT_TEST_PRECISION = 11;
@@ -135,8 +133,8 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertSame(schema, manager.activeSchema(timePriorToTableCreation));
 
         assertNull(schema.table(TABLE_NAME));
-        assertNull(manager.table(TABLE_NAME, 123L));
-        assertNull(manager.aliveIndex(pkIndexName(TABLE_NAME), 123L));
+        assertNull(manager.table(SCHEMA_NAME, TABLE_NAME, 123L));
+        assertNull(manager.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME), 123L));
 
         // Validate actual catalog
         schema = manager.schema(SCHEMA_NAME, tableCreationVersion);
@@ -147,10 +145,10 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertEquals(SCHEMA_NAME, schema.name());
         assertSame(schema, manager.activeSchema(clock.nowLong()));
 
-        assertSame(table, manager.table(TABLE_NAME, clock.nowLong()));
+        assertSame(table, manager.table(SCHEMA_NAME, TABLE_NAME, clock.nowLong()));
         assertSame(table, manager.table(table.id(), clock.nowLong()));
 
-        assertSame(pkIndex, manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()));
+        assertSame(pkIndex, manager.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME), clock.nowLong()));
         assertSame(pkIndex, manager.index(pkIndex.id(), clock.nowLong()));
 
         // Validate newly created table
@@ -243,10 +241,10 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertEquals(SCHEMA_NAME, schema.name());
         assertSame(schema, manager.activeSchema(beforeDropTimestamp));
 
-        assertSame(table1, manager.table(TABLE_NAME, beforeDropTimestamp));
+        assertSame(table1, manager.table(SCHEMA_NAME, TABLE_NAME, beforeDropTimestamp));
         assertSame(table1, manager.table(table1.id(), beforeDropTimestamp));
 
-        assertSame(pkIndex1, manager.aliveIndex(pkIndexName(TABLE_NAME), beforeDropTimestamp));
+        assertSame(pkIndex1, manager.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME), beforeDropTimestamp));
         assertSame(pkIndex1, manager.index(pkIndex1.id(), beforeDropTimestamp));
 
         // Validate actual catalog
@@ -257,11 +255,11 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertSame(schema, manager.activeSchema(clock.nowLong()));
 
         assertNull(schema.table(TABLE_NAME));
-        assertNull(manager.table(TABLE_NAME, clock.nowLong()));
+        assertNull(manager.table(SCHEMA_NAME, TABLE_NAME, clock.nowLong()));
         assertNull(manager.table(table1.id(), clock.nowLong()));
 
         assertThat(schema.aliveIndex(pkIndexName(TABLE_NAME)), is(nullValue()));
-        assertThat(manager.aliveIndex(pkIndexName(TABLE_NAME), clock.nowLong()), is(nullValue()));
+        assertThat(manager.aliveIndex(SCHEMA_NAME, pkIndexName(TABLE_NAME), clock.nowLong()), is(nullValue()));
         assertThat(manager.index(pkIndex1.id(), clock.nowLong()), is(nullValue()));
     }
 
@@ -270,17 +268,17 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         int catalogVersion = manager.latestCatalogVersion();
-        CatalogTableDescriptor table1 = manager.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor table1 = manager.table(SCHEMA_NAME, TABLE_NAME, clock.nowLong());
         assertNotNull(table1);
 
         // Drop table.
         assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willCompleteSuccessfully());
-        assertNull(manager.table(TABLE_NAME, clock.nowLong()));
+        assertNull(manager.table(SCHEMA_NAME, TABLE_NAME, clock.nowLong()));
 
         // Re-create table with same name.
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
-        CatalogTableDescriptor table2 = manager.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor table2 = manager.table(SCHEMA_NAME, TABLE_NAME, clock.nowLong());
         assertNotNull(table2);
 
         // Ensure these are different tables.
@@ -554,7 +552,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(addColumnParams(TABLE_NAME, columnParams("val2", INT32))), willCompleteSuccessfully());
 
-        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+        CatalogTableDescriptor table = manager.table(SCHEMA_NAME, TABLE_NAME, Long.MAX_VALUE);
 
         assertThat(table.tableVersion(), is(2));
     }
@@ -563,7 +561,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     public void createTableProducesTableVersion1() {
         createSomeTable(TABLE_NAME);
 
-        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+        CatalogTableDescriptor table = manager.table(SCHEMA_NAME, TABLE_NAME, Long.MAX_VALUE);
 
         assertThat(table.tableVersion(), is(1));
     }
@@ -574,7 +572,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(dropColumnParams(TABLE_NAME, "val1")), willCompleteSuccessfully());
 
-        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+        CatalogTableDescriptor table = manager.table(SCHEMA_NAME, TABLE_NAME, Long.MAX_VALUE);
 
         assertThat(table.tableVersion(), is(2));
     }
@@ -644,7 +642,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
     public void testGetTableByIdAndCatalogVersion() {
         int tableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME))).getCatalogVersion();
 
-        CatalogTableDescriptor table = manager.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor table = manager.table(SCHEMA_NAME, TABLE_NAME, clock.nowLong());
 
         assertNull(manager.table(table.id(), tableCreationVersion - 1));
         assertSame(table, manager.table(table.id(), tableCreationVersion));
@@ -664,7 +662,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
         );
         assertThat(future, willCompleteSuccessfully());
 
-        CatalogTableDescriptor table = manager.table(TABLE_NAME, Long.MAX_VALUE);
+        CatalogTableDescriptor table = manager.table(SCHEMA_NAME, TABLE_NAME, Long.MAX_VALUE);
 
         assertThat(table.tableVersion(), is(2));
     }

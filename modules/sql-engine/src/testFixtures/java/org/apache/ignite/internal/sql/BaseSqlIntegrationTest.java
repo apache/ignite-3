@@ -59,6 +59,8 @@ import org.junit.jupiter.api.function.Executable;
  */
 @ExtendWith(QueryCheckerExtension.class)
 public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
+    protected static String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     @InjectQueryCheckerFactory
     protected static QueryCheckerFactory queryCheckerFactory;
 

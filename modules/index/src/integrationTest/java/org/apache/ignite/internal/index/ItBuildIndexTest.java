@@ -310,7 +310,8 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static int tableId(String tableName) {
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        CatalogTableDescriptor tableDescriptor = node.catalogManager().table(tableName, node.clock().nowLong());
+        CatalogTableDescriptor tableDescriptor = node.catalogManager().table(SCHEMA_NAME, tableName, node.clock().nowLong()
+        );
 
         assertNotNull(tableDescriptor, String.format("Table %s not found", tableName));
 
@@ -406,6 +407,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      * @param indexName Index name.
      */
     private static @Nullable CatalogIndexDescriptor getIndexDescriptor(IgniteImpl node, String indexName) {
-        return node.catalogManager().aliveIndex(indexName, node.clock().nowLong());
+        return node.catalogManager().aliveIndex(SCHEMA_NAME, indexName, node.clock().nowLong());
     }
 }

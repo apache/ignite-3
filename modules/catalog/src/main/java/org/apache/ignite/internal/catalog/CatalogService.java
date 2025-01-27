@@ -65,24 +65,45 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     @Nullable Catalog catalog(int catalogVersion);
 
-    @Nullable CatalogTableDescriptor table(String tableName, long timestamp);
+    /**
+     * Returns table descriptor by the given schema name and table name at given timestamp.
+     *
+     * @return Table descriptor or {@code null} if table not found.
+     */
+    @Nullable CatalogTableDescriptor table(String schemaName, String tableName, long timestamp);
 
+    /**
+     * Returns table descriptor by the given table ID and given timestamp.
+     *
+     * @return Table descriptor or {@code null} if table not found.
+     */
     @Nullable CatalogTableDescriptor table(int tableId, long timestamp);
 
+    /**
+     * Returns table descriptor by the given table ID and catalog version.
+     *
+     * @return Table descriptor or {@code null} if table not found.
+     */
     @Nullable CatalogTableDescriptor table(int tableId, int catalogVersion);
 
     Collection<CatalogTableDescriptor> tables(int catalogVersion);
 
     /**
-     * Returns an <em>alive</em> index with the given name, that is an index that has not been dropped yet at a given point in time.
+     * Returns a descriptor for <em>alive</em> index by the given schema name and index name at given timestamp,
+     * that is an index that has not been dropped yet at a given point in time.
      *
      * <p>This effectively means that the index must be present in the Catalog and not in the {@link CatalogIndexStatus#STOPPING}
      * state.
      */
-    @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp);
+    @Nullable CatalogIndexDescriptor aliveIndex(String schemaName, String indexName, long timestamp);
 
     @Nullable CatalogIndexDescriptor index(int indexId, long timestamp);
 
+    /**
+     * Returns index descriptor by the given index ID and catalog version.
+     *
+     * @return Index descriptor or {@code null} if index not found.
+     */
     @Nullable CatalogIndexDescriptor index(int indexId, int catalogVersion);
 
     Collection<CatalogIndexDescriptor> indexes(int catalogVersion);

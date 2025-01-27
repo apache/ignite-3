@@ -24,9 +24,8 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursorExt.CancellationReason;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor.CancellationReason;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 
 /** Handler that acquires data cursor and saves it to {@link Query query state}. */
 class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
@@ -44,6 +43,8 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
 
         SqlQueryType queryType = plan.type();
 
+        query.cancel.throwIfCancelled();
+
         CompletableFuture<Void> awaitFuture = query.executor.executePlan(context, plan)
                 .thenCompose(dataCursor -> {
                     AsyncSqlCursorImpl<InternalSqlRow> cursor = new AsyncSqlCursorImpl<>(
@@ -58,10 +59,6 @@ class CursorInitializationPhaseHandler implements ExecutionPhaseHandler {
                     query.cancel.add(timeout -> dataCursor.cancelAsync(
                             timeout ? CancellationReason.TIMEOUT : CancellationReason.CANCEL
                     ));
-
-                    QueryTransactionContext txContext = query.txContext;
-
-                    assert txContext != null;
 
                     if (queryType == SqlQueryType.QUERY) {
                         // preserve lazy execution for statements that only reads

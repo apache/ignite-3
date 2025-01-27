@@ -104,7 +104,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
 
     @Test
     public void testRestartPartitionTableNotFound() {
-        String unknownTable = canonicalName("PUBLIC", "unknown_table");
+        String unknownTable = "PUBLIC.unknown_table";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, unknownTable,
@@ -112,7 +112,7 @@ public abstract class ItRestartPartitionsTest extends CliIntegrationTest {
         );
 
         assertOutputIsEmpty();
-        assertErrOutputContains("The table does not exist [name=" + unknownTable + "]");
+        assertErrOutputContains("The table does not exist [name=" + unknownTable.toUpperCase() + "]");
     }
 
     @Test

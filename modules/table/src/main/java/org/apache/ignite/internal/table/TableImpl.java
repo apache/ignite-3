@@ -47,6 +47,7 @@ import org.apache.ignite.internal.table.partition.HashPartitionManagerImpl;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -148,7 +149,7 @@ public class TableImpl implements TableViewInternal {
         return new HashPartitionManagerImpl(tbl, schemaReg, marshallers);
     }
 
-    @Override public String name() {
+    @Override public QualifiedName qualifiedName() {
         return tbl.name();
     }
 
@@ -164,9 +165,7 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public void schemaView(SchemaRegistry schemaReg) {
-        assert this.schemaReg == null : "Schema registry is already set [tableName=" + name() + ']';
-
-        Objects.requireNonNull(schemaReg, "Schema registry must not be null [tableName=" + name() + ']');
+        Objects.requireNonNull(schemaReg, () -> "Schema registry must not be null [tableName=" + name() + ']');
 
         this.schemaReg = schemaReg;
     }

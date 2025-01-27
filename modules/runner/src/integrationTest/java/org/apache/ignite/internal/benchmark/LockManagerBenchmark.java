@@ -62,7 +62,7 @@ public class LockManagerBenchmark {
      */
     @Setup
     public void setUp() {
-        lockManager = new HeapLockManager(DEFAULT_SLOTS, DEFAULT_SLOTS);
+        lockManager = new HeapLockManager(DEFAULT_SLOTS);
         lockManager.start(new WaitDieDeadlockPreventionPolicy());
         generator = new TransactionIdGenerator(0);
         clock = new TestHybridClock(() -> 0L);

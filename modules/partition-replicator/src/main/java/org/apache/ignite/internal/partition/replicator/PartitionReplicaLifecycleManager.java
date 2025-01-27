@@ -304,7 +304,7 @@ public class PartitionReplicaLifecycleManager extends
         // nevertheless everything works correctly.
         // All components execute the synchronous part of startAsync sequentially and only when they all complete,
         // we enable metastorage listeners (see IgniteImpl.joinClusterAsync: metaStorageMgr.deployWatches()).
-        // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
+        // Once the metastorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
         // fires CatalogManager's ZONE_CREATE event, and the state of PartitionReplicaLifecycleManager becomes consistent
         // (calculateZoneAssignmentsAndCreateReplicationNodes() will be called).
         int earliestCatalogVersion = catalogMgr.activeCatalogVersion(hybridTimestampToLong(lwm));

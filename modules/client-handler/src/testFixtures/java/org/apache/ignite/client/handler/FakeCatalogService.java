@@ -52,7 +52,7 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
-    public CatalogTableDescriptor table(String tableName, long timestamp) {
+    public CatalogTableDescriptor table(String schemaName, String tableName, long timestamp) {
         return null;
     }
 
@@ -73,7 +73,7 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
-    public CatalogIndexDescriptor aliveIndex(String indexName, long timestamp) {
+    public CatalogIndexDescriptor aliveIndex(String schemaName, String indexName, long timestamp) {
         return null;
     }
 
