@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.index;
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -65,7 +64,7 @@ public interface StorageIndexDescriptor {
      * Returns {@code true} if this index must be built by a background task and {@code false} if this index will be built when inserting
      * data into its table.
      *
-     * <p>The value of this field is {@code True} for indexes created in {@link CatalogIndexStatus#REGISTERED} state.
+     * <p>The value of this field is deduced based on the {@link CatalogIndexDescriptor#isCreatedWithTable} flag value.
      */
     boolean mustBeBuilt();
 

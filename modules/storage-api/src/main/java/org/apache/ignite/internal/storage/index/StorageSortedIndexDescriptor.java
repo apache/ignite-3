@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.storage.index.StorageIndexDescriptor.ge
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -112,7 +111,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
      * @param index Catalog index descriptor.
      */
     public StorageSortedIndexDescriptor(CatalogTableDescriptor table, CatalogSortedIndexDescriptor index) {
-        this(index.id(), extractIndexColumnsConfiguration(table, index), index.status() == CatalogIndexStatus.REGISTERED);
+        this(index.id(), extractIndexColumnsConfiguration(table, index), !index.isCreatedWithTable());
     }
 
     /**

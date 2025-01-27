@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollat
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS;
@@ -188,8 +187,9 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                 indexName,
                 tableId,
                 false,
-                built ? AVAILABLE : REGISTERED,
-                List.of(columns)
+                AVAILABLE,
+                List.of(columns),
+                built
         );
 
         addToCatalog(indexDescriptor);
