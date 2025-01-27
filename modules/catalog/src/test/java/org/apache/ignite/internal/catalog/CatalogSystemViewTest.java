@@ -19,11 +19,9 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -77,7 +75,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
                 .type(type)
                 .build();
 
-        assertThat(manager.execute(command), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(command);
 
         int catalogVersion = manager.latestCatalogVersion();
 
@@ -120,7 +118,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
         assertNotNull(schema);
         assertEquals(1, schema.updateToken());
 
-        assertThat(manager.execute(command), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(command);
 
         int catalogVersion = manager.latestCatalogVersion();
 
@@ -143,7 +141,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         CreateSystemViewCommand initialCommand = viewBuilder.build();
 
-        assertThat(manager.execute(initialCommand), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(initialCommand);
 
         CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, manager.latestCatalogVersion());
         assertNotNull(systemSchema, "systemSchema");
@@ -153,7 +151,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         systemViewModification.apply(viewBuilder);
 
-        assertThat(manager.execute(viewBuilder.build()), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(viewBuilder.build());
 
         CatalogSchemaDescriptor mostRecentSchema = manager.schema(SYSTEM_SCHEMA_NAME, manager.latestCatalogVersion());
         assertNotNull(mostRecentSchema, "systemSchema");
@@ -252,7 +250,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
                 .type(type)
                 .build();
 
-        assertThat(manager.execute(command), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(command);
 
         verify(eventListener, times(1)).notify(any());
         Mockito.reset(eventListener);
@@ -267,7 +265,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         // Use the same command to create an identical view.
 
-        assertThat(manager.execute(command), willCompleteSuccessfully());
+        tryApplyAndExpectNotApplied(command);
 
         CatalogSchemaDescriptor systemSchema2 = manager.schema(SYSTEM_SCHEMA_NAME, catalogVersion);
         assertNotNull(systemSchema2, "systemSchema");

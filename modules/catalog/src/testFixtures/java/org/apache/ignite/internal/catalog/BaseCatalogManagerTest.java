@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
@@ -66,6 +68,9 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher;
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -324,5 +329,60 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
             return falseCompletedFuture();
         };
+    }
+
+    CatalogApplyResult tryApplyAndExpectApplied(List<CatalogCommand> cmds) {
+        CatalogApplyResult applyResult = await(manager.execute(cmds));
+        assertThat(applyResult, CatalogApplyResultMatcher.applyed());
+
+        return applyResult;
+    }
+
+    CatalogApplyResult tryApplyAndExpectApplied(CatalogCommand cmd) {
+        CatalogApplyResult applyResult = await(manager.execute(cmd));
+        assertThat(applyResult, CatalogApplyResultMatcher.applyed());
+
+        return applyResult;
+    }
+
+    CatalogApplyResult tryApplyAndExpectNotApplied(CatalogCommand cmd) {
+        CatalogApplyResult applyResult = await(manager.execute(cmd));
+        assertThat(applyResult, CatalogApplyResultMatcher.notApplyed());
+
+        return applyResult;
+    }
+
+    <T> CompletableFutureMatcher<T> willBeApplied() {
+        return (CompletableFutureMatcher<T>) willBe(CatalogApplyResultMatcher.applyed());
+    }
+
+    <T> CompletableFutureMatcher<T> willBeNotApplied() {
+        return (CompletableFutureMatcher<T>) willBe(CatalogApplyResultMatcher.notApplyed());
+    }
+
+    static class CatalogApplyResultMatcher extends BaseMatcher<CatalogApplyResult> {
+        boolean expectedResult;
+
+        CatalogApplyResultMatcher(boolean expectedResult) {
+            this.expectedResult = expectedResult;
+        }
+
+        @Override
+        public boolean matches(Object o) {
+            return o instanceof CatalogApplyResult && ((CatalogApplyResult) o).isApplied() == expectedResult;
+        }
+
+        @Override
+        public void describeTo(Description description) {
+            description.appendText("CatalogApplyResultMatcher");
+        }
+
+        public static CatalogApplyResultMatcher applyed() {
+            return new CatalogApplyResultMatcher(true);
+        }
+
+        public static CatalogApplyResultMatcher notApplyed() {
+            return new CatalogApplyResultMatcher(false);
+        }
     }
 }

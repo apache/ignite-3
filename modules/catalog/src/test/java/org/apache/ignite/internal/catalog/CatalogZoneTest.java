@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,7 +40,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
@@ -75,7 +73,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();
 
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(cmd);
 
         // Validate catalog version from the past.
         assertNull(manager.zone(zoneName, 0));
@@ -117,7 +115,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                     .storageProfilesParams(List.of(storageProfile))
                     .build();
 
-            assertThat(manager.execute(createZoneCmd), willCompleteSuccessfully());
+            tryApplyAndExpectApplied(createZoneCmd);
 
             assertNotEquals(TEST_ZONE_NAME, latestActiveCatalog().defaultZone().name());
         }
@@ -130,7 +128,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
 
             int prevVer = latestActiveCatalog().version();
 
-            assertThat(manager.execute(setDefaultCmd), willCompleteSuccessfully());
+            tryApplyAndExpectApplied(setDefaultCmd);
             assertEquals(TEST_ZONE_NAME, latestActiveCatalog().defaultZone().name());
 
             // Make sure history has not been affected.
@@ -141,7 +139,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
 
         // Create table in the new zone.
         {
-            assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+            tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
             Catalog catalog = latestActiveCatalog();
             CatalogTableDescriptor tab = Objects.requireNonNull(manager.table(SCHEMA_NAME, TABLE_NAME, catalog.time()));
@@ -157,7 +155,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                     .zoneName(TEST_ZONE_NAME)
                     .build();
 
-            assertThat(manager.execute(setDefaultCmd), willCompleteSuccessfully());
+            tryApplyAndExpectNotApplied(setDefaultCmd);
             assertEquals(lastVer, manager.latestCatalogVersion());
         }
 
@@ -167,7 +165,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                     .zoneName(initialDefaultZone.name())
                     .build();
 
-            assertThat(manager.execute(dropCommand), willCompleteSuccessfully());
+            tryApplyAndExpectApplied(dropCommand);
         }
     }
 
@@ -180,7 +178,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
 
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(cmd);
 
         long beforeDropTimestamp = clock.nowLong();
 
@@ -188,9 +186,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .build();
 
-        CompletableFuture<?> fut = manager.execute(dropCommand);
-
-        assertThat(fut, willCompleteSuccessfully());
+        tryApplyAndExpectApplied(dropCommand);
 
         // Validate catalog version from the past.
         CatalogZoneDescriptor zone = manager.zone(zoneName, beforeDropTimestamp);
@@ -233,7 +229,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
 
             int ver = manager.latestCatalogVersion();
 
-            assertThat(manager.execute(renameCommand), willCompleteSuccessfully());
+            tryApplyAndExpectApplied(renameCommand);
 
             assertSame(ver + 1, manager.latestCatalogVersion());
 
@@ -259,7 +255,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
 
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(cmd);
 
         long beforeDropTimestamp = clock.nowLong();
 
@@ -272,7 +268,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .newZoneName(newZoneName)
                 .build();
 
-        assertThat(manager.execute(renameZoneCmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(renameZoneCmd);
 
         // Validate catalog version from the past.
         CatalogZoneDescriptor zone = manager.zone(zoneName, beforeDropTimestamp);
@@ -305,7 +301,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .build();
 
         int ver = manager.latestCatalogVersion();
-        assertThat(manager.execute(renameZoneCmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(renameZoneCmd);
 
         assertEquals(ver + 1, manager.latestCatalogVersion());
         assertEquals(TEST_ZONE_NAME, latestActiveCatalog().defaultZone().name());
@@ -351,8 +347,8 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();
 
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
-        assertThat(manager.execute(alterCmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(cmd);
+        tryApplyAndExpectApplied(alterCmd);
 
         // Validate actual catalog
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
@@ -380,7 +376,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
 
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(cmd);
 
         // Try to create zone with same name.
         cmd = CreateZoneCommand.builder()
@@ -415,13 +411,13 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
 
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(cmd);
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
         assertNotNull(zone);
 
         // Try to create zone with same name.
         cmd = DropZoneCommand.builder().zoneName(zoneName).build();
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(cmd);
 
         cmd = CreateZoneCommand.builder()
                 .zoneName(zoneName)
@@ -429,7 +425,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .replicas(5)
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(cmd);
 
         CatalogZoneDescriptor newZone = manager.zone(zoneName, clock.nowLong());
         assertNotNull(newZone);
@@ -458,9 +454,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.ZONE_CREATE, eventListener);
         manager.listen(CatalogEvent.ZONE_DROP, eventListener);
 
-        CompletableFuture<?> fut = manager.execute(cmd);
-
-        assertThat(fut, willCompleteSuccessfully());
+        tryApplyAndExpectApplied(cmd);
 
         verify(eventListener).notify(any(CreateZoneEventParameters.class));
 
@@ -468,9 +462,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .build();
 
-        fut = manager.execute(dropCommand);
-
-        assertThat(fut, willCompleteSuccessfully());
+        tryApplyAndExpectApplied(dropCommand);
 
         verify(eventListener).notify(any(DropZoneEventParameters.class));
         verifyNoMoreInteractions(eventListener);
@@ -478,15 +470,12 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
 
     @Test
     void testCreateZoneWithDefaults() {
-        assertThat(
-                manager.execute(
-                        CreateZoneCommand.builder()
-                                .zoneName(TEST_ZONE_NAME)
-                                .storageProfilesParams(
-                                        List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build())
-                                ).build()
-                ),
-                willCompleteSuccessfully()
+        tryApplyAndExpectApplied(
+                CreateZoneCommand.builder()
+                        .zoneName(TEST_ZONE_NAME)
+                        .storageProfilesParams(
+                                List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build())
+                        ).build()
         );
 
         CatalogZoneDescriptor zone = manager.zone(TEST_ZONE_NAME, clock.nowLong());

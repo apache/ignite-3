@@ -92,14 +92,11 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testCreateTable() {
-        int tableCreationVersion = await(
-                manager.execute(createTableCommand(
-                        TABLE_NAME,
-                        List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)),
-                        List.of("key1", "key2"),
-                        List.of("key2")
-                ))
-        ).getCatalogVersion();
+        int tableCreationVersion = tryApplyAndExpectApplied(createTableCommand(
+                TABLE_NAME,
+                List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)),
+                List.of("key1", "key2"),
+                List.of("key2"))).getCatalogVersion();
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(tableCreationVersion - 1);
@@ -128,9 +125,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertEquals(table.updateToken(), schema.updateToken());
 
         // Validate another table creation.
-        int secondTableCreationVersion = await(
-                manager.execute(simpleTable(TABLE_NAME_2))
-        ).getCatalogVersion();
+        int secondTableCreationVersion = tryApplyAndExpectApplied(simpleTable(TABLE_NAME_2)).getCatalogVersion();
 
         // Validate actual catalog. has both tables.
         schema = manager.schema(secondTableCreationVersion);
@@ -157,7 +152,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testDropTable() {
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
         int secondTableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME_2))).getCatalogVersion();
 
         long beforeDropTimestamp = clock.nowLong();
