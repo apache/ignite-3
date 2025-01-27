@@ -144,8 +144,6 @@ public class CreateTableCommand extends AbstractTableCommand {
                 storageProfile
         );
 
-        updateContext.registerTableCreation(tableId);
-
         String indexName = pkIndexName(tableName);
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);

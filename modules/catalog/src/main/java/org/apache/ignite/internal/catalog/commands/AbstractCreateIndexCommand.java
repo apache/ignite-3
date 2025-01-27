@@ -99,7 +99,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
             throw new CatalogValidationException("Unique index must include all colocation columns");
         }
 
-        CatalogIndexStatus status = context.containsTableCreation(table.id())
+        CatalogIndexStatus status = context.baseCatalog().table(table.id()) == null
                 ? CatalogIndexStatus.AVAILABLE
                 : CatalogIndexStatus.REGISTERED;
 

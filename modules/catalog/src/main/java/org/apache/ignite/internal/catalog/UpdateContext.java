@@ -17,50 +17,41 @@
 
 package org.apache.ignite.internal.catalog;
 
-import java.util.HashSet;
-import java.util.Set;
 import java.util.function.Function;
-import org.jetbrains.annotations.Nullable;
 
 /**
- * Context contains the catalog to be updated.
- * It is used by {@link BulkUpdateProducer} when executing a batch of catalog commands
+ * Context contains two versions of the catalog: the original and the modified.
+ * The original (source) version of a catalog can be used by a command from a
+ * batch to determine whether certain changes have been made to the catalog
+ * during processing of the current batch of commands.
  *
  * @see BulkUpdateProducer
  */
 public class UpdateContext {
-    /** Catalog descriptor on the basis of which to generate the list of updates. */
-    private Catalog catalog;
+    /** Source catalog descriptor. */
+    private final Catalog originalCatalog;
 
-    /** Identifiers of created tables. */
-    private @Nullable Set<Integer> tableIds;
+    /** Catalog descriptor on the basis of which to generate the list of updates. */
+    private Catalog updatedCatalog;
 
     /** Constructor. */
     public UpdateContext(Catalog catalog) {
-        this.catalog = catalog;
+        this.originalCatalog = catalog;
+        this.updatedCatalog = catalog;
     }
 
     /** Returns catalog descriptor. */
     public Catalog catalog() {
-        return catalog;
+        return updatedCatalog;
     }
 
-    /** Registers the table being created in the context. */
-    public void registerTableCreation(int tableId) {
-        if (tableIds == null) {
-            tableIds = new HashSet<>();
-        }
-
-        tableIds.add(tableId);
-    }
-
-    /** Returns whether the command to create a table with the specified identifier was processed. */
-    public boolean containsTableCreation(int tableId) {
-        return tableIds != null && tableIds.contains(tableId);
+    /** Returns source catalog before applying updates from batch. */
+    public Catalog baseCatalog() {
+        return originalCatalog;
     }
 
     /** Applies specified action to the catalog. */
     public void updateCatalog(Function<Catalog, Catalog> updater) {
-        catalog = updater.apply(catalog);
+        updatedCatalog = updater.apply(updatedCatalog);
     }
 }
