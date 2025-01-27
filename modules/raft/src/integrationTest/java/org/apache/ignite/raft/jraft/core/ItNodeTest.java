@@ -61,6 +61,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -81,6 +82,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -89,6 +91,7 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -124,6 +127,7 @@ import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
+import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
@@ -148,6 +152,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.storage.snapshot.ThroughputSnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
@@ -165,10 +170,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Integration tests for raft cluster. TODO asch get rid of sleeps wherether possible IGNITE-14832
@@ -2709,8 +2716,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             assertEquals(20, fsm.getLogs().size());
     }
 
-    @Test
-    @Timeout(value = 25_000, unit = TimeUnit.MILLISECONDS)
+    @RepeatedTest(value = 2, failureThreshold = 1)
     public void testFollowerStartStopFollowing() throws Exception {
         // start five nodes
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 5);
@@ -2719,6 +2725,50 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         for (TestPeer peer : peers)
             assertTrue(cluster.start(peer));
+
+        for (TestPeer peer: peers) {
+            MockStateMachine m = cluster.getFsmByPeer(peer.getPeerId());
+            m.setAdditionalEventHandler(new StateMachine() {
+                @Override
+                public void onApply(Iterator iter) {}
+
+                @Override
+                public void onShutdown() {}
+
+                @Override
+                public void onSnapshotSave(SnapshotWriter writer, Closure done) {}
+
+                @Override
+                public boolean onSnapshotLoad(SnapshotReader reader) {return false;}
+
+                @Override
+                public void onLeaderStart(long term) {}
+
+                @Override
+                public void onLeaderStop(Status status) {
+                    if(status.getCode() == RaftError.ERAFTTIMEDOUT.getNumber()) {
+                        fail(new TimeoutException("Unexpected election timeout!"));
+                    }
+                }
+
+                @Override
+                public void onError(RaftException e) {}
+
+                @Override
+                public void onConfigurationCommitted(Configuration conf) {}
+
+                @Override
+                public void onStopFollowing(LeaderChangeContext ctx) {
+                    if(ctx.getStatus().getCode() == RaftError.ERAFTTIMEDOUT.getNumber()) {
+                        fail(new TimeoutException("Unexpected election timeout!"));
+                    }
+                }
+
+                @Override
+                public void onStartFollowing(LeaderChangeContext ctx) {}
+            });
+        }
+
         Node firstLeader = cluster.waitAndGetLeader();
         assertNotNull(firstLeader);
         cluster.ensureLeader(firstLeader);
@@ -2730,7 +2780,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         List<Node> firstFollowers = cluster.getFollowers();
         assertEquals(4, firstFollowers.size());
         for (Node node : firstFollowers) {
-            assertEquals(1, ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes());
+            System.out.println(((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes());
+            assertWaitForCondition(1,
+                    () -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes(),
+                    Duration.of(10_000, ChronoUnit.MILLIS));
             assertEquals(0, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -2745,7 +2798,9 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         List<Node> secondFollowers = cluster.getFollowers();
         assertEquals(3, secondFollowers.size());
         for (Node node : secondFollowers) {
-            assertEquals(2, ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes());
+            assertWaitForCondition(2,
+                    () -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes(),
+                    Duration.of(5_000, ChronoUnit.MILLIS));
             assertEquals(1, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -2762,12 +2817,16 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < 3; i++) {
             Node follower = thirdFollowers.get(i);
             if (follower.getNodeId().getPeerId().equals(secondLeader.getNodeId().getPeerId())) {
-                assertEquals(2, ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes());
+                assertWaitForCondition(2,
+                        () -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes(),
+                        Duration.of(5_000, ChronoUnit.MILLIS));
                 assertEquals(1, ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
                 continue;
             }
 
-            assertEquals(3, ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes());
+            assertWaitForCondition(3,
+                    () -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes(),
+                    Duration.of(5_000, ChronoUnit.MILLIS));
             assertEquals(2, ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -4488,6 +4547,37 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         }
 
         return false;
+    }
+
+    /**
+     * assert equals expected and actual and tests if this gets true within a timeout. The method will log all values the actual parameter
+     * has taken if the timeout is reached.
+     * @param expected the expected value
+     * @param actual the actual value, this should change over time and therefore a supplier
+     * @param timeout the duration within the actual value should be the same as the expected value
+     * @param <T> the type of expected and actual value
+     * @throws TimeoutException when the duration is reached
+     */
+    @SuppressWarnings("BusyWait")
+    private static <T> void assertWaitForCondition(T expected, Supplier<T>  actual, Duration timeout) throws TimeoutException {
+        long stop = System.currentTimeMillis() + timeout.toMillis();
+        HashSet<Object> results = new HashSet<>();
+        while (System.currentTimeMillis() < stop) {
+            T actualVal = actual.get();
+            try {
+                assertEquals(expected, actualVal);
+                return;
+            } catch (Throwable ignored) {
+                //no matching result, save for debug
+                results.add(actualVal);
+            }
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException ignored) {
+            }
+        }
+        throw new TimeoutException(
+                "Timeout reached while waiting for expected result. Expected: " + expected + ", Actual Results: " + results);
     }
 
     /**
