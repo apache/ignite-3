@@ -59,6 +59,10 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     /**
      * Retrieves the catalog of the specified version.
      *
+     * <p>Note: the methods may return {@code null}, when the requested version has sunk under the garbage collector watermark and no longer
+     * visible, or catalog hasn't processed it yet. In case of former there is nothing we can do, but in case of latter the caller side
+     * should await of the version readiness via {@link #catalogReadyFuture(int)} method.
+     *
      * @param catalogVersion The version of the catalog to retrieve.
      * @return The catalog for the specified version, or {@code null} if not found.
      */
@@ -81,7 +85,10 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     int activeCatalogVersion(long timestamp);
 
     /**
-     * Returns the earliest registered version of the catalog.
+     * Returns the earliest available version of the catalog.
+     *
+     * <p>Note: Garbage collector disposes earliest versions sporadically, when they sink under the low watermark that is become unavailable
+     * for the historical queries.
      *
      * @return The earliest registered version of the catalog.
      */
@@ -90,12 +97,18 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     /**
      * Returns the latest registered version of the catalog.
      *
+     * <p>Note: There is no guarantee, that all components have seen and processed all events related to this version.
+     * To make it safe to use this version across all the components, it must be guarded with {@link #catalogReadyFuture(int)} call.
+     *
      * @return The latest registered version of the catalog.
      */
     int latestCatalogVersion();
 
     /**
      * Returns a future, which completes, when catalog of given version will be available.
+     *
+     * <p>Note: Future completeness guarantees all components have seen and process the requested version. However, there is no guarantee
+     * the version is activated.
      *
      * @param version The catalog version to wait for.
      * @return A future that completes when the catalog of the given version becomes available.
