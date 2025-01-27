@@ -33,6 +33,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
+import org.apache.ignite.raft.jraft.StateMachine;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -54,6 +55,7 @@ public class MockStateMachine extends StateMachineAdapter {
     private final PeerId peerId;
     private final AtomicInteger saveSnapshotTimes = new AtomicInteger(0);
     private final AtomicInteger loadSnapshotTimes= new AtomicInteger(0);
+    private ArrayList<StateMachine> additionalEventHandlers = new ArrayList<>();
 
     public PeerId getPeerId() {
         return this.peerId;
@@ -62,6 +64,10 @@ public class MockStateMachine extends StateMachineAdapter {
     public MockStateMachine(final PeerId peerId) {
         super();
         this.peerId = peerId;
+    }
+
+    public void setAdditionalEventHandler(final StateMachine additionalEventHandler) {
+        additionalEventHandlers.add(additionalEventHandler);
     }
 
     public int getSaveSnapshotTimes() {
@@ -215,24 +221,40 @@ public class MockStateMachine extends StateMachineAdapter {
     public void onLeaderStart(final long term) {
         super.onLeaderStart(term);
         this.leaderTerm = term;
+
+        for (StateMachine additionalEventHandler : additionalEventHandlers) {
+            additionalEventHandler.onLeaderStart(term);
+        }
     }
 
     @Override
     public void onLeaderStop(final Status status) {
         super.onLeaderStop(status);
         this.leaderTerm = -1;
+
+        for (StateMachine additionalEventHandler : additionalEventHandlers) {
+            additionalEventHandler.onLeaderStop(status);
+        }
     }
 
     @Override
     public void onStopFollowing(final LeaderChangeContext ctx) {
         super.onStopFollowing(ctx);
         this.onStopFollowingTimes++;
+
+        for (StateMachine additionalEventHandler : additionalEventHandlers) {
+            additionalEventHandler.onStopFollowing(ctx);
+        }
     }
 
     @Override
     public void onStartFollowing(final LeaderChangeContext ctx) {
         super.onStartFollowing(ctx);
         this.onStartFollowingTimes++;
+
+        for (StateMachine additionalEventHandler : additionalEventHandlers) {
+            additionalEventHandler.onStartFollowing(ctx);
+        }
     }
 
 }

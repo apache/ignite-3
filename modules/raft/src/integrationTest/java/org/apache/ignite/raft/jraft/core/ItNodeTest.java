@@ -61,6 +61,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -81,6 +82,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -89,6 +91,7 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -124,6 +127,7 @@ import org.apache.ignite.raft.jraft.conf.ConfigurationEntry;
 import org.apache.ignite.raft.jraft.core.FSMCallerImpl.ApplyTask;
 import org.apache.ignite.raft.jraft.disruptor.StripedDisruptor;
 import org.apache.ignite.raft.jraft.entity.EnumOutter;
+import org.apache.ignite.raft.jraft.entity.LeaderChangeContext;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.entity.Task;
@@ -148,6 +152,7 @@ import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
 import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.storage.snapshot.ThroughputSnapshotThrottle;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.local.LocalSnapshotStorage;
@@ -165,11 +170,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * Integration tests for raft cluster. TODO asch get rid of sleeps wherether possible IGNITE-14832
@@ -4308,8 +4315,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @DisplayName("application of long batch in state machine does not prevent fast shutdown")
-    public void longBatchInStateMachineAndShutdown() throws Exception {
+    public void applicationOfLongBatchInStateMachineDoesNotPreventFastShutdown() throws Exception {
         CompletableFuture<Void> allowExecutionFuture = new CompletableFuture<>();
 
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 2);
@@ -4406,9 +4412,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // Make sure all closures were executed as expected.
         assertThat(successfullyExecuted, hasSize(successfullyExecuted.last() - successfullyExecuted.first() + 1));
-        if (!exceptions.isEmpty()) {
-            assertThat(exceptions, is(aMapWithSize(exceptions.lastKey() - exceptions.firstKey() + 1)));
-        }
+        assertThat(exceptions, is(aMapWithSize(exceptions.lastKey() - exceptions.firstKey() + 1)));
         if (!statusErrors.isEmpty()) {
             assertThat(statusErrors, is(aMapWithSize(statusErrors.lastKey() - statusErrors.firstKey() + 1)));
         }
