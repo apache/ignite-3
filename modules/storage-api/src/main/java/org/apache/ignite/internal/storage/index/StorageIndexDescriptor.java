@@ -76,7 +76,6 @@ public interface StorageIndexDescriptor {
      * @param index Catalog index descriptor.
      */
     static StorageIndexDescriptor create(CatalogTableDescriptor table, CatalogIndexDescriptor index) {
-
         if (index instanceof CatalogHashIndexDescriptor) {
             return new StorageHashIndexDescriptor(table, (CatalogHashIndexDescriptor) index);
         }
