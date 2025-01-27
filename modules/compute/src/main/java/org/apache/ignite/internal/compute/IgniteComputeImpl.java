@@ -140,7 +140,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         if (target instanceof ColocatedJobTarget) {
             ColocatedJobTarget colocatedTarget = (ColocatedJobTarget) target;
             var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
-            String tableName = colocatedTarget.tableName();
+            QualifiedName tableName = colocatedTarget.tableName();
             Object key = colocatedTarget.key();
 
             CompletableFuture<JobExecution<ComputeJobDataHolder>> jobFut;
@@ -440,13 +440,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 ));
     }
 
-    private CompletableFuture<TableViewInternal> requiredTable(String tableName) {
-        QualifiedName qualifiedName = QualifiedName.fromSimple(tableName);
-
-        return tables.tableViewAsync(qualifiedName)
+    private CompletableFuture<TableViewInternal> requiredTable(QualifiedName tableName) {
+        return tables.tableViewAsync(tableName)
                 .thenApply(table -> {
                     if (table == null) {
-                        throw new TableNotFoundException(qualifiedName);
+                        throw new TableNotFoundException(tableName);
                     }
                     return table;
                 });
