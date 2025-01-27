@@ -197,10 +197,10 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
             var ex = assertThrows(CompletionException.class,
                     () -> client.compute().executeAsync(
-                            JobTarget.colocated("\"bad_tbl\"", key), JobDescriptor.builder("job").build(), null).join());
+                            JobTarget.colocated("\"bad-tbl\"", key), JobDescriptor.builder("job").build(), null).join());
 
             var tblNotFoundEx = (TableNotFoundException) ex.getCause();
-            assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=PUBLIC.\"bad_tbl\"]"));
+            assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=PUBLIC.\"bad-tbl\"]"));
             assertEquals(TABLE_NOT_FOUND_ERR, tblNotFoundEx.code());
         }
     }
