@@ -29,7 +29,7 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * Executes given command.
      *
      * @param command Command to execute.
-     * @return Future representing result of execution (it will be completed with the created catalog version).
+     * @return Future representing result of execution with the created catalog version.
      */
     CompletableFuture<CatalogApplyResult> execute(CatalogCommand command);
 
@@ -38,7 +38,7 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * or neither of them. The whole bulk will increment catalog's version by a single point.
      *
      * @param commands Commands to execute.
-     * @return Future representing result of execution (it will be completed with the created catalog version).
+     * @return Future representing result of execution with the created catalog version.
      */
     CompletableFuture<CatalogApplyResult> execute(List<CatalogCommand> commands);
 }

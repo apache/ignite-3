@@ -489,7 +489,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      *
      * @param updateProducer Supplies simple updates to include into a versioned update to install.
      * @param attemptNo Ordinal number of an attempt.
-     * @return Future that completes with the new Catalog version (if update was saved successfully) or an exception, otherwise.
+     * @return Future that completes with the result of applying updates, contains the Catalog version when the updates are visible or
+     *      an exception in case of any error.
      */
     private CompletableFuture<CatalogApplyResult> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
         if (!busyLock.enterBusy()) {

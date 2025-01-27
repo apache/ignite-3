@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 
-/* Represent result of applying Catalog command. */
+/** Represent result of applying Catalog command. */
 public class CatalogApplyResult {
     private final int catalogVersion;
     private final boolean applied;
@@ -38,16 +38,12 @@ public class CatalogApplyResult {
         this.applied = applied;
     }
 
-    /**
-     * @return catalog version since applied result is available.
-     */
+    /** Returns catalog version since applied result is available. */
     public int getCatalogVersion() {
         return catalogVersion;
     }
 
-    /**
-     * @return {@code true} if command has been successfully applied or {@code false} otherwise.
-     */
+    /** Returns {@code true} if command has been successfully applied or {@code false} otherwise. */
     public boolean isApplied() {
         return applied;
     }

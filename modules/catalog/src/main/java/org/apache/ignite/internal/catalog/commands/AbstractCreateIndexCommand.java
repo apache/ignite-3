@@ -90,7 +90,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
 
-        CatalogTableDescriptor table = tableOrThrow(schema, tableName, false).orElseThrow();;
+        CatalogTableDescriptor table = tableOrThrow(schema, tableName, false).orElseThrow();
 
         assert columns != null;
 

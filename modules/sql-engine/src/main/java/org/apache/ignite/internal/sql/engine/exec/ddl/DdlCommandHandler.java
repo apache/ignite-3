@@ -215,7 +215,7 @@ public class DdlCommandHandler implements LifecycleAware {
             AbstractCreateIndexCommand cmd,
             CatalogApplyResult catalogApplyResult
     ) {
-        if(!catalogApplyResult.isApplied()) {
+        if (!catalogApplyResult.isApplied()) {
             return CompletableFuture.completedFuture(catalogApplyResult);
         }
 
