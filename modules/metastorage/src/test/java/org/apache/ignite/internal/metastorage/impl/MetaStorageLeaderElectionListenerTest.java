@@ -18,16 +18,13 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -85,10 +82,8 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
 
         listener.onLeaderElected(thisNode, initialTerm);
 
-        assertThat(listener.safeTimeSchedulerFuture(), willTimeoutFast());
-
         // Futures are not completed yet, so safe time scheduler should not be started.
-        verifyNoInteractions(clusterTime);
+        verifyWithTimeout(clusterTime, 0).startSafeTimeScheduler(any(), any(), eq(initialTerm));
 
         long lostLeadershipTerm = 1;
 
@@ -101,17 +96,16 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
         metaStorageSvcFut.complete(mock(MetaStorageServiceImpl.class));
         metaStorageConfigurationFuture.complete(metaStorageConfiguration);
 
-        // Future is completed, though it should not start scheduler.
-        assertThat(listener.safeTimeSchedulerFuture(), willBe(false));
-
-        verify(clusterTime, times(1)).startSafeTimeScheduler(any(), any(), eq(initialTerm));
+        verifyWithTimeout(clusterTime, 1).startSafeTimeScheduler(any(), any(), eq(initialTerm));
 
         long regainedLeadershipTerm = 2;
 
         listener.onLeaderElected(thisNode, regainedLeadershipTerm);
-        verify(clusterTime, times(1)).startSafeTimeScheduler(any(), any(), eq(regainedLeadershipTerm));
+        verifyWithTimeout(clusterTime, 1).startSafeTimeScheduler(any(), any(), eq(regainedLeadershipTerm));
+    }
 
-        assertThat(listener.safeTimeSchedulerFuture(), willBe(true));
+    private static <T> T verifyWithTimeout(T mock, int times) {
+        return verify(mock, timeout(1000).times(times));
     }
 
     private static MetaStorageLeaderElectionListener createMetaStorageLeaderElectionListener(

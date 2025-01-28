@@ -99,17 +99,16 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
      * Starts sync time scheduler.
      *
      * @param syncTimeAction Action that performs the time sync operation.
-     * @return If scheduler was started.
      */
-    public boolean startSafeTimeScheduler(SyncTimeAction syncTimeAction, MetaStorageConfiguration configuration, long term) {
+    public void startSafeTimeScheduler(SyncTimeAction syncTimeAction, MetaStorageConfiguration configuration, long term) {
         if (!busyLock.enterBusy()) {
-            return false;
+            return;
         }
 
         try {
             synchronized (this) {
                 if (lastSchedulerStoppedTerm > term) {
-                    return false;
+                    return;
                 }
 
                 assert safeTimeScheduler == null;
@@ -117,8 +116,6 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
                 safeTimeScheduler = new SafeTimeScheduler(syncTimeAction, configuration);
 
                 safeTimeScheduler.start();
-
-                return true;
             }
         } finally {
             busyLock.leaveBusy();
