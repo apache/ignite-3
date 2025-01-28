@@ -213,7 +213,7 @@ namespace Apache.Ignite.Tests.Transactions
             // Update data in a different (implicit) tx.
             await PocoView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
 
-            // Old tx sees old data.
+            // Old read-only tx sees old data.
             Assert.AreEqual("11", (await PocoView.GetAsync(roTx, keyPoco)).Value.Val);
 
             // New tx sees new data
