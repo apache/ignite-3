@@ -47,7 +47,7 @@ namespace Apache.Ignite.Internal
             var tables = new Tables(socket, sql);
 
             Tables = tables;
-            Transactions = new Transactions.Transactions();
+            Transactions = new Transactions.Transactions(socket);
             Compute = new Compute.Compute(socket, tables);
             Sql = sql;
         }
