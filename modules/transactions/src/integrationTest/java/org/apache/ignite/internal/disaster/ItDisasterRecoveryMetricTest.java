@@ -35,13 +35,17 @@ import javax.management.ObjectName;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.metrics.MetricSource;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /** For integration testing of disaster recovery metrics. */
 public class ItDisasterRecoveryMetricTest extends BaseSqlIntegrationTest {
+    public static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     /** Table name. */
     public static final String TABLE_NAME = "TEST_TABLE";
 
@@ -110,8 +114,9 @@ public class ItDisasterRecoveryMetricTest extends BaseSqlIntegrationTest {
     }
 
     private static String partitionStatesMetricSourceName(IgniteImpl node, String tableName) {
-        CatalogTableDescriptor tableDescriptor = node.catalogManager().table(SCHEMA_NAME, tableName, node.clock().nowLong()
-        );
+        HybridClock clock = node.clock();
+
+        CatalogTableDescriptor tableDescriptor = node.catalogManager().activeCatalog(clock.nowLong()).table(SCHEMA_NAME, tableName);
 
         return String.format("partition.states.zone.%s.table.%s", tableDescriptor.zoneId(), tableDescriptor.id());
     }

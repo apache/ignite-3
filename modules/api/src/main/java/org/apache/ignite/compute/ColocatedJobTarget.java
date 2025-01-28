@@ -18,35 +18,36 @@
 package org.apache.ignite.compute;
 
 import java.util.Objects;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Colocated job execution target. Indicates a node that hosts the data for the specified key in the provided table.
+ * Colocated job execution target. Indicates a node that hosts the data for the specified key in the provided {@link QualifiedName}.
  */
 public class ColocatedJobTarget implements JobTarget {
-    private final String tableName;
+    private final QualifiedName name;
 
     private final Object key;
 
     private final @Nullable Mapper<?> keyMapper;
 
-    ColocatedJobTarget(String tableName, Object key, @Nullable Mapper<?> keyMapper) {
-        Objects.requireNonNull(tableName);
+    ColocatedJobTarget(QualifiedName name, Object key, @Nullable Mapper<?> keyMapper) {
+        Objects.requireNonNull(name);
         Objects.requireNonNull(key);
 
         if (keyMapper == null && !(key instanceof Tuple)) {
             throw new IllegalArgumentException("Key must be an instance of Tuple when keyMapper is not provided.");
         }
 
-        this.tableName = tableName;
+        this.name = name;
         this.key = key;
         this.keyMapper = keyMapper;
     }
 
-    public String tableName() {
-        return tableName;
+    public QualifiedName tableName() {
+        return name;
     }
 
     public Object key() {

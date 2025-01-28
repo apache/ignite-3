@@ -1602,7 +1602,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }, ioExecutor)
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        LOG.error("Unable to stop table [name={}, tableId={}]", ex, table.name().toCanonicalForm(), table.tableId());
+                        LOG.error("Unable to stop table [name={}, tableId={}]", ex, table.name(), table.tableId());
                     }
                 });
     }
@@ -1948,9 +1948,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
                 .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                    int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
+                    Catalog catalog = catalogService.activeCatalog(now.longValue());
 
-                    Collection<CatalogTableDescriptor> tableDescriptors = catalogService.tables(catalogVersion);
+                    Collection<CatalogTableDescriptor> tableDescriptors = catalog.tables();
 
                     if (tableDescriptors.isEmpty()) {
                         return emptyListCompletedFuture();
@@ -2026,10 +2026,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
                     .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                        int catalogVersion = catalogService.activeCatalogVersion(now.longValue());
+                        Catalog catalog = catalogService.activeCatalog(now.longValue());
 
                         // Check if the table has been deleted.
-                        if (catalogService.table(tableId, catalogVersion) == null) {
+                        if (catalog.table(tableId) == null) {
                             return nullCompletedFuture();
                         }
 
@@ -2078,8 +2078,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
                     .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                        CatalogTableDescriptor tableDescriptor = catalogService.table(name.schemaName(), name.objectName(),
-                                now.longValue());
+                        Catalog catalog = catalogService.activeCatalog(now.longValue());
+                        CatalogTableDescriptor tableDescriptor = catalog.table(name.schemaName(), name.objectName());
 
                         // Check if the table has been deleted.
                         if (tableDescriptor == null) {
@@ -2226,7 +2226,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                             + "partition={}, table={}, localMemberAddress={}, pendingAssignments={}, revision={}]",
                                     stringKey,
                                     replicaGrpId.partitionId(),
-                                    table.name().toCanonicalForm(),
+                                    table.name(),
                                     localNode().address(),
                                     pendingAssignments,
                                     revision
@@ -2895,7 +2895,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CatalogTableDescriptor getTableDescriptor(int tableId, int catalogVersion) {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
+        CatalogTableDescriptor tableDescriptor = catalogService.catalog(catalogVersion).table(tableId);
 
         assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
 
@@ -2903,7 +2903,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CatalogZoneDescriptor getZoneDescriptor(CatalogTableDescriptor tableDescriptor, int catalogVersion) {
-        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
+        CatalogZoneDescriptor zoneDescriptor = catalogService.catalog(catalogVersion).zone(tableDescriptor.zoneId());
 
         assert zoneDescriptor != null :
                 "tableId=" + tableDescriptor.id() + ", zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
@@ -2912,7 +2912,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CatalogSchemaDescriptor getSchemaDescriptor(CatalogTableDescriptor tableDescriptor, int catalogVersion) {
-        CatalogSchemaDescriptor schemaDescriptor = catalogService.schema(tableDescriptor.schemaId(), catalogVersion);
+        CatalogSchemaDescriptor schemaDescriptor = catalogService.catalog(catalogVersion).schema(tableDescriptor.schemaId());
 
         assert schemaDescriptor != null :
                 "tableId=" + tableDescriptor.id() + ", schemaId=" + tableDescriptor.schemaId() + ", catalogVersion=" + catalogVersion;
@@ -2921,7 +2921,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private static @Nullable TableImpl findTableImplByName(Collection<TableImpl> tables, String name) {
-        return tables.stream().filter(table -> table.name().equals(QualifiedName.fromSimple(name))).findAny().orElse(null);
+        return tables.stream().filter(table -> table.qualifiedName().equals(QualifiedName.fromSimple(name))).findAny().orElse(null);
     }
 
     private void startTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {
@@ -2933,7 +2933,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
             int ver0 = ver;
-            catalogService.tables(ver).stream()
+            catalogService.catalog(ver).tables().stream()
                     .filter(tbl -> startedTables.add(tbl.id()))
                     .forEach(tableDescriptor -> {
                         if (PartitionReplicaLifecycleManager.ENABLED) {
@@ -3007,7 +3007,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         for (DroppedTableInfo droppedTableInfo : droppedTables(catalogService, lowWatermark.getLowWatermark())) {
             int catalogVersion = droppedTableInfo.tableRemovalCatalogVersion() - 1;
 
-            CatalogTableDescriptor tableDescriptor = catalogService.table(droppedTableInfo.tableId(), catalogVersion);
+            CatalogTableDescriptor tableDescriptor = catalogService.catalog(catalogVersion).table(droppedTableInfo.tableId());
 
             assert tableDescriptor != null : "tableId=" + droppedTableInfo.tableId() + ", catalogVersion=" + catalogVersion;
 

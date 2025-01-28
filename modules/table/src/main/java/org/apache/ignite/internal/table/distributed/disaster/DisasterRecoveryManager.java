@@ -266,10 +266,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         long revision = params.causalityToken();
         long timestamp = metaStorageManager.timestampByRevisionLocally(revision).longValue();
 
-        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, timestamp);
-        int catalogVersion = catalogManager.activeCatalogVersion(timestamp);
+        Catalog catalog = catalogManager.activeCatalog(timestamp);
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
-        List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalogVersion, catalogManager);
+        List<CatalogTableDescriptor> tables = findTablesByZoneId(zoneId, catalog);
         Map<Integer, Set<Integer>> tablePartitionsToReset = new HashMap<>();
         for (CatalogTableDescriptor table : tables) {
             Set<Integer> partitionsToReset = new HashSet<>();
@@ -768,7 +768,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                         return;
                     }
 
-                    CatalogTableDescriptor tableDescriptor = catalogManager.table(tablePartitionId.tableId(), catalogVersion);
+                    Catalog catalog = catalogManager.catalog(catalogVersion);
+                    assert catalog != null : "Catalog is not found for version: " + catalogVersion;
+
+                    CatalogTableDescriptor tableDescriptor = catalog.table(tablePartitionId.tableId());
                     // Only tables that belong to a specific catalog version will be returned.
                     if (tableDescriptor == null || !containsOrEmpty(tableDescriptor.zoneId(), request.zoneIds())) {
                         return;
@@ -1031,8 +1034,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     private void registerMetricSources() {
         int catalogVersion = catalogManager.latestCatalogVersion();
+        Catalog catalog = catalogManager.catalog(catalogVersion);
 
-        catalogManager.tables(catalogVersion).forEach(this::registerPartitionStatesMetricSource);
+        assert catalog != null : "Catalog is not found for version: " + catalogVersion;
+
+        catalog.tables().forEach(this::registerPartitionStatesMetricSource);
     }
 
     private void registerPartitionStatesMetricSource(CatalogTableDescriptor tableDescriptor) {

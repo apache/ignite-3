@@ -87,7 +87,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
 
     protected void dropTables(Ignite ignite) {
         for (var t : ignite.tables().tables()) {
-            ((FakeIgniteTables) ignite.tables()).dropTable(t.name());
+            ((FakeIgniteTables) ignite.tables()).dropTable(t.qualifiedName());
         }
     }
 

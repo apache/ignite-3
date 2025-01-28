@@ -48,6 +48,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.sql.SqlCommon;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -172,7 +173,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     /** Drops all visible tables. */
     protected static void dropAllTables() {
         for (Table t : CLUSTER.aliveNode().tables().tables()) {
-            sql("DROP TABLE " + t.name().toCanonicalForm());
+            sql("DROP TABLE " + t.name());
         }
     }
 
@@ -194,10 +195,9 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
     /** Drops all visible zones. */
     protected static void dropAllZonesExceptDefaultOne() {
         CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
-        int latestCatalogVersion = catalogManager.latestCatalogVersion();
-        Catalog catalog = Objects.requireNonNull(catalogManager.catalog(latestCatalogVersion));
+        Catalog catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.latestCatalogVersion()));
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
-        for (CatalogZoneDescriptor z : catalogManager.zones(latestCatalogVersion)) {
+        for (CatalogZoneDescriptor z : catalog.zones()) {
             String zoneName = z.name();
             if (defaultZone != null && zoneName.equals(defaultZone.name())) {
                 continue;
@@ -517,7 +517,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         CatalogManager catalogManager = ignite.catalogManager();
         HybridClock clock = ignite.clock();
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(SqlCommon.DEFAULT_SCHEMA_NAME, indexName, clock.nowLong());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.activeCatalog(clock.nowLong())
+                .aliveIndex(SqlCommon.DEFAULT_SCHEMA_NAME, indexName);
 
         return indexDescriptor != null && indexDescriptor.status() == AVAILABLE;
     }

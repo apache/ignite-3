@@ -112,7 +112,7 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                 .thenCompose((schema) -> {
                     SqlSerializer ser = new SqlSerializer.Builder()
                             .columns(Arrays.asList(columnNames(schema.columns())))
-                            .tableName(tbl.name())
+                            .tableName(tbl.qualifiedName())
                             .indexName(indexName != null ? QualifiedName.parse(indexName).objectName() : null)
                             .where(criteria)
                             .build();

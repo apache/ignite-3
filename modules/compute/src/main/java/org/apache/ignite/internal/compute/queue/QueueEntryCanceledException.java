@@ -15,21 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.compute.queue;
 
-import java.util.concurrent.CompletableFuture;
-
-/** Extension over {@link AsyncDataCursor} which gives an ability to specify a reason of cancellation. */
-public interface AsyncDataCursorExt<T> extends AsyncDataCursor<T> {
-    CompletableFuture<Void> cancelAsync(CancellationReason reason);
-
-    /** Reason of cancellation. */
-    enum CancellationReason {
-        /** User's request. This reason denotes normal completion of an execution. */ 
-        CLOSE,
-        /** Execution must be terminated abruptly due to an external request or an error. */
-        CANCEL,
-        /** Execution must be terminated abruptly due to specified timeout. */
-        TIMEOUT
-    }
+class QueueEntryCanceledException extends RuntimeException {
 }

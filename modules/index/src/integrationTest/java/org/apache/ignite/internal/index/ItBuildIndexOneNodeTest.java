@@ -353,7 +353,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
                 int indexId = ((MakeIndexAvailableEventParameters) parameters).indexId();
                 int catalogVersion = parameters.catalogVersion();
 
-                CatalogIndexDescriptor index = catalogManager.index(indexId, catalogVersion);
+                CatalogIndexDescriptor index = catalogManager.catalog(catalogVersion).index(indexId);
 
                 assertNotNull(index, "indexId=" + indexId + ", catalogVersion=" + catalogVersion);
 

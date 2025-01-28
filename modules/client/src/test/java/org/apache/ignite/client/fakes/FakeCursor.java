@@ -115,6 +115,11 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     }
 
     @Override
+    public CompletableFuture<Void> cancelAsync(CancellationReason reason) {
+        return closeAsync();
+    }
+
+    @Override
     public CompletableFuture<BatchedResult<InternalSqlRow>> requestNextAsync(int rows) {
         var batch = new ArrayList<>(this.rows);
 

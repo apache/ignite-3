@@ -168,7 +168,7 @@ public class DistributionZoneRebalanceEngine {
     // TODO: And then run the remote invoke, only if needed.
     private CompletableFuture<Void> rebalanceTriggersRecovery(long recoveryRevision, int catalogVersion) {
         if (recoveryRevision > 0) {
-            List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.zones(catalogVersion)
+            List<CompletableFuture<Void>> zonesRecoveryFutures = catalogService.catalog(catalogVersion).zones()
                     .stream()
                     .map(zoneDesc ->
                             recalculateAssignmentsAndScheduleRebalance(
@@ -214,13 +214,12 @@ public class DistributionZoneRebalanceEngine {
             // It is safe to get the latest version of the catalog as we are in the metastore thread.
             // TODO: IGNITE-22723 Potentially unsafe to use the latest catalog version, as the tables might not already present
             //  in the catalog. Better to store this version when writing datanodes.
-            int catalogVersion = catalogService.latestCatalogVersion();
-
-            Catalog catalog = catalogService.catalog(catalogVersion);
+            int latestCatalogVersion = catalogService.latestCatalogVersion();
+            Catalog catalog = catalogService.catalog(latestCatalogVersion);
 
             long assignmentsTimestamp = catalog.time();
 
-            CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
             if (zoneDescriptor == null) {
                 // Zone has been removed.
@@ -262,7 +261,7 @@ public class DistributionZoneRebalanceEngine {
                 return nullCompletedFuture();
             }
 
-            List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneId, catalogVersion, catalogService);
+            List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneId, catalog);
 
             return triggerPartitionsRebalanceForAllTables(
                     evt.entryEvent().newEntry().revision(),
@@ -302,9 +301,9 @@ public class DistributionZoneRebalanceEngine {
                         return nullCompletedFuture();
                     }
 
-                    List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneDescriptor.id(), catalogVersion, catalogService);
-
                     Catalog catalog = catalogService.catalog(catalogVersion);
+
+                    List<CatalogTableDescriptor> tableDescriptors = findTablesByZoneId(zoneDescriptor.id(), catalog);
 
                     return triggerPartitionsRebalanceForAllTables(
                             causalityToken,

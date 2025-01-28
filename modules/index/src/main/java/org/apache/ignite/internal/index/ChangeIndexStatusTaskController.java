@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -132,7 +133,9 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
     private void onIndexDropped(StoppingIndexEventParameters parameters) {
         inBusyLock(busyLock, () -> {
-            CatalogIndexDescriptor indexDescriptor = catalogService.index(parameters.indexId(), parameters.catalogVersion());
+            Catalog catalog = catalogService.catalog(parameters.catalogVersion());
+
+            CatalogIndexDescriptor indexDescriptor = catalog.index(parameters.indexId());
 
             assert indexDescriptor != null : parameters.indexId();
 
@@ -173,9 +176,9 @@ class ChangeIndexStatusTaskController implements ManuallyCloseable {
 
     private void scheduleTasksOnPrimaryReplicaElectedBusy(int tableId) {
         // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the metastore thread.
-        int catalogVersion = catalogService.latestCatalogVersion();
+        Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
-        for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion, tableId)) {
+        for (CatalogIndexDescriptor indexDescriptor : catalog.indexes(tableId)) {
             switch (indexDescriptor.status()) {
                 case REGISTERED:
                     changeIndexStatusTaskScheduler.scheduleStartBuildingTask(indexDescriptor);

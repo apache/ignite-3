@@ -20,7 +20,7 @@ import signal
 import subprocess
 import time
 
-import pyignite3
+import pyignite_dbapi
 
 server_host = os.getenv("IGNITE_CLUSTER_HOST", '127.0.0.1')
 server_addresses_invalid = [server_host + ':10000']
@@ -92,8 +92,8 @@ def kill_process_tree(pid):
 # noinspection PyBroadException
 def check_server_started(addr: str) -> bool:
     try:
-        conn = pyignite3.connect(address=[addr], timeout=1)
-    except pyignite3.Error:
+        conn = pyignite_dbapi.connect(address=[addr], timeout=1)
+    except pyignite_dbapi.Error:
         return False
 
     conn.close()

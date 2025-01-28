@@ -102,7 +102,7 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
     private int indexId(String indexName) {
         IgniteImpl igniteImpl = unwrapIgniteImpl(node);
         long timestamp = igniteImpl.clock().nowLong();
-        CatalogIndexDescriptor indexDescriptor = igniteImpl.catalogManager().aliveIndex(SCHEMA_NAME, indexName, timestamp);
+        CatalogIndexDescriptor indexDescriptor = igniteImpl.catalogManager().activeCatalog(timestamp).aliveIndex(SCHEMA_NAME, indexName);
         assertThat(indexDescriptor, is(notNullValue()));
 
         return indexDescriptor.id();

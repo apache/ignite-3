@@ -126,7 +126,7 @@ public class IndexSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
         waiting--;
 
         if (waiting == 0) {
-            context().execute(this::requestSource, this::onError);
+            this.execute(this::requestSource);
         }
     }
 

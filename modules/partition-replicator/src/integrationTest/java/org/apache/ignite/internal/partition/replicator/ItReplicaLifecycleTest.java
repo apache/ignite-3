@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.BaseIgniteRestartTest.createVault;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPath;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
@@ -80,6 +79,7 @@ import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -497,13 +497,13 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
 
         CatalogManager catalogManager = node.catalogManager;
 
-        int zoneId = defaultZoneIdOpt(catalogManager.catalog(catalogManager.latestCatalogVersion()));
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
-        String defaultZoneName = catalogManager.zone(zoneId, catalogManager.latestCatalogVersion()).name();
+        CatalogZoneDescriptor defaultZone = catalog.defaultZone();
 
         MetaStorageManager metaStorageManager = node.metaStorageManager;
 
-        ZonePartitionId partId = new ZonePartitionId(zoneId, 0);
+        ZonePartitionId partId = new ZonePartitionId(defaultZone.id(), 0);
 
         assertValueInStorage(
                 metaStorageManager,
@@ -514,7 +514,7 @@ public class ItReplicaLifecycleTest extends BaseIgniteAbstractTest {
                 20_000L
         );
 
-        alterZone(catalogManager, defaultZoneName, 2);
+        alterZone(catalogManager, defaultZone.name(), 2);
 
         assertValueInStorage(
                 metaStorageManager,
