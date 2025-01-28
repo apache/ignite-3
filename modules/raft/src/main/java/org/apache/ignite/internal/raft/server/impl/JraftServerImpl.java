@@ -773,61 +773,6 @@ public class JraftServerImpl implements RaftServer {
 
         @Override
         public void onApply(Iterator iter) {
-            listener.onWrite(new java.util.Iterator<>() {
-                @Override
-                public boolean hasNext() {
-                    return iter.hasNext();
-                }
-
-                @Override
-                public CommandClosure<WriteCommand> next() {
-                    @Nullable CommandClosure<WriteCommand> doneClo = (CommandClosure<WriteCommand>) iter.done();
-                    ByteBuffer data = iter.getData();
-
-                    WriteCommand command = doneClo == null ? marshaller.unmarshall(data) : doneClo.command();
-
-                    HybridTimestamp safeTs = doneClo == null ? command.safeTime() : doneClo.safeTimestamp();
-
-                    long commandIndex = iter.getIndex();
-                    long commandTerm = iter.getTerm();
-
-                    return new CommandClosure<>() {
-                        /** {@inheritDoc} */
-                        @Override
-                        public long index() {
-                            return commandIndex;
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public long term() {
-                            return commandTerm;
-                        }
-
-                        @Override
-                        public @Nullable HybridTimestamp safeTimestamp() {
-                            return safeTs;
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public WriteCommand command() {
-                            return command;
-                        }
-
-                        /** {@inheritDoc} */
-                        @Override
-                        public void result(Serializable res) {
-                            if (doneClo != null) {
-                                doneClo.result(res);
-                            }
-
-                            iter.next();
-                        }
-                    };
-                }
-            });
-
             var writeCommandIterator = new WriteCommandIterator(iter, marshaller);
 
             try {
@@ -967,6 +912,7 @@ public class JraftServerImpl implements RaftServer {
             ByteBuffer data = iter.getData();
 
             WriteCommand command = done == null ? marshaller.unmarshall(data) : done.command();
+            HybridTimestamp safeTs = done == null ? command.safeTime() : done.safeTimestamp();
 
             long commandIndex = iter.getIndex();
             long commandTerm = iter.getTerm();
@@ -980,6 +926,11 @@ public class JraftServerImpl implements RaftServer {
                 @Override
                 public long term() {
                     return commandTerm;
+                }
+
+                @Override
+                public @Nullable HybridTimestamp safeTimestamp() {
+                    return safeTs;
                 }
 
                 @Override
