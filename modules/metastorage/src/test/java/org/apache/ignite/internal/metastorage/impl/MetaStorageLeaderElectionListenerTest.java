@@ -56,7 +56,7 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
     private MetaStorageConfiguration metaStorageConfiguration;
 
     /**
-     * Reproducer for IGNITE-24262. If node lost leadership before Ignite is fully initialized, it could try to stop the safe time scheduler
+     * If node lost leadership before Ignite is fully initialized, it could try to stop the safe time scheduler
      * before it was started. Scheduler should not be created in this case, until node regains leadership.
      */
     @Test
