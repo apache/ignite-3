@@ -2780,7 +2780,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         List<Node> firstFollowers = cluster.getFollowers();
         assertEquals(4, firstFollowers.size());
         for (Node node : firstFollowers) {
-            System.out.println(((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes());
             assertWaitForCondition(1,
                     () -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes(),
                     Duration.of(10_000, ChronoUnit.MILLIS));
