@@ -34,6 +34,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Trivial placement driver for tests.
@@ -43,15 +44,39 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         implements PlacementDriver {
     private static final int DEFAULT_ZONE_ID = 0;
 
-    private volatile ClusterNode primary;
+    private volatile ReplicaMeta primary;
 
     /**
      * Set the primary replica.
      *
      * @param node Primary replica node.
      */
+    public void setPrimary(ClusterNode node, HybridTimestamp leaseStartTime) {
+        primary = new ReplicaMeta() {
+            @Override
+            public @Nullable String getLeaseholder() {
+                return node.name();
+            }
+
+            @Override
+            public @Nullable UUID getLeaseholderId() {
+                return node.id();
+            }
+
+            @Override
+            public HybridTimestamp getStartTime() {
+                return leaseStartTime;
+            }
+
+            @Override
+            public HybridTimestamp getExpirationTime() {
+                return HybridTimestamp.MAX_VALUE;
+            }
+        };
+    }
+
     public void setPrimary(ClusterNode node) {
-        primary = node;
+        setPrimary(node, HybridTimestamp.MIN_VALUE);
     }
 
     @Override
@@ -92,27 +117,7 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             throw new IllegalStateException("Primary replica is not defined in test PlacementDriver");
         }
 
-        return CompletableFuture.completedFuture(new ReplicaMeta() {
-            @Override
-            public String getLeaseholder() {
-                return primary.name();
-            }
-
-            @Override
-            public UUID getLeaseholderId() {
-                return primary.id();
-            }
-
-            @Override
-            public HybridTimestamp getStartTime() {
-                return HybridTimestamp.MIN_VALUE;
-            }
-
-            @Override
-            public HybridTimestamp getExpirationTime() {
-                return HybridTimestamp.MAX_VALUE;
-            }
-        });
+        return CompletableFuture.completedFuture(primary);
     }
 
     @Override

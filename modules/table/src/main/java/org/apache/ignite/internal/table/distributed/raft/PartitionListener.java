@@ -123,7 +123,7 @@ public class PartitionListener implements RaftGroupListener {
 
     private final UUID localNodeId;
 
-    private Set<String> currentGroupTopology;
+    private volatile Set<String> currentGroupTopology;
 
     private final MinimumRequiredTimeCollectorService minTimeCollectorService;
 
@@ -548,11 +548,6 @@ public class PartitionListener implements RaftGroupListener {
     @Override
     public void onShutdown() {
         storage.close();
-    }
-
-    @Override
-    public void onLeaderStop() {
-        // No-op.
     }
 
     /**

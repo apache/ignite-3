@@ -38,16 +38,13 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
@@ -124,7 +121,6 @@ import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -227,9 +223,6 @@ public class Node {
 
     private final ConfigurationTreeGenerator clusterCfgGenerator;
 
-    private final Map<TablePartitionId, CompletableFuture<Void>> finishHandleChangeStableAssignmentEventFutures
-            = new ConcurrentHashMap<>();
-
     private final LowWatermarkImpl lowWatermark;
 
     /** The future have to be complete after the node start and all Meta storage watches are deployd. */
@@ -244,8 +237,7 @@ public class Node {
     /** Failure processor. */
     private final FailureManager failureManager;
 
-    public final AtomicReference<Function<ReplicaRequest, ReplicationGroupId>> converter =
-            new AtomicReference<>(request -> request.groupId().asReplicationGroupId());
+    private volatile Function<ReplicaRequest, ReplicationGroupId> converter = request -> request.groupId().asReplicationGroupId();
 
     private final LogStorageFactory partitionsLogStorageFactory;
 
@@ -553,7 +545,7 @@ public class Node {
                 partitionRaftConfigurer,
                 view -> new LocalLogStorageFactory(),
                 ForkJoinPool.commonPool(),
-                t -> converter.get().apply(t),
+                t -> converter.apply(t),
                 replicaGrpId -> metaStorageManager.get(pendingPartAssignmentsKey((ZonePartitionId) replicaGrpId))
                         .thenApply(Entry::value)
         );
@@ -785,6 +777,10 @@ public class Node {
 
     public void setInvokeInterceptor(@Nullable InvokeInterceptor invokeInterceptor) {
         this.invokeInterceptor = invokeInterceptor;
+    }
+
+    public void setRequestConverter(Function<ReplicaRequest, ReplicationGroupId> converter) {
+        this.converter = converter;
     }
 
     private static Path resolveDir(Path workDir, String dirName) {

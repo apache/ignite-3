@@ -107,6 +107,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
@@ -1191,7 +1192,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     private CompletableFuture<Void> processReplicaSafeTimeSyncRequest(Boolean isPrimary) {
         requireNonNull(isPrimary);
 
-        if (!isPrimary) {
+        // Disable safe-time sync if the Colocation feature is enabled, safe-time is managed on a different level there.
+        if (!isPrimary || PartitionReplicaLifecycleManager.ENABLED) {
             return nullCompletedFuture();
         }
 
