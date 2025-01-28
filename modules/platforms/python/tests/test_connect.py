@@ -14,18 +14,18 @@
 # limitations under the License.
 import pytest
 
-import pyignite3
+import pyignite_dbapi
 from tests.util import server_addresses_invalid, server_addresses_basic
 
 
 def test_connection_success():
-    conn = pyignite3.connect(address=server_addresses_basic, timeout=1)
+    conn = pyignite_dbapi.connect(address=server_addresses_basic, timeout=1)
     assert conn is not None
     conn.close()
 
 
 def test_connection_get_cursor():
-    with pyignite3.connect(address=server_addresses_basic, timeout=1) as conn:
+    with pyignite_dbapi.connect(address=server_addresses_basic, timeout=1) as conn:
         assert conn is not None
 
         cursor = conn.cursor()
@@ -34,6 +34,6 @@ def test_connection_get_cursor():
 
 
 def test_connection_fail():
-    with pytest.raises(pyignite3.OperationalError) as err:
-        pyignite3.connect(address=server_addresses_invalid, timeout=1)
+    with pytest.raises(pyignite_dbapi.OperationalError) as err:
+        pyignite_dbapi.connect(address=server_addresses_invalid, timeout=1)
     assert err.match("Failed to establish connection with the host.")

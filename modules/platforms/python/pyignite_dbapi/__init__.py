@@ -19,8 +19,8 @@ import uuid
 import pkgutil
 from typing import Optional, List, Any, Sequence, Tuple, Union
 
-from pyignite3 import _pyignite3_extension
-from pyignite3 import native_type_code
+from pyignite_dbapi import _pyignite_dbapi_extension
+from pyignite_dbapi import native_type_code
 
 __version__ = pkgutil.get_data(__name__, "_version.txt").decode
 
@@ -692,5 +692,5 @@ def connect(address: [str], **kwargs) -> Connection:
     autocommit: bool, optional
         Connection autocommit mode. Default value: True (enabled).
     """
-    return _pyignite3_extension.connect(address=address, **kwargs)
+    return _pyignite_dbapi_extension.connect(address=address, **kwargs)
 
