@@ -134,13 +134,11 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
                 createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID")))
         ));
 
-        // Validate actual catalog.
         Catalog catalog = manager.catalog(catalogVersion);
-        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) catalog.aliveIndex(SCHEMA_NAME, INDEX_NAME);
-
         assertNotNull(catalog);
 
         // Validate newly created hash index.
+        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) catalog.aliveIndex(SCHEMA_NAME, INDEX_NAME);
         assertEquals(INDEX_NAME, index.name());
         assertEquals(catalog.table(SCHEMA_NAME, TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
@@ -204,13 +202,11 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
                 ))
         ));
 
-        // Validate actual catalog.
         Catalog catalog = manager.catalog(catalogVersion);
-        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) catalog.aliveIndex(SCHEMA_NAME, INDEX_NAME);
-
         assertNotNull(catalog);
 
         // Validate newly created sorted index.
+        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) catalog.aliveIndex(SCHEMA_NAME, INDEX_NAME);
         assertEquals(INDEX_NAME, index.name());
         assertEquals(catalog.table(SCHEMA_NAME, TABLE_NAME).id(), index.tableId());
         assertEquals("VAL", index.columns().get(0).name());
