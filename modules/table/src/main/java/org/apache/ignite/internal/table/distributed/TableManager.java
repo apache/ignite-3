@@ -101,6 +101,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
@@ -237,9 +238,10 @@ import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.utils.RebalanceUtilEx;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -770,17 +772,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         long causalityToken = parameters.causalityToken();
         CatalogTableDescriptor tableDescriptor = parameters.tableDescriptor();
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, parameters.catalogVersion());
+        CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, parameters.catalogVersion());
 
-        return prepareTableResourcesAndLoadToZoneReplica(causalityToken, zoneDescriptor, tableDescriptor, false);
+        return prepareTableResourcesAndLoadToZoneReplica(causalityToken, zoneDescriptor, tableDescriptor, schemaDescriptor, false);
     }
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(
             long causalityToken,
             CatalogZoneDescriptor zoneDescriptor,
             CatalogTableDescriptor tableDescriptor,
+            CatalogSchemaDescriptor schemaDescriptor,
             boolean onNodeRecovery
     ) {
-        TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor);
+        TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
 
         int tableId = tableDescriptor.id();
 
@@ -1595,7 +1599,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 }, ioExecutor)
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        LOG.error("Unable to stop table [name={}, tableId={}]", ex, table.name(), table.tableId());
+                        LOG.error("Unable to stop table [name={}, tableId={}]", ex, table.name().toCanonicalForm(), table.tableId());
                     }
                 });
     }
@@ -1606,16 +1610,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param causalityToken Causality token.
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distribution zone descriptor.
+     * @param schemaDescriptor Catalog schema descriptor.
      * @return Table instance.
      */
     private TableImpl createTableImpl(
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
-            CatalogZoneDescriptor zoneDescriptor
+            CatalogZoneDescriptor zoneDescriptor,
+            CatalogSchemaDescriptor schemaDescriptor
     ) {
-        String tableName = tableDescriptor.name();
+        QualifiedName tableName = QualifiedNameHelper.fromNormalized(schemaDescriptor.name(), tableDescriptor.name());
 
-        LOG.trace("Creating local table: name={}, id={}, token={}", tableDescriptor.name(), tableDescriptor.id(), causalityToken);
+        LOG.trace("Creating local table: name={}, id={}, token={}", tableName.toCanonicalForm(), tableDescriptor.id(), causalityToken);
 
         MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor);
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableDescriptor, zoneDescriptor);
@@ -1672,6 +1678,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+            CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, catalogVersion);
 
             // Returns stable assignments.
             CompletableFuture<List<Assignments>> stableAssignmentsFuture = getOrCreateAssignments(
@@ -1696,6 +1703,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     causalityToken,
                     tableDescriptor,
                     zoneDescriptor,
+                    schemaDescriptor,
                     stableAssignmentsFutureAfterInvoke,
                     pendingAssignments,
                     assignmentsChains,
@@ -1711,6 +1719,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param causalityToken Causality token.
      * @param tableDescriptor Catalog table descriptor.
      * @param zoneDescriptor Catalog distributed zone descriptor.
+     * @param schemaDescriptor Catalog schema descriptor.
      * @param stableAssignmentsFuture Future with assignments.
      * @param onNodeRecovery {@code true} when called during node recovery, {@code false} otherwise.
      * @return Future that will be completed when local changes related to the table creation are applied.
@@ -1719,13 +1728,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long causalityToken,
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
+            CatalogSchemaDescriptor schemaDescriptor,
             CompletableFuture<List<Assignments>> stableAssignmentsFuture,
             List<Assignments> pendingAssignments,
             List<AssignmentsChain> assignmentsChains,
             boolean onNodeRecovery,
             long assignmentsTimestamp
     ) {
-        TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor);
+        TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
 
         int tableId = tableDescriptor.id();
 
@@ -1980,7 +1990,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public Table table(String name) {
+    public Table table(QualifiedName name) {
         return join(tableAsync(name));
     }
 
@@ -1990,8 +2000,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Table> tableAsync(String name) {
-        return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name))
+    public CompletableFuture<Table> tableAsync(QualifiedName name) {
+        return tableAsyncInternal(name)
                 .thenApply(identity());
     }
 
@@ -2044,13 +2054,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Override
-    public TableViewInternal tableView(String name) {
+    public TableViewInternal tableView(QualifiedName name) {
         return join(tableViewAsync(name));
     }
 
     @Override
-    public CompletableFuture<TableViewInternal> tableViewAsync(String name) {
-        return tableAsyncInternal(IgniteNameUtils.parseSimpleName(name));
+    public CompletableFuture<TableViewInternal> tableViewAsync(QualifiedName name) {
+        return tableAsyncInternal(name);
     }
 
     /**
@@ -2059,13 +2069,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param name Table name.
      * @return Future representing pending completion of the {@code TableManager#tableAsyncInternal} operation.
      */
-    private CompletableFuture<TableViewInternal> tableAsyncInternal(String name) {
+    private CompletableFuture<TableViewInternal> tableAsyncInternal(QualifiedName name) {
         return inBusyLockAsync(busyLock, () -> {
             HybridTimestamp now = clockService.now();
 
             return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
                     .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                        CatalogTableDescriptor tableDescriptor = catalogService.table(name, now.longValue());
+                        CatalogTableDescriptor tableDescriptor = catalogService.table(name.schemaName(), name.objectName(),
+                                now.longValue());
 
                         // Check if the table has been deleted.
                         if (tableDescriptor == null) {
@@ -2212,7 +2223,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                             + "partition={}, table={}, localMemberAddress={}, pendingAssignments={}, revision={}]",
                                     stringKey,
                                     replicaGrpId.partitionId(),
-                                    table.name(),
+                                    table.name().toCanonicalForm(),
                                     localNode().address(),
                                     pendingAssignments,
                                     revision
@@ -2897,8 +2908,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return zoneDescriptor;
     }
 
+    private CatalogSchemaDescriptor getSchemaDescriptor(CatalogTableDescriptor tableDescriptor, int catalogVersion) {
+        CatalogSchemaDescriptor schemaDescriptor = catalogService.schema(tableDescriptor.schemaId(), catalogVersion);
+
+        assert schemaDescriptor != null :
+                "tableId=" + tableDescriptor.id() + ", schemaId=" + tableDescriptor.schemaId() + ", catalogVersion=" + catalogVersion;
+
+        return schemaDescriptor;
+    }
+
     private static @Nullable TableImpl findTableImplByName(Collection<TableImpl> tables, String name) {
-        return tables.stream().filter(table -> table.name().equals(name)).findAny().orElse(null);
+        return tables.stream().filter(table -> table.name().equals(QualifiedName.fromSimple(name))).findAny().orElse(null);
     }
 
     private void startTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {
@@ -2915,12 +2935,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .forEach(tableDescriptor -> {
                         if (PartitionReplicaLifecycleManager.ENABLED) {
                             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver0);
+                            CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, ver0);
 
                             startTableFutures.add(
                                     prepareTableResourcesAndLoadToZoneReplica(
                                             recoveryRevision,
                                             zoneDescriptor,
                                             tableDescriptor,
+                                            schemaDescriptor,
                                             true
                                     )
                             );

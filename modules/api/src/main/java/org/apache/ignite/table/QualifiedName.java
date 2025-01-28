@@ -21,6 +21,7 @@ import static org.apache.ignite.lang.util.IgniteNameUtils.identifierExtend;
 import static org.apache.ignite.lang.util.IgniteNameUtils.identifierStart;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 
+import java.io.Serializable;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
@@ -46,7 +47,9 @@ import org.jetbrains.annotations.Nullable;
  * for quoted names - the unnecessary quotes will be removed preserving escaped double-quote symbols.
  * E.g. "tbl0" - is equivalent to "TBL0", "\"Tbl0\"" - "Tbl0", etc.
  */
-public class QualifiedName {
+public final class QualifiedName implements Serializable {
+    private static final long serialVersionUID = -7016402388810709149L;
+
     /** Default schema name. */
     public static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
@@ -119,7 +122,7 @@ public class QualifiedName {
      * @param schemaName Normalized schema name.
      * @param objectName Normalized object name.
      */
-    private QualifiedName(String schemaName, String objectName) {
+    QualifiedName(String schemaName, String objectName) {
         this.schemaIdentifier = schemaName;
         this.objectIdentifier = objectName;
     }

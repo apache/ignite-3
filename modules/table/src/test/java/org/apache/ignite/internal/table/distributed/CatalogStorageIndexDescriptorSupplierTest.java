@@ -66,6 +66,8 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
     private static final long MIN_DATA_AVAILABILITY_TIME = DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
             + TEST_MAX_CLOCK_SKEW_MILLIS;
 
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     private static final String TABLE_NAME = "TEST";
 
     private static final String INDEX_NAME = "TEST_IDX";
@@ -123,7 +125,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
         int indexId = createIndex();
 
         CatalogCommand dropIndexCommand = DropIndexCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .schemaName(SCHEMA_NAME)
                 .indexName(INDEX_NAME)
                 .build();
 
@@ -161,7 +163,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
         int indexId = createIndex();
 
         CatalogCommand dropIndexCommand = DropIndexCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .schemaName(SCHEMA_NAME)
                 .indexName(INDEX_NAME)
                 .build();
 
@@ -188,13 +190,13 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
 
         List<CatalogCommand> commands = List.of(
                 CreateTableCommand.builder()
-                        .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                        .schemaName(SCHEMA_NAME)
                         .tableName(TABLE_NAME)
                         .columns(List.of(ColumnParams.builder().name("foo").type(ColumnType.INT32).build()))
                         .primaryKey(primaryKey)
                         .build(),
                 CreateHashIndexCommand.builder()
-                        .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                        .schemaName(SCHEMA_NAME)
                         .tableName(TABLE_NAME)
                         .indexName(INDEX_NAME)
                         .columns(List.of("foo"))
@@ -203,7 +205,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
 
         assertThat(catalogManager.execute(commands), willCompleteSuccessfully());
 
-        CatalogIndexDescriptor index = catalogManager.aliveIndex(INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor index = catalogManager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong());
 
         assertThat(index, is(notNullValue()));
 

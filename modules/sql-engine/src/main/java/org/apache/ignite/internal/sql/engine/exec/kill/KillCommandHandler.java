@@ -92,6 +92,11 @@ public class KillCommandHandler implements KillHandlerRegistry {
         }
     }
 
+    @Override
+    public OperationKillHandler handler(CancellableOperationType type) {
+        return handlerOrThrow(type, false);
+    }
+
     /**
      * Handles the SQL KILL command.
      *

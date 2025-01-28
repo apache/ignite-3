@@ -74,6 +74,8 @@ import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
@@ -90,7 +92,7 @@ public class ClientCompute implements IgniteCompute {
     private final ClientTables tables;
 
     /** Cached tables. */
-    private final ConcurrentHashMap<String, ClientTable> tableCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<QualifiedName, ClientTable> tableCache = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -448,17 +450,19 @@ public class ClientCompute implements IgniteCompute {
         );
     }
 
+    // TODO IGNITE-24033 Compute API should use QualifiedName.
     private CompletableFuture<ClientTable> getTable(String tableName) {
         // Cache tables by name to avoid extra network call on every executeColocated.
-        var cached = tableCache.get(tableName);
+        QualifiedName qualifiedName = QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
+        var cached = tableCache.get(qualifiedName);
 
         if (cached != null) {
             return completedFuture(cached);
         }
 
-        return tables.tableAsync(tableName).thenApply(t -> {
+        return tables.tableAsync(qualifiedName).thenApply(t -> {
             if (t == null) {
-                throw new TableNotFoundException(SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
+                throw new TableNotFoundException(qualifiedName);
             }
 
             ClientTable clientTable = (ClientTable) t;
@@ -483,7 +487,9 @@ public class ClientCompute implements IgniteCompute {
 
             if (clientEx.code() == TABLE_ID_NOT_FOUND_ERR) {
                 // Table was dropped - remove from cache.
-                tableCache.remove(tableName);
+                // TODO IGNITE-24033 Make Client API use QualifiedName.
+                QualifiedName qualifiedName = QualifiedNameHelper.fromNormalized(SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
+                tableCache.remove(qualifiedName);
 
                 return retry.get();
             }
