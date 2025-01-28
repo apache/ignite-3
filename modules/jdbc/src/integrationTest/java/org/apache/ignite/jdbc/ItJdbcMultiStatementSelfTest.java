@@ -428,7 +428,16 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         assertNotNull(stmt.getResultSet());
         assertThrowsSqlException(txErrMsg, () -> stmt.getMoreResults());
 
-        // TX control statements don't affect a JDBC managed transaction.
+        // Even though TX control statements don't affect a JDBC managed transaction directly,
+        // exceptions during execution of previous statements may cause the transaction to rollback.
+        assertThrowsSqlException(
+                "Transaction is already finished",
+                () -> stmt.executeQuery("SELECT COUNT(1) FROM TEST_TX")
+        );
+
+        // Let's recover connection.
+        conn.rollback();
+
         {
             long initialRowsCount;
 
@@ -465,8 +474,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
                 try (ResultSet rs = stmt0.executeQuery("SELECT COUNT(1) FROM TEST_TX")) {
                     assertTrue(rs.next());
 
-                    // The first DML statement was successfully inserted.
-                    assertEquals(initialRowsCount + 1, rs.getLong(1));
+                    assertEquals(initialRowsCount, rs.getLong(1));
                 }
             }
         }
