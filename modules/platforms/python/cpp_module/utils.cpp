@@ -399,7 +399,6 @@ PyObject* py_create_datetime(const ignite::ignite_date_time &value) {
     auto datetime_class = py_get_module_datetime_class();
     if (!datetime_class)
         return nullptr;
-    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(datetime_class); });
 
     PyObject* year = PyLong_FromLong(value.get_year());
     if (!year)
