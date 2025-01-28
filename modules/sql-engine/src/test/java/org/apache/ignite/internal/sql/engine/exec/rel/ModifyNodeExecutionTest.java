@@ -126,7 +126,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
                     .thenReturn(nullCompletedFuture());
         }
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         List<RowWrapper> result = await(downstream.result());
 
@@ -159,7 +159,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
                     .thenReturn(nullCompletedFuture());
         }
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         List<RowWrapper> result = await(downstream.result());
 
@@ -192,7 +192,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
                     .thenReturn(nullCompletedFuture());
         }
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         List<RowWrapper> result = await(downstream.result());
 
@@ -224,7 +224,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         when(updatableTable.insertAll(any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(expected));
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).insertAll(any(), any(), any());
@@ -252,7 +252,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         when(updatableTable.upsertAll(any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(expected));
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).upsertAll(any(), any(), any());
@@ -280,7 +280,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         when(updatableTable.deleteAll(any(), any(), any()))
                 .thenReturn(CompletableFuture.failedFuture(expected));
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         assertThat(downstream.result(), willThrow(is(expected)));
         verify(updatableTable).deleteAll(any(), any(), any());
@@ -411,7 +411,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
         modifyNode.register(List.of(sourceNode));
         modifyNode.onRegister(downstream);
 
-        context.execute(() -> modifyNode.request(1), modifyNode::onError);
+        modifyNode.execute(() -> modifyNode.request(1));
 
         await(downstream.result());
 

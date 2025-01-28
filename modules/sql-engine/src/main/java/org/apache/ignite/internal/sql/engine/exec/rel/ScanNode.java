@@ -70,7 +70,7 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         requested = rowsCnt;
 
         if (!inLoop) {
-            context().execute(this::push, this::onError);
+            this.execute(this::push);
         }
     }
 
@@ -126,7 +126,7 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
 
                 if (++processed == inBufSize && requested > 0) {
                     // allow others to do their job
-                    context().execute(this::push, this::onError);
+                    this.execute(this::push);
 
                     return;
                 }

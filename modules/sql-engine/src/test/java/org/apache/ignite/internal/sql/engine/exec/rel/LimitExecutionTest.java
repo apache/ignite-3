@@ -209,11 +209,11 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
         @Override public void request(int rowsCnt) {
             int r = requested.getAndAdd(rowsCnt);
 
-            context().execute(() -> {
+            this.execute(() -> {
                 for (int i = 0; i < rowsCnt; i++) {
                     downstream().push(new Object[]{r + i});
                 }
-            }, this::onError);
+            });
         }
     }
 
