@@ -21,12 +21,15 @@ import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.util.ByteUtils.toByteArrayList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -875,6 +878,17 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     @Override
     public Cursor<Entry> getLocally(ByteArray startKey, ByteArray endKey, long revUpperBound) {
         return inBusyLock(busyLock, () -> storage.range(startKey.bytes(), endKey == null ? null : endKey.bytes(), revUpperBound));
+    }
+
+    @Override
+    public List<Entry> getAllLocally(List<ByteArray> keys) {
+        var k = new ArrayList<byte[]>(keys.size());
+
+        for (int i = 0; i < keys.size(); i++) {
+            k.add(keys.get(i).bytes());
+        }
+
+        return inBusyLock(busyLock, () -> storage.getAll(k));
     }
 
     @Override

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.disaster;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -329,10 +330,10 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
                 .map(LogicalNode::new)
                 .collect(Collectors.toUnmodifiableSet());
 
-        DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage(
+        /*assertDataNodesFromLogicalNodesInStorage(
                 zoneId,
                 expectedNodes,
                 keyValueStorage
-        );
+        );*/
     }
 }

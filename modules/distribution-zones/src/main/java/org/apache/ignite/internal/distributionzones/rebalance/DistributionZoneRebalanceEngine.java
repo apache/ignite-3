@@ -19,16 +19,18 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryPrefix;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -136,7 +138,7 @@ public class DistributionZoneRebalanceEngine {
             });
 
             // TODO: IGNITE-18694 - Recovery for the case when zones watch listener processed event but assignments were not updated.
-            metaStorageManager.registerPrefixWatch(zoneDataNodesKey(), dataNodesListener);
+            metaStorageManager.registerPrefixWatch(zoneDataNodesHistoryPrefix(), dataNodesListener);
 
             CompletableFuture<Revisions> recoveryFinishFuture = metaStorageManager.recoveryFinishedFuture();
 
@@ -202,14 +204,18 @@ public class DistributionZoneRebalanceEngine {
 
     private WatchListener createDistributionZonesDataNodesListener() {
         return evt -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
-            Set<Node> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value());
+            Set<Node> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value(), evt.timestamp())
+                    .stream()
+                    .map(NodeWithAttributes::node)
+                    .collect(toSet());
 
             if (dataNodes == null) {
                 // The zone was removed so data nodes was removed too.
                 return nullCompletedFuture();
             }
 
-            int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX_BYTES);
+            int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX
+                    .getBytes(StandardCharsets.UTF_8));
 
             // It is safe to get the latest version of the catalog as we are in the metastore thread.
             // TODO: IGNITE-22723 Potentially unsafe to use the latest catalog version, as the tables might not already present
@@ -328,7 +334,7 @@ public class DistributionZoneRebalanceEngine {
         Set<String> aliveNodes = distributionZoneManager.logicalTopology(revision)
                 .stream()
                 .map(NodeWithAttributes::nodeName)
-                .collect(Collectors.toSet());
+                .collect(toSet());
 
         for (CatalogTableDescriptor tableDescriptor : tableDescriptors) {
             tableFutures.add(RebalanceUtil.triggerAllTablePartitionsRebalance(

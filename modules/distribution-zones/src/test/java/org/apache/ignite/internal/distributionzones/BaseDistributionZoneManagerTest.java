@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -79,7 +81,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     protected MetaStorageManager metaStorageManager;
 
-    private final HybridClock clock = new HybridClockImpl();
+    protected final HybridClock clock = new HybridClockImpl();
 
     protected CatalogManager catalogManager;
 
@@ -210,6 +212,14 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     protected int getZoneId(String zoneName) {
         return DistributionZonesTestUtil.getZoneIdStrict(catalogManager, zoneName, clock.nowLong());
+    }
+
+    protected CatalogZoneDescriptor zoneDescriptor(String zoneName, HybridTimestamp timestamp) {
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneName, timestamp.longValue());
+
+        assertNotNull(zoneDescriptor);
+
+        return zoneDescriptor;
     }
 
     protected CatalogZoneDescriptor getDefaultZone() {

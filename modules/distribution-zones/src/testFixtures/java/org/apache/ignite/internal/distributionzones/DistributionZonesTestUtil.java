@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
@@ -30,6 +31,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -52,7 +54,10 @@ import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.Pair;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -266,24 +271,25 @@ public class DistributionZonesTestUtil {
      *
      * @param zoneId Zone id.
      * @param clusterNodes Data nodes.
+     * @param timestamp Timestamp.
      * @param keyValueStorage Key-value storage.
      * @throws InterruptedException If thread was interrupted.
      */
     public static void assertDataNodesFromLogicalNodesInStorage(
             int zoneId,
             @Nullable Set<LogicalNode> clusterNodes,
+            HybridTimestamp timestamp,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
         Set<Node> nodes = clusterNodes == null
                 ? null
                 : clusterNodes.stream().map(n -> new Node(n.name(), n.id())).collect(toSet());
 
-        assertValueInStorage(
-                keyValueStorage,
-                zoneDataNodesKey(zoneId).bytes(),
-                value -> DistributionZonesUtil.dataNodes(deserializeDataNodesMap(value)),
+        assertDataNodesInStorage(
+                zoneId,
                 nodes,
-                2000
+                timestamp,
+                keyValueStorage
         );
     }
 
@@ -292,21 +298,43 @@ public class DistributionZonesTestUtil {
      *
      * @param zoneId Zone id.
      * @param nodes Data nodes.
+     * @param timestamp Timestamp.
      * @param keyValueStorage Key-value storage.
      * @throws InterruptedException If thread was interrupted.
      */
     public static void assertDataNodesInStorage(
             int zoneId,
             @Nullable Set<Node> nodes,
+            HybridTimestamp timestamp,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
-        assertValueInStorage(
-                keyValueStorage,
-                zoneDataNodesKey(zoneId).bytes(),
-                value -> DistributionZonesUtil.dataNodes(deserializeDataNodesMap(value)),
-                nodes,
-                2000
-        );
+        byte[] key = zoneDataNodesHistoryKey(zoneId).bytes();
+
+        Supplier<Set<Node>> nodesGetter = () -> {
+            byte[] storageValue = keyValueStorage.get(key).value();
+
+            DataNodesHistory history = DataNodesHistorySerializer.deserialize(storageValue);
+
+            Pair<HybridTimestamp, Set<NodeWithAttributes>> dataNodes = history.dataNodesForTimestamp(timestamp);
+
+            return dataNodes.getSecond()
+                    .stream()
+                    .map(n -> new Node(n.nodeName(), n.nodeId()))
+                    .collect(toSet());
+        };
+
+        boolean success = waitForCondition(() -> {
+            Set<Node> actualNodes = nodesGetter.get();
+
+            return Objects.equals(actualNodes, nodes);
+        }, 2000);
+
+        // We do a second check simply to print a nice error message in case the condition above is not achieved.
+        if (!success) {
+            Set<Node> actualNodes = nodesGetter.get();
+
+            assertEquals(nodes, actualNodes, "Nodes: " + actualNodes);
+        }
     }
 
     /**

@@ -24,8 +24,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
@@ -38,6 +36,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeLogicalTopologySet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.nodeNames;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersion;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateLogicalTopologyAndVersionAndClusterId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
@@ -71,11 +70,9 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -96,7 +93,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
-import org.apache.ignite.internal.distributionzones.DataNodesManager.DataNodesHistory;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
@@ -227,6 +223,13 @@ public class DistributionZoneManager extends
                 PARTITION_DISTRIBUTION_RESET_TIMEOUT_DEFAULT_VALUE,
                 Integer::parseInt
         );
+
+        dataNodesManager = new DataNodesManager(
+                nodeName,
+                busyLock,
+                metaStorageManager,
+                catalogManager
+        );
     }
 
     @Override
@@ -247,7 +250,7 @@ public class DistributionZoneManager extends
 
             long recoveryRevision = recoveryFinishFuture.join().revision();
 
-            restoreGlobalStateFromLocalMetastorage(recoveryRevision);
+            restoreGlobalStateFromLocalMetaStorage(recoveryRevision);
 
             // If Catalog manager is empty, it gets initialized asynchronously and at this moment the initialization might not complete,
             // nevertheless everything works correctly.
@@ -256,6 +259,8 @@ public class DistributionZoneManager extends
             // Once the metstorage watches are deployed, all components start to receive callbacks, this chain of callbacks eventually
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
+
+            dataNodesManager.start(catalogManager.zones(catalogVersion));
 
             return allOf(
                     restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
@@ -310,56 +315,13 @@ public class DistributionZoneManager extends
 
     private CompletableFuture<Void> onUpdateScaleUpBusy(AlterZoneEventParameters parameters) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(parameters.causalityToken());
-        Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), parameters.causalityToken());
 
-        if (topologyEntry != null) {
-            Set<NodeWithAttributes> logicalTopology = deserializeLogicalTopologySet(topologyEntry.value());
-
-            return dataNodesManager.onAutoAdjustAlteration(
-                    parameters.zoneDescriptor(),
-                    timestamp,
-                    parameters.previousDescriptor().dataNodesAutoAdjustScaleUp(),
-                    parameters.previousDescriptor().dataNodesAutoAdjustScaleDown(),
-                    logicalTopology
-            );
-        }
-
-        // TODO ???
-        return nullCompletedFuture();
-
-        /*int zoneId = parameters.zoneDescriptor().id();
-
-        int newScaleUp = parameters.zoneDescriptor().dataNodesAutoAdjustScaleUp();
-
-        long causalityToken = parameters.causalityToken();
-
-        if (newScaleUp == IMMEDIATE_TIMER_VALUE) {
-            return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken);
-        }
-
-        // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
-        // and this map will be initialized on a manager start or with catalog notification
-        ZoneState zoneState = zonesState.get(zoneId);
-
-        if (newScaleUp != INFINITE_TIMER_VALUE) {
-            Optional<Long> highestRevision = zoneState.highestRevision(true);
-
-            assert highestRevision.isEmpty() || causalityToken >= highestRevision.get() : IgniteStringFormatter.format(
-                    "Expected causalityToken that is greater or equal to already seen meta storage events: highestRevision={}, "
-                            + "causalityToken={}",
-                    highestRevision.orElse(null), causalityToken
-            );
-
-            zoneState.rescheduleScaleUp(
-                    newScaleUp,
-                    () -> saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken),
-                    zoneId
-            );
-        } else {
-            zoneState.stopScaleUp();
-        }
-
-        return nullCompletedFuture();*/
+        return dataNodesManager.onAutoAdjustAlteration(
+                parameters.zoneDescriptor(),
+                timestamp,
+                parameters.previousDescriptor().dataNodesAutoAdjustScaleUp(),
+                parameters.previousDescriptor().dataNodesAutoAdjustScaleDown()
+        );
     }
 
     private void onUpdatePartitionDistributionResetBusy(
@@ -405,60 +367,16 @@ public class DistributionZoneManager extends
 
     private CompletableFuture<Void> onUpdateScaleDownBusy(AlterZoneEventParameters parameters) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(parameters.causalityToken());
-        Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), parameters.causalityToken());
 
-        if (topologyEntry != null) {
-            Set<NodeWithAttributes> logicalTopology = deserializeLogicalTopologySet(topologyEntry.value());
-
-            return dataNodesManager.onAutoAdjustAlteration(
-                    parameters.zoneDescriptor(),
-                    timestamp,
-                    parameters.previousDescriptor().dataNodesAutoAdjustScaleUp(),
-                    parameters.previousDescriptor().dataNodesAutoAdjustScaleDown(),
-                    logicalTopology
-            );
-        }
-
-        // TODO ???
-        return nullCompletedFuture();
-
-
-        /*int zoneId = parameters.zoneDescriptor().id();
-
-        int newScaleDown = parameters.zoneDescriptor().dataNodesAutoAdjustScaleDown();
-
-        long causalityToken = parameters.causalityToken();
-
-        if (newScaleDown == IMMEDIATE_TIMER_VALUE) {
-            return saveDataNodesToMetaStorageOnScaleDown(zoneId, causalityToken);
-        }
-
-        // It is safe to zonesTimers.get(zoneId) in term of NPE because meta storage notifications are one-threaded
-        // and this map will be initialized on a manager start or with catalog notification
-        ZoneState zoneState = zonesState.get(zoneId);
-
-        if (newScaleDown != INFINITE_TIMER_VALUE) {
-            Optional<Long> highestRevision = zoneState.highestRevision(false);
-
-            assert highestRevision.isEmpty() || causalityToken >= highestRevision.get() : IgniteStringFormatter.format(
-                    "Expected causalityToken that is greater or equal to already seen meta storage events: highestRevision={}, "
-                            + "causalityToken={}",
-                    highestRevision.orElse(null), causalityToken
-            );
-
-            zoneState.rescheduleScaleDown(
-                    newScaleDown,
-                    () -> saveDataNodesToMetaStorageOnScaleDown(zoneId, causalityToken),
-                    zoneId
-            );
-        } else {
-            zoneState.stopScaleDown();
-        }
-
-        return nullCompletedFuture();*/
+        return dataNodesManager.onAutoAdjustAlteration(
+                parameters.zoneDescriptor(),
+                timestamp,
+                parameters.previousDescriptor().dataNodesAutoAdjustScaleUp(),
+                parameters.previousDescriptor().dataNodesAutoAdjustScaleDown()
+        );
     }
 
-    private CompletableFuture<Void> onUpdateFilter(AlterZoneEventParameters parameters) {
+    private CompletableFuture<Void> onUpdateFilterBusy(AlterZoneEventParameters parameters) {
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(parameters.causalityToken());
 
         Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), parameters.causalityToken());
@@ -466,13 +384,10 @@ public class DistributionZoneManager extends
         if (topologyEntry != null) {
             Set<NodeWithAttributes> logicalTopology = deserializeLogicalTopologySet(topologyEntry.value());
 
-            dataNodesManager.onZoneFilterChange(parameters.zoneDescriptor(), timestamp, logicalTopology);
+            return dataNodesManager.onZoneFilterChange(parameters.zoneDescriptor(), timestamp, logicalTopology);
+        } else {
+            return nullCompletedFuture();
         }
-        /*int zoneId = parameters.zoneDescriptor().id();
-
-        long causalityToken = parameters.causalityToken();
-
-        return saveDataNodesToMetaStorageOnScaleUp(zoneId, causalityToken);*/
     }
 
     private CompletableFuture<Void> onCreateZone(CatalogZoneDescriptor zone, long causalityToken) {
@@ -521,24 +436,24 @@ public class DistributionZoneManager extends
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
                             LOG.error(
-                                    "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, timestamp = {}]",
+                                    "Failed to update zones' dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
                                     e,
                                     zoneId,
-                                    dataNodes,
-                                    timestamp
-                            );
+                                    timestamp,
+                                    nodeNames(dataNodes)
+                                    );
                         } else if (invokeResult) {
-                            LOG.info("Update zones' dataNodes value [zoneId = {}, dataNodes = {}, timestamp = {}]",
+                            LOG.info("Update zones' dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
                                     zoneId,
-                                    dataNodes,
-                                    timestamp
+                                    timestamp,
+                                    nodeNames(dataNodes)
                             );
                         } else {
                             LOG.debug(
-                                    "Failed to update zones' dataNodes value [zoneId = {}, dataNodes = {}, timestamp = {}]",
+                                    "Failed to update zones' dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
                                     zoneId,
-                                    dataNodes,
-                                    timestamp
+                                    timestamp,
+                                    nodeNames(dataNodes)
                             );
                         }
                     }).thenCompose((ignored) -> nullCompletedFuture());
@@ -656,7 +571,7 @@ public class DistributionZoneManager extends
      *
      * @param recoveryRevision Revision of the Meta Storage after its recovery.
      */
-    private void restoreGlobalStateFromLocalMetastorage(long recoveryRevision) {
+    private void restoreGlobalStateFromLocalMetaStorage(long recoveryRevision) {
         Entry lastHandledTopologyEntry = metaStorageManager.getLocally(zonesLastHandledTopology(), recoveryRevision);
 
         Entry nodeAttributesEntry = metaStorageManager.getLocally(zonesNodesAttributes(), recoveryRevision);
@@ -700,7 +615,6 @@ public class DistributionZoneManager extends
                 byte[] newLogicalTopologyBytes;
 
                 Set<NodeWithAttributes> newLogicalTopology = null;
-                Set<NodeWithAttributes> oldLogicalTopology = emptySet();
 
                 HybridTimestamp timestamp = evt.timestamp();
 
@@ -713,17 +627,12 @@ public class DistributionZoneManager extends
                         assert newLogicalTopologyBytes != null : "New topology is null.";
 
                         newLogicalTopology = deserializeLogicalTopologySet(newLogicalTopologyBytes);
-
-                        Entry oldEntry = event.oldEntry();
-                        if (oldEntry != null && oldEntry.value() != null && !oldEntry.empty() && !oldEntry.tombstone()) {
-                            oldLogicalTopology = deserializeLogicalTopologySet(oldEntry.value());
-                        }
                     }
                 }
 
                 assert newLogicalTopology != null : "The event doesn't contain logical topology";
 
-                return onLogicalTopologyUpdate(newLogicalTopology, oldLogicalTopology, timestamp);
+                return onLogicalTopologyUpdate(newLogicalTopology, evt.revision(), timestamp);
             } finally {
                 busyLock.leaveBusy();
             }
@@ -741,28 +650,16 @@ public class DistributionZoneManager extends
      * Note that all futures of Meta Storage updates that happen in this method are returned from this method.
      *
      * @param newLogicalTopology New logical topology.
-     * @param oldLogicalTopology Old logical topology.
+     * @param revision Revision of the event.
      * @param timestamp Event timestamp.
      * @return Future reflecting the completion of the actions needed when logical topology was updated.
      */
     private CompletableFuture<Void> onLogicalTopologyUpdate(
             Set<NodeWithAttributes> newLogicalTopology,
-            Set<NodeWithAttributes> oldLogicalTopology,
+            long revision,
             HybridTimestamp timestamp
     ) {
-        Set<Node> removedNodes =
-                oldLogicalTopology.stream()
-                        .filter(node -> !newLogicalTopology.contains(node))
-                        .map(NodeWithAttributes::node)
-                        .collect(toSet());
-
-        Set<Node> addedNodes =
-                newLogicalTopology.stream()
-                        .filter(node -> !oldLogicalTopology.contains(node))
-                        .map(NodeWithAttributes::node)
-                        .collect(toSet());
-
-        Set<Integer> zoneIds = new HashSet<>();
+        logicalTopologyByRevision.put(revision, newLogicalTopology);
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
@@ -772,18 +669,17 @@ public class DistributionZoneManager extends
             CompletableFuture<Void> f = dataNodesManager.onTopologyChangeZoneHandler(
                     zone,
                     timestamp,
-                    oldLogicalTopology,
-                    newLogicalTopology
+                    newLogicalTopology,
+                    partitionDistributionResetTimeoutConfiguration.currentValue(),
+                    () -> fireTopologyReduceLocalEvent(revision, zone.id())
             );
 
             futures.add(f);
-
-            zoneIds.add(zone.id());
         }
 
         newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n));
 
-        //futures.add(saveRecoverableStateToMetastorage(zoneIds, revision, newLogicalTopology));
+        futures.add(saveRecoverableStateToMetastorage(revision, newLogicalTopology));
 
         return allOf(futures.toArray(CompletableFuture[]::new));
     }
@@ -792,18 +688,16 @@ public class DistributionZoneManager extends
      * Saves recoverable state of the Distribution Zone Manager to Meta Storage atomically in one batch.
      * After restart it could be used to restore these fields.
      *
-     * @param zoneIds Set of zone id's, whose states will be saved in the Meta Storage.
      * @param revision Revision of the event.
      * @param newLogicalTopology New logical topology.
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<Void> saveRecoverableStateToMetastorage(
-            Set<Integer> zoneIds,
             long revision,
             Set<NodeWithAttributes> newLogicalTopology
     ) {
         // TODO
-        Operation[] puts = new Operation[3 + zoneIds.size()];
+        Operation[] puts = new Operation[3];
 
         puts[0] = put(zonesNodesAttributes(), NodesAttributesSerializer.serialize(nodesAttributes()));
 
@@ -813,8 +707,6 @@ public class DistributionZoneManager extends
                 zonesLastHandledTopology(),
                 LogicalTopologySetSerializer.serialize(newLogicalTopology)
         );
-
-        int i = 3;
 
         Iif iif = iif(
                 conditionForRecoverableStateChanges(revision),
@@ -836,57 +728,6 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Schedules scale up and scale down timers.
-     *
-     * @param zone Zone descriptor.
-     * @param nodesAdded Flag indicating that nodes was added to a topology and should be added to zones data nodes.
-     * @param nodesRemoved Flag indicating that nodes was removed from a topology and should be removed from zones data nodes.
-     * @param timestamp Timestamp.
-     * @return Future that represents the pending completion of the operation.
-     *         For the immediate timers it will be completed when data nodes will be updated in Meta Storage.
-     */
-    private CompletableFuture<Void> scheduleTimers(
-            CatalogZoneDescriptor zone,
-            boolean nodesAdded,
-            boolean nodesRemoved,
-            HybridTimestamp timestamp
-    ) {
-        int autoAdjust = zone.dataNodesAutoAdjust();
-        int autoAdjustScaleDown = zone.dataNodesAutoAdjustScaleDown();
-        int autoAdjustScaleUp = zone.dataNodesAutoAdjustScaleUp();
-        int partitionResetDelay = partitionDistributionResetTimeoutConfiguration.currentValue();
-
-        int zoneId = zone.id();
-
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
-
-        if ((nodesAdded || nodesRemoved) && autoAdjust != INFINITE_TIMER_VALUE) {
-            // TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
-            throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
-        } else {
-            if (nodesAdded) {
-                if (autoAdjustScaleUp != INFINITE_TIMER_VALUE) {
-
-                }
-            }
-
-            if (nodesRemoved) {
-                if (zone.consistencyMode() == HIGH_AVAILABILITY) {
-                    if (partitionResetDelay != INFINITE_TIMER_VALUE) {
-
-                    }
-                }
-
-                if (autoAdjustScaleDown != INFINITE_TIMER_VALUE) {
-
-                }
-            }
-        }
-
-        return allOf(futures.toArray(CompletableFuture[]::new));
-    }
-
-    /**
      * Returns metastore long view of {@link org.apache.ignite.internal.hlc.HybridTimestamp} by revision.
      *
      * @param revision Metastore revision.
@@ -902,7 +743,6 @@ public class DistributionZoneManager extends
 
             return -1;
         }
-
     }
 
     private void fireTopologyReduceLocalEvent(long revision, int zoneId) {
@@ -915,6 +755,11 @@ public class DistributionZoneManager extends
 
             return null;
         });
+    }
+
+    @TestOnly
+    public DataNodesManager dataNodesManager() {
+        return dataNodesManager;
     }
 
     /**
@@ -1142,43 +987,6 @@ public class DistributionZoneManager extends
                     .collect(toList());
         }
 
-        /**
-         * Cleans {@code topologyAugmentationMap} to the key, to which is safe to delete.
-         * Safe means that this key was handled both by scale up and scale down schedulers.
-         *
-         * @param toKey Key in map to which is safe to delete data from {@code topologyAugmentationMap}.
-         */
-        private void cleanUp(long toKey) {
-            topologyAugmentationMap.headMap(toKey, true).clear();
-        }
-
-        /**
-         * Returns the highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()} taking into account
-         * the {@code addition} flag.
-         *
-         * @param addition Flag indicating the type of the nodes for which we want to find the highest revision.
-         * @return The highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()} taking into account
-         *         the {@code addition} flag.
-         */
-        Optional<Long> highestRevision(boolean addition) {
-            return topologyAugmentationMap().entrySet()
-                    .stream()
-                    .filter(e -> e.getValue().addition == addition)
-                    .max(Map.Entry.comparingByKey())
-                    .map(Map.Entry::getKey);
-        }
-
-        /**
-         * Returns the highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()}.
-         *
-         * @return The highest revision which is presented in the {@link ZoneState#topologyAugmentationMap()}.
-         */
-        Optional<Long> highestRevision() {
-            return topologyAugmentationMap().keySet()
-                    .stream()
-                    .max(Comparator.naturalOrder());
-        }
-
         @TestOnly
         public synchronized ScheduledFuture<?> scaleUpTask() {
             return scaleUpTask;
@@ -1233,6 +1041,7 @@ public class DistributionZoneManager extends
     @TestOnly
     public Map<Integer, ZoneState> zonesState() {
         // TODO remove this
+        return null;
     }
 
     public Set<NodeWithAttributes> logicalTopology() {
@@ -1286,10 +1095,8 @@ public class DistributionZoneManager extends
             if (lastUpdateRevisionEntry.value() == null || topologyRevision > bytesToLongKeepingOrder(lastUpdateRevisionEntry.value())) {
                 HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(recoveryRevision);
 
-                return onLogicalTopologyUpdate(newLogicalTopology, timestamp);
+                return onLogicalTopologyUpdate(newLogicalTopology, recoveryRevision, timestamp);
             }
-
-            dataNodesManager.start(catalogManager.zones(catalogVersion), newLogicalTopology);
         }
 
         return nullCompletedFuture();
@@ -1321,7 +1128,7 @@ public class DistributionZoneManager extends
 
         @Override
         protected CompletableFuture<Void> onFilterUpdate(AlterZoneEventParameters parameters, String oldFilter) {
-            return inBusyLock(busyLock, () -> onUpdateFilter(parameters));
+            return inBusyLock(busyLock, () -> onUpdateFilterBusy(parameters));
         }
     }
 

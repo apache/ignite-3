@@ -52,6 +52,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescr
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -73,7 +75,7 @@ public class DistributionZonesUtil {
     private static final String DISTRIBUTION_ZONE_DATA_NODES_PREFIX = DISTRIBUTION_ZONE_PREFIX + "dataNodes.";
 
     /** Key prefix for zone's data nodes history. */
-    private static final String DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "history.";
+    public static final String DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "history.";
 
     /** Key prefix for zone's data nodes. */
     public static final String DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX = DISTRIBUTION_ZONE_DATA_NODES_PREFIX + "value.";
@@ -179,11 +181,29 @@ public class DistributionZonesUtil {
     /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX}.
      *
+     * @return ByteArray representation.
+     */
+    public static ByteArray zoneDataNodesHistoryPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX);
+    }
+
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX}.
+     *
      * @param zoneId Zone id.
      * @return ByteArray representation.
      */
     public static ByteArray zoneDataNodesHistoryKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX + zoneId);
+    }
+
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX}.
+     *
+     * @return ByteArray representation.
+     */
+    public static ByteArray zoneScaleUpTimerPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX);
     }
 
     /**
@@ -199,11 +219,29 @@ public class DistributionZonesUtil {
     /**
      * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX}.
      *
+     * @return ByteArray representation.
+     */
+    public static ByteArray zoneScaleDownTimerPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX);
+    }
+
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX}.
+     *
      * @param zoneId Zone id.
      * @return ByteArray representation.
      */
     public static ByteArray zoneScaleDownTimerKey(int zoneId) {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX + zoneId);
+    }
+
+    /**
+     * ByteArray representation of {@link DistributionZonesUtil#DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX}.
+     *
+     * @return ByteArray representation.
+     */
+    public static ByteArray zonePartitionResetTimerPrefix() {
+        return new ByteArray(DISTRIBUTION_ZONE_PARTITION_RESET_TIMER_PREFIX);
     }
 
     /**
@@ -447,8 +485,13 @@ public class DistributionZonesUtil {
     }
 
     @Nullable
-    public static Set<Node> parseDataNodes(byte[] dataNodesBytes) {
-        return dataNodesBytes == null ? null : dataNodes(deserializeDataNodesMap(dataNodesBytes));
+    public static Set<NodeWithAttributes> parseDataNodes(byte[] dataNodesBytes, HybridTimestamp timestamp) {
+        if (dataNodesBytes == null) {
+            return null;
+        }
+        DataNodesHistory dataNodesHistory = DataNodesHistorySerializer.deserialize(dataNodesBytes);
+
+        return dataNodesHistory.dataNodesForTimestamp(timestamp).getSecond();
     }
 
     public static Map<Node, Integer> deserializeDataNodesMap(byte[] bytes) {
@@ -614,6 +657,10 @@ public class DistributionZonesUtil {
         return catalogService.tables(catalogVersion).stream()
                 .filter(table -> table.zoneId() == zoneId)
                 .collect(toList());
+    }
+
+    public static Set<String> nodeNames(Set<NodeWithAttributes> nodes) {
+        return nodes.stream().map(NodeWithAttributes::nodeName).collect(toSet());
     }
 
     /** Key prefix for zone's scale up change trigger key. */

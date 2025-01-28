@@ -19,6 +19,7 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
@@ -140,7 +141,10 @@ public class DistributionZoneRebalanceEngineV2 {
 
     private WatchListener createDistributionZonesDataNodesListener() {
         return evt -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
-            Set<Node> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value());
+            Set<Node> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value(), evt.timestamp())
+                    .stream()
+                    .map(NodeWithAttributes::node)
+                    .collect(toSet());
 
             if (dataNodes == null) {
                 // The zone was removed so data nodes were removed too.
