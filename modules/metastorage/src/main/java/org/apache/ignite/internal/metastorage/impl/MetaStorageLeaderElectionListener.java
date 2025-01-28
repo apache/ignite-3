@@ -163,12 +163,13 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     private void startSafeTimeScheduler(long term) {
         metaStorageSvcFut
-                .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) ->
-                        clusterTime.startSafeTimeScheduler(
-                                safeTime -> syncTimeIfSecondaryDutiesAreNotPaused(safeTime, service),
-                                metaStorageConfiguration,
-                                term
-                        ))
+                .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
+                    clusterTime.startSafeTimeScheduler(
+                            safeTime -> syncTimeIfSecondaryDutiesAreNotPaused(safeTime, service),
+                            metaStorageConfiguration,
+                            term
+                    );
+                })
                 .whenComplete((v, e) -> {
                     if (e != null) {
                         LOG.error("Unable to start Idle Safe Time scheduler", e);
