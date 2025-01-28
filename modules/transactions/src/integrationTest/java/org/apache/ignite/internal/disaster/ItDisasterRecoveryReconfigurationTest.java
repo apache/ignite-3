@@ -185,7 +185,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 zoneParams.consistencyMode().name()
         ));
 
-        CatalogZoneDescriptor zone = node0.catalogManager().zone(zoneName, node0.clock().nowLong());
+        CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
         zoneId = requireNonNull(zone).id();
         waitForScale(node0, zoneParams.nodes());
 

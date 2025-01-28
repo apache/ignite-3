@@ -129,8 +129,7 @@ public class TableUtilsTest extends IgniteAbstractTest {
                 )
         );
 
-        verify(spy).activeCatalogVersion(eq(beginTs.longValue()));
-        verify(spy).indexes(eq(catalogManager.activeCatalogVersion(beginTs.longValue())), eq(tableId));
+        verify(spy).activeCatalog(eq(beginTs.longValue()));
     }
 
     @Test

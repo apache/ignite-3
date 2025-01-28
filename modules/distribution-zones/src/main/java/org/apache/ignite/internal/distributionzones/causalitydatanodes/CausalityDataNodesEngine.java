@@ -315,8 +315,8 @@ public class CausalityDataNodesEngine {
         CatalogZoneDescriptor entryNewerCfg = null;
 
         // Iterate over zone configurations from newest to oldest.
-        for (int i = catalogVersion; i >= catalogManager.earliestCatalogVersion(); i--) {
-            CatalogZoneDescriptor entryOlderCfg = catalogManager.zone(zoneId, i);
+        for (int version = catalogVersion; version >= catalogManager.earliestCatalogVersion(); version--) {
+            CatalogZoneDescriptor entryOlderCfg = catalogManager.catalog(version).zone(zoneId);
 
             if (entryOlderCfg == null) {
                 break;

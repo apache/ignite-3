@@ -48,7 +48,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ThreadPoolExecutor;
-import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -667,12 +667,11 @@ public class DistributionZonesUtil {
      * Returns list of table descriptors bound to the zone.
      *
      * @param zoneId Zone id.
-     * @param catalogVersion Catalog version.
-     * @param catalogService Catalog service
+     * @param catalog Catalog.
      * @return List of table descriptors from the zone.
      */
-    public static List<CatalogTableDescriptor> findTablesByZoneId(int zoneId, int catalogVersion, CatalogService catalogService) {
-        return catalogService.tables(catalogVersion).stream()
+    public static List<CatalogTableDescriptor> findTablesByZoneId(int zoneId, Catalog catalog) {
+        return catalog.tables().stream()
                 .filter(table -> table.zoneId() == zoneId)
                 .collect(toList());
     }

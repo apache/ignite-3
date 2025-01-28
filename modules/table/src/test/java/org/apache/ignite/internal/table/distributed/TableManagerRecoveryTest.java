@@ -244,7 +244,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         createTable(TABLE_NAME);
         createIndex(TABLE_NAME, INDEX_NAME);
 
-        int tableId = catalogManager.table(SCHEMA_NAME, TABLE_NAME, Long.MAX_VALUE).id();
+        int tableId = catalogManager.activeCatalog(clock.nowLong()).table(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
         verify(txStateTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreateTxStateStorage(anyInt());

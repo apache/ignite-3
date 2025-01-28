@@ -77,7 +77,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
 public class ClientComputeTest extends BaseIgniteAbstractTest {
-    private static final String TABLE_NAME = "tbl1";
+    private static final String TABLE_NAME = "TBL1";
 
     private FakeIgnite ignite1;
     private FakeIgnite ignite2;

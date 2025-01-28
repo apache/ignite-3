@@ -36,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
@@ -145,7 +146,11 @@ class IndexBuildController implements ManuallyCloseable {
 
     private CompletableFuture<?> onIndexBuilding(StartBuildingIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            CatalogIndexDescriptor indexDescriptor = catalogService.index(parameters.indexId(), parameters.catalogVersion());
+            Catalog catalog = catalogService.catalog(parameters.catalogVersion());
+
+            assert catalog != null : "Not found catalog for version " +  parameters.catalogVersion();
+
+            CatalogIndexDescriptor indexDescriptor = catalog.index(parameters.indexId());
 
             var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
 
@@ -186,17 +191,17 @@ class IndexBuildController implements ManuallyCloseable {
 
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
                 // metastore thread.
-                int catalogVersion = catalogService.latestCatalogVersion();
+                Catalog catalog = catalogService.catalog(catalogService.latestCatalogVersion());
 
                 // TODO: IGNITE-22656 It is necessary not to generate an event for a destroyed table by LWM
-                if (catalogService.table(primaryReplicaId.tableId(), catalogVersion) == null) {
+                if (catalog == null || catalog.table(primaryReplicaId.tableId()) == null) {
                     return nullCompletedFuture();
                 }
 
                 return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
                         .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
                                 .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
-                                        catalogVersion,
+                                        catalog.version(),
                                         primaryReplicaId,
                                         mvTableStorage,
                                         replicaMeta
@@ -223,7 +228,11 @@ class IndexBuildController implements ManuallyCloseable {
                 return;
             }
 
-            for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion, primaryReplicaId.tableId())) {
+            Catalog catalog = catalogService.catalog(catalogVersion);
+
+            assert catalog != null : "Not found catalog for version " + catalogVersion;
+
+            for (CatalogIndexDescriptor indexDescriptor : catalog.indexes(primaryReplicaId.tableId())) {
                 if (indexDescriptor.status() == BUILDING) {
                     scheduleBuildIndex(primaryReplicaId, indexDescriptor, mvTableStorage, enlistmentConsistencyToken(replicaMeta));
                 } else if (indexDescriptor.status() == AVAILABLE) {

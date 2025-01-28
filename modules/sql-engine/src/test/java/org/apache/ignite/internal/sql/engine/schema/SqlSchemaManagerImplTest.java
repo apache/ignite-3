@@ -138,7 +138,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         int nonExistingTableId = Integer.MAX_VALUE;
 
-        assertThat(catalogManager.table(nonExistingTableId, versionAfter), nullValue());
+        assertThat(catalogManager.catalog(versionAfter).table(nonExistingTableId), nullValue());
 
         assertThrowsWithCause(
                 () -> sqlSchemaManager.table(versionAfter, nonExistingTableId),
@@ -187,14 +187,14 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         assertThat(schema.catalogVersion(), equalTo(versionAfter));
 
-        CatalogSchemaDescriptor schemaDescriptor = catalogManager.schema(PUBLIC_SCHEMA_NAME, versionAfter);
+        CatalogSchemaDescriptor schemaDescriptor = catalogManager.catalog(versionBefore).schema(PUBLIC_SCHEMA_NAME);
 
         assertThat(schemaDescriptor, notNullValue());
         assertThat(schema.getName(), equalTo(schemaDescriptor.name()));
 
         for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
             int zoneId = tableDescriptor.zoneId();
-            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, versionAfter);
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.catalog(versionAfter).zone(zoneId);
             assertNotNull(zoneDescriptor, "Zone does not exist: " + zoneId);
 
             Table table = schema.getTable(tableDescriptor.name());
@@ -281,7 +281,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
 
         IgniteTable table = getTable(unwrapSchema(schemaPlus), "TEST");
 
-        CatalogTableDescriptor tableDescriptor = catalogManager.table(table.id(), versionAfter);
+        CatalogTableDescriptor tableDescriptor = catalogManager.catalog(versionAfter).table(table.id());
 
         assertThat(tableDescriptor, notNullValue());
 
@@ -708,7 +708,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
     }
 
     private void makeIndexAvailable(String name) {
-        Map<String, CatalogIndexDescriptor> indices = catalogManager.indexes(catalogManager.latestCatalogVersion())
+        Map<String, CatalogIndexDescriptor> indices = catalogManager.catalog(catalogManager.latestCatalogVersion()).indexes()
                 .stream().collect(Collectors.toMap(CatalogIndexDescriptor::name, Function.identity()));
 
         CatalogIndexDescriptor indexDescriptor = indices.get(name);
@@ -778,7 +778,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         SchemaPlus schemaPlus = rootSchema.getSubSchema(SYSTEM_SCHEMA_NAME);
         assertNotNull(schemaPlus);
 
-        CatalogSchemaDescriptor schemaDescriptor = catalogManager.schema(SYSTEM_SCHEMA_NAME, versionAfter);
+        CatalogSchemaDescriptor schemaDescriptor = catalogManager.catalog(versionAfter).schema(SYSTEM_SCHEMA_NAME);
         assertNotNull(schemaDescriptor);
 
         CatalogSystemViewDescriptor viewDescriptor = schemaDescriptor.systemView("V1");

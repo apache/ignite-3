@@ -880,7 +880,7 @@ public class TestBuilders {
 
     private static SqlSchemaManagerImpl createSqlSchemaManager(CatalogManager catalogManager, ConcurrentMap<String, Long> tablesSize) {
         SqlStatisticManager sqlStatisticManager = tableId -> {
-            CatalogTableDescriptor descriptor = catalogManager.table(tableId, Long.MAX_VALUE);
+            CatalogTableDescriptor descriptor = catalogManager.activeCatalog(Long.MAX_VALUE).table(tableId);
             long fallbackSize = 10_000;
 
             if (descriptor == null) {

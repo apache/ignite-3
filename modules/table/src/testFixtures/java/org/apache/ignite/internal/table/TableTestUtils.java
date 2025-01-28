@@ -48,8 +48,6 @@ import org.jetbrains.annotations.Nullable;
 
 /** Utils to manage tables inside tests. */
 public class TableTestUtils {
-    public static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
-
     /** Table name. */
     public static final String TABLE_NAME = "TEST_TABLE";
 
@@ -196,7 +194,7 @@ public class TableTestUtils {
      * @param timestamp Timestamp.
      */
     public static @Nullable CatalogTableDescriptor getTable(CatalogService catalogService, String tableName, long timestamp) {
-        return catalogService.table(DEFAULT_SCHEMA_NAME, tableName, timestamp);
+        return catalogService.activeCatalog(timestamp).table(DEFAULT_SCHEMA_NAME, tableName);
     }
 
     /**
@@ -208,7 +206,7 @@ public class TableTestUtils {
      * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogTableDescriptor getTableStrict(CatalogService catalogService, String tableName, long timestamp) {
-        CatalogTableDescriptor table = catalogService.table(DEFAULT_SCHEMA_NAME, tableName, timestamp);
+        CatalogTableDescriptor table = catalogService.activeCatalog(timestamp).table(DEFAULT_SCHEMA_NAME, tableName);
 
         assertNotNull(table, "tableName=" + tableName + ", timestamp=" + timestamp);
 
@@ -224,7 +222,7 @@ public class TableTestUtils {
      * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogTableDescriptor getTableStrict(CatalogService catalogService, int tableId, long timestamp) {
-        CatalogTableDescriptor table = catalogService.table(tableId, timestamp);
+        CatalogTableDescriptor table = catalogService.activeCatalog(timestamp).table(tableId);
 
         assertNotNull(table, "tableId=" + table + ", timestamp=" + timestamp);
 
@@ -289,7 +287,7 @@ public class TableTestUtils {
      * @param timestamp Timestamp.
      */
     public static @Nullable CatalogIndexDescriptor getIndex(CatalogService catalogService, String indexName, long timestamp) {
-        return catalogService.aliveIndex(SCHEMA_NAME, indexName, timestamp);
+        return catalogService.activeCatalog(timestamp).aliveIndex(DEFAULT_SCHEMA_NAME, indexName);
     }
 
     /**
@@ -301,7 +299,7 @@ public class TableTestUtils {
      * @throws AssertionError If table descriptor is absent.
      */
     public static CatalogIndexDescriptor getIndexStrict(CatalogService catalogService, String indexName, long timestamp) {
-        CatalogIndexDescriptor index = catalogService.aliveIndex(SCHEMA_NAME, indexName, timestamp);
+        CatalogIndexDescriptor index = catalogService.activeCatalog(timestamp).aliveIndex(DEFAULT_SCHEMA_NAME, indexName);
 
         assertNotNull(index, "indexName=" + indexName + ", timestamp=" + timestamp);
 

@@ -60,7 +60,6 @@ import java.util.function.Function;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
@@ -262,8 +261,10 @@ public class IndexMetaStorage implements IgniteComponent {
         int catalogVersion = parameters.catalogVersion();
         int indexId = parameters.indexId();
 
-        CatalogIndexDescriptor catalogIndexDescriptor = catalogIndexDescriptor(indexId, catalogVersion);
-        CatalogTableDescriptor catalogTableDescriptor = catalogTableDescriptor(catalogIndexDescriptor.tableId(), catalogVersion);
+        Catalog catalog = catalog(catalogVersion);
+
+        CatalogIndexDescriptor catalogIndexDescriptor = catalog.index(indexId);
+        CatalogTableDescriptor catalogTableDescriptor = catalog.table(catalogIndexDescriptor.tableId());
 
         if (indexId != catalogTableDescriptor.primaryKeyIndexId()) {
             return updateIndexStatus(parameters);
@@ -277,9 +278,9 @@ public class IndexMetaStorage implements IgniteComponent {
     }
 
     private CompletableFuture<Boolean> updateIndexStatus(IndexEventParameters parameters) {
-        CatalogIndexDescriptor catalogIndexDescriptor = catalogIndexDescriptor(parameters.indexId(), parameters.catalogVersion());
-
         Catalog catalog = catalog(parameters.catalogVersion());
+
+        CatalogIndexDescriptor catalogIndexDescriptor = catalog.index(parameters.indexId());
 
         return updateAndSaveIndexMetaToMetastore(catalogIndexDescriptor.id(), indexMeta -> {
             assert indexMeta != null : "indexId=" + catalogIndexDescriptor.id() + ", catalogVersion=" + catalog.version();
@@ -292,11 +293,13 @@ public class IndexMetaStorage implements IgniteComponent {
         if (parameters instanceof RenameTableEventParameters) {
             int catalogVersion = parameters.catalogVersion();
 
-            CatalogTableDescriptor catalogTableDescriptor = catalogTableDescriptor(parameters.tableId(), catalogVersion);
+            Catalog catalog = catalog(parameters.catalogVersion());
+
+            CatalogTableDescriptor catalogTableDescriptor = catalog.table(parameters.tableId());
 
             int indexId = catalogTableDescriptor.primaryKeyIndexId();
 
-            CatalogIndexDescriptor catalogIndexDescriptor = catalogIndexDescriptor(indexId, catalogVersion);
+            CatalogIndexDescriptor catalogIndexDescriptor = catalog.index(indexId);
 
             return updateAndSaveIndexMetaToMetastore(indexId, indexMeta -> {
                 assert indexMeta != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
@@ -377,22 +380,6 @@ public class IndexMetaStorage implements IgniteComponent {
         return allOf(futures.toArray(CompletableFuture[]::new));
     }
 
-    private CatalogIndexDescriptor catalogIndexDescriptor(int indexId, int catalogVersion) {
-        CatalogIndexDescriptor catalogIndexDescriptor = catalogService.index(indexId, catalogVersion);
-
-        assert catalogIndexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + catalogVersion;
-
-        return catalogIndexDescriptor;
-    }
-
-    private CatalogTableDescriptor catalogTableDescriptor(int tableId, int catalogVersion) {
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(tableId, catalogVersion);
-
-        assert catalogTableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
-
-        return catalogTableDescriptor;
-    }
-
     private Catalog catalog(int catalogVersion) {
         Catalog catalog = catalogService.catalog(catalogVersion);
 
@@ -415,11 +402,6 @@ public class IndexMetaStorage implements IgniteComponent {
                     .map(entryBytes -> VersionedSerialization.fromBytes(entryBytes, IndexMetaSerializer.INSTANCE))
                     .collect(toMap(IndexMeta::indexId, Function.identity()));
         }
-    }
-
-    private Map<Integer, CatalogIndexDescriptor> readAllFromCatalogOnRecovery(int catalogVersion) {
-        return catalogService.indexes(catalogVersion).stream()
-                .collect(toMap(CatalogObjectDescriptor::id, Function.identity()));
     }
 
     private static IndexMeta setNewStatus(IndexMeta indexMeta, MetaIndexStatus newStatus, Catalog catalog) {
