@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "module.h"
 #include "utils.h"
 
 #include <ignite/odbc/diagnostic/diagnosable.h>
@@ -191,11 +192,11 @@ PyObject* py_get_class(const char* module_name, const char* class_name) {
 }
 
 PyObject* py_get_module_class(const char* class_name) {
-    auto pyignite3_mod = py_get_module();
-    if (!pyignite3_mod)
+    auto pyignite_dbapi_mod = py_get_module();
+    if (!pyignite_dbapi_mod)
         return nullptr;
 
-    return PyObject_GetAttrString(pyignite3_mod, class_name);
+    return PyObject_GetAttrString(pyignite_dbapi_mod, class_name);
 }
 
 PyObject* py_call_method_no_arg(PyObject* obj, const char* method_name) {
