@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface WriteCommand extends Command {
     /**
-     * Holds request's initiator timestamp.
+     * Holds request's initiator timestamp. TODO IGNITE-24143 Move to SafeTimePropagatingCommand.
      *
      * @return The timestamp.
      */
@@ -34,7 +34,7 @@ public interface WriteCommand extends Command {
     }
 
     /**
-     * Get safe timestamp.
+     * Get safe timestamp. TODO IGNITE-24143 Move to SafeTimePropagatingCommand.
      *
      * @return The timestamp.
      */
