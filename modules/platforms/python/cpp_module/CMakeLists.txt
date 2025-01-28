@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-project(_pyignite3_extension)
+project(_pyignite_dbapi_extension)
 
 set(TARGET ${PROJECT_NAME})
 
