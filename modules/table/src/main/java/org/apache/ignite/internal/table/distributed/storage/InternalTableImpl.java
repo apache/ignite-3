@@ -363,7 +363,7 @@ public class InternalTableImpl implements InternalTable {
             if (e != null) {
                 if (actualTx.implicit()) {
                     // TODO: IGNITE-24244
-                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : 1_000;
+                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : 3_000;
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -484,7 +484,7 @@ public class InternalTableImpl implements InternalTable {
             if (e != null) {
                 if (actualTx.implicit()) {
                     // TODO: IGNITE-24244
-                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : 1_000;
+                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : 3_000;
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -1186,7 +1186,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, false, tx, true).handle((r, e) -> {
             if (e != null) {
                 // TODO: IGNITE-24244
-                long timeout = tx.isReadOnly() ? tx.timeout() : 1_000;
+                long timeout = tx.isReadOnly() ? tx.timeout() : 3_000;
 
                 long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
 
