@@ -458,7 +458,7 @@ public abstract class AbstractJoinExecutionTest extends AbstractExecutionTest<Ob
             TestDownstream<Object[]> downstream = new TestDownstream<>();
             project.onRegister(downstream);
 
-            ctx.execute(() -> project.request(1024), project::onError);
+            project.execute(() -> project.request(1024));
 
             Object[][] res = await(downstream.result()).toArray(EMPTY);
 

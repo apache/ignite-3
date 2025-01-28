@@ -940,10 +940,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableTestUtils.dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
     }
 
-    private Collection<CatalogTableDescriptor> allTableDescriptors() {
-        return catalogManager.tables(catalogManager.latestCatalogVersion());
-    }
-
     private CompletableFuture<Void> fireDestroyEvent() {
         return lowWatermark.updateAndNotify(clock.now());
     }

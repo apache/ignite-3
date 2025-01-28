@@ -71,7 +71,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
         if (waiting == 0) {
             sources().get(curSrcIdx).request(waiting = inBufSize);
         } else if (!inLoop) {
-            context().execute(this::flush, this::onError);
+            this.execute(this::flush);
         }
     }
 
@@ -179,7 +179,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
                 if (processed >= inBufSize && requested > 0) {
                     // Allow others to do their job.
-                    context().execute(this::flush, this::onError);
+                    this.execute(this::flush);
 
                     return;
                 }

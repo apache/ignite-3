@@ -18,6 +18,7 @@
 #include <ignite/odbc/sql_statement.h>
 #include <ignite/odbc/query/data_query.h>
 
+#include "module.h"
 #include "utils.h"
 #include "py_cursor.h"
 #include "type_conversion.h"

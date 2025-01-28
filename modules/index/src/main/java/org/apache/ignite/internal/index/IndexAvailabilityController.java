@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.PARTITION_BU
 import static org.apache.ignite.internal.index.IndexManagementUtils.extractIndexIdFromPartitionBuildIndexKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
 import static org.apache.ignite.internal.index.IndexManagementUtils.inProgressBuildIndexMetastoreKey;
-import static org.apache.ignite.internal.index.IndexManagementUtils.index;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isAnyMetastoreKeyPresentLocally;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isMetastoreKeyAbsentLocally;
 import static org.apache.ignite.internal.index.IndexManagementUtils.makeIndexAvailableInCatalogWithoutFuture;
@@ -49,6 +48,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
@@ -166,12 +166,13 @@ class IndexAvailabilityController implements ManuallyCloseable {
             // TODO: IGNITE-22656 Potentially dangerous to take the latest version as the tables and indexes might no longer present
             //  in the catalog.
             int catalogVersion = catalogManager.latestCatalogVersion();
+            Catalog catalog = catalogManager.catalog(catalogVersion);
 
-            List<CompletableFuture<?>> futures = catalogManager.indexes(catalogVersion).stream()
+            List<CompletableFuture<?>> futures = catalog.indexes().stream()
                     .map(indexDescriptor -> {
                         switch (indexDescriptor.status()) {
                             case BUILDING:
-                                return recoveryForBuildingIndexBusy(indexDescriptor, recoveryRevision, catalogVersion);
+                                return recoveryForBuildingIndexBusy(indexDescriptor, recoveryRevision, catalog);
                             case AVAILABLE:
                                 return recoveryForAvailableIndexBusy(indexDescriptor, recoveryRevision);
                             default:
@@ -221,7 +222,11 @@ class IndexAvailabilityController implements ManuallyCloseable {
         return inBusyLockAsync(busyLock, () -> {
             int indexId = parameters.indexId();
 
-            int partitions = getPartitionCountFromCatalog(catalogManager, indexId, parameters.catalogVersion());
+            Catalog catalog = catalogManager.catalog(parameters.catalogVersion());
+
+            assert catalog != null : "Catalog is null for version: " + parameters.catalogVersion();
+
+            int partitions = getPartitionCountFromCatalog(catalog, indexId);
 
             return putBuildIndexMetastoreKeysIfAbsent(metaStorageManager, indexId, partitions);
         });
@@ -230,15 +235,20 @@ class IndexAvailabilityController implements ManuallyCloseable {
     private CompletableFuture<?> onIndexRemoved(RemoveIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             int indexId = parameters.indexId();
+            int previousCatalogVersion = parameters.catalogVersion() - 1;
 
-            CatalogIndexDescriptor indexBeforeRemoval = index(catalogManager, indexId, parameters.catalogVersion() - 1);
+            Catalog catalog = catalogManager.catalog(previousCatalogVersion);
+
+            assert catalog != null : "Catalog is null for version: " + previousCatalogVersion;
+
+            CatalogIndexDescriptor indexBeforeRemoval = catalog.index(indexId);
 
             if (indexBeforeRemoval.status() == STOPPING) {
                 // It has already been built, nothing do to here.
                 return nullCompletedFuture();
             }
 
-            int partitions = getPartitionCountFromCatalog(catalogManager, indexId, parameters.catalogVersion() - 1);
+            int partitions = getPartitionCountFromCatalog(catalog, indexId);
 
             ByteArray inProgressBuildIndexKey = inProgressBuildIndexMetastoreKey(indexId);
 
@@ -336,7 +346,7 @@ class IndexAvailabilityController implements ManuallyCloseable {
     private CompletableFuture<?> recoveryForBuildingIndexBusy(
             CatalogIndexDescriptor indexDescriptor,
             long recoveryRevision,
-            int catalogVersion
+            Catalog catalog
     ) {
         assert indexDescriptor.status() == BUILDING : indexDescriptor.id();
 
@@ -347,7 +357,7 @@ class IndexAvailabilityController implements ManuallyCloseable {
             return putBuildIndexMetastoreKeysIfAbsent(
                     metaStorageManager,
                     indexId,
-                    getPartitionCountFromCatalog(catalogManager, indexId, catalogVersion)
+                    getPartitionCountFromCatalog(catalog, indexId)
             );
         }
 

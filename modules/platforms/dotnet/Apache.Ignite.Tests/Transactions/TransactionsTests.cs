@@ -196,25 +196,25 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
-        public async Task TestReadOnlyTxSeesOldDataAfterUpdate()
+        public async Task TestReadOnlyTxSeesOldDataAfterUpdate([Values(true, false)] bool readBeforeUpdate)
         {
             var key = Random.Shared.NextInt64(1000, long.MaxValue);
             var keyPoco = new Poco { Key = key };
 
             await PocoView.UpsertAsync(null, new Poco { Key = key, Val = "11" });
 
-            await using var tx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
-            Assert.AreEqual("11", (await PocoView.GetAsync(tx, keyPoco)).Value.Val);
+            await using var roTx = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });
 
-            // Update data in a different tx.
-            await using (var tx2 = await Client.Transactions.BeginAsync())
+            if (readBeforeUpdate)
             {
-                await PocoView.UpsertAsync(null, new Poco { Key = key, Val = "22" });
-                await tx2.CommitAsync();
+                Assert.AreEqual("11", (await PocoView.GetAsync(roTx, keyPoco)).Value.Val);
             }
 
-            // Old tx sees old data.
-            Assert.AreEqual("11", (await PocoView.GetAsync(tx, keyPoco)).Value.Val);
+            // Update data in a different (implicit) tx.
+            await PocoView.UpsertAsync(transaction: null, new Poco { Key = key, Val = "22" });
+
+            // Old read-only tx sees old data.
+            Assert.AreEqual("11", (await PocoView.GetAsync(roTx, keyPoco)).Value.Val);
 
             // New tx sees new data
             await using var tx3 = await Client.Transactions.BeginAsync(new TransactionOptions { ReadOnly = true });

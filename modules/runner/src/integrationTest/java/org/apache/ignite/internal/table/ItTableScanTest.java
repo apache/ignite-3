@@ -53,6 +53,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -192,9 +193,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     private int getIndexId(IgniteImpl ignite, String idxName) {
         CatalogManager catalogManager = ignite.catalogManager();
 
-        int catalogVersion = catalogManager.latestCatalogVersion();
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
-        return catalogManager.indexes(catalogVersion).stream()
+        return catalog.indexes().stream()
                 .filter(index -> {
                     log.info("Scanned idx " + index.name());
 
@@ -941,9 +942,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     private static int getSortedIndexId() {
         CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
 
-        int catalogVersion = catalogManager.latestCatalogVersion();
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
-        return catalogManager.indexes(catalogVersion).stream()
+        return catalog.indexes().stream()
                 .filter(index -> SORTED_IDX.equalsIgnoreCase(index.name()))
                 .mapToInt(CatalogObjectDescriptor::id)
                 .findFirst()

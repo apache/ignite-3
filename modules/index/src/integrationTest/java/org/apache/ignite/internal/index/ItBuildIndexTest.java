@@ -49,8 +49,10 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
@@ -62,6 +64,7 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.NodeUtils;
@@ -77,6 +80,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /** Integration test of index building. */
 public class ItBuildIndexTest extends BaseSqlIntegrationTest {
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     private static final String ZONE_NAME = "ZONE_TABLE";
 
     private static final String TABLE_NAME = "TEST_TABLE";
@@ -310,8 +315,10 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static int tableId(String tableName) {
         IgniteImpl node = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        CatalogTableDescriptor tableDescriptor = node.catalogManager().table(SCHEMA_NAME, tableName, node.clock().nowLong()
-        );
+        HybridClock clock = node.clock();
+        CatalogManager catalogManager = node.catalogManager();
+
+        CatalogTableDescriptor tableDescriptor = catalogManager.activeCatalog(clock.nowLong()).table(SCHEMA_NAME, tableName);
 
         assertNotNull(tableDescriptor, String.format("Table %s not found", tableName));
 
@@ -407,6 +414,8 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      * @param indexName Index name.
      */
     private static @Nullable CatalogIndexDescriptor getIndexDescriptor(IgniteImpl node, String indexName) {
-        return node.catalogManager().aliveIndex(SCHEMA_NAME, indexName, node.clock().nowLong());
+        HybridClock clock = node.clock();
+        CatalogManager catalogManager = node.catalogManager();
+        return catalogManager.activeCatalog(clock.nowLong()).aliveIndex(SCHEMA_NAME, indexName);
     }
 }

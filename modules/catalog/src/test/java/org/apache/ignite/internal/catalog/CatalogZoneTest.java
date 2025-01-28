@@ -73,21 +73,17 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();
 
+        long beforeZoneCreated = clock.nowLong();
+
         tryApplyAndExpectApplied(cmd);
 
         // Validate catalog version from the past.
-        assertNull(manager.zone(zoneName, 0));
-        assertNull(manager.zone(zoneName, 123L));
+        assertNull(manager.activeCatalog(beforeZoneCreated).zone(zoneName));
 
         // Validate actual catalog
-        CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
+        CatalogZoneDescriptor zone = manager.activeCatalog(clock.nowLong()).zone(zoneName);
 
         assertNotNull(zone);
-        assertSame(zone, manager.zone(zone.id(), clock.nowLong()));
-
-        // Validate that catalog returns null for previous timestamps.
-        assertNull(manager.zone(zone.id(), 0));
-        assertNull(manager.zone(zone.id(), 123L));
 
         // Validate newly created zone
         assertEquals(zoneName, zone.name());
@@ -98,6 +94,9 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("expression", zone.filter());
         assertEquals("test_profile", zone.storageProfiles().profiles().get(0).storageProfile());
+
+        // Operation increments catalog version.
+        assertEquals(manager.activeCatalog(beforeZoneCreated).version() + 1, latestActiveCatalog().version());
     }
 
     @Test
@@ -126,15 +125,18 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                     .zoneName(TEST_ZONE_NAME)
                     .build();
 
-            int prevVer = latestActiveCatalog().version();
+            long beforeDefaultZoneChanged = clock.nowLong();
 
             tryApplyAndExpectApplied(setDefaultCmd);
             assertEquals(TEST_ZONE_NAME, latestActiveCatalog().defaultZone().name());
 
             // Make sure history has not been affected.
-            Catalog prevCatalog = Objects.requireNonNull(manager.catalog(prevVer));
+            Catalog prevCatalog = manager.activeCatalog(beforeDefaultZoneChanged);
             assertNotEquals(TEST_ZONE_NAME, prevCatalog.defaultZone().name());
             assertNotEquals(latestActiveCatalog().defaultZone().id(), prevCatalog.defaultZone().id());
+
+            // Operation increments catalog version.
+            assertEquals(manager.activeCatalog(beforeDefaultZoneChanged).version() + 1, latestActiveCatalog().version());
         }
 
         // Create table in the new zone.
@@ -142,7 +144,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
             tryApplyAndExpectApplied(simpleTable(TABLE_NAME));
 
             Catalog catalog = latestActiveCatalog();
-            CatalogTableDescriptor tab = Objects.requireNonNull(manager.table(SCHEMA_NAME, TABLE_NAME, catalog.time()));
+            CatalogTableDescriptor tab = Objects.requireNonNull(catalog.table(SCHEMA_NAME, TABLE_NAME));
 
             assertEquals(catalog.defaultZone().id(), tab.zoneId());
         }
@@ -189,19 +191,24 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         tryApplyAndExpectApplied(dropCommand);
 
         // Validate catalog version from the past.
-        CatalogZoneDescriptor zone = manager.zone(zoneName, beforeDropTimestamp);
+        Catalog catalog = manager.activeCatalog(beforeDropTimestamp);
+
+        CatalogZoneDescriptor zone = catalog.zone(zoneName);
 
         assertNotNull(zone);
         assertEquals(zoneName, zone.name());
-
-        assertSame(zone, manager.zone(zone.id(), beforeDropTimestamp));
+        assertSame(zone, catalog.zone(zone.id()));
 
         // Validate actual catalog
-        assertNull(manager.zone(zoneName, clock.nowLong()));
-        assertNull(manager.zone(zone.id(), clock.nowLong()));
+        catalog = latestActiveCatalog();
+        assertNull(catalog.zone(zoneName));
+        assertNull(catalog.zone(zone.id()));
 
         // Try to drop non-existing zone.
         assertThat(manager.execute(dropCommand), willThrow(DistributionZoneNotFoundValidationException.class));
+
+        // Operation increments catalog version.
+        assertEquals(manager.activeCatalog(beforeDropTimestamp).version() + 1, catalog.version());
     }
 
     @Test
@@ -213,39 +220,45 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                     .zoneName(catalog.defaultZone().name())
                     .build();
 
-            int ver = catalog.version();
-
             assertThat(manager.execute(dropCommand), willThrow(DistributionZoneCantBeDroppedValidationException.class));
 
-            assertEquals(ver, manager.latestCatalogVersion());
+            assertSame(catalog, manager.activeCatalog(clock.nowLong()));
+            assertEquals(catalog.version(), manager.latestCatalogVersion());
         }
 
         // Renamed zone deletion is also rejected.
         {
+            CatalogZoneDescriptor zoneBeforeRename = latestActiveCatalog().defaultZone();
+
             CatalogCommand renameCommand = RenameZoneCommand.builder()
-                    .zoneName(latestActiveCatalog().defaultZone().name())
+                    .zoneName(zoneBeforeRename.name())
                     .newZoneName(TEST_ZONE_NAME)
                     .build();
 
-            int ver = manager.latestCatalogVersion();
-
             tryApplyAndExpectApplied(renameCommand);
 
-            assertSame(ver + 1, manager.latestCatalogVersion());
+            Catalog catalog = latestActiveCatalog();
 
-            ver = manager.latestCatalogVersion();
+            // Default zone was renamed successfully
+            assertNull(catalog.zone(zoneBeforeRename.name()));
+            assertNotNull(catalog.defaultZone());
+            assertSame(catalog.zone(TEST_ZONE_NAME), catalog.defaultZone());
 
             CatalogCommand dropCommand = DropZoneCommand.builder()
                     .zoneName(TEST_ZONE_NAME)
                     .build();
 
             assertThat(manager.execute(dropCommand), willThrow(DistributionZoneCantBeDroppedValidationException.class));
-            assertSame(ver, manager.latestCatalogVersion());
+
+            // Renamed default zone is still available.
+            catalog = latestActiveCatalog();
+            assertNotNull(catalog.defaultZone());
+            assertSame(catalog.zone(TEST_ZONE_NAME), catalog.defaultZone());
         }
     }
 
     @Test
-    public void testRenameZone() throws InterruptedException {
+    public void testRenameZone() {
         String zoneName = TEST_ZONE_NAME;
 
         CatalogCommand cmd = CreateZoneCommand.builder()
@@ -259,8 +272,6 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
 
         long beforeDropTimestamp = clock.nowLong();
 
-        Thread.sleep(5);
-
         String newZoneName = "RenamedZone";
 
         CatalogCommand renameZoneCmd = RenameZoneCommand.builder()
@@ -271,21 +282,25 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         tryApplyAndExpectApplied(renameZoneCmd);
 
         // Validate catalog version from the past.
-        CatalogZoneDescriptor zone = manager.zone(zoneName, beforeDropTimestamp);
+        Catalog catalog = manager.activeCatalog(beforeDropTimestamp);
+        CatalogZoneDescriptor oldZone = catalog.zone(zoneName);
 
-        assertNotNull(zone);
-        assertEquals(zoneName, zone.name());
-
-        assertSame(zone, manager.zone(zone.id(), beforeDropTimestamp));
+        assertNotNull(oldZone);
+        assertEquals(zoneName, oldZone.name());
+        assertSame(oldZone, catalog.zone(oldZone.id()));
 
         // Validate actual catalog
-        zone = manager.zone(newZoneName, clock.nowLong());
+        catalog = latestActiveCatalog();
+
+        CatalogZoneDescriptor zone = catalog.zone(newZoneName);
 
         assertNotNull(zone);
-        assertNull(manager.zone(zoneName, clock.nowLong()));
+        assertNull(catalog.zone(zoneName));
         assertEquals(newZoneName, zone.name());
+        assertEquals(oldZone.id(), zone.id());
 
-        assertSame(zone, manager.zone(zone.id(), clock.nowLong()));
+        // Operation increments catalog version.
+        assertEquals(manager.activeCatalog(beforeDropTimestamp).version() + 1, catalog.version());
     }
 
 
@@ -303,6 +318,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         int ver = manager.latestCatalogVersion();
         tryApplyAndExpectApplied(renameZoneCmd);
 
+        // Operation increments catalog version.
         assertEquals(ver + 1, manager.latestCatalogVersion());
         assertEquals(TEST_ZONE_NAME, latestActiveCatalog().defaultZone().name());
         assertEquals(defaultZone.id(), latestActiveCatalog().defaultZone().id());
@@ -311,6 +327,8 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
     @Test
     public void testDefaultZone() {
         CatalogZoneDescriptor defaultZone = latestActiveCatalog().defaultZone();
+
+        int catalogVersion = manager.latestCatalogVersion();
 
         // Try to create zone with default zone name.
         CatalogCommand cmd = CreateZoneCommand.builder()
@@ -322,7 +340,8 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(cmd), willThrow(DistributionZoneExistsValidationException.class));
 
         // Validate default zone wasn't changed.
-        assertSame(defaultZone, manager.zone(defaultZone.name(), clock.nowLong()));
+        assertSame(defaultZone, latestActiveCatalog().zone(defaultZone.name()));
+        assertEquals(catalogVersion, manager.latestCatalogVersion());
     }
 
     @Test
@@ -348,12 +367,16 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .build();
 
         tryApplyAndExpectApplied(cmd);
+
+        long beforeZoneAltered = clock.nowLong();
+
         tryApplyAndExpectApplied(alterCmd);
 
         // Validate actual catalog
-        CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
+        CatalogZoneDescriptor zone = latestActiveCatalog().zone(zoneName);
+
         assertNotNull(zone);
-        assertSame(zone, manager.zone(zone.id(), clock.nowLong()));
+        assertSame(zone.id(), manager.activeCatalog(beforeZoneAltered).zone(zoneName).id());
 
         assertEquals(zoneName, zone.name());
         assertEquals(42, zone.partitions());
@@ -363,6 +386,9 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         assertEquals(4, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("newExpression", zone.filter());
         assertEquals("test_profile", zone.storageProfiles().profiles().get(0).storageProfile());
+
+        // Operation increments catalog version.
+        assertEquals(manager.activeCatalog(beforeZoneAltered).version() + 1, latestActiveCatalog().version());
     }
 
     @Test
@@ -378,6 +404,8 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
 
         tryApplyAndExpectApplied(cmd);
 
+        long afterFirstZoneCreated = clock.nowLong();
+
         // Try to create zone with same name.
         cmd = CreateZoneCommand.builder()
                 .zoneName(zoneName)
@@ -389,15 +417,17 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(cmd), willThrowFast(DistributionZoneExistsValidationException.class));
 
         // Validate zone was NOT changed
-        CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
+        Catalog catalog = latestActiveCatalog();
+        CatalogZoneDescriptor zone = catalog.zone(zoneName);
 
         assertNotNull(zone);
-        assertSame(zone, manager.zone(zoneName, clock.nowLong()));
-        assertSame(zone, manager.zone(zone.id(), clock.nowLong()));
+        assertSame(zone, catalog.zone(zone.id()));
 
         assertEquals(zoneName, zone.name());
         assertEquals(42, zone.partitions());
         assertEquals(15, zone.replicas());
+
+        assertSame(catalog, manager.activeCatalog(afterFirstZoneCreated));
     }
 
     @Test
@@ -412,7 +442,8 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .build();
 
         tryApplyAndExpectApplied(cmd);
-        CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
+
+        CatalogZoneDescriptor zone = latestActiveCatalog().zone(zoneName);
         assertNotNull(zone);
 
         // Try to create zone with same name.
@@ -427,12 +458,10 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                 .build();
         tryApplyAndExpectApplied(cmd);
 
-        CatalogZoneDescriptor newZone = manager.zone(zoneName, clock.nowLong());
+        CatalogZoneDescriptor newZone = latestActiveCatalog().zone(zoneName);
         assertNotNull(newZone);
         assertNotEquals(zone.id(), newZone.id());
-
-        assertSame(newZone, manager.zone(zoneName, clock.nowLong()));
-        assertSame(newZone, manager.zone(newZone.id(), clock.nowLong()));
+        assertSame(newZone, latestActiveCatalog().zone(newZone.id()));
 
         assertEquals(zoneName, newZone.name());
         assertEquals(10, newZone.partitions());
@@ -478,7 +507,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
                         ).build()
         );
 
-        CatalogZoneDescriptor zone = manager.zone(TEST_ZONE_NAME, clock.nowLong());
+        CatalogZoneDescriptor zone = latestActiveCatalog().zone(TEST_ZONE_NAME);
 
         assertEquals(DEFAULT_PARTITION_COUNT, zone.partitions());
         assertEquals(DEFAULT_REPLICA_COUNT, zone.replicas());
