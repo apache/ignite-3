@@ -26,6 +26,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneCantBeDroppedValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.DropZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -55,7 +56,8 @@ public class DropZoneCommand extends AbstractZoneCommand {
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
         Optional<CatalogZoneDescriptor> zoneOpt = zoneOrThrow(catalog, zoneName, ifExists);
         if (zoneOpt.isEmpty()) {
             return List.of();

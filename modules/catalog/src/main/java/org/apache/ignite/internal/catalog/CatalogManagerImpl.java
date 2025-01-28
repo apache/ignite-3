@@ -283,7 +283,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 CreateSchemaCommand.builder().name(SYSTEM_SCHEMA_NAME).build()
         );
 
-        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(emptyCatalog);
+        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(new UpdateContext(emptyCatalog));
 
         return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
                 .handle((result, error) -> {
@@ -402,7 +402,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             try {
                 for (int i = 0; i < batchUpdateProducers.size(); i++) {
                     UpdateProducer update = batchUpdateProducers.get(i);
-                    List<UpdateEntry> entries = update.get(catalog);
+                    List<UpdateEntry> entries = update.get(new UpdateContext(catalog));
 
                     for (UpdateEntry entry : entries) {
                         catalog = entry.applyUpdate(catalog, INITIAL_CAUSALITY_TOKEN);
@@ -531,28 +531,4 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         );
     }
 
-    private static class BulkUpdateProducer implements UpdateProducer {
-        private final List<? extends UpdateProducer> commands;
-
-        BulkUpdateProducer(List<? extends UpdateProducer> producers) {
-            this.commands = producers;
-        }
-
-        @Override
-        public List<UpdateEntry> get(Catalog catalog) {
-            List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
-
-            for (UpdateProducer producer : commands) {
-                List<UpdateEntry> entries = producer.get(catalog);
-
-                for (UpdateEntry entry : entries) {
-                    catalog = entry.applyUpdate(catalog, INITIAL_CAUSALITY_TOKEN);
-                }
-
-                bulkUpdateEntries.addAll(entries);
-            }
-
-            return bulkUpdateEntries;
-        }
-    }
 }
