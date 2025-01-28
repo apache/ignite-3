@@ -134,17 +134,15 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
                 createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID")))
         ));
 
-        // Validate catalog version from the past.
-        CatalogSchemaDescriptor schema = manager.schema(catalogVersion);
-        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.aliveIndex(INDEX_NAME);
+        // Validate actual catalog.
+        Catalog catalog = manager.catalog(catalogVersion);
+        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) catalog.aliveIndex(SCHEMA_NAME, INDEX_NAME);
 
-        assertNotNull(schema);
-        assertSame(index, manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong()));
-        assertSame(index, manager.index(index.id(), clock.nowLong()));
+        assertNotNull(catalog);
 
-        // Validate newly created hash index
+        // Validate newly created hash index.
         assertEquals(INDEX_NAME, index.name());
-        assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
+        assertEquals(catalog.table(SCHEMA_NAME, TABLE_NAME).id(), index.tableId());
         assertEquals(List.of("VAL", "ID"), index.columns());
         assertFalse(index.unique());
         assertEquals(AVAILABLE, index.status());
@@ -206,17 +204,15 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
                 ))
         ));
 
-        // Validate actual catalog
-        CatalogSchemaDescriptor schema = manager.schema(catalogVersion);
-        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) schema.aliveIndex(INDEX_NAME);
+        // Validate actual catalog.
+        Catalog catalog = manager.catalog(catalogVersion);
+        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) catalog.aliveIndex(SCHEMA_NAME, INDEX_NAME);
 
-        assertNotNull(schema);
-        assertSame(index, manager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong()));
-        assertSame(index, manager.index(index.id(), clock.nowLong()));
+        assertNotNull(catalog);
 
-        // Validate newly created sorted index
+        // Validate newly created sorted index.
         assertEquals(INDEX_NAME, index.name());
-        assertEquals(schema.table(TABLE_NAME).id(), index.tableId());
+        assertEquals(catalog.table(SCHEMA_NAME, TABLE_NAME).id(), index.tableId());
         assertEquals("VAL", index.columns().get(0).name());
         assertEquals("ID", index.columns().get(1).name());
         assertEquals(DESC_NULLS_FIRST, index.columns().get(0).collation());
