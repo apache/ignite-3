@@ -121,7 +121,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
                 .colocationColumns(List.of("key2"))
                 .build();
 
-        await(manager.execute(command));
+        tryApplyAndExpectApplied(command);
 
         // Validate catalog version from the past.
         Catalog catalog = manager.activeCatalog(timePriorToTableCreation);
@@ -225,7 +225,7 @@ public class CatalogTableTest extends BaseCatalogManagerTest {
 
         long beforeDropTimestamp = clock.nowLong();
 
-        await(manager.execute(dropTableCommand(TABLE_NAME)));
+        tryApplyAndExpectApplied(dropTableCommand(TABLE_NAME));
 
         // Validate catalog version from the past.
         Catalog catalog = manager.activeCatalog(beforeDropTimestamp);
