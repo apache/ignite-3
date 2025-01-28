@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -87,7 +88,7 @@ public class RenameIndexCommandValidationTest extends AbstractCommandValidationT
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 "Schema with name 'TEST' not found"
         );
     }
@@ -104,7 +105,7 @@ public class RenameIndexCommandValidationTest extends AbstractCommandValidationT
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 "Index with name 'PUBLIC.TEST' not found"
         );
     }
@@ -126,7 +127,7 @@ public class RenameIndexCommandValidationTest extends AbstractCommandValidationT
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 "Index with name 'PUBLIC.TEST2' already exists"
         );
     }
@@ -146,7 +147,7 @@ public class RenameIndexCommandValidationTest extends AbstractCommandValidationT
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 "Table with name 'PUBLIC.TABLE1' already exists"
         );
     }

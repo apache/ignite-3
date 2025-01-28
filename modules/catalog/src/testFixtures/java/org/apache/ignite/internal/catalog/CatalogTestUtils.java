@@ -569,7 +569,7 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public List<UpdateEntry> get(Catalog catalog) {
+        public List<UpdateEntry> get(UpdateContext updateContext) {
             if (!successful) {
                 throw new TestCommandFailure();
             }

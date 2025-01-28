@@ -17,21 +17,37 @@
 
 package org.apache.ignite.internal.catalog;
 
+import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
- * Interface that describes object that can generate list of changes to bring given catalog
- * to desired state.
+ * Update producer that is used to group updates
+ * when executing a batch of catalog commands.
  */
-@FunctionalInterface
-public interface UpdateProducer {
-    /**
-     * Returns list of {@link UpdateEntry entries} to be applied to catalog to bring it to the state
-     * described in the command.
-     *
-     * @param updateContext Context containing the catalog on the basis of which to generate the list of updates.
-     * @return List of updates. Should be empty if no updates actually required.
-     */
-    List<UpdateEntry> get(UpdateContext updateContext);
+class BulkUpdateProducer implements UpdateProducer {
+    private final List<? extends UpdateProducer> commands;
+
+    BulkUpdateProducer(List<? extends UpdateProducer> producers) {
+        this.commands = producers;
+    }
+
+    @Override
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
+
+        for (UpdateProducer producer : commands) {
+            List<UpdateEntry> entries = producer.get(updateContext);
+
+            for (UpdateEntry entry : entries) {
+                updateContext.updateCatalog(
+                        catalog -> entry.applyUpdate(catalog, CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN)
+                );
+            }
+
+            bulkUpdateEntries.addAll(entries);
+        }
+
+        return bulkUpdateEntries;
+    }
 }
