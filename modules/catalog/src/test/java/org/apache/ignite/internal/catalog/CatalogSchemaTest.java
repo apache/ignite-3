@@ -138,7 +138,9 @@ public class CatalogSchemaTest extends BaseCatalogManagerTest {
         CatalogCommand newTableCmd = newTableCommand("T1");
         CatalogCommand idxCmd = newIndexCommand("T1", "I1");
 
-        tryApplyAndExpectApplied(List.of(newSchemaCmd, newTableCmd, idxCmd));
+        tryApplyAndCheckExpect(
+                List.of(newSchemaCmd, newTableCmd, idxCmd),
+                true, true, true);
 
         // RESTRICT
         {

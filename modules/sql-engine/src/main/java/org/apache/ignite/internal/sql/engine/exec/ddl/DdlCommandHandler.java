@@ -204,7 +204,7 @@ public class DdlCommandHandler implements LifecycleAware {
 
                 assert catalog != null;
 
-                return applyResult.isApplied() ? catalog.time() : null;
+                return applyResult.isApplied(0) ? catalog.time() : null;
             }
 
             throw (err instanceof RuntimeException) ? (RuntimeException) err : new CompletionException(err);
@@ -215,7 +215,7 @@ public class DdlCommandHandler implements LifecycleAware {
             AbstractCreateIndexCommand cmd,
             CatalogApplyResult catalogApplyResult
     ) {
-        if (!catalogApplyResult.isApplied()) {
+        if (!catalogApplyResult.isApplied(0)) {
             return CompletableFuture.completedFuture(catalogApplyResult);
         }
 

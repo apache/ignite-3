@@ -18,24 +18,25 @@
 package org.apache.ignite.internal.catalog;
 
 
+import java.util.BitSet;
+
 /** Represent result of applying Catalog command. */
 public class CatalogApplyResult {
     private final int catalogVersion;
-    private final boolean applied;
+    private final BitSet applied;
 
-    /* Creates an applied result with a version of a catalog since the change became visible. */
-    static CatalogApplyResult applied(int catalogVersion) {
-        return new CatalogApplyResult(catalogVersion, true);
-    }
+    /**
+     * Creates an result with a bitset of applied results and version of a catalog when the changes was visible.
+     *
+     * @param appliedResults Result of applying of commands. Every 1 bit say about applied result, otherwise 0 says that command has
+     *      not been applied. Order of bits the same as commands given for execution to Catalog.
+     * @param catalogVersion Version of a catalog when the changes was visible.
+     */
+    public CatalogApplyResult(BitSet appliedResults, int catalogVersion) {
+        assert appliedResults != null;
 
-    /* Creates an unapplied result with a version of a catalog when the change was visible. */
-    static CatalogApplyResult notApplied(int catalogVersion) {
-        return new CatalogApplyResult(catalogVersion, false);
-    }
-
-    private CatalogApplyResult(int catalogVersion, boolean applied) {
+        this.applied = appliedResults;
         this.catalogVersion = catalogVersion;
-        this.applied = applied;
     }
 
     /** Returns catalog version since applied result is available. */
@@ -43,8 +44,13 @@ public class CatalogApplyResult {
         return catalogVersion;
     }
 
-    /** Returns {@code true} if command has been successfully applied or {@code false} otherwise. */
-    public boolean isApplied() {
-        return applied;
+    /**
+     * Returns has been applied command by given index or not.
+     *
+     * @param idx Index of command in the result.
+     * @return By given index return {@code true} if command has been successfully applied or {@code false} otherwise.
+     */
+    public boolean isApplied(int idx) {
+        return applied.get(idx);
     }
 }

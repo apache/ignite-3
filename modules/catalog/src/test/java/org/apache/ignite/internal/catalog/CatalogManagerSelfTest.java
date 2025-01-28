@@ -355,7 +355,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(bulkUpdate), willThrowFast(TestCommandFailure.class));
 
         // now let's truncate problematic table and retry
-        tryApplyAndExpectApplied(bulkUpdate.subList(0, bulkUpdate.size() - 1));
+        tryApplyAndCheckExpect(
+                bulkUpdate.subList(0, bulkUpdate.size() - 1),
+                true, true);
 
         Catalog updatedCatalog = manager.catalog(manager.latestCatalogVersion());
         assertNotNull(updatedCatalog);
@@ -366,7 +368,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     void bulkUpdateIncrementsVersionByOne() {
         int versionBefore = manager.latestCatalogVersion();
 
-        tryApplyAndExpectApplied(List.of(TestCommand.ok(), TestCommand.ok()));
+        tryApplyAndCheckExpect(
+                List.of(TestCommand.ok(), TestCommand.ok()),
+                true, true);
 
         int versionAfter = manager.latestCatalogVersion();
 
@@ -375,6 +379,21 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void bulkUpdateDoesntIncrementVersionInCaseOfError() {
+        int versionBefore = manager.latestCatalogVersion();
+        tryApplyAndCheckExpect(
+                        List.of(TestCommand.empty(), TestCommand.ok(), TestCommand.empty(), TestCommand.ok(),  TestCommand.empty()),
+                        false, true, false, true, false
+        );
+
+        Catalog updatedCatalog = manager.catalog(manager.latestCatalogVersion());
+
+        assertNotNull(updatedCatalog);
+
+        assertEquals(4 + versionBefore, updatedCatalog.objectIdGenState());
+    }
+
+    @Test
+    void testResultsForFewCommands() {
         int versionBefore = manager.latestCatalogVersion();
 
         assertThat(

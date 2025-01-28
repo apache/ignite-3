@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
@@ -123,8 +124,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /**
-     * Future used to chain local appends to UpdateLog to avoid useless concurrency (as all concurrent attempts to append compete for
-     * the same catalog version, hence only one will win and the rest will have to retry).
+     * Future used to chain local appends to UpdateLog to avoid useless concurrency (as all concurrent attempts to append compete for the
+     * same catalog version, hence only one will win and the rest will have to retry).
      *
      * <p>Guarded by {@link #lastSaveUpdateFutureMutex}.
      */
@@ -339,7 +340,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public CompletableFuture<CatalogApplyResult> execute(CatalogCommand command) {
-        return saveUpdateAndWaitForActivation(command);
+        return saveUpdateAndWaitForActivation(List.of(command));
     }
 
     @Override
@@ -348,7 +349,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             return nullCompletedFuture();
         }
 
-        return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
+        return saveUpdateAndWaitForActivation(List.copyOf(commands));
     }
 
     /**
@@ -414,10 +415,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         LOG.info("Catalog history was truncated up to version=" + catalog.version());
     }
 
-    private CompletableFuture<CatalogApplyResult> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
+    private CompletableFuture<CatalogApplyResult> saveUpdateAndWaitForActivation(List<UpdateProducer> updateProducers) {
         CompletableFuture<CatalogApplyResult> resultFuture = new CompletableFuture<>();
 
-        saveUpdateEliminatingLocalConcurrency(updateProducer)
+        saveUpdateEliminatingLocalConcurrency(updateProducers)
                 .thenCompose(this::awaitVersionActivation)
                 .whenComplete((newVersion, err) -> {
                     if (err != null) {
@@ -453,7 +454,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return resultFuture;
     }
 
-    private CompletableFuture<CatalogApplyResult> saveUpdateEliminatingLocalConcurrency(UpdateProducer updateProducer) {
+    private CompletableFuture<CatalogApplyResult> saveUpdateEliminatingLocalConcurrency(List<UpdateProducer> updateProducer) {
         // Avoid useless and wasteful competition for the save catalog version by enforcing an order.
         synchronized (lastSaveUpdateFutureMutex) {
             CompletableFuture<CatalogApplyResult> chainedFuture = lastSaveUpdateFuture
@@ -484,15 +485,15 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     /**
-     * Attempts to save a versioned update using a CAS-like logic. If the attempt fails, makes more attempts
-     * until the max retry count is reached.
+     * Attempts to save a versioned update using a CAS-like logic. If the attempt fails, makes more attempts until the max retry count is
+     * reached.
      *
      * @param updateProducer Supplies simple updates to include into a versioned update to install.
      * @param attemptNo Ordinal number of an attempt.
-     * @return Future that completes with the result of applying updates, contains the Catalog version when the updates are visible or
-     *      an exception in case of any error.
+     * @return Future that completes with the result of applying updates, contains the Catalog version when the updates are visible or an
+     *         exception in case of any error.
      */
-    private CompletableFuture<CatalogApplyResult> saveUpdate(UpdateProducer updateProducer, int attemptNo) {
+    private CompletableFuture<CatalogApplyResult> saveUpdate(List<UpdateProducer> batchUpdateProducers, int attemptNo) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -504,17 +505,31 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
             Catalog catalog = catalogByVer.lastEntry().getValue();
 
-            List<UpdateEntry> updates;
+            BitSet applyResults = new BitSet(batchUpdateProducers.size());
+            List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
             try {
-                updates = updateProducer.get(catalog);
+                for (int i = 0; i < batchUpdateProducers.size(); i++) {
+                    UpdateProducer update = batchUpdateProducers.get(i);
+                    List<UpdateEntry> entries = update.get(catalog);
+
+                    for (UpdateEntry entry : entries) {
+                        catalog = entry.applyUpdate(catalog, INITIAL_CAUSALITY_TOKEN);
+                    }
+
+                    if (!entries.isEmpty()) {
+                        applyResults.set(i);
+                        bulkUpdateEntries.addAll(entries);
+                    }
+                }
             } catch (CatalogValidationException ex) {
                 return failedFuture(new CatalogVersionAwareValidationException(ex, catalog.version()));
             } catch (Exception ex) {
                 return failedFuture(ex);
             }
 
-            if (updates.isEmpty()) {
-                return completedFuture(CatalogApplyResult.notApplied(catalog.version()));
+            // all results are empty.
+            if (applyResults.cardinality() == 0) {
+                return completedFuture(new CatalogApplyResult(applyResults, catalog.version()));
             }
 
             int newVersion = catalog.version() + 1;
@@ -524,14 +539,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             // after all reactions to that event will be completed through the catalog event notifications mechanism.
             // This is important for the distribution zones recovery purposes:
             // we guarantee recovery for a zones' catalog actions only if that actions were completed.
-            return updateLog.append(new VersionedUpdate(newVersion, delayDurationMsSupplier.getAsLong(), updates))
+            return updateLog.append(new VersionedUpdate(newVersion, delayDurationMsSupplier.getAsLong(), bulkUpdateEntries))
                     .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
                     .thenCompose(result -> {
                         if (result) {
-                            return completedFuture(CatalogApplyResult.applied(newVersion));
+                            return completedFuture(new CatalogApplyResult(applyResults, newVersion));
                         }
 
-                        return saveUpdate(updateProducer, attemptNo + 1);
+                        return saveUpdate(batchUpdateProducers, attemptNo + 1);
                     });
         } finally {
             busyLock.leaveBusy();
@@ -612,7 +627,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         assert activationTimestamp > catalog.time()
                 : "Activation timestamp " + activationTimestamp + " must be greater than previous catalog version activation timestamp "
-                        + catalog.time();
+                + catalog.time();
 
         return new Catalog(
                 update.version(),

@@ -34,6 +34,7 @@ import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.spy;
 
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -143,15 +144,12 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     }
 
     protected void createSomeTable(String tableName) {
-        assertThat(
-                manager.execute(createTableCommand(
-                        tableName,
-                        List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
-                        List.of("key1"),
-                        List.of("key1")
-                )),
-                willCompleteSuccessfully()
-        );
+        tryApplyAndExpectApplied(createTableCommand(
+                tableName,
+                List.of(columnParams("key1", INT32), columnParams("val1", INT32)),
+                List.of("key1"),
+                List.of("key1")
+        ));
     }
 
     protected final Catalog latestActiveCatalog() {
@@ -331,57 +329,75 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         };
     }
 
-    CatalogApplyResult tryApplyAndExpectApplied(List<CatalogCommand> cmds) {
-        CatalogApplyResult applyResult = await(manager.execute(cmds));
-        assertThat(applyResult, CatalogApplyResultMatcher.applyed());
-
-        return applyResult;
-    }
-
     CatalogApplyResult tryApplyAndExpectApplied(CatalogCommand cmd) {
-        CatalogApplyResult applyResult = await(manager.execute(cmd));
-        assertThat(applyResult, CatalogApplyResultMatcher.applyed());
-
-        return applyResult;
+        return tryApplyAndCheckExpect(List.of(cmd), true);
     }
 
     CatalogApplyResult tryApplyAndExpectNotApplied(CatalogCommand cmd) {
-        CatalogApplyResult applyResult = await(manager.execute(cmd));
-        assertThat(applyResult, CatalogApplyResultMatcher.notApplyed());
+        return tryApplyAndCheckExpect(List.of(cmd), false);
+    }
+
+    CatalogApplyResult tryApplyAndCheckExpect(List<CatalogCommand> cmds, boolean... expectedResults) {
+        CatalogApplyResult applyResult = await(manager.execute(cmds));
+        assertThat(applyResult, CatalogApplyResultMatcher.fewResults(expectedResults));
 
         return applyResult;
     }
 
-    <T> CompletableFutureMatcher<T> willBeApplied() {
+    static <T> CompletableFutureMatcher<T> willBeApplied() {
         return (CompletableFutureMatcher<T>) willBe(CatalogApplyResultMatcher.applyed());
     }
 
-    <T> CompletableFutureMatcher<T> willBeNotApplied() {
+    static <T> CompletableFutureMatcher<T> willBeNotApplied() {
         return (CompletableFutureMatcher<T>) willBe(CatalogApplyResultMatcher.notApplyed());
     }
 
     static class CatalogApplyResultMatcher extends BaseMatcher<CatalogApplyResult> {
-        boolean expectedResult;
+        BitSet expectedResult;
 
-        CatalogApplyResultMatcher(boolean expectedResult) {
+        CatalogApplyResultMatcher(boolean expectedSingleResult) {
+            expectedResult = new BitSet(1);
+            expectedResult.set(0, expectedSingleResult);
+        }
+
+        CatalogApplyResultMatcher(BitSet expectedResult) {
             this.expectedResult = expectedResult;
         }
 
         @Override
         public boolean matches(Object o) {
-            return o instanceof CatalogApplyResult && ((CatalogApplyResult) o).isApplied() == expectedResult;
+            if (o instanceof CatalogApplyResult) {
+                CatalogApplyResult catalogApplyResult = (CatalogApplyResult) o;
+                for (int i = 0; i < expectedResult.size(); i++) {
+                    if (catalogApplyResult.isApplied(i) != expectedResult.get(i)) {
+                        return false;
+                    }
+                }
+                return true;
+            } else {
+                return false;
+            }
         }
 
         @Override
         public void describeTo(Description description) {
-            description.appendText("CatalogApplyResultMatcher");
+            description.appendText("CatalogApplyResultMatcher: " + expectedResult.toString());
         }
 
-        public static CatalogApplyResultMatcher applyed() {
+        static CatalogApplyResultMatcher fewResults(boolean... expectedResult) {
+            BitSet bitSet = new BitSet(expectedResult.length);
+            for (int i = 0; i < expectedResult.length; i++) {
+                bitSet.set(i, expectedResult[i]);
+            }
+
+            return new CatalogApplyResultMatcher(bitSet);
+        }
+
+        static CatalogApplyResultMatcher applyed() {
             return new CatalogApplyResultMatcher(true);
         }
 
-        public static CatalogApplyResultMatcher notApplyed() {
+        static CatalogApplyResultMatcher notApplyed() {
             return new CatalogApplyResultMatcher(false);
         }
     }
