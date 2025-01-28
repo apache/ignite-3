@@ -265,7 +265,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
                             ex
                     );
 
-                    context().execute(() -> onError(wrapperEx), this::onError);
+                    this.execute(() -> onError(wrapperEx));
                 });
     }
 
@@ -344,7 +344,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
      */
     public void onNodeLeft(String nodeName) {
         if (nodeName.equals(context().originatingNodeName())) {
-            context().execute(this::close, this::onError);
+            this.execute(this::close);
         }
     }
 

@@ -148,7 +148,11 @@ public class ScriptTransactionContext implements QueryTransactionContext {
 
     /** Rolls back the script-driven transaction. */
     public void onError(Throwable t) {
-        ScriptTransactionWrapperImpl txWrapper = wrapper;
+        QueryTransactionWrapper txWrapper = wrapper;
+
+        if (txWrapper == null) {
+            txWrapper = txContext.explicitTx();
+        }
 
         if (txWrapper != null) {
             txWrapper.rollback(t);

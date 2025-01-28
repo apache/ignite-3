@@ -17,5 +17,5 @@
 
 #pragma once
 
-#define MODULE_NAME "pyignite3"
-#define EXT_MODULE_NAME "_pyignite3_extension"
+#define MODULE_NAME "pyignite_dbapi"
+#define EXT_MODULE_NAME "_pyignite_dbapi_extension"

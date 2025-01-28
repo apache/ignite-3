@@ -131,7 +131,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
                 thisNodeTerm = null;
 
-                clusterTime.stopSafeTimeScheduler();
+                clusterTime.stopSafeTimeScheduler(term);
 
                 logicalTopologyService.removeEventListener(logicalTopologyEventListener);
 
@@ -146,7 +146,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 if (!weWerePreviousLeader) {
                     LOG.info("Node has been elected as the leader (and it wasn't previous leader), so starting doing secondary duties");
 
-                    startSafeTimeScheduler();
+                    startSafeTimeScheduler(term);
 
                     // The node was not previous leader, and it becomes a leader.
                     logicalTopologyService.addEventListener(logicalTopologyEventListener);
@@ -161,12 +161,13 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         }
     }
 
-    private void startSafeTimeScheduler() {
+    private void startSafeTimeScheduler(long term) {
         metaStorageSvcFut
                 .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
                     clusterTime.startSafeTimeScheduler(
                             safeTime -> syncTimeIfSecondaryDutiesAreNotPaused(safeTime, service),
-                            metaStorageConfiguration
+                            metaStorageConfiguration,
+                            term
                     );
                 })
                 .whenComplete((v, e) -> {

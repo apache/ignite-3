@@ -63,6 +63,15 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
      */
     private @Nullable SafeTimeScheduler safeTimeScheduler;
 
+    /**
+     * Last term when the scheduler was stopped.
+     *
+     * <p>Scheduler is only created if passed term is greater than the last stopped term.
+     *
+     * <p>Concurrent access is guarded by {@code this}.
+     */
+    private long lastSchedulerStoppedTerm = -1;
+
     @Override
     public long safeTimeLag() {
         return clock.now().getPhysical() - safeTime.current().getPhysical();
@@ -91,13 +100,17 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
      *
      * @param syncTimeAction Action that performs the time sync operation.
      */
-    public void startSafeTimeScheduler(SyncTimeAction syncTimeAction, MetaStorageConfiguration configuration) {
+    public void startSafeTimeScheduler(SyncTimeAction syncTimeAction, MetaStorageConfiguration configuration, long term) {
         if (!busyLock.enterBusy()) {
             return;
         }
 
         try {
             synchronized (this) {
+                if (lastSchedulerStoppedTerm > term) {
+                    return;
+                }
+
                 assert safeTimeScheduler == null;
 
                 safeTimeScheduler = new SafeTimeScheduler(syncTimeAction, configuration);
@@ -110,9 +123,11 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
     }
 
     /**
-     * Stops sync time scheduler if it exists.
+     * Stops sync time scheduler if it exists and forbids to create schedulers for terms not exceeding {@param term}.
      */
-    public synchronized void stopSafeTimeScheduler() {
+    public synchronized void stopSafeTimeScheduler(long term) {
+        lastSchedulerStoppedTerm = term;
+
         if (safeTimeScheduler != null) {
             safeTimeScheduler.stop();
 
@@ -122,7 +137,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
 
     @Override
     public void close() throws Exception {
-        stopSafeTimeScheduler();
+        stopSafeTimeScheduler(Long.MAX_VALUE);
 
         safeTime.close();
     }
