@@ -400,12 +400,13 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             BitSet applyResults = new BitSet(batchUpdateProducers.size());
             List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
             try {
+                UpdateContext updateContext = new UpdateContext(catalog);
                 for (int i = 0; i < batchUpdateProducers.size(); i++) {
                     UpdateProducer update = batchUpdateProducers.get(i);
-                    List<UpdateEntry> entries = update.get(new UpdateContext(catalog));
+                    List<UpdateEntry> entries = update.get(updateContext);
 
                     for (UpdateEntry entry : entries) {
-                        catalog = entry.applyUpdate(catalog, INITIAL_CAUSALITY_TOKEN);
+                        updateContext.updateCatalog(cat -> entry.applyUpdate(cat, INITIAL_CAUSALITY_TOKEN));
                     }
 
                     if (!entries.isEmpty()) {

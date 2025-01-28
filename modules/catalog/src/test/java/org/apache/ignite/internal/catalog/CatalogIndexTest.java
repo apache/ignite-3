@@ -128,10 +128,11 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     /** The index created with the table must be in the {@link CatalogIndexStatus#AVAILABLE} state. */
     @Test
     public void testCreateHashIndexWithTable() {
-        int catalogVersion = await(manager.execute(List.of(
-                simpleTable(TABLE_NAME),
-                createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID")))
-        ));
+        int catalogVersion = tryApplyAndCheckExpect(
+                List.of(
+                        simpleTable(TABLE_NAME),
+                        createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID"))),
+                true, true).getCatalogVersion();
 
         Catalog catalog = manager.catalog(catalogVersion);
         assertNotNull(catalog);
@@ -192,15 +193,16 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
     /** The index created with the table must be in the {@link CatalogIndexStatus#AVAILABLE} state. */
     @Test
     public void testCreateSortedIndexWithTable() {
-        int catalogVersion = await(manager.execute(List.of(
-                simpleTable(TABLE_NAME),
-                createSortedIndexCommand(
-                        INDEX_NAME,
-                        true,
-                        List.of("VAL", "ID"),
-                        List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
-                ))
-        ));
+        int catalogVersion = tryApplyAndCheckExpect(
+                List.of(
+                        simpleTable(TABLE_NAME),
+                        createSortedIndexCommand(
+                                INDEX_NAME,
+                                true,
+                                List.of("VAL", "ID"),
+                                List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
+                        )),
+                true, true).getCatalogVersion();
 
         Catalog catalog = manager.catalog(catalogVersion);
         assertNotNull(catalog);
