@@ -483,7 +483,11 @@ public class PartitionListener implements RaftGroupListener {
     }
 
     @Override
-    public void onConfigurationCommitted(CommittedConfiguration config) {
+    public void onConfigurationCommittedWithLastAppliedIndexAndTerm(
+            CommittedConfiguration config,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    ) {
         currentGroupTopology = new HashSet<>(config.peers());
         currentGroupTopology.addAll(config.learners());
 
@@ -500,7 +504,7 @@ public class PartitionListener implements RaftGroupListener {
         try {
             storage.runConsistently(locker -> {
                 storage.committedGroupConfiguration(RaftGroupConfiguration.fromCommittedConfiguration(config));
-                storage.lastApplied(config.index(), config.term());
+                storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
                 updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
 
                 return null;

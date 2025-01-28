@@ -513,8 +513,9 @@ public class FSMCallerImpl implements FSMCaller {
                 final LogEntry logEntry = iterImpl.entry();
                 if (logEntry.getType() != EnumOutter.EntryType.ENTRY_TYPE_DATA) {
                     if (logEntry.getType() == EnumOutter.EntryType.ENTRY_TYPE_CONFIGURATION) {
+                        LogId logId = logEntry.getId();
                         ConfigurationEntry configurationEntry = new ConfigurationEntry(
-                                logEntry.getId().copy(),
+                                logId.copy(),
                                 new Configuration(logEntry.getPeers(), logEntry.getLearners()),
                                 new Configuration()
                         );
@@ -522,7 +523,7 @@ public class FSMCallerImpl implements FSMCaller {
                             configurationEntry.setOldConf(new Configuration(logEntry.getOldPeers(), logEntry.getOldLearners()));
                         }
 
-                        this.fsm.onRawConfigurationCommitted(configurationEntry);
+                        this.fsm.onConfigurationCommittedWithLastAppliedIndexAndTerm(configurationEntry, logId.getIndex(), logId.getTerm());
 
                         if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
                             // Joint stage is not supposed to be noticeable by end users.
@@ -716,7 +717,7 @@ public class FSMCallerImpl implements FSMCaller {
                 ));
             }
 
-            this.fsm.onRawConfigurationCommitted(configurationEntry);
+            this.fsm.onConfigurationCommittedWithLastAppliedIndexAndTerm(configurationEntry, snapshotId.getIndex(), snapshotId.getTerm());
         }
 
         if (meta.oldPeersList() == null) {

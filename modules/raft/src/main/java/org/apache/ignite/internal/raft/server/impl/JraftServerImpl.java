@@ -801,7 +801,11 @@ public class JraftServerImpl implements RaftServer {
         }
 
         @Override
-        public void onRawConfigurationCommitted(ConfigurationEntry entry) {
+        public void onConfigurationCommittedWithLastAppliedIndexAndTerm(
+                ConfigurationEntry entry,
+                long lastAppliedIndex,
+                long lastAppliedTerm
+        ) {
             boolean hasOldConf = entry.getOldConf() != null && entry.getOldConf().getPeers() != null;
 
             CommittedConfiguration committedConf = new CommittedConfiguration(
@@ -813,7 +817,7 @@ public class JraftServerImpl implements RaftServer {
                     hasOldConf ? peersIdsToStrings(entry.getOldConf().getLearners()) : null
             );
 
-            listener.onConfigurationCommitted(committedConf);
+            listener.onConfigurationCommittedWithLastAppliedIndexAndTerm(committedConf, lastAppliedIndex, lastAppliedTerm);
         }
 
         private static List<String> peersIdsToStrings(Collection<PeerId> peerIds) {

@@ -294,14 +294,19 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
         // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
         {
-            commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                    raftIndex.incrementAndGet(),
-                    1,
-                    List.of(clusterService.nodeName()),
-                    Collections.emptyList(),
-                    null,
-                    null
-            ));
+            long index = raftIndex.incrementAndGet();
+            commandListener.onConfigurationCommittedWithLastAppliedIndexAndTerm(
+                    new CommittedConfiguration(
+                            index,
+                            1,
+                            List.of(clusterService.nodeName()),
+                            Collections.emptyList(),
+                            null,
+                            null
+                    ),
+                    index,
+                    1
+            );
 
             PrimaryReplicaChangeCommand command = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
                     .primaryReplicaNodeName("primary")
@@ -622,9 +627,11 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void updatesGroupConfigurationOnConfigCommit() {
         long index = raftIndex.incrementAndGet();
 
-        commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                index, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
-        ));
+        commandListener.onConfigurationCommittedWithLastAppliedIndexAndTerm(
+                new CommittedConfiguration(index, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+                index,
+                2
+        );
 
         RaftGroupConfiguration expectedConfig = new RaftGroupConfiguration(
                 index,
@@ -641,9 +648,11 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void updatesLastAppliedIndexAndTermOnConfigCommit() {
-        commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                3, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
-        ));
+        commandListener.onConfigurationCommittedWithLastAppliedIndexAndTerm(
+                new CommittedConfiguration(3, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+                3,
+                2
+        );
 
         verify(mvPartitionStorage).lastApplied(3, 2);
     }
@@ -652,9 +661,11 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void skipsUpdatesOnConfigCommitIfIndexIsStale() {
         mvPartitionStorage.lastApplied(10, 3);
 
-        commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
-        ));
+        commandListener.onConfigurationCommittedWithLastAppliedIndexAndTerm(
+                new CommittedConfiguration(
+                1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+                1, 2
+        );
 
         // Exact one call is expected because it's done in @BeforeEach in order to prepare initial configuration.
         verify(mvPartitionStorage, times(1)).committedGroupConfiguration(any());
@@ -663,9 +674,12 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void locksOnConfigCommit() {
-        commandListener.onConfigurationCommitted(new CommittedConfiguration(
-                raftIndex.incrementAndGet(), 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")
-        ));
+        long index = raftIndex.incrementAndGet();
+        commandListener.onConfigurationCommittedWithLastAppliedIndexAndTerm(
+                new CommittedConfiguration(index, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+                index,
+                2
+        );
 
         InOrder inOrder = inOrder(partitionDataStorage);
 

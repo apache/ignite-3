@@ -208,10 +208,18 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     }
 
     @Override
-    public void onConfigurationCommitted(CommittedConfiguration config) {
+    public void onConfigurationCommittedWithLastAppliedIndexAndTerm(
+            CommittedConfiguration config,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    ) {
         RaftGroupConfiguration configuration = RaftGroupConfiguration.fromCommittedConfiguration(config);
 
-        storage.saveConfiguration(configurationConverter.toBytes(configuration), config.index(), config.term());
+        storage.saveConfigurationWithLastAppliedIndexAndTerm(
+                configurationConverter.toBytes(configuration),
+                lastAppliedIndex,
+                lastAppliedTerm
+        );
 
         onConfigurationCommitted.accept(config);
     }

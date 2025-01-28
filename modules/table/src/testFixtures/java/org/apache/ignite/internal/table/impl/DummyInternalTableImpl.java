@@ -489,14 +489,18 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
         // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
         {
-            partitionListener.onConfigurationCommitted(new CommittedConfiguration(
+            partitionListener.onConfigurationCommittedWithLastAppliedIndexAndTerm(
+                    new CommittedConfiguration(
+                            1,
+                            1,
+                            List.of(LOCAL_NODE.name()),
+                            Collections.emptyList(),
+                            null,
+                            null
+                    ),
                     1,
-                    1,
-                    List.of(LOCAL_NODE.name()),
-                    Collections.emptyList(),
-                    null,
-                    null
-            ));
+                    1
+            );
 
             CompletableFuture<ReplicaMeta> primaryMetaFuture = placementDriver.getPrimaryReplica(groupId, CLOCK.now());
 

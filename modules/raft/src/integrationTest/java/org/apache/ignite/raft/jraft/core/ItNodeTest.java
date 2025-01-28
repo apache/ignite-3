@@ -3460,10 +3460,14 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                     opts.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
                     opts.setFsm(new MockStateMachine(peerId) {
                         @Override
-                        public void onRawConfigurationCommitted(ConfigurationEntry conf) {
+                        public void onConfigurationCommittedWithLastAppliedIndexAndTerm(
+                                ConfigurationEntry conf,
+                                long lastAppliedIndex,
+                                long lastAppliedTerm
+                        ) {
                             term.set(conf.getId().getTerm());
                             index.set(conf.getId().getIndex());
-                            super.onRawConfigurationCommitted(conf);
+                            super.onConfigurationCommittedWithLastAppliedIndexAndTerm(conf, lastAppliedIndex, lastAppliedTerm);
                         }
                     });
                 },
@@ -3536,11 +3540,15 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                         }
 
                         @Override
-                        public void onRawConfigurationCommitted(ConfigurationEntry conf) {
+                        public void onConfigurationCommittedWithLastAppliedIndexAndTerm(
+                                ConfigurationEntry conf,
+                                long lastAppliedIndex,
+                                long lastAppliedTerm
+                        ) {
                             term.set(conf.getId().getTerm());
                             index.set(conf.getId().getIndex());
                             System.out.println("Index + term = " + index + " " + term);
-                            super.onRawConfigurationCommitted(conf);
+                            super.onConfigurationCommittedWithLastAppliedIndexAndTerm(conf, lastAppliedIndex, lastAppliedTerm);
                         }
                     });
                 },

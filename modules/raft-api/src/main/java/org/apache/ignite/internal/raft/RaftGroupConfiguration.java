@@ -40,8 +40,6 @@ public class RaftGroupConfiguration implements Serializable {
     @IgniteToStringInclude
     private final List<String> learners;
 
-
-
     @IgniteToStringInclude
     private final @Nullable List<String> oldPeers;
     @IgniteToStringInclude

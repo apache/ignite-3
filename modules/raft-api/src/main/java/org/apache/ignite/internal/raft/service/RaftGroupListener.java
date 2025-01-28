@@ -61,8 +61,14 @@ public interface RaftGroupListener {
      * Called when a configuration is committed (that is, written to a majority of the group).
      *
      * @param config Configuration that was committed.
+     * @param lastAppliedIndex Last applied index.
+     * @param lastAppliedTerm Last applied term.
      */
-    default void onConfigurationCommitted(CommittedConfiguration config) {
+    default void onConfigurationCommittedWithLastAppliedIndexAndTerm(
+            CommittedConfiguration config,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    ) {
         // No-op
     }
 
