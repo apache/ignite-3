@@ -88,7 +88,6 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -100,7 +99,6 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -116,8 +114,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this test after the switching to zone-based replication
 @WithSystemProperty(key = FEATURE_FLAG_NAME, value = "true")
 public class ItReplicaLifecycleTest extends IgniteAbstractTest {
-    private static final IgniteLogger LOG = Loggers.forClass(ItReplicaLifecycleTest.class);
-
     private static final int NODE_COUNT = 3;
 
     private static final int BASE_PORT = 20_000;
