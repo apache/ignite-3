@@ -330,10 +330,10 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
                 .map(LogicalNode::new)
                 .collect(Collectors.toUnmodifiableSet());
 
-        /*assertDataNodesFromLogicalNodesInStorage(
+        assertDataNodesFromLogicalNodesInStorage(
                 zoneId,
                 expectedNodes,
                 keyValueStorage
-        );*/
+        );
     }
 }

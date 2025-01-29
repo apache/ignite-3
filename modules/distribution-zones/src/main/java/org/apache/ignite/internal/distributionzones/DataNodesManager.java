@@ -750,7 +750,7 @@ public class DataNodesManager {
 
                     DistributionZoneTimer timer = DistributionZoneTimerSerializer.deserialize(e.value());
 
-                    CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, event.timestamp().longValue());
+                    CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(event.timestamp().longValue()).zone(zoneId);
 
                     assert zoneDescriptor != null : "Zone descriptor must be present [zoneId=" + zoneId + "].";
 
@@ -775,7 +775,7 @@ public class DataNodesManager {
 
                     DistributionZoneTimer timer = DistributionZoneTimerSerializer.deserialize(e.value());
 
-                    CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, event.timestamp().longValue());
+                    CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(event.timestamp().longValue()).zone(zoneId);
 
                     assert zoneDescriptor != null : "Zone descriptor must be present [zoneId=" + zoneId + "].";
 
