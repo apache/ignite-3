@@ -417,7 +417,7 @@ public class IgniteUtils {
     }
 
     /**
-     * Deletes a file or a directory with all sub-directories and files.
+     * Deletes a file or a directory with all sub-directories and files if exists.
      *
      * @param path File or directory to delete.
      * @return {@code true} if the file or directory is successfully deleted or does not exist, {@code false} otherwise
@@ -426,39 +426,44 @@ public class IgniteUtils {
         try {
             deleteIfExistsThrowable(path);
             return true;
-        } catch (NoSuchFileException e) {
-            return true;
         } catch (IOException e) {
             return false;
         }
     }
 
     /**
-     * Deletes a file or a directory with all sub-directories and files.
+     * Deletes a file or a directory with all sub-directories and files if exists.
      *
      * @param path File or directory to delete.
      * @throws IOException if an I/O error is thrown by a visitor method
      */
     public static void deleteIfExistsThrowable(Path path) throws IOException {
-        Files.walkFileTree(path, new SimpleFileVisitor<>() {
+        var visitor = new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
                 if (exc != null) {
                     throw exc;
                 }
 
-                Files.delete(dir);
+                Files.deleteIfExists(dir);
 
                 return FileVisitResult.CONTINUE;
             }
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                Files.delete(file);
+                Files.deleteIfExists(file);
 
                 return FileVisitResult.CONTINUE;
             }
-        });
+        };
+
+        try {
+            Files.walkFileTree(path, visitor);
+        } catch (NoSuchFileException ignored) {
+            // Do nothing if file doesn't exist.
+            // Using Files.exists() could lead to a race.
+        }
     }
 
     /**
