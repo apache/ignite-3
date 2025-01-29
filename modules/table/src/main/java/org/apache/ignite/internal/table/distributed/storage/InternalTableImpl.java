@@ -363,7 +363,7 @@ public class InternalTableImpl implements InternalTable {
             if (e != null) {
                 if (actualTx.implicit()) {
                     // TODO: IGNITE-24244
-                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : 3_000;
+                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : 10_000;
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 

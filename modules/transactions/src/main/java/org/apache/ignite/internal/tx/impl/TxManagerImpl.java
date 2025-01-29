@@ -418,7 +418,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             // TODO: RW timeouts will be supported in https://issues.apache.org/jira/browse/IGNITE-24244
             //  long timeout = options.timeoutMillis() == 0 ? txConfig.readWriteTimeout().value() : options.timeoutMillis();
-            long timeout = 5_000;
+            long timeout = 3_000;
 
             return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
         } else {
