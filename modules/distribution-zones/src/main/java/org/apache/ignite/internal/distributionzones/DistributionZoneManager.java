@@ -765,269 +765,72 @@ public class DistributionZoneManager extends
         return dataNodesManager;
     }
 
-    /**
-     * Class responsible for storing state for a distribution zone.
-     * States are needed to track nodes that we want to add or remove from the data nodes,
-     * to schedule and stop scale up and scale down processes.
-     */
     public static class ZoneState {
-        /** Schedule task for a scale up process. */
-        private ScheduledFuture<?> scaleUpTask;
-
-        /** Schedule task for a scale down process. */
-        private ScheduledFuture<?> scaleDownTask;
-
-        /** Schedule task for a partition distribution reset process. */
-        private ScheduledFuture<?> partitionDistributionResetTask;
-
-        /** The delay for the scale up task. */
-        private long scaleUpTaskDelay;
-
-        /** The delay for the scale down task. */
-        private long scaleDownTaskDelay;
-
-        /** The delay for the partition distribution reset task. */
-        private long partitionDistributionResetTaskDelay;
-
-        /**
-         * Map that stores pairs revision -> {@link Augmentation} for a zone. With this map we can track which nodes
-         * should be added or removed in the processes of scale up or scale down. Revision helps to track visibility of the events
-         * of adding or removing nodes because any process of scale up or scale down has a revision that triggered this process.
-         */
-        private final ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap;
-
-        /** Executor for scheduling tasks for scale up and scale down processes. */
-        private final StripedScheduledThreadPoolExecutor executor;
-
-        /**
-         * Constructor.
-         *
-         * @param executor Executor for scheduling tasks for scale up and scale down processes.
-         */
         ZoneState(StripedScheduledThreadPoolExecutor executor) {
-            this.executor = executor;
-            topologyAugmentationMap = new ConcurrentSkipListMap<>();
         }
 
-        /**
-         * Constructor.
-         *
-         * @param executor Executor for scheduling tasks for scale up and scale down processes.
-         * @param topologyAugmentationMap Map that stores pairs revision -> {@link Augmentation} for a zone. With this map we can
-         *         track which nodes should be added or removed in the processes of scale up or scale down. Revision helps to track
-         *         visibility of the events of adding or removing nodes because any process of scale up or scale down has a revision that
-         *         triggered this process.
-         */
-        ZoneState(StripedScheduledThreadPoolExecutor executor, ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap) {
-            this.executor = executor;
-            this.topologyAugmentationMap = topologyAugmentationMap;
-        }
-
-        /**
-         * Map that stores pairs revision -> {@link Augmentation} for a zone. With this map we can track which nodes
-         * should be added or removed in the processes of scale up or scale down. Revision helps to track visibility of the events
-         * of adding or removing nodes because any process of scale up or scale down has a revision that triggered this process.
-         */
         public ConcurrentSkipListMap<Long, Augmentation> topologyAugmentationMap() {
-            return topologyAugmentationMap;
+            return null;
         }
 
-        /**
-         * Reschedules existing scale up task, if it is not started yet and the delay of this task is not immediate,
-         * or schedules new one, if the current task cannot be canceled.
-         *
-         * @param delay Delay to start runnable in seconds.
-         * @param runnable Custom logic to run.
-         * @param zoneId Unique id of a zone to determine the executor of the task.
-         */
         public synchronized void rescheduleScaleUp(long delay, Runnable runnable, int zoneId) {
-            stopScaleUp();
-
-            scaleUpTask = executor.schedule(runnable, delay, SECONDS, zoneId);
-
-            scaleUpTaskDelay = delay;
         }
 
-        /**
-         * Reschedules existing scale down task, if it is not started yet and the delay of this task is not immediate,
-         * or schedules new one, if the current task cannot be canceled.
-         *
-         * @param delay Delay to start runnable in seconds.
-         * @param runnable Custom logic to run.
-         * @param zoneId Unique id of a zone to determine the executor of the task.
-         */
         public synchronized void rescheduleScaleDown(long delay, Runnable runnable, int zoneId) {
-            stopScaleDown();
-
-            scaleDownTask = executor.schedule(runnable, delay, SECONDS, zoneId);
-
-            scaleDownTaskDelay = delay;
         }
 
-        /**
-         * Reschedules existing partition distribution reset task, if it is not started yet and the delay of this task is not immediate,
-         * or schedules new one, if the current task cannot be canceled.
-         *
-         * @param delay Delay to start runnable in seconds.
-         * @param runnable Custom logic to run.
-         * @param zoneId Unique id of a zone to determine the executor of the task.
-         */
         public synchronized void reschedulePartitionDistributionReset(long delay, Runnable runnable, int zoneId) {
-            stopPartitionDistributionReset();
-
-            partitionDistributionResetTask = executor.schedule(runnable, delay, SECONDS, zoneId);
-
-            partitionDistributionResetTaskDelay = delay;
         }
 
-        /**
-         * Cancels task for scale up and scale down. Used on {@link #onDropZoneBusy(DropZoneEventParameters)}.
-         * Not need to check {@code scaleUpTaskDelay} and {@code scaleDownTaskDelay} because after timer stopping on zone delete event
-         * the data nodes value will be updated.
-         */
         synchronized void stopTimers() {
-            if (scaleUpTask != null) {
-                scaleUpTask.cancel(false);
-            }
-
-            if (scaleDownTask != null) {
-                scaleDownTask.cancel(false);
-            }
-
-            if (partitionDistributionResetTask != null) {
-                partitionDistributionResetTask.cancel(false);
-            }
         }
 
-        /**
-         * Cancels task for scale up if it is not started yet and the delay of this task is not immediate.
-         */
         synchronized void stopScaleUp() {
-            if (scaleUpTask != null && scaleUpTaskDelay > 0) {
-                scaleUpTask.cancel(false);
-            }
         }
 
-        /**
-         * Cancels task for scale down if it is not started yet and the delay of this task is not immediate.
-         */
         synchronized void stopScaleDown() {
-            if (scaleDownTask != null && scaleDownTaskDelay > 0) {
-                scaleDownTask.cancel(false);
-            }
         }
 
-        /**
-         * Cancels task for partition distribution reset if it is not started yet and the delay of this task is not immediate.
-         */
         synchronized void stopPartitionDistributionReset() {
-            if (partitionDistributionResetTask != null && partitionDistributionResetTaskDelay > 0) {
-                partitionDistributionResetTask.cancel(false);
-            }
         }
 
-        /**
-         * Returns a set of nodes that should be added to zone's data nodes.
-         *
-         * @param scaleUpRevision Last revision of the scale up event. Nodes that were associated with this event
-         *                        or with the lower revisions, won't be included in the accumulation.
-         * @param revision Revision of the event for which this data nodes is needed.
-         *                 Nodes that were associated with this event will be included.
-         * @return List of nodes that should be added to zone's data nodes.
-         */
         List<Node> nodesToBeAddedToDataNodes(long scaleUpRevision, long revision) {
-            return accumulateNodes(scaleUpRevision, revision, true);
+            return null;
         }
 
-        /**
-         * Returns a set of nodes that should be removed from zone's data nodes.
-         *
-         * @param scaleDownRevision Last revision of the scale down event. Nodes that were associated with this event
-         *                          or with the lower revisions, won't be included in the accumulation.
-         * @param revision Revision of the event for which this data nodes is needed.
-         *                 Nodes that were associated with this event will be included.
-         * @return List of nodes that should be removed from zone's data nodes.
-         */
         List<Node> nodesToBeRemovedFromDataNodes(long scaleDownRevision, long revision) {
             return accumulateNodes(scaleDownRevision, revision, false);
         }
 
-        /**
-         * Add nodes to the map where nodes that must be added to the zone's data nodes are accumulated.
-         *
-         * @param nodes Nodes to add to zone's data nodes.
-         * @param revision Revision of the event that triggered this addition.
-         */
         void nodesToAddToDataNodes(Set<Node> nodes, long revision) {
-            topologyAugmentationMap.put(revision, new Augmentation(nodes, true));
         }
 
-        /**
-         * Add nodes to the map where nodes that must be removed from the zone's data nodes are accumulated.
-         *
-         * @param nodes Nodes to remove from zone's data nodes.
-         * @param revision Revision of the event that triggered this addition.
-         */
         void nodesToRemoveFromDataNodes(Set<Node> nodes, long revision) {
-            topologyAugmentationMap.put(revision, new Augmentation(nodes, false));
         }
 
-        /**
-         * Accumulate nodes from the {@link ZoneState#topologyAugmentationMap} starting from the {@code fromKey} (excluding)
-         * to the {@code toKey} (including), where flag {@code addition} indicates whether we should accumulate nodes that should be
-         * added to data nodes, or removed.
-         *
-         * @param fromKey Starting key (excluding).
-         * @param toKey Ending key (including).
-         * @param addition Indicates whether we should accumulate nodes that should be added to data nodes, or removed.
-         * @return Accumulated nodes.
-         */
         private List<Node> accumulateNodes(long fromKey, long toKey, boolean addition) {
-            return topologyAugmentationMap.subMap(fromKey, false, toKey, true).values()
-                    .stream()
-                    .filter(a -> a.addition == addition)
-                    .flatMap(a -> a.nodes.stream())
-                    .collect(toList());
+            return null;
         }
 
-        @TestOnly
         public synchronized ScheduledFuture<?> scaleUpTask() {
-            return scaleUpTask;
+            return null;
         }
 
-        @TestOnly
         public synchronized ScheduledFuture<?> scaleDownTask() {
-            return scaleDownTask;
+            return null;
         }
 
-        @TestOnly
         public synchronized ScheduledFuture<?> partitionDistributionResetTask() {
-            return partitionDistributionResetTask;
+            return null;
         }
     }
 
-    /**
-     * Class stores the info about nodes that should be added or removed from the data nodes of a zone.
-     * With flag {@code addition} we can track whether {@code nodeNames} should be added or removed.
-     */
     public static class Augmentation {
-        /** Nodes. */
-        private final Set<Node> nodes;
-
-        /** Flag that indicates whether {@code nodeNames} should be added or removed. */
-        private final boolean addition;
-
         public Augmentation(Set<Node> nodes, boolean addition) {
-            this.nodes = unmodifiableSet(nodes);
-            this.addition = addition;
-        }
-
-        public boolean addition() {
-            return addition;
         }
 
         public Set<Node> nodes() {
-            return nodes;
+            return null;
         }
     }
 

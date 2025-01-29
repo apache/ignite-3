@@ -218,7 +218,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     }
 
     protected CatalogZoneDescriptor zoneDescriptor(String zoneName, HybridTimestamp timestamp) {
-        CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneName, timestamp.longValue());
+        CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(timestamp.longValue()).zone(zoneName);
 
         assertNotNull(zoneDescriptor);
 

@@ -401,56 +401,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertEquals(nodeAttributesBeforeRestart, nodeAttributesAfterRestart);
     }
 
-    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
-    @CsvSource({
-            "true,",
-            "false, HIGH_AVAILABILITY",
-            "false, STRONG_CONSISTENCY",
-    })
-    public void testTopologyAugmentationMapRestoredAfterRestart(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
-        PartialNode node = startPartialNode(0);
-
-        node.logicalTopology().putNode(A);
-
-        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, consistencyMode);
-
-        node.logicalTopology().putNode(B);
-        node.logicalTopology().putNode(C);
-
-        int zoneId = getZoneId(node, zoneName);
-
-        DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
-        CatalogManager catalogManager = getCatalogManager(node);
-
-        assertDataNodesFromManager(
-                distributionZoneManager,
-                metastore::appliedRevision,
-                catalogManager::latestCatalogVersion,
-                zoneId,
-                Set.of(A, B, C),
-                TIMEOUT_MILLIS
-        );
-
-        ConcurrentSkipListMap<Long, Augmentation> nodeAttributesBeforeRestart =
-                distributionZoneManager.zonesState().get(zoneId).topologyAugmentationMap();
-
-        node.stop();
-
-        node = startPartialNode(0);
-
-        distributionZoneManager = getDistributionZoneManager(node);
-
-        ConcurrentSkipListMap<Long, Augmentation> nodeAttributesAfterRestart =
-                distributionZoneManager.zonesState().get(zoneId).topologyAugmentationMap();
-
-        assertEquals(2, nodeAttributesAfterRestart.size());
-
-        assertEquals(
-                nodeAttributesBeforeRestart.values().stream().map(Augmentation::nodes).collect(toSet()),
-                nodeAttributesAfterRestart.values().stream().map(Augmentation::nodes).collect(toSet())
-        );
-    }
-
     @Test
     public void testLogicalTopologyRestoredAfterRestart() throws Exception {
         PartialNode node = startPartialNode(0);
