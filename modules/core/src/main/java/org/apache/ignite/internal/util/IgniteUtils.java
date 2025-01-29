@@ -426,8 +426,6 @@ public class IgniteUtils {
         try {
             deleteIfExistsThrowable(path);
             return true;
-        } catch (NoSuchFileException e) {
-            return true;
         } catch (IOException e) {
             return false;
         }
@@ -440,25 +438,30 @@ public class IgniteUtils {
      * @throws IOException if an I/O error is thrown by a visitor method
      */
     public static void deleteIfExistsThrowable(Path path) throws IOException {
-        Files.walkFileTree(path, new SimpleFileVisitor<>() {
+        SimpleFileVisitor<Path> visitor = new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
                 if (exc != null) {
                     throw exc;
                 }
 
-                Files.delete(dir);
+                Files.deleteIfExists(dir);
 
                 return FileVisitResult.CONTINUE;
             }
 
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                Files.delete(file);
+                Files.deleteIfExists(file);
 
                 return FileVisitResult.CONTINUE;
             }
-        });
+        };
+
+        try {
+            Files.walkFileTree(path, visitor);
+        } catch (NoSuchFileException ignored) {
+        }
     }
 
     /**
