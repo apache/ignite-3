@@ -154,7 +154,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         int objectIdGen = 0;
 
-        Catalog emptyCatalog = new Catalog(0, 0L, objectIdGen, List.of(), List.of(), null);
+        Catalog emptyCatalog = new Catalog(0, 1L, objectIdGen, List.of(), List.of(), null);
 
         registerCatalog(emptyCatalog);
 
