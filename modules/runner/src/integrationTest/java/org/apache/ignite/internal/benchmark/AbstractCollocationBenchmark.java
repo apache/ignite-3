@@ -35,12 +35,11 @@ import org.apache.ignite.table.Tuple;
 
 /**
  * Base class that allows to measure basic KeyValue operations for tables that share the same distribution zone.
- *
  * TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this benchmark.
  */
 public class AbstractCollocationBenchmark extends AbstractMultiNodeBenchmark {
     /** Name of shared zone. */
-    private final String SHARED_ZONE_NAME = "shared_zone";
+    private static final String SHARED_ZONE_NAME = "shared_zone";
 
     /** System property that allows to enable/disable collocation feature. */
     private static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";

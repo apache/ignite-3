@@ -46,7 +46,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
  * This benchmark allows to measure reading key value pairs via KeyValue API for tables that share the same distribution zone.
- *
  * TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this benchmark.
  */
 @Fork(1)
