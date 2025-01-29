@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -27,7 +26,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -77,11 +75,10 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
         Catalog catalog = updateContext.catalog();
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        Optional<CatalogTableDescriptor> tableOpt = tableOrThrow(schema, tableName, ifTableExists);
-        if (tableOpt.isEmpty()) {
+        CatalogTableDescriptor table = CatalogUtils.table(schema, tableName, !ifTableExists);
+        if (table == null) {
             return List.of();
         }
-        CatalogTableDescriptor table = tableOpt.get();
 
         List<CatalogTableColumnDescriptor> columnDescriptors = new ArrayList<>();
 

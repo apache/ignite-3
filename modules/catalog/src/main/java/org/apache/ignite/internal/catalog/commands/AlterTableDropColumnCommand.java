@@ -19,13 +19,12 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -81,11 +80,10 @@ public class AlterTableDropColumnCommand extends AbstractTableCommand {
         Catalog catalog = updateContext.catalog();
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        Optional<CatalogTableDescriptor> tableOpt = tableOrThrow(schema, tableName, ifTableExists);
-        if (tableOpt.isEmpty()) {
+        CatalogTableDescriptor table = table(schema, tableName, !ifTableExists);
+        if (table == null) {
             return List.of();
         }
-        CatalogTableDescriptor table = tableOpt.get();
 
         Set<String> indexedColumns = aliveIndexesForTable(catalog, table.id())
                 .flatMap(AlterTableDropColumnCommand::indexColumnNames)

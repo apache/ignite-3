@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -58,11 +57,10 @@ public class DropZoneCommand extends AbstractZoneCommand {
     @Override
     public List<UpdateEntry> get(UpdateContext updateContext) {
         Catalog catalog = updateContext.catalog();
-        Optional<CatalogZoneDescriptor> zoneOpt = zoneOrThrow(catalog, zoneName, ifExists);
-        if (zoneOpt.isEmpty()) {
+        CatalogZoneDescriptor zone = zone(catalog, zoneName, !ifExists);
+        if (zone == null) {
             return List.of();
         }
-        CatalogZoneDescriptor zone = zoneOpt.get();
 
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
 

@@ -50,7 +50,7 @@ public final class HybridTimestamp implements Comparable<HybridTimestamp>, Seria
     private static final long serialVersionUID = -4285668148196042529L;
 
     /** Time value to store for {@code null} hybrid timestamp values. */
-    public static final long NULL_HYBRID_TIMESTAMP = 1L;
+    public static final long NULL_HYBRID_TIMESTAMP = 0L;
 
     /** Number of bits in "logical time" part. */
     public static final int LOGICAL_TIME_BITS_SIZE = 2 * Byte.SIZE;

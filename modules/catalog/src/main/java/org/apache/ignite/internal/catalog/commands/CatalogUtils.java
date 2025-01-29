@@ -31,7 +31,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -417,26 +416,26 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns table with given name, or throws {@link TableNotFoundValidationException} if table with given name not exists.
+     * Returns table with given name.
      *
      * @param schema Schema to look up table in.
      * @param name Name of the table of interest.
-     * @param ifExists Flag indicated should be thrown the {@code TableNotFoundValidationException} for absent table or just return
-     *         empty Optional.
-     * @return Optional type contains table with given name or empty Optional in case table is absent and flag ifExists set.
-     * @throws TableNotFoundValidationException If table with given name is not exists.
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code TableNotFoundValidationException} for absent table or just
+     *         return {@code null}.
+     * @return Table descriptor for given name or @{code null} in case table is absent and flag shouldThrowIfNotExists set to {@code false}.
+     * @throws TableNotFoundValidationException If table with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
      */
-    public static Optional<CatalogTableDescriptor> tableOrThrow(CatalogSchemaDescriptor schema, String name, boolean ifExists)
+    public static @Nullable CatalogTableDescriptor table(CatalogSchemaDescriptor schema, String name, boolean shouldThrowIfNotExists)
             throws TableNotFoundValidationException {
         name = Objects.requireNonNull(name, "tableName");
 
         CatalogTableDescriptor table = schema.table(name);
 
-        if (table == null && !ifExists) {
+        if (table == null && shouldThrowIfNotExists) {
             throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found", schema.name(), name));
         }
 
-        return Optional.ofNullable(table);
+        return table;
     }
 
     /**
@@ -457,26 +456,27 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns zone with given name, or throws {@link CatalogValidationException} if zone with given name not exists.
+     * Returns zone with given name.
      *
      * @param catalog Catalog to look up zone in.
      * @param name Name of the zone of interest.
-     * @param ifExists Flag indicated should be thrown the {@code DistributionZoneNotFoundValidationException} for absent zone or
-     *         just return empty Optional.
-     * @return Optional type contains zone with given name or empty Optional in case zone is absent and flag ifExists set.
-     * @throws DistributionZoneNotFoundValidationException If zone with given name is not exists.
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code DistributionZoneNotFoundValidationException} for
+     *         absent zone or just return {@code null}.
+     * @return Zone descriptor for given name or @{code null} in case zone is absent and flag shouldThrowIfNotExists set to {@code false}.
+     * @throws DistributionZoneNotFoundValidationException If zone with given name is not exists and flag shouldThrowIfNotExists
+     *         set to {@code true}.
      */
-    public static Optional<CatalogZoneDescriptor> zoneOrThrow(Catalog catalog, String name, boolean ifExists)
+    public static @Nullable CatalogZoneDescriptor zone(Catalog catalog, String name, boolean shouldThrowIfNotExists)
             throws DistributionZoneNotFoundValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
 
-        if (zone == null && !ifExists) {
+        if (zone == null && shouldThrowIfNotExists) {
             throw new DistributionZoneNotFoundValidationException(format("Distribution zone with name '{}' not found", name));
         }
 
-        return Optional.ofNullable(zone);
+        return zone;
     }
 
     /**
@@ -489,24 +489,24 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns index descriptor.
+     * Returns index with given name.
      *
      * @param schema Schema to look up index in.
      * @param name Name of the index of interest.
-     * @param ifExists Flag indicated should be thrown the {@code IndexNotFoundValidationException} for absent index or just return
-     *         empty Optional.
-     * @return Optional type contains index with given name or empty Optional in case index is absent and flag ifExists set.
-     * @throws IndexNotFoundValidationException If index does not exist.
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code IndexNotFoundValidationException} for
+     *         absent index or just return {@code null}.
+     * @return Index descriptor for given name or @{code null} in case index is absent and flag shouldThrowIfNotExists set to {@code false}.
+     * @throws IndexNotFoundValidationException If index with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
      */
-    public static Optional<CatalogIndexDescriptor> indexOrThrow(CatalogSchemaDescriptor schema, String name, boolean ifExists)
+    public static @Nullable CatalogIndexDescriptor index(CatalogSchemaDescriptor schema, String name, boolean shouldThrowIfNotExists)
             throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = schema.aliveIndex(name);
 
-        if (index == null && !ifExists) {
+        if (index == null && shouldThrowIfNotExists) {
             throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));
         }
 
-        return Optional.ofNullable(index);
+        return index;
     }
 
     /**

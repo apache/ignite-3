@@ -22,10 +22,9 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
 
 import java.util.List;
-import java.util.Optional;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -64,11 +63,10 @@ public class RenameTableCommand extends AbstractTableCommand {
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, newTableName);
 
-        Optional<CatalogTableDescriptor> tableOpt = tableOrThrow(schema, tableName, ifTableExists);
-        if (tableOpt.isEmpty()) {
+        CatalogTableDescriptor table = table(schema, tableName, !ifTableExists);
+        if (table == null) {
             return List.of();
         }
-        CatalogTableDescriptor table = tableOpt.get();
 
         String newPkIndexName = pkIndexName(newTableName);
 

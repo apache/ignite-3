@@ -18,12 +18,11 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.table;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -52,11 +51,10 @@ public class DropTableCommand extends AbstractTableCommand {
         Catalog catalog = updateContext.catalog();
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
-        Optional<CatalogTableDescriptor> tableOpt = tableOrThrow(schema, tableName, ifTableExists);
-        if (tableOpt.isEmpty()) {
+        CatalogTableDescriptor table = table(schema, tableName, !ifTableExists);
+        if (table == null) {
             return List.of();
         }
-        CatalogTableDescriptor table = tableOpt.get();
 
         List<UpdateEntry> updateEntries = new ArrayList<>();
 
