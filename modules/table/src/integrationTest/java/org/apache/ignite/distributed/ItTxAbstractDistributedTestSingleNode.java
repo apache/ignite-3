@@ -34,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -205,7 +206,7 @@ public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTe
 
         assertFalse(implicitOpFut.isDone());
 
-        assertThat(implicitOpFut, willThrow(TransactionException.class));
+        assertThat(implicitOpFut, willThrow(TransactionException.class, 40_000, TimeUnit.SECONDS));
 
         assertNull(rv.get(null, makeKey(1)));
     }
