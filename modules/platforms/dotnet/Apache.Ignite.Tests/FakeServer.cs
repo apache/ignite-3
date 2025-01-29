@@ -46,11 +46,11 @@ namespace Apache.Ignite.Tests
     {
         public const string Err = "Err!";
 
-        public const string ExistingTableName = "tbl1";
+        public const string ExistingTableName = "TBL1";
 
-        public const string CompositeKeyTableName = "tbl2";
+        public const string CompositeKeyTableName = "TBL2";
 
-        public const string CustomColocationKeyTableName = "tbl3";
+        public const string CustomColocationKeyTableName = "TBL3";
 
         public const string GetDetailsJob = "get-details";
 
@@ -228,7 +228,6 @@ namespace Apache.Ignite.Tests
                     case ClientOp.TableGet:
                     {
                         var tableName = reader.ReadString();
-                        _ = reader.ReadStringNullable(); // Schema name.
 
                         var tableId = tableName switch
                         {
@@ -242,7 +241,7 @@ namespace Apache.Ignite.Tests
                         {
                             using var arrayBufferWriter = new PooledArrayBuffer();
                             arrayBufferWriter.MessageWriter.Write(tableId);
-                            arrayBufferWriter.MessageWriter.WriteNil(); // Schema name.
+                            arrayBufferWriter.MessageWriter.Write(tableName);
 
                             Send(handler, requestId, arrayBufferWriter);
 

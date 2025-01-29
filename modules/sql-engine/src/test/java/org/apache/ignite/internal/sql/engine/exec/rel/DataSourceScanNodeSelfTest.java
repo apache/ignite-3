@@ -244,7 +244,7 @@ public class DataSourceScanNodeSelfTest extends AbstractExecutionTest<RowWrapper
 
         node.onRegister(downstream);
 
-        context.execute(() -> node.request(Integer.MAX_VALUE), node::onError);
+        node.execute(() -> node.request(Integer.MAX_VALUE));
 
         return await(downstream.result());
     }

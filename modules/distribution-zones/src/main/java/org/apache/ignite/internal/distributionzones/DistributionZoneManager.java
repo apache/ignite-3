@@ -63,6 +63,7 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -260,7 +261,7 @@ public class DistributionZoneManager extends
             // fires CatalogManager's ZONE_CREATE event, and the state of DistributionZoneManager becomes consistent.
             int catalogVersion = catalogManager.latestCatalogVersion();
 
-            dataNodesManager.start(catalogManager.zones(catalogVersion));
+            dataNodesManager.start(catalogManager.activeCatalog(catalogVersion).zones());
 
             return allOf(
                     restoreLogicalTopologyChangeEventAndStartTimers(recoveryRevision, catalogVersion)
@@ -350,7 +351,7 @@ public class DistributionZoneManager extends
 
         // It is safe to zoneState.entrySet in term of ConcurrentModification and etc. because meta storage notifications are one-threaded
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
-        for (CatalogZoneDescriptor zoneDescriptor : catalogManager.zones(catalogVersion)) {
+        for (CatalogZoneDescriptor zoneDescriptor : catalogManager.activeCatalog(catalogVersion).zones()) {
             int zoneId = zoneDescriptor.id();
 
             if (zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
@@ -665,7 +666,7 @@ public class DistributionZoneManager extends
 
         int catalogVersion = catalogManager.activeCatalogVersion(timestamp.longValue());
 
-        for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
+        for (CatalogZoneDescriptor zone : catalogManager.catalog(catalogVersion).zones()) {
             CompletableFuture<Void> f = dataNodesManager.onTopologyChangeZoneHandler(
                     zone,
                     timestamp,
@@ -718,7 +719,9 @@ public class DistributionZoneManager extends
                 .thenApply(StatementResult::getAsBoolean)
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
-                        LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
+                        if (!hasCauseOrSuppressed(e, NodeStoppingException.class)) {
+                            LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
+                        }
                     } else if (invokeResult) {
                         LOG.info("Update recoverable state for distribution zone manager [revision = {}]", revision);
                     } else {

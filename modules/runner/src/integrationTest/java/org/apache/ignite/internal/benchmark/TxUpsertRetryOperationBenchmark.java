@@ -77,13 +77,17 @@ public class TxUpsertRetryOperationBenchmark extends AbstractMultiNodeBenchmark 
     @Override
     protected String clusterConfiguration() {
         if (txRetryMode.equals("waitTimeout")) {
-            return "transaction: { deadlockPreventionPolicy: { waitTimeout: 30, txIdComparator: NATURAL } },"
-                    + "replication: { replicaOperationRetryInterval: 0 }";
+            return "ignite {"
+                    + "transaction: { deadlockPreventionPolicy: { waitTimeout: 30, txIdComparator: NATURAL } },"
+                    + "replication: { replicaOperationRetryInterval: 0 }"
+                    + "}";
         } else {
             assert txRetryMode.equals("replicaOperationRetry");
 
-            return "transaction: { deadlockPreventionPolicy: { waitTimeout: 0, txIdComparator: NATURAL } },"
-                    + "replication: { replicaOperationRetryInterval: 10 }";
+            return "ignite {"
+                    + "transaction: { deadlockPreventionPolicy: { waitTimeout: 0, txIdComparator: NATURAL } },"
+                    + "replication: { replicaOperationRetryInterval: 10 }"
+                    + "}";
         }
     }
 

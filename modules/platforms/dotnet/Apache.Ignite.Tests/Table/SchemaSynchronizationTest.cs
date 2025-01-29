@@ -47,7 +47,8 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     private static string TestTableName => TestContext.CurrentContext.Test.Name
         .Replace("(", "_")
         .Replace(",", "_")
-        .Replace(")", string.Empty);
+        .Replace(")", string.Empty)
+        .ToUpperInvariant(); // TODO https://issues.apache.org/jira/browse/IGNITE-24258: Remove uppercase.
 
     [TearDown]
     public async Task DeleteTable() => await Client.Sql.ExecuteAsync(null, $"DROP TABLE {TestTableName}");

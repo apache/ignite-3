@@ -309,7 +309,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         CompletableFuture<NetworkMessage> responseFuture = new CompletableFuture<>();
 
-        requestsMap.put(correlationId, new TimeoutObjectImpl(timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0, responseFuture));
+        requestsMap.put(correlationId, new TimeoutObjectImpl(timeout > 0 ? coarseCurrentTimeMillis() + timeout : 0, responseFuture, msg));
 
         InetSocketAddress recipientAddress = resolveRecipientAddress(recipient);
 
@@ -703,15 +703,19 @@ public class DefaultMessagingService extends AbstractMessagingService {
         /** Target future. */
         private final CompletableFuture<NetworkMessage> fut;
 
+        private final NetworkMessage request;
+
         /**
          * Constructor.
          *
          * @param endTime End timestamp in milliseconds.
          * @param fut Target future.
+         * @param request Request that is being sent.
          */
-        public TimeoutObjectImpl(long endTime, CompletableFuture<NetworkMessage> fut) {
+        private TimeoutObjectImpl(long endTime, CompletableFuture<NetworkMessage> fut, NetworkMessage request) {
             this.endTime = endTime;
             this.fut = fut;
+            this.request = request;
         }
 
         @Override
@@ -722,6 +726,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
         @Override
         public CompletableFuture<NetworkMessage> future() {
             return fut;
+        }
+
+        @Override
+        public @Nullable String describe() {
+            return "Invocation timed out [message=" + request.toStringForLightLogging() + "]";
         }
     }
 

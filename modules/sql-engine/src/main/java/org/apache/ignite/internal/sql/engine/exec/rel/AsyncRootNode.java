@@ -268,11 +268,11 @@ public class AsyncRootNode<InRowT, OutRowT> implements Downstream<InRowT>, Async
      */
     private void scheduleTask() {
         if (!pendingRequests.isEmpty() && taskScheduled.compareAndSet(false, true)) {
-            source.context().execute(() -> {
+            source.execute(() -> {
                 taskScheduled.set(false);
 
                 flush();
-            }, source::onError);
+            });
         }
     }
 

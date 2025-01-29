@@ -60,7 +60,7 @@ public class SchemaVersionsImpl implements SchemaVersions {
     private CompletableFuture<CatalogTableDescriptor> tableDescriptor(int tableId, HybridTimestamp timestamp) {
         return schemaSyncService.waitForMetadataCompleteness(timestamp)
                 .thenApply(unused -> {
-                    CatalogTableDescriptor table = catalogService.table(tableId, timestamp.longValue());
+                    CatalogTableDescriptor table = catalogService.activeCatalog(timestamp.longValue()).table(tableId);
 
                     if (table == null) {
                         throw tableNotFoundException(tableId);

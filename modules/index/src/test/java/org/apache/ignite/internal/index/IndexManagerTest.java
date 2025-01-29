@@ -191,7 +191,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     private TableViewInternal newMockTable(int tableId) {
-        Catalog catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong())));
+        Catalog catalog = Objects.requireNonNull(catalogManager.activeCatalog(clock.nowLong()));
         CatalogZoneDescriptor zone = catalog.defaultZone();
 
         assertNotNull(zone);
@@ -207,7 +207,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         when(internalTable.tableId()).thenReturn(tableId);
         when(internalTable.storage()).thenReturn(mvTableStorage);
 
-        CatalogTableDescriptor table = catalogManager.table(tableId, catalogManager.latestCatalogVersion());
+        CatalogTableDescriptor table = catalog.table(tableId);
 
         ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 

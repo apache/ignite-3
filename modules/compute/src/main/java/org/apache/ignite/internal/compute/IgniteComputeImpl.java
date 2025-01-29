@@ -63,7 +63,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
@@ -77,8 +76,8 @@ import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -141,7 +140,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         if (target instanceof ColocatedJobTarget) {
             ColocatedJobTarget colocatedTarget = (ColocatedJobTarget) target;
             var mapper = (Mapper<? super Object>) colocatedTarget.keyMapper();
-            String tableName = colocatedTarget.tableName();
+            QualifiedName tableName = colocatedTarget.tableName();
             Object key = colocatedTarget.key();
 
             CompletableFuture<JobExecution<ComputeJobDataHolder>> jobFut;
@@ -441,13 +440,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 ));
     }
 
-    private CompletableFuture<TableViewInternal> requiredTable(String tableName) {
-        String parsedName = IgniteNameUtils.parseSimpleName(tableName);
-
-        return tables.tableViewAsync(parsedName)
+    private CompletableFuture<TableViewInternal> requiredTable(QualifiedName tableName) {
+        return tables.tableViewAsync(tableName)
                 .thenApply(table -> {
                     if (table == null) {
-                        throw new TableNotFoundException(SqlCommon.DEFAULT_SCHEMA_NAME, parsedName);
+                        throw new TableNotFoundException(tableName);
                     }
                     return table;
                 });

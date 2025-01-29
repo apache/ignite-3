@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -38,26 +43,35 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.distributionzones.Node;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 
 /** Parent for tests of HA zones feature. */
 public abstract class AbstractHighAvailablePartitionsRecoveryTest extends ClusterPerTestIntegrationTest {
+    static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     static final String HA_ZONE_NAME = "HA_ZONE";
 
     static final String HA_TABLE_NAME = "HA_TABLE";
@@ -85,8 +99,10 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         GroupUpdateRequest request = (GroupUpdateRequest) VersionedSerialization.fromBytes(
                 recoveryTriggerEntry.value(), DisasterRecoveryRequestSerializer.INSTANCE);
 
-        int zoneId = node.catalogManager().zone(zoneName, clock.nowLong()).id();
-        int tableId = node.catalogManager().table(tableName, clock.nowLong()).id();
+        Catalog catalog = node.catalogManager().activeCatalog(clock.nowLong());
+
+        int zoneId = catalog.zone(zoneName).id();
+        int tableId = catalog.table(SCHEMA_NAME, tableName).id();
 
         assertEquals(zoneId, request.zoneId());
         assertEquals(Map.of(tableId, PARTITION_IDS), request.partitionIds());
@@ -132,8 +148,87 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 .collect(Collectors.toUnmodifiableSet()));
     }
 
+    /**
+     * Wait for the 2 facts simultaneously.
+     *
+     * <ul>
+     *     <li>All planned rebalances have finished (pending and planned keys is empty).</li>
+     *     <li>Stable assignments is equal to expected</li>
+     * </ul>
+     *
+     * @param gatewayNode Node for communication with cluster and components.
+     * @param tableName Table name.
+     * @param partitionIds Set of target partition ids to check.
+     * @param nodes Expected set of nodes in stable assignments.
+     */
+    final void waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(
+            IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
+        partitionIds.forEach(p -> {
+            try {
+                waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpectedForPartition(gatewayNode, tableName, p, nodes);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    /**
+     * The same as the previous one, but for concrete partition.
+     *
+     * @see AbstractHighAvailablePartitionsRecoveryTest#waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected
+     */
+    private void waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpectedForPartition(
+            IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes
+    ) throws InterruptedException {
+        AtomicReference<Set<String>> stableNodes = new AtomicReference<>();
+        AtomicReference<Set<String>> pendingNodes = new AtomicReference<>();
+        AtomicReference<Set<String>> plannedNodes = new AtomicReference<>();
+
+        assertTrue(
+                waitForCondition(() -> {
+                            Integer tableId = getTableId(gatewayNode.catalogManager(), tableName, clock.nowLong());
+
+                            assert tableId != null;
+
+                            TablePartitionId tablePartitionId = new TablePartitionId(tableId, partNum);
+
+                            ByteArray stableKey = stablePartAssignmentsKey(tablePartitionId);
+                            ByteArray pendingKey = pendingPartAssignmentsKey(tablePartitionId);
+                            ByteArray plannedKey = plannedPartAssignmentsKey(tablePartitionId);
+
+                            Map<ByteArray, Entry> results = await(gatewayNode.metaStorageManager()
+                                    .getAll(Set.of(stableKey, pendingKey, plannedKey)), 1, TimeUnit.SECONDS);
+
+                            boolean isStableAsExpected = nodes.equals(assignmentsFromEntry(results.get(stableKey)));
+                            boolean isPendingEmpty = results.get(pendingKey).value() == null;
+                            boolean isPlannedEmpty = results.get(plannedKey).value() == null;
+
+                            stableNodes.set(assignmentsFromEntry(results.get(stableKey)));
+                            pendingNodes.set(assignmentsFromEntry(results.get(pendingKey)));
+                            plannedNodes.set(assignmentsFromEntry(results.get(plannedKey)));
+
+                            return isStableAsExpected && isPendingEmpty && isPlannedEmpty;
+                        },
+                        500,
+                        30_000
+                ), IgniteStringFormatter.format(
+                        "Expected: (stable: {}, pending: [], planned: []), but actual: (stable: {}, pending: {}, planned: {})",
+                        nodes, stableNodes, pendingNodes, plannedNodes
+                )
+        );
+    }
+
     static Entry getRecoveryTriggerKey(IgniteImpl node) {
         return node.metaStorageManager().getLocally(RECOVERY_TRIGGER_KEY, Long.MAX_VALUE);
+    }
+
+    private static Set<String> assignmentsFromEntry(Entry entry) {
+        return (entry.value() != null)
+                ? Assignments.fromBytes(entry.value()).nodes()
+                        .stream()
+                        .map(Assignment::consistentId)
+                        .collect(Collectors.toUnmodifiableSet())
+                : emptySet();
     }
 
     private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
@@ -143,15 +238,21 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     final int zoneIdByName(CatalogService catalogService, String zoneName) {
-        return catalogService.zone(zoneName, clock.nowLong()).id();
+        return catalogService.activeCatalog(clock.nowLong()).zone(zoneName).id();
     }
 
     private void createHaZoneWithTables(
             String zoneName, List<String> tableNames, String filter, Set<String> targetNodes) throws InterruptedException {
+        createHaZoneWithTables(zoneName, tableNames, filter, DEFAULT_STORAGE_PROFILE, targetNodes);
+    }
+
+    private void createHaZoneWithTables(
+            String zoneName, List<String> tableNames, String filter, String storageProfiles, Set<String> targetNodes
+    ) throws InterruptedException {
         executeSql(String.format(
                 "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', "
                         + "CONSISTENCY_MODE='HIGH_AVAILABILITY', DATA_NODES_FILTER='%s'",
-                zoneName, targetNodes.size(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE, filter
+                zoneName, targetNodes.size(), PARTITIONS_NUMBER, storageProfiles, filter
         ));
 
         Set<Integer> tableIds = new HashSet<>();
@@ -186,8 +287,21 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         createHaZoneWithTables(zoneName, List.of(tableName));
     }
 
+    final void createHaZoneWithTable(int replicas, String filter, Set<String> targetNodes) throws InterruptedException {
+        createHaZoneWithTables(
+                HA_ZONE_NAME, List.of(HA_TABLE_NAME), filter, targetNodes
+        );
+    }
+
     final void createHaZoneWithTable() throws InterruptedException {
         createHaZoneWithTable(HA_ZONE_NAME, HA_TABLE_NAME);
+    }
+
+    final void createHaZoneWithTableWithStorageProfile(int replicas, String storageProfiles, Set<String> targetNodes)
+            throws InterruptedException {
+        createHaZoneWithTables(
+                HA_ZONE_NAME, List.of(HA_TABLE_NAME), DEFAULT_FILTER, storageProfiles, targetNodes
+        );
     }
 
     final void createScZoneWithTable() {

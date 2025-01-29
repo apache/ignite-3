@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.future.timeout;
 
 import java.util.concurrent.CompletableFuture;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Timeout object interface.
@@ -37,4 +38,11 @@ public interface TimeoutObject<T extends CompletableFuture<?>> {
      * @return A future.
      */
     T future();
+
+    /**
+     * Describes the operation that has time limit. This is used to construct TimeoutException.
+     */
+    default @Nullable String describe() {
+        return null;
+    }
 }

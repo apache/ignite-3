@@ -34,12 +34,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Test scenarios when filter of a zone is altered and immediate scale up is triggered.
@@ -81,10 +82,14 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    void testAlterFilter(boolean defaultZone) throws Exception {
-        String zoneName = preparePrerequisites(defaultZone);
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    void testAlterFilter(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
+        String zoneName = preparePrerequisites(defaultZone, consistencyMode);
 
         // Change timers to infinite, add new node, alter filter and check that data nodes was changed.
         alterZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, FILTER);
@@ -105,10 +110,14 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    void testAlterFilterToEmtpyNodes(boolean defaultZone) throws Exception {
-        String zoneName = preparePrerequisites(defaultZone);
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    void testAlterFilterToEmtpyNodes(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
+        String zoneName = preparePrerequisites(defaultZone, consistencyMode);
 
         // Change timers to infinite, add new node, alter filter and check that data nodes was changed.
         alterZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, FILTER);
@@ -129,10 +138,19 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    void testAlterFilterDoNotAffectScaleDown(boolean defaultZone) throws Exception {
-        String zoneName = preparePrerequisites(IMMEDIATE_TIMER_VALUE, COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, defaultZone);
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    void testAlterFilterDoNotAffectScaleDown(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
+        String zoneName = preparePrerequisites(
+                IMMEDIATE_TIMER_VALUE,
+                COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS,
+                defaultZone,
+                consistencyMode
+        );
 
         topology.putNode(D);
 
@@ -177,10 +195,14 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @ParameterizedTest(name = "defaultZone={0}")
-    @ValueSource(booleans = {true, false})
-    void testNodeAddedWhileAlteringFilter(boolean defaultZone) throws Exception {
-        String zoneName = preparePrerequisites(COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, INFINITE_TIMER_VALUE, defaultZone);
+    @ParameterizedTest(name = "defaultZone={0},consistencyMode={1}")
+    @CsvSource({
+            "true,",
+            "false, HIGH_AVAILABILITY",
+            "false, STRONG_CONSISTENCY",
+    })
+    void testNodeAddedWhileAlteringFilter(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
+        String zoneName = preparePrerequisites(COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, INFINITE_TIMER_VALUE, defaultZone, consistencyMode);
 
         int zoneId = getZoneId(zoneName);
 
@@ -244,8 +266,8 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed
      */
-    private String preparePrerequisites(boolean defaultZone) throws Exception {
-        return preparePrerequisites(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, defaultZone);
+    private String preparePrerequisites(boolean defaultZone, ConsistencyMode consistencyMode) throws Exception {
+        return preparePrerequisites(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, defaultZone, consistencyMode);
     }
 
     /**
@@ -254,7 +276,12 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed
      */
-    private String preparePrerequisites(int scaleUpTimer, int scaleDownTimer, boolean defaultZone) throws Exception {
+    private String preparePrerequisites(
+            int scaleUpTimer,
+            int scaleDownTimer,
+            boolean defaultZone,
+            ConsistencyMode consistencyMode
+    ) throws Exception {
         startDistributionZoneManager();
 
         topology.putNode(A);
@@ -268,7 +295,7 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
             alterZone(zoneName, scaleUpTimer, scaleDownTimer, FILTER);
         } else {
             zoneName = ZONE_NAME;
-            createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER, DEFAULT_STORAGE_PROFILE);
+            createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER, consistencyMode, DEFAULT_STORAGE_PROFILE);
         }
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,

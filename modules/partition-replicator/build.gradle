@@ -79,6 +79,8 @@ dependencies {
     integrationTestImplementation project(':ignite-partition-distribution')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-system-disaster-recovery')
+
+    integrationTestImplementation libs.jetbrains.annotations
 }
 
 description = 'ignite-partition-replicator'

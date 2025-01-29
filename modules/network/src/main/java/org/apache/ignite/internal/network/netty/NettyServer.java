@@ -39,10 +39,10 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkView;
+import org.apache.ignite.internal.network.configuration.SslConfigurationSchema;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.internal.network.serialization.SerializationService;
-import org.apache.ignite.internal.network.ssl.SslContextProvider;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
@@ -84,27 +84,33 @@ public class NettyServer {
     /** Flag indicating if {@link #stop()} has been called. */
     private boolean stopped;
 
+    /** {@code null} if SSL is not {@link SslConfigurationSchema#enabled}. */
+    private final @Nullable SslContext sslContext;
+
     /**
      * Constructor.
      *
-     * @param configuration         Server configuration.
-     * @param handshakeManager      Handshake manager supplier.
-     * @param messageListener       Message listener.
-     * @param serializationService  Serialization service.
-     * @param bootstrapFactory      Netty bootstrap factory.
+     * @param configuration Server configuration.
+     * @param handshakeManager Handshake manager supplier.
+     * @param messageListener Message listener.
+     * @param serializationService Serialization service.
+     * @param bootstrapFactory Netty bootstrap factory.
+     * @param sslContext Server SSL context, {@code null} if SSL is not {@link SslConfigurationSchema#enabled}.
      */
     public NettyServer(
             NetworkView configuration,
             Supplier<HandshakeManager> handshakeManager,
             Consumer<InNetworkObject> messageListener,
             SerializationService serializationService,
-            NettyBootstrapFactory bootstrapFactory
+            NettyBootstrapFactory bootstrapFactory,
+            @Nullable SslContext sslContext
     ) {
         this.configuration = configuration;
         this.handshakeManager = handshakeManager;
         this.messageListener = messageListener;
         this.serializationService = serializationService;
         this.bootstrapFactory = bootstrapFactory;
+        this.sslContext = sslContext;
     }
 
     /**
@@ -125,7 +131,6 @@ public class NettyServer {
             ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
             bootstrap.childHandler(new ChannelInitializer<SocketChannel>() {
-                        /** {@inheritDoc} */
                         @Override
                         public void initChannel(SocketChannel ch) {
                             var sessionSerializationService = new PerSessionSerializationService(serializationService);
@@ -133,8 +138,7 @@ public class NettyServer {
                             // Get handshake manager for the new channel.
                             HandshakeManager manager = handshakeManager.get();
 
-                            if (configuration.ssl().enabled()) {
-                                SslContext sslContext = SslContextProvider.createServerSslContext(configuration.ssl());
+                            if (sslContext != null) {
                                 PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener, sslContext);
                             } else {
                                 PipelineUtils.setup(ch.pipeline(), sessionSerializationService, manager, messageListener);

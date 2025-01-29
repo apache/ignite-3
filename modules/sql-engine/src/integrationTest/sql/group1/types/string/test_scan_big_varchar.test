@@ -41,6 +41,8 @@ SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FR
 statement ok
 INSERT INTO bigtable SELECT * FROM bigtable
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18994
 query IIIR
 SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FROM bigtable
 ----
@@ -49,6 +51,8 @@ SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FR
 statement ok
 INSERT INTO bigtable SELECT * FROM bigtable
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18994
 query IIIR
 SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FROM bigtable
 ----
@@ -57,6 +61,8 @@ SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FR
 statement ok
 INSERT INTO bigtable SELECT * FROM bigtable
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18994
 query IIIR
 SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FROM bigtable
 ----
@@ -65,6 +71,8 @@ SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FR
 statement ok
 INSERT INTO bigtable SELECT * FROM bigtable
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18994
 query IIIR
 SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FROM bigtable
 ----
@@ -73,6 +81,8 @@ SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FR
 statement ok
 INSERT INTO bigtable SELECT * FROM bigtable
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18994
 query IIIR
 SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FROM bigtable
 ----
@@ -81,6 +91,8 @@ SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FR
 statement ok
 INSERT INTO bigtable SELECT * FROM bigtable
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18994
 query IIIR
 SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FROM bigtable
 ----
@@ -89,6 +101,8 @@ SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FR
 statement ok
 INSERT INTO bigtable SELECT * FROM bigtable
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18994
 query IIIR
 SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FROM bigtable
 ----
@@ -97,6 +111,8 @@ SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FR
 statement ok
 INSERT INTO bigtable SELECT * FROM bigtable
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18994
 query IIIR
 SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FROM bigtable
 ----
@@ -105,6 +121,8 @@ SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FR
 statement ok
 INSERT INTO bigtable SELECT * FROM bigtable
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18994
 query IIIR
 SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FROM bigtable
 ----
@@ -113,6 +131,8 @@ SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FR
 statement ok
 INSERT INTO bigtable SELECT * FROM bigtable
 
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-18994
 query IIIR
 SELECT COUNT(*), COUNT(a), MAX(CHARACTER_LENGTH(a)), SUM(CHARACTER_LENGTH(a)) FROM bigtable
 ----

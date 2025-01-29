@@ -94,7 +94,7 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
             int toCatalogVersionIncluding
     ) {
         return IntStream.rangeClosed(fromCatalogVersionIncluding, toCatalogVersionIncluding)
-                .mapToObj(catalogVersion -> catalogService.table(tableId, catalogVersion))
+                .mapToObj(catalogVersion -> catalogService.catalog(catalogVersion).table(tableId))
                 .filter(new Predicate<>() {
                     int prevVersion = Integer.MIN_VALUE;
 

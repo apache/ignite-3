@@ -31,6 +31,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.AbstractPageMemoryIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
@@ -50,6 +51,7 @@ import org.junit.jupiter.api.Test;
  * Tests about accessing destroyed index storages.
  */
 class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTest {
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
     private static final String TABLE_NAME = "TEST_TABLE";
     private static final String INDEX_NAME = "TEST_INDEX";
 
@@ -99,7 +101,8 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
 
     private int indexId(String indexName) {
         IgniteImpl igniteImpl = unwrapIgniteImpl(node);
-        CatalogIndexDescriptor indexDescriptor = igniteImpl.catalogManager().aliveIndex(indexName, igniteImpl.clock().nowLong());
+        long timestamp = igniteImpl.clock().nowLong();
+        CatalogIndexDescriptor indexDescriptor = igniteImpl.catalogManager().activeCatalog(timestamp).aliveIndex(SCHEMA_NAME, indexName);
         assertThat(indexDescriptor, is(notNullValue()));
 
         return indexDescriptor.id();

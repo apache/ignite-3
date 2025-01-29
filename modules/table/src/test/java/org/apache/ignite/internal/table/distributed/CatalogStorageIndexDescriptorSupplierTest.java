@@ -66,6 +66,8 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
     private static final long MIN_DATA_AVAILABILITY_TIME = DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
             + TEST_MAX_CLOCK_SKEW_MILLIS;
 
+    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     private static final String TABLE_NAME = "TEST";
 
     private static final String INDEX_NAME = "TEST_IDX";
@@ -123,13 +125,13 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
         int indexId = createIndex();
 
         CatalogCommand dropIndexCommand = DropIndexCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .schemaName(SCHEMA_NAME)
                 .indexName(INDEX_NAME)
                 .build();
 
         assertThat(catalogManager.execute(dropIndexCommand), willCompleteSuccessfully());
 
-        assertThat(catalogManager.index(indexId, catalogManager.latestCatalogVersion()), is(nullValue()));
+        assertThat(catalogManager.activeCatalog(clock.nowLong()).index(indexId), is(nullValue()));
 
         StorageIndexDescriptor indexDescriptor = indexDescriptorSupplier.get(indexId);
 
@@ -161,7 +163,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
         int indexId = createIndex();
 
         CatalogCommand dropIndexCommand = DropIndexCommand.builder()
-                .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
+                .schemaName(SCHEMA_NAME)
                 .indexName(INDEX_NAME)
                 .build();
 
@@ -186,24 +188,26 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
                 .columns(List.of("foo"))
                 .build();
 
-        List<CatalogCommand> commands = List.of(
-                CreateTableCommand.builder()
-                        .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
-                        .tableName(TABLE_NAME)
-                        .columns(List.of(ColumnParams.builder().name("foo").type(ColumnType.INT32).build()))
-                        .primaryKey(primaryKey)
-                        .build(),
-                CreateHashIndexCommand.builder()
-                        .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)
-                        .tableName(TABLE_NAME)
-                        .indexName(INDEX_NAME)
-                        .columns(List.of("foo"))
-                        .build()
-        );
+        CatalogCommand createTableCmd = CreateTableCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(ColumnParams.builder().name("foo").type(ColumnType.INT32).build()))
+                .primaryKey(primaryKey)
+                .build();
 
-        assertThat(catalogManager.execute(commands), willCompleteSuccessfully());
+        CatalogCommand createIndexCmd = CreateHashIndexCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .indexName(INDEX_NAME)
+                .columns(List.of("foo"))
+                .build();
 
-        CatalogIndexDescriptor index = catalogManager.aliveIndex(INDEX_NAME, clock.nowLong());
+        assertThat(catalogManager.execute(createTableCmd), willCompleteSuccessfully());
+
+        // The create index command is executed separately, otherwise the index will be created in the AVAILABLE state.
+        assertThat(catalogManager.execute(createIndexCmd), willCompleteSuccessfully());
+
+        CatalogIndexDescriptor index = catalogManager.activeCatalog(clock.nowLong()).aliveIndex(SCHEMA_NAME, INDEX_NAME);
 
         assertThat(index, is(notNullValue()));
 

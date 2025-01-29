@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-PACKAGE_NAME=pyignite3
+PACKAGE_NAME="pyignite_dbapi"
 SRC_DIR="$(pwd)"
 DISTR_DIR="$SRC_DIR/distr/"
 CPP_DIR="$SRC_DIR/../cpp/"

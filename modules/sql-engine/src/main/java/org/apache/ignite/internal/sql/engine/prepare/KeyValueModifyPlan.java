@@ -27,8 +27,8 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleLong;
-import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
@@ -40,11 +40,9 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Plan representing simple modify operation that can be executed by Key-Value API.
@@ -141,23 +139,16 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
     }
 
     @Override
-    public <RowT> AsyncCursor<InternalSqlRow> execute(
+    public <RowT> AsyncDataCursor<InternalSqlRow> execute(
             ExecutionContext<RowT> ctx,
             InternalTransaction tx,
-            ExecutableTableRegistry tableRegistry,
-            @Nullable QueryPrefetchCallback firstPageReadyCallback
+            ExecutableTableRegistry tableRegistry
     ) {
         InsertExecution<RowT> operation = operation(ctx, tableRegistry);
 
         CompletableFuture<Iterator<InternalSqlRow>> result = operation.perform(ctx, tx);
 
-        if (firstPageReadyCallback != null) {
-            result.whenComplete((res, err) -> firstPageReadyCallback.onPrefetchComplete(err));
-        }
-
-        ctx.scheduleTimeout(result);
-
-        return new AsyncWrapper<>(result, Runnable::run);
+        return new IteratorToDataCursorAdapter<>(result, Runnable::run);
     }
 
     private static class InsertExecution<RowT> {

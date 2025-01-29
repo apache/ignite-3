@@ -27,6 +27,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 
 /**
@@ -63,11 +64,10 @@ public class ClientTables implements IgniteTables {
             var res = new ArrayList<Table>(cnt);
 
             for (int i = 0; i < cnt; i++) {
-                int id = in.unpackInt();
-                String name = in.unpackString();
-                @SuppressWarnings("unused") String schemaName = in.unpackStringNullable();
+                int tableId = in.unpackInt();
+                QualifiedName name = QualifiedName.parse(in.unpackString());
 
-                res.add(new ClientTable(ch, marshallers, id, name));
+                res.add(new ClientTable(ch, marshallers, tableId, name));
             }
 
             return res;
@@ -76,21 +76,18 @@ public class ClientTables implements IgniteTables {
 
     /** {@inheritDoc} */
     @Override
-    public Table table(String name) {
+    public Table table(QualifiedName name) {
         return sync(tableAsync(name));
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Table> tableAsync(String name) {
+    public CompletableFuture<Table> tableAsync(QualifiedName name) {
         Objects.requireNonNull(name);
 
-        return ch.serviceAsync(
-                ClientOp.TABLE_GET,
-                w -> {
-                    w.out().packString(name);
-                    w.out().packString(null); // Schema placeholder.
-                },
-                r -> r.in().tryUnpackNil() ? null : new ClientTable(ch, marshallers, r.in().unpackInt(), name));
+        return ch.serviceAsync(ClientOp.TABLE_GET, w -> w.out().packString(name.toCanonicalForm()),
+                r -> r.in().tryUnpackNil()
+                        ? null
+                        : new ClientTable(ch, marshallers, r.in().unpackInt(), QualifiedName.parse(r.in().unpackString())));
     }
 }

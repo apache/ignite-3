@@ -135,7 +135,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      * @see #completeBuildIndex(IndexStorage)
      */
     protected SortedIndexStorage createIndexStorage(String name, boolean built, CatalogIndexColumnDescriptor... columns) {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor tableDescriptor = catalog.table(SCHEMA_NAME, TABLE_NAME);
 
         int tableId = tableDescriptor.id();
         int indexId = catalogId.getAndIncrement();

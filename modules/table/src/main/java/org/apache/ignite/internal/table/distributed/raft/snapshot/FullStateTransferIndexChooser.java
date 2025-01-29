@@ -37,6 +37,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
@@ -123,11 +124,11 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
      */
     public List<IndexIdAndTableVersion> chooseForAddWrite(int catalogVersion, int tableId, HybridTimestamp beginTs) {
         return inBusyLock(busyLock, () -> {
-            int activeCatalogVersionAtBeginTxTs = catalogService.activeCatalogVersion(beginTs.longValue());
+            Catalog catalog = catalogService.activeCatalog(beginTs.longValue());
 
             List<Integer> fromCatalog = chooseFromCatalogBusy(catalogVersion, tableId, index -> {
                 if (index.status() == REGISTERED) {
-                    CatalogIndexDescriptor indexAtBeginTs = catalogService.index(index.id(), activeCatalogVersionAtBeginTxTs);
+                    CatalogIndexDescriptor indexAtBeginTs = catalog.index(index.id());
 
                     return indexAtBeginTs != null && indexAtBeginTs.status() == REGISTERED;
                 }
@@ -171,7 +172,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     }
 
     private List<Integer> chooseFromCatalogBusy(int catalogVersion, int tableId, Predicate<CatalogIndexDescriptor> filter) {
-        List<CatalogIndexDescriptor> indexes = catalogService.indexes(catalogVersion, tableId);
+        List<CatalogIndexDescriptor> indexes = catalogService.catalog(catalogVersion).indexes(tableId);
 
         if (indexes.isEmpty()) {
             return List.of();

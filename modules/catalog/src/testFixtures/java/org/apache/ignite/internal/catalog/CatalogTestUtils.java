@@ -46,7 +46,6 @@ import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
@@ -72,7 +71,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.sql.ColumnType;
-import org.jetbrains.annotations.Nullable;
 
 /** Utilities for working with the catalog in tests. */
 public class CatalogTestUtils {
@@ -484,7 +482,7 @@ public class CatalogTestUtils {
      * @param tableName Table name.
      */
     public static CatalogTableDescriptor table(CatalogService catalogService, int catalogVersion, String tableName) {
-        CatalogTableDescriptor tableDescriptor = catalogService.tables(catalogVersion).stream()
+        CatalogTableDescriptor tableDescriptor = catalogService.catalog(catalogVersion).tables().stream()
                 .filter(table -> tableName.equals(table.name()))
                 .findFirst()
                 .orElse(null);
@@ -492,39 +490,6 @@ public class CatalogTestUtils {
         assertNotNull(tableDescriptor, "catalogVersion=" + catalogVersion + ", tableName=" + tableName);
 
         return tableDescriptor;
-    }
-
-    /**
-     * Searches for an index by name in the requested version of the catalog. Throws if the index is not found.
-     *
-     * @param catalogService Catalog service.
-     * @param catalogVersion Catalog version in which to find the index.
-     * @param indexName Index name.
-     * @return Index (cannot be null).
-     */
-    public static CatalogIndexDescriptor index(CatalogService catalogService, int catalogVersion, String indexName) {
-        CatalogIndexDescriptor indexDescriptor = indexOrNull(catalogService,
-                catalogVersion, indexName);
-
-        assertNotNull(indexDescriptor, "catalogVersion=" + catalogVersion + ", indexName=" + indexName);
-
-        return indexDescriptor;
-    }
-
-    /**
-     * Searches for an index by name in the requested version of the catalog.
-     *
-     * @param catalogService Catalog service.
-     * @param catalogVersion Catalog version in which to find the index.
-     * @param indexName Index name.
-     * @return Index or {@code null} if not found.
-     */
-    @Nullable
-    public static CatalogIndexDescriptor indexOrNull(CatalogService catalogService, int catalogVersion, String indexName) {
-        return catalogService.indexes(catalogVersion).stream()
-                .filter(index -> indexName.equals(index.name()))
-                .findFirst()
-                .orElse(null);
     }
 
     /**
@@ -604,7 +569,7 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public List<UpdateEntry> get(Catalog catalog) {
+        public List<UpdateEntry> get(UpdateContext updateContext) {
             if (!successful) {
                 throw new TestCommandFailure();
             }

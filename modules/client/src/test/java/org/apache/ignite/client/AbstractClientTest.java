@@ -41,7 +41,7 @@ import org.junit.jupiter.api.BeforeEach;
  * Base class for client tests.
  */
 public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
-    protected static final String DEFAULT_TABLE = "default_test_table";
+    protected static final String DEFAULT_TABLE = "DEFAULT_TEST_TABLE";
 
     protected static TestServer testServer;
 
@@ -87,7 +87,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
 
     protected void dropTables(Ignite ignite) {
         for (var t : ignite.tables().tables()) {
-            ((FakeIgniteTables) ignite.tables()).dropTable(t.name());
+            ((FakeIgniteTables) ignite.tables()).dropTable(t.qualifiedName());
         }
     }
 

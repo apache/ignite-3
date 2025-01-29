@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 
@@ -91,7 +92,20 @@ public interface JobTarget {
      * @return Job target.
      */
     static JobTarget colocated(String tableName, Tuple key) {
-        return new ColocatedJobTarget(tableName, key, null);
+        return colocated(QualifiedName.parse(tableName), key);
+    }
+
+    /**
+     * Creates a colocated job target for a specific {@link QualifiedName} and key.
+     *
+     * <p>This target determines that a job should be executed on the same node that hosts the data for a given key of provided table.
+     *
+     * @param name QualifiedName name.
+     * @param key Key.
+     * @return Job target.
+     */
+    static JobTarget colocated(QualifiedName name, Tuple key) {
+        return new ColocatedJobTarget(name, key, null);
     }
 
     /**
@@ -104,6 +118,19 @@ public interface JobTarget {
      * @return Job target.
      */
     static <K> JobTarget colocated(String tableName, K key, Mapper<K> keyMapper) {
-        return new ColocatedJobTarget(tableName, key, keyMapper);
+        return colocated(QualifiedName.parse(tableName), key, keyMapper);
+    }
+
+    /**
+     * Creates a colocated job target for a specific {@link QualifiedName} and key with mapper.
+     *
+     * <p>This target determines that a job should be executed on the same node that hosts the data for a given key of provided table.
+     *
+     * @param name QualifiedName name.
+     * @param key Key.
+     * @return Job target.
+     */
+    static <K> JobTarget colocated(QualifiedName name, K key, Mapper<K> keyMapper) {
+        return new ColocatedJobTarget(name, key, keyMapper);
     }
 }

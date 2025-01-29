@@ -82,7 +82,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         requested = rowsCnt;
 
         if (!inLoop) {
-            context().execute(this::doJoin, this::onError);
+            this.execute(this::doJoin);
         }
     }
 

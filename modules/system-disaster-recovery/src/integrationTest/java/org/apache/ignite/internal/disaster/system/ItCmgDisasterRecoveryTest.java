@@ -283,7 +283,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
                         + "DATA_NODES_AUTO_ADJUST_SCALE_UP=0, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=0"
         );
 
-        int zoneId = igniteImpl(1).catalogManager().zone("TEST_ZONE", Long.MAX_VALUE).id();
+        int zoneId = igniteImpl(1).catalogManager().activeCatalog(Long.MAX_VALUE).zone("TEST_ZONE").id();
 
         waitTillDataNodesBecome(new int[]{0, 1}, zoneId, igniteImpl(1));
 

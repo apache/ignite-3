@@ -445,7 +445,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         );
 
         assertInstanceOf(TableNotFoundException.class, ex.getCause());
-        assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"BAD_TABLE\"]"));
+        assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=PUBLIC.BAD_TABLE]"));
     }
 
     @ParameterizedTest(name = "local: {0}")

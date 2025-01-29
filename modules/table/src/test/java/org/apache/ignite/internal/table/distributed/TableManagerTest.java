@@ -91,6 +91,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -136,7 +137,6 @@ import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyn
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -147,6 +147,7 @@ import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -468,7 +469,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         dropTable(DYNAMIC_TABLE_NAME);
         createTable(DYNAMIC_TABLE_NAME);
 
-        table = tableManager.tableView(DYNAMIC_TABLE_NAME);
+        table = tableManager.tableView(table.qualifiedName());
 
         assertNotNull(table);
         assertNotEquals(oldTableId, table.tableId());
@@ -789,7 +790,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         createTable(tableName);
 
-        TableViewInternal tbl2 = tableManager.tableView(tableName);
+        TableViewInternal tbl2 = tableManager.tableView(QualifiedName.fromSimple(tableName));
 
         assertNotNull(tbl2);
 
@@ -937,10 +938,6 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private void dropTable(String tableName) {
         TableTestUtils.dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
-    }
-
-    private Collection<CatalogTableDescriptor> allTableDescriptors() {
-        return catalogManager.tables(catalogManager.latestCatalogVersion());
     }
 
     private CompletableFuture<Void> fireDestroyEvent() {

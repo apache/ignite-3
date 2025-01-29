@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * Broadcast job execution target.
@@ -68,10 +69,22 @@ public interface BroadcastJobTarget {
      * Creates a job target for partitioned execution. For each partition in the provided table the job will be executed on a node that
      * holds the primary replica.
      *
-     * @param tableName Table name.
+     * @param tableName  Name of the table with SQL-parser style quotation, e.g.
+     *             "tbl0" - the table "TBL0" will be looked up, "\"Tbl0\"" - "Tbl0", etc.
      * @return Job target.
      */
     static BroadcastJobTarget table(String tableName) {
+        return table(QualifiedName.parse(tableName));
+    }
+
+    /**
+     * Creates a job target for partitioned execution. For each partition in the provided table the job will be executed on a node that
+     * holds the primary replica.
+     *
+     * @param tableName QualifiedName name.
+     * @return Job target.
+     */
+    static BroadcastJobTarget table(QualifiedName tableName) {
         return new TableJobTarget(tableName);
     }
 }

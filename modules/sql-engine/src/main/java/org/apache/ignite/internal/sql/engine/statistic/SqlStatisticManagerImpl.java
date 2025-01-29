@@ -112,7 +112,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
 
         if (force || lastUpdateTime <= currTimestamp - thresholdTimeToPostponeUpdateMs) {
             // Prevent to run update for the same table twice concurrently.
-            if (!force && !tableSizeMap.replace(tableId, tableSize, new ActualSize(tableSize.getSize(), currTimestamp))) {
+            if (!force && !tableSizeMap.replace(tableId, tableSize, new ActualSize(tableSize.getSize(), currTimestamp - 1))) {
                 return;
             }
 
@@ -120,7 +120,14 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
             CompletableFuture<Void> updateResult = tableView.internalTable().estimatedSize()
                     .thenAccept(size -> {
                         // the table can be concurrently dropped and we shouldn't put new value in this case.
-                        tableSizeMap.computeIfPresent(tableId, (k, v) -> new ActualSize(size, currTimestamp));
+                        tableSizeMap.computeIfPresent(tableId, (k, v) -> {
+                            // Discard current computation if value in cache is newer than current one.
+                            if (v.timestamp >= currTimestamp) {
+                                return v;
+                            }
+
+                            return new ActualSize(size, currTimestamp);
+                        });
                     }).exceptionally(e -> {
                         LOG.info("Can't calculate size for table [id={}].", e, tableId);
                         return null;
@@ -140,7 +147,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         int earliestVersion = catalogService.earliestCatalogVersion();
         int latestVersion = catalogService.latestCatalogVersion();
         for (int version = earliestVersion; version <= latestVersion; version++) {
-            Collection<CatalogTableDescriptor> tables = catalogService.tables(version);
+            Collection<CatalogTableDescriptor> tables = catalogService.catalog(version).tables();
             for (CatalogTableDescriptor table : tables) {
                 tableSizeMap.putIfAbsent(table.id(), DEFAULT_VALUE);
             }

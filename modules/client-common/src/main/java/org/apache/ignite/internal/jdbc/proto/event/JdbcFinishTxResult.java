@@ -17,15 +17,29 @@
 
 package org.apache.ignite.internal.jdbc.proto.event;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Result of commit/rollback command.
  */
 public class JdbcFinishTxResult extends Response {
+    /** Observable timestamp used only on server side. */
+    @SuppressWarnings("TransientFieldInNonSerializableClass")
+    private final transient @Nullable HybridTimestamp observableTime;
+
     /**
      * Default constructor is used for deserialization.
      */
     public JdbcFinishTxResult() {
-        // No-op.
+        this.observableTime = null;
+    }
+
+    /**
+     * Constructor.
+     */
+    public JdbcFinishTxResult(@Nullable HybridTimestamp observableTime) {
+        this.observableTime = observableTime;
     }
 
     /**
@@ -36,5 +50,14 @@ public class JdbcFinishTxResult extends Response {
      */
     public JdbcFinishTxResult(int status, String err) {
         super(status, err);
+
+        this.observableTime = null;
+    }
+
+    /**
+     * Returns transaction observable time.
+     */
+    public @Nullable HybridTimestamp observableTime() {
+        return observableTime;
     }
 }

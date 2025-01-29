@@ -37,6 +37,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -179,6 +180,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
             @Nullable String filter,
+            @Nullable ConsistencyMode consistencyMode,
             String storageProfiles
     ) {
         DistributionZonesTestUtil.createZone(
@@ -187,6 +189,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
                 dataNodesAutoAdjustScaleUp,
                 dataNodesAutoAdjustScaleDown,
                 filter,
+                consistencyMode,
                 storageProfiles
         );
     }

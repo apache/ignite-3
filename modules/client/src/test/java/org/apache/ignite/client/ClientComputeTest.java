@@ -64,6 +64,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.AfterEach;
@@ -76,7 +77,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
 public class ClientComputeTest extends BaseIgniteAbstractTest {
-    private static final String TABLE_NAME = "tbl1";
+    private static final String TABLE_NAME = "TBL1";
 
     private FakeIgnite ignite1;
     private FakeIgnite ignite2;
@@ -196,10 +197,10 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
 
             var ex = assertThrows(CompletionException.class,
                     () -> client.compute().executeAsync(
-                            JobTarget.colocated("bad-tbl", key), JobDescriptor.builder("job").build(), null).join());
+                            JobTarget.colocated("\"bad-tbl\"", key), JobDescriptor.builder("job").build(), null).join());
 
             var tblNotFoundEx = (TableNotFoundException) ex.getCause();
-            assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-tbl\"]"));
+            assertThat(tblNotFoundEx.getMessage(), containsString("The table does not exist [name=PUBLIC.\"bad-tbl\"]"));
             assertEquals(TABLE_NOT_FOUND_ERR, tblNotFoundEx.code());
         }
     }
@@ -207,7 +208,7 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     void testExecuteColocatedUpdatesTableCacheOnTableDrop(boolean forceLoadAssignment) {
-        String tableName = "drop-me";
+        String tableName = "DROP_ME";
 
         initServers(reqId -> false);
         createTable(tableName);
@@ -224,8 +225,8 @@ public class ClientComputeTest extends BaseIgniteAbstractTest {
             createTable(tableName);
 
             if (forceLoadAssignment) {
-                Map<String, ClientTable> tables = IgniteTestUtils.getFieldValue(client.compute(), "tableCache");
-                ClientTable table = tables.get(tableName);
+                Map<QualifiedName, ClientTable> tables = IgniteTestUtils.getFieldValue(client.compute(), "tableCache");
+                ClientTable table = tables.get(QualifiedName.fromSimple(tableName));
                 assertNotNull(table);
                 IgniteTestUtils.setFieldValue(table, "partitionAssignment", null);
             }

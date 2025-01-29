@@ -1,9 +1,9 @@
 {
     "$schema": "https://raw.githubusercontent.com/dotnet/Nerdbank.GitVersioning/main/src/NerdBank.GitVersioning/version.schema.json",
-    "version": "3.0.0-snapshot",
+    "version": "3.1.0-snapshot",
     "publicReleaseRefSpec": [
         "^refs/heads/main",
-        "^refs/heads/\\d+.*$"
+        "^refs/heads/ignite-3\\.\\d+.*$"
     ],
     "cloudBuild": {
         "setVersionVariables": false,

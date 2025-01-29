@@ -30,6 +30,8 @@ public class ErrorCodeGroupDescriptor {
 
     public Integer groupCode;
 
+    public String errorPrefix;
+
     /**
      * Class that holds info about one error code.
      */

@@ -143,9 +143,10 @@ public class JdbcStatement implements Statement {
         long correlationToken = nextToken();
 
         JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql, args,
-                conn.getAutoCommit(), multiStatement, queryTimeoutMillis, correlationToken);
+                conn.getAutoCommit(), multiStatement, queryTimeoutMillis, correlationToken, conn.observableTimestamp());
 
         JdbcQueryExecuteResponse res;
+
         try {
             res = (JdbcQueryExecuteResponse) conn.handler().queryAsync(conn.connectionId(), req).get();
         } catch (InterruptedException e) {

@@ -198,7 +198,8 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         // Let's do checks.
         assertMetastoreKeyPresent(metaStorageManager, inProgressBuildIndexMetastoreKey(indexId));
 
-        int partitions = getPartitionCountFromCatalog(catalogManager, indexId, catalogManager.latestCatalogVersion());
+        int partitions = getPartitionCountFromCatalog(catalogManager.catalog(catalogManager.latestCatalogVersion()), indexId
+        );
         assertThat(partitions, greaterThan(0));
 
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
