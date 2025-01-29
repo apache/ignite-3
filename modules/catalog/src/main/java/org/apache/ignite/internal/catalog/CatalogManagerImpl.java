@@ -240,6 +240,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             return nullCompletedFuture();
         }
 
+        if (commands.size() == 1) {
+            return execute(commands.get(0));
+        }
+
         return saveUpdateAndWaitForActivation(new BulkUpdateProducer(List.copyOf(commands)));
     }
 
@@ -282,7 +286,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 CreateSchemaCommand.builder().name(SYSTEM_SCHEMA_NAME).build()
         );
 
-        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(emptyCatalog);
+        List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(new UpdateContext(emptyCatalog));
 
         return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
                 .handle((result, error) -> {
@@ -393,7 +397,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
             List<UpdateEntry> updates;
             try {
-                updates = updateProducer.get(catalog);
+                updates = updateProducer.get(new UpdateContext(catalog));
             } catch (CatalogValidationException ex) {
                 return failedFuture(new CatalogVersionAwareValidationException(ex, catalog.version()));
             } catch (Exception ex) {
@@ -511,28 +515,4 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         );
     }
 
-    private static class BulkUpdateProducer implements UpdateProducer {
-        private final List<? extends UpdateProducer> commands;
-
-        BulkUpdateProducer(List<? extends UpdateProducer> producers) {
-            this.commands = producers;
-        }
-
-        @Override
-        public List<UpdateEntry> get(Catalog catalog) {
-            List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
-
-            for (UpdateProducer producer : commands) {
-                List<UpdateEntry> entries = producer.get(catalog);
-
-                for (UpdateEntry entry : entries) {
-                    catalog = entry.applyUpdate(catalog, INITIAL_CAUSALITY_TOKEN);
-                }
-
-                bulkUpdateEntries.addAll(entries);
-            }
-
-            return bulkUpdateEntries;
-        }
-    }
 }

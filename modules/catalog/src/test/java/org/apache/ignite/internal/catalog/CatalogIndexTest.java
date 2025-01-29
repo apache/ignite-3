@@ -126,6 +126,26 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertEquals(REGISTERED, index.status());
     }
 
+    /** The index created with the table must be in the {@link CatalogIndexStatus#AVAILABLE} state. */
+    @Test
+    public void testCreateHashIndexWithTable() {
+        int catalogVersion = await(manager.execute(List.of(
+                simpleTable(TABLE_NAME),
+                createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID")))
+        ));
+
+        Catalog catalog = manager.catalog(catalogVersion);
+        assertNotNull(catalog);
+
+        // Validate newly created hash index.
+        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) catalog.aliveIndex(SCHEMA_NAME, INDEX_NAME);
+        assertEquals(INDEX_NAME, index.name());
+        assertEquals(catalog.table(SCHEMA_NAME, TABLE_NAME).id(), index.tableId());
+        assertEquals(List.of("VAL", "ID"), index.columns());
+        assertFalse(index.unique());
+        assertEquals(AVAILABLE, index.status());
+    }
+
     @Test
     public void testCreateSortedIndex() {
         int tableCreationVersion = await(manager.execute(simpleTable(TABLE_NAME)));
@@ -167,6 +187,34 @@ public class CatalogIndexTest extends BaseCatalogManagerTest {
         assertTrue(index.unique());
         assertEquals(REGISTERED, index.status());
 
+    }
+
+    /** The index created with the table must be in the {@link CatalogIndexStatus#AVAILABLE} state. */
+    @Test
+    public void testCreateSortedIndexWithTable() {
+        int catalogVersion = await(manager.execute(List.of(
+                simpleTable(TABLE_NAME),
+                createSortedIndexCommand(
+                        INDEX_NAME,
+                        true,
+                        List.of("VAL", "ID"),
+                        List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
+                ))
+        ));
+
+        Catalog catalog = manager.catalog(catalogVersion);
+        assertNotNull(catalog);
+
+        // Validate newly created sorted index.
+        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) catalog.aliveIndex(SCHEMA_NAME, INDEX_NAME);
+        assertEquals(INDEX_NAME, index.name());
+        assertEquals(catalog.table(SCHEMA_NAME, TABLE_NAME).id(), index.tableId());
+        assertEquals("VAL", index.columns().get(0).name());
+        assertEquals("ID", index.columns().get(1).name());
+        assertEquals(DESC_NULLS_FIRST, index.columns().get(0).collation());
+        assertEquals(ASC_NULLS_LAST, index.columns().get(1).collation());
+        assertTrue(index.unique());
+        assertEquals(AVAILABLE, index.status());
     }
 
     @Test

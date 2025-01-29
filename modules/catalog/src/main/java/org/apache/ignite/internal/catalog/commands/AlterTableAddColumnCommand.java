@@ -31,6 +31,7 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -71,7 +72,8 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
         CatalogTableDescriptor table = tableOrThrow(schema, tableName);

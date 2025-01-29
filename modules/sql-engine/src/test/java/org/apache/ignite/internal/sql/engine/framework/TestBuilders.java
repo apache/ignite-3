@@ -18,17 +18,13 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
-import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -78,7 +74,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.event.EventListener;
@@ -852,44 +847,6 @@ public class TestBuilders {
                     .flatMap(builder -> builder.build().stream())
                     .collect(Collectors.toList());
 
-            CompletableFuture<Boolean> indicesReadyFut;
-
-            // Make indices registered via builder API available on startup.
-            if (!tableBuilders.isEmpty()) {
-                Set<String> initialIndices = tableBuilders.stream()
-                        .flatMap(builder -> builder.indexBuilders.stream())
-                        .map(builder -> builder.name)
-                        .collect(toCollection(ConcurrentHashMap::newKeySet));
-
-                if (initialIndices.isEmpty()) {
-                    indicesReadyFut = trueCompletedFuture();
-                } else {
-                    indicesReadyFut = new CompletableFuture<>();
-
-                    Consumer<MakeIndexAvailableEventParameters> indexAvailableHandler = params -> {
-                        CatalogIndexDescriptor index = catalogManager.catalog(params.catalogVersion()).index(params.indexId());
-
-                        assertThat(index, is(notNullValue()));
-
-                        initialIndices.remove(index.name());
-
-                        if (initialIndices.isEmpty()) {
-                            indicesReadyFut.complete(true);
-                        }
-                    };
-
-                    EventListener<MakeIndexAvailableEventParameters> listener = EventListener.fromConsumer(indexAvailableHandler);
-                    catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, listener);
-
-                    // Remove listener, when all indices become available.
-                    indicesReadyFut.whenComplete((r, t) -> {
-                        catalogManager.removeListener(CatalogEvent.INDEX_AVAILABLE, listener);
-                    });
-                }
-            } else {
-                indicesReadyFut = trueCompletedFuture();
-            }
-
             // Every time an index is created add `start building `and `make available` commands
             // to make that index accessible to the SQL engine.
             Consumer<CreateIndexEventParameters> createIndexHandler = (params) -> {
@@ -918,9 +875,6 @@ public class TestBuilders {
 
             // Init schema.
             await(catalogManager.execute(initialSchema));
-
-            // Wait until all indices become available.
-            await(indicesReadyFut);
         }
     }
 
