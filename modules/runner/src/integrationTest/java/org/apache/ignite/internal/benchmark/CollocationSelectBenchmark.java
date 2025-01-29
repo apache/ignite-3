@@ -72,6 +72,16 @@ public class CollocationSelectBenchmark extends AbstractCollocationBenchmark {
         return partitionCount;
     }
 
+    @Override
+    protected int tableCount() {
+        return tableCount;
+    }
+
+    @Override
+    protected boolean tinySchemaSyncWaits() {
+        return tinySchemaSyncWaits;
+    }
+
     /**
      * Fills the tables with data.
      */
@@ -118,7 +128,9 @@ public class CollocationSelectBenchmark extends AbstractCollocationBenchmark {
 
         KeyValueView<Tuple, Tuple> kvView = tableViews.get(tableIdx);
 
-        Tuple value = kvView.get(null, Tuple.create().set("id", random.nextInt(TABLE_SIZE)));
+        Tuple value = publicIgnite.transactions().runInTransaction(tx -> {
+            return kvView.get(tx, Tuple.create().set("id", random.nextInt(TABLE_SIZE)));
+        });
 
         hole.consume(value);
     }

@@ -108,7 +108,9 @@ public class CollocationInsertBenchmark extends AbstractCollocationBenchmark {
 
         KeyValueView<Tuple, Tuple> kvView = tableViews.get(tableIdx);
 
-        kvView.put(null, Tuple.create().set("id", currentId), tuple);
+        publicIgnite.transactions().runInTransaction(tx -> {
+            kvView.put(tx, Tuple.create().set("id", currentId), tuple);
+        });
     }
 
     /**
