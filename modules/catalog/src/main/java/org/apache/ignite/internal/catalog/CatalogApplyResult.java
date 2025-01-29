@@ -23,6 +23,7 @@ import java.util.BitSet;
 /** Represent result of applying Catalog command. */
 public class CatalogApplyResult {
     private final int catalogVersion;
+    private final long catalogTime;
     private final BitSet applied;
 
     /**
@@ -32,16 +33,23 @@ public class CatalogApplyResult {
      *      not been applied. Order of bits the same as commands given for execution to Catalog.
      * @param catalogVersion Version of a catalog when the changes was visible.
      */
-    public CatalogApplyResult(BitSet appliedResults, int catalogVersion) {
+    public CatalogApplyResult(BitSet appliedResults, int catalogVersion, long catalogTime) {
         assert appliedResults != null;
 
         this.applied = appliedResults;
         this.catalogVersion = catalogVersion;
+        this.catalogTime = catalogTime;
     }
 
     /** Returns catalog version since applied result is available. */
     public int getCatalogVersion() {
         return catalogVersion;
+    }
+
+    /** Returns catalog time since applied result is available. */
+    public long getCatalogTime() {
+
+        return catalogTime;
     }
 
     /**

@@ -17,33 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
-import java.util.function.BiFunction;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogApplyResult;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.AbstractCreateIndexCommand;
-import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
-import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
-import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
-import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
-import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
-import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
-import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
-import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
-import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
-import org.apache.ignite.internal.catalog.commands.DropSchemaCommand;
-import org.apache.ignite.internal.catalog.commands.DropTableCommand;
-import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
-import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -57,7 +41,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /** DDL commands handler. */
@@ -90,125 +73,20 @@ public class DdlCommandHandler implements LifecycleAware {
      *         catalog, the result will be {@code null}.
      */
     public CompletableFuture<@Nullable Long> handle(CatalogCommand cmd) {
-        if (cmd instanceof CreateSchemaCommand) {
-            return handleCreateSchema((CreateSchemaCommand) cmd);
-        } else if (cmd instanceof DropSchemaCommand) {
-            return handleDropSchema((DropSchemaCommand) cmd);
-        } else if (cmd instanceof CreateTableCommand) {
-            return handleCreateTable((CreateTableCommand) cmd);
-        } else if (cmd instanceof DropTableCommand) {
-            return handleDropTable((DropTableCommand) cmd);
-        } else if (cmd instanceof AlterTableAddColumnCommand) {
-            return handleAlterAddColumn((AlterTableAddColumnCommand) cmd);
-        } else if (cmd instanceof AlterTableDropColumnCommand) {
-            return handleAlterDropColumn((AlterTableDropColumnCommand) cmd);
-        } else if (cmd instanceof AlterTableAlterColumnCommand) {
-            return handleAlterColumn((AlterTableAlterColumnCommand) cmd);
-        } else if (cmd instanceof AbstractCreateIndexCommand) {
-            return handleCreateIndex((AbstractCreateIndexCommand) cmd);
-        } else if (cmd instanceof DropIndexCommand) {
-            return handleDropIndex((DropIndexCommand) cmd);
-        } else if (cmd instanceof CreateZoneCommand) {
-            return handleCreateZone((CreateZoneCommand) cmd);
-        } else if (cmd instanceof RenameZoneCommand) {
-            return handleRenameZone((RenameZoneCommand) cmd);
-        } else if (cmd instanceof AlterZoneCommand) {
-            return handleAlterZone((AlterZoneCommand) cmd);
-        } else if (cmd instanceof AlterZoneSetDefaultCommand) {
-            return handleAlterZoneSetDefault((AlterZoneSetDefaultCommand) cmd);
-        } else if (cmd instanceof DropZoneCommand) {
-            return handleDropZone((DropZoneCommand) cmd);
-        } else {
-            return failedFuture(new SqlException(STMT_VALIDATION_ERR, "Unsupported DDL operation ["
-                    + "cmdName=" + (cmd == null ? null : cmd.getClass().getSimpleName()) + "; "
-                    + "cmd=\"" + cmd + "\"]"));
+        CompletableFuture<CatalogApplyResult> fut = catalogManager.execute(cmd);
+
+        if (cmd instanceof AbstractCreateIndexCommand) {
+            fut = fut.thenCompose(applyResult ->
+                    inBusyLock(busyLock, () -> waitTillIndexBecomesAvailableOrRemoved((AbstractCreateIndexCommand) cmd, applyResult)));
         }
-    }
 
-    /** Handles create distribution zone command. */
-    private CompletableFuture<@Nullable Long> handleCreateZone(CreateZoneCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    /** Handles rename zone command. */
-    private CompletableFuture<@Nullable Long> handleRenameZone(RenameZoneCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    /** Handles alter zone command. */
-    private CompletableFuture<@Nullable Long> handleAlterZone(AlterZoneCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    /** Handles alter zone set default command. */
-    private CompletableFuture<@Nullable Long> handleAlterZoneSetDefault(AlterZoneSetDefaultCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    /** Handles drop distribution zone command. */
-    private CompletableFuture<@Nullable Long> handleDropZone(DropZoneCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    /** Handles create table command. */
-    private CompletableFuture<@Nullable Long> handleCreateTable(CreateTableCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    /** Handles drop table command. */
-    private CompletableFuture<@Nullable Long> handleDropTable(DropTableCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    /** Handles add column command. */
-    private CompletableFuture<@Nullable Long> handleAlterAddColumn(AlterTableAddColumnCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    /** Handles drop column command. */
-    private CompletableFuture<@Nullable Long> handleAlterDropColumn(AlterTableDropColumnCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    /** Handles drop column command. */
-    private CompletableFuture<@Nullable Long> handleAlterColumn(AlterTableAlterColumnCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    /** Handles create index command. */
-    private CompletableFuture<@Nullable Long> handleCreateIndex(AbstractCreateIndexCommand cmd) {
-        return catalogManager.execute(cmd)
-                .thenCompose(applyResult -> inBusyLock(busyLock, () -> waitTillIndexBecomesAvailableOrRemoved(cmd, applyResult)))
-                .handle(handleModificationResult());
-    }
-
-    /** Handles drop index command. */
-    private CompletableFuture<@Nullable Long> handleDropIndex(DropIndexCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    /** Handles create schema command. */
-    private CompletableFuture<Long> handleCreateSchema(CreateSchemaCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    /** Handles drop schema command. */
-    private CompletableFuture<Long> handleDropSchema(DropSchemaCommand cmd) {
-        return catalogManager.execute(cmd).handle(handleModificationResult());
-    }
-
-    private BiFunction<CatalogApplyResult, Throwable, @Nullable Long> handleModificationResult() {
-        return (applyResult, err) -> {
+        return fut.handle((applyResult, err) -> {
             if (err == null) {
-                Catalog catalog = catalogManager.catalog(applyResult.getCatalogVersion());
-
-                assert catalog != null;
-
-                return applyResult.isApplied(0) ? catalog.time() : null;
+                return applyResult.isApplied(0) ? applyResult.getCatalogTime() : null;
             }
 
             throw (err instanceof RuntimeException) ? (RuntimeException) err : new CompletionException(err);
-        };
+        });
     }
 
     private CompletionStage<CatalogApplyResult> waitTillIndexBecomesAvailableOrRemoved(

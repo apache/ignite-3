@@ -312,7 +312,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         saveUpdateEliminatingLocalConcurrency(updateProducers)
                 .thenCompose(this::awaitVersionActivation)
-                .whenComplete((newVersion, err) -> {
+                .whenComplete((result, err) -> {
                     if (err != null) {
                         Throwable errUnwrapped = ExceptionUtils.unwrapCause(err);
 
@@ -339,7 +339,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                             resultFuture.completeExceptionally(err);
                         }
                     } else {
-                        resultFuture.complete(newVersion);
+                        resultFuture.complete(result);
                     }
                 });
 
@@ -422,7 +422,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
             // all results are empty.
             if (applyResults.cardinality() == 0) {
-                return completedFuture(new CatalogApplyResult(applyResults, catalog.version()));
+                return completedFuture(new CatalogApplyResult(applyResults, catalog.version(), catalog.time()));
             }
 
             int newVersion = catalog.version() + 1;
@@ -436,7 +436,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                     .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
                     .thenCompose(result -> {
                         if (result) {
-                            return completedFuture(new CatalogApplyResult(applyResults, newVersion));
+                            long newCatalogTime = catalogByVer.get(newVersion).time();
+                            return completedFuture(new CatalogApplyResult(applyResults, newVersion, newCatalogTime));
                         }
 
                         return saveUpdate(batchUpdateProducers, attemptNo + 1);

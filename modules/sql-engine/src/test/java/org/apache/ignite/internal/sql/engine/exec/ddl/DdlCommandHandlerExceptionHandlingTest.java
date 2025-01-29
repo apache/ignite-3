@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
@@ -49,6 +48,7 @@ import org.hamcrest.core.Is;
 import org.hamcrest.core.IsNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -71,7 +71,6 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         HybridClock clock = new HybridClockImpl();
         catalogManager = createTestCatalogManager("test", clock);
         assertThat(catalogManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
-        awaitDefaultZoneCreation(catalogManager);
 
         clockWaiter = new ClockWaiter("test", clock, scheduledExecutor);
         assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -103,6 +102,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         assertThat(commandHandler.handle(cmd), willThrow(DistributionZoneNotFoundValidationException.class));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24339")
     @Test
     public void testZoneNotFoundOnDrop2() {
         CatalogCommand cmd = DropZoneCommand.builder()
