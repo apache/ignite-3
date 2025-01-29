@@ -18,7 +18,7 @@ AssignmentsLink(Assignments assignments, long index, long term, AssignmentsLink 
 on every `stablePartAssignmentsKey` update we also update the `assignmentsChainKey` with the
 
 ```
-currentAssignmentsChain = ms.get(assignmentsChainKey)
+currentAssignmentsChain = ms.getLocally(assignmentsChainKey)
 
 if (!pendingAssignments.force() && !pendingAssignments.fromReset()):
     AssignmentsChain.of(term, index, newStable)
@@ -40,7 +40,7 @@ On the start of every node in the HA scope the main points, which must be analyz
 ### Pending or stable raft topology is alive
 ```
 // method which collect and await state request results from list of nodes
-Map<NodeId, Boolean> sendAliveRequest(List<String> nodes, request)
+Map<NodeId, Boolean> sendStateRequest(List<String> nodes, request)
 
 // true if majority of nodes alive
 boolean majorityAlive(Map<NodeId, Boolean> responses)
@@ -48,10 +48,10 @@ boolean majorityAlive(Map<NodeId, Boolean> responses)
 cleanupAndFollowUsualRecoveryFlow()
 
 onNodeStart:
-    (stabe, pending) = (ms.get(stablePartAssignmentsKey), ms.get(pendingPartAssignmentsKey))
+    (stabe, pending) = (ms.getLocally(stablePartAssignmentsKey), ms.getLocally(pendingPartAssignmentsKey))
     request = new StateRequest()
     
-    if (majorityAlive(sendAliveRequest(stable) || majorityAlive(sendAliveRequest(pending)):
+    if (majorityAlive(sendStateRequest(stable) || majorityAlive(sendStateRequest(pending)):
        cleanupAndFollowUsualRecoveryFlow() 
        return
 ```
@@ -60,13 +60,13 @@ onNodeStart:
 So, if the pending or stable raft topologies is not alive, we need to start the process of chain unwind. It means, that we need to find the link in the chain, which last (in the chronological meaning) has the user inputs.
 
 ```
-    fullChain = ms.get(assignmentsChainKey)
+    fullChain = ms.getLocally(assignmentsChainKey)
     currentNodeLink = fullChain.lastLink(currentNode)
     currentNodeCfgIndex = currentNodeLink.index
     
     nodesToSend = currentLink.next.nodes() - currentLink.next.next.nodes()
     stateRequest = new StateRequest(currentNodeCfgIndex)
-    responses = sendAliveRequest(nodesToSend, stateRequest)
+    responses = sendStateRequest(nodesToSend, stateRequest)
     
 ```
 
@@ -103,20 +103,20 @@ And as the last step we need to handle the state responses:
 Short version of algo, see needed method descriptions above:
 ```
 onNodeStart:
-    (stabe, pending) = (ms.get(stablePartAssignmentsKey), ms.get(pendingPartAssignmentsKey))
+    (stabe, pending) = (ms.getLocally(stablePartAssignmentsKey), ms.getLocally(pendingPartAssignmentsKey))
     request = new StateRequest()
     
-    if (majorityAlive(sendAliveRequest(stable) || majorityAlive(sendAliveRequest(pending)):
+    if (majorityAlive(sendStateRequest(stable) || majorityAlive(sendStateRequest(pending)):
        cleanupAndFollowUsualRecoveryFlow() 
        return
        
-    fullChain = ms.get(assignmentsChainKey)
+    fullChain = ms.getLocally(assignmentsChainKey)
     currentNodeLink = fullChain.lastLink(currentNode)
     currentNodeCfgIndex = currentNodeLink.index
     
     nodesToSend = currentLink.next.nodes() - currentLink.next.next.nodes()
     stateRequest = new StateRequest(currentNodeCfgIndex)
-    responses = sendAliveRequest(nodesToSend, stateRequest 
+    responses = sendStateRequest(nodesToSend, stateRequest)
     
     if (majorityAlive(responses)):
         skip
