@@ -81,7 +81,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
     /** Table size. */
     public static final int DEFAULT_SLOTS = 1_048_576;
 
-    private static final String LOCK_MAP_SIZE_PROPERTY_NAME = "lockMapSize";
+    public static final String LOCK_MAP_SIZE_PROPERTY_NAME = "lockMapSize";
 
     /** Striped lock concurrency. */
     private static final int CONCURRENCY = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
