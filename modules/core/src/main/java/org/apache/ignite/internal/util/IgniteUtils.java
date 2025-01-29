@@ -438,7 +438,7 @@ public class IgniteUtils {
      * @throws IOException if an I/O error is thrown by a visitor method
      */
     public static void deleteIfExistsThrowable(Path path) throws IOException {
-        SimpleFileVisitor<Path> visitor = new SimpleFileVisitor<>() {
+        var visitor = new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
                 if (exc != null) {
