@@ -71,6 +71,15 @@ public class DataNodesHistory {
     }
 
     /**
+     * Checks that the history is empty.
+     *
+     * @return {@code true} if history is empty.
+     */
+    public boolean isEmpty() {
+        return history.isEmpty();
+    }
+
+    /**
      * Returns data nodes for timestamp, or empty set.
      *
      * @param timestamp Timestamp.

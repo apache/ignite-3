@@ -39,6 +39,7 @@ import com.jayway.jsonpath.Option;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -53,8 +54,10 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
+import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.CompoundCondition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
@@ -507,6 +510,34 @@ public class DistributionZonesUtil {
     }
 
     /**
+     * Meta storage entries to {@link DataNodeHistoryContext}.
+     *
+     * @param entries Entries.
+     * @return DataNodeHistoryContext.
+     */
+    public static DataNodeHistoryContext dataNodeHistoryContextFromValues(Collection<Entry> entries) {
+        DataNodesHistory dataNodesHistory = null;
+        DistributionZoneTimer scaleUpTimer = null;
+        DistributionZoneTimer scaleDownTimer = null;
+
+        for (Entry e : entries) {
+            assert e != null && e.key() != null && !e.empty(): "Unexpected entry: " + e;
+
+            byte[] v = e.tombstone() ? null : e.value();
+
+            if (new String(e.key(), StandardCharsets.UTF_8).startsWith(DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX)) {
+                dataNodesHistory = v == null ? null : DataNodesHistorySerializer.deserialize(v);
+            } else if (new String(e.key(), StandardCharsets.UTF_8).startsWith(DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX)) {
+                scaleUpTimer = v == null ? null : DistributionZoneTimerSerializer.deserialize(v);
+            } else if (new String(e.key(), StandardCharsets.UTF_8).startsWith(DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX)) {
+                scaleDownTimer = v == null ? null : DistributionZoneTimerSerializer.deserialize(v);
+            }
+        }
+
+        return new DataNodeHistoryContext(dataNodesHistory, scaleUpTimer, scaleDownTimer);
+    }
+
+    /**
      * Check if {@code nodeAttributes} satisfy the {@code filter}.
      *
      * <p>Some examples:
@@ -604,7 +635,6 @@ public class DistributionZonesUtil {
             CatalogZoneDescriptor zoneDescriptor,
             Map<UUID, NodeWithAttributes> nodesAttributes
     ) {
-
         return dataNodes.stream()
                 .filter(n -> filterNodeAttributes(nodesAttributes.get(n.nodeId()).userAttributes(), zoneDescriptor.filter()))
                 .filter(n -> filterStorageProfiles(nodesAttributes.get(n.nodeId()), zoneDescriptor.storageProfiles().profiles()))
@@ -644,7 +674,6 @@ public class DistributionZonesUtil {
         );
     }
 
-
     /**
      * Returns list of table descriptors bound to the zone.
      *
@@ -673,5 +702,82 @@ public class DistributionZonesUtil {
     @TestOnly
     public static ByteArray zoneScaleDownChangeTriggerKeyPrefix() {
         return new ByteArray(DISTRIBUTION_ZONE_SCALE_DOWN_CHANGE_TRIGGER_PREFIX);
+    }
+
+    /**
+     * Class representing data nodes' related values in Meta Storage.
+     */
+    public static class DataNodeHistoryContext {
+        @Nullable
+        private final DataNodesHistory dataNodesHistory;
+
+        @Nullable
+        private final DistributionZoneTimer scaleUpTimer;
+
+        @Nullable
+        private final DistributionZoneTimer scaleDownTimer;
+
+        public DataNodeHistoryContext(
+                @Nullable DataNodesHistory dataNodesHistory,
+                @Nullable DistributionZoneTimer scaleUpTimer,
+                @Nullable DistributionZoneTimer scaleDownTimer
+        ) {
+            this.dataNodesHistory = dataNodesHistory;
+            this.scaleUpTimer = scaleUpTimer;
+            this.scaleDownTimer = scaleDownTimer;
+        }
+
+        /**
+         * Data nodes history.
+         *
+         * @return Data nodes history.
+         */
+        public DataNodesHistory dataNodesHistory() {
+            assert dataNodesHistory != null : "Data nodes history were not initialized.";
+
+            return dataNodesHistory;
+        }
+
+        /**
+         * Scale up timer.
+         *
+         * @return Scale up timer.
+         */
+        public DistributionZoneTimer scaleUpTimer() {
+            assert scaleUpTimer != null : "Scale up timer was not initialized.";
+
+            return scaleUpTimer;
+        }
+
+        /**
+         * Scale up timer present.
+         *
+         * @return Scale up timer present.
+         */
+        @TestOnly
+        public boolean scaleUpTimerPresent() {
+            return scaleUpTimer != null;
+        }
+
+        /**
+         * Scale down timer present.
+         *
+         * @return Scale down timer present.
+         */
+        @TestOnly
+        public boolean scaleDownTimerPresent() {
+            return scaleDownTimer != null;
+        }
+
+        /**
+         * Scale down timer.
+         *
+         * @return Scale down timer.
+         */
+        public DistributionZoneTimer scaleDownTimer() {
+            assert scaleDownTimer != null : "Scale down timer was not initialized.";
+
+            return scaleDownTimer;
+        }
     }
 }

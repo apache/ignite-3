@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deserializeDataNodesMap;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodeHistoryContextFromValues;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -35,8 +35,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -55,9 +57,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
+import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodeHistoryContext;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.Pair;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -271,14 +275,12 @@ public class DistributionZonesTestUtil {
      *
      * @param zoneId Zone id.
      * @param clusterNodes Data nodes.
-     * @param timestamp Timestamp.
      * @param keyValueStorage Key-value storage.
      * @throws InterruptedException If thread was interrupted.
      */
     public static void assertDataNodesFromLogicalNodesInStorage(
             int zoneId,
             @Nullable Set<LogicalNode> clusterNodes,
-            HybridTimestamp timestamp,
             KeyValueStorage keyValueStorage
     ) throws InterruptedException {
         Set<Node> nodes = clusterNodes == null
@@ -288,9 +290,24 @@ public class DistributionZonesTestUtil {
         assertDataNodesInStorage(
                 zoneId,
                 nodes,
-                timestamp,
                 keyValueStorage
         );
+    }
+
+    /**
+     * Asserts data nodes from {@link DistributionZonesUtil#zoneDataNodesKey(int)} in storage.
+     *
+     * @param zoneId Zone id.
+     * @param nodes Data nodes.
+     * @param keyValueStorage Key-value storage.
+     * @throws InterruptedException If thread was interrupted.
+     */
+    public static void assertDataNodesInStorage(
+            int zoneId,
+            @Nullable Set<Node> nodes,
+            KeyValueStorage keyValueStorage
+    ) throws InterruptedException {
+        assertDataNodesInStorage(zoneId, nodes, HybridTimestamp.MAX_VALUE, keyValueStorage);
     }
 
     /**
@@ -310,12 +327,18 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         byte[] key = zoneDataNodesHistoryKey(zoneId).bytes();
 
+        HybridTimestamp timestampToCheck = timestamp == HybridTimestamp.MAX_VALUE ? timestamp : timestamp.tick();
+
         Supplier<Set<Node>> nodesGetter = () -> {
             byte[] storageValue = keyValueStorage.get(key).value();
 
+            if (storageValue == null) {
+                return null;
+            }
+
             DataNodesHistory history = DataNodesHistorySerializer.deserialize(storageValue);
 
-            Pair<HybridTimestamp, Set<NodeWithAttributes>> dataNodes = history.dataNodesForTimestamp(timestamp);
+            Pair<HybridTimestamp, Set<NodeWithAttributes>> dataNodes = history.dataNodesForTimestamp(timestampToCheck);
 
             return dataNodes.getSecond()
                     .stream()
@@ -332,53 +355,11 @@ public class DistributionZonesTestUtil {
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
             Set<Node> actualNodes = nodesGetter.get();
+            Set<String> actualNodeNames = actualNodes == null ? emptySet() : actualNodes.stream().map(Node::nodeName).collect(toSet());
 
-            assertEquals(nodes, actualNodes, "Nodes: " + actualNodes);
+            assertEquals(nodes, actualNodes, "Nodes: " + actualNodeNames
+                    + ", timestamp=" + (timestampToCheck == HybridTimestamp.MAX_VALUE ? "[max]" : timestamp));
         }
-    }
-
-    /**
-     * Asserts {@link DistributionZonesUtil#zoneScaleUpChangeTriggerKey(int)} revision.
-     *
-     * @param revision Revision.
-     * @param zoneId Zone id.
-     * @param keyValueStorage Key-value storage.
-     * @throws InterruptedException If thread was interrupted.
-     */
-    public static void assertZoneScaleUpChangeTriggerKey(
-            @Nullable Long revision,
-            int zoneId,
-            KeyValueStorage keyValueStorage
-    ) throws InterruptedException {
-        assertValueInStorage(
-                keyValueStorage,
-                zoneScaleUpChangeTriggerKey(zoneId).bytes(),
-                ByteUtils::bytesToLongKeepingOrder,
-                revision,
-                2000
-        );
-    }
-
-    /**
-     * Asserts {@link DistributionZonesUtil#zoneScaleDownChangeTriggerKey(int)} revision.
-     *
-     * @param revision Revision.
-     * @param zoneId Zone id.
-     * @param keyValueStorage Key-value storage.
-     * @throws InterruptedException If thread was interrupted.
-     */
-    public static void assertZoneScaleDownChangeTriggerKey(
-            @Nullable Long revision,
-            int zoneId,
-            KeyValueStorage keyValueStorage
-    ) throws InterruptedException {
-        assertValueInStorage(
-                keyValueStorage,
-                zoneScaleDownChangeTriggerKey(zoneId).bytes(),
-                ByteUtils::bytesToLongKeepingOrder,
-                revision,
-                2000
-        );
     }
 
     /**
@@ -394,7 +375,8 @@ public class DistributionZonesTestUtil {
     ) throws InterruptedException {
         Set<NodeWithAttributes> nodes = clusterNodes == null
                 ? null
-                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes())).collect(toSet());
+                : clusterNodes.stream().map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
+                        .collect(toSet());
 
         assertValueInStorage(
                 keyValueStorage,
@@ -565,6 +547,25 @@ public class DistributionZonesTestUtil {
 
             assertThat(dataNodes, is(expectedValueNames));
         }
+    }
+
+    /**
+     * Get {@link DataNodeHistoryContext} from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone id.
+     * @return Data node history context.
+     */
+    public static DataNodeHistoryContext dataNodeHistoryContext(MetaStorageManager metaStorageManager, int zoneId) {
+        CompletableFuture<Map<ByteArray, Entry>> fut = metaStorageManager.getAll(Set.of(
+                zoneDataNodesHistoryKey(zoneId),
+                zoneScaleUpTimerKey(zoneId),
+                zoneScaleDownTimerKey(zoneId)
+        ));
+
+        assertThat(fut, willCompleteSuccessfully());
+
+        return dataNodeHistoryContextFromValues(fut.join().values());
     }
 
     /**
