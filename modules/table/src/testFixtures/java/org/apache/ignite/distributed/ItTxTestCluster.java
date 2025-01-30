@@ -168,9 +168,9 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -256,7 +256,7 @@ public class ItTxTestCluster {
 
     protected Map<String, TableImpl> tables = new HashMap<>();
 
-    protected Map<String, TxStateStorage> txStateStorages;
+    protected Map<String, TxStatePartitionStorage> txStateStorages;
 
     private Map<String, ClusterService> clusterServices;
 
@@ -537,7 +537,7 @@ public class ItTxTestCluster {
             assertThat(resourceVacuumManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
             resourceCleanupManagers.put(nodeName, resourceVacuumManager);
 
-            txStateStorages.put(nodeName, new TestTxStateStorage());
+            txStateStorages.put(nodeName, new TestTxStatePartitionStorage());
         }
 
         LOG.info("Raft servers have been started");
@@ -842,7 +842,7 @@ public class ItTxTestCluster {
             Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
             ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-            TxStateStorage txStateStorage,
+            TxStatePartitionStorage txStatePartitionStorage,
             TransactionStateResolver transactionStateResolver,
             StorageUpdateHandler storageUpdateHandler,
             ValidationSchemasSource validationSchemasSource,
@@ -867,7 +867,7 @@ public class ItTxTestCluster {
                 secondaryIndexStorages,
                 clockService,
                 safeTime,
-                txStateStorage,
+                txStatePartitionStorage,
                 transactionStateResolver,
                 storageUpdateHandler,
                 validationSchemasSource,

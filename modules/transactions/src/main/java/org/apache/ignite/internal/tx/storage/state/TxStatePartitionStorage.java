@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Storage for transaction meta, {@link TxMeta}.
  */
-public interface TxStateStorage extends ManuallyCloseable {
+public interface TxStatePartitionStorage extends ManuallyCloseable {
     /**
      * Value of the {@link #lastAppliedIndex()} and {@link #lastAppliedTerm()} during rebalance of transaction state storage.
      *
@@ -152,9 +152,9 @@ public interface TxStateStorage extends ManuallyCloseable {
      *     {@link Cursor#next()} will throw {@link IgniteInternalException} with {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR};</li>
      *     <li>For a transaction state storage, methods for reading and writing data will throw {@link IgniteInternalException} with
      *     {@link Transactions#TX_STATE_STORAGE_REBALANCE_ERR} except:<ul>
-     *         <li>{@link TxStateStorage#putForRebalance(UUID, TxMeta)};</li>
-     *         <li>{@link TxStateStorage#lastAppliedIndex()};</li>
-     *         <li>{@link TxStateStorage#lastAppliedTerm()}} ()};</li>
+     *         <li>{@link TxStatePartitionStorage#putForRebalance(UUID, TxMeta)};</li>
+     *         <li>{@link TxStatePartitionStorage#lastAppliedIndex()};</li>
+     *         <li>{@link TxStatePartitionStorage#lastAppliedTerm()}} ()};</li>
      *     </ul></li>
      * </ul>
      *

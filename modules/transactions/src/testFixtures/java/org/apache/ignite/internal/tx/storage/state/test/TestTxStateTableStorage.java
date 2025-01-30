@@ -21,28 +21,28 @@ import static org.mockito.Mockito.spy;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Table tx state storage for {@link TestTxStateStorage}.
+ * Table tx state storage for {@link TestTxStatePartitionStorage}.
  */
 public class TestTxStateTableStorage implements TxStateTableStorage {
-    private final Map<Integer, TxStateStorage> storages = new ConcurrentHashMap<>();
+    private final Map<Integer, TxStatePartitionStorage> storages = new ConcurrentHashMap<>();
 
-    @Override public TxStateStorage getOrCreateTxStateStorage(int partitionId) {
-        return storages.computeIfAbsent(partitionId, k -> spy(new TestTxStateStorage()));
+    @Override public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {
+        return storages.computeIfAbsent(partitionId, k -> spy(new TestTxStatePartitionStorage()));
     }
 
     @Override
-    public @Nullable TxStateStorage getTxStateStorage(int partitionId) {
+    public @Nullable TxStatePartitionStorage getPartitionStorage(int partitionId) {
         return storages.get(partitionId);
     }
 
     @Override
     public void destroyTxStateStorage(int partitionId) {
-        TxStateStorage storage = storages.remove(partitionId);
+        TxStatePartitionStorage storage = storages.remove(partitionId);
 
         if (storage != null) {
             storage.destroy();

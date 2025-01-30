@@ -36,15 +36,15 @@ import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.UnsignedUuidComparator;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Test implementation of {@link TxStateStorage} based on {@link ConcurrentSkipListMap}.
+ * Test implementation of {@link TxStatePartitionStorage} based on {@link ConcurrentSkipListMap}.
  */
-public class TestTxStateStorage implements TxStateStorage {
+public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
     @IgniteToStringInclude
     private final ConcurrentSkipListMap<UUID, TxMeta> storage = new ConcurrentSkipListMap<>(new UnsignedUuidComparator());
 
@@ -270,7 +270,7 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public String toString() {
-        return S.toString(TestTxStateStorage.class, this);
+        return S.toString(TestTxStatePartitionStorage.class, this);
     }
 
     private void checkStorageInProgreesOfRebalance() {

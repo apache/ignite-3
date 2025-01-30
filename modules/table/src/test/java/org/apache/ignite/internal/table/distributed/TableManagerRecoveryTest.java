@@ -212,7 +212,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         createIndex(TABLE_NAME, INDEX_NAME);
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
-        verify(txStateTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreateTxStateStorage(anyInt());
+        verify(txStateTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
         clearInvocations(mvTableStorage);
         clearInvocations(txStateTableStorage);
 
@@ -230,7 +230,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         assertEquals(0, tableManager.startedTables().size());
 
         verify(mvTableStorage, never()).createMvPartition(anyInt());
-        verify(txStateTableStorage, never()).getOrCreateTxStateStorage(anyInt());
+        verify(txStateTableStorage, never()).getOrCreatePartitionStorage(anyInt());
 
         // Let's check that the table was deleted.
         verify(dsm.engineByStorageProfile(DEFAULT_STORAGE_PROFILE)).dropMvTable(eq(tableId));
@@ -247,7 +247,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         int tableId = catalogManager.activeCatalog(clock.nowLong()).table(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
-        verify(txStateTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreateTxStateStorage(anyInt());
+        verify(txStateTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
         clearInvocations(mvTableStorage);
         clearInvocations(txStateTableStorage);
 
@@ -261,7 +261,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         assertThat(tableManager.startedTables().keySet(), contains(tableId));
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
-        verify(txStateTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreateTxStateStorage(anyInt());
+        verify(txStateTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
     }
 
     /**

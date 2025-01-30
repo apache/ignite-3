@@ -224,7 +224,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.ThreadAssertingTxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
@@ -1374,7 +1374,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TableImpl table,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTimeTracker,
             MvPartitionStorage mvPartitionStorage,
-            TxStateStorage txStatePartitionStorage,
+            TxStatePartitionStorage txStatePartitionStorage,
             PartitionUpdateHandlers partitionUpdateHandlers,
             RaftCommandRunner raftClient
     ) {
@@ -2575,11 +2575,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         assert mvPartition != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId;
 
-        TxStateStorage txStateStorage = internalTable.txStateStorage().getTxStateStorage(partitionId);
+        TxStatePartitionStorage txStatePartitionStorage = internalTable.txStateStorage().getPartitionStorage(partitionId);
 
-        assert txStateStorage != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId;
+        assert txStatePartitionStorage != null : "tableId=" + table.tableId() + ", partitionId=" + partitionId;
 
-        return new PartitionStorages(mvPartition, txStateStorage);
+        return new PartitionStorages(mvPartition, txStatePartitionStorage);
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-19739 Create storages only once.
@@ -2591,13 +2591,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
                     .thenComposeAsync(mvPartitionStorage -> {
-                        TxStateStorage txStateStorage = internalTable.txStateStorage().getOrCreateTxStateStorage(partitionId);
+                        TxStatePartitionStorage txStatePartitionStorage = internalTable.txStateStorage()
+                                .getOrCreatePartitionStorage(partitionId);
 
                         if (mvPartitionStorage.lastAppliedIndex() == MvPartitionStorage.REBALANCE_IN_PROGRESS
-                                || txStateStorage.lastAppliedIndex() == TxStateStorage.REBALANCE_IN_PROGRESS) {
+                                || txStatePartitionStorage.lastAppliedIndex() == TxStatePartitionStorage.REBALANCE_IN_PROGRESS) {
                             return allOf(
                                     internalTable.storage().clearPartition(partitionId),
-                                    txStateStorage.clear()
+                                    txStatePartitionStorage.clear()
                             );
                         } else {
                             return nullCompletedFuture();
@@ -2813,7 +2814,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             destroyFutures.add(internalTable.storage().destroyPartition(partitionId));
         }
 
-        if (internalTable.txStateStorage().getTxStateStorage(partitionId) != null) {
+        if (internalTable.txStateStorage().getPartitionStorage(partitionId) != null) {
             destroyFutures.add(runAsync(() -> internalTable.txStateStorage().destroyTxStateStorage(partitionId), ioExecutor));
         }
 

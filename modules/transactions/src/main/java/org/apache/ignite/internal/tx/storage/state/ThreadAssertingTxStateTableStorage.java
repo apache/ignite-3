@@ -36,17 +36,17 @@ public class ThreadAssertingTxStateTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public TxStateStorage getOrCreateTxStateStorage(int partitionId) {
+    public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {
         assertThreadAllowsToWrite();
 
-        return new ThreadAssertingTxStateStorage(tableStorage.getOrCreateTxStateStorage(partitionId));
+        return new ThreadAssertingTxStatePartitionStorage(tableStorage.getOrCreatePartitionStorage(partitionId));
     }
 
     @Override
-    public @Nullable TxStateStorage getTxStateStorage(int partitionId) {
-        TxStateStorage storage = tableStorage.getTxStateStorage(partitionId);
+    public @Nullable TxStatePartitionStorage getPartitionStorage(int partitionId) {
+        TxStatePartitionStorage storage = tableStorage.getPartitionStorage(partitionId);
 
-        return storage == null ? null : new ThreadAssertingTxStateStorage(storage);
+        return storage == null ? null : new ThreadAssertingTxStatePartitionStorage(storage);
     }
 
     @Override

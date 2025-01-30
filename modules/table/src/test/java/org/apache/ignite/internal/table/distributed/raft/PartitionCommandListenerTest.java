@@ -127,8 +127,8 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
@@ -186,7 +186,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private final PartitionDataStorage partitionDataStorage = spy(new TestPartitionDataStorage(TABLE_ID, PARTITION_ID, mvPartitionStorage));
 
-    private final TxStateStorage txStateStorage = spy(new TestTxStateStorage());
+    private final TxStatePartitionStorage txStatePartitionStorage = spy(new TestTxStatePartitionStorage());
 
     @WorkDirectory
     private Path workDir;
@@ -282,7 +282,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 mock(TxManager.class),
                 partitionDataStorage,
                 storageUpdateHandler,
-                txStateStorage,
+                txStatePartitionStorage,
                 safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
@@ -415,7 +415,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         // Checks for TxStateStorage.
         mvPartitionStorage.lastApplied(1L, 1L);
-        txStateStorage.lastApplied(10L, 2L);
+        txStatePartitionStorage.lastApplied(10L, 2L);
 
         commandClosureResultCaptor = ArgumentCaptor.forClass(Throwable.class);
 
@@ -424,8 +424,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 writeCommandCommandClosure(10, 1, finishTxCommand, commandClosureResultCaptor, hybridClock.now())
         ).iterator());
 
-        verify(txStateStorage, never()).compareAndSet(any(UUID.class), any(TxState.class), any(TxMeta.class), anyLong(), anyLong());
-        verify(txStateStorage, times(1)).lastApplied(anyLong(), anyLong());
+        verify(txStatePartitionStorage, never())
+                .compareAndSet(any(UUID.class), any(TxState.class), any(TxMeta.class), anyLong(), anyLong());
+        verify(txStatePartitionStorage, times(1)).lastApplied(anyLong(), anyLong());
 
         assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null}));
     }
@@ -491,7 +492,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 mock(TxManager.class),
                 partitionDataStorage,
                 storageUpdateHandler,
-                txStateStorage,
+                txStatePartitionStorage,
                 safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
@@ -501,7 +502,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 mock(MinimumRequiredTimeCollectorService.class)
         );
 
-        txStateStorage.lastApplied(3L, 1L);
+        txStatePartitionStorage.lastApplied(3L, 1L);
 
         partitionDataStorage.lastApplied(5L, 2L);
 
@@ -514,10 +515,10 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         assertEquals(5L, partitionDataStorage.lastAppliedIndex());
         assertEquals(2L, partitionDataStorage.lastAppliedTerm());
 
-        assertEquals(5L, txStateStorage.lastAppliedIndex());
-        assertEquals(2L, txStateStorage.lastAppliedTerm());
+        assertEquals(5L, txStatePartitionStorage.lastAppliedIndex());
+        assertEquals(2L, txStatePartitionStorage.lastAppliedTerm());
 
-        txStateStorage.lastApplied(10L, 2L);
+        txStatePartitionStorage.lastApplied(10L, 2L);
 
         partitionDataStorage.lastApplied(7L, 1L);
 
@@ -528,8 +529,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         assertEquals(10L, partitionDataStorage.lastAppliedIndex());
         assertEquals(2L, partitionDataStorage.lastAppliedTerm());
 
-        assertEquals(10L, txStateStorage.lastAppliedIndex());
-        assertEquals(2L, txStateStorage.lastAppliedTerm());
+        assertEquals(10L, txStatePartitionStorage.lastAppliedIndex());
+        assertEquals(2L, txStatePartitionStorage.lastAppliedTerm());
     }
 
     @Test
@@ -587,8 +588,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 writeCommandCommandClosure(3, 2, command)
         ).iterator());
 
-        assertThat(txStateStorage.lastAppliedIndex(), is(3L));
-        assertThat(txStateStorage.lastAppliedTerm(), is(2L));
+        assertThat(txStatePartitionStorage.lastAppliedIndex(), is(3L));
+        assertThat(txStatePartitionStorage.lastAppliedTerm(), is(2L));
     }
 
     @Test

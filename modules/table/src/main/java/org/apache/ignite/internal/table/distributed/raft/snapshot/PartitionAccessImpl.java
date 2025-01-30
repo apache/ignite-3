@@ -44,7 +44,7 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -253,34 +253,34 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     @Override
     public CompletableFuture<Void> startRebalance() {
-        TxStateStorage txStateStorage = getTxStateStorage();
+        TxStatePartitionStorage txStatePartitionStorage = getTxStateStorage();
 
         return mvGc.removeStorage(toTablePartitionId(partitionKey))
                 .thenCompose(unused -> CompletableFuture.allOf(
                         mvTableStorage.startRebalancePartition(partitionId()),
-                        txStateStorage.startRebalance()
+                        txStatePartitionStorage.startRebalance()
                 ));
     }
 
     @Override
     public CompletableFuture<Void> abortRebalance() {
-        TxStateStorage txStateStorage = getTxStateStorage();
+        TxStatePartitionStorage txStatePartitionStorage = getTxStateStorage();
 
         return CompletableFuture.allOf(
                 mvTableStorage.abortRebalancePartition(partitionId()),
-                txStateStorage.abortRebalance()
+                txStatePartitionStorage.abortRebalance()
         ).thenAccept(unused -> mvGc.addStorage(toTablePartitionId(partitionKey), gcUpdateHandler));
     }
 
     @Override
     public CompletableFuture<Void> finishRebalance(RaftSnapshotPartitionMeta partitionMeta) {
-        TxStateStorage txStateStorage = getTxStateStorage();
+        TxStatePartitionStorage txStatePartitionStorage = getTxStateStorage();
 
         byte[] configBytes = raftGroupConfigurationConverter.toBytes(partitionMeta.raftGroupConfig());
 
         return CompletableFuture.allOf(
                 mvTableStorage.finishRebalancePartition(partitionId(), partitionMeta.toMvPartitionMeta(configBytes)),
-                txStateStorage.finishRebalance(partitionMeta.lastAppliedIndex(), partitionMeta.lastAppliedTerm())
+                txStatePartitionStorage.finishRebalance(partitionMeta.lastAppliedIndex(), partitionMeta.lastAppliedTerm())
         ).thenAccept(unused -> mvGc.addStorage(toTablePartitionId(partitionKey), gcUpdateHandler));
     }
 
@@ -315,14 +315,14 @@ public class PartitionAccessImpl implements PartitionAccess {
         return mvPartitionStorage;
     }
 
-    private TxStateStorage getTxStateStorage() {
+    private TxStatePartitionStorage getTxStateStorage() {
         int partitionId = partitionId();
 
-        TxStateStorage txStateStorage = txStateTableStorage.getTxStateStorage(partitionId);
+        TxStatePartitionStorage txStatePartitionStorage = txStateTableStorage.getPartitionStorage(partitionId);
 
-        assert txStateStorage != null : IgniteStringFormatter.format("tableId={}, partitionId={}", tableId(), partitionId);
+        assert txStatePartitionStorage != null : IgniteStringFormatter.format("tableId={}, partitionId={}", tableId(), partitionId);
 
-        return txStateStorage;
+        return txStatePartitionStorage;
     }
 
     private static TablePartitionId toTablePartitionId(PartitionKey partitionKey) {

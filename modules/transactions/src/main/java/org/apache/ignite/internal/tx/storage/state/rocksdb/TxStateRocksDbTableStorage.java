@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
@@ -41,7 +41,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     static final int TABLE_PREFIX_SIZE_BYTES = Integer.BYTES;
 
     /** Partition storages. */
-    private final AtomicReferenceArray<TxStateRocksDbStorage> storages;
+    private final AtomicReferenceArray<TxStateRocksDbPartitionStorage> storages;
 
     /** Prevents double stopping the storage. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
@@ -88,13 +88,13 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public TxStateStorage getOrCreateTxStateStorage(int partitionId) {
+    public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {
         checkPartitionId(partitionId);
 
-        TxStateRocksDbStorage storage = storages.get(partitionId);
+        TxStateRocksDbPartitionStorage storage = storages.get(partitionId);
 
         if (storage == null) {
-            storage = new TxStateRocksDbStorage(
+            storage = new TxStateRocksDbPartitionStorage(
                 partitionId,
                 this
             );
@@ -108,7 +108,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     }
 
     @Override
-    public @Nullable TxStateStorage getTxStateStorage(int partitionId) {
+    public @Nullable TxStatePartitionStorage getPartitionStorage(int partitionId) {
         return storages.get(partitionId);
     }
 
@@ -116,7 +116,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
     public void destroyTxStateStorage(int partitionId) {
         checkPartitionId(partitionId);
 
-        TxStateStorage storage = storages.getAndSet(partitionId, null);
+        TxStatePartitionStorage storage = storages.getAndSet(partitionId, null);
 
         if (storage != null) {
             storage.destroy();
@@ -139,7 +139,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
             List<AutoCloseable> resources = new ArrayList<>();
 
             for (int i = 0; i < storages.length(); i++) {
-                TxStateStorage storage = storages.get(i);
+                TxStatePartitionStorage storage = storages.get(i);
 
                 if (storage != null) {
                     resources.add(storage::close);
