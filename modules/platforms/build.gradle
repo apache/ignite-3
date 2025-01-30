@@ -118,7 +118,7 @@ def buildNuGet = tasks.register('buildNuGet', Exec) {
     dependsOn copyPlatformsHeaders
     workingDir "$projectDir/dotnet"
 
-    commandLine "dotnet", "pack", "Apache.Ignite",
+    commandLine "dotnet", "pack", ".",
             "--configuration", "Release",
             "--include-source",
             "--output", "$buildDir/nupkg"
