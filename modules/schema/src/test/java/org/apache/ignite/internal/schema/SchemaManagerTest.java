@@ -33,12 +33,14 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -101,6 +103,8 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_CREATE), tableCreatedListener.capture());
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListener.capture());
 
+        Catalog catalog = mock(Catalog.class);
+        when(catalogService.catalog(anyInt())).thenReturn(catalog);
         schemaManager = new SchemaManager(registry, catalogService);
         assertThat(schemaManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
@@ -122,8 +126,11 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 TABLE_ID, -1, -1, TABLE_NAME, 0, columns, List.of("k1", "k2"), null, DEFAULT_STORAGE_PROFILE
         );
 
-        when(catalogService.table(TABLE_ID, CATALOG_VERSION_1)).thenReturn(tableDescriptor);
+
+        Catalog catalog = mock(Catalog.class);
+        when(catalogService.catalog(CATALOG_VERSION_1)).thenReturn(catalog);
         when(catalogService.latestCatalogVersion()).thenReturn(CATALOG_VERSION_1);
+        when(catalog.table(TABLE_ID)).thenReturn(tableDescriptor);
 
         CompletableFuture<Boolean> future = tableCreatedListener()
                 .notify(new CreateTableEventParameters(CAUSALITY_TOKEN_1, CATALOG_VERSION_1, tableDescriptor));
@@ -235,8 +242,10 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void addSomeColumn() {
-        when(catalogService.table(TABLE_ID, CATALOG_VERSION_2)).thenReturn(tableDescriptorAfterColumnAddition());
+        Catalog catalog = mock(Catalog.class);
+        when(catalogService.catalog(CATALOG_VERSION_2)).thenReturn(catalog);
         when(catalogService.latestCatalogVersion()).thenReturn(CATALOG_VERSION_2);
+        when(catalog.table(TABLE_ID)).thenReturn(tableDescriptorAfterColumnAddition());
 
         AddColumnEventParameters event = new AddColumnEventParameters(
                 CAUSALITY_TOKEN_2,
@@ -271,8 +280,10 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(schemaManager.stopAsync(new ComponentContext()), willCompleteSuccessfully());
 
+        Catalog catalog = mock(Catalog.class);
+        when(catalogService.catalog(anyInt())).thenReturn(catalog);
         when(catalogService.latestCatalogVersion()).thenReturn(2);
-        when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
+        when(catalog.tables()).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
         doReturn(completedFuture(new Revisions(CAUSALITY_TOKEN_2, -1))).when(metaStorageManager).recoveryFinishedFuture();
 
         schemaManager = new SchemaManager(registry, catalogService);

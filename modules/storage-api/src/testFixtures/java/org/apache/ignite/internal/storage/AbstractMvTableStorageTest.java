@@ -48,7 +48,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -69,7 +68,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -305,7 +303,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
      */
     @Test
     public void testDestroySortedIndexIndependence() {
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor catalogTableDescriptor = catalog.table(SCHEMA_NAME, TABLE_NAME);
         assertThat(catalogTableDescriptor, is(notNullValue()));
 
         var catalogSortedIndex1 = new CatalogSortedIndexDescriptor(
@@ -359,7 +357,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
      */
     @Test
     public void testDestroyHashIndexIndependence() {
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor catalogTableDescriptor = catalog.table(SCHEMA_NAME, TABLE_NAME);
         assertThat(catalogTableDescriptor, is(notNullValue()));
 
         var catalogHashIndex1 = new CatalogHashIndexDescriptor(
@@ -961,8 +959,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
         tableStorage.close();
 
         // Emulate a situation when indexes have been removed from the catalog. We then expect them to be removed upon startup.
-        when(catalogService.index(eq(hashIdx.id()), anyInt())).thenReturn(null);
-        when(catalogService.index(eq(sortedIdx.id()), anyInt())).thenReturn(null);
+        when(catalog.index(eq(hashIdx.id()))).thenReturn(null);
+        when(catalog.index(eq(sortedIdx.id()))).thenReturn(null);
 
         tableStorage = createMvTableStorage();
 

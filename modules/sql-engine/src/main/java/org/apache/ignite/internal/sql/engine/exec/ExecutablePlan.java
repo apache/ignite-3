@@ -18,10 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.AsyncCursor;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Denotes a plan that can evaluates itself.
@@ -34,14 +31,12 @@ public interface ExecutablePlan {
      * @param ctx An execution context.
      * @param tx A transaction to use to access the data.
      * @param tableRegistry A registry to resolve executable table to evaluate the plan.
-     * @param firstPageReadyCallback A callback to notify when first page has been prefetched.
      * @param <RowT> A type of the sql row.
      * @return Cursor over result of the evaluation.
      */
-    <RowT> AsyncCursor<InternalSqlRow> execute(
+    <RowT> AsyncDataCursor<InternalSqlRow> execute(
             ExecutionContext<RowT> ctx,
             InternalTransaction tx,
-            ExecutableTableRegistry tableRegistry,
-            @Nullable QueryPrefetchCallback firstPageReadyCallback
+            ExecutableTableRegistry tableRegistry
     );
 }

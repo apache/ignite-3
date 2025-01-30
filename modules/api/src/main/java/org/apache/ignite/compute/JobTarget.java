@@ -96,17 +96,16 @@ public interface JobTarget {
     }
 
     /**
-     * Creates a colocated job target for a specific table and key.
+     * Creates a colocated job target for a specific {@link QualifiedName} and key.
      *
      * <p>This target determines that a job should be executed on the same node that hosts the data for a given key of provided table.
      *
-     * @param tableName Table name.
+     * @param name QualifiedName name.
      * @param key Key.
      * @return Job target.
      */
-    static JobTarget colocated(QualifiedName tableName, Tuple key) {
-        // TODO IGNITE-24033 Compute API must use QualifiedName.
-        return new ColocatedJobTarget(tableName.objectName(), key, null);
+    static JobTarget colocated(QualifiedName name, Tuple key) {
+        return new ColocatedJobTarget(name, key, null);
     }
 
     /**
@@ -123,16 +122,15 @@ public interface JobTarget {
     }
 
     /**
-     * Creates a colocated job target for a specific table and key with mapper.
+     * Creates a colocated job target for a specific {@link QualifiedName} and key with mapper.
      *
      * <p>This target determines that a job should be executed on the same node that hosts the data for a given key of provided table.
      *
-     * @param tableName Table name.
+     * @param name QualifiedName name.
      * @param key Key.
      * @return Job target.
      */
-    static <K> JobTarget colocated(QualifiedName tableName, K key, Mapper<K> keyMapper) {
-        // TODO IGNITE-24033 Compute API must use QualifiedName.
-        return new ColocatedJobTarget(tableName.objectName(), key, keyMapper);
+    static <K> JobTarget colocated(QualifiedName name, K key, Mapper<K> keyMapper) {
+        return new ColocatedJobTarget(name, key, keyMapper);
     }
 }

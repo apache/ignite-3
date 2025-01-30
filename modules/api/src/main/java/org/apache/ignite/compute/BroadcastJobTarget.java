@@ -81,11 +81,10 @@ public interface BroadcastJobTarget {
      * Creates a job target for partitioned execution. For each partition in the provided table the job will be executed on a node that
      * holds the primary replica.
      *
-     * @param tableName Table name.
+     * @param tableName QualifiedName name.
      * @return Job target.
      */
     static BroadcastJobTarget table(QualifiedName tableName) {
-        // TODO IGNITE-24033 Compute API must use QualifiedName.
-        return new TableJobTarget(tableName.objectName());
+        return new TableJobTarget(tableName);
     }
 }

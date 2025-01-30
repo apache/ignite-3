@@ -1,4 +1,4 @@
-# pyignite3
+# pyignite-dbapi
 Apache Ignite 3 DB API Driver.
 
 ## Prerequisites
@@ -9,25 +9,25 @@ Apache Ignite 3 DB API Driver.
 ## Installation
 
 ### From repository
-This is a recommended way for users. If you only want to use the `pyignite3` module in your project, do:
+This is a recommended way for users. If you only want to use the `pyignite-dbapi` module in your project, do:
 ```
-$ pip install pyignite3
+$ pip install pyignite-dbapi
 ```
 
 ### From sources
 This way is more suitable for developers, or if you install the client from zip archive.
-1. Download and/or unzip Ignite 3 DB API Driver sources to `pyignite3_path`
-2. Go to `pyignite3_path` folder
+1. Download and/or unzip Ignite 3 DB API Driver sources to `pyignite_dbapi_path`
+2. Go to `pyignite_dbapi_path` folder
 3. Execute `pip install -e .`
 
 ```bash
-$ cd <pyignite3_path>
+$ cd <pyignite_dbapi_path>
 $ pip install -e .
 ```
 
-This will install the repository version of `pyignite3` into your environment in so-called “develop” or “editable” mode.
-You may read more about [editable installs](https://pip.pypa.io/en/stable/reference/pip_install/#editable-installs) in
-the `pip` manual.
+This will install the repository version of `pyignite-dbapi` into your environment in so-called “develop” or “editable”
+mode. You may read more about [editable installs](https://pip.pypa.io/en/stable/reference/pip_install/#editable-installs)
+in the `pip` manual.
 
 Then run through the contents of `requirements` folder to install the additional requirements into your working Python
 environment using
@@ -70,23 +70,23 @@ Ready wheels will be located in `distr` directory.
 
 To upgrade an existing package, use the following command:
 ```
-pip install --upgrade pyignite3
+pip install --upgrade pyignite-dbapi
 ```
 
 To install the latest version of a package:
 
 ```
-pip install pyignite3
+pip install pyignite-dbapi
 ```
 
 To install a specific version:
 
 ```
-pip install pyignite3==3.0.0
+pip install pyignite_dbapi==3.0.0
 ```
 
 ## Testing
-*NB!* It is recommended installing `pyignite3` in development mode.
+*NB!* It is recommended installing `pyignite_dbapi` in development mode.
 Refer to [this section](#from-sources) for instructions.
 
 Remember to install test requirements:

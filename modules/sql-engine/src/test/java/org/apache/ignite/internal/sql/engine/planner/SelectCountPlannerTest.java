@@ -84,7 +84,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
         int version = CLUSTER.catalogManager().latestCatalogVersion();
 
         List<CatalogCommand> commands = new ArrayList<>();
-        for (CatalogTableDescriptor table : CLUSTER.catalogManager().tables(version)) {
+        for (CatalogTableDescriptor table : CLUSTER.catalogManager().catalog(version).tables()) {
             commands.add(
                     DropTableCommand.builder()
                             .schemaName(SqlCommon.DEFAULT_SCHEMA_NAME)

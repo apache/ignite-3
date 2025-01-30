@@ -418,7 +418,7 @@ public class DistributionZoneManager extends
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
             int zoneId = zoneStateEntry.getKey();
-            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, updateTimestamp);
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(updateTimestamp).zone(zoneId);
 
             if (zoneDescriptor == null || zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
                 continue;
@@ -556,7 +556,7 @@ public class DistributionZoneManager extends
     private CompletableFuture<Void> restoreTimers(int catalogVersion) {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-        for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
+        for (CatalogZoneDescriptor zone : catalogManager.catalog(catalogVersion).zones()) {
             ZoneState zoneState = zonesState.get(zone.id());
 
             // Max revision from the {@link ZoneState#topologyAugmentationMap()} for node joins.
@@ -859,7 +859,7 @@ public class DistributionZoneManager extends
 
         logicalTopologyByRevision.put(revision, newLogicalTopology);
 
-        for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
+        for (CatalogZoneDescriptor zone : catalogManager.catalog(catalogVersion).zones()) {
             int zoneId = zone.id();
 
             updateLocalTopologyAugmentationMap(addedNodes, removedNodes, revision, zoneId);
@@ -1624,7 +1624,7 @@ public class DistributionZoneManager extends
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         // TODO: IGNITE-20287 Clean up abandoned resources for dropped tables from vault and metastore
-        for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
+        for (CatalogZoneDescriptor zone : catalogManager.catalog(catalogVersion).zones()) {
             futures.add(restoreZoneStateBusy(zone, recoveryRevision));
         }
 

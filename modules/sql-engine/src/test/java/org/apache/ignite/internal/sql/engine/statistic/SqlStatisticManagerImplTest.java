@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -33,6 +34,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
@@ -78,6 +80,7 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     public void checkDefaultTableSize() {
         int tableId = ThreadLocalRandom.current().nextInt();
         // Preparing:
+        when(catalogManager.catalog(anyInt())).thenReturn(mock(Catalog.class));
         when(tableManager.cachedTable(tableId)).thenReturn(null);
 
         SqlStatisticManagerImpl sqlStatisticManager = new SqlStatisticManagerImpl(tableManager, catalogManager, lowWatermark);
@@ -153,7 +156,9 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
             catalogDescriptors.add(new CatalogTableDescriptor(catalogVersion, 1, 1, "", 1, List.of(), List.of(), null, ""));
             catalogDescriptors.add(new CatalogTableDescriptor(catalogVersion + 1, 1, 1, "", 1, List.of(), List.of(), null, ""));
 
-            when(catalogManager.tables(catalogVersion)).thenReturn(catalogDescriptors);
+            Catalog catalog = mock(Catalog.class);
+            when(catalogManager.catalog(catalogVersion)).thenReturn(catalog);
+            when(catalog.tables()).thenReturn(catalogDescriptors);
         }
 
         when(tableManager.cachedTable(anyInt())).thenReturn(tableViewInternal);
@@ -222,6 +227,8 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
         int tableId = ThreadLocalRandom.current().nextInt();
         long tableSize = 999_888_777L;
         // Preparing:
+        when(catalogManager.catalog(anyInt())).thenReturn(mock(Catalog.class));
+
         ArgumentCaptor<EventListener<CreateTableEventParameters>> tableCreateCapture = ArgumentCaptor.forClass(EventListener.class);
         doNothing().when(catalogManager).listen(eq(CatalogEvent.TABLE_DROP), any());
         doNothing().when(catalogManager).listen(eq(CatalogEvent.TABLE_CREATE), tableCreateCapture.capture());
@@ -295,7 +302,9 @@ class SqlStatisticManagerImplTest extends BaseIgniteAbstractTest {
     private void prepareCatalogWithTable(int tableId) {
         when(catalogManager.earliestCatalogVersion()).thenReturn(1);
         when(catalogManager.latestCatalogVersion()).thenReturn(1);
+        Catalog catalog = mock(Catalog.class);
+        when(catalogManager.catalog(1)).thenReturn(catalog);
         CatalogTableDescriptor catalogDescriptor = new CatalogTableDescriptor(tableId, 1, 1, "", 1, List.of(), List.of(), null, "");
-        when(catalogManager.tables(1)).thenReturn(List.of(catalogDescriptor));
+        when(catalog.tables()).thenReturn(List.of(catalogDescriptor));
     }
 }

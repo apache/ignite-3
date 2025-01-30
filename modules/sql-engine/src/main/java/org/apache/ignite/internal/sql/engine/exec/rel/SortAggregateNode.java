@@ -154,7 +154,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         if (waiting == 0 && requested > 0) {
             waiting = inBufSize;
 
-            context().execute(() -> source().request(inBufSize), this::onError);
+            this.execute(() -> source().request(inBufSize));
         }
     }
 

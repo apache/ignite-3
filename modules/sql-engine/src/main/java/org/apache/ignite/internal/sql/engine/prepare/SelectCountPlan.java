@@ -34,8 +34,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.InternalSqlRowImpl;
-import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
@@ -48,13 +48,11 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IteratorToDataCursorAdapter;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.AsyncCursor;
-import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Plan representing a COUNT(*) query.
@@ -95,8 +93,8 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
     }
 
     @Override
-    public <RowT> AsyncCursor<InternalSqlRow> execute(ExecutionContext<RowT> ctx, InternalTransaction ignored,
-            ExecutableTableRegistry tableRegistry, @Nullable QueryPrefetchCallback firstPageReadyCallback) {
+    public <RowT> AsyncDataCursor<InternalSqlRow> execute(ExecutionContext<RowT> ctx,
+            InternalTransaction ignored, ExecutableTableRegistry tableRegistry) {
         RelOptTable optTable = selectCountNode.getTable();
         IgniteTable igniteTable = optTable.unwrap(IgniteTable.class);
         assert igniteTable != null;
@@ -115,13 +113,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan {
             return postProcess.apply(rs);
         }, resultExecutor);
 
-        if (firstPageReadyCallback != null) {
-            result.whenComplete((res, err) -> firstPageReadyCallback.onPrefetchComplete(err));
-        }
-
-        ctx.scheduleTimeout(result);
-
-        return new AsyncWrapper<>(result, Runnable::run);
+        return new IteratorToDataCursorAdapter<>(result, Runnable::run);
     }
 
     @Override

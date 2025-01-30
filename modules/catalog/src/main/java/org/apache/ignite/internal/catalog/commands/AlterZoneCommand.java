@@ -23,13 +23,14 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.va
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
@@ -104,8 +105,13 @@ public class AlterZoneCommand extends AbstractZoneCommand {
     }
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
-        CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
+    public List<UpdateEntry> get(UpdateContext updateContext) {
+        Catalog catalog = updateContext.catalog();
+
+        CatalogZoneDescriptor zone = zone(catalog, zoneName, !ifExists);
+        if (zone == null) {
+            return List.of();
+        }
 
         CatalogZoneDescriptor descriptor = fromParamsAndPreviousValue(zone);
 

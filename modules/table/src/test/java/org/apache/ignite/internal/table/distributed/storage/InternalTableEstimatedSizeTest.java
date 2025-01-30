@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -52,6 +53,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -216,6 +218,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 () -> null,
                 mock(StreamerReceiverRunner.class)
         );
+
+        when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
 
         List<PartitionReplicaListener> partitionReplicaListeners = IntStream.range(0, PARTITIONS_NUM)
                 .mapToObj(partId -> createPartitionReplicaListener(

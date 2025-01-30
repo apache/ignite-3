@@ -66,7 +66,7 @@ public class ExampleApplicationTest {
             runner.run(null);
         });
 
-        boolean tableExists = cluster.aliveNode().tables().tables().stream().anyMatch(t -> t.name().objectName().equals("PERSON"));
+        boolean tableExists = cluster.aliveNode().tables().tables().stream().anyMatch(t -> t.qualifiedName().objectName().equals("PERSON"));
         ResultSet<SqlRow> resultSet = cluster.aliveNode().sql().execute(null, "SELECT COUNT(*) FROM PERSON");
         long rowsCount = resultSet.next().longValue(0);
 

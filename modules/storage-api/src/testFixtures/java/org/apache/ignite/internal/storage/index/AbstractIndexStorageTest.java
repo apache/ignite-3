@@ -39,8 +39,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -51,7 +49,7 @@ import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
-import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -125,7 +123,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     protected final AtomicInteger catalogId = new AtomicInteger();
 
-    protected final CatalogService catalogService = mock(CatalogService.class);
+    protected final Catalog catalog = mock(Catalog.class);
 
     protected final HybridClock clock = new HybridClockImpl();
 
@@ -174,8 +172,8 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
                 DEFAULT_STORAGE_PROFILE
         );
 
-        when(catalogService.table(eq(SCHEMA_NAME), eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);
-        when(catalogService.table(eq(tableId), anyInt())).thenReturn(tableDescriptor);
+        when(catalog.table(eq(SCHEMA_NAME), eq(TABLE_NAME))).thenReturn(tableDescriptor);
+        when(catalog.table(eq(tableId))).thenReturn(tableDescriptor);
 
         createCatalogIndexDescriptor(tableId, pkIndexId, PK_INDEX_NAME, true, pkColumn.type());
     }
@@ -485,14 +483,14 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     }
 
     void addToCatalog(CatalogIndexDescriptor indexDescriptor) {
-        when(catalogService.aliveIndex(eq(SCHEMA_NAME), eq(indexDescriptor.name()), anyLong())).thenReturn(indexDescriptor);
-        when(catalogService.index(eq(indexDescriptor.id()), anyInt())).thenReturn(indexDescriptor);
+        when(catalog.aliveIndex(eq(SCHEMA_NAME), eq(indexDescriptor.name()))).thenReturn(indexDescriptor);
+        when(catalog.index(eq(indexDescriptor.id()))).thenReturn(indexDescriptor);
     }
 
     S createPkIndexStorage() {
-        CatalogTableDescriptor tableDescriptor = catalogService.table(SCHEMA_NAME, TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor tableDescriptor = catalog.table(SCHEMA_NAME, TABLE_NAME);
 
-        CatalogIndexDescriptor pkIndexDescriptor = catalogService.aliveIndex(SCHEMA_NAME, PK_INDEX_NAME, clock.nowLong());
+        CatalogIndexDescriptor pkIndexDescriptor = catalog.aliveIndex(SCHEMA_NAME, PK_INDEX_NAME);
 
         return (S) tableStorage.getOrCreateIndex(
                 TEST_PARTITION,

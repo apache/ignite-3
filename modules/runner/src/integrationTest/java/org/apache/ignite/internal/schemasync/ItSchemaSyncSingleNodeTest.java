@@ -108,7 +108,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                     ex.getMessage(),
                     containsString(String.format(
                             "Table schema was updated after the transaction was started [table=%s, startSchema=1, operationSchema=2]",
-                            table.name().objectName()
+                            table.qualifiedName().objectName()
                     ))
             );
         } else {
@@ -118,7 +118,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                     ex.getMessage(),
                     is(String.format(
                             "Table schema was updated after the transaction was started [table=%s, startSchema=1, operationSchema=2]",
-                            table.name().objectName()
+                            table.qualifiedName().objectName()
                     ))
             );
         }
@@ -146,7 +146,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
     private static void executeRwReadOn(Table table, Transaction tx, int key, Cluster cluster) {
         cluster.doInSession(0, session -> {
-            executeUpdate("SELECT * FROM " + table.name().toCanonicalForm() + " WHERE id = " + key, session, tx);
+            executeUpdate("SELECT * FROM " + table.name() + " WHERE id = " + key, session, tx);
         });
     }
 
@@ -177,7 +177,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
             @Override
             void execute(Table table, Transaction tx, Cluster cluster) {
                 cluster.doInSession(0, session -> {
-                    executeUpdate("UPDATE " + table.name().toCanonicalForm() + " SET val = 'new value' WHERE id = " + KEY, session, tx);
+                    executeUpdate("UPDATE " + table.name() + " SET val = 'new value' WHERE id = " + KEY, session, tx);
                 });
             }
 
@@ -297,7 +297,8 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
         assertThat(ex, is(instanceOf(IncompatibleSchemaException.class)));
         assertThat(
                 ex.getMessage(),
-                containsString(String.format("Commit failed because a table was already dropped [table=%s]", table.name().objectName()))
+                containsString(String.format("Commit failed because a table was already dropped [table=%s]",
+                        table.qualifiedName().objectName()))
         );
 
         assertThat(((IncompatibleSchemaException) ex).code(), is(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR));
@@ -357,7 +358,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
                 containsString(String.format(
                         "Operation failed because it tried to access a row with newer schema version than transaction's [table=%s, "
                                 + "txSchemaVersion=1, rowSchemaVersion=2]",
-                        table.name().objectName()
+                        table.qualifiedName().objectName()
                 ))
         );
 

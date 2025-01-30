@@ -54,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeServiceImpl;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
@@ -72,11 +73,13 @@ import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryIdGenerator;
+import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -134,7 +137,8 @@ public class TestNode implements LifecycleAware {
             MappingService mappingService,
             ExecutableTableRegistry tableRegistry,
             DdlCommandHandler ddlCommandHandler,
-            SystemViewManager systemViewManager
+            SystemViewManager systemViewManager,
+            OperationKillHandler @Nullable [] killHandlers
     ) {
         this.nodeName = nodeName;
         this.parserService = parserService;
@@ -173,6 +177,16 @@ public class TestNode implements LifecycleAware {
 
         TableFunctionRegistryImpl tableFunctionRegistry = new TableFunctionRegistryImpl();
 
+        KillCommandHandler killCommandHandler = new KillCommandHandler(
+                nodeName, null, messagingService
+        );
+
+        if (killHandlers != null) {
+            for (OperationKillHandler handler : killHandlers) {
+                killCommandHandler.register(handler);
+            }
+        }
+
         ExecutionService executionService = registerService(ExecutionServiceImpl.create(
                 topologyService,
                 messageService,
@@ -187,7 +201,7 @@ public class TestNode implements LifecycleAware {
                 dependencyResolver,
                 tableFunctionRegistry,
                 clockService,
-                null,
+                killCommandHandler,
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
@@ -357,8 +371,17 @@ public class TestNode implements LifecycleAware {
 
     /** Executes the given query. */
     public AsyncSqlCursor<InternalSqlRow> executeQuery(QueryTransactionContext txContext, String query, Object... params) {
+        return executeQuery(
+                SqlPropertiesHelper.emptyProperties(), txContext, query, params
+        );
+    }
+
+    /** Executes the given query. */
+    public AsyncSqlCursor<InternalSqlRow> executeQuery(
+            SqlProperties properties, QueryTransactionContext txContext, String query, Object... params
+    ) {
         return await(queryExecutor.executeQuery(
-                SqlPropertiesHelper.emptyProperties(),
+                properties,
                 txContext,
                 query,
                 null,
@@ -369,6 +392,10 @@ public class TestNode implements LifecycleAware {
     /** Executes the given query. */
     public AsyncSqlCursor<InternalSqlRow> executeQuery(String query, Object... params) {
         return executeQuery((InternalTransaction) null, query, params);
+    }
+
+    public AsyncSqlCursor<InternalSqlRow> executeQuery(SqlProperties properties, String query, Object... params) {
+        return executeQuery(properties, ImplicitTxContext.create(), query, params);
     }
 
     private SqlOperationContext.Builder createContext() {

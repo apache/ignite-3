@@ -20,7 +20,6 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createFile;
 import static java.nio.file.Files.delete;
-import static java.nio.file.Files.exists;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
@@ -493,9 +492,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
         Path groupDir = groupDir(groupId);
 
         try {
-            if (exists(groupDir)) {
-                deleteIfExistsThrowable(groupDir);
-            }
+            deleteIfExistsThrowable(groupDir);
         } catch (IOException e) {
             throw new IOException("Failed to delete group directory: " + groupDir, e);
         }

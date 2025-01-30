@@ -71,8 +71,8 @@ class RestartProofTable implements Table, Wrapper {
     }
 
     @Override
-    public QualifiedName name() {
-        return attachmentLock.attached(ignite -> tableCache.actualFor(ignite).name());
+    public QualifiedName qualifiedName() {
+        return attachmentLock.attached(ignite -> tableCache.actualFor(ignite).qualifiedName());
     }
 
     @Override

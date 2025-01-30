@@ -131,7 +131,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
 
         assertThat(catalogManager.execute(dropIndexCommand), willCompleteSuccessfully());
 
-        assertThat(catalogManager.index(indexId, catalogManager.latestCatalogVersion()), is(nullValue()));
+        assertThat(catalogManager.activeCatalog(clock.nowLong()).index(indexId), is(nullValue()));
 
         StorageIndexDescriptor indexDescriptor = indexDescriptorSupplier.get(indexId);
 
@@ -188,24 +188,26 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
                 .columns(List.of("foo"))
                 .build();
 
-        List<CatalogCommand> commands = List.of(
-                CreateTableCommand.builder()
-                        .schemaName(SCHEMA_NAME)
-                        .tableName(TABLE_NAME)
-                        .columns(List.of(ColumnParams.builder().name("foo").type(ColumnType.INT32).build()))
-                        .primaryKey(primaryKey)
-                        .build(),
-                CreateHashIndexCommand.builder()
-                        .schemaName(SCHEMA_NAME)
-                        .tableName(TABLE_NAME)
-                        .indexName(INDEX_NAME)
-                        .columns(List.of("foo"))
-                        .build()
-        );
+        CatalogCommand createTableCmd = CreateTableCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(List.of(ColumnParams.builder().name("foo").type(ColumnType.INT32).build()))
+                .primaryKey(primaryKey)
+                .build();
 
-        assertThat(catalogManager.execute(commands), willCompleteSuccessfully());
+        CatalogCommand createIndexCmd = CreateHashIndexCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .indexName(INDEX_NAME)
+                .columns(List.of("foo"))
+                .build();
 
-        CatalogIndexDescriptor index = catalogManager.aliveIndex(SCHEMA_NAME, INDEX_NAME, clock.nowLong());
+        assertThat(catalogManager.execute(createTableCmd), willCompleteSuccessfully());
+
+        // The create index command is executed separately, otherwise the index will be created in the AVAILABLE state.
+        assertThat(catalogManager.execute(createIndexCmd), willCompleteSuccessfully());
+
+        CatalogIndexDescriptor index = catalogManager.activeCatalog(clock.nowLong()).aliveIndex(SCHEMA_NAME, INDEX_NAME);
 
         assertThat(index, is(notNullValue()));
 

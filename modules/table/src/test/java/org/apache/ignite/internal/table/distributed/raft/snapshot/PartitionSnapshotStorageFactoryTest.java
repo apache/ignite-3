@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -54,8 +55,11 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
 
         when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
+        Catalog catalog = mock(Catalog.class);
+        when(catalog.indexes(anyInt())).thenReturn(List.of());
+
         CatalogService catalogService = mock(CatalogService.class);
-        when(catalogService.indexes(anyInt(), anyInt())).thenReturn(List.of());
+        when(catalogService.catalog(anyInt())).thenReturn(catalog);
 
         when(partitionAccess.partitionKey()).thenReturn(new PartitionKey(1, 1));
 

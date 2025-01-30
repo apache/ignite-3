@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "module.h"
 #include "py_connection.h"
 #include "py_cursor.h"
 #include "py_string.h"
@@ -56,7 +57,7 @@ static PyObject* make_connection(std::unique_ptr<ignite::sql_environment> env,
     return conn_obj;
 }
 
-static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwargs) {
+static PyObject* pyignite_dbapi_connect(PyObject* self, PyObject* args, PyObject* kwargs) {
     static char *kwlist[] = {
         "address",
         "identity",
@@ -177,7 +178,7 @@ static PyObject* pyignite3_connect(PyObject* self, PyObject* args, PyObject* kwa
 }
 
 static PyMethodDef methods[] = {
-    {"connect", (PyCFunction)pyignite3_connect, METH_VARARGS | METH_KEYWORDS, nullptr},
+    {"connect", (PyCFunction)pyignite_dbapi_connect, METH_VARARGS | METH_KEYWORDS, nullptr},
     {nullptr, nullptr, 0, nullptr}       /* Sentinel */
 };
 
@@ -193,7 +194,7 @@ static struct PyModuleDef module_def = {
     nullptr,                /* m_free */
 };
 
-PyMODINIT_FUNC PyInit__pyignite3_extension(void) { // NOLINT(*-reserved-identifier)
+PyMODINIT_FUNC PyInit__pyignite_dbapi_extension(void) { // NOLINT(*-reserved-identifier)
     PyObject* mod;
 
     mod = PyModule_Create(&module_def);

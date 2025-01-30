@@ -649,17 +649,6 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Returns distributed zone by ID from catalog, {@code null} if zone is absent.
-     *
-     * @param catalogService Catalog service.
-     * @param zoneId Zone ID.
-     * @param timestamp Timestamp.
-     */
-    public static @Nullable CatalogZoneDescriptor getZoneById(CatalogService catalogService, int zoneId, long timestamp) {
-        return catalogService.zone(zoneId, timestamp);
-    }
-
-    /**
      * Returns distributed zone ID form catalog, {@code null} if zone is absent.
      *
      * @param catalogService Catalog service.
@@ -667,7 +656,7 @@ public class DistributionZonesTestUtil {
      * @param timestamp Timestamp.
      */
     public static @Nullable Integer getZoneId(CatalogService catalogService, String zoneName, long timestamp) {
-        CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
+        CatalogZoneDescriptor zone = catalogService.activeCatalog(timestamp).zone(zoneName);
 
         return zone == null ? null : zone.id();
     }

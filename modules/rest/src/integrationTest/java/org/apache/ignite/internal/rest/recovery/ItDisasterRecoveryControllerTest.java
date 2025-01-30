@@ -107,7 +107,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
         CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
 
-        tableIds = catalogManager.tables(catalogManager.latestCatalogVersion()).stream()
+        tableIds = catalogManager.catalog(catalogManager.latestCatalogVersion()).tables().stream()
                 .map(CatalogObjectDescriptor::id)
                 .collect(toSet());
 

@@ -52,8 +52,8 @@ public class PublicApiThreadingTable implements Table, Wrapper {
     }
 
     @Override
-    public QualifiedName name() {
-        return table.name();
+    public QualifiedName qualifiedName() {
+        return table.qualifiedName();
     }
 
     @Override

@@ -48,7 +48,7 @@ public class ItColumnNameMappingTest extends ClusterPerClassIntegrationTest {
     @BeforeEach
     public void clearTables() {
         for (Table t : CLUSTER.aliveNode().tables().tables()) {
-            sql("DELETE FROM " + t.name().toCanonicalForm());
+            sql("DELETE FROM " + t.name());
         }
     }
 

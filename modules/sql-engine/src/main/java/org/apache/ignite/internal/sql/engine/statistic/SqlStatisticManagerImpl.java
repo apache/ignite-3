@@ -147,7 +147,7 @@ public class SqlStatisticManagerImpl implements SqlStatisticManager {
         int earliestVersion = catalogService.earliestCatalogVersion();
         int latestVersion = catalogService.latestCatalogVersion();
         for (int version = earliestVersion; version <= latestVersion; version++) {
-            Collection<CatalogTableDescriptor> tables = catalogService.tables(version);
+            Collection<CatalogTableDescriptor> tables = catalogService.catalog(version).tables();
             for (CatalogTableDescriptor table : tables) {
                 tableSizeMap.putIfAbsent(table.id(), DEFAULT_VALUE);
             }

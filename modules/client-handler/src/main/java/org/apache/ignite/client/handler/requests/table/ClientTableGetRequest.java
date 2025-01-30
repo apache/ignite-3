@@ -48,7 +48,7 @@ public class ClientTableGetRequest {
                 out.packNil();
             } else {
                 out.packInt(((TableViewInternal) table).tableId());
-                out.packString(quoteTableNameIfNotAllUpper(table.name().objectName()));
+                out.packString(quoteTableNameIfNotAllUpper(table.qualifiedName().objectName()));
             }
         });
     }

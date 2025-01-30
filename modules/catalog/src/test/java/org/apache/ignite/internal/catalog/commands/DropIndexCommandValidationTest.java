@@ -25,6 +25,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -75,7 +76,7 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
@@ -91,7 +92,7 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 IndexNotFoundValidationException.class,
                 "Index with name 'PUBLIC.TEST' not found"
         );
@@ -115,7 +116,7 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Dropping primary key index is not allowed"
         );

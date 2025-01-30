@@ -608,11 +608,8 @@ public class JraftServerImpl implements RaftServer {
 
             Path dataPath = getServerDataPath(context.serverDataPath(), nodeId);
 
-            // Current implementation of deleteIfExists throws an exception if directory doesn't exist.
-            if (Files.exists(dataPath)) {
-                // This destroys both meta storage and snapshots storage as they are stored under nodeDataPath.
-                IgniteUtils.deleteIfExistsThrowable(dataPath);
-            }
+            // This destroys both meta storage and snapshots storage as they are stored under nodeDataPath.
+            IgniteUtils.deleteIfExistsThrowable(dataPath);
         } catch (Exception e) {
             throw new IgniteInternalException("Failed to delete storage for node: " + nodeId, e);
         }

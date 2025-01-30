@@ -52,6 +52,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.distributionzones.Node;
@@ -69,6 +70,8 @@ import org.apache.ignite.internal.versioned.VersionedSerialization;
 
 /** Parent for tests of HA zones feature. */
 public abstract class AbstractHighAvailablePartitionsRecoveryTest extends ClusterPerTestIntegrationTest {
+    static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     static final String HA_ZONE_NAME = "HA_ZONE";
 
     static final String HA_TABLE_NAME = "HA_TABLE";
@@ -96,8 +99,10 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         GroupUpdateRequest request = (GroupUpdateRequest) VersionedSerialization.fromBytes(
                 recoveryTriggerEntry.value(), DisasterRecoveryRequestSerializer.INSTANCE);
 
-        int zoneId = node.catalogManager().zone(zoneName, clock.nowLong()).id();
-        int tableId = node.catalogManager().table(SqlCommon.DEFAULT_SCHEMA_NAME, tableName, clock.nowLong()).id();
+        Catalog catalog = node.catalogManager().activeCatalog(clock.nowLong());
+
+        int zoneId = catalog.zone(zoneName).id();
+        int tableId = catalog.table(SCHEMA_NAME, tableName).id();
 
         assertEquals(zoneId, request.zoneId());
         assertEquals(Map.of(tableId, PARTITION_IDS), request.partitionIds());
@@ -233,7 +238,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     final int zoneIdByName(CatalogService catalogService, String zoneName) {
-        return catalogService.zone(zoneName, clock.nowLong()).id();
+        return catalogService.activeCatalog(clock.nowLong()).zone(zoneName).id();
     }
 
     private void createHaZoneWithTables(

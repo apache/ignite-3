@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -193,13 +194,14 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     static Catalog applyCommandsToCatalog(Catalog catalog, CatalogCommand... commandsToApply) {
+        UpdateContext updateContext = new UpdateContext(catalog);
         for (CatalogCommand command : commandsToApply) {
-            for (UpdateEntry updates : command.get(catalog)) {
-                catalog = updates.applyUpdate(catalog, INITIAL_CAUSALITY_TOKEN);
+            for (UpdateEntry updates : command.get(updateContext)) {
+                updateContext.updateCatalog(catalog0 -> updates.applyUpdate(catalog0, INITIAL_CAUSALITY_TOKEN));
             }
         }
 
-        return catalog;
+        return updateContext.catalog();
     }
 
     static Catalog catalog(CatalogCommand... commandsToApply) {

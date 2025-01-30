@@ -57,7 +57,7 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
                 assertEquals(1, tables.size());
 
                 Table table = tables.get(0);
-                assertEquals(TABLE_NAME, table.name().objectName());
+                assertEquals(TABLE_NAME, table.qualifiedName().objectName());
 
                 var tuple = Tuple.create().set(COLUMN_KEY, 1).set(COLUMN_VAL, "Hello");
                 var keyTuple = Tuple.create().set(COLUMN_KEY, 1);
@@ -130,14 +130,14 @@ public class ItThinClientConnectionTest extends ItAbstractThinClientTest {
     void testServerReturnsActualTableName() {
         // Quoting is not necessary.
         Table table = client().tables().table("tbl1");
-        assertEquals("TBL1", table.name().objectName());
+        assertEquals("TBL1", table.qualifiedName().objectName());
 
         // Quoting is necessary.
         client().sql().execute(null, "CREATE TABLE IF NOT EXISTS \"tbl-2\" (key INTEGER PRIMARY KEY)");
 
         try {
             Table table2 = client().tables().table("\"tbl-2\"");
-            assertEquals("tbl-2", table2.name().objectName());
+            assertEquals("tbl-2", table2.qualifiedName().objectName());
         } finally {
             client().sql().execute(null, "DROP TABLE \"tbl-2\"");
         }

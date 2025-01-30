@@ -88,6 +88,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -4164,11 +4165,11 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private int tableVersionByTs(HybridTimestamp ts) {
-        int activeCatalogVersion = catalogService.activeCatalogVersion(ts.longValue());
+        Catalog catalog = catalogService.activeCatalog(ts.longValue());
 
-        CatalogTableDescriptor table = catalogService.table(tableId(), activeCatalogVersion);
+        CatalogTableDescriptor table = catalog.table(tableId());
 
-        assert table != null : "tableId=" + tableId() + ", catalogVersion=" + activeCatalogVersion;
+        assert table != null : "tableId=" + tableId() + ", catalogVersion=" + catalog.version();
 
         return table.tableVersion();
     }

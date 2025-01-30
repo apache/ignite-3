@@ -1291,7 +1291,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         boolean isPresent = false;
 
         for (TableImpl table : tables) {
-            if (table.name().objectName().equals(tableName)) {
+            if (table.qualifiedName().objectName().equals(tableName)) {
                 isPresent = true;
 
                 break;

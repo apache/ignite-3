@@ -149,7 +149,7 @@ public class TableImpl implements TableViewInternal {
         return new HashPartitionManagerImpl(tbl, schemaReg, marshallers);
     }
 
-    @Override public QualifiedName name() {
+    @Override public QualifiedName qualifiedName() {
         return tbl.name();
     }
 
@@ -165,7 +165,7 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public void schemaView(SchemaRegistry schemaReg) {
-        Objects.requireNonNull(schemaReg, () -> "Schema registry must not be null [tableName=" + name().toCanonicalForm() + ']');
+        Objects.requireNonNull(schemaReg, () -> "Schema registry must not be null [tableName=" + name() + ']');
 
         this.schemaReg = schemaReg;
     }

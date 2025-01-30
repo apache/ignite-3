@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -34,6 +35,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -86,6 +88,8 @@ class OutgoingSnapshotTxDataStreamingTest extends BaseIgniteAbstractTest {
         when(partitionAccess.partitionKey()).thenReturn(partitionKey);
 
         lenient().when(partitionAccess.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
+
+        lenient().when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
 
         snapshot = new OutgoingSnapshot(UUID.randomUUID(), partitionAccess, catalogService);
     }

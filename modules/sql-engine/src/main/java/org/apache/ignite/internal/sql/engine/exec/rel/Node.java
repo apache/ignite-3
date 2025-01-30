@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.List;
+import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
 /**
@@ -71,4 +72,11 @@ public interface Node<RowT> extends AutoCloseable {
      * Rewinds upstream.
      */
     void rewind();
+
+    /**
+     * Schedules the given action of this execution node. If this node was closed, the task is ignored.
+     *
+     * @param task Task.
+     */
+    void execute(RunnableX task);
 }

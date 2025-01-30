@@ -90,7 +90,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
 
         when(action.syncTime(any())).thenReturn(nullCompletedFuture());
 
-        clusterTime.startSafeTimeScheduler(action, config);
+        clusterTime.startSafeTimeScheduler(action, config, 0);
 
         verify(action, timeout(100).atLeast(3)).syncTime(any());
     }
@@ -101,11 +101,11 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
 
         when(action.syncTime(any())).thenReturn(nullCompletedFuture());
 
-        clusterTime.startSafeTimeScheduler(action, config);
+        clusterTime.startSafeTimeScheduler(action, config, 0);
 
         verify(action, timeout(100).atLeast(1)).syncTime(any());
 
-        clusterTime.stopSafeTimeScheduler();
+        clusterTime.stopSafeTimeScheduler(1);
 
         clearInvocations(action);
 
@@ -123,7 +123,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
 
         when(action.syncTime(any())).thenReturn(nullCompletedFuture());
 
-        clusterTime.startSafeTimeScheduler(action, config);
+        clusterTime.startSafeTimeScheduler(action, config, 0);
 
         verify(action, after(150).never()).syncTime(any());
 

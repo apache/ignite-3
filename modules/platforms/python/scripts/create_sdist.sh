@@ -16,7 +16,7 @@
 
 set -e -u -x
 
-PACKAGE_NAME=pyignite3
+PACKAGE_NAME="pyignite_dbapi"
 
 # Copying cpp directory.
 cp -r ../cpp /$PACKAGE_NAME/cpp

@@ -449,8 +449,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
 
         JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
-        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), t1), job, null), willBe(nodeKey1));
-        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), t2), job, null), willBe(nodeKey2));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.qualifiedName(), t1), job, null), willBe(nodeKey1));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.qualifiedName(), t2), job, null), willBe(nodeKey2));
     }
 
     @Test
@@ -459,8 +459,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Table table = defaultTable();
         JobDescriptor<Object, String> job = JobDescriptor.<Object, String>builder("job").build();
 
-        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), 1L, mapper), job, null), willBe(nodeKey1));
-        assertThat(compute().executeAsync(JobTarget.colocated(table.name(), 2L, mapper), job, null), willBe(nodeKey2));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.qualifiedName(), 1L, mapper), job, null), willBe(nodeKey1));
+        assertThat(compute().executeAsync(JobTarget.colocated(table.qualifiedName(), 2L, mapper), job, null), willBe(nodeKey2));
     }
 
     @ParameterizedTest
