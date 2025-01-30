@@ -692,10 +692,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             unpacker.unpackByteNullable(); // cluster version patch
             unpacker.unpackStringNullable(); // cluster version pre release
 
-            var featuresLen = unpacker.unpackBinaryHeader();
-            unpacker.skipValues(featuresLen);
+            unpacker.skipValues(1); // Features (binary).
 
-            var extensionsLen = unpacker.unpackInt();
+            var extensionsMapSize = unpacker.unpackInt();
             unpacker.skipValues(extensionsLen);
 
             protocolCtx = new ProtocolContext(
