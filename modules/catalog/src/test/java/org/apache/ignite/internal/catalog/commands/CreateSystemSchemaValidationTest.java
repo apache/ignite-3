@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import java.util.Locale;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -32,7 +33,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests to verify validation of {@link CreateSchemaCommand} for system schemas.
  */
 @SuppressWarnings({"ThrowableNotThrown"})
-public class CreateSystemSchemaCommandValidationTest extends AbstractCommandValidationTest {
+public class CreateSystemSchemaValidationTest extends AbstractCommandValidationTest {
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
@@ -54,7 +55,7 @@ public class CreateSystemSchemaCommandValidationTest extends AbstractCommandVali
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> CreateSchemaCommand.systemSchemaBuilder().name(schemaName).build().get(catalog),
+                () -> CreateSchemaCommand.systemSchemaBuilder().name(schemaName).build().get(new UpdateContext(catalog)),
                 format("Not a system schema, schema: '{}'", schemaName)
         );
     }
@@ -67,7 +68,7 @@ public class CreateSystemSchemaCommandValidationTest extends AbstractCommandVali
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> builder.build().get(catalog),
+                () -> builder.build().get(new UpdateContext(catalog)),
                 format("Schema with name '{}' already exists", INFORMATION_SCHEMA)
         );
     }

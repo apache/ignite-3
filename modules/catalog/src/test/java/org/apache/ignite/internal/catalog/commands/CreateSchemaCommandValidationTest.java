@@ -58,7 +58,7 @@ public class CreateSchemaCommandValidationTest extends AbstractCommandValidation
                 "Schema with name 'TEST' already exists"
         );
 
-        builder.ifNotExists(true).build().get(catalog);
+        builder.ifNotExists(true).build().get(new UpdateContext(catalog));
     }
 
     private static Catalog catalogWithSchema(String schemaName) {
