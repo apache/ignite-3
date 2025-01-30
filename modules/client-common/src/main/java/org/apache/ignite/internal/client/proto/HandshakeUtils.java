@@ -57,9 +57,14 @@ public class HandshakeUtils {
         int mapSize = unpacker.unpackInt();
 
         for (int i = 0; i < mapSize; i++) {
-            HandshakeExtension handshakeExtension = HandshakeExtension.fromKey(unpacker.unpackString());
+            String key = unpacker.unpackString();
+            HandshakeExtension handshakeExtension = HandshakeExtension.fromKey(key);
+
             if (handshakeExtension != null) {
                 extensions.put(handshakeExtension, unpackExtensionValue(handshakeExtension, unpacker));
+            } else {
+                // Unknown extension, skip it.
+                unpacker.skipValues(1);
             }
         }
 
@@ -83,9 +88,7 @@ public class HandshakeUtils {
      * @return Features.
      */
     public static BitSet unpackFeatures(ClientMessageUnpacker unpacker) {
-        var featuresLen = unpacker.unpackBinaryHeader();
-
-        return BitSet.valueOf(unpacker.readPayload(featuresLen));
+        return BitSet.valueOf(unpacker.readBinary());
     }
 
     private static Object unpackExtensionValue(HandshakeExtension handshakeExtension, ClientMessageUnpacker unpacker) {
