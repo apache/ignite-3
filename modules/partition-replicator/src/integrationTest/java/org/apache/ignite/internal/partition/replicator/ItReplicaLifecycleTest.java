@@ -183,10 +183,11 @@ public class ItReplicaLifecycleTest extends IgniteAbstractTest {
             int amount,
             @Nullable InvokeInterceptor invokeInterceptor
     ) throws NodeStoppingException, InterruptedException {
-        IntStream.range(0, amount)
-                .mapToObj(i -> newNode(testInfo, i, invokeInterceptor))
-                .parallel()
-                .forEach(Node::start);
+        IntStream.range(0, amount).forEach(i -> newNode(testInfo, i, invokeInterceptor));
+
+        assert nodes.size() == amount : "Not all amount of nodes were created.";
+
+        nodes.values().stream().parallel().forEach(Node::start);
 
         Node node0 = getNode(0);
 
