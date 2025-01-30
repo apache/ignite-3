@@ -182,6 +182,11 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
+    public long timeout() {
+        return 10_000;
+    }
+
+    @Override
     public IgniteBiTuple<ClusterNode, Long> enlist(TablePartitionId tablePartitionId,
             IgniteBiTuple<ClusterNode, Long> nodeAndConsistencyToken) {
         return nodeAndConsistencyToken;

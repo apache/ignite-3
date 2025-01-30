@@ -164,6 +164,11 @@ public class FakeTxManager implements TxManager {
             public boolean isFinishingOrFinished() {
                 return false;
             }
+
+            @Override
+            public long timeout() {
+                return 10_000;
+            }
         };
     }
 

@@ -214,7 +214,6 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 placementDriver,
                 new TransactionInflights(placementDriver, clockService),
                 0,
-                0,
                 () -> null,
                 mock(StreamerReceiverRunner.class)
         );
