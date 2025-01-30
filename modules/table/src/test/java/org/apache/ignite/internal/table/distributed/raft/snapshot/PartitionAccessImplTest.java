@@ -59,7 +59,7 @@ import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.junit.jupiter.api.BeforeAll;
@@ -111,7 +111,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
-        TxStateStorage txStateStorage = txStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION_ID);
+        TxStatePartitionStorage txStatePartitionStorage = txStateTableStorage.getOrCreatePartitionStorage(TEST_PARTITION_ID);
 
         PartitionAccess partitionAccess = createPartitionAccessImpl(mvTableStorage, txStateTableStorage);
 
@@ -120,7 +120,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         mvPartitionStorage.runConsistently(locker -> {
             mvPartitionStorage.lastApplied(10, 1);
-            txStateStorage.lastApplied(5, 1);
+            txStatePartitionStorage.lastApplied(5, 1);
 
             return null;
         });
@@ -131,7 +131,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
         mvPartitionStorage.runConsistently(locker -> {
             mvPartitionStorage.lastApplied(15, 2);
 
-            txStateStorage.lastApplied(20, 2);
+            txStatePartitionStorage.lastApplied(20, 2);
 
             return null;
         });
@@ -150,7 +150,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
         TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
-        TxStateStorage txStateStorage = txStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION_ID);
+        TxStatePartitionStorage txStatePartitionStorage = txStateTableStorage.getOrCreatePartitionStorage(TEST_PARTITION_ID);
 
         PartitionAccess partitionAccess = createPartitionAccessImpl(mvTableStorage, txStateTableStorage);
 
@@ -159,7 +159,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
         mvPartitionStorage.runConsistently(locker -> {
             mvPartitionStorage.lastApplied(1, 10);
-            txStateStorage.lastApplied(1, 5);
+            txStatePartitionStorage.lastApplied(1, 5);
 
             return null;
         });
@@ -170,7 +170,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
         mvPartitionStorage.runConsistently(locker -> {
             mvPartitionStorage.lastApplied(2, 15);
 
-            txStateStorage.lastApplied(2, 20);
+            txStatePartitionStorage.lastApplied(2, 20);
 
             return null;
         });

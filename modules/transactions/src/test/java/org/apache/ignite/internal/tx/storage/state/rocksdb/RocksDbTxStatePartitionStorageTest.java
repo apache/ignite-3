@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.tx.storage.state.TxStateStorage.REBALANCE_IN_PROGRESS;
+import static org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
@@ -34,8 +34,8 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
-import org.apache.ignite.internal.tx.storage.state.AbstractTxStateStorageTest;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.AbstractTxStatePartitionStorageTest;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +47,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(WorkDirectoryExtension.class)
-public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
+public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartitionStorageTest {
     @WorkDirectory
     private Path workDir;
 
@@ -87,7 +87,7 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
 
     @Test
     void testRestartStorageInProgressOfRebalance() {
-        TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
+        TxStatePartitionStorage storage = tableStorage.getOrCreatePartitionStorage(0);
 
         List<IgniteBiTuple<UUID, TxMeta>> rows = List.of(
                 randomTxMetaTuple(1, UUID.randomUUID()),
@@ -107,7 +107,7 @@ public class RocksDbTxStateStorageTest extends AbstractTxStateStorageTest {
 
         tableStorage.start();
 
-        storage = tableStorage.getOrCreateTxStateStorage(0);
+        storage = tableStorage.getOrCreatePartitionStorage(0);
 
         checkLastApplied(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
 

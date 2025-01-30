@@ -141,7 +141,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -673,12 +673,12 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
                 .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
-        var txStateStorage = mock(TxStateStorage.class);
+        var txStateStorage = mock(TxStatePartitionStorage.class);
         var mvPartitionStorage = mock(MvPartitionStorage.class);
 
         if (isTxStorageUnderRebalance) {
             // Emulate a situation when TX state storage was stopped in a middle of rebalance.
-            when(txStateStorage.lastAppliedIndex()).thenReturn(TxStateStorage.REBALANCE_IN_PROGRESS);
+            when(txStateStorage.lastAppliedIndex()).thenReturn(TxStatePartitionStorage.REBALANCE_IN_PROGRESS);
         } else {
             // Emulate a situation when partition storage was stopped in a middle of rebalance.
             when(mvPartitionStorage.lastAppliedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
@@ -697,8 +697,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
             doReturn(nullCompletedFuture()).when(mvTableStorage).clearPartition(anyInt());
         }, (txStateTableStorage) -> {
-            doReturn(txStateStorage).when(txStateTableStorage).getOrCreateTxStateStorage(anyInt());
-            doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
+            doReturn(txStateStorage).when(txStateTableStorage).getOrCreatePartitionStorage(anyInt());
+            doReturn(txStateStorage).when(txStateTableStorage).getPartitionStorage(anyInt());
         });
 
         createZone(1, 1);

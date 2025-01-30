@@ -83,7 +83,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
@@ -107,7 +107,7 @@ public class PartitionListener implements RaftGroupListener {
     private final StorageUpdateHandler storageUpdateHandler;
 
     /** Storage of transaction metadata. */
-    private final TxStateStorage txStateStorage;
+    private final TxStatePartitionStorage txStatePartitionStorage;
 
     /** Safe time tracker. */
     private final SafeTimeValuesTracker safeTimeTracker;
@@ -132,7 +132,7 @@ public class PartitionListener implements RaftGroupListener {
             TxManager txManager,
             PartitionDataStorage partitionDataStorage,
             StorageUpdateHandler storageUpdateHandler,
-            TxStateStorage txStateStorage,
+            TxStatePartitionStorage txStatePartitionStorage,
             SafeTimeValuesTracker safeTimeTracker,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CatalogService catalogService,
@@ -144,7 +144,7 @@ public class PartitionListener implements RaftGroupListener {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
         this.storageUpdateHandler = storageUpdateHandler;
-        this.txStateStorage = txStateStorage;
+        this.txStatePartitionStorage = txStatePartitionStorage;
         this.safeTimeTracker = safeTimeTracker;
         this.storageIndexTracker = storageIndexTracker;
         this.catalogService = catalogService;
@@ -173,12 +173,12 @@ public class PartitionListener implements RaftGroupListener {
 
             // We choose the minimum applied index, since we choose it (the minimum one) on local recovery so as not to lose the data for
             // one of the storages.
-            long storagesAppliedIndex = Math.min(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
+            long storagesAppliedIndex = Math.min(storage.lastAppliedIndex(), txStatePartitionStorage.lastAppliedIndex());
 
             assert commandIndex > storagesAppliedIndex :
                     "Write command must have an index greater than that of storages [commandIndex=" + commandIndex
                             + ", mvAppliedIndex=" + storage.lastAppliedIndex()
-                            + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
+                            + ", txStateAppliedIndex=" + txStatePartitionStorage.lastAppliedIndex() + "]";
 
             IgniteBiTuple<Serializable, Boolean> result = null;
 
@@ -374,7 +374,7 @@ public class PartitionListener implements RaftGroupListener {
     private IgniteBiTuple<Serializable, Boolean> handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
             throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
-        if (commandIndex <= txStateStorage.lastAppliedIndex()) {
+        if (commandIndex <= txStatePartitionStorage.lastAppliedIndex()) {
             return new IgniteBiTuple<>(null, false);
         }
 
@@ -388,9 +388,9 @@ public class PartitionListener implements RaftGroupListener {
                 cmd.commitTimestamp()
         );
 
-        TxMeta txMetaBeforeCas = txStateStorage.get(txId);
+        TxMeta txMetaBeforeCas = txStatePartitionStorage.get(txId);
 
-        boolean txStateChangeRes = txStateStorage.compareAndSet(
+        boolean txStateChangeRes = txStatePartitionStorage.compareAndSet(
                 txId,
                 null,
                 txMetaToSet,
@@ -524,8 +524,8 @@ public class PartitionListener implements RaftGroupListener {
         //      4) When we try to restore data starting from the minimal lastAppliedIndex, we come to the situation
         //         that a raft node doesn't have such data, because the truncation until the maximal lastAppliedIndex from 1) has happened.
         //      5) Node cannot finish local recovery.
-        long maxLastAppliedIndex = Math.max(storage.lastAppliedIndex(), txStateStorage.lastAppliedIndex());
-        long maxLastAppliedTerm = Math.max(storage.lastAppliedTerm(), txStateStorage.lastAppliedTerm());
+        long maxLastAppliedIndex = Math.max(storage.lastAppliedIndex(), txStatePartitionStorage.lastAppliedIndex());
+        long maxLastAppliedTerm = Math.max(storage.lastAppliedTerm(), txStatePartitionStorage.lastAppliedTerm());
 
         storage.runConsistently(locker -> {
             storage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
@@ -533,10 +533,10 @@ public class PartitionListener implements RaftGroupListener {
             return null;
         });
 
-        txStateStorage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
+        txStatePartitionStorage.lastApplied(maxLastAppliedIndex, maxLastAppliedTerm);
         updateTrackerIgnoringTrackerClosedException(storageIndexTracker, maxLastAppliedIndex);
 
-        CompletableFuture.allOf(storage.flush(), txStateStorage.flush())
+        CompletableFuture.allOf(storage.flush(), txStatePartitionStorage.flush())
                 .whenComplete((unused, throwable) -> doneClo.accept(throwable));
     }
 
@@ -672,7 +672,7 @@ public class PartitionListener implements RaftGroupListener {
             return new IgniteBiTuple<>(null, false);
         }
 
-        txStateStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
+        txStatePartitionStorage.removeAll(cmd.txIds(), commandIndex, commandTerm);
 
         return new IgniteBiTuple<>(null, true);
     }

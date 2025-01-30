@@ -108,9 +108,9 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxMetaMessage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
@@ -163,7 +163,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private final CatalogService catalogService = mock(CatalogService.class);
 
     private final MvPartitionStorage outgoingMvPartitionStorage = new TestMvPartitionStorage(PARTITION_ID);
-    private final TxStateStorage outgoingTxStatePartitionStorage = new TestTxStateStorage();
+    private final TxStatePartitionStorage outgoingTxStatePartitionStorage = new TestTxStatePartitionStorage();
 
     private final MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT));
     private final TxStateTableStorage incomingTxStateTableStorage = spy(new TestTxStateTableStorage());
@@ -234,7 +234,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(GcUpdateHandler.class));
 
         MvPartitionStorage incomingMvPartitionStorage = incomingMvTableStorage.getMvPartition(PARTITION_ID);
-        TxStateStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getTxStateStorage(PARTITION_ID);
+        TxStatePartitionStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getPartitionStorage(PARTITION_ID);
 
         assertEquals(expLastAppliedIndex, outgoingMvPartitionStorage.lastAppliedIndex());
         assertEquals(expLastAppliedTerm, outgoingMvPartitionStorage.lastAppliedTerm());
@@ -262,7 +262,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private void createTargetStorages() {
         assertThat(incomingMvTableStorage.createMvPartition(PARTITION_ID), willCompleteSuccessfully());
-        incomingTxStateTableStorage.getOrCreateTxStateStorage(PARTITION_ID);
+        incomingTxStateTableStorage.getOrCreatePartitionStorage(PARTITION_ID);
     }
 
     private void fillOriginalStorages() {
@@ -280,7 +280,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     private MessagingService messagingServiceForSuccessScenario(MvPartitionStorage outgoingMvPartitionStorage,
-            TxStateStorage outgoingTxStatePartitionStorage, List<RowId> rowIds, List<UUID> txIds) {
+            TxStatePartitionStorage outgoingTxStatePartitionStorage, List<RowId> rowIds, List<UUID> txIds) {
         MessagingService messagingService = mock(MessagingService.class);
 
         returnSnapshotMetaWhenAskedForIt(messagingService);
@@ -415,7 +415,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     private static void fillTxStatePartitionStorage(
-            TxStateStorage storage,
+            TxStatePartitionStorage storage,
             long lastAppliedIndex,
             long lastAppliedTerm,
             List<UUID> txIds
@@ -516,7 +516,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static void assertEqualsTxStates(TxStateStorage expected, TxStateStorage actual, List<UUID> txIds) {
+    private static void assertEqualsTxStates(TxStatePartitionStorage expected, TxStatePartitionStorage actual, List<UUID> txIds) {
         for (UUID txId : txIds) {
             assertEquals(expected.get(txId), actual.get(txId));
         }
@@ -782,7 +782,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             TxStateTableStorage incomingTxStateTableStorage
     ) {
         MvPartitionStorage incomingMvPartitionStorage = incomingMvTableStorage.getMvPartition(PARTITION_ID);
-        TxStateStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getTxStateStorage(PARTITION_ID);
+        TxStatePartitionStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getPartitionStorage(PARTITION_ID);
 
         assertEquals(0L, incomingMvPartitionStorage.lastAppliedIndex());
         assertEquals(0L, incomingMvPartitionStorage.lastAppliedTerm());

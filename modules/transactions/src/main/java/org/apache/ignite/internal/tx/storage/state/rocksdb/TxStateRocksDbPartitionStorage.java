@@ -44,7 +44,7 @@ import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxMetaSerializer;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -58,7 +58,7 @@ import org.rocksdb.WriteBatch;
 /**
  * Tx state storage implementation based on RocksDB.
  */
-public class TxStateRocksDbStorage implements TxStateStorage {
+public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     /** Prefix length for the payload. Consists of tableId (4 bytes) and partitionId (2 bytes), both in Big Endian. */
     private static final int PREFIX_SIZE_BYTES = TABLE_PREFIX_SIZE_BYTES + Short.BYTES;
 
@@ -101,7 +101,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
      * @param partitionId Partition id.
      * @param tableStorage Table storage.
      */
-    TxStateRocksDbStorage(
+    TxStateRocksDbPartitionStorage(
             int partitionId,
             TxStateRocksDbTableStorage tableStorage
     ) {
