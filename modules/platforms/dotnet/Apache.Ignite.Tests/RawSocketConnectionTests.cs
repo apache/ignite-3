@@ -20,7 +20,6 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Buffers;
-    using System.Collections;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
@@ -77,7 +76,11 @@ namespace Apache.Ignite.Tests
             WriteHandshake(
                 stream,
                 features: Guid.NewGuid().ToByteArray(),
-                extensions: new Dictionary<string, object> { { "foobar", Guid.NewGuid().ToString() } });
+                extensions: new Dictionary<string, object>
+                {
+                    { "foobar", 1 },
+                    { "foobar2", "s" }
+                });
 
             await stream.FlushAsync();
             await CheckResponseMagic(stream);
