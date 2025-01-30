@@ -87,8 +87,12 @@ public class LoggingTests
             };
 
             using var server = new FakeServer();
-            using var client = await server.ConnectClientAsync(cfg);
-            await client.Tables.GetTablesAsync();
+            using (var client = await server.ConnectClientAsync(cfg))
+            {
+                await client.Tables.GetTablesAsync();
+            }
+
+            await textWriter.FlushAsync();
         }
         finally
         {
