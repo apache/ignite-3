@@ -137,6 +137,8 @@ namespace Apache.Ignite.Tests
 
         public IList<IClusterNode> ClusterNodes { get; set; }
 
+        public bool DisableRandomHandshake { get; set; }
+
         internal IList<ClientOp> ClientOps => _ops?.ToList() ?? throw new Exception("Ops tracking is disabled");
 
         public async Task<IIgniteClient> ConnectClientAsync(IgniteClientConfiguration? cfg = null)
@@ -188,7 +190,7 @@ namespace Apache.Ignite.Tests
             handshakeWriter.Write(4);
             handshakeWriter.Write("-abcd");
 
-            if (Random.Shared.Next(2) == 1)
+            if (DisableRandomHandshake || Random.Shared.Next(2) == 1)
             {
                 handshakeWriter.WriteBinaryHeader(0); // Features.
                 handshakeWriter.Write(0); // Extensions.
