@@ -25,12 +25,16 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -44,6 +48,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -54,8 +60,10 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.TestLozaFactory;
+import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
@@ -85,6 +93,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
+    private static final IgniteLogger LOG = Loggers.forClass(ReplicasSafeTimePropagationTest.class);
+
     @InjectConfiguration("mock: { fsync: false }")
     private RaftConfiguration raftConfiguration;
 
@@ -107,6 +117,11 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
     private Map<String, PartialNode> cluster;
 
+    private volatile boolean blockFsmThread = false;
+
+    private final CountDownLatch l1 = new CountDownLatch(1);
+    private final CountDownLatch l2 = new CountDownLatch(1);
+
     @AfterEach
     public void after() throws Exception {
         for (PartialNode partialNode : cluster.values()) {
@@ -122,14 +137,19 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
             RaftGroupService raftClient,
             HybridTimestamp initiatorTime
     ) {
-        CompletableFuture<Object> safeTimeCommandFuture = raftClient.run(
+        assertThat(sendSafeTimeSyncCommandAsync(raftClient, initiatorTime), willCompleteSuccessfully());
+    }
+
+    private static CompletableFuture<Object> sendSafeTimeSyncCommandAsync(
+            RaftGroupService raftClient,
+            HybridTimestamp initiatorTime
+    ) {
+        return raftClient.run(
                 REPLICA_MESSAGES_FACTORY
                         .safeTimeSyncCommand()
                         .initiatorTime(initiatorTime)
                         .build()
         );
-
-        assertThat(safeTimeCommandFuture, willCompleteSuccessfully());
     }
 
     /**
@@ -254,6 +274,45 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         assertTrue(leaderNode2.safeTs.current().compareTo(firstSafeTs) > 0);
     }
 
+    @Test
+    public void testSafeTimeReorderingOnRetry() throws Exception {
+        {
+            cluster = Stream.of("node1").collect(toMap(identity(), PartialNode::new));
+
+            startCluster(cluster);
+        }
+
+        PartialNode someNode = cluster.values().iterator().next();
+
+        RaftGroupService raftClient = someNode.raftClient;
+
+        assertThat(raftClient.refreshLeader(), willCompleteSuccessfully());
+
+        // Assumes stable clock on test runner.
+        HybridClock initiatorClock = new TestHybridClock(() -> System.currentTimeMillis() - 100);
+
+        sendSafeTimeSyncCommand(raftClient, initiatorClock.now());
+
+        blockFsmThread = true;
+
+        var fut = sendSafeTimeSyncCommandAsync(raftClient, initiatorClock.now());
+        var fut2 = sendSafeTimeSyncCommandAsync(raftClient, initiatorClock.now());
+
+        l1.await();
+
+        // Block enough to trigger retry.
+        Thread.sleep(raftConfiguration.responseTimeout().value() + 1000);
+
+        LOG.info("Unblocking FSM thread");
+
+        blockFsmThread = false;
+
+        l2.countDown();
+
+        assertThat(fut, willCompleteSuccessfully());
+        assertThat(fut2, willCompleteSuccessfully());
+    }
+
     private void startCluster(Map<String, PartialNode> cluster) throws Exception {
         for (PartialNode node : cluster.values()) {
             node.start();
@@ -324,7 +383,23 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             mock(IndexMetaStorage.class),
                             clusterService.topologyService().localMember().id(),
                             mock(MinimumRequiredTimeCollectorService.class)
-                    ),
+                    ) {
+                        @Override
+                        public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {
+                            if (blockFsmThread) {
+                                LOG.info("Blocked on FSM call: safeTs=" + safeTs.current());
+                                l1.countDown();
+
+                                try {
+                                    assertTrue(l2.await(30_000, TimeUnit.MILLISECONDS));
+                                } catch (InterruptedException e) {
+                                    fail("Unexpected interruption", e);
+                                }
+                            }
+
+                            super.onWrite(iterator);
+                        }
+                    },
                     RaftGroupEventsListener.noopLsnr,
                     RaftGroupOptions.defaults()
                             .maxClockSkew(schemaSynchronizationConfiguration.maxClockSkew().value().intValue())
