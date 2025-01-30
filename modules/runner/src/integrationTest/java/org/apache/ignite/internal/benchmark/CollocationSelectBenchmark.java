@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Mode.Throughput;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -94,7 +95,9 @@ public class CollocationSelectBenchmark extends AbstractCollocationBenchmark {
                 for (int i = 0; i < TABLE_SIZE; i++) {
                     Tuple key = Tuple.create().set("id", i);
 
-                    view.put(null, key, value);
+                    publicIgnite.transactions().runInTransaction(tx -> {
+                        view.putAll(tx, Map.of(key, value));
+                    });
                 }
 
                 return null;

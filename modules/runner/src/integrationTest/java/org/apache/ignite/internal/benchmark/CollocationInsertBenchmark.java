@@ -22,6 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Mode.Throughput;
 
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -108,7 +109,7 @@ public class CollocationInsertBenchmark extends AbstractCollocationBenchmark {
         KeyValueView<Tuple, Tuple> kvView = tableViews.get(tableIdx);
 
         publicIgnite.transactions().runInTransaction(tx -> {
-            kvView.put(tx, Tuple.create().set("id", currentId), tuple);
+            kvView.putAll(tx, Map.of(Tuple.create().set("id", currentId), tuple));
         });
     }
 
