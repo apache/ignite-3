@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.dataNodeHistoryContext;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.logicalNodeFromNode;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.createZoneManagerExecutor;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
@@ -585,38 +586,6 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         assertDataNodesInStorage(zoneId, Set.of(A, B), keyValueStorage);
     }
 
-    @Test
-    void testZoneStateAddRemoveNodesPreservesDuplicationsOfNodes() {
-        StripedScheduledThreadPoolExecutor executor = createZoneManagerExecutor(
-                1,
-                new NamedThreadFactory("test-dst-zones-scheduler", LOG)
-        );
-
-        try {
-            ZoneState zoneState = new ZoneState(executor);
-
-            zoneState.nodesToAddToDataNodes(Set.of(A, B), 1);
-            zoneState.nodesToAddToDataNodes(Set.of(A, B), 2);
-
-            List<Node> nodes = zoneState.nodesToBeAddedToDataNodes(0, 2);
-
-            nodes.sort(Comparator.comparing(Node::nodeName));
-
-            assertEquals(List.of(A, A, B, B), nodes);
-
-            zoneState.nodesToRemoveFromDataNodes(Set.of(C, D), 3);
-            zoneState.nodesToRemoveFromDataNodes(Set.of(C, D), 4);
-
-            nodes = zoneState.nodesToBeRemovedFromDataNodes(2, 4);
-
-            nodes.sort(Comparator.comparing(Node::nodeName));
-
-            assertEquals(List.of(C, C, D, D), nodes);
-        } finally {
-            IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
-        }
-    }
-
     /**
      * Creates a zone with the auto adjust scale up scale down trigger equals to 0 and the data nodes equals ["A", B, "C"].
      *
@@ -658,15 +627,6 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         int zoneId = getZoneId(ZONE_NAME);
 
         assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes, keyValueStorage);
-    }
-
-    private static LogicalNode logicalNodeFromNode(Node node) {
-        return new LogicalNode(
-                new ClusterNodeImpl(node.nodeId(), node.nodeName(), new NetworkAddress("localhost", 123)),
-                emptyMap(),
-                emptyMap(),
-                List.of("default")
-        );
     }
 
     protected void createZone(

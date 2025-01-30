@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones;
 
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
@@ -35,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -64,8 +66,10 @@ import org.apache.ignite.internal.lang.Pair;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 
@@ -395,6 +399,15 @@ public class DistributionZonesTestUtil {
             assertEquals(nodes, actualNodes, "Nodes: " + actualNodeNames
                     + ", timestamp=" + (timestampToCheck == HybridTimestamp.MAX_VALUE ? "[max]" : timestamp));
         }
+    }
+
+    public static LogicalNode logicalNodeFromNode(Node node) {
+        return new LogicalNode(
+                new ClusterNodeImpl(node.nodeId(), node.nodeName(), new NetworkAddress("localhost", 123)),
+                emptyMap(),
+                emptyMap(),
+                List.of("default")
+        );
     }
 
     /**

@@ -47,6 +47,7 @@ import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -531,21 +532,27 @@ public class CatalogTestUtils {
      * Waits till default zone appears in latest version of catalog.
      *
      * @param manager Catalog manager to monitor.
+     * @return Default zone descriptor.
      */
-    public static void awaitDefaultZoneCreation(CatalogManager manager) {
+    public static CatalogZoneDescriptor awaitDefaultZoneCreation(CatalogManager manager) {
         try {
             int[] versionHolder = new int[1];
+            CatalogZoneDescriptor[] catalogZoneDescriptor = new CatalogZoneDescriptor[1];
 
             assertTrue(waitForCondition(() -> {
                 int latestVersion = manager.latestCatalogVersion();
 
                 versionHolder[0] = latestVersion;
 
-                return manager.catalog(latestVersion).defaultZone() != null;
+                catalogZoneDescriptor[0] = manager.catalog(latestVersion).defaultZone();
+
+                return catalogZoneDescriptor[0] != null;
             }, 5_000));
 
             // additionally we have to wait till all listeners complete handling of event
             await(manager.catalogReadyFuture(versionHolder[0]));
+
+            return catalogZoneDescriptor[0];
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }

@@ -83,6 +83,8 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Manager for data nodes of distribution zones.
@@ -183,9 +185,7 @@ public class DataNodesManager {
                                 zoneDescriptor
                         );
 
-                        Set<NodeWithAttributes> filteredNewTopology = filterDataNodes(newLogicalTopology, zoneDescriptor);
-
-                        Set<NodeWithAttributes> addedNodes = filteredNewTopology.stream()
+                        Set<NodeWithAttributes> addedNodes = newLogicalTopology.stream()
                                 .filter(node -> !currentDataNodes.getSecond().contains(node))
                                 .collect(toSet());
 
@@ -288,20 +288,20 @@ public class DataNodesManager {
                         Set<NodeWithAttributes> dataNodes = filterDataNodes(logicalTopology, zoneDescriptor);
 
                         return new LoggedIif(iif(
-                                dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
-                                ops(
-                                        addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, dataNodes),
-                                        clearTimer(zoneScaleUpTimerKey(zoneId)),
-                                        clearTimer(zoneScaleDownTimerKey(zoneId)),
-                                        clearTimer(zonePartitionResetTimerKey(zoneId))
-                                ).yield(true),
-                                ops().yield(false)
-                        ),
-                        updateHistoryLogRecord("distribution zone filter change", dataNodesHistory, timestamp, zoneId, dataNodes,
-                                DEFAULT_TIMER, DEFAULT_TIMER),
-                        "Failed to update data nodes history and timers on distribution zone filter change [timestamp="
-                                + timestamp + "]."
-                        );
+                                    dataNodesHistoryEqualToOrNotExists(zoneId, dataNodesHistory),
+                                    ops(
+                                            addNewEntryToDataNodesHistory(zoneId, dataNodesHistory, timestamp, dataNodes),
+                                            clearTimer(zoneScaleUpTimerKey(zoneId)),
+                                            clearTimer(zoneScaleDownTimerKey(zoneId)),
+                                            clearTimer(zonePartitionResetTimerKey(zoneId))
+                                    ).yield(true),
+                                    ops().yield(false)
+                            ),
+                            updateHistoryLogRecord("distribution zone filter change", dataNodesHistory, timestamp, zoneId, dataNodes,
+                                    DEFAULT_TIMER, DEFAULT_TIMER),
+                            "Failed to update data nodes history and timers on distribution zone filter change [timestamp="
+                                    + timestamp + "]."
+                            );
                     });
         });
     }
@@ -373,13 +373,14 @@ public class DataNodesManager {
             @Nullable DistributionZoneTimer scaleUpTimer,
             @Nullable DistributionZoneTimer scaleDownTimer
     ) {
-        boolean historyEntryAdded = currentHistory.isEmpty()
-                || !nodes.equals(currentHistory.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).getSecond());
+        Set<NodeWithAttributes> latestNodesWritten = currentHistory.dataNodesForTimestamp(HybridTimestamp.MAX_VALUE).getSecond();
+        boolean historyEntryAdded = currentHistory.isEmpty() || !nodes.equals(latestNodesWritten);
 
         return "Updated data nodes on " + operation + ", "
                 + (historyEntryAdded ? "added history entry" : "history entry not added")
                 + " [zoneId=" + zoneId + ", timestamp=" + timestamp
                 + (historyEntryAdded ? ", nodes=" + nodeNames(nodes) : "")
+                + (historyEntryAdded ? "" : ", latestNodesWritten=" + nodeNames(latestNodesWritten))
                 + "]"
                 + (scaleUpTimer == null ? "" : ", scaleUpTimer=" + scaleUpTimer)
                 + (scaleDownTimer == null ? "" : ", scaleDownTimer=" + scaleDownTimer)
@@ -392,9 +393,9 @@ public class DataNodesManager {
             Runnable taskOnReset
     ) {
         if (partitionDistributionResetTimeoutSeconds == INFINITE_TIMER_VALUE) {
-            zoneTimers.computeIfAbsent(zoneId, ZoneTimers::new).partitionReset.stopScheduledTask();
+            zoneTimers.computeIfAbsent(zoneId, this::createZoneTimers).partitionReset.stopScheduledTask();
         } else {
-            zoneTimers.computeIfAbsent(zoneId, ZoneTimers::new).partitionReset
+            zoneTimers.computeIfAbsent(zoneId, this::createZoneTimers).partitionReset
                     .reschedule(partitionDistributionResetTimeoutSeconds, taskOnReset);
         }
     }
@@ -415,11 +416,13 @@ public class DataNodesManager {
     }
 
     private void onScaleUpTimerChange(CatalogZoneDescriptor zoneDescriptor, DistributionZoneTimer scaleUpTimer) {
+        int zoneId = zoneDescriptor.id();
+
         if (scaleUpTimer.equals(DEFAULT_TIMER)) {
+            stopScaleUp(zoneId);
+
             return;
         }
-
-        int zoneId = zoneDescriptor.id();
 
         Runnable runnable = () -> msInvokeWithRetry(msGetter -> {
             return msGetter.get(List.of(zoneDataNodesHistoryKey(zoneId), zoneScaleUpTimerKey(zoneId)))
@@ -488,11 +491,13 @@ public class DataNodesManager {
     }
 
     private void onScaleDownTimerChange(CatalogZoneDescriptor zoneDescriptor, DistributionZoneTimer scaleDownTimer) {
+        int zoneId = zoneDescriptor.id();
+
         if (scaleDownTimer.equals(DEFAULT_TIMER)) {
+            stopScaleDown(zoneId);
+
             return;
         }
-
-        int zoneId = zoneDescriptor.id();
 
         Runnable runnable = () -> msInvokeWithRetry(msGetter -> {
             return msGetter.get(List.of(zoneDataNodesHistoryKey(zoneId), zoneScaleDownTimerKey(zoneId)))
@@ -554,16 +559,28 @@ public class DataNodesManager {
         return max(0, delayMs / 1000);
     }
 
+    private void stopScaleUp(int zoneId) {
+        zoneTimers.computeIfAbsent(zoneId, this::createZoneTimers).scaleUp.stopScheduledTask();
+    }
+
+    private void stopScaleDown(int zoneId) {
+        zoneTimers.computeIfAbsent(zoneId, this::createZoneTimers).scaleDown.stopScheduledTask();
+    }
+
     private void rescheduleScaleUp(long delayInSeconds, Runnable runnable, int zoneId) {
-        zoneTimers.computeIfAbsent(zoneId, ZoneTimers::new).scaleUp.reschedule(delayInSeconds, runnable);
+        zoneTimers.computeIfAbsent(zoneId, this::createZoneTimers).scaleUp.reschedule(delayInSeconds, runnable);
     }
 
     private void rescheduleScaleDown(long delayInSeconds, Runnable runnable, int zoneId) {
-        zoneTimers.computeIfAbsent(zoneId, ZoneTimers::new).scaleDown.reschedule(delayInSeconds, runnable);
+        zoneTimers.computeIfAbsent(zoneId, this::createZoneTimers).scaleDown.reschedule(delayInSeconds, runnable);
     }
 
     private void reschedulePartitionReset(long delayInSeconds, Runnable runnable, int zoneId) {
-        zoneTimers.computeIfAbsent(zoneId, ZoneTimers::new).partitionReset.reschedule(delayInSeconds, runnable);
+        zoneTimers.computeIfAbsent(zoneId, this::createZoneTimers).partitionReset.reschedule(delayInSeconds, runnable);
+    }
+
+    private ZoneTimers createZoneTimers(int zoneId) {
+        return new ZoneTimers(zoneId, executor);
     }
 
     private static Pair<HybridTimestamp, Set<NodeWithAttributes>> currentDataNodes(
@@ -787,13 +804,21 @@ public class DataNodesManager {
         });
     }
 
-    private class ZoneTimerSchedule {
-        final int zoneId;
-        @Nullable ScheduledFuture<?> taskFuture;
-        long delay;
+    @TestOnly
+    public ZoneTimers zoneTimers(int zoneId) {
+        return zoneTimers.get(zoneId);
+    }
 
-        ZoneTimerSchedule(int zoneId) {
+    @VisibleForTesting
+    public static class ZoneTimerSchedule {
+        final StripedScheduledThreadPoolExecutor executor;
+        final int zoneId;
+        private @Nullable ScheduledFuture<?> taskFuture;
+        private long delay;
+
+        ZoneTimerSchedule(int zoneId, StripedScheduledThreadPoolExecutor executor) {
             this.zoneId = zoneId;
+            this.executor = executor;
         }
 
         synchronized void reschedule(long delayInSeconds, Runnable task) {
@@ -803,8 +828,6 @@ public class DataNodesManager {
 
             if (delayInSeconds >= 0) {
                 taskFuture = executor.schedule(task, delayInSeconds, SECONDS, zoneId);
-            } else {
-                taskFuture = null;
             }
         }
 
@@ -815,23 +838,47 @@ public class DataNodesManager {
                 delay = 0;
             }
         }
+
+        synchronized void stopTimer() {
+            if (taskFuture != null) {
+                taskFuture.cancel(false);
+            }
+        }
+
+        @TestOnly
+        synchronized boolean taskIsScheduled() {
+            return taskFuture != null;
+        }
+
+        @TestOnly
+        synchronized boolean taskIsCancelled() {
+            assert taskFuture != null;
+            return taskFuture.isCancelled();
+        }
+
+        @TestOnly
+        synchronized boolean taskIsDone() {
+            assert taskFuture != null;
+            return taskFuture.isDone();
+        }
     }
 
-    private class ZoneTimers {
-        final ZoneTimerSchedule scaleUp;
-        final ZoneTimerSchedule scaleDown;
-        final ZoneTimerSchedule partitionReset;
+    @VisibleForTesting
+    public class ZoneTimers {
+        public final ZoneTimerSchedule scaleUp;
+        public final ZoneTimerSchedule scaleDown;
+        public final ZoneTimerSchedule partitionReset;
 
-        ZoneTimers(int zoneId) {
-            this.scaleUp = new ZoneTimerSchedule(zoneId);
-            this.scaleDown = new ZoneTimerSchedule(zoneId);
-            this.partitionReset = new ZoneTimerSchedule(zoneId);
+        ZoneTimers(int zoneId, StripedScheduledThreadPoolExecutor executor) {
+            this.scaleUp = new ZoneTimerSchedule(zoneId, executor);
+            this.scaleDown = new ZoneTimerSchedule(zoneId, executor);
+            this.partitionReset = new ZoneTimerSchedule(zoneId, executor);
         }
 
         void stopAllTimers() {
-            scaleUp.stopScheduledTask();
-            scaleDown.stopScheduledTask();
-            partitionReset.stopScheduledTask();
+            scaleUp.stopTimer();
+            scaleDown.stopTimer();
+            partitionReset.stopTimer() ;
         }
     }
 

@@ -226,8 +226,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     }
 
     protected CatalogZoneDescriptor getDefaultZone() {
-        CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
-
-        return DistributionZonesTestUtil.getDefaultZone(catalogManager, clock.nowLong());
+        return CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
     }
 }
