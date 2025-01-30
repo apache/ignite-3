@@ -96,7 +96,7 @@ public class AbstractColocationBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     @Override
-    protected void createTableOnStartup() {
+    protected void createTablesOnStartup() {
         for (int i = 1; i <= tableCount(); ++i) {
             TableDefinition tableDefinition = TableDefinition.builder("test_table_" + i)
                     .columns(
