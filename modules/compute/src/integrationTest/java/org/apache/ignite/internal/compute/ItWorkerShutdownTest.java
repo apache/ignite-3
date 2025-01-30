@@ -40,7 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.BroadcastExecution;
 import org.apache.ignite.compute.BroadcastJobTarget;
@@ -72,7 +72,6 @@ import org.junit.jupiter.api.Test;
  * <p>The logic is that if we run the job on the remote node and this node has left the logical topology then we should restart a job on
  * another node. This is not true for broadcast and local jobs. They should not be restarted.
  */
-@SuppressWarnings("resource")
 public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest {
     /**
      * Map from node name to node index in {@link super#cluster}.
@@ -136,6 +135,9 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         // And.
         execution.assertExecuting();
 
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24353
+        // assertThat(execution.node().name(), is(workerNodeName));
+
         // And save state BEFORE worker has failed.
         long createTimeBeforeFail = execution.createTimeMillis();
         long startTimeBeforeFail = execution.startTimeMillis();
@@ -153,6 +155,9 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         // And remaining candidate was chosen as a failover worker.
         String failoverWorker = InteractiveJobs.globalJob().currentWorkerName();
         assertThat(remoteWorkerCandidates, hasItem(failoverWorker));
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24353
+        // assertThat(execution.node().name(), is(failoverWorker));
 
         // And check create time was not changed but start time changed.
         assertThat(execution.createTimeMillis(), equalTo(createTimeBeforeFail));
@@ -226,15 +231,15 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         InteractiveJobs.initChannels(allNodeNames());
 
         // When start broadcast job.
-        CompletableFuture<BroadcastExecution<Object>> executionFut = compute(entryNode).submitAsync(
+        CompletableFuture<BroadcastExecution<String>> executionFut = compute(entryNode).submitAsync(
                 BroadcastJobTarget.nodes(clusterNode(0), clusterNode(1), clusterNode(2)),
-                JobDescriptor.builder(InteractiveJobs.interactiveJobName()).build(),
+                InteractiveJobs.interactiveJobDescriptor(),
                 null
         );
 
         assertThat(executionFut, willCompleteSuccessfully());
-        BroadcastExecution<Object> broadcastExecution = executionFut.join();
-        Collection<JobExecution<Object>> executions = broadcastExecution.executions();
+        BroadcastExecution<String> broadcastExecution = executionFut.join();
+        Collection<JobExecution<String>> executions = broadcastExecution.executions();
 
         // Then all three jobs are alive.
         assertThat(executions, hasSize(3));
@@ -245,7 +250,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
         // When stop one of workers.
         String stoppedNodeName = node(1).name();
-        stopNode(node(1));
+        stopNode(1);
 
         // Then two jobs are alive.
         executions.forEach(execution -> {
@@ -264,6 +269,59 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
         // Then every job ran once because broadcast execution does not require failover.
         AllInteractiveJobsApi.assertEachCalledOnce();
+    }
+
+    @Test
+    void partitionedBroadcastExecutionWorkerShutdown() {
+        // Prepare communication channels.
+        InteractiveJobs.initChannels(allNodeNames());
+
+        // Given table with replicas == 3 and partitions == 1.
+        createReplicatedTestTableWithOneRow();
+        // And partition leader for partition 1.
+        ClusterNode primaryReplica = getPrimaryReplica(node(0));
+        String firstWorkerName = primaryReplica.name();
+
+        // When start broadcast job on any node that is not primary replica.
+        Ignite entryNode = anyNodeExcept(primaryReplica);
+        CompletableFuture<BroadcastExecution<String>> executionFut = compute(entryNode).submitAsync(
+                BroadcastJobTarget.table(TABLE_NAME),
+                InteractiveJobs.interactiveJobDescriptor(),
+                null
+        );
+
+        assertThat(executionFut, willCompleteSuccessfully());
+        BroadcastExecution<String> broadcastExecution = executionFut.join();
+        Collection<JobExecution<String>> executions = broadcastExecution.executions();
+
+        // Then single job is alive.
+        assertThat(executions, hasSize(1));
+
+        JobExecution<String> execution = executions.stream().findFirst().orElseThrow();
+
+        InteractiveJobs.byNode(primaryReplica).assertAlive();
+        TestingJobExecution<String> testingJobExecution = new TestingJobExecution<>(execution);
+        testingJobExecution.assertExecuting();
+
+        // And it is running on primary replica node.
+        assertThat(execution.node().name(), equalTo(firstWorkerName));
+
+        // When stop worker node.
+        stopNode(primaryReplica);
+
+        // Get new primary replica
+        primaryReplica = getPrimaryReplica(entryNode);
+        String failoverNodeName = primaryReplica.name();
+        // Which is not the same node as before.
+        assertThat(failoverNodeName, not(equalTo(firstWorkerName)));
+
+        // And execution is running on the new primary replica. This will implicitly wait for the job to actually run on the new node.
+        InteractiveJobs.byNode(primaryReplica).assertAlive();
+        testingJobExecution.assertExecuting();
+
+        // And the same execution object points to the new job
+        // TODO https://issues.apache.org/jira/browse/IGNITE-24353
+        // assertThat(execution.node().name(), equalTo(failoverNodeName));
     }
 
     @Test
@@ -345,29 +403,25 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     private ClusterNode getPrimaryReplica(Ignite node) {
         IgniteImpl igniteImpl = unwrapIgniteImpl(node);
 
-        try {
-            HybridClock clock = igniteImpl.clock();
-            TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
-            TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), table.partitionId(Tuple.create(1).set("K", 1)));
+        HybridClock clock = igniteImpl.clock();
+        TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
+        TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), table.partitionId(Tuple.create(1).set("K", 1)));
 
-            ReplicaMeta replicaMeta = igniteImpl.placementDriver().getPrimaryReplica(tablePartitionId, clock.now()).get();
-            if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
-                throw new RuntimeException("Can not find primary replica for partition.");
-            }
+        CompletableFuture<ReplicaMeta> replicaFuture = igniteImpl.placementDriver()
+                .awaitPrimaryReplica(tablePartitionId, clock.now(), 30, TimeUnit.SECONDS);
 
-            return unwrapIgniteImpl(nodeByName(replicaMeta.getLeaseholder())).node();
+        assertThat(replicaFuture, willCompleteSuccessfully());
+        ReplicaMeta replicaMeta = replicaFuture.join();
 
-        } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
+        if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
+            throw new RuntimeException("Can not find primary replica for partition.");
         }
+
+        return clusterNode(nodeByName(replicaMeta.getLeaseholder()));
     }
 
     private void stopNode(ClusterNode clusterNode) {
         stopNode(clusterNode.name());
-    }
-
-    private void stopNode(Ignite ignite) {
-        stopNode(ignite.name());
     }
 
     private Ignite anyNodeExcept(ClusterNode except) {
