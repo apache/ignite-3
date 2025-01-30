@@ -58,6 +58,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ErrorExtensions;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
+import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
@@ -631,27 +632,20 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         req.packInt(proposedVer.minor());
         req.packInt(proposedVer.patch());
 
-        req.packInt(2); // Client type: general purpose.
+        req.packInt(HandshakeUtils.CLIENT_TYPE_GENERAL);
 
-        req.packBinaryHeader(0); // Features.
+        HandshakeUtils.packFeatures(req, HandshakeUtils.EMPTY_FEATURES);
 
         IgniteClientAuthenticator authenticator = cfg.clientConfiguration().authenticator();
-
         if (authenticator != null) {
-            // Extensions.
-            req.packInt(3);
+            Map<HandshakeExtension, Object> extensions = Map.of(
+                    HandshakeExtension.AUTHENTICATION_TYPE, authenticator.type(),
+                    HandshakeExtension.AUTHENTICATION_IDENTITY, authenticator.identity(),
+                    HandshakeExtension.AUTHENTICATION_SECRET, authenticator.secret());
 
-            req.packString(HandshakeExtension.AUTHENTICATION_TYPE.key());
-            req.packString(authenticator.type());
-
-            req.packString(HandshakeExtension.AUTHENTICATION_IDENTITY.key());
-            packAuthnObj(req, authenticator.identity());
-
-            req.packString(HandshakeExtension.AUTHENTICATION_SECRET.key());
-            packAuthnObj(req, authenticator.secret());
+            HandshakeUtils.packExtensions(req, extensions);
         } else {
-            // Extensions.
-            req.packInt(0);
+            HandshakeUtils.packExtensions(req, Map.of());
         }
 
         return write(req);
@@ -692,11 +686,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             unpacker.unpackByteNullable(); // cluster version patch
             unpacker.unpackStringNullable(); // cluster version pre release
 
-            var featuresLen = unpacker.unpackBinaryHeader();
-            unpacker.skipValues(featuresLen);
-
-            var extensionsLen = unpacker.unpackInt();
-            unpacker.skipValues(extensionsLen);
+            HandshakeUtils.unpackFeatures(unpacker);
+            HandshakeUtils.unpackExtensions(unpacker);
 
             protocolCtx = new ProtocolContext(
                     srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterIds, clusterName);
@@ -755,16 +746,6 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         }
 
         return Math.min(configuredInterval, recommendedHeartbeatInterval);
-    }
-
-    private static void packAuthnObj(ClientMessagePacker packer, Object obj) {
-        if (obj == null) {
-            packer.packNil();
-        } else if (obj instanceof String) {
-            packer.packString((String) obj);
-        } else {
-            throw new IllegalArgumentException("Unsupported authentication object type: " + obj.getClass().getName());
-        }
     }
 
     @Override
