@@ -381,10 +381,6 @@ public class InternalTableImpl implements InternalTable {
         }).thenCompose(identity());
     }
 
-    private static boolean canRetry(Throwable e, long ts, long timeout) {
-        return exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < timeout;
-    }
-
     /**
      * Enlists a single row into a transaction.
      *
@@ -584,6 +580,10 @@ public class InternalTableImpl implements InternalTable {
                 .tuple(binaryTuple.byteBuffer())
                 .elementCount(binaryTuple.elementCount())
                 .build();
+    }
+
+    private static boolean canRetry(Throwable e, long ts, long timeout) {
+        return exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < timeout;
     }
 
     /**
