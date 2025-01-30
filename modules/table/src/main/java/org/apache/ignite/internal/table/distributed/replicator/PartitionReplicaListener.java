@@ -2906,7 +2906,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return safeTime.waitFor(safeTs)
                             .thenApply(ignored -> new CommandApplicationResult(safeTs, null));
                 } else {
-                    HybridTimestamp safeTs = ((UpdateAllCommand) res.getCommand()).safeTime();
+                    HybridTimestamp safeTs = hybridTimestamp(updateCommandResult.safeTimestamp());
 
                     // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                     storageUpdateHandler.handleUpdateAll(

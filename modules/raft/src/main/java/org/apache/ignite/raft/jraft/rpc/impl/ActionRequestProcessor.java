@@ -52,7 +52,8 @@ import org.apache.ignite.raft.jraft.rpc.RpcContext;
 import org.apache.ignite.raft.jraft.rpc.RpcProcessor;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
-import org.apache.ignite.raft.jraft.util.BytesUtil;import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.raft.jraft.util.BytesUtil;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Process action request.
@@ -202,7 +203,7 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
             }
 
             @Override
-            public void safeTime(HybridTimestamp safeTs) {
+            public void safeTimestamp(HybridTimestamp safeTs) {
                 assert this.safeTs == null : "Safe time can be set only once";
                 // Apply binary patch.
                 node.getOptions().getCommandsMarshaller().patch(wrapper, safeTs);

@@ -119,8 +119,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
     private volatile boolean blockFsmThread = false;
 
-    private CountDownLatch l1 = new CountDownLatch(1);
-    private CountDownLatch l2 = new CountDownLatch(1);
+    private final CountDownLatch l1 = new CountDownLatch(1);
+    private final CountDownLatch l2 = new CountDownLatch(1);
 
     @AfterEach
     public void after() throws Exception {
@@ -137,7 +137,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
             RaftGroupService raftClient,
             HybridTimestamp initiatorTime
     ) {
-        sendSafeTimeSyncCommandAsync(raftClient, initiatorTime).join();
+        assertThat(sendSafeTimeSyncCommandAsync(raftClient, initiatorTime), willCompleteSuccessfully());
     }
 
     private static CompletableFuture<Object> sendSafeTimeSyncCommandAsync(
@@ -309,8 +309,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
         l2.countDown();
 
-        fut.join();
-        fut2.join();
+        assertThat(fut, willCompleteSuccessfully());
+        assertThat(fut2, willCompleteSuccessfully());
     }
 
     private void startCluster(Map<String, PartialNode> cluster) throws Exception {

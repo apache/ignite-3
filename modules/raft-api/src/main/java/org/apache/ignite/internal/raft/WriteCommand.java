@@ -34,7 +34,7 @@ public interface WriteCommand extends Command {
     }
 
     /**
-     * Get safe timestamp. TODO IGNITE-24143 Move to SafeTimePropagatingCommand.
+     * Gets safe timestamp. TODO IGNITE-24143 Move to SafeTimePropagatingCommand.
      *
      * @return The timestamp.
      */

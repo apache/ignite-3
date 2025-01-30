@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface SafeTimeAwareCommandClosure extends CommandClosure<WriteCommand> {
     /**
-     * Get the safe timestamp.
+     * Gets the safe timestamp.
      *
      * @return The timestamp.
      */
@@ -34,9 +34,9 @@ public interface SafeTimeAwareCommandClosure extends CommandClosure<WriteCommand
     @Nullable HybridTimestamp safeTimestamp();
 
     /**
-     * Set the safe time.
+     * Sets the safe time.
      *
-     * @param safeTs Safe timestamp.
+     * @param safeTs The timestamp.
      */
-    default void safeTime(HybridTimestamp safeTs) {}
+    default void safeTimestamp(HybridTimestamp safeTs) {}
 }

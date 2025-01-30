@@ -911,6 +911,7 @@ public class JraftServerImpl implements RaftServer {
             @Nullable CommandClosure<WriteCommand> done = (CommandClosure<WriteCommand>) currentDone;
             ByteBuffer data = iter.getData();
 
+            // done != null means we are on the leader, otherwise a command has been read from the log.
             WriteCommand command = done == null ? marshaller.unmarshall(data) : done.command();
             HybridTimestamp safeTs = done == null ? command.safeTime() : done.safeTimestamp();
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.BUILDING;
@@ -171,7 +172,7 @@ public class PartitionListener implements RaftGroupListener {
             long commandIndex = clo.index();
             long commandTerm = clo.term();
             @Nullable HybridTimestamp safeTimestamp = clo.safeTimestamp();
-            assert safeTimestamp == null || command instanceof SafeTimePropagatingCommand;
+            assert safeTimestamp == null || command instanceof SafeTimePropagatingCommand : command;
 
             // We choose the minimum applied index, since we choose it (the minimum one) on local recovery so as not to lose the data for
             // one of the storages.
@@ -281,7 +282,8 @@ public class PartitionListener implements RaftGroupListener {
             long storageLeaseStartTime = storage.leaseStartTime();
 
             if (leaseStartTime != storageLeaseStartTime) {
-                return new IgniteBiTuple<>(new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), 0), false);
+                return new IgniteBiTuple<>(
+                        new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP), false);
             }
         }
 
@@ -340,7 +342,8 @@ public class PartitionListener implements RaftGroupListener {
             long storageLeaseStartTime = storage.leaseStartTime();
 
             if (leaseStartTime != storageLeaseStartTime) {
-                return new IgniteBiTuple<>(new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), 0), false);
+                return new IgniteBiTuple<>(
+                        new UpdateCommandResult(false, storageLeaseStartTime, isPrimaryInGroupTopology(), NULL_HYBRID_TIMESTAMP), false);
             }
         }
 

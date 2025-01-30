@@ -309,12 +309,13 @@ public class NodeImpl implements Node, RaftServerService {
                 HybridTimestamp timestamp = command.initiatorTime();
 
                 if (timestamp != null) {
-                    // Tick once per batch.
                     if (safeTs == null) {
+                        safeTs = clock.update(timestamp);
+                    } else if (timestamp.compareTo(safeTs) > 0) {
                         safeTs = clock.update(timestamp);
                     }
 
-                    clo.safeTime(safeTs);
+                    clo.safeTimestamp(safeTs);
                 }
             }
 
