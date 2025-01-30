@@ -46,7 +46,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @Fork(1)
 @State(Scope.Benchmark)
-public class CollocationInsertBenchmark extends AbstractCollocationBenchmark {
+public class ColocationInsertBenchmark extends AbstractColocationBenchmark {
     private final Tuple tuple = Tuple.create().set("company", "Apache");
 
     private final AtomicInteger counter = new AtomicInteger();
@@ -93,7 +93,7 @@ public class CollocationInsertBenchmark extends AbstractCollocationBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + CollocationInsertBenchmark.class.getSimpleName() + ".*")
+                .include(".*" + ColocationInsertBenchmark.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(opt).run();

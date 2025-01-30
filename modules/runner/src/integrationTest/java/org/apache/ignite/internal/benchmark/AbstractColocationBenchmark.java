@@ -38,11 +38,11 @@ import org.openjdk.jmh.annotations.Param;
  * Base class that allows to measure basic KeyValue operations for tables that share the same distribution zone.
  * TODO: https://issues.apache.org/jira/browse/IGNITE-22522 remove this benchmark.
  */
-public class AbstractCollocationBenchmark extends AbstractMultiNodeBenchmark {
+public class AbstractColocationBenchmark extends AbstractMultiNodeBenchmark {
     /** Name of shared zone. */
     private static final String SHARED_ZONE_NAME = "shared_zone";
 
-    /** System property that allows to enable/disable collocation feature. */
+    /** System property that allows to enable/disable colocation feature. */
     private static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
 
     protected final List<KeyValueView<Tuple, Tuple>> tableViews = new ArrayList<>();
@@ -57,7 +57,7 @@ public class AbstractCollocationBenchmark extends AbstractMultiNodeBenchmark {
     private boolean tinySchemaSyncWaits;
 
     @Param({"true", "false"})
-    private boolean collocationEnabled;
+    private boolean colocationEnabled;
 
     @Override
     protected int nodes() {
@@ -114,16 +114,16 @@ public class AbstractCollocationBenchmark extends AbstractMultiNodeBenchmark {
 
     @Override
     public void nodeSetUp() throws Exception {
-        boolean collocationFeatureEnabled = enableCollocationFeature();
+        boolean colocationFeatureEnabled = enableColocationFeature();
 
         // Enable/disable collocation feature.
-        System.setProperty(FEATURE_FLAG_NAME, Boolean.toString(collocationFeatureEnabled));
+        System.setProperty(FEATURE_FLAG_NAME, Boolean.toString(colocationFeatureEnabled));
 
         // Start the cluster and initialize it.
         super.nodeSetUp();
 
         // Patch replica manager to propagate table replication messages to zone replication groups.
-        if (collocationFeatureEnabled) {
+        if (colocationFeatureEnabled) {
             int catalogVersion = igniteImpl
                     .catalogManager()
                     .latestCatalogVersion();
@@ -148,8 +148,8 @@ public class AbstractCollocationBenchmark extends AbstractMultiNodeBenchmark {
         }
     }
 
-    protected boolean enableCollocationFeature() {
-        return collocationEnabled;
+    protected boolean enableColocationFeature() {
+        return colocationEnabled;
     }
 
     protected int tableCount() {

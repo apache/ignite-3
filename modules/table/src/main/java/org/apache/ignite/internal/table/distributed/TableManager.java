@@ -270,7 +270,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
     private static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
-    private final boolean enabledCollocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
+    private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
 
     private final TopologyService topologyService;
 
@@ -705,7 +705,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onZoneReplicaCreated(LocalPartitionReplicaEventParameters parameters) {
-        if (!enabledCollocationFeature) {
+        if (!enabledColocationFeature) {
             return completedFuture(false);
         }
 
@@ -741,7 +741,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onZoneReplicaStopped(LocalPartitionReplicaEventParameters parameters) {
-        if (!enabledCollocationFeature) {
+        if (!enabledColocationFeature) {
             return completedFuture(false);
         }
 
@@ -770,7 +770,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
-        if (!enabledCollocationFeature) {
+        if (!enabledColocationFeature) {
             return completedFuture(false);
         }
 
@@ -2938,7 +2938,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             catalogService.catalog(ver).tables().stream()
                     .filter(tbl -> startedTables.add(tbl.id()))
                     .forEach(tableDescriptor -> {
-                        if (enabledCollocationFeature) {
+                        if (enabledColocationFeature) {
                             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver0);
                             CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, ver0);
 

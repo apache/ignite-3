@@ -50,7 +50,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @Fork(1)
 @State(Scope.Benchmark)
-public class CollocationSelectBenchmark extends AbstractCollocationBenchmark {
+public class ColocationSelectBenchmark extends AbstractColocationBenchmark {
     private static final int TABLE_SIZE = 30_000;
 
     private final AtomicInteger counter = new AtomicInteger();
@@ -127,7 +127,7 @@ public class CollocationSelectBenchmark extends AbstractCollocationBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + CollocationSelectBenchmark.class.getSimpleName() + ".*")
+                .include(".*" + ColocationSelectBenchmark.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(opt).run();
