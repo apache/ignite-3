@@ -320,7 +320,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             if (!value.areLearnersEmpty()) {
                 sb.append("learners=").append(value.learners);
             }
-            sb.append("]");
+            sb.append(']');
         }
 
         return sb.toString();
