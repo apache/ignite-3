@@ -221,6 +221,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final Map<HandshakeExtension, Object> extensions;
 
     /**
+     * Constructor.
      *
      * @param igniteTables Ignite tables API entry point.
      * @param processor Sql query processor.
