@@ -29,6 +29,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.ConnectionPropertiesImpl;
 import org.apache.ignite.internal.jdbc.JdbcConnection;
 
@@ -161,6 +162,15 @@ public class IgniteJdbcDriver implements Driver {
     /** Minor version. */
     private static final int MINOR_VER = ProtocolVersion.LATEST_VER.minor();
 
+    /**
+     * Tracker of the latest time observed by client.
+     *
+     * <p>All connections created by this driver use the same tracker.
+     * This is done so that read-only transactions from different connections can observe changes made in other connections,
+     * which in turn ensures visibility of changes when working through the jdbc connection pool.
+     */
+    private final HybridTimestampTracker observableTimeTracker = HybridTimestampTracker.atomicTracker(null);
+
     /** {@inheritDoc} */
     @Override
     public Connection connect(String url, Properties props) throws SQLException {
@@ -172,12 +182,12 @@ public class IgniteJdbcDriver implements Driver {
 
         connProps.init(url, props);
 
-        return new JdbcConnection(connProps);
+        return new JdbcConnection(connProps, observableTimeTracker);
     }
 
     /** {@inheritDoc} */
     @Override
-    public boolean acceptsURL(String url) throws SQLException {
+    public boolean acceptsURL(String url) {
         return url.startsWith(URL_PREFIX);
     }
 

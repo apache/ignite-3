@@ -44,6 +44,7 @@ dependencies {
     implementation project(':ignite-rocksdb-common')
     implementation project(':ignite-metrics')
     implementation project(':ignite-failure-handler')
+    implementation project(':ignite-vault')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.disruptor
@@ -98,6 +99,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-raft'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-sql-engine'))
+    integrationTestImplementation project(':ignite-vault')
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-runner')

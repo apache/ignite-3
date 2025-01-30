@@ -276,7 +276,7 @@ public class ItThinClientComputeMarshallingTest extends ItAbstractThinClientTest
                                 column("v", ColumnType.INT32)
                         )
                         .build()
-        ).name();
+        ).qualifiedName();
 
         // When run job with custom marshaller for string argument.
         var tup = Tuple.create().set("key", 1);

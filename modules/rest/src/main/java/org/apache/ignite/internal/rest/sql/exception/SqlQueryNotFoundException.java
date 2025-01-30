@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.rest.sql.exception;
 
-import java.util.concurrent.CompletableFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.ILLEGAL_ARGUMENT_ERR;
 
-/** Extension over {@link AsyncDataCursor} which gives an ability to specify a reason of cancellation. */
-public interface AsyncDataCursorExt<T> extends AsyncDataCursor<T> {
-    CompletableFuture<Void> cancelAsync(CancellationReason reason);
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
-    /** Reason of cancellation. */
-    enum CancellationReason {
-        /** User's request. This reason denotes normal completion of an execution. */ 
-        CLOSE,
-        /** Execution must be terminated abruptly due to an external request or an error. */
-        CANCEL,
-        /** Execution must be terminated abruptly due to specified timeout. */
-        TIMEOUT
+/**
+ * Thrown when sql query not found.
+ */
+public class SqlQueryNotFoundException extends IgniteInternalException {
+    /**
+     * Constructor.
+     *
+     * @param queryId Sql query id.
+     */
+    public SqlQueryNotFoundException(String queryId) {
+        super(ILLEGAL_ARGUMENT_ERR, "Sql query not found [queryId=" + queryId + ']');
     }
 }

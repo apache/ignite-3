@@ -20,6 +20,7 @@ package org.apache.ignite.internal.error.code.processor;
 import static java.util.stream.Collectors.toSet;
 
 import com.google.auto.service.AutoService;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.ParenthesizedTree;
@@ -160,11 +161,30 @@ public class ErrorCodeGroupProcessor extends AbstractProcessor {
             var initializer = variableTree.getInitializer();
             try {
                 var args = ((MethodInvocationTree) initializer).getArguments();
-                var groupNameExpr = ((LiteralTree) args.get(0));
-                var groupCodeExpr = ((TypeCastTree) args.get(1)).getExpression();
+
+                String errorPrefix;
+                LiteralTree groupNameExpr;
+                ExpressionTree groupCodeExpr;
+
+                switch (args.size()) {
+                    case 2:
+                        errorPrefix = "IGN";
+                        groupNameExpr = ((LiteralTree) args.get(0));
+                        groupCodeExpr = ((TypeCastTree) args.get(1)).getExpression();
+                        break;
+                    case 3:
+                        errorPrefix = ((LiteralTree) args.get(0)).getValue().toString();
+                        groupNameExpr = ((LiteralTree) args.get(1));
+                        groupCodeExpr = ((TypeCastTree) args.get(2)).getExpression();
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unexpected arguments count " + args.size());
+                }
+
                 if (groupCodeExpr instanceof ParenthesizedTree) {
                     groupCodeExpr = ((ParenthesizedTree) groupCodeExpr).getExpression();
                 }
+                this.descriptor.errorPrefix = errorPrefix;
                 this.descriptor.groupName = (String) groupNameExpr.getValue();
                 this.descriptor.groupCode = (Integer) ((LiteralTree) groupCodeExpr).getValue();
             } catch (Exception e) {

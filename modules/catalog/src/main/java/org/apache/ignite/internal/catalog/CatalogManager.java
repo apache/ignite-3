@@ -41,4 +41,9 @@ public interface CatalogManager extends IgniteComponent, CatalogService {
      * @return Future representing result of execution (it will be completed with the created catalog version).
      */
     CompletableFuture<Integer> execute(List<CatalogCommand> commands);
+
+    /**
+     * Returns a future, which completes when empty catalog is initialised. Otherwise this future completes upon startup.
+     */
+    CompletableFuture<Void> catalogInitializationFuture();
 }

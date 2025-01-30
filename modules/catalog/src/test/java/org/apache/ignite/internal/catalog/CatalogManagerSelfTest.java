@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -38,6 +39,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -59,7 +61,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommand;
 import org.apache.ignite.internal.catalog.CatalogTestUtils.TestCommandFailure;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
@@ -69,7 +70,6 @@ import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -77,33 +77,54 @@ import org.mockito.ArgumentCaptor;
  * Catalog manager self test.
  */
 public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
-    private static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+    @Test
+    public void invalidCatalogVersions() {
+        assertNull(manager.catalog(manager.latestCatalogVersion() + 1));
+        assertNull(manager.catalog(-1));
+        assertThrows(IllegalStateException.class, () -> manager.activeCatalog(-1));
+    }
 
     @Test
     public void testEmptyCatalog() {
-        CatalogSchemaDescriptor defaultSchema = manager.schema(SCHEMA_NAME, 1);
+        Catalog catalog = manager.catalog(0);
 
-        assertNotNull(defaultSchema);
-        assertSame(defaultSchema, manager.activeSchema(SCHEMA_NAME, clock.nowLong()));
-        assertSame(defaultSchema, manager.schema(1));
-        assertSame(defaultSchema, manager.schema(defaultSchema.id(), 1));
-        assertSame(defaultSchema, manager.activeSchema(clock.nowLong()));
+        assertNotNull(catalog);
+        assertNull(catalog.schema(SCHEMA_NAME));
+        assertNull(catalog.defaultZone());
+        assertTrue(catalog.schemas().isEmpty());
+        assertTrue(catalog.tables().isEmpty());
+        assertTrue(catalog.zones().isEmpty());
+        assertEquals(0, catalog.objectIdGenState());
+        assertEquals(0L, catalog.time());
+    }
 
-        int nonExistingVersion = manager.latestCatalogVersion() + 1;
+    @Test
+    public void testInitialCatalog() {
+        Catalog catalog = latestActiveCatalog();
 
-        assertNull(manager.schema(nonExistingVersion));
-        assertNull(manager.schema(defaultSchema.id(), nonExistingVersion));
-        assertThrows(IllegalStateException.class, () -> manager.activeSchema(-1L));
+        assertNotNull(catalog);
+        assertEquals(1, catalog.version());
+
+        // Default schema must exists
+        CatalogSchemaDescriptor defaultSchema = catalog.schema(SCHEMA_NAME);
+        assertNotNull(defaultSchema, "default schema");
+        assertSame(defaultSchema, catalog.schema(defaultSchema.id()));
 
         // Validate default schema.
         assertEquals(SCHEMA_NAME, defaultSchema.name());
         assertEquals(1, defaultSchema.id());
         assertEquals(0, defaultSchema.tables().length);
         assertEquals(0, defaultSchema.indexes().length);
+        assertEquals(0, defaultSchema.systemViews().length);
+        assertTrue(defaultSchema.isEmpty());
 
         // Default distribution zone must exists.
-        CatalogZoneDescriptor zone = latestActiveCatalog().defaultZone();
+        CatalogZoneDescriptor zone = catalog.defaultZone();
+        assertNotNull(zone, "default zone");
+        assertSame(zone, catalog.zone(zone.id()));
+        assertSame(zone, catalog.zone(DEFAULT_ZONE_NAME));
 
+        // Validate default zone.
         assertEquals(DEFAULT_ZONE_NAME, zone.name());
         assertEquals(DEFAULT_PARTITION_COUNT, zone.partitions());
         assertEquals(DEFAULT_REPLICA_COUNT, zone.replicas());
@@ -111,20 +132,20 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
         assertEquals(IMMEDIATE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
+        assertNotNull(zone.storageProfiles());
+        assertNotNull(zone.storageProfiles().defaultProfile());
 
         // System schema should exist.
-
-        CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, 1);
+        CatalogSchemaDescriptor systemSchema = catalog.schema(SYSTEM_SCHEMA_NAME);
         assertNotNull(systemSchema, "system schema");
-        assertSame(systemSchema, manager.activeSchema(SYSTEM_SCHEMA_NAME, clock.nowLong()));
-        assertSame(systemSchema, manager.schema(SYSTEM_SCHEMA_NAME, 1));
-        assertSame(systemSchema, manager.schema(systemSchema.id(), 1));
+        assertSame(systemSchema, catalog.schema(systemSchema.id()));
 
         // Validate system schema.
         assertEquals(SYSTEM_SCHEMA_NAME, systemSchema.name());
-        assertEquals(2, systemSchema.id());
         assertEquals(0, systemSchema.tables().length);
         assertEquals(0, systemSchema.indexes().length);
+        assertEquals(0, systemSchema.systemViews().length);
+        assertTrue(systemSchema.isEmpty());
 
         assertThat(manager.latestCatalogVersion(), is(1));
     }
@@ -230,24 +251,41 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // This waits till the new Catalog version lands in the internal structures.
         verify(clockWaiter, timeout(10_000)).waitFor(any());
 
+        long nowLong = clock.nowLong();
         int latestVersion = manager.latestCatalogVersion();
+        int activeCatalogVersion = manager.activeCatalogVersion(nowLong);
 
-        assertSame(manager.schema(latestVersion - 1), manager.activeSchema(clock.nowLong()));
-        Catalog latestCatalog = manager.catalog(manager.latestCatalogVersion());
+        assertEquals(latestVersion - 1, activeCatalogVersion);
+
+        // Validate active catalog
+        Catalog activeCatalog = manager.catalog(activeCatalogVersion);
+        assertNotNull(activeCatalog);
+        assertSame(activeCatalog, manager.activeCatalog(nowLong));
+        assertEquals(initial, activeCatalog.objectIdGenState());
+        assertTrue(activeCatalog.time() <= nowLong);
+
+        // Validate latest catalog
+        Catalog latestCatalog = manager.catalog(latestVersion);
         assertNotNull(latestCatalog);
+        assertNotSame(activeCatalog, latestCatalog);
+        assertTrue(latestCatalog.time() > nowLong);
         assertEquals(initial + 1, latestCatalog.objectIdGenState());
 
+        // Update clock to the activation time
         clock.update(clock.now().addPhysicalTime(delayDuration.get()));
 
-        Catalog latestCatalog2 = manager.catalog(latestVersion);
-        assertNotNull(latestCatalog2);
-        assertEquals(latestCatalog.objectIdGenState(), latestCatalog2.objectIdGenState());
+        // Validate active catalog
+        activeCatalog = manager.activeCatalog(clock.nowLong());
+        assertNotNull(activeCatalog);
+        assertSame(latestCatalog, activeCatalog);
+        assertEquals(latestVersion, activeCatalog.version());
+
+        assertEquals(latestCatalog.objectIdGenState(), activeCatalog.objectIdGenState());
     }
 
     @Test
     public void alwaysWaitForActivationTime() throws Exception {
         delayDuration.set(TimeUnit.DAYS.toMillis(365));
-        partitionIdleSafeTimePropagationPeriod.set(0);
         reset(updateLog);
 
         CatalogCommand catalogCommand = spy(TestCommand.ok());
@@ -280,16 +318,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertNotNull(catalog0);
 
-        HybridTimestamp activationSkew = CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads(
-                catalog0,
-                () -> partitionIdleSafeTimePropagationPeriod.get(), clockService.maxClockSkewMillis());
+        HybridTimestamp activationSkew = clusterWideEnsuredActivationTimestamp(catalog0.time(), clockService.maxClockSkewMillis());
 
         clock.update(activationSkew);
 
         assertTrue(waitForCondition(createTableFuture1::isDone, 2_000));
         assertTrue(waitForCondition(commandFuture::isDone, 2_000));
 
-        assertSame(manager.schema(catalogVerAfterTableCreate), manager.activeSchema(clock.nowLong()));
+        assertSame(
+                manager.catalog(catalogVerAfterTableCreate).schema(SCHEMA_NAME),
+                manager.activeCatalog(clock.nowLong()).schema(SCHEMA_NAME)
+        );
     }
 
     @Test
@@ -331,33 +370,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(
                 userWaitTs.getPhysical() - startTs.getPhysical(),
                 greaterThanOrEqualTo(delayDuration.get() + clockService.maxClockSkewMillis())
-        );
-    }
-
-    // TODO: remove after IGNITE-20378 is implemented.
-    @Test
-    public void userFutureCompletesAfterClusterWideActivationWithAdditionalIdleSafeTimePeriodHappens() {
-        delayDuration.set(TimeUnit.DAYS.toMillis(365));
-        partitionIdleSafeTimePropagationPeriod.set(TimeUnit.DAYS.toDays(365));
-
-        reset(clockWaiter);
-
-        HybridTimestamp startTs = clock.now();
-
-        CompletableFuture<?> commandFuture = manager.execute(TestCommand.ok());
-
-        assertFalse(commandFuture.isDone());
-
-        ArgumentCaptor<HybridTimestamp> tsCaptor = ArgumentCaptor.forClass(HybridTimestamp.class);
-
-        verify(clockWaiter, timeout(10_000)).waitFor(tsCaptor.capture());
-        HybridTimestamp userWaitTs = tsCaptor.getValue();
-        assertThat(
-                userWaitTs.getPhysical() - startTs.getPhysical(),
-                greaterThanOrEqualTo(
-                        delayDuration.get() + clockService.maxClockSkewMillis()
-                                + partitionIdleSafeTimePropagationPeriod.get() + clockService.maxClockSkewMillis()
-                )
         );
     }
 

@@ -26,8 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
+import java.util.function.ObjLongConsumer;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -42,7 +42,7 @@ public class SystemDistributedConfigurationPropertyHolderTest extends BaseIgnite
 
     private static final String DEFAULT_VALUE = "defaultValue";
 
-    private static final BiConsumer<String, Long> noOpConsumer = (value, revision) -> {};
+    private static final ObjLongConsumer<String> noOpConsumer = (value, revision) -> {};
 
     @Test
     void testEmptySystemProperties(@InjectConfiguration SystemDistributedConfiguration systemConfig) {

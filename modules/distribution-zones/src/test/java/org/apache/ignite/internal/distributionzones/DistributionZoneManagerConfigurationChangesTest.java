@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.UUID.randomUUID;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
@@ -28,11 +29,13 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /** Tests distribution zones configuration changes and reaction to that changes. */
 public class DistributionZoneManagerConfigurationChangesTest extends BaseDistributionZoneManagerTest {
@@ -58,18 +61,20 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
         assertDataNodesFromLogicalNodesInStorage(getDefaultZone().id(), nodes, keyValueStorage);
     }
 
-    @Test
-    void testDataNodesPropagationAfterZoneCreation() throws Exception {
-        createZone(ZONE_NAME);
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testDataNodesPropagationAfterZoneCreation(ConsistencyMode consistencyMode) throws Exception {
+        createZone(ZONE_NAME, consistencyMode);
 
         int zoneId = getZoneId(ZONE_NAME);
 
         assertZonesKeysInMetaStorage(zoneId, nodes);
     }
 
-    @Test
-    void testZoneDeleteRemovesMetaStorageKey() throws Exception {
-        createZone(ZONE_NAME);
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testZoneDeleteRemovesMetaStorageKey(ConsistencyMode consistencyMode) throws Exception {
+        createZone(ZONE_NAME, consistencyMode);
 
         int zoneId = getZoneId(ZONE_NAME);
 
@@ -80,11 +85,12 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
         assertZonesKeysInMetaStorage(zoneId, null);
     }
 
-    @Test
-    void testSeveralZoneCreationsUpdatesTriggerKey() throws Exception {
-        createZone(ZONE_NAME);
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testSeveralZoneCreationsUpdatesTriggerKey(ConsistencyMode consistencyMode) throws Exception {
+        createZone(ZONE_NAME, consistencyMode);
 
-        createZone(NEW_ZONE_NAME);
+        createZone(NEW_ZONE_NAME, consistencyMode);
 
         int zoneId = getZoneId(ZONE_NAME);
         int zoneId2 = getZoneId(NEW_ZONE_NAME);
@@ -110,7 +116,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
         );
     }
 
-    private void createZone(String zoneName) {
-        createZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
+    private void createZone(String zoneName, ConsistencyMode consistencyMode) {
+        createZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null, consistencyMode, DEFAULT_STORAGE_PROFILE);
     }
 }

@@ -43,7 +43,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
-import org.apache.ignite.internal.util.StringUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -88,7 +87,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
     @Test
     public void testRestartPartitionTableNotFound() {
-        String tableName = canonicalName("PUBLIC", "unknown_table");
+        String tableName = "PUBLIC.unknown_table";
 
         MutableHttpRequest<RestartPartitionsRequest> post = HttpRequest.POST(RESTART_PARTITIONS_ENDPOINT,
                 new RestartPartitionsRequest(Set.of(), FIRST_ZONE, tableName, Set.of()));
@@ -97,7 +96,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
                 () -> client.toBlocking().exchange(post));
 
         assertThat(e.getResponse().code(), is(BAD_REQUEST.code()));
-        assertThat(e.getMessage(), containsString("The table does not exist [name=" + StringUtils.escapeQuotes(tableName) + "]"));
+        assertThat(e.getMessage(), containsString("The table does not exist [name=" + tableName.toUpperCase() + "]"));
     }
 
     @Test

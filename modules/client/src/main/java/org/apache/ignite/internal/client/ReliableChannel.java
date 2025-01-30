@@ -59,6 +59,8 @@ import org.apache.ignite.client.RetryPolicyContext;
 import org.apache.ignite.internal.client.io.ClientConnectionMultiplexer;
 import org.apache.ignite.internal.client.io.netty.NettyClientConnectionMultiplexer;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -115,7 +117,7 @@ public final class ReliableChannel implements AutoCloseable {
     private final AtomicLong partitionAssignmentTimestamp = new AtomicLong();
 
     /** Observable timestamp, or causality token. Sent by the server with every response, and required by some requests. */
-    private final AtomicLong observableTimestamp = new AtomicLong();
+    private final HybridTimestampTracker observableTimeTracker;
 
     /** Cluster id from the first handshake. */
     private final AtomicReference<UUID> clusterId = new AtomicReference<>();
@@ -129,15 +131,19 @@ public final class ReliableChannel implements AutoCloseable {
      *
      * @param chFactory Channel factory.
      * @param clientCfg Client config.
+     * @param metrics Client metrics.
+     * @param observableTimeTracker Tracker of the latest time observed by client.
      */
     ReliableChannel(
             ClientChannelFactory chFactory,
             IgniteClientConfiguration clientCfg,
-            ClientMetricSource metrics) {
+            ClientMetricSource metrics,
+            HybridTimestampTracker observableTimeTracker) {
         this.clientCfg = Objects.requireNonNull(clientCfg, "clientCfg");
         this.chFactory = Objects.requireNonNull(chFactory, "chFactory");
         this.log = ClientUtils.logger(clientCfg, ReliableChannel.class);
         this.metrics = metrics;
+        this.observableTimeTracker = Objects.requireNonNull(observableTimeTracker, "observableTime");
 
         connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);
@@ -198,7 +204,7 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     public long observableTimestamp() {
-        return observableTimestamp.get();
+        return HybridTimestamp.hybridTimestampToLong(observableTimeTracker.get());
     }
 
     /**
@@ -695,7 +701,7 @@ public final class ReliableChannel implements AutoCloseable {
     }
 
     private void onObservableTimestampReceived(long newTs) {
-        observableTimestamp.updateAndGet(curTs -> Math.max(curTs, newTs));
+        observableTimeTracker.update(HybridTimestamp.nullableHybridTimestamp(newTs));
     }
 
     private void onPartitionAssignmentChanged(long timestamp) {

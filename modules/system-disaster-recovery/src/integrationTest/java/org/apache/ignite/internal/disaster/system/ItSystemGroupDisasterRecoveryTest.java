@@ -74,14 +74,14 @@ abstract class ItSystemGroupDisasterRecoveryTest extends ClusterPerTestIntegrati
     }
 
     final IgniteImpl waitTillNodeRestartsInternally(int nodeIndex) throws InterruptedException {
-        // restartFuture() becomes non-null when restart is initiated.
-
         assertThat(waitForRestartFuture(nodeIndex), willCompleteSuccessfully());
 
         return unwrapIgniteImpl(cluster.server(nodeIndex).api());
     }
 
     final CompletableFuture<Void> waitForRestartFuture(int nodeIndex) throws InterruptedException {
+        // restartFuture() becomes non-null when restart is initiated.
+
         assertTrue(
                 waitForCondition(() -> restartFuture(nodeIndex) != null, SECONDS.toMillis(20)),
                 "Node did not attempt to be restarted in time"

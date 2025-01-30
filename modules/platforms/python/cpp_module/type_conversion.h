@@ -27,7 +27,6 @@
 #include <ignite/tuple/binary_tuple_builder.h>
 #include <ignite/protocol/utils.h>
 
-#include <optional>
 #include <sstream>
 #include <cmath>
 

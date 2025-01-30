@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.Month;
 import java.time.ZoneOffset;
 import java.util.Base64;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -37,7 +38,8 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.junitpioneer.jupiter.cartesian.CartesianTest.Values;
 
 class AssignmentsChainSerializerTest {
-    private static final String ASSIGNMENTS_CHAIN_SERIALIZED_WITH_V1 = "Ae++QwMB775DAwRhYmMBBGRlZgAAUcKMAQD0BgAB775DAgRkZWYAAFHCjAEA9AYA";
+    private static final String ASSIGNMENTS_CHAIN_SERIALIZED_WITH_V1 =
+            "Ae++QwMB775DAe++QwMEYWJjAQRkZWYAAFHCjAEA9AYAAwUB775DAe++QwIEZGVmAABRwowBAPQGAAQG";
 
     private final AssignmentsChainSerializer serializer = new AssignmentsChainSerializer();
 
@@ -56,7 +58,9 @@ class AssignmentsChainSerializerTest {
             @Values(booleans = {false, true}) boolean fromReset
     ) {
         AssignmentsChain originalAssignmentsChain =
-                AssignmentsChain.of(List.of(testAssignments1(force, fromReset), testAssignments2(force, fromReset)));
+                AssignmentsChain.of(2, 4, testAssignments1(force, fromReset));
+
+        originalAssignmentsChain.addLast(testAssignments2(force, fromReset), 3, 5);
 
         byte[] bytes = VersionedSerialization.toBytes(originalAssignmentsChain, serializer);
         AssignmentsChain restoredAssignmentsChain = VersionedSerialization.fromBytes(bytes, serializer);
@@ -73,9 +77,21 @@ class AssignmentsChainSerializerTest {
     }
 
     private static void assertChainFromV1(AssignmentsChain restoredChain) {
-        assertThat(restoredChain.chain(), hasSize(2));
-        assertNodes1FromV1(restoredChain.chain().get(0));
-        assertNodes2FromV1(restoredChain.chain().get(1));
+        assertThat(restoredChain.size(), is(2));
+        Iterator<AssignmentsLink> iterator = restoredChain.iterator();
+
+        assertThat(iterator.hasNext(), is(true));
+        AssignmentsLink link0 = iterator.next();
+        assertThat(link0.configurationIndex(), is(4L));
+        assertThat(link0.configurationTerm(), is(2L));
+
+        assertThat(iterator.hasNext(), is(true));
+        AssignmentsLink link1 = iterator.next();
+        assertThat(link1.configurationIndex(), is(5L));
+        assertThat(link1.configurationTerm(), is(3L));
+
+        assertNodes1FromV1(link0.assignments());
+        assertNodes2FromV1(link1.assignments());
     }
 
     private static void assertNodes1FromV1(Assignments restoredAssignments) {

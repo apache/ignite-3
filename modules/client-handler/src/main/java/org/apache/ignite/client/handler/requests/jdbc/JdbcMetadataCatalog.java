@@ -113,7 +113,7 @@ public class JdbcMetadataCatalog {
         HybridTimestamp now = clockService.now();
 
         return schemaSyncService.waitForMetadataCompleteness(now)
-                .thenApply(unused -> catalogService.tables(catalogService.activeCatalogVersion(now.longValue())));
+                .thenApply(unused -> catalogService.activeCatalog(now.longValue()).tables());
     }
 
     /**

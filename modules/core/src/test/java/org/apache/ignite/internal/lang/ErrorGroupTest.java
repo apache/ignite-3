@@ -20,6 +20,7 @@ package org.apache.ignite.internal.lang;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Arrays;
@@ -29,6 +30,7 @@ import java.util.UUID;
 import org.apache.ignite.lang.ErrorGroup;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 class ErrorGroupTest {
@@ -46,14 +48,9 @@ class ErrorGroupTest {
 
     @Test
     void extractsCauseMessageFromIgniteExceptionMessage() {
-        // Given
         String igniteExceptionMessage = "IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the reason";
 
-        // When
-        String extractedMessage = ErrorGroup.extractCauseMessage(igniteExceptionMessage);
-
-        // Then
-        assertThat(extractedMessage, equalTo("I'm the reason"));
+        checkExtractCauseMessage(igniteExceptionMessage, "I'm the reason");
     }
 
     @Test
@@ -61,11 +58,7 @@ class ErrorGroupTest {
         // Given message without the reason of the error
         String igniteExceptionMessage = "IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908";
 
-        // When
-        String extractedMessage = ErrorGroup.extractCauseMessage(igniteExceptionMessage);
-
-        // Then
-        assertThat(extractedMessage, equalTo(""));
+        checkExtractCauseMessage(igniteExceptionMessage, "");
     }
 
     @Test
@@ -115,5 +108,60 @@ class ErrorGroupTest {
                 fail("Duplicate error group id: " + errGroup.groupCode() + " (" + existing.name() + ", " + errGroup.name() + ")");
             }
         }
+    }
+
+    @Test
+    public void testExtractCauseMessageForNewErrorGroups() {
+        ErrorGroups.initialize();
+
+        ErrorGroups.registerGroup("ERR1", "FIRST", (short) 2000);
+        ErrorGroups.registerGroup("ERR2", "SECOND", (short) 2001);
+
+        String exceptionMessage = "IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the reason";
+        checkExtractCauseMessage(exceptionMessage, "I'm the reason");
+
+        exceptionMessage = "ERR1-FIRST-2000 TraceId:b8e8b3db-cd44-46c2-a759-5bcd4171a4ae Second reason";
+        checkExtractCauseMessage(exceptionMessage, "Second reason");
+
+        String exceptionMessageWithIncorrectGroupName = "ERR3-SECOND-2001 TraceId:184ab36f-db38-43af-bf2c-c9e0539f82e5 Unknown reason";
+
+        checkExtractCauseMessage(exceptionMessageWithIncorrectGroupName, exceptionMessageWithIncorrectGroupName);
+
+    }
+
+    private static void checkExtractCauseMessage(String exceptionMessage, String operand) {
+        // When
+        String extractedMessage = ErrorGroups.extractCauseMessage(exceptionMessage);
+        // Then
+        assertThat(extractedMessage, equalTo(operand));
+    }
+
+    @Test
+    public void testRegisterGroupWithNewErrorPrefix() {
+        ErrorGroups.initialize();
+
+        ErrorGroups.registerGroup("CY", "CYPRUS", (short) 1000);
+        ErrorGroups.registerGroup("CY", "CYPRUS_SECOND", (short) 1001);
+        ErrorGroups.registerGroup("USA", "USA", (short) 1002);
+        ErrorGroups.registerGroup("USA", "USA_SECOND", (short) 1003);
+        ErrorGroups.registerGroup("CY", "CYPRUS_THIRD", (short) 1004);
+        ErrorGroups.registerGroup("USA", "USA_THIRD", (short) 1005);
+
+        checkErrorGroup(1000, "CY", "CYPRUS");
+        checkErrorGroup(1001, "CY", "CYPRUS_SECOND");
+        checkErrorGroup(1002, "USA", "USA");
+        checkErrorGroup(1003, "USA", "USA_SECOND");
+        checkErrorGroup(1004, "CY", "CYPRUS_THIRD");
+        checkErrorGroup(1005, "USA", "USA_THIRD");
+
+        checkErrorGroup(1, "IGN", Common.COMMON_ERR_GROUP.name());
+    }
+
+    private static void checkErrorGroup(int errorCode, String expectedErrorPrefix, String expectedGroupName) {
+        ErrorGroup errorGroup = ErrorGroups.errorGroupByGroupCode((short) errorCode);
+
+        assertEquals(expectedErrorPrefix, errorGroup.errorPrefix());
+        assertEquals(expectedGroupName, errorGroup.name());
+        assertThat(errorGroup.toString(), Matchers.startsWith("ErrorGroup [errorPrefix=" + expectedErrorPrefix));
     }
 }

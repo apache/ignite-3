@@ -39,9 +39,6 @@ public abstract class Response implements ClientMessage {
     /** Error. */
     private String err;
 
-    /** Has results. */
-    protected boolean hasResults;
-
     /**
      * Constructs successful response.
      */
@@ -121,9 +118,9 @@ public abstract class Response implements ClientMessage {
     }
 
     /**
-     * Gets hasResults flag.
+     * Gets success status.
      *
-     * @return Has results.
+     * @return {@code True} if command succeeded, {@code false} otherwise.
      */
     public boolean success() {
         return status == STATUS_SUCCESS;

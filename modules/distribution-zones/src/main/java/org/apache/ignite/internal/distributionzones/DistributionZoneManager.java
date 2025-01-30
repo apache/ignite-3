@@ -68,6 +68,7 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -417,7 +418,7 @@ public class DistributionZoneManager extends
         // and this map will be initialized on a manager start or with catalog notification or with distribution configuration changes.
         for (Map.Entry<Integer, ZoneState> zoneStateEntry : zonesState.entrySet()) {
             int zoneId = zoneStateEntry.getKey();
-            CatalogZoneDescriptor zoneDescriptor = catalogManager.zone(zoneId, updateTimestamp);
+            CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(updateTimestamp).zone(zoneId);
 
             if (zoneDescriptor == null || zoneDescriptor.consistencyMode() != HIGH_AVAILABILITY) {
                 continue;
@@ -555,7 +556,7 @@ public class DistributionZoneManager extends
     private CompletableFuture<Void> restoreTimers(int catalogVersion) {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-        for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
+        for (CatalogZoneDescriptor zone : catalogManager.catalog(catalogVersion).zones()) {
             ZoneState zoneState = zonesState.get(zone.id());
 
             // Max revision from the {@link ZoneState#topologyAugmentationMap()} for node joins.
@@ -858,7 +859,7 @@ public class DistributionZoneManager extends
 
         logicalTopologyByRevision.put(revision, newLogicalTopology);
 
-        for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
+        for (CatalogZoneDescriptor zone : catalogManager.catalog(catalogVersion).zones()) {
             int zoneId = zone.id();
 
             updateLocalTopologyAugmentationMap(addedNodes, removedNodes, revision, zoneId);
@@ -939,7 +940,9 @@ public class DistributionZoneManager extends
                 .thenApply(StatementResult::getAsBoolean)
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
-                        LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
+                        if (!hasCauseOrSuppressed(e, NodeStoppingException.class)) {
+                            LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
+                        }
                     } else if (invokeResult) {
                         LOG.info("Update recoverable state for distribution zone manager [revision = {}]", revision);
                     } else {
@@ -1621,7 +1624,7 @@ public class DistributionZoneManager extends
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         // TODO: IGNITE-20287 Clean up abandoned resources for dropped tables from vault and metastore
-        for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
+        for (CatalogZoneDescriptor zone : catalogManager.catalog(catalogVersion).zones()) {
             futures.add(restoreZoneStateBusy(zone, recoveryRevision));
         }
 

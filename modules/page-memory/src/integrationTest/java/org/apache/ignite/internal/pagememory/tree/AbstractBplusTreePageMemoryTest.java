@@ -35,7 +35,7 @@ import static org.apache.ignite.internal.pagememory.util.PageUtils.putLong;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.Constants.GiB;
+import static org.apache.ignite.internal.util.Constants.MiB;
 import static org.apache.ignite.internal.util.StringUtils.hexLong;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -79,6 +79,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -109,6 +110,8 @@ import org.junit.jupiter.api.Test;
  * An abstract class for testing {@link BplusTree} using different implementations of {@link PageMemory}.
  */
 public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstractTest {
+    protected static final String BPLUS_TREE_TEST_SEED = "BPLUS_TREE_TEST_SEED";
+
     private static final short LONG_INNER_IO = 30000;
 
     private static final short LONG_LEAF_IO = 30001;
@@ -129,12 +132,12 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
 
     protected static final int PAGE_SIZE = 512;
 
-    protected static final long MAX_MEMORY_SIZE = GiB;
+    protected static final long MAX_MEMORY_SIZE = 64 * MiB;
 
     /** Forces printing lock/unlock events on the test tree. */
     private static boolean PRINT_LOCKS = false;
 
-    private static final Collection<Long> rmvdIds = ConcurrentHashMap.newKeySet();
+    protected static final Collection<Long> rmvdIds = ConcurrentHashMap.newKeySet();
 
     @Nullable
     protected PageMemory pageMem;
@@ -155,7 +158,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
     protected void beforeEach() throws Exception {
         stop.set(false);
 
-        long seed = System.nanoTime();
+        long seed = IgniteSystemProperties.getLong(BPLUS_TREE_TEST_SEED, System.nanoTime());
 
         println("Test seed: " + seed + "L; // ");
 
@@ -208,6 +211,9 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
             RMV_INC = -1;
             CNT = 10;
         }
+
+        TestPageLockListener.clearStaticResources();
+        rmvdIds.clear();
     }
 
     /**
@@ -2775,7 +2781,7 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         return tree;
     }
 
-    private TestTree createTestTree(boolean canGetRow) throws Exception {
+    protected TestTree createTestTree(boolean canGetRow) throws Exception {
         return createTestTree(canGetRow, new AtomicLong());
     }
 
@@ -3101,6 +3107,14 @@ public abstract class AbstractBplusTreePageMemoryTest extends BaseIgniteAbstract
         static ConcurrentMap<Object, Map<Long, Long>> writeLocks = new ConcurrentHashMap<>();
 
         private final PageLockListener delegate;
+
+        static void clearStaticResources() {
+            beforeReadLock.clear();
+            readLocks.clear();
+
+            beforeWriteLock.clear();
+            writeLocks.clear();
+        }
 
         /**
          * Constructor.

@@ -44,7 +44,7 @@ class ReplicatorUtils {
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
 
         for (int catalogVersion = latestCatalogVersion; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
-            for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion, tableId)) {
+            for (CatalogIndexDescriptor indexDescriptor : catalogService.catalog(catalogVersion).indexes(tableId)) {
                 if (indexDescriptor.status() == BUILDING) {
                     return indexDescriptor;
                 }

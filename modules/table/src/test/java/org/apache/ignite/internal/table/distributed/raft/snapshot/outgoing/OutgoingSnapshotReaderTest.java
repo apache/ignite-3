@@ -19,11 +19,13 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -55,13 +57,16 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
             return null;
         }).when(outgoingSnapshotsManager).startOutgoingSnapshot(any(), any());
 
+        CatalogService catalogService = mock(CatalogService.class);
+        when(catalogService.catalog(anyInt())).thenReturn(mock(Catalog.class));
+
         PartitionSnapshotStorage snapshotStorage = new PartitionSnapshotStorage(
                 mock(TopologyService.class),
                 outgoingSnapshotsManager,
                 "",
                 mock(RaftOptions.class),
                 partitionAccess,
-                mock(CatalogService.class),
+                catalogService,
                 mock(SnapshotMeta.class),
                 mock(Executor.class)
         );

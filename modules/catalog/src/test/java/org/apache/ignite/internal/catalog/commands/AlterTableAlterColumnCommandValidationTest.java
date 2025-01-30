@@ -31,6 +31,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -109,7 +110,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Schema with name 'PUBLIC_UNK' not found"
         );
@@ -129,7 +130,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Table with name 'PUBLIC.TEST' not found"
         );
@@ -150,7 +151,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Column with name 'TEST' not found in table 'PUBLIC.TEST'"
         );
@@ -171,7 +172,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the type of key column is not allowed"
         );
@@ -200,7 +201,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the precision of key column is not allowed"
         );
@@ -234,7 +235,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the scale of key column is not allowed"
         );
@@ -266,7 +267,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Dropping NOT NULL constraint on key column is not allowed"
         );
@@ -303,7 +304,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 format("Changing the type from {} to {} is not allowed", from, to)
         );
@@ -342,7 +343,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 format("the precision for column of type '{}' is not allowed", type)
         );
@@ -380,7 +381,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the precision for column of type"
         );
@@ -414,13 +415,13 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .columnName(columnName);
 
         assertThrowsWithCause(
-                () -> builder.scale(2).build().get(catalog),
+                () -> builder.scale(2).build().get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the scale for column of type"
         );
 
         assertThrowsWithCause(
-                () -> builder.scale(10).build().get(catalog),
+                () -> builder.scale(10).build().get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the scale for column of type"
         );
@@ -459,7 +460,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 format("Changing the length for column of type '{}' is not allowed", type)
         );
@@ -496,7 +497,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Changing the length for column of type"
         );
@@ -533,7 +534,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .build();
 
         assertThrowsWithCause(
-                () -> command.get(catalog),
+                () -> command.get(new UpdateContext(catalog)),
                 CatalogValidationException.class,
                 "Adding NOT NULL constraint is not allowed"
         );
@@ -577,7 +578,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                     .build();
 
             assertThrowsWithCause(
-                    () -> command.get(catalog),
+                    () -> command.get(new UpdateContext(catalog)),
                     CatalogValidationException.class,
                     "Functional defaults are not supported for non-primary key columns"
             );
@@ -593,7 +594,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                     .build();
 
             assertThrowsWithCause(
-                    () -> command.get(catalog),
+                    () -> command.get(new UpdateContext(catalog)),
                     CatalogValidationException.class,
                     "Functional defaults are not supported for non-primary key columns"
             );
@@ -640,7 +641,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                     .build();
 
             assertThrowsWithCause(
-                    () -> command.get(catalog),
+                    () -> command.get(new UpdateContext(catalog)),
                     CatalogValidationException.class,
                     "Functional default contains unsupported function: [col=ID, functionName=invalid_func]"
             );
@@ -656,7 +657,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                     .build();
 
             assertThrowsWithCause(
-                    () -> command.get(catalog),
+                    () -> command.get(new UpdateContext(catalog)),
                     CatalogValidationException.class,
                     "Functional default contains unsupported function: [col=ID2, functionName=invalid_func]"
             );

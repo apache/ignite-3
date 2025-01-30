@@ -79,9 +79,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(command), willCompleteSuccessfully());
 
-        int catalogVersion = manager.latestCatalogVersion();
-
-        CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, catalogVersion);
+        CatalogSchemaDescriptor systemSchema = manager.activeCatalog(clock.nowLong()).schema(SYSTEM_SCHEMA_NAME);
         assertNotNull(systemSchema, "systemSchema");
 
         CatalogSystemViewDescriptor view1 = systemSchema.systemView(SYS_VIEW_NAME);
@@ -116,21 +114,18 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
                 .type(type)
                 .build();
 
-        CatalogSchemaDescriptor schema = manager.activeSchema(clock.nowLong());
+        CatalogSchemaDescriptor schema = manager.activeCatalog(clock.nowLong()).schema(SYSTEM_SCHEMA_NAME);
         assertNotNull(schema);
-        assertEquals(1, schema.updateToken());
+        long schemaCausalityToken = schema.updateToken();
 
         assertThat(manager.execute(command), willCompleteSuccessfully());
 
-        int catalogVersion = manager.latestCatalogVersion();
-
-        CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, catalogVersion);
+        Catalog catalog = manager.activeCatalog(clock.nowLong());
+        CatalogSchemaDescriptor systemSchema = catalog.schema(SYSTEM_SCHEMA_NAME);
         assertNotNull(systemSchema, "systemSchema");
 
-        schema = manager.activeSchema(clock.nowLong());
+        schema = catalog.schema(SYSTEM_SCHEMA_NAME);
         assertNotNull(schema);
-        long schemaCausalityToken = schema.updateToken();
-        assertEquals(1, schemaCausalityToken);
 
         // Assert that creation of the system view updates token for the descriptor.
         assertTrue(systemSchema.updateToken() > schemaCausalityToken);
@@ -145,7 +140,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(initialCommand), willCompleteSuccessfully());
 
-        CatalogSchemaDescriptor systemSchema = manager.schema(SYSTEM_SCHEMA_NAME, manager.latestCatalogVersion());
+        CatalogSchemaDescriptor systemSchema = manager.activeCatalog(clock.nowLong()).schema(SYSTEM_SCHEMA_NAME);
         assertNotNull(systemSchema, "systemSchema");
 
         List<CatalogSystemViewDescriptor> initialViews = Arrays.stream(systemSchema.systemViews())
@@ -155,7 +150,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(viewBuilder.build()), willCompleteSuccessfully());
 
-        CatalogSchemaDescriptor mostRecentSchema = manager.schema(SYSTEM_SCHEMA_NAME, manager.latestCatalogVersion());
+        CatalogSchemaDescriptor mostRecentSchema = manager.activeCatalog(clock.nowLong()).schema(SYSTEM_SCHEMA_NAME);
         assertNotNull(mostRecentSchema, "systemSchema");
 
         // Retrieve the most actual system views
@@ -258,9 +253,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
         Mockito.reset(eventListener);
 
         // Create view
-        int catalogVersion = manager.latestCatalogVersion();
-
-        CatalogSchemaDescriptor systemSchema1 = manager.schema(SYSTEM_SCHEMA_NAME, catalogVersion);
+        CatalogSchemaDescriptor systemSchema1 = manager.activeCatalog(clock.nowLong()).schema(SYSTEM_SCHEMA_NAME);
         assertNotNull(systemSchema1, "systemSchema");
 
         CatalogSystemViewDescriptor view1 = systemSchema1.systemView(SYS_VIEW_NAME);
@@ -269,7 +262,7 @@ public class CatalogSystemViewTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(command), willCompleteSuccessfully());
 
-        CatalogSchemaDescriptor systemSchema2 = manager.schema(SYSTEM_SCHEMA_NAME, catalogVersion);
+        CatalogSchemaDescriptor systemSchema2 = manager.activeCatalog(clock.nowLong()).schema(SYSTEM_SCHEMA_NAME);
         assertNotNull(systemSchema2, "systemSchema");
 
         // view1 should be the same.

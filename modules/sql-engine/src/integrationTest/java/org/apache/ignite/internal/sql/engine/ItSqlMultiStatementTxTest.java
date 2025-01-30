@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.expectQueryCancelled;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
@@ -36,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -304,6 +306,8 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         assertThrowsSqlException(RUNTIME_ERR, "DML cannot be started by using read only transactions.",
                 () -> await(insCur.nextResult()));
 
+        expectQueryCancelled(() -> await(insCur.requestNextAsync(1)));
+
         verifyFinishedTxCount(1);
     }
 
@@ -351,13 +355,13 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     void transactionControlStatementFailsWithExternalTransaction() {
         InternalTransaction tx1 = (InternalTransaction) igniteTx().begin();
         assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript(tx1, null, "COMMIT"));
-        assertEquals(1, txManager().pending());
-        tx1.rollback();
+        assertEquals(0, txManager().pending());
+        assertEquals(TxState.ABORTED, tx1.state());
 
         InternalTransaction tx2 = (InternalTransaction) igniteTx().begin();
         assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript(tx2, null, "START TRANSACTION"));
-        assertEquals(1, txManager().pending());
-        tx2.rollback();
+        assertEquals(0, txManager().pending());
+        assertEquals(TxState.ABORTED, tx2.state());
 
         verifyFinishedTxCount(2);
     }

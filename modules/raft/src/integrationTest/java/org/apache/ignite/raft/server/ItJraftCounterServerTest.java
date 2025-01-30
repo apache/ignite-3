@@ -838,9 +838,11 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         assertThat(toStop.stopAsync(componentContext), willCompleteSuccessfully());
         assertThat(serverServices.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
         assertThat(logStorageFactories.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
+        assertThat(vaultManagers.get(stopIdx).stopAsync(componentContext), willCompleteSuccessfully());
         servers.remove(stopIdx);
         serverServices.remove(stopIdx);
         logStorageFactories.remove(stopIdx);
+        vaultManagers.remove(stopIdx);
         serverWorkingDirs.remove(stopIdx);
 
         applyIncrements(client1, 11, 20);
@@ -891,9 +893,11 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         assertThat(svc2.stopAsync(componentContext), willCompleteSuccessfully());
         assertThat(serverServices.get(sv2Idx).stopAsync(componentContext), willCompleteSuccessfully());
         assertThat(logStorageFactories.get(sv2Idx).stopAsync(componentContext), willCompleteSuccessfully());
+        assertThat(vaultManagers.get(sv2Idx).stopAsync(componentContext), willCompleteSuccessfully());
         servers.remove(sv2Idx);
         serverServices.remove(sv2Idx);
         logStorageFactories.remove(sv2Idx);
+        vaultManagers.remove(sv2Idx);
         serverWorkingDirs.remove(sv2Idx);
 
         var svc3 = startServer(stopIdx, r -> {

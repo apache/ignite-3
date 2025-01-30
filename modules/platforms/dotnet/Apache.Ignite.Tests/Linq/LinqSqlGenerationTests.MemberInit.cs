@@ -27,17 +27,17 @@ public partial class LinqSqlGenerationTests
 {
     [Test]
     public void TestSelectMemberInitOnlyProperties() => AssertSql(
-        "select _T0.KEY as KEY, _T0.VAL as VALUE from PUBLIC.tbl1 as _T0",
+        "select _T0.KEY as KEY, _T0.VAL as VALUE from PUBLIC.TBL1 as _T0",
         q => q.Select(p => new CustomProjection {Key = p.Key, Value = p.Val}).ToList());
 
     [Test]
     public void TestSelectMemberInitOnlyCtor() => AssertSql(
-        "select _T0.KEY, _T0.VAL from PUBLIC.tbl1 as _T0",
+        "select _T0.KEY, _T0.VAL from PUBLIC.TBL1 as _T0",
         q => q.Select(p => new CustomProjectionRecord(p.Key, p.Val)).ToList());
 
     [Test]
     public void TestSelectMemberInitCtorAndProps() => AssertSql(
-        "select _T0.KEY, _T0.VAL, _T0.VAL as VAL1 from PUBLIC.tbl1 as _T0",
+        "select _T0.KEY, _T0.VAL, _T0.VAL as VAL1 from PUBLIC.TBL1 as _T0",
         q => q.Select(p => new CustomProjectionRecord(p.Key, p.Val) { Val1 = p.Val }).ToList());
 
     // ReSharper disable UnusedAutoPropertyAccessor.Local

@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -50,8 +51,6 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
 
     protected final List<String> columns;
 
-    protected final boolean isCreatedWithTable;
-
     private final boolean ifNotExists;
 
     AbstractCreateIndexCommand(
@@ -60,8 +59,7 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
             boolean ifNotExists,
             String tableName,
             boolean unique,
-            List<String> columns,
-            boolean isCreatedWithTable
+            List<String> columns
     ) throws CatalogValidationException {
         super(schemaName, indexName);
 
@@ -71,17 +69,18 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
         this.tableName = tableName;
         this.unique = unique;
         this.columns = copyOrNull(columns);
-        this.isCreatedWithTable = isCreatedWithTable;
     }
 
     public boolean ifNotExists() {
         return ifNotExists;
     }
 
-    protected abstract CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status);
+    protected abstract CatalogIndexDescriptor createDescriptor(int indexId, int tableId, CatalogIndexStatus status,
+            boolean createdWithTable);
 
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
+    public List<UpdateEntry> get(UpdateContext context) {
+        Catalog catalog = context.catalog();
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, indexName);
@@ -101,10 +100,14 @@ public abstract class AbstractCreateIndexCommand extends AbstractIndexCommand {
             throw new CatalogValidationException("Unique index must include all colocation columns");
         }
 
-        CatalogIndexStatus status = isCreatedWithTable ? CatalogIndexStatus.AVAILABLE : CatalogIndexStatus.REGISTERED;
+        boolean indexCreatedWithTable = context.baseCatalog().table(table.id()) == null;
+
+        CatalogIndexStatus status = indexCreatedWithTable
+                ? CatalogIndexStatus.AVAILABLE
+                : CatalogIndexStatus.REGISTERED;
 
         return List.of(
-                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id(), status)),
+                new NewIndexEntry(createDescriptor(catalog.objectIdGenState(), table.id(), status, indexCreatedWithTable)),
                 new ObjectIdGenUpdateEntry(1)
         );
     }

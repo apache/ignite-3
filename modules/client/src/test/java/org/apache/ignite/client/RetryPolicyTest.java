@@ -64,7 +64,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         initServer(reqId -> reqId % 3 == 0);
 
         try (var client = getClient(null)) {
-            assertEquals("t", client.tables().tables().get(0).name());
+            assertEquals("T", client.tables().tables().get(0).qualifiedName().objectName());
             assertThrows(IgniteException.class, () -> client.tables().tables().get(0).name());
         }
     }
@@ -79,7 +79,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
 
         try (var client = getClient(plc)) {
             for (int i = 0; i < ITER; i++) {
-                assertEquals("t", client.tables().tables().get(0).name());
+                assertEquals("T", client.tables().tables().get(0).qualifiedName().objectName());
             }
 
             assertEquals(ITER / 2 - 1, plc.invocations.size());

@@ -31,6 +31,7 @@ import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -75,7 +76,7 @@ class AbstractDdlSqlToCommandConverterTest extends BaseIgniteAbstractTest {
 
     /** Invokes command on a dummy catalog and returns the first entry in the result list. */
     <T> T invokeAndGetFirstEntry(CatalogCommand cmd, Class<T> expected) {
-        List<UpdateEntry> entries = cmd.get(catalog);
+        List<UpdateEntry> entries = cmd.get(new UpdateContext(catalog));
 
         assertThat(entries, not(empty()));
 

@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -52,7 +53,8 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Integration test for data nodes' filters functionality.
@@ -111,15 +113,20 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
      * @throws Exception If failed.
      */
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-21387")
-    void testFilteredDataNodesPropagatedToStable() throws Exception {
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testFilteredDataNodesPropagatedToStable(ConsistencyMode consistencyMode) throws Exception {
         String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
 
         // This node do not pass the filter
         @Language("HOCON") String firstNodeAttributes = "{region: EU, storage: SSD}";
 
-        Ignite node = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
+        Ignite node = unwrapIgniteImpl(startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS)));
 
-        node.sql().execute(null, createZoneSql(2, 3, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES));
+        node.sql().execute(
+                null,
+                createZoneSql(2, 3, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES, consistencyMode)
+        );
 
         node.sql().execute(null, createTableSql());
 
@@ -182,13 +189,17 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
      *
      * @throws Exception If failed.
      */
-    @Test
-    void testAlteringFiltersPropagatedDataNodesToStableImmediately() throws Exception {
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testAlteringFiltersPropagatedDataNodesToStableImmediately(ConsistencyMode consistencyMode) throws Exception {
         String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
 
         Ignite node0 = unwrapIgniteImpl(node(0));
 
-        node0.sql().execute(null, createZoneSql(2, 3, 10_000, 10_000, filter, STORAGE_PROFILES));
+        node0.sql().execute(
+                null,
+                createZoneSql(2, 3, 10_000, 10_000, filter, STORAGE_PROFILES, consistencyMode)
+        );
 
         node0.sql().execute(null, createTableSql());
 
@@ -237,13 +248,17 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
      *
      * @throws Exception If failed.
      */
-    @Test
-    void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter() throws Exception {
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testEmptyDataNodesDoNotPropagatedToStableAfterAlteringFilter(ConsistencyMode consistencyMode) throws Exception {
         String filter = "$[?(@.region == \"US\" && @.storage == \"SSD\")]";
 
         Ignite node0 = unwrapIgniteImpl(node(0));
 
-        node0.sql().execute(null, createZoneSql(2, 3, 10_000, 10_000, filter, STORAGE_PROFILES));
+        node0.sql().execute(
+                null,
+                createZoneSql(2, 3, 10_000, 10_000, filter, STORAGE_PROFILES, consistencyMode)
+        );
 
         node0.sql().execute(null, createTableSql());
 
@@ -298,8 +313,9 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
      *
      * @throws Exception If failed.
      */
-    @Test
-    void testFilteredEmptyDataNodesDoNotTriggerRebalance() throws Exception {
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testFilteredEmptyDataNodesDoNotTriggerRebalance(ConsistencyMode consistencyMode) throws Exception {
         String filter = "$[?(@.region == \"EU\" && @.storage == \"HDD\")]";
 
         // This node do not pass the filter.
@@ -310,7 +326,10 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         Ignite node1 = startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
-        node1.sql().execute(null, createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES));
+        node1.sql().execute(
+                null,
+                createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES, consistencyMode)
+        );
 
         MetaStorageManager metaStorageManager = IgniteTestUtils.getFieldValue(
                 node0,
@@ -342,8 +361,9 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
     }
 
-    @Test
-    void testFilteredEmptyDataNodesDoNotTriggerRebalanceOnReplicaUpdate() throws Exception {
+    @ParameterizedTest
+    @EnumSource(ConsistencyMode.class)
+    void testFilteredEmptyDataNodesDoNotTriggerRebalanceOnReplicaUpdate(ConsistencyMode consistencyMode) throws Exception {
         String filter = "$[?(@.region == \"EU\" && @.storage == \"HDD\")]";
 
         // This node do not pass the filter.
@@ -354,7 +374,10 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         startNode(1, createStartConfig(firstNodeAttributes, STORAGE_PROFILES_CONFIGS));
 
-        node0.sql().execute(null, createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES));
+        node0.sql().execute(
+                null,
+                createZoneSql(1, 1, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, filter, STORAGE_PROFILES, consistencyMode)
+        );
 
         MetaStorageManager metaStorageManager = IgniteTestUtils.getFieldValue(
                 unwrapIgniteImpl(node0),
@@ -444,16 +467,25 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         assertTrue(metaStorageManager.get(pendingPartAssignmentsKey(partId)).get().empty());
     }
 
-    private static String createZoneSql(int partitions, int replicas, int scaleUp, int scaleDown, String filter, String storageProfiles) {
+    private static String createZoneSql(
+            int partitions,
+            int replicas,
+            int scaleUp,
+            int scaleDown,
+            String filter,
+            String storageProfiles,
+            ConsistencyMode consistencyMode
+    ) {
         String sqlFormat = "CREATE ZONE \"%s\" WITH "
                 + "\"REPLICAS\" = %s, "
                 + "\"PARTITIONS\" = %s, "
                 + "\"DATA_NODES_FILTER\" = '%s', "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = %s, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = %s, "
-                + "\"STORAGE_PROFILES\" = %s";
+                + "\"STORAGE_PROFILES\" = %s, "
+                + "\"CONSISTENCY_MODE\" = '%s'";
 
-        return String.format(sqlFormat, ZONE_NAME, replicas, partitions, filter, scaleUp, scaleDown, storageProfiles);
+        return String.format(sqlFormat, ZONE_NAME, replicas, partitions, filter, scaleUp, scaleDown, storageProfiles, consistencyMode);
     }
 
     private static String alterZoneSql(String filter) {

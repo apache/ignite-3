@@ -28,7 +28,7 @@ import org.apache.ignite.internal.util.CollectionUtils;
 /**
  * JDBC batch execute request.
  */
-public class JdbcBatchExecuteRequest implements ClientMessage {
+public class JdbcBatchExecuteRequest extends JdbcObservableTimeAwareRequest implements ClientMessage {
     /** Schema name. */
     private String schemaName;
 

@@ -212,7 +212,7 @@ namespace Apache.Ignite.Tests
 
                     return groupClass
                         .GetFields()
-                        .Where(x => x.Name != "GroupCode" && x.Name != "GroupName")
+                        .Where(x => x.Name != "GroupCode" && x.Name != "GroupName" && x.Name !="ErrorPrefix")
                         .Select(errCode => ((int)errCode.GetValue(null)!, groupCode, errCode.Name));
                 });
     }

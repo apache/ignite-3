@@ -80,13 +80,13 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
 
     @Test
     public void testResetPartitionTableNotFound() {
-        String unknownTable = canonicalName("PUBLIC", "unknown_table");
+        String unknownTable = "PUBLIC.unknown_table";
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_TABLE_NAME_OPTION, unknownTable,
                 RECOVERY_ZONE_NAME_OPTION, ZONE);
 
-        assertErrOutputContains("The table does not exist [name=" + unknownTable + "]");
+        assertErrOutputContains("The table does not exist [name=" + unknownTable.toUpperCase() + "]");
         assertOutputIsEmpty();
     }
 

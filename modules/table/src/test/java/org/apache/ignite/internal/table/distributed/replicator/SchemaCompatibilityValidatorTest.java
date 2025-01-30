@@ -54,6 +54,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -102,7 +103,9 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void createValidatorAndInitMocks() {
-        lenient().when(catalogService.table(TABLE_ID, commitTimestamp.longValue())).thenReturn(mock(CatalogTableDescriptor.class));
+        Catalog catalog = mock(Catalog.class);
+        lenient().when(catalog.table(TABLE_ID)).thenReturn(mock(CatalogTableDescriptor.class));
+        lenient().when(catalogService.activeCatalog(commitTimestamp.longValue())).thenReturn(catalog);
 
         validator = new SchemaCompatibilityValidator(schemasSource, catalogService, new AlwaysSyncedSchemaSyncService());
     }

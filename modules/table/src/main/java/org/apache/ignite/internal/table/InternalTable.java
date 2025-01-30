@@ -38,6 +38,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
@@ -65,7 +66,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return Table name.
      */
-    String name();
+    QualifiedName name();
 
     /**
      * Sets the name of the table.

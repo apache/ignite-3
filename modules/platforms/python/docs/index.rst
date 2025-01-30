@@ -13,8 +13,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 
-PyIgnite3 documentation
-=======================
+PyIgnite DB API documentation
+=============================
 
 This is a documentation for Apache Ignite 3 DB API Driver. It implemented to provide implementation of `PEP-0249`_ for
 Apache Ignite 3.
@@ -30,27 +30,27 @@ Connection Constructor
 
 This is the interface entry point.
 
-.. autofunction:: pyignite3.connect
+.. autofunction:: pyignite_dbapi.connect
 
 
 Connection Object
 ====================================
 
-.. autoclass:: pyignite3.Connection
+.. autoclass:: pyignite_dbapi.Connection
    :members:
 
 
 Cursor Object
 =============
 
-.. autoclass:: pyignite3.Cursor
+.. autoclass:: pyignite_dbapi.Cursor
    :members:
 
 
 ColumnDescription Object
 ========================
 
-.. autoclass:: pyignite3.ColumnDescription
+.. autoclass:: pyignite_dbapi.ColumnDescription
 
 
 Globals
@@ -58,9 +58,9 @@ Globals
 
 Module defines following globals:
 
-.. autodata:: pyignite3.apilevel
-.. autodata:: pyignite3.threadsafety
-.. autodata:: pyignite3.paramstyle
+.. autodata:: pyignite_dbapi.apilevel
+.. autodata:: pyignite_dbapi.threadsafety
+.. autodata:: pyignite_dbapi.paramstyle
 
 
 Type Objects and Constructors
@@ -68,27 +68,27 @@ Type Objects and Constructors
 
 The module exports the following constructors and singletons:
 
-.. autodata:: pyignite3.NULL
-.. autodata:: pyignite3.BOOLEAN
-.. autodata:: pyignite3.INT
-.. autodata:: pyignite3.FLOAT
-.. autodata:: pyignite3.STRING
-.. autodata:: pyignite3.BINARY
-.. autodata:: pyignite3.NUMBER
-.. autodata:: pyignite3.DATE
-.. autodata:: pyignite3.TIME
-.. autodata:: pyignite3.DATETIME
-.. autodata:: pyignite3.DURATION
-.. autodata:: pyignite3.UUID
-.. autodata:: pyignite3.ROWID
-.. autodata:: pyignite3.TIMESTAMP
-.. autofunction:: pyignite3.Date
-.. autofunction:: pyignite3.Time
-.. autofunction:: pyignite3.Timestamp
-.. autofunction:: pyignite3.DateFromTicks
-.. autofunction:: pyignite3.TimeFromTicks
-.. autofunction:: pyignite3.TimestampFromTicks
-.. autofunction:: pyignite3.Binary
+.. autodata:: pyignite_dbapi.NULL
+.. autodata:: pyignite_dbapi.BOOLEAN
+.. autodata:: pyignite_dbapi.INT
+.. autodata:: pyignite_dbapi.FLOAT
+.. autodata:: pyignite_dbapi.STRING
+.. autodata:: pyignite_dbapi.BINARY
+.. autodata:: pyignite_dbapi.NUMBER
+.. autodata:: pyignite_dbapi.DATE
+.. autodata:: pyignite_dbapi.TIME
+.. autodata:: pyignite_dbapi.DATETIME
+.. autodata:: pyignite_dbapi.DURATION
+.. autodata:: pyignite_dbapi.UUID
+.. autodata:: pyignite_dbapi.ROWID
+.. autodata:: pyignite_dbapi.TIMESTAMP
+.. autofunction:: pyignite_dbapi.Date
+.. autofunction:: pyignite_dbapi.Time
+.. autofunction:: pyignite_dbapi.Timestamp
+.. autofunction:: pyignite_dbapi.DateFromTicks
+.. autofunction:: pyignite_dbapi.TimeFromTicks
+.. autofunction:: pyignite_dbapi.TimestampFromTicks
+.. autofunction:: pyignite_dbapi.Binary
 
 
 Exceptions
@@ -96,13 +96,13 @@ Exceptions
 
 The module defines the following error classes:
 
-.. autoexception:: pyignite3.Error
-.. autoexception:: pyignite3.Warning
-.. autoexception:: pyignite3.InterfaceError
-.. autoexception:: pyignite3.DatabaseError
-.. autoexception:: pyignite3.DataError
-.. autoexception:: pyignite3.InternalError
-.. autoexception:: pyignite3.OperationalError
-.. autoexception:: pyignite3.ProgrammingError
-.. autoexception:: pyignite3.IntegrityError
-.. autoexception:: pyignite3.NotSupportedError
+.. autoexception:: pyignite_dbapi.Error
+.. autoexception:: pyignite_dbapi.Warning
+.. autoexception:: pyignite_dbapi.InterfaceError
+.. autoexception:: pyignite_dbapi.DatabaseError
+.. autoexception:: pyignite_dbapi.DataError
+.. autoexception:: pyignite_dbapi.InternalError
+.. autoexception:: pyignite_dbapi.OperationalError
+.. autoexception:: pyignite_dbapi.ProgrammingError
+.. autoexception:: pyignite_dbapi.IntegrityError
+.. autoexception:: pyignite_dbapi.NotSupportedError

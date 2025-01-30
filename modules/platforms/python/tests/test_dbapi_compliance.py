@@ -12,14 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import pyignite3
+import pyignite_dbapi
 import dbapi20
 
 from tests.util import server_addresses_basic, check_cluster_started, start_cluster, kill_process_tree
 
 
-class TestPyignite3(dbapi20.DatabaseAPI20Test):
-    driver = pyignite3
+class TestPyIgniteDbApi(dbapi20.DatabaseAPI20Test):
+    driver = pyignite_dbapi
     connect_args = ()
     connect_kw_args = {'address': server_addresses_basic}
     lower_func = 'lower'

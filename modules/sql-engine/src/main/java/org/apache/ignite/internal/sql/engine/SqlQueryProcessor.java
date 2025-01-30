@@ -36,13 +36,13 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
@@ -104,7 +104,6 @@ import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
@@ -189,8 +188,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
 
-    private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
-
     /** Metric manager. */
     private final MetricManager metricManager;
 
@@ -225,7 +222,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             MetricManager metricManager,
             SystemViewManager systemViewManager,
             FailureManager failureManager,
-            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier,
             PlacementDriver placementDriver,
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg,
@@ -248,7 +244,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
         this.failureManager = failureManager;
-        this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
@@ -306,7 +301,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.prepareSvc = prepareSvc;
 
         var ddlCommandHandler = registerService(
-                new DdlCommandHandler(catalogManager, clockService, partitionIdleSafeTimePropagationPeriodMsSupplier)
+                new DdlCommandHandler(catalogManager, clockService)
         );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(

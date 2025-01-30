@@ -27,10 +27,18 @@ using Ignite.Transactions;
 /// </summary>
 internal class Transactions : ITransactions
 {
+    private readonly ClientFailoverSocket _socket;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Transactions"/> class.
+    /// </summary>
+    /// <param name="socket">Socket.</param>
+    public Transactions(ClientFailoverSocket socket) => _socket = socket;
+
     /// <inheritdoc/>
     [SuppressMessage("Reliability", "CA2000:Dispose objects before losing scope", Justification = "Tx is returned.")]
     public ValueTask<ITransaction> BeginAsync(TransactionOptions options) =>
-        ValueTask.FromResult((ITransaction)new LazyTransaction(options));
+        ValueTask.FromResult<ITransaction>(new LazyTransaction(options, _socket.ObservableTimestamp));
 
     /// <inheritdoc />
     public override string ToString() => IgniteToStringBuilder.Build(GetType());

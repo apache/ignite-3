@@ -26,6 +26,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.SchemaExistsException;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
@@ -63,11 +64,12 @@ public class CreateSchemaCommand implements CatalogCommand {
 
     /** {@inheritDoc} */
     @Override
-    public List<UpdateEntry> get(Catalog catalog) {
+    public List<UpdateEntry> get(UpdateContext updateContext) {
         if (!systemSchemaCommand && CatalogUtils.isSystemSchema(schemaName)) {
             throw new CatalogValidationException("Reserved system schema with name '{}' can't be created.", schemaName);
         }
 
+        Catalog catalog = updateContext.catalog();
         int id = catalog.objectIdGenState();
 
         CatalogSchemaDescriptor schema = catalog.schema(schemaName);

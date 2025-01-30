@@ -14,14 +14,33 @@
 # limitations under the License.
 import pytest
 
+from tests.conftest import TEST_PAGE_SIZE
+
 TEST_ROWS_NUM = 15
 
+def get_row(index):
+    return (index, f'Value-{index * 2}', index / 2.0)
 
-def create_and_populate_test_table(cursor, rows_num, table_name):
+
+def row_generator(begin, rows_num):
+    for i in range(begin, begin + rows_num):
+        yield get_row(i)
+
+
+def create_and_populate_test_table(cursor, rows_num, table_name, batch_size=1):
     cursor.execute(f'drop table if exists {table_name}')
     cursor.execute(f'create table {table_name}(id int primary key, data varchar, fl double)')
-    for i in range(rows_num):
-        cursor.execute(f"insert into {table_name} values ({i}, 'Value-{i * 2}', {i / 2.0})")
+    if batch_size == 1:
+        for i in range(rows_num):
+            cursor.execute(f"insert into {table_name} values (?, ?, ?)", params=get_row(i))
+    else:
+        batch = 0
+        for batch in range(rows_num // batch_size):
+            cursor.executemany(f"insert into {table_name} values(?, ?, ?)",
+                               list(row_generator(batch * batch_size, batch_size)))
+        if rows_num % batch_size:
+            cursor.executemany(f"insert into {table_name} values(?, ?, ?)",
+                               list(row_generator(batch * batch_size, rows_num % batch_size)))
 
 
 def check_row(i, row):
@@ -174,3 +193,25 @@ def test_cursor_iterable(table_name, cursor, drop_table_cleanup):
 
     for i, row in enumerate(cursor):
         check_row(i, row)
+
+
+@pytest.mark.parametrize("rows_num", [
+    TEST_PAGE_SIZE - 1,
+    TEST_PAGE_SIZE,
+    TEST_PAGE_SIZE + 1,
+    TEST_PAGE_SIZE * 2,
+    TEST_PAGE_SIZE * 2 + 1,
+    10000,
+])
+def test_fetch_table_several_pages(table_name, cursor, drop_table_cleanup, rows_num):
+    create_and_populate_test_table(cursor, rows_num, table_name, 1000)
+
+    cursor.execute(f"select id, data, fl from {table_name} order by id")
+
+    rows_all = cursor.fetchall()
+    assert len(rows_all) == rows_num
+    for i in range(rows_num):
+        check_row(i, rows_all[i])
+
+    end = cursor.fetchone()
+    assert end is None

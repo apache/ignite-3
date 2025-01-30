@@ -60,6 +60,7 @@ import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.ReceiverDescriptor;
 import org.jetbrains.annotations.Nullable;
 
@@ -70,7 +71,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     public static final int PARTITIONS = 4;
 
     /** Table name. */
-    private final String tableName;
+    private final QualifiedName tableName;
 
     /** Table ID. */
     private final int tableId;
@@ -96,7 +97,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
      * @param placementDriver Placement driver.
      */
     FakeInternalTable(
-            String tableName,
+            QualifiedName tableName,
             int tableId,
             ColumnsExtractor keyExtractor,
             IgniteCompute compute,
@@ -124,7 +125,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public String name() {
+    public QualifiedName name() {
         return tableName;
     }
 

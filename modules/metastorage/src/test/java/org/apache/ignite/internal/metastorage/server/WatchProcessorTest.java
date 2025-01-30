@@ -18,10 +18,12 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.inOrder;
@@ -33,18 +35,25 @@ import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.hamcrest.CustomMatcher;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
 /**
@@ -53,10 +62,13 @@ import org.mockito.InOrder;
 public class WatchProcessorTest extends BaseIgniteAbstractTest {
     private static final HybridTimestamp TIMESTAMP = HybridTimestamp.MAX_VALUE;
 
+    private final FailureManager failureManager = mock(FailureManager.class);
+
     private final WatchProcessor watchProcessor = new WatchProcessor(
             "test",
             WatchProcessorTest::oldEntry,
-            mock(FailureManager.class));
+            failureManager
+    );
 
     private final WatchEventHandlingCallback watchEventHandlingCallback = mock(WatchEventHandlingCallback.class);
 
@@ -224,6 +236,56 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         assertThat(notificationFuture, willCompleteSuccessfully());
 
         verify(listener, never()).onUpdate(any());
+    }
+
+    @Test
+    void exceptionTriggersFailureManager() {
+        WatchListener listener = mockListener();
+        when(listener.onUpdate(any())).thenReturn(failedFuture(new RuntimeException("Oops")));
+
+        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
+
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1), HybridTimestamp.MAX_VALUE);
+
+        assertThat(notificationFuture, willThrow(RuntimeException.class));
+
+        ArgumentCaptor<FailureContext> contextCaptor = ArgumentCaptor.forClass(FailureContext.class);
+        verify(failureManager).process(contextCaptor.capture());
+
+        assertThat(contextCaptor.getValue().error(), is(wrappedRuntimeException("Oops")));
+    }
+
+    private static Matcher<Throwable> wrappedRuntimeException(String message) {
+        return new CustomMatcher<>("a RuntimeException with '" + message + "' message") {
+            @Override
+            public boolean matches(Object actual) {
+                if (actual instanceof CompletionException) {
+                    Throwable cause = ((CompletionException) actual).getCause();
+                    if (cause instanceof RuntimeException) {
+                        return Objects.equals(cause.getMessage(), message);
+                    }
+                }
+                return false;
+            }
+        };
+    }
+
+    @Test
+    void nodeStoppingExceptionDoesNotTriggerFailureManager() {
+        WatchListener listener = mockListener();
+        when(listener.onUpdate(any())).thenReturn(failedFuture(new CompletionException(new NodeStoppingException())));
+
+        watchProcessor.addWatch(new Watch(0, listener, key -> Arrays.equals(key, "foo".getBytes(UTF_8))));
+
+        var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
+
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1), HybridTimestamp.MAX_VALUE);
+
+        assertThat(notificationFuture, willThrow(NodeStoppingException.class));
+
+        verify(failureManager, never()).process(any());
     }
 
     private static WatchListener mockListener() {

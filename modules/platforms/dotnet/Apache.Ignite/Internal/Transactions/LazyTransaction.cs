@@ -46,6 +46,8 @@ internal sealed class LazyTransaction : ITransaction
 
     private readonly TransactionOptions _options;
 
+    private readonly long _observableTimestamp;
+
     private int _state = StateOpen;
 
     private volatile Task<Transaction>? _tx;
@@ -54,7 +56,12 @@ internal sealed class LazyTransaction : ITransaction
     /// Initializes a new instance of the <see cref="LazyTransaction"/> class.
     /// </summary>
     /// <param name="options">Options.</param>
-    public LazyTransaction(TransactionOptions options) => _options = options;
+    /// <param name="observableTimestamp">Observable timestamp.</param>
+    public LazyTransaction(TransactionOptions options, long observableTimestamp)
+    {
+        _options = options;
+        _observableTimestamp = observableTimestamp;
+    }
 
     /// <inheritdoc/>
     public bool IsReadOnly => _options.ReadOnly;
@@ -170,14 +177,14 @@ internal sealed class LazyTransaction : ITransaction
                 return txTask;
             }
 
-            txTask = BeginAsync(socket, preferredNode);
+            txTask = BeginAsync(socket, preferredNode, _observableTimestamp);
             _tx = txTask;
 
             return txTask;
         }
     }
 
-    private async Task<Transaction> BeginAsync(ClientFailoverSocket failoverSocket, PreferredNode preferredNode)
+    private async Task<Transaction> BeginAsync(ClientFailoverSocket failoverSocket, PreferredNode preferredNode, long observableTimestamp)
     {
         using var writer = ProtoCommon.GetMessageWriter();
         Write();
@@ -198,7 +205,7 @@ internal sealed class LazyTransaction : ITransaction
             var w = writer.MessageWriter;
             w.Write(_options.ReadOnly);
             w.Write(_options.TimeoutMillis);
-            w.Write(failoverSocket.ObservableTimestamp);
+            w.Write(observableTimestamp);
         }
     }
 

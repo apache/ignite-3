@@ -32,6 +32,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManagerImpl;
@@ -41,7 +42,6 @@ import org.apache.ignite.internal.sql.engine.util.QueryCheckerExtension;
 import org.apache.ignite.internal.sql.engine.util.QueryCheckerFactory;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
-import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -59,6 +59,8 @@ import org.junit.jupiter.api.function.Executable;
  */
 @ExtendWith(QueryCheckerExtension.class)
 public abstract class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
+    protected static String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
+
     @InjectQueryCheckerFactory
     protected static QueryCheckerFactory queryCheckerFactory;
 

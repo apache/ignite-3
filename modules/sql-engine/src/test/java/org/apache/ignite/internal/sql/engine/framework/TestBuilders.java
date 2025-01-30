@@ -18,18 +18,15 @@
 package org.apache.ignite.internal.sql.engine.framework;
 
 import static java.util.UUID.randomUUID;
-import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_THREAD_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -77,7 +74,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.event.EventListener;
@@ -95,8 +91,8 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignmentsImpl;
 import org.apache.ignite.internal.sql.SqlCommon;
-import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
+import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -358,6 +354,26 @@ public class TestBuilders {
         ClusterBuilder nodes(String firstNodeName, String... otherNodeNames);
 
         /**
+         * A decorator to wrap {@link CatalogManager} instance which will be used in the test cluster.
+         *
+         * <p>May be used to slow down or ignore certain catalog commands.
+         *
+         * @param decorator A decorator function which accepts original manager and returns decorated one.
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder catalogManagerDecorator(Function<CatalogManager, CatalogManager> decorator);
+
+        /**
+         * Sets desired handlers for operation cancellation.
+         *
+         * <p>Cannot be used to cancel operation on test cluster, but may serve as mock.
+         *
+         * @param handlers The handlers to set.
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder operationKillHandlers(OperationKillHandler... handlers);
+
+        /**
          * Creates a table builder to add to the cluster.
          *
          * @return An instance of table builder.
@@ -531,9 +547,6 @@ public class TestBuilders {
         /** Sets the dynamic parameters this fragment will be executed with. */
         ExecutionContextBuilder dynamicParameters(Object... params);
 
-        /** Sets the query cancellation procedure. */
-        ExecutionContextBuilder queryCancel(QueryCancel queryCancel);
-
         /**
          * Builds the context object.
          *
@@ -549,7 +562,6 @@ public class TestBuilders {
         private QueryTaskExecutor executor = null;
         private ClusterNode node = null;
         private Object[] dynamicParams = ArrayUtils.OBJECT_EMPTY_ARRAY;
-        private QueryCancel queryCancel = null;
 
         /** {@inheritDoc} */
         @Override
@@ -592,13 +604,6 @@ public class TestBuilders {
 
         /** {@inheritDoc} */
         @Override
-        public ExecutionContextBuilder queryCancel(QueryCancel queryCancel) {
-            this.queryCancel = queryCancel;
-            return this;
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public ExecutionContext<Object[]> build() {
             return new ExecutionContext<>(
                     new ExpressionFactoryImpl<>(
@@ -612,8 +617,7 @@ public class TestBuilders {
                     ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),
                     TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
-                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
-                    queryCancel
+                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
             );
         }
     }
@@ -625,6 +629,9 @@ public class TestBuilders {
         private final Map<String, Set<String>> nodeName2SystemView = new HashMap<>();
 
         private long planningTimeout = TimeUnit.SECONDS.toMillis(15);
+        private Function<CatalogManager, CatalogManager> catalogManagerDecorator = Function.identity();
+        private OperationKillHandler @Nullable [] killHandlers = null;
+
         private @Nullable DefaultDataProvider defaultDataProvider = null;
         private @Nullable DefaultAssignmentsProvider defaultAssignmentsProvider = null;
 
@@ -635,6 +642,22 @@ public class TestBuilders {
 
             nodeNames.add(firstNodeName);
             nodeNames.addAll(Arrays.asList(otherNodeNames));
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterBuilder catalogManagerDecorator(Function<CatalogManager, CatalogManager> decorator) {
+            this.catalogManagerDecorator = Objects.requireNonNull(decorator);
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterBuilder operationKillHandlers(OperationKillHandler... handlers) {
+            this.killHandlers = handlers;
 
             return this;
         }
@@ -687,7 +710,9 @@ public class TestBuilders {
             var clusterName = "test_cluster";
 
             HybridClock clock = new HybridClockImpl();
-            CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock);
+            CatalogManager catalogManager = catalogManagerDecorator.apply(
+                    CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock)
+            );
 
             var parserService = new ParserServiceImpl();
 
@@ -711,7 +736,7 @@ public class TestBuilders {
             );
 
             var clockWaiter = new ClockWaiter("test", clock, scheduledExecutor);
-            var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
+            var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter));
 
             Runnable initClosure = () -> {
                 assertThat(clockWaiter.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -740,6 +765,7 @@ public class TestBuilders {
                     .collect(Collectors.toList());
 
             ConcurrentMap<String, ScannableTable> dataProvidersByTableName = new ConcurrentHashMap<>();
+            ConcurrentMap<String, UpdatableTable> updatableTablesByName = new ConcurrentHashMap<>();
             ConcurrentMap<String, AssignmentsProvider> assignmentsProviderByTableName = new ConcurrentHashMap<>();
 
             assignmentsProviderByTableName.put(
@@ -792,10 +818,12 @@ public class TestBuilders {
                                                 dataProvidersByTableName,
                                                 defaultDataProvider != null ? defaultDataProvider::get : null
                                         ),
+                                        updatableTablesByName::get,
                                         schemaManager
                                 ),
                                 ddlHandler,
-                                systemViewManager
+                                systemViewManager,
+                                killHandlers
                         );
                     })
                     .collect(Collectors.toMap(TestNode::name, Function.identity()));
@@ -803,6 +831,7 @@ public class TestBuilders {
             return new TestCluster(
                     tablesSize,
                     dataProvidersByTableName,
+                    updatableTablesByName,
                     assignmentsProviderByTableName,
                     nodes,
                     catalogManager,
@@ -817,44 +846,6 @@ public class TestBuilders {
             List<CatalogCommand> initialSchema = tableBuilders.stream()
                     .flatMap(builder -> builder.build().stream())
                     .collect(Collectors.toList());
-
-            CompletableFuture<Boolean> indicesReadyFut;
-
-            // Make indices registered via builder API available on startup.
-            if (!tableBuilders.isEmpty()) {
-                Set<String> initialIndices = tableBuilders.stream()
-                        .flatMap(builder -> builder.indexBuilders.stream())
-                        .map(builder -> builder.name)
-                        .collect(toCollection(ConcurrentHashMap::newKeySet));
-
-                if (initialIndices.isEmpty()) {
-                    indicesReadyFut = trueCompletedFuture();
-                } else {
-                    indicesReadyFut = new CompletableFuture<>();
-
-                    Consumer<MakeIndexAvailableEventParameters> indexAvailableHandler = params -> {
-                        CatalogIndexDescriptor index = catalogManager.index(params.indexId(), params.catalogVersion());
-
-                        assertThat(index, is(notNullValue()));
-
-                        initialIndices.remove(index.name());
-
-                        if (initialIndices.isEmpty()) {
-                            indicesReadyFut.complete(true);
-                        }
-                    };
-
-                    EventListener<MakeIndexAvailableEventParameters> listener = EventListener.fromConsumer(indexAvailableHandler);
-                    catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, listener);
-
-                    // Remove listener, when all indices become available.
-                    indicesReadyFut.whenComplete((r, t) -> {
-                        catalogManager.removeListener(CatalogEvent.INDEX_AVAILABLE, listener);
-                    });
-                }
-            } else {
-                indicesReadyFut = trueCompletedFuture();
-            }
 
             // Every time an index is created add `start building `and `make available` commands
             // to make that index accessible to the SQL engine.
@@ -884,15 +875,12 @@ public class TestBuilders {
 
             // Init schema.
             await(catalogManager.execute(initialSchema));
-
-            // Wait until all indices become available.
-            await(indicesReadyFut);
         }
     }
 
     private static SqlSchemaManagerImpl createSqlSchemaManager(CatalogManager catalogManager, ConcurrentMap<String, Long> tablesSize) {
         SqlStatisticManager sqlStatisticManager = tableId -> {
-            CatalogTableDescriptor descriptor = catalogManager.table(tableId, Long.MAX_VALUE);
+            CatalogTableDescriptor descriptor = catalogManager.activeCatalog(Long.MAX_VALUE).table(tableId);
             long fallbackSize = 10_000;
 
             if (descriptor == null) {
@@ -1484,11 +1472,17 @@ public class TestBuilders {
     }
 
     private static class TestExecutableTableRegistry implements ExecutableTableRegistry {
-        private final Function<String, ScannableTable> tablesByName;
+        private final Function<String, ScannableTable> scannableTablesByName;
+        private final Function<String, UpdatableTable> updatableTablesByName;
         private final SqlSchemaManager schemaManager;
 
-        TestExecutableTableRegistry(Function<String, ScannableTable> tablesByName, SqlSchemaManager schemaManager) {
-            this.tablesByName = tablesByName;
+        TestExecutableTableRegistry(
+                Function<String, ScannableTable> scannableTablesByName,
+                Function<String, UpdatableTable> updatableTablesByName,
+                SqlSchemaManager schemaManager
+        ) {
+            this.scannableTablesByName = scannableTablesByName;
+            this.updatableTablesByName = updatableTablesByName;
             this.schemaManager = schemaManager;
         }
 
@@ -1501,7 +1495,7 @@ public class TestBuilders {
             return new ExecutableTable() {
                 @Override
                 public ScannableTable scannableTable() {
-                    ScannableTable scannableTable = tablesByName.apply(table.name());
+                    ScannableTable scannableTable = scannableTablesByName.apply(table.name());
 
                     assert scannableTable != null;
 
@@ -1514,7 +1508,21 @@ public class TestBuilders {
                         return Blackhole.INSTANCE;
                     }
 
-                    throw new UnsupportedOperationException();
+                    UpdatableTable updatableTable = updatableTablesByName.apply(table.name());
+
+                    assert updatableTable != null;
+
+                    return (UpdatableTable) Proxy.newProxyInstance(
+                            getClass().getClassLoader(),
+                            new Class<?> [] {UpdatableTable.class},
+                            (proxy, method, args) -> {
+                                if ("descriptor".equals(method.getName())) {
+                                    return table.descriptor();
+                                }
+
+                                return method.invoke(updatableTable, args); 
+                            }
+                    );
                 }
 
                 @Override

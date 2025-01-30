@@ -16,7 +16,7 @@
 
 set -e -u -x
 
-PACKAGE_NAME=pyignite3
+PACKAGE_NAME="pyignite_dbapi"
 PY_VERS="cp39 cp310 cp311 cp312 cp313"
 
 function repair_wheel {

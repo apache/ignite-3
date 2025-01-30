@@ -30,7 +30,8 @@ void tables_impl::get_table_async(std::string_view name, ignite_callback<std::op
             return std::nullopt;
 
         auto id = reader.read_int32();
-        auto table0 = std::make_shared<table_impl>(std::string(name), id, std::move(conn));
+        auto actualName = reader.read_string();
+        auto table0 = std::make_shared<table_impl>(std::move(actualName), id, std::move(conn));
 
         return std::make_optional(table(table0));
     };

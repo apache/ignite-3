@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "module.h"
 #include "utils.h"
 
 #include <ignite/odbc/diagnostic/diagnosable.h>
@@ -29,14 +30,16 @@
     return instance
 
 
-bool check_errors(ignite::diagnosable& diag) {
+bool check_errors(ignite::sql_result ret, ignite::diagnosable& diag) {
     auto &records = diag.get_diagnostic_records();
-    if (records.is_successful())
+    if ((ret == ignite::sql_result::AI_SUCCESS || ret == ignite::sql_result::AI_SUCCESS_WITH_INFO)
+        && diag.get_diagnostic_records().is_successful()) {
         return true;
+    }
 
     auto error_class = py_get_module_interface_error_class();
-
     std::string err_msg;
+
     switch (records.get_return_code()) {
         case SQL_INVALID_HANDLE:
             err_msg = "Invalid object handle";
@@ -47,6 +50,12 @@ bool check_errors(ignite::diagnosable& diag) {
             break;
 
         case SQL_ERROR:
+        default:
+            if (records.get_status_records_number() == 0) {
+                err_msg = "Unknown error";
+                break;
+            }
+
             auto record = records.get_status_record(1);
             err_msg = record.get_message_text();
 
@@ -183,11 +192,11 @@ PyObject* py_get_class(const char* module_name, const char* class_name) {
 }
 
 PyObject* py_get_module_class(const char* class_name) {
-    auto pyignite3_mod = py_get_module();
-    if (!pyignite3_mod)
+    auto pyignite_dbapi_mod = py_get_module();
+    if (!pyignite_dbapi_mod)
         return nullptr;
 
-    return PyObject_GetAttrString(pyignite3_mod, class_name);
+    return PyObject_GetAttrString(pyignite_dbapi_mod, class_name);
 }
 
 PyObject* py_call_method_no_arg(PyObject* obj, const char* method_name) {
@@ -390,7 +399,6 @@ PyObject* py_create_datetime(const ignite::ignite_date_time &value) {
     auto datetime_class = py_get_module_datetime_class();
     if (!datetime_class)
         return nullptr;
-    auto class_guard = ignite::detail::defer([&]{ Py_DECREF(datetime_class); });
 
     PyObject* year = PyLong_FromLong(value.get_year());
     if (!year)

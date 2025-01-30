@@ -70,6 +70,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -165,7 +166,8 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 null,
                 (pageMemory0, fullPageId, buf) -> checkpointManager.writePageToDeltaFilePageStore(pageMemory0, fullPageId, buf, true),
                 checkpointManager.checkpointTimeoutLock(),
-                PAGE_SIZE
+                PAGE_SIZE,
+                new OffheapReadWriteLock(128)
         );
 
         dataRegionList.add(() -> pageMemory);
