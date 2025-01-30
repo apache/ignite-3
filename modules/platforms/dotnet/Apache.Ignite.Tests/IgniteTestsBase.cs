@@ -19,9 +19,7 @@ namespace Apache.Ignite.Tests
 {
     using System;
     using System.Collections.Generic;
-    using System.Globalization;
     using System.Linq;
-    using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Table;
     using Internal.Proto;
@@ -139,8 +137,6 @@ namespace Apache.Ignite.Tests
         {
             Console.WriteLine("SetUp: " + TestContext.CurrentContext.Test.Name);
             TestUtils.CheckByteArrayPoolLeak();
-
-            Thread.CurrentThread.CurrentCulture = CultureInfo.GetCultureInfo("ru-RU");
         }
 
         [TearDown]
