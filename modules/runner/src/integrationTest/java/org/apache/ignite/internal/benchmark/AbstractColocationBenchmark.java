@@ -56,7 +56,7 @@ public class AbstractColocationBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"true"})
     private boolean tinySchemaSyncWaits;
 
-    @Param({"true", "false"})
+    @Param({"false", "true"})
     private boolean colocationEnabled;
 
     @Override
