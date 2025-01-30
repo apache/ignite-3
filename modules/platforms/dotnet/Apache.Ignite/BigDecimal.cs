@@ -30,7 +30,7 @@ using Internal.Proto.BinaryTuple;
 /// .NET <see cref="decimal"/> has 28-29 digit precision and can not represent all values that Ignite supports.
 /// This type fills the gap.
 /// </summary>
-public readonly record struct BigDecimal : IComparable<BigDecimal>, IComparable
+public readonly record struct BigDecimal : IComparable<BigDecimal>, IComparable, IFormattable
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="BigDecimal"/> struct.
@@ -134,6 +134,17 @@ public readonly record struct BigDecimal : IComparable<BigDecimal>, IComparable
 
     /// <inheritdoc />
     public override string ToString() => ToString(null);
+
+    /// <inheritdoc />
+    public string ToString(string? format, IFormatProvider? formatProvider)
+    {
+        if (format != null)
+        {
+            throw new NotSupportedException("Format string is not supported.");
+        }
+
+        return ToString(formatProvider);
+    }
 
     /// <summary>
     /// Converts the numeric value of this object to its equivalent string representation.
