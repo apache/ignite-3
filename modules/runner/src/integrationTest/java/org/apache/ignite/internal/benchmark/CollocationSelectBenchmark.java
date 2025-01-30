@@ -22,7 +22,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Mode.Throughput;
 
-import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.table.KeyValueView;
@@ -56,13 +56,11 @@ public class CollocationSelectBenchmark extends AbstractCollocationBenchmark {
     @Param({"1", "32"})
     private int partitionCount;
 
-    @Param({"1", "32"})
+    @Param({"1", "32", "64"})
     private int tableCount;
 
     @Param({"true"})
     private boolean tinySchemaSyncWaits;
-
-    private final ThreadLocalRandom random = ThreadLocalRandom.current();
 
     private final AtomicInteger counter = new AtomicInteger();
 
@@ -85,15 +83,25 @@ public class CollocationSelectBenchmark extends AbstractCollocationBenchmark {
      * Fills the tables with data.
      */
     @Setup
-    public void fillTables() throws IOException {
-        for (int i = 0; i < TABLE_SIZE; i++) {
-            Tuple key = Tuple.create().set("id", i);
-            Tuple value = Tuple.create().set("company", "Apache");
+    public void fillTables() {
+        Tuple value = Tuple.create().set("company", "Apache");
+        CompletableFuture[] futures = new CompletableFuture[tableViews.size()];
 
-            for (KeyValueView<Tuple, Tuple> view : tableViews) {
-                view.put(null, key, value);
-            }
+        for (int k = 0; k < tableCount(); ++k) {
+            KeyValueView<Tuple, Tuple> view = tableViews.get(k);
+
+            futures[k] = CompletableFuture.supplyAsync(() -> {
+                for (int i = 0; i < TABLE_SIZE; i++) {
+                    Tuple key = Tuple.create().set("id", i);
+
+                    view.put(null, key, value);
+                }
+
+                return null;
+            });
         }
+
+        CompletableFuture.allOf(futures).join();
     }
 
     /**
@@ -123,6 +131,8 @@ public class CollocationSelectBenchmark extends AbstractCollocationBenchmark {
     }
 
     private void doGet(Blackhole hole) {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+
         int tableIdx = counter.getAndIncrement() % tableViews.size();
 
         KeyValueView<Tuple, Tuple> kvView = tableViews.get(tableIdx);

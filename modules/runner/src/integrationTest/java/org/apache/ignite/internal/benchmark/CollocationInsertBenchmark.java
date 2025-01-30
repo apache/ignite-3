@@ -50,7 +50,7 @@ public class CollocationInsertBenchmark extends AbstractCollocationBenchmark {
     @Param({"1", "32"})
     private int partitionCount;
 
-    @Param({"1", "32"})
+    @Param({"1", "32", "64"})
     private int tableCount;
 
     @Param({"true"})
