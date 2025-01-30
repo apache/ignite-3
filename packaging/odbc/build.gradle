@@ -40,9 +40,10 @@ dependencies {
 }
 
 def tokens = [
-        VERSION : project.version,
-        LIB_DIR : "/usr/lib",
-        TMP_DIR : "/tmp/ignite3-odbc"
+        USERNAME    : 'ignite',
+        VERSION     : project.version,
+        LIB_DIR     : "/usr/lib",
+        TMP_DIR     : "/tmp/ignite3-odbc"
 ]
 
 File odbcDll = configurations.odbc.files.find { it.name == "ignite3-odbc.dll" }
@@ -137,7 +138,7 @@ ospackage {
     packageName "ignite3-odbc"
     packageGroup "Library"
     url "https://ignite.apache.org"
-    user packageTokens.USERNAME
+    user tokens.USERNAME
     packageDescription "This package will install Apache Ignite 3 ODBC driver"
     os LINUX
 
