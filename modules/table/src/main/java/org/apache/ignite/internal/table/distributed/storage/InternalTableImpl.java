@@ -150,6 +150,8 @@ public class InternalTableImpl implements InternalTable {
     /** Replica messages factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
+    public static final int DEFAULT_RW_TIMEOUT = 10_000;
+
     /** Partitions. */
     private final int partitions;
 
@@ -363,11 +365,11 @@ public class InternalTableImpl implements InternalTable {
             if (e != null) {
                 if (actualTx.implicit()) {
                     // TODO: IGNITE-24244
-                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : 10_000;
+                    long timeout = actualTx.isReadOnly() ? actualTx.timeout() : DEFAULT_RW_TIMEOUT;
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < timeout) {
+                    if (canRetry(e, ts, timeout)) {
                         return enlistInTx(row, null, fac, noWriteChecker, ts);
                     }
                 }
@@ -377,6 +379,10 @@ public class InternalTableImpl implements InternalTable {
 
             return completedFuture(r);
         }).thenCompose(identity());
+    }
+
+    private static boolean canRetry(Throwable e, long ts, long timeout) {
+        return exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < timeout;
     }
 
     /**
@@ -488,7 +494,7 @@ public class InternalTableImpl implements InternalTable {
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < timeout) {
+                    if (canRetry(e, ts, timeout)) {
                         return enlistInTx(keyRows, null, fac, reducer, noOpChecker, ts);
                     }
                 }
@@ -1190,7 +1196,7 @@ public class InternalTableImpl implements InternalTable {
 
                 long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
 
-                if (exceptionAllowsImplicitTxRetry(e) && coarseCurrentTimeMillis() - ts < timeout) {
+                if (canRetry(e, ts, timeout)) {
                     return updateAllWithRetry(rows, deleted, partition, ts);
                 }
 

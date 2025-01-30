@@ -56,7 +56,7 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     private final boolean implicit;
 
     /** Transaction timeout. */
-    protected long timeout;
+    protected final long timeout;
 
     /**
      * The constructor.
