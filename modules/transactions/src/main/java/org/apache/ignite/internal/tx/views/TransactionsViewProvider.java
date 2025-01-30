@@ -108,6 +108,7 @@ public class TransactionsViewProvider {
                     new TransformingIterator<>(roTxIds.iterator(), TxInfo::readOnly),
                     rwTxStates.entrySet().stream()
                             .filter(e -> localNodeId.equals(e.getValue().txCoordinatorId())
+                                    && e.getValue().tx() != null && !e.getValue().tx().isReadOnly()
                                     && !isFinalState(e.getValue().txState()))
                             .map(e -> TxInfo.readWrite(e.getKey(), e.getValue().txState()))
                             .iterator()
