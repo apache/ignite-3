@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWi
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogApplyResult;
@@ -80,13 +79,7 @@ public class DdlCommandHandler implements LifecycleAware {
                     inBusyLock(busyLock, () -> waitTillIndexBecomesAvailableOrRemoved((AbstractCreateIndexCommand) cmd, applyResult)));
         }
 
-        return fut.handle((applyResult, err) -> {
-            if (err == null) {
-                return applyResult.isApplied(0) ? applyResult.getCatalogTime() : null;
-            }
-
-            throw (err instanceof RuntimeException) ? (RuntimeException) err : new CompletionException(err);
-        });
+        return fut.thenApply(applyResult -> applyResult.isApplied(0) ? applyResult.getCatalogTime() : null);
     }
 
     private CompletionStage<CatalogApplyResult> waitTillIndexBecomesAvailableOrRemoved(

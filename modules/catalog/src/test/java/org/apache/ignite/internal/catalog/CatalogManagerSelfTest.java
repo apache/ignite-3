@@ -424,21 +424,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     void bulkUpdateDoesntIncrementVersionInCaseOfError() {
         int versionBefore = manager.latestCatalogVersion();
-        tryApplyAndCheckExpect(
-                        List.of(TestCommand.empty(), TestCommand.ok(), TestCommand.empty(), TestCommand.ok(),  TestCommand.empty()),
-                        false, true, false, true, false
-        );
-
-        Catalog updatedCatalog = manager.catalog(manager.latestCatalogVersion());
-
-        assertNotNull(updatedCatalog);
-
-        assertEquals(4 + versionBefore, updatedCatalog.objectIdGenState());
-    }
-
-    @Test
-    void testResultsForFewCommands() {
-        int versionBefore = manager.latestCatalogVersion();
 
         assertThat(
                 manager.execute(List.of(TestCommand.ok(), TestCommand.fail())),
@@ -448,6 +433,19 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         int versionAfter = manager.latestCatalogVersion();
 
         assertThat(versionAfter, is(versionBefore));
+    }
+
+    @Test
+    void testResultsForFewCommands() {
+        int versionBefore = manager.latestCatalogVersion();
+        tryApplyAndCheckExpect(
+                List.of(TestCommand.empty(), TestCommand.ok(), TestCommand.empty(), TestCommand.ok(), TestCommand.empty()),
+                false, true, false, true, false
+        );
+
+        int versionAfter = manager.latestCatalogVersion();
+
+        assertEquals(versionAfter, versionBefore + 1);
     }
 
     @Test

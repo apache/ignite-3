@@ -380,12 +380,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      * Attempts to save a versioned update using a CAS-like logic. If the attempt fails, makes more attempts until the max retry count is
      * reached.
      *
-     * @param updateProducer Supplies simple updates to include into a versioned update to install.
+     * @param updateProducers List of simple updates to include into a versioned update to install.
      * @param attemptNo Ordinal number of an attempt.
      * @return Future that completes with the result of applying updates, contains the Catalog version when the updates are visible or an
      *         exception in case of any error.
      */
-    private CompletableFuture<CatalogApplyResult> saveUpdate(List<UpdateProducer> batchUpdateProducers, int attemptNo) {
+    private CompletableFuture<CatalogApplyResult> saveUpdate(List<UpdateProducer> updateProducers, int attemptNo) {
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
         }
@@ -397,22 +397,24 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
             Catalog catalog = catalogByVer.lastEntry().getValue();
 
-            BitSet applyResults = new BitSet(batchUpdateProducers.size());
+            BitSet applyResults = new BitSet(updateProducers.size());
             List<UpdateEntry> bulkUpdateEntries = new ArrayList<>();
             try {
                 UpdateContext updateContext = new UpdateContext(catalog);
-                for (int i = 0; i < batchUpdateProducers.size(); i++) {
-                    UpdateProducer update = batchUpdateProducers.get(i);
+                for (int i = 0; i < updateProducers.size(); i++) {
+                    UpdateProducer update = updateProducers.get(i);
                     List<UpdateEntry> entries = update.get(updateContext);
+
+                    if (entries.isEmpty()) {
+                        continue;
+                    }
 
                     for (UpdateEntry entry : entries) {
                         updateContext.updateCatalog(cat -> entry.applyUpdate(cat, INITIAL_CAUSALITY_TOKEN));
                     }
 
-                    if (!entries.isEmpty()) {
-                        applyResults.set(i);
-                        bulkUpdateEntries.addAll(entries);
-                    }
+                    applyResults.set(i);
+                    bulkUpdateEntries.addAll(entries);
                 }
             } catch (CatalogValidationException ex) {
                 return failedFuture(new CatalogVersionAwareValidationException(ex, catalog.version()));
@@ -440,7 +442,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                             return completedFuture(new CatalogApplyResult(applyResults, newVersion, newCatalogTime));
                         }
 
-                        return saveUpdate(batchUpdateProducers, attemptNo + 1);
+                        return saveUpdate(updateProducers, attemptNo + 1);
                     });
         } finally {
             busyLock.leaveBusy();

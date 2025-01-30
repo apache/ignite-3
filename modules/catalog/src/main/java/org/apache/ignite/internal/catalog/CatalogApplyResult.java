@@ -27,13 +27,14 @@ public class CatalogApplyResult {
     private final BitSet applied;
 
     /**
-     * Creates an result with a bitset of applied results and version of a catalog when the changes was visible.
+     * Creates a result with a bitset of applied results and version of a catalog when the changes was visible.
      *
-     * @param appliedResults Result of applying of commands. Every 1 bit say about applied result, otherwise 0 says that command has
-     *      not been applied. Order of bits the same as commands given for execution to Catalog.
+     * @param appliedResults Set of bits representing the result of applying commands. Every {@code 1} bit indicates  that the
+     *         corresponding command was applied, {@code 0} indicates that the corresponding command has not been applied. Order of bits the
+     *         same as commands given for execution to Catalog.
      * @param catalogVersion Version of a catalog when the changes was visible.
      */
-    public CatalogApplyResult(BitSet appliedResults, int catalogVersion, long catalogTime) {
+    CatalogApplyResult(BitSet appliedResults, int catalogVersion, long catalogTime) {
         assert appliedResults != null;
 
         this.applied = appliedResults;
@@ -48,15 +49,14 @@ public class CatalogApplyResult {
 
     /** Returns catalog time since applied result is available. */
     public long getCatalogTime() {
-
         return catalogTime;
     }
 
     /**
-     * Returns has been applied command by given index or not.
+     * Returns whether the specified command was applied or not.
      *
      * @param idx Index of command in the result.
-     * @return By given index return {@code true} if command has been successfully applied or {@code false} otherwise.
+     * @return {@code True} if command has been successfully applied or {@code false} otherwise.
      */
     public boolean isApplied(int idx) {
         return applied.get(idx);
