@@ -79,6 +79,7 @@ import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
@@ -355,6 +356,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
                         long commandIndex = raftIndex.incrementAndGet();
 
+                        HybridTimestamp safeTs = cmd instanceof SafeTimePropagatingCommand ? CLOCK.now() : null;
+
                         CompletableFuture<Serializable> res = new CompletableFuture<>();
 
                         // All read commands are handled directly throw partition replica listener.
@@ -367,7 +370,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
                             /** {@inheritDoc} */
                             @Override
-                            public WriteCommand command() {
+                            public HybridTimestamp safeTimestamp() {
+                                return safeTs;
+                            }
+
+                            /** {@inheritDoc} */
+                            @Override
+                            public @Nullable WriteCommand command() {
                                 return (WriteCommand) cmd;
                             }
 
@@ -380,14 +389,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                                     res.complete(r);
                                 }
                             }
-
-                            @Override
-                            public void patch(HybridTimestamp safeTs) {
-                                command().patch(safeTs);
-                            }
                         };
-
-                        clo.patch(CLOCK.now());
 
                         try {
                             partitionListener.onWrite(List.of(clo).iterator());
