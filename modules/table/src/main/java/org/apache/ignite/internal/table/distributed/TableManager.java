@@ -48,6 +48,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
@@ -250,7 +251,6 @@ import org.jetbrains.annotations.TestOnly;
  * Table manager.
  */
 public class TableManager implements IgniteTablesInternal, IgniteComponent {
-
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
 
@@ -266,6 +266,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** Table messages factory. */
     private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
+
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    private static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
+    private final boolean enabledCollocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
 
     private final TopologyService topologyService;
 
@@ -700,7 +705,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onZoneReplicaCreated(LocalPartitionReplicaEventParameters parameters) {
-        if (!PartitionReplicaLifecycleManager.ENABLED) {
+        if (!enabledCollocationFeature) {
             return completedFuture(false);
         }
 
@@ -736,7 +741,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onZoneReplicaStopped(LocalPartitionReplicaEventParameters parameters) {
-        if (!PartitionReplicaLifecycleManager.ENABLED) {
+        if (!enabledCollocationFeature) {
             return completedFuture(false);
         }
 
@@ -765,7 +770,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
-        if (!PartitionReplicaLifecycleManager.ENABLED) {
+        if (!enabledCollocationFeature) {
             return completedFuture(false);
         }
 
@@ -2933,7 +2938,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             catalogService.catalog(ver).tables().stream()
                     .filter(tbl -> startedTables.add(tbl.id()))
                     .forEach(tableDescriptor -> {
-                        if (PartitionReplicaLifecycleManager.ENABLED) {
+                        if (enabledCollocationFeature) {
                             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver0);
                             CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, ver0);
 
