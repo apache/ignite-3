@@ -246,8 +246,8 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
@@ -1525,12 +1525,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     systemDistributedConfiguration
             ) {
                 @Override
-                protected TxStateTableStorage createTxStateTableStorage(
+                protected TxStateStorage createTxStateTableStorage(
                         CatalogTableDescriptor tableDescriptor,
                         CatalogZoneDescriptor zoneDescriptor
                 ) {
                     return testInfo.getTestMethod().get().isAnnotationPresent(UseTestTxStateStorage.class)
-                            ? spy(new TestTxStateTableStorage())
+                            ? spy(new TestTxStateStorage())
                             : super.createTxStateTableStorage(tableDescriptor, zoneDescriptor);
                 }
 

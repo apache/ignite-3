@@ -124,7 +124,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -178,7 +178,7 @@ public class InternalTableImpl implements InternalTable {
     private final MvTableStorage tableStorage;
 
     /** Storage for transaction states. */
-    private final TxStateTableStorage txStateStorage;
+    private final TxStateStorage txStateStorage;
 
     /** Replica service. */
     private final ReplicaService replicaSvc;
@@ -231,7 +231,7 @@ public class InternalTableImpl implements InternalTable {
             ClusterNodeResolver clusterNodeResolver,
             TxManager txManager,
             MvTableStorage tableStorage,
-            TxStateTableStorage txStateStorage,
+            TxStateStorage txStateStorage,
             ReplicaService replicaSvc,
             ClockService clockService,
             HybridTimestampTracker observableTimestampTracker,
@@ -1857,7 +1857,7 @@ public class InternalTableImpl implements InternalTable {
 
     /** {@inheritDoc} */
     @Override
-    public TxStateTableStorage txStateStorage() {
+    public TxStateStorage txStateStorage() {
         return txStateStorage;
     }
 

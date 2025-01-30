@@ -60,8 +60,8 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
     private ExecutorService executor;
 
     @Override
-    protected TxStateRocksDbTableStorage createTableStorage() {
-        return new TxStateRocksDbTableStorage(
+    protected TxStateRocksDbStorage createTableStorage() {
+        return new TxStateRocksDbStorage(
                 TABLE_ID,
                 3,
                 sharedStorage

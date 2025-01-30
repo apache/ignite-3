@@ -129,7 +129,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -192,7 +192,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     @Mock
     private LogSyncer logSyncer;
     private volatile MvTableStorage mvTableStorage;
-    private volatile TxStateTableStorage txStateTableStorage;
+    private volatile TxStateStorage txStateStorage;
 
     private volatile HybridTimestamp savedWatermark;
 
@@ -212,9 +212,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         createIndex(TABLE_NAME, INDEX_NAME);
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
-        verify(txStateTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
+        verify(txStateStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
         clearInvocations(mvTableStorage);
-        clearInvocations(txStateTableStorage);
+        clearInvocations(txStateStorage);
 
         int tableId = getTableIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
 
@@ -230,7 +230,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         assertEquals(0, tableManager.startedTables().size());
 
         verify(mvTableStorage, never()).createMvPartition(anyInt());
-        verify(txStateTableStorage, never()).getOrCreatePartitionStorage(anyInt());
+        verify(txStateStorage, never()).getOrCreatePartitionStorage(anyInt());
 
         // Let's check that the table was deleted.
         verify(dsm.engineByStorageProfile(DEFAULT_STORAGE_PROFILE)).dropMvTable(eq(tableId));
@@ -247,9 +247,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         int tableId = catalogManager.activeCatalog(clock.nowLong()).table(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
-        verify(txStateTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
+        verify(txStateStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
         clearInvocations(mvTableStorage);
-        clearInvocations(txStateTableStorage);
+        clearInvocations(txStateStorage);
 
         // Drop table.
         dropTable(TABLE_NAME);
@@ -261,7 +261,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         assertThat(tableManager.startedTables().keySet(), contains(tableId));
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
-        verify(txStateTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
+        verify(txStateStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
     }
 
     /**
@@ -397,13 +397,13 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             }
 
             @Override
-            protected TxStateTableStorage createTxStateTableStorage(
+            protected TxStateStorage createTxStateTableStorage(
                     CatalogTableDescriptor tableDescriptor,
                     CatalogZoneDescriptor zoneDescriptor
             ) {
-                txStateTableStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
+                txStateStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
 
-                return txStateTableStorage;
+                return txStateStorage;
             }
         };
 

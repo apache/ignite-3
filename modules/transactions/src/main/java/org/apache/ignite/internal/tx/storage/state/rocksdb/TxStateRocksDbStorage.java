@@ -29,14 +29,14 @@ import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * RocksDb implementation of {@link TxStateTableStorage}.
+ * RocksDb implementation of {@link TxStateStorage}.
  */
-public class TxStateRocksDbTableStorage implements TxStateTableStorage {
+public class TxStateRocksDbStorage implements TxStateStorage {
     /** Prefix length for the payload within a table. Consists of tableId (4 bytes) in Big Endian.  */
     static final int TABLE_PREFIX_SIZE_BYTES = Integer.BYTES;
 
@@ -60,7 +60,7 @@ public class TxStateRocksDbTableStorage implements TxStateTableStorage {
      * @param id Table ID.
      * @param partitions Count of partitions.
      */
-    public TxStateRocksDbTableStorage(
+    public TxStateRocksDbStorage(
             int id,
             int partitions,
             TxStateRocksDbSharedStorage sharedStorage

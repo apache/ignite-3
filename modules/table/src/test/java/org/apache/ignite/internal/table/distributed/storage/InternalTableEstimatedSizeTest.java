@@ -101,7 +101,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -160,7 +160,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
             @Mock TxManager txManager,
             @Mock LockManager lockManager,
             @Mock MvTableStorage tableStorage,
-            @Mock TxStateTableStorage txStateTableStorage,
+            @Mock TxStateStorage txStateStorage,
             @Mock TxStatePartitionStorage txStatePartitionStorage,
             @Mock TransactionStateResolver transactionStateResolver,
             @Mock StorageUpdateHandler storageUpdateHandler,
@@ -207,7 +207,7 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 clusterService.topologyService(),
                 txManager,
                 tableStorage,
-                txStateTableStorage,
+                txStateStorage,
                 new ReplicaService(clusterService.messagingService(), clock, replicationConfiguration),
                 clockService,
                 HybridTimestampTracker.atomicTracker(null),

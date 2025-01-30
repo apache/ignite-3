@@ -169,7 +169,7 @@ import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -649,7 +649,7 @@ public class ItTxTestCluster {
                 nodeResolver,
                 clientTxManager,
                 mock(MvTableStorage.class),
-                mock(TxStateTableStorage.class),
+                mock(TxStateStorage.class),
                 startClient ? clientReplicaSvc : replicaServices.get(localNodeName),
                 startClient ? clientClockService : clockServices.get(localNodeName),
                 timestampTracker,

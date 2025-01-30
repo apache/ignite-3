@@ -49,7 +49,7 @@ import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedNameHelper;
@@ -68,7 +68,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
                 mock(MvTableStorage.class),
-                mock(TxStateTableStorage.class),
+                mock(TxStateStorage.class),
                 mock(ReplicaService.class),
                 mock(ClockService.class),
                 HybridTimestampTracker.atomicTracker(null),
@@ -118,7 +118,7 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
                 mock(MvTableStorage.class),
-                mock(TxStateTableStorage.class),
+                mock(TxStateStorage.class),
                 mock(ReplicaService.class),
                 mock(ClockService.class),
                 HybridTimestampTracker.atomicTracker(null),

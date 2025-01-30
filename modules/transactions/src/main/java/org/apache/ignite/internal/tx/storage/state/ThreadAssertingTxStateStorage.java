@@ -23,15 +23,15 @@ import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link TxStateTableStorage} that performs thread assertions when doing read/write operations.
+ * {@link TxStateStorage} that performs thread assertions when doing read/write operations.
  *
  * @see ThreadAssertions
  */
-public class ThreadAssertingTxStateTableStorage implements TxStateTableStorage {
-    private final TxStateTableStorage tableStorage;
+public class ThreadAssertingTxStateStorage implements TxStateStorage {
+    private final TxStateStorage tableStorage;
 
     /** Constructor. */
-    public ThreadAssertingTxStateTableStorage(TxStateTableStorage tableStorage) {
+    public ThreadAssertingTxStateStorage(TxStateStorage tableStorage) {
         this.tableStorage = tableStorage;
     }
 
