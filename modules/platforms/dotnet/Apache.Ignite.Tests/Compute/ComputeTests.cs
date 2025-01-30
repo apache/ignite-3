@@ -270,8 +270,11 @@ namespace Apache.Ignite.Tests.Compute
                 var strExec = await Client.Compute.SubmitAsync(nodes, ToStringJob, val);
                 var str = await strExec.GetResultAsync();
 
-                var expectedStr0 = expectedStr ?? val.ToString()!.Replace("E+", "E");
-                Assert.AreEqual(expectedStr0, str);
+                expectedStr ??= val is IFormattable formattable
+                    ? formattable.ToString(null, CultureInfo.InvariantCulture).Replace("E+", "E")
+                    : val.ToString();
+
+                Assert.AreEqual(expectedStr, str);
             }
         }
 
