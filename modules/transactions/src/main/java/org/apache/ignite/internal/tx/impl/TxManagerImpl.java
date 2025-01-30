@@ -408,22 +408,31 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean readOnly,
             InternalTxOptions options
     ) {
-        HybridTimestamp beginTimestamp = readOnly ? clockService.now() : createBeginTimestampWithIncrementRwTxCounter();
-        UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
-
         startedTxs.add(1);
 
-        if (!readOnly) {
-            txStateVolatileStorage.initialize(txId, localNodeId);
+        InternalTransaction tx;
+
+        if (readOnly) {
+            HybridTimestamp beginTimestamp = clockService.now();
+
+            UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
+
+            tx = beginReadOnlyTransaction(timestampTracker, beginTimestamp, txId, implicit, options);
+        } else {
+            HybridTimestamp beginTimestamp = createBeginTimestampWithIncrementRwTxCounter();
+
+            UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
 
             // TODO: RW timeouts will be supported in https://issues.apache.org/jira/browse/IGNITE-24244
             //  long timeout = options.timeoutMillis() == 0 ? txConfig.readWriteTimeout().value() : options.timeoutMillis();
             long timeout = 3_000;
 
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
-        } else {
-            return beginReadOnlyTransaction(timestampTracker, beginTimestamp, txId, implicit, options);
+            tx = new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
         }
+
+        txStateVolatileStorage.initialize(tx);
+
+        return tx;
     }
 
     private ReadOnlyTransactionImpl beginReadOnlyTransaction(
@@ -553,7 +562,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         finalState,
                         old == null ? null : old.txCoordinatorId(),
                         old == null ? null : old.commitPartitionId(),
-                        ts
+                        ts,
+                        old == null ? null : old.tx()
                 ));
 
         decrementRwTxCount(txId);
@@ -580,7 +590,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         if (enlistedGroups.isEmpty()) {
             // If there are no enlisted groups, just update local state - we already marked the tx as finished.
             updateTxMeta(txId, old -> new TxStateMeta(
-                    commitIntent ? COMMITTED : ABORTED, localNodeId, commitPartition, commitTimestamp(commitIntent)
+                    commitIntent ? COMMITTED : ABORTED,
+                    localNodeId,
+                    commitPartition,
+                    commitTimestamp(commitIntent),
+                    old == null ? null : old.tx()
             ));
 
             decrementRwTxCount(txId);
@@ -727,6 +741,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                             old == null ? null : old.txCoordinatorId(),
                                             commitPartition,
                                             result.commitTimestamp(),
+                                            old == null ? null : old.tx(),
                                             old == null ? null : old.initialVacuumObservationTimestamp(),
                                             old == null ? null : old.cleanupCompletionTimestamp()
                                     )
@@ -793,6 +808,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                                     localNodeId,
                                     old == null ? null : old.commitPartitionId(),
                                     txResult.commitTimestamp(),
+                                    old == null ? null : old.tx(),
                                     old == null ? null : old.initialVacuumObservationTimestamp(),
                                     old == null ? null : old.cleanupCompletionTimestamp()
                             ));
@@ -958,6 +974,17 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         return txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value(),
                 persistentTxStateVacuumizer::vacuumPersistentTxStates);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> kill(UUID txId) {
+        TxStateMeta state = txStateVolatileStorage.state(txId);
+
+        if (state != null && state.tx() != null) {
+            return state.tx().kill().thenApply(unused -> true);
+        }
+
+        return falseCompletedFuture();
     }
 
     @Override

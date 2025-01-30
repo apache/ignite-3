@@ -36,6 +36,7 @@ import java.util.function.Function;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.PersistentTxStateVacuumizer.PersistentTxStateVacuumResult;
@@ -68,13 +69,12 @@ public class VolatileTxStateMetaStorage {
     /**
      * Initializes the meta state for a created transaction.
      *
-     * @param txId Transaction id.
-     * @param txCrdId Transaction coordinator id.
+     * @param tx Transaction object.
      */
-    public void initialize(UUID txId, UUID txCrdId) {
-        TxStateMeta previous = txStateMap.put(txId, new TxStateMeta(PENDING, txCrdId, null, null));
+    public void initialize(InternalTransaction tx) {
+        TxStateMeta previous = txStateMap.put(tx.id(), new TxStateMeta(PENDING, tx.coordinatorId(), null, null, tx));
 
-        assert previous == null : "Transaction state has already defined [txId=" + txCrdId + ", state=" + previous.txState() + ']';
+        assert previous == null : "Transaction state has already defined [txId=" + tx.id() + ", state=" + previous.txState() + ']';
     }
 
     /**
@@ -158,7 +158,13 @@ public class VolatileTxStateMetaStorage {
 
         txStateMap.forEach((txId, meta) -> {
             txStateMap.computeIfPresent(txId, (txId0, meta0) -> {
-                if (TxState.isFinalState(meta0.txState())) {
+                if (meta0.tx() != null && meta0.tx().isReadOnly()) {
+                    if (meta0.tx().isFinishingOrFinished()) {
+                        vacuumizedTxnsCount.incrementAndGet();
+
+                        return null;
+                    }
+                } else if (TxState.isFinalState(meta0.txState())) {
                     Long initialVacuumObservationTimestamp = meta0.initialVacuumObservationTimestamp();
 
                     if (initialVacuumObservationTimestamp == null && txnResourceTtl > 0) {
@@ -192,10 +198,10 @@ public class VolatileTxStateMetaStorage {
                             return meta0;
                         }
                     }
-                } else {
-                    skippedForFurtherProcessingUnfinishedTxnsCount.incrementAndGet();
-                    return meta0;
                 }
+
+                skippedForFurtherProcessingUnfinishedTxnsCount.incrementAndGet();
+                return meta0;
             });
         });
 
@@ -248,6 +254,7 @@ public class VolatileTxStateMetaStorage {
                 meta.txCoordinatorId(),
                 meta.commitPartitionId(),
                 meta.commitTimestamp(),
+                meta.tx(),
                 vacuumObservationTimestamp,
                 meta.cleanupCompletionTimestamp()
         );
@@ -260,6 +267,10 @@ public class VolatileTxStateMetaStorage {
             long vacuumObservationTimestamp) {
         if (txnResourceTtl == 0) {
             return true;
+        }
+
+        if (initialVacuumObservationTimestamp == null) {
+            LOG.info("InitialVacuumObservationTimestamp is null");
         }
 
         assert initialVacuumObservationTimestamp != null : "initialVacuumObservationTimestamp should have been set if txnResourceTtl > 0 "

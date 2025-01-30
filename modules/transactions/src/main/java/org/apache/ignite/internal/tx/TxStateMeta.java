@@ -50,6 +50,8 @@ public class TxStateMeta implements TransactionMeta {
 
     private final @Nullable Long cleanupCompletionTimestamp;
 
+    private final @Nullable InternalTransaction tx;
+
     /**
      * Constructor.
      *
@@ -57,14 +59,16 @@ public class TxStateMeta implements TransactionMeta {
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition replication group id.
      * @param commitTimestamp Commit timestamp.
+     * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
      */
     public TxStateMeta(
             TxState txState,
             @Nullable UUID txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
-            @Nullable HybridTimestamp commitTimestamp
+            @Nullable HybridTimestamp commitTimestamp,
+            @Nullable InternalTransaction tx
     ) {
-        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, null, null);
+        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, tx, null);
     }
 
     /**
@@ -74,6 +78,7 @@ public class TxStateMeta implements TransactionMeta {
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition replication group id.
      * @param commitTimestamp Commit timestamp.
+     * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
      * @param initialVacuumObservationTimestamp Initial vacuum observation timestamp.
      */
     public TxStateMeta(
@@ -81,9 +86,10 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable UUID txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
+            @Nullable InternalTransaction tx,
             @Nullable Long initialVacuumObservationTimestamp
     ) {
-        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, initialVacuumObservationTimestamp, null);
+        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, tx, initialVacuumObservationTimestamp, null);
     }
 
     /**
@@ -93,6 +99,7 @@ public class TxStateMeta implements TransactionMeta {
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition replication group id.
      * @param commitTimestamp Commit timestamp.
+     * @param tx Transaction object. This parameter is not {@code null} only for transaction coordinator.
      * @param initialVacuumObservationTimestamp Initial vacuum observation timestamp.
      * @param cleanupCompletionTimestamp Cleanup completion timestamp.
      */
@@ -101,6 +108,7 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable UUID txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
+            @Nullable InternalTransaction tx,
             @Nullable Long initialVacuumObservationTimestamp,
             @Nullable Long cleanupCompletionTimestamp
     ) {
@@ -108,8 +116,18 @@ public class TxStateMeta implements TransactionMeta {
         this.txCoordinatorId = txCoordinatorId;
         this.commitPartitionId = commitPartitionId;
         this.commitTimestamp = commitTimestamp;
+        this.tx = tx;
         this.initialVacuumObservationTimestamp = initialVacuumObservationTimestamp;
         this.cleanupCompletionTimestamp = cleanupCompletionTimestamp;
+    }
+
+    /**
+     * Gets a transaction object or {@code null} it a current node is not a coordinator for this transaction.
+     *
+     * @return Transaction object.
+     */
+    public @Nullable InternalTransaction tx() {
+        return tx;
     }
 
     /**

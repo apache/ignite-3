@@ -763,7 +763,8 @@ public class PartitionListener implements RaftGroupListener {
                 full ? COMMITTED : PENDING,
                 txCoordinatorId,
                 old == null ? null : old.commitPartitionId(),
-                full ? commitTimestamp : null
+                full ? commitTimestamp : null,
+                old == null ? null : old.tx()
         ));
     }
 
@@ -773,6 +774,7 @@ public class PartitionListener implements RaftGroupListener {
                 old == null ? null : old.txCoordinatorId(),
                 old == null ? partId : old.commitPartitionId(),
                 commit ? commitTimestamp : null,
+                old == null ? null : old.tx(),
                 old == null ? null : old.initialVacuumObservationTimestamp(),
                 old == null ? null : old.cleanupCompletionTimestamp()
         ));
