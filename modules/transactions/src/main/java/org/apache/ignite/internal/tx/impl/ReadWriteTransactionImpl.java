@@ -197,7 +197,13 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
                         killed = true;
                     }
                 } else {
-                    CompletableFuture<Void> finishFutureInternal = finishInternal(commit);
+                    CompletableFuture<Void> finishFutureInternal = txManager.finish(
+                            observableTsTracker,
+                            commitPart,
+                            commit,
+                            enlisted,
+                            id()
+                    );
 
                     if (isComplete) {
                         finishFuture = finishFutureInternal.handle((unused, throwable) -> null);
@@ -219,16 +225,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public boolean isFinishingOrFinished() {
         return finishFuture != null;
-    }
-
-    /**
-     * Internal method for finishing this transaction.
-     *
-     * @param commit {@code true} to commit, false to rollback.
-     * @return The future of transaction completion.
-     */
-    private CompletableFuture<Void> finishInternal(boolean commit) {
-        return txManager.finish(observableTsTracker, commitPart, commit, enlisted, id());
     }
 
     /** {@inheritDoc} */
