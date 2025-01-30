@@ -33,7 +33,6 @@ import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -54,31 +53,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 public class CollocationSelectBenchmark extends AbstractCollocationBenchmark {
     private static final int TABLE_SIZE = 30_000;
 
-    @Param({"1", "32"})
-    private int partitionCount;
-
-    @Param({"1", "32", "64"})
-    private int tableCount;
-
-    @Param({"true"})
-    private boolean tinySchemaSyncWaits;
-
     private final AtomicInteger counter = new AtomicInteger();
-
-    @Override
-    protected int partitionCount() {
-        return partitionCount;
-    }
-
-    @Override
-    protected int tableCount() {
-        return tableCount;
-    }
-
-    @Override
-    protected boolean tinySchemaSyncWaits() {
-        return tinySchemaSyncWaits;
-    }
 
     /**
      * Fills the tables with data.

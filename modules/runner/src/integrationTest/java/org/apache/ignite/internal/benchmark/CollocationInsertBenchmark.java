@@ -31,7 +31,6 @@ import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Threads;
@@ -48,33 +47,9 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @Fork(1)
 @State(Scope.Benchmark)
 public class CollocationInsertBenchmark extends AbstractCollocationBenchmark {
-    @Param({"1", "32"})
-    private int partitionCount;
-
-    @Param({"1", "32", "64"})
-    private int tableCount;
-
-    @Param({"true"})
-    private boolean tinySchemaSyncWaits;
-
     private final Tuple tuple = Tuple.create().set("company", "Apache");
 
     private final AtomicInteger counter = new AtomicInteger();
-
-    @Override
-    protected int partitionCount() {
-        return partitionCount;
-    }
-
-    @Override
-    protected int tableCount() {
-        return tableCount;
-    }
-
-    @Override
-    protected boolean tinySchemaSyncWaits() {
-        return tinySchemaSyncWaits;
-    }
 
     /**
      * Measures throughput of key-value api for tables that share the same distribution zone.

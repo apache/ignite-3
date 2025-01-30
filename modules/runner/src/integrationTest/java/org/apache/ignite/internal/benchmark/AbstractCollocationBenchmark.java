@@ -32,6 +32,7 @@ import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.openjdk.jmh.annotations.Param;
 
 /**
  * Base class that allows to measure basic KeyValue operations for tables that share the same distribution zone.
@@ -44,10 +45,19 @@ public class AbstractCollocationBenchmark extends AbstractMultiNodeBenchmark {
     /** System property that allows to enable/disable collocation feature. */
     private static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
 
-    /** {@code true} enables collocation feature. */
-    private static final Boolean ENABLE_COLLOCATION_FEATURE = true;
-
     protected final List<KeyValueView<Tuple, Tuple>> tableViews = new ArrayList<>();
+
+    @Param({"32"})
+    private int partitionCount;
+
+    @Param({"1", "32", "64"})
+    private int tableCount;
+
+    @Param({"true"})
+    private boolean tinySchemaSyncWaits;
+
+    @Param({"true", "false"})
+    private boolean collocationEnabled;
 
     @Override
     protected int nodes() {
@@ -57,6 +67,11 @@ public class AbstractCollocationBenchmark extends AbstractMultiNodeBenchmark {
     @Override
     protected int replicaCount() {
         return 1;
+    }
+
+    @Override
+    protected int partitionCount() {
+        return partitionCount;
     }
 
     @Override
@@ -99,14 +114,16 @@ public class AbstractCollocationBenchmark extends AbstractMultiNodeBenchmark {
 
     @Override
     public void nodeSetUp() throws Exception {
+        boolean collocationFeatureEnabled = enableCollocationFeature();
+
         // Enable/disable collocation feature.
-        System.setProperty(FEATURE_FLAG_NAME, ENABLE_COLLOCATION_FEATURE.toString());
+        System.setProperty(FEATURE_FLAG_NAME, Boolean.toString(collocationFeatureEnabled));
 
         // Start the cluster and initialize it.
         super.nodeSetUp();
 
         // Patch replica manager to propagate table replication messages to zone replication groups.
-        if (ENABLE_COLLOCATION_FEATURE) {
+        if (collocationFeatureEnabled) {
             int catalogVersion = igniteImpl
                     .catalogManager()
                     .latestCatalogVersion();
@@ -131,11 +148,15 @@ public class AbstractCollocationBenchmark extends AbstractMultiNodeBenchmark {
         }
     }
 
+    protected boolean enableCollocationFeature() {
+        return collocationEnabled;
+    }
+
     protected int tableCount() {
-        return 1;
+        return tableCount;
     }
 
     protected boolean tinySchemaSyncWaits() {
-        return true;
+        return tinySchemaSyncWaits;
     }
 }
