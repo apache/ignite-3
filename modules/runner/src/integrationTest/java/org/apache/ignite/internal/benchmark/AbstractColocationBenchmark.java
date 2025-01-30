@@ -57,7 +57,7 @@ public class AbstractColocationBenchmark extends AbstractMultiNodeBenchmark {
     private boolean tinySchemaSyncWaits;
 
     @Param({"false", "true"})
-    private boolean colocationEnabled;
+    private boolean tableZoneColocationEnabled;
 
     @Override
     protected int nodes() {
@@ -149,7 +149,7 @@ public class AbstractColocationBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     protected boolean enableColocationFeature() {
-        return colocationEnabled;
+        return tableZoneColocationEnabled;
     }
 
     protected int tableCount() {
