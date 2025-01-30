@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.en
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureZoneContainsTablesStorageProfile;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.copyOrNull;
@@ -109,6 +109,10 @@ public class CreateTableCommand extends AbstractTableCommand {
         Catalog catalog = updateContext.catalog();
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, schemaName);
 
+        if (ifTableExists && schema.table(tableName) != null) {
+            return List.of();
+        }
+
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
         CatalogZoneDescriptor zone;
@@ -119,7 +123,7 @@ public class CreateTableCommand extends AbstractTableCommand {
 
             zone = catalog.defaultZone();
         } else {
-            zone = zoneOrThrow(catalog, zoneName);
+            zone = zone(catalog, zoneName, true);
         }
 
         if (storageProfile == null) {

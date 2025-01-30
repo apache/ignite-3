@@ -554,9 +554,9 @@ public class CatalogTestUtils {
     /** Test command that does nothing but increments object id counter of a catalog. */
     public static class TestCommand implements CatalogCommand {
 
-        private final boolean successful;
+        private final Boolean successful;
 
-        private TestCommand(boolean successful) {
+        private TestCommand(Boolean successful) {
             this.successful = successful;
         }
 
@@ -568,8 +568,15 @@ public class CatalogTestUtils {
             return new TestCommand(false);
         }
 
+        public static TestCommand empty() {
+            return new TestCommand(null);
+        }
+
         @Override
         public List<UpdateEntry> get(UpdateContext updateContext) {
+            if (successful == null) {
+                return List.of();
+            }
             if (!successful) {
                 throw new TestCommandFailure();
             }
