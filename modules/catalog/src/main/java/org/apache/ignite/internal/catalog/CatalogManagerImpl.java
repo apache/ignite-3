@@ -40,7 +40,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
-import org.apache.ignite.internal.catalog.commands.CreateSystemSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -392,7 +391,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         .build(),
                 // Add schemas
                 CreateSchemaCommand.builder().name(SqlCommon.DEFAULT_SCHEMA_NAME).build(),
-                CreateSystemSchemaCommand.builder().name(SYSTEM_SCHEMA_NAME).build()
+                CreateSchemaCommand.systemSchemaBuilder().name(SYSTEM_SCHEMA_NAME).build()
         );
 
         List<UpdateEntry> entries = new BulkUpdateProducer(initCommands).get(emptyCatalog);

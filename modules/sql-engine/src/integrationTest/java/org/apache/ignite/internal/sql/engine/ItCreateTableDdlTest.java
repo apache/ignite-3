@@ -43,7 +43,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.CreateSystemSchemaCommand;
+import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.schema.Column;
@@ -335,7 +335,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         if (DEFINITION_SCHEMA.equals(schema) || INFORMATION_SCHEMA.equals(schema)) {
             IgniteImpl igniteImpl = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-            IgniteTestUtils.await(igniteImpl.catalogManager().execute(CreateSystemSchemaCommand.builder().name(schema).build()));
+            IgniteTestUtils.await(igniteImpl.catalogManager().execute(CreateSchemaCommand.systemSchemaBuilder().name(schema).build()));
         }
 
         assertThrowsSqlException(

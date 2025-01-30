@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 
 /**
- * Builder for a {@link CreateSystemSchemaCommand}.
+ * Builder for a {@link CreateSchemaCommand} with system schemas usage.
  */
 public interface CreateSystemSchemaCommandBuilder {
     /** Sets schema name. Should not be null or blank. */

@@ -29,7 +29,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests to verify validation of {@link CreateSystemSchemaCommand}.
+ * Tests to verify validation of {@link CreateSchemaCommand} for system schemas.
  */
 @SuppressWarnings({"ThrowableNotThrown"})
 public class CreateSystemSchemaCommandValidationTest extends AbstractCommandValidationTest {
@@ -37,7 +37,7 @@ public class CreateSystemSchemaCommandValidationTest extends AbstractCommandVali
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
     @MethodSource("nullAndBlankStrings")
     void schemaNameMustNotBeNullOrBlank(String name) {
-        CreateSystemSchemaCommandBuilder builder = CreateSystemSchemaCommand.builder().name(name);
+        CreateSystemSchemaCommandBuilder builder = CreateSchemaCommand.systemSchemaBuilder().name(name);
 
         assertThrows(
                 CatalogValidationException.class,
@@ -54,14 +54,14 @@ public class CreateSystemSchemaCommandValidationTest extends AbstractCommandVali
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> CreateSystemSchemaCommand.builder().name(schemaName).build().get(catalog),
+                () -> CreateSchemaCommand.systemSchemaBuilder().name(schemaName).build().get(catalog),
                 format("Not a system schema, schema: '{}'", schemaName)
         );
     }
 
     @Test
     void commandFailsWhenSchemaAlreadyExists() {
-        CreateSystemSchemaCommandBuilder builder = CreateSystemSchemaCommand.builder().name(INFORMATION_SCHEMA);
+        CreateSystemSchemaCommandBuilder builder = CreateSchemaCommand.systemSchemaBuilder().name(INFORMATION_SCHEMA);
 
         Catalog catalog = catalogWithSchema(INFORMATION_SCHEMA);
 
@@ -73,6 +73,6 @@ public class CreateSystemSchemaCommandValidationTest extends AbstractCommandVali
     }
 
     private static Catalog catalogWithSchema(String schemaName) {
-        return catalog(CreateSystemSchemaCommand.builder().name(schemaName).build());
+        return catalog(CreateSchemaCommand.systemSchemaBuilder().name(schemaName).build());
     }
 }
