@@ -25,6 +25,27 @@ import java.util.Map;
  * Utils for client protocol handshake handling.
  */
 public class HandshakeUtils {
+    /** Empty features. */
+    public static final BitSet EMPTY_FEATURES = new BitSet();
+
+    /** Client type: general. */
+    public static final int CLIENT_TYPE_GENERAL = 2;
+
+    /**
+     * Packs extensions.
+     *
+     * @param packer Packer.
+     * @param extensions Extensions.
+     */
+    public static void packExtensions(ClientMessagePacker packer, Map<HandshakeExtension, Object> extensions) {
+        packer.packInt(extensions.size());
+
+        for (Map.Entry<HandshakeExtension, Object> entry : extensions.entrySet()) {
+            packer.packString(entry.getKey().key());
+            packer.packString((String) entry.getValue());
+        }
+    }
+
     /**
      * Unpacks extensions.
      *
@@ -34,13 +55,25 @@ public class HandshakeUtils {
     public static Map<HandshakeExtension, Object> unpackExtensions(ClientMessageUnpacker unpacker) {
         EnumMap<HandshakeExtension, Object> extensions = new EnumMap<>(HandshakeExtension.class);
         int mapSize = unpacker.unpackInt();
+
         for (int i = 0; i < mapSize; i++) {
             HandshakeExtension handshakeExtension = HandshakeExtension.fromKey(unpacker.unpackString());
             if (handshakeExtension != null) {
                 extensions.put(handshakeExtension, unpackExtensionValue(handshakeExtension, unpacker));
             }
         }
+
         return extensions;
+    }
+
+    /**
+     * Packs features.
+     *
+     * @param packer Packer.
+     * @param features Features bit set.
+     */
+    public static void packFeatures(ClientMessagePacker packer, BitSet features) {
+        packer.packBinary(features.toByteArray());
     }
 
     /**
@@ -51,7 +84,8 @@ public class HandshakeUtils {
      */
     public static BitSet unpackFeatures(ClientMessageUnpacker unpacker) {
         var featuresLen = unpacker.unpackBinaryHeader();
-        var features = BitSet.valueOf(unpacker.readPayload(featuresLen));
+
+        return BitSet.valueOf(unpacker.readPayload(featuresLen));
     }
 
     private static Object unpackExtensionValue(HandshakeExtension handshakeExtension, ClientMessageUnpacker unpacker) {

@@ -444,7 +444,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         packer.packByteNullable(IgniteProductVersion.CURRENT_VERSION.patch());
         packer.packStringNullable(IgniteProductVersion.CURRENT_VERSION.preRelease());
 
-        packer.packBinaryHeader(0); // Features.
+        HandshakeUtils.packFeatures(packer, HandshakeUtils.EMPTY_FEATURES);
         packer.packInt(0); // Extensions.
 
         write(packer, ctx);
