@@ -769,7 +769,9 @@ public class DataNodesManager {
 
                     CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(event.timestamp().longValue()).zone(zoneId);
 
-                    assert zoneDescriptor != null : "Zone descriptor must be present [zoneId=" + zoneId + "].";
+                    if (zoneDescriptor == null) {
+                        return nullCompletedFuture();
+                    }
 
                     onScaleUpTimerChange(zoneDescriptor, timer);
                 }
@@ -794,7 +796,9 @@ public class DataNodesManager {
 
                     CatalogZoneDescriptor zoneDescriptor = catalogManager.activeCatalog(event.timestamp().longValue()).zone(zoneId);
 
-                    assert zoneDescriptor != null : "Zone descriptor must be present [zoneId=" + zoneId + "].";
+                    if (zoneDescriptor == null) {
+                        return nullCompletedFuture();
+                    }
 
                     onScaleDownTimerChange(zoneDescriptor, timer);
                 }

@@ -382,7 +382,7 @@ public class DistributionZoneManager extends
 
         Entry topologyEntry = metaStorageManager.getLocally(zonesLogicalTopologyKey(), parameters.causalityToken());
 
-        if (topologyEntry != null) {
+        if (topologyEntry != null && topologyEntry.value() != null) {
             Set<NodeWithAttributes> logicalTopology = deserializeLogicalTopologySet(topologyEntry.value());
 
             return dataNodesManager.onZoneFilterChange(parameters.zoneDescriptor(), timestamp, logicalTopology);

@@ -55,7 +55,7 @@ public class DataNodesHistory {
      * @return New data nodes history.
      */
     public DataNodesHistory addHistoryEntry(HybridTimestamp timestamp, Set<NodeWithAttributes> nodes) {
-        DataNodesHistory dataNodesHistory = new DataNodesHistory(this.history);
+        DataNodesHistory dataNodesHistory = new DataNodesHistory(new TreeMap<>(this.history));
         dataNodesHistory.history.put(timestamp, nodes);
         return dataNodesHistory;
     }
@@ -129,11 +129,11 @@ public class DataNodesHistory {
             return new DataNodesHistory(history);
         }
 
-        static byte[] serialize(DataNodesHistory dataNodesHistory) {
+        public static byte[] serialize(DataNodesHistory dataNodesHistory) {
             return VersionedSerialization.toBytes(dataNodesHistory, INSTANCE);
         }
 
-        static DataNodesHistory deserialize(byte[] bytes) {
+        public static DataNodesHistory deserialize(byte[] bytes) {
             return VersionedSerialization.fromBytes(bytes, INSTANCE);
         }
     }
