@@ -49,6 +49,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.RexToLixTranslator;
+import org.apache.ignite.internal.sql.engine.exec.exp.SqlScalar;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.Primitives;
@@ -188,7 +189,7 @@ public class AccumulatorsFactory<RowT> {
         public AccumulatorWrapper<RowT> apply(ExecutionContext<RowT> context) {
             Accumulator accumulator = accumulator();
 
-            return new AccumulatorWrapperImpl<>(context.rowHandler(), accumulator, call, inAdapter, outAdapter);
+            return new AccumulatorWrapperImpl<>(context, accumulator, call, inAdapter, outAdapter);
         }
 
         private Accumulator accumulator() {
@@ -197,7 +198,7 @@ public class AccumulatorsFactory<RowT> {
             }
 
             // init factory and adapters
-            accFactory = accumulators.accumulatorFactory(call);
+            accFactory = accumulators.accumulatorFactory(call, inputRowType);
             Accumulator accumulator = accFactory.get();
 
             inAdapter = createInAdapter(accumulator);
@@ -264,6 +265,8 @@ public class AccumulatorsFactory<RowT> {
 
         private final boolean literalAgg;
 
+        private final Object preOperand;
+
         private final int filterArg;
 
         private final boolean ignoreNulls;
@@ -273,23 +276,31 @@ public class AccumulatorsFactory<RowT> {
         private final boolean distinct;
 
         AccumulatorWrapperImpl(
-                RowHandler<RowT> handler,
+                ExecutionContext<RowT> ctx,
                 Accumulator accumulator,
                 AggregateCall call,
                 Function<Object[], Object[]> inAdapter,
                 Function<Object, Object> outAdapter
         ) {
-            this.handler = handler;
+            this.handler = ctx.rowHandler();
             this.accumulator = accumulator;
             this.inAdapter = inAdapter;
             this.outAdapter = outAdapter;
             this.distinct = call.isDistinct();
 
-            // need to be refactored after https://issues.apache.org/jira/browse/IGNITE-22320
             literalAgg = call.getAggregation() == LITERAL_AGG;
             argList = call.getArgList();
             ignoreNulls = call.ignoreNulls();
             filterArg = call.hasFilter() ? call.filterArg : -1;
+
+            if (literalAgg) {
+                assert call.getArgList().isEmpty() : "LiteralAgg should have no operands: " + call;
+
+                SqlScalar<RowT, Object> litAggArg = ctx.expressionFactory().scalar(call.rexList.get(0));
+                preOperand = litAggArg.get(ctx);
+            } else {
+                preOperand = null;
+            }
         }
 
         @Override
@@ -308,11 +319,15 @@ public class AccumulatorsFactory<RowT> {
                 return null;
             }
 
+            if (literalAgg) {
+                return new Object[]{preOperand};
+            }
+
             int params = argList.size();
 
             List<Integer> argList0 = argList;
 
-            if ((distinct && argList.isEmpty()) || literalAgg) {
+            if ((distinct && argList.isEmpty())) {
                 int cnt = handler.columnCount(row);
                 assert cnt <= 1;
                 argList0 = List.of(0);
