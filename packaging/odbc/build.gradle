@@ -40,7 +40,7 @@ dependencies {
 }
 
 def tokens = [
-        USERNAME    : 'ignite',
+        USERNAME    : 'root',
         VERSION     : project.version,
         LIB_DIR     : "/usr/lib",
         TMP_DIR     : "/tmp/ignite3-odbc"
