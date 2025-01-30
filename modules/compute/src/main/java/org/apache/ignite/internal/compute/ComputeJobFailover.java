@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.deployment.DeploymentUnit;
@@ -82,6 +83,8 @@ class ComputeJobFailover {
      */
     private final RemoteExecutionContext jobContext;
 
+    private FailSafeJobExecution failSafeExecution;
+
     /**
      * Creates a per-job instance.
      *
@@ -96,7 +99,7 @@ class ComputeJobFailover {
      * @param executionOptions execution options like priority or max retries.
      * @param arg the arguments of the job.
      */
-    ComputeJobFailover(
+    private ComputeJobFailover(
             ComputeComponent computeComponent,
             LogicalTopologyService logicalTopologyService,
             TopologyService topologyService,
@@ -117,23 +120,51 @@ class ComputeJobFailover {
         this.executor = executor;
     }
 
+    static CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> failSafeExecute(
+            ComputeComponent computeComponent,
+            LogicalTopologyService logicalTopologyService,
+            TopologyService topologyService,
+            ClusterNode workerNode,
+            NextWorkerSelector nextWorkerSelector,
+            Executor executor,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            ExecutionOptions executionOptions,
+            @Nullable ComputeJobDataHolder arg
+    ) {
+        return new ComputeJobFailover(computeComponent,
+                logicalTopologyService,
+                topologyService,
+                workerNode,
+                nextWorkerSelector,
+                executor,
+                units,
+                jobClassName,
+                executionOptions,
+                arg
+        ).execute();
+    }
+
     /**
      * Executes a job on the worker node and restarts the job on one of the failover candidates if the worker node leaves the cluster.
      *
      * @return JobExecution with the result of the job and the status of the job.
      */
-    CancellableJobExecution<ComputeJobDataHolder> failSafeExecute() {
-        CancellableJobExecution<ComputeJobDataHolder> jobExecution = launchJobOn(runningWorkerNode.get());
-        jobContext.initJobExecution(new FailSafeJobExecution<>(jobExecution));
+    private CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> execute() {
+        return launchJobOn(runningWorkerNode.get())
+                .thenApply(execution -> {
+                    failSafeExecution = new FailSafeJobExecution(execution);
 
-        LogicalTopologyEventListener nodeLeftEventListener = new OnNodeLeft();
-        logicalTopologyService.addEventListener(nodeLeftEventListener);
-        jobExecution.resultAsync().whenComplete((r, e) -> logicalTopologyService.removeEventListener(nodeLeftEventListener));
+                    LogicalTopologyEventListener nodeLeftEventListener = new OnNodeLeft();
+                    logicalTopologyService.addEventListener(nodeLeftEventListener);
+                    failSafeExecution.resultAsync()
+                            .whenComplete((r, e) -> logicalTopologyService.removeEventListener(nodeLeftEventListener));
 
-        return jobContext.failSafeJobExecution();
+                    return failSafeExecution;
+                });
     }
 
-    private CancellableJobExecution<ComputeJobDataHolder> launchJobOn(ClusterNode runningWorkerNode) {
+    private CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> launchJobOn(ClusterNode runningWorkerNode) {
         if (runningWorkerNode.name().equals(topologyService.localMember().name())) {
             return computeComponent.executeLocally(
                     jobContext.executionOptions(), jobContext.units(), jobContext.jobClassName(), jobContext.arg(), null
@@ -145,7 +176,7 @@ class ComputeJobFailover {
         }
     }
 
-    class OnNodeLeft implements LogicalTopologyEventListener {
+    private class OnNodeLeft implements LogicalTopologyEventListener {
         @Override
         public void onNodeLeft(LogicalNode leftNode, LogicalTopologySnapshot newTopology) {
             if (!runningWorkerNode.get().id().equals(leftNode.id())) {
@@ -162,10 +193,7 @@ class ComputeJobFailover {
                         if (nextWorker == null) {
                             LOG.warn("No more worker nodes to restart the job. Failing the job {}.", jobContext.jobClassName());
 
-                            FailSafeJobExecution<?> failSafeJobExecution = jobContext.failSafeJobExecution();
-                            failSafeJobExecution.completeExceptionally(
-                                    new IgniteInternalException(Compute.COMPUTE_JOB_FAILED_ERR)
-                            );
+                            failSafeExecution.completeExceptionally(new IgniteInternalException(Compute.COMPUTE_JOB_FAILED_ERR));
                             return;
                         }
 
@@ -179,8 +207,8 @@ class ComputeJobFailover {
                         LOG.info("Restarting the job {} on node {}.", jobContext.jobClassName(), nextWorker.name());
 
                         runningWorkerNode.set(nextWorker);
-                        CancellableJobExecution<ComputeJobDataHolder> jobExecution = launchJobOn(runningWorkerNode.get());
-                        jobContext.updateJobExecution(jobExecution);
+
+                        launchJobOn(nextWorker).thenAccept(execution -> failSafeExecution.updateJobExecution(execution));
                     });
         }
     }
