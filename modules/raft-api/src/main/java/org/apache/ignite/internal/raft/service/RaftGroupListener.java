@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.service;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 
@@ -64,8 +65,8 @@ public interface RaftGroupListener {
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.
      */
-    default void onConfigurationCommittedWithLastAppliedIndexAndTerm(
-            CommittedConfiguration config,
+    default void onConfigurationCommitted(
+            RaftGroupConfiguration config,
             long lastAppliedIndex,
             long lastAppliedTerm
     ) {

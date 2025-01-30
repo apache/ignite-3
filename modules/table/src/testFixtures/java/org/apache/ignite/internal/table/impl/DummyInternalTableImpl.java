@@ -68,9 +68,9 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -489,8 +489,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
         // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
         {
-            partitionListener.onConfigurationCommittedWithLastAppliedIndexAndTerm(
-                    new CommittedConfiguration(
+            partitionListener.onConfigurationCommitted(
+                    new RaftGroupConfiguration(
                             1,
                             1,
                             List.of(LOCAL_NODE.name()),

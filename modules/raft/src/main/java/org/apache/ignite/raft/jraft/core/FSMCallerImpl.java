@@ -523,7 +523,7 @@ public class FSMCallerImpl implements FSMCaller {
                             configurationEntry.setOldConf(new Configuration(logEntry.getOldPeers(), logEntry.getOldLearners()));
                         }
 
-                        this.fsm.onConfigurationCommittedWithLastAppliedIndexAndTerm(configurationEntry, logId.getIndex(), logId.getTerm());
+                        this.fsm.onRawConfigurationCommitted(configurationEntry, logId.getIndex(), logId.getTerm());
 
                         if (logEntry.getOldPeers() != null && !logEntry.getOldPeers().isEmpty()) {
                             // Joint stage is not supposed to be noticeable by end users.
@@ -717,7 +717,7 @@ public class FSMCallerImpl implements FSMCaller {
                 ));
             }
 
-            this.fsm.onConfigurationCommittedWithLastAppliedIndexAndTerm(configurationEntry, snapshotId.getIndex(), snapshotId.getTerm());
+            this.fsm.onRawConfigurationCommitted(configurationEntry, snapshotId.getIndex(), snapshotId.getTerm());
         }
 
         if (meta.oldPeersList() == null) {

@@ -3460,14 +3460,14 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                     opts.setRaftGrpEvtsLsnr(raftGrpEvtsLsnr);
                     opts.setFsm(new MockStateMachine(peerId) {
                         @Override
-                        public void onConfigurationCommittedWithLastAppliedIndexAndTerm(
+                        public void onRawConfigurationCommitted(
                                 ConfigurationEntry conf,
                                 long lastAppliedIndex,
                                 long lastAppliedTerm
                         ) {
                             term.set(conf.getId().getTerm());
                             index.set(conf.getId().getIndex());
-                            super.onConfigurationCommittedWithLastAppliedIndexAndTerm(conf, lastAppliedIndex, lastAppliedTerm);
+                            super.onRawConfigurationCommitted(conf, lastAppliedIndex, lastAppliedTerm);
                         }
                     });
                 },
@@ -3488,7 +3488,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // Wait until new node node sees every other node, otherwise
         // changePeersAndLearnersAsync can fail.
-        waitForTopologyOnEveryNode(1, cluster);
+        waitForTopologyOnEveryNode(2, cluster);
 
         SynchronizedClosure done = new SynchronizedClosure();
         leader.changePeersAndLearnersAsync(
@@ -3515,11 +3515,11 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     public void testIndexAndTermOfCfgArePropagatedToSnapshotMeta() throws Exception {
         TestPeer peer0 = new TestPeer(testInfo, TestUtils.INIT_PORT);
 
-        AtomicLong term = new AtomicLong(-1);
-        AtomicLong index = new AtomicLong(-1);
+        AtomicLong configTerm = new AtomicLong(-1);
+        AtomicLong configIndex = new AtomicLong(-1);
 
-        AtomicLong metaTerm = new AtomicLong(-1);
-        AtomicLong metaIndex = new AtomicLong(-1);
+        AtomicLong metaConfigTerm = new AtomicLong(-1);
+        AtomicLong metaConfigIndex = new AtomicLong(-1);
 
         cluster = new TestCluster(
                 "testIndexAndTermOfCfgArePropagatedToSnapshotMeta",
@@ -3533,22 +3533,21 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                         public boolean onSnapshotLoad(SnapshotReader reader) {
                             SnapshotMeta meta = reader.load();
 
-                            metaTerm.set(meta.cfgTerm());
-                            metaIndex.set(meta.cfgIndex());
+                            metaConfigTerm.set(meta.cfgTerm());
+                            metaConfigIndex.set(meta.cfgIndex());
 
                             return super.onSnapshotLoad(reader);
                         }
 
                         @Override
-                        public void onConfigurationCommittedWithLastAppliedIndexAndTerm(
+                        public void onRawConfigurationCommitted(
                                 ConfigurationEntry conf,
                                 long lastAppliedIndex,
                                 long lastAppliedTerm
                         ) {
-                            term.set(conf.getId().getTerm());
-                            index.set(conf.getId().getIndex());
-                            System.out.println("Index + term = " + index + " " + term);
-                            super.onConfigurationCommittedWithLastAppliedIndexAndTerm(conf, lastAppliedIndex, lastAppliedTerm);
+                            configTerm.set(conf.getId().getTerm());
+                            configIndex.set(conf.getId().getIndex());
+                            super.onRawConfigurationCommitted(conf, lastAppliedIndex, lastAppliedTerm);
                         }
                     });
                 },
@@ -3559,8 +3558,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         Node leader = cluster.waitAndGetLeader();
 
-        assertEquals(1, term.get());
-        assertEquals(1, index.get());
+        assertEquals(1, configTerm.get());
+        assertEquals(1, configIndex.get());
 
         TestPeer newPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 1);
         TestPeer otherPeer = new TestPeer(testInfo, TestUtils.INIT_PORT + 2);
@@ -3570,7 +3569,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         // Wait until new node node sees every other node, otherwise
         // changePeersAndLearnersAsync can fail.
-        waitForTopologyOnEveryNode(1, cluster);
+        waitForTopologyOnEveryNode(3, cluster);
 
         SynchronizedClosure done = new SynchronizedClosure();
         leader.changePeersAndLearnersAsync(
@@ -3603,12 +3602,12 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             assertEquals(20, fsm.getLogs().size(), fsm.getPeerId().toString());
 
         // Leader hasn't been changed, term must stay the same
-        assertEquals(1, term.get());
+        assertEquals(1, configTerm.get());
         // idx_2 == joint consensus, idx_3 is expected final cfg
-        assertEquals(3, index.get());
+        assertEquals(3, configIndex.get());
 
-        assertEquals(1, metaTerm.get());
-        assertEquals(3, metaIndex.get());
+        assertEquals(1, metaConfigTerm.get());
+        assertEquals(3, metaConfigIndex.get());
     }
 
     @Test

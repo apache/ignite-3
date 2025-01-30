@@ -177,7 +177,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void saveConfigurationWithLastAppliedIndexAndTerm(byte[] configuration, long index, long term) {
+    public void saveConfiguration(byte[] configuration, long index, long term) {
         rwLock.writeLock().lock();
 
         try {

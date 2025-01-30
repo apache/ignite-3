@@ -86,7 +86,6 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
@@ -295,8 +294,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         // thus onConfigurationCommited and primaryReplicaChangeCommand are called.
         {
             long index = raftIndex.incrementAndGet();
-            commandListener.onConfigurationCommittedWithLastAppliedIndexAndTerm(
-                    new CommittedConfiguration(
+            commandListener.onConfigurationCommitted(
+                    new RaftGroupConfiguration(
                             index,
                             1,
                             List.of(clusterService.nodeName()),
@@ -627,8 +626,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void updatesGroupConfigurationOnConfigCommit() {
         long index = raftIndex.incrementAndGet();
 
-        commandListener.onConfigurationCommittedWithLastAppliedIndexAndTerm(
-                new CommittedConfiguration(index, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+        commandListener.onConfigurationCommitted(
+                new RaftGroupConfiguration(index, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
                 index,
                 2
         );
@@ -648,8 +647,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void updatesLastAppliedIndexAndTermOnConfigCommit() {
-        commandListener.onConfigurationCommittedWithLastAppliedIndexAndTerm(
-                new CommittedConfiguration(3, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+        commandListener.onConfigurationCommitted(
+                new RaftGroupConfiguration(3, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
                 3,
                 2
         );
@@ -661,8 +660,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     void skipsUpdatesOnConfigCommitIfIndexIsStale() {
         mvPartitionStorage.lastApplied(10, 3);
 
-        commandListener.onConfigurationCommittedWithLastAppliedIndexAndTerm(
-                new CommittedConfiguration(
+        commandListener.onConfigurationCommitted(
+                new RaftGroupConfiguration(
                 1, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
                 1, 2
         );
@@ -675,8 +674,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     @Test
     void locksOnConfigCommit() {
         long index = raftIndex.incrementAndGet();
-        commandListener.onConfigurationCommittedWithLastAppliedIndexAndTerm(
-                new CommittedConfiguration(index, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
+        commandListener.onConfigurationCommitted(
+                new RaftGroupConfiguration(index, 2, List.of("peer"), List.of("learner"), List.of("old-peer"), List.of("old-learner")),
                 index,
                 2
         );

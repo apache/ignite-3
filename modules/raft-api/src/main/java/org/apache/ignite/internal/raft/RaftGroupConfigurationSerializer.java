@@ -33,6 +33,11 @@ public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGr
     public static final RaftGroupConfigurationSerializer INSTANCE = new RaftGroupConfigurationSerializer();
 
     @Override
+    protected byte getProtocolVersion() {
+        return 2;
+    }
+
+    @Override
     protected void writeExternalData(RaftGroupConfiguration config, IgniteDataOutput out) throws IOException {
         out.writeLong(config.index());
         out.writeLong(config.term());
@@ -59,8 +64,17 @@ public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGr
 
     @Override
     protected RaftGroupConfiguration readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
-        long index = in.readLong();
-        long term = in.readLong();
+        long index;
+        long term;
+
+        if (protoVer == 2) {
+            index = in.readLong();
+            term = in.readLong();
+        } else {
+            index = -1;
+            term = -1;
+        }
+
         List<String> peers = readStringList(in);
         List<String> learners = readStringList(in);
         List<String> oldPeers = readNullableStringList(in);

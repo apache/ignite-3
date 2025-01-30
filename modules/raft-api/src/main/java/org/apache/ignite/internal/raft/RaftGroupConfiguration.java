@@ -21,13 +21,13 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * A POJO for a RAFT group configuration, could be used by other modules. Not used by the RAFT module itself.
+ * A POJO for a RAFT group configuration with index and term at which it was committed,
+ * could be used by other modules. Not used by the RAFT module itself.
  */
 public class RaftGroupConfiguration implements Serializable {
     private static final long serialVersionUID = 0;
@@ -66,23 +66,19 @@ public class RaftGroupConfiguration implements Serializable {
     }
 
     /**
-     * Creates a {@link RaftGroupConfiguration} instance from {@link CommittedConfiguration}.
+     * Returns RAFT index corresponding to this configuration entry. Always positive.
+     *
+     * @return RAFT index.
      */
-    public static RaftGroupConfiguration fromCommittedConfiguration(CommittedConfiguration config) {
-        return new RaftGroupConfiguration(
-                config.index(),
-                config.term(),
-                config.peers(),
-                config.learners(),
-                config.oldPeers(),
-                config.oldLearners()
-        );
-    }
-
     public long index() {
         return index;
     }
 
+    /**
+     * Returns RAFT term corresponding to this configuration entry. Always positive.
+     *
+     * @return RAFT term.
+     */
     public long term() {
         return term;
     }
@@ -145,7 +141,7 @@ public class RaftGroupConfiguration implements Serializable {
 
     @Override
     public int hashCode() {
-        return Objects.hash(peers, learners, oldPeers, oldLearners);
+        return Objects.hash(index, term, peers, learners, oldPeers, oldLearners);
     }
 
     @Override

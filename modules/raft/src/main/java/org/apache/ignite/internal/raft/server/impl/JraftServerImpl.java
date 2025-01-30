@@ -60,13 +60,13 @@ import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
@@ -801,14 +801,14 @@ public class JraftServerImpl implements RaftServer {
         }
 
         @Override
-        public void onConfigurationCommittedWithLastAppliedIndexAndTerm(
+        public void onRawConfigurationCommitted(
                 ConfigurationEntry entry,
                 long lastAppliedIndex,
                 long lastAppliedTerm
         ) {
             boolean hasOldConf = entry.getOldConf() != null && entry.getOldConf().getPeers() != null;
 
-            CommittedConfiguration committedConf = new CommittedConfiguration(
+            RaftGroupConfiguration committedConf = new RaftGroupConfiguration(
                     entry.getId().getIndex(),
                     entry.getId().getTerm(),
                     peersIdsToStrings(entry.getConf().getPeers()),
@@ -817,7 +817,7 @@ public class JraftServerImpl implements RaftServer {
                     hasOldConf ? peersIdsToStrings(entry.getOldConf().getLearners()) : null
             );
 
-            listener.onConfigurationCommittedWithLastAppliedIndexAndTerm(committedConf, lastAppliedIndex, lastAppliedTerm);
+            listener.onConfigurationCommitted(committedConf, lastAppliedIndex, lastAppliedTerm);
         }
 
         private static List<String> peersIdsToStrings(Collection<PeerId> peerIds) {

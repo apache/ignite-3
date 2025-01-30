@@ -172,7 +172,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     /**
      * Key for storing configuration.
      *
-     * @see #saveConfigurationWithLastAppliedIndexAndTerm(byte[], long, long)
+     * @see #saveConfiguration(byte[], long, long)
      */
     private static final byte[] CONFIGURATION_KEY = keyToRocksKey(
             SYSTEM_REVISION_MARKER_VALUE,
@@ -597,7 +597,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public void saveConfigurationWithLastAppliedIndexAndTerm(byte[] configuration, long lastAppliedIndex, long lastAppliedTerm) {
+    public void saveConfiguration(byte[] configuration, long lastAppliedIndex, long lastAppliedTerm) {
         rwLock.writeLock().lock();
 
         try (WriteBatch batch = new WriteBatch()) {

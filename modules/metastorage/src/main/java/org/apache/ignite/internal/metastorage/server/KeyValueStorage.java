@@ -240,12 +240,12 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.
      */
-    void saveConfigurationWithLastAppliedIndexAndTerm(byte[] configuration, long lastAppliedIndex, long lastAppliedTerm);
+    void saveConfiguration(byte[] configuration, long lastAppliedIndex, long lastAppliedTerm);
 
     /**
-     * Returns configuration bytes saved by {@link #saveConfigurationWithLastAppliedIndexAndTerm(byte[], long, long)}.
+     * Returns configuration bytes saved by {@link #saveConfiguration(byte[], long, long)}.
      *
-     * @return Configuration bytes saved by {@link #saveConfigurationWithLastAppliedIndexAndTerm(byte[], long, long)}. {@code null} if it's
+     * @return Configuration bytes saved by {@link #saveConfiguration(byte[], long, long)}. {@code null} if it's
      *         never been called.
      */
     byte @Nullable [] getConfiguration();

@@ -105,7 +105,7 @@ public interface StateMachine {
      * @param lastAppliedIndex Last applied index.
      * @param lastAppliedTerm Last applied term.
      */
-    default void onConfigurationCommittedWithLastAppliedIndexAndTerm(ConfigurationEntry conf, long lastAppliedIndex, long lastAppliedTerm) {
+    default void onRawConfigurationCommitted(ConfigurationEntry conf, long lastAppliedIndex, long lastAppliedTerm) {
         // No-op.
     }
 
