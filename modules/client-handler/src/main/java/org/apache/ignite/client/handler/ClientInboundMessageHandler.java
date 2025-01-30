@@ -216,8 +216,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private final Executor partitionOperationsExecutor;
 
+    private final BitSet features;
+
+    private final Map<HandshakeExtension, Object> extensions;
+
     /**
-     * Constructor.
      *
      * @param igniteTables Ignite tables API entry point.
      * @param processor Sql query processor.
@@ -228,6 +231,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
      * @param clockService Clock service.
+     * @param schemaSyncService Schema sync service.
+     * @param catalogService Catalog service.
+     * @param connectionId Connection ID.
+     * @param primaryReplicaTracker Primary replica tracker.
+     * @param partitionOperationsExecutor Partition operations executor.
+     * @param features Features.
+     * @param extensions Extensions.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -244,7 +254,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             CatalogService catalogService,
             long connectionId,
             ClientPrimaryReplicaTracker primaryReplicaTracker,
-            Executor partitionOperationsExecutor
+            Executor partitionOperationsExecutor,
+            BitSet features,
+            Map<HandshakeExtension, Object> extensions
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -260,6 +272,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert catalogService != null;
         assert primaryReplicaTracker != null;
         assert partitionOperationsExecutor != null;
+        assert features != null;
+        assert extensions != null;
 
         this.igniteTables = igniteTables;
         this.txManager = txManager;
@@ -286,6 +300,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.connectionId = connectionId;
 
         this.primaryReplicaMaxStartTime = new AtomicLong(HybridTimestamp.MIN_VALUE.longValue());
+
+        this.features = features;
+        this.extensions = extensions;
     }
 
     @Override
@@ -444,8 +461,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         packer.packByteNullable(IgniteProductVersion.CURRENT_VERSION.patch());
         packer.packStringNullable(IgniteProductVersion.CURRENT_VERSION.preRelease());
 
-        HandshakeUtils.packFeatures(packer, HandshakeUtils.EMPTY_FEATURES);
-        HandshakeUtils.packExtensions(packer, Map.of());
+        HandshakeUtils.packFeatures(packer, features);
+        HandshakeUtils.packExtensions(packer, extensions);
 
         write(packer, ctx);
 

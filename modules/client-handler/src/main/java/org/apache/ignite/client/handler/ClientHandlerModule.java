@@ -35,6 +35,7 @@ import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.nio.channels.UnresolvedAddressException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +46,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -403,7 +405,9 @@ public class ClientHandlerModule implements IgniteComponent {
                 catalogService,
                 connectionId,
                 primaryReplicaTracker,
-                partitionOperationsExecutor
+                partitionOperationsExecutor,
+                HandshakeUtils.EMPTY_FEATURES,
+                Map.of()
         );
     }
 
