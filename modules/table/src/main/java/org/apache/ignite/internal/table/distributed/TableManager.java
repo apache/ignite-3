@@ -69,7 +69,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -94,7 +93,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.IntSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -253,13 +251,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
-
-    /** Name of a transaction state directory. */
-    private static final String TX_STATE_DIR = "tx-state";
-
-    /** Transaction storage flush delay. */
-    private static final int TX_STATE_STORAGE_FLUSH_DELAY = 100;
-    private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
 
     /** Replica messages factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
@@ -488,7 +479,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ReplicaService replicaSvc,
             TxManager txManager,
             DataStorageManager dataStorageMgr,
-            Path storagePath,
+            TxStateRocksDbSharedStorage txStateRocksDbSharedStorage,
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
             ExecutorService ioExecutor,
@@ -598,13 +589,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         startVv = new IncrementalVersionedValue<>(registry);
 
-        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
-                storagePath.resolve(TX_STATE_DIR),
-                commonScheduler,
-                ioExecutor,
-                logSyncer,
-                TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
-        );
+        this.sharedTxStateStorage = txStateRocksDbSharedStorage;
 
         fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
 
@@ -645,8 +630,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long recoveryRevision = recoveryFinishFuture.join().revision();
 
             cleanUpResourcesForDroppedTablesOnRecoveryBusy();
-
-            sharedTxStateStorage.start();
 
             // This future unblocks the process of tables start.
             // All needed storages, like the TxStateRocksDbSharedStorage must be started already.
@@ -1533,7 +1516,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             IgniteUtils.closeAllManually(
                     mvGc,
                     fullStateTransferIndexChooser,
-                    sharedTxStateStorage,
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS),

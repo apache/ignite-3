@@ -130,6 +130,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
@@ -175,6 +176,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private SchemaManager sm;
     private CatalogManager catalogManager;
     private MetaStorageManager metaStorageManager;
+    private TxStateRocksDbSharedStorage sharedTxStateStorage;
     private TableManager tableManager;
     @InjectExecutorService(threadCount = 4, allowedOperations = {STORAGE_READ, STORAGE_WRITE})
     private ExecutorService partitionOperationsExecutor;
@@ -336,6 +338,13 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         MinimumRequiredTimeCollectorServiceImpl minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
+        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                workDir.resolve("tx-state"),
+                scheduledExecutor,
+                partitionOperationsExecutor,
+                logSyncer
+        );
+
         tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -350,7 +359,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 null,
                 tm,
                 dsm,
-                workDir,
+                sharedTxStateStorage,
                 metaStorageManager,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
                 partitionOperationsExecutor,
@@ -414,7 +423,14 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         assertThat(
                 metaStorageManager.startAsync(componentContext)
                         .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
-                        .thenCompose(unused -> startAsync(componentContext, catalogManager, sm, indexMetaStorage, tableManager))
+                        .thenCompose(unused -> startAsync(
+                                componentContext,
+                                catalogManager,
+                                sm,
+                                indexMetaStorage,
+                                sharedTxStateStorage,
+                                tableManager
+                        ))
                         .thenCompose(unused -> ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart())
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
@@ -431,7 +447,16 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 catalogManager == null ? null : catalogManager::beforeNodeStop,
                 metaStorageManager == null ? null : metaStorageManager::beforeNodeStop,
                 () -> assertThat(
-                        stopAsync(new ComponentContext(), tableManager, dsm, sm, indexMetaStorage, catalogManager, metaStorageManager),
+                        stopAsync(
+                                new ComponentContext(),
+                                tableManager,
+                                sharedTxStateStorage,
+                                dsm,
+                                sm,
+                                indexMetaStorage,
+                                catalogManager,
+                                metaStorageManager
+                        ),
                         willCompleteSuccessfully()
                 )
         );
