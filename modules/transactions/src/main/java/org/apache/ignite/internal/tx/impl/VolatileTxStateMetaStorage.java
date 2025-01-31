@@ -269,10 +269,6 @@ public class VolatileTxStateMetaStorage {
             return true;
         }
 
-        if (initialVacuumObservationTimestamp == null) {
-            LOG.info("InitialVacuumObservationTimestamp is null");
-        }
-
         assert initialVacuumObservationTimestamp != null : "initialVacuumObservationTimestamp should have been set if txnResourceTtl > 0 "
                 + "[txnResourceTtl=" + txnResourceTtl + "].";
 

@@ -122,7 +122,7 @@ public class TxStateMeta implements TransactionMeta {
     }
 
     /**
-     * Gets a transaction object or {@code null} it a current node is not a coordinator for this transaction.
+     * Gets a transaction object or {@code null} it the current node is not a coordinator for this transaction.
      *
      * @return Transaction object.
      */
