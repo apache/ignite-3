@@ -110,7 +110,8 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.partition.replicator.snapshot.FailFastSnapshotStorageFactory;
+import org.apache.ignite.internal.partition.replicator.raft.FailFastSnapshotStorageFactory;
+import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -1190,7 +1191,7 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
-                () -> stopPartition(zonePartitionId).thenAccept(v -> {})
+                () -> stopPartition(zonePartitionId)
         );
     }
 
@@ -1200,12 +1201,13 @@ public class PartitionReplicaLifecycleManager extends
      * @param zonePartitionId Partition ID.
      * @return Future that will be completed after all resources have been closed.
      */
-    private CompletableFuture<?> stopPartition(ZonePartitionId zonePartitionId) {
+    private CompletableFuture<Void> stopPartition(ZonePartitionId zonePartitionId) {
         return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
             try {
                 return replicaMgr.stopReplica(zonePartitionId)
                         .thenCompose((replicaWasStopped) -> {
                             if (replicaWasStopped) {
+                                zonePartitionRaftListeners.remove(zonePartitionId);
                                 replicationGroupIds.remove(zonePartitionId);
 
                                 return fireEvent(

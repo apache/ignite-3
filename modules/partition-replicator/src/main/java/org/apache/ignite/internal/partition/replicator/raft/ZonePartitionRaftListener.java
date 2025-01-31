@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator;
+package org.apache.ignite.internal.partition.replicator.raft;
 
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
@@ -45,7 +45,7 @@ import org.apache.ignite.internal.tx.TransactionResult;
 /**
  * RAFT listener for the zone partition.
  */
-class ZonePartitionRaftListener implements RaftGroupListener {
+public class ZonePartitionRaftListener implements RaftGroupListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionRaftListener.class);
 
     private final Map<TablePartitionId, RaftGroupListener> tablePartitionRaftListeners = new ConcurrentHashMap<>();
@@ -176,7 +176,7 @@ class ZonePartitionRaftListener implements RaftGroupListener {
     /**
      * Adds a given Table Partition-level Raft listener to the set of managed listeners.
      */
-    void addTablePartitionRaftListener(TablePartitionId tablePartitionId, RaftGroupListener listener) {
+    public void addTablePartitionRaftListener(TablePartitionId tablePartitionId, RaftGroupListener listener) {
         synchronized (commitedConfigurationLock) {
             if (currentCommitedConfiguration != null) {
                 listener.onConfigurationCommitted(currentCommitedConfiguration);
