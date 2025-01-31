@@ -180,7 +180,8 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
             Files.createDirectories(dbPath);
 
             flusher = new RocksDbFlusher(
-                    "tx state storage", busyLock,
+                    "tx state storage",
+                    busyLock,
                     scheduledExecutor,
                     threadPool,
                     flushDelaySupplier,
