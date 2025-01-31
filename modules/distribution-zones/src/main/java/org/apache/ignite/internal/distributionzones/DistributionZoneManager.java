@@ -19,7 +19,6 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
-import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -71,7 +70,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -667,7 +665,7 @@ public class DistributionZoneManager extends
         int catalogVersion = catalogManager.activeCatalogVersion(timestamp.longValue());
 
         for (CatalogZoneDescriptor zone : catalogManager.catalog(catalogVersion).zones()) {
-            CompletableFuture<Void> f = dataNodesManager.onTopologyChangeZoneHandler(
+            CompletableFuture<Void> f = dataNodesManager.onTopologyChangeHandler(
                     zone,
                     timestamp,
                     newLogicalTopology,

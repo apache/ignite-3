@@ -154,7 +154,7 @@ public class DataNodesManager {
         shutdownAndAwaitTermination(executor, 10, SECONDS);
     }
 
-    CompletableFuture<Void> onTopologyChangeZoneHandler(
+    CompletableFuture<Void> onTopologyChangeHandler(
             CatalogZoneDescriptor zoneDescriptor,
             HybridTimestamp timestamp,
             Set<NodeWithAttributes> newLogicalTopology,
