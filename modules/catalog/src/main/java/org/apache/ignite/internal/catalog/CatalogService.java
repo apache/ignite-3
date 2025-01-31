@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.event.EventProducer;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Catalog service provides methods to access catalog snapshots of specific version or point-in-time.
@@ -47,14 +46,14 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     String SYSTEM_SCHEMA_NAME = "SYSTEM";
 
     /**
-     * Information schema - a system schema defined by SQL standard.
-     * The schema provides system-views, which describe Catalog objects, and can be read by a user.
+     * Information schema - a system schema defined by SQL standard. The schema provides system-views, which describe Catalog objects, and
+     * can be read by a user.
      */
     String INFORMATION_SCHEMA = "INFORMATION_SCHEMA";
 
     /**
-     * Definition schema - a system schema defined by SQL standard.
-     * The schema provides tables/sources for Catalog object’s metadata and can’t be accessed by a user directly.
+     * Definition schema - a system schema defined by SQL standard. The schema provides tables/sources for Catalog object’s metadata and
+     * can’t be accessed by a user directly.
      */
     String DEFINITION_SCHEMA = "DEFINITION_SCHEMA";
 
@@ -64,31 +63,36 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     /**
      * Retrieves the catalog of the specified version.
      *
-     * <p>Note: the methods may return {@code null}, when the requested version has sunk under the garbage collector watermark and no longer
-     * visible, or catalog hasn't processed it yet. In case of former there is nothing we can do, but in case of latter the caller side
-     * should await of the version readiness via {@link #catalogReadyFuture(int)} method.
+     * <p>Note: in general case, we expect the requested version is always exists. It's up to user to ensure the version is visible - the
+     * requested version was already processed (see SchemaSyncService#waitForMetadataCompleteness(long)) and wasn't sunk under the garbage
+     * collector watermark.
+     *
+     * <p>Note: the version may be not ready yet. If the version readiness is important use {@link #catalogReadyFuture(int)} method.
+     *
+     * <p>Note: the requested version can be not activated yet. To get the activated version, use {@link #activeCatalog(long)} method.
      *
      * @param catalogVersion The version of the catalog to retrieve.
-     * @return The catalog for the specified version, or {@code null} if not found.
+     * @return The catalog for the specified version.
+     * @throws CatalogNotFoundException If the catalog of requested version was not found.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24321: Get rid of @Nullable annotation and describe the @thrown exception.
-    @Nullable Catalog catalog(int catalogVersion);
+    Catalog catalog(int catalogVersion);
 
     /**
      * Retrieves the catalog, which was actual at the specified timestamp.
      *
-     * <p>Note: the given timestamp must respect schema-synchronization timeout and it's up to user to wait for actual node metadata.
+     * <p>Note: It's up to user to ensure the timestamp is valid. It should respect schema-synchronization timeout and garbage collector.
      * See SchemaSyncService#waitForMetadataCompleteness(long) method for details.
      *
      * @param timestamp The point-in-time to retrieve the catalog of actual version.
      * @return The active catalog at the specified timestamp.
+     * @throws CatalogNotFoundException If the catalog of requested version was not found.
      */
     Catalog activeCatalog(long timestamp);
 
     /**
      * Retrieves the actual catalog version at the specified timestamp.
      *
-     * <p>Note: the given timestamp must respect schema-synchronization timeout and it's up to user to wait for actual node metadata.
+     * <p>Note: It's up to user to ensure the timestamp is valid. It should respect schema-synchronization timeout and garbage collector.
      * See SchemaSyncService#waitForMetadataCompleteness(long) method for details.
      *
      * @param timestamp The point-in-time to retrieve the actual catalog version.

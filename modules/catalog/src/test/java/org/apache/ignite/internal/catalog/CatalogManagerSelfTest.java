@@ -79,9 +79,9 @@ import org.mockito.ArgumentCaptor;
 public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     @Test
     public void invalidCatalogVersions() {
-        assertNull(manager.catalog(manager.latestCatalogVersion() + 1));
-        assertNull(manager.catalog(-1));
-        assertThrows(IllegalStateException.class, () -> manager.activeCatalog(-1));
+        assertThrows(CatalogNotFoundException.class, () -> manager.catalog(manager.latestCatalogVersion() + 1));
+        assertThrows(CatalogNotFoundException.class, () -> manager.catalog(-1));
+        assertThrows(CatalogNotFoundException.class, () -> manager.activeCatalog(-1));
     }
 
     @Test
@@ -463,12 +463,12 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.compactCatalog(compactToVer), willBe(Boolean.TRUE));
         assertTrue(waitForCondition(() -> catalog.version() == manager.earliestCatalogVersion(), 3_000));
 
-        assertNull(manager.catalog(0));
-        assertNull(manager.catalog(catalog.version() - 1));
+        assertThrows(CatalogNotFoundException.class, () -> manager.catalog(0));
+        assertThrows(CatalogNotFoundException.class, () -> manager.catalog(catalog.version() - 1));
         assertNotNull(manager.catalog(catalog.version()));
 
-        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(0));
-        assertThrows(IllegalStateException.class, () -> manager.activeCatalogVersion(catalog.time() - 1));
+        assertThrows(CatalogNotFoundException.class, () -> manager.activeCatalogVersion(0));
+        assertThrows(CatalogNotFoundException.class, () -> manager.activeCatalogVersion(catalog.time() - 1));
         assertSame(catalog.version(), manager.activeCatalogVersion(catalog.time()));
         assertSame(catalog.version(), compactToVer);
 
