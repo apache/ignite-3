@@ -42,7 +42,6 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -108,8 +107,10 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.lang.CancelHandle;
+import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -191,8 +192,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void executesLocally() {
         CancelHandle cancelHandle = CancelHandle.create();
 
-        JobExecution<ComputeJobDataHolder> execution = computeComponent.executeLocally(
-                DEFAULT, List.of(), SimpleJob.class.getName(), SharedComputeUtils.marshalArgOrResult("", null), cancelHandle.token()
+        JobExecution<ComputeJobDataHolder> execution = executeLocally(
+                SimpleJob.class.getName(),
+                SharedComputeUtils.marshalArgOrResult("", null),
+                cancelHandle.token()
         );
 
         assertThat(unwrapResult(execution), willBe("jobResponse"));
@@ -212,27 +215,26 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         CancelHandle cancelHandle = CancelHandle.create();
 
-        JobExecution<ComputeJobDataHolder> execution = computeComponent.executeLocally(DEFAULT, List.of(), SimpleJob.class.getName(),
-                SharedComputeUtils.marshalArgOrResult("", null), cancelHandle.token());
+        CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeLocally(
+                DEFAULT, List.of(), SimpleJob.class.getName(), SharedComputeUtils.marshalArgOrResult("", null), cancelHandle.token()
+        );
 
         assertFalse(infiniteFuture.isDone());
-        assertFalse(execution.resultAsync().isDone());
+        assertFalse(executionFut.isDone());
 
         cancelHandle.cancel();
 
         assertThat(cancelHandle.cancelAsync(), willSucceedFast());
 
-        assertTrue(infiniteFuture.isCompletedExceptionally());
-        assertTrue(execution.resultAsync().isDone());
+        assertThat(infiniteFuture.isCompletedExceptionally(), is(true));
+        assertThat(executionFut.isCompletedExceptionally(), is(true));
     }
 
     @Test
     void getsStateAndCancelsLocally() {
         CancelHandle cancelHandle = CancelHandle.create();
 
-        JobExecution<ComputeJobDataHolder> execution = computeComponent.executeLocally(
-                DEFAULT, List.of(), LongJob.class.getName(), null, cancelHandle.token()
-        );
+        JobExecution<ComputeJobDataHolder> execution = executeLocally(LongJob.class.getName(), null, cancelHandle.token());
 
         await().until(execution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
@@ -245,12 +247,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void stateCancelAndChangePriorityTriesLocalNodeFirst() {
-        JobExecution<ComputeJobDataHolder> runningExecution = computeComponent.executeLocally(
-                DEFAULT, List.of(), LongJob.class.getName(), null, null);
+        JobExecution<ComputeJobDataHolder> runningExecution = executeLocally(LongJob.class.getName(), null, null);
         await().until(runningExecution::stateAsync, willBe(jobStateWithStatus(EXECUTING)));
 
-        JobExecution<ComputeJobDataHolder> queuedExecution = computeComponent.executeLocally(
-                DEFAULT, List.of(), LongJob.class.getName(), null, null);
+        JobExecution<ComputeJobDataHolder> queuedExecution = executeLocally(LongJob.class.getName(), null, null);
         await().until(queuedExecution::stateAsync, willBe(jobStateWithStatus(QUEUED)));
 
         UUID jobId = queuedExecution.idAsync().join();
@@ -289,9 +289,8 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, false);
 
         CancelHandle cancelHandle = CancelHandle.create();
-        JobExecution<ComputeJobDataHolder> execution = computeComponent.executeRemotely(
-                DEFAULT, remoteNode, List.of(), SimpleJob.class.getName(), SharedComputeUtils.marshalArgOrResult("a", null),
-                cancelHandle.token()
+        JobExecution<ComputeJobDataHolder> execution = executeRemotely(SimpleJob.class.getName(),
+                SharedComputeUtils.marshalArgOrResult("a", null), cancelHandle.token()
         );
         assertThat(unwrapResult(execution), willBe("remoteResponse"));
 
@@ -316,8 +315,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         respondWithJobCancelResponseWhenJobCancelRequestIsSent(jobId, true);
 
         CancelHandle cancelHandle = CancelHandle.create();
-        JobExecution<ComputeJobDataHolder> execution = computeComponent.executeRemotely(
-                DEFAULT, remoteNode, List.of(), LongJob.class.getName(), null, cancelHandle.token());
+        JobExecution<ComputeJobDataHolder> execution = executeRemotely(LongJob.class.getName(), null, cancelHandle.token());
 
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(EXECUTING)));
         assertThat(unwrapResult(execution), willBe("remoteResponse"));
@@ -333,10 +331,10 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void changePriorityRemotelyUsingNetworkCommunication() {
         UUID jobId = randomUUID();
         respondWithExecuteResponseWhenExecuteRequestIsSent(jobId);
+        respondWithJobResultResponseWhenJobResultRequestIsSent(jobId);
         respondWithJobChangePriorityResponseWhenJobChangePriorityRequestIsSent(jobId);
 
-        JobExecution<ComputeJobDataHolder> execution = computeComponent.executeRemotely(
-                DEFAULT, remoteNode, List.of(), LongJob.class.getName(), null, null);
+        JobExecution<ComputeJobDataHolder> execution = executeRemotely(LongJob.class.getName(), null, null);
 
         assertThat(execution.changePriorityAsync(1), willBe(true));
 
@@ -727,8 +725,32 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     private CompletableFuture<String> executeLocally(List<DeploymentUnit> units, String jobClassName, String args) {
         return computeComponent.<String, String>executeLocally(
                 DEFAULT, units, jobClassName, SharedComputeUtils.marshalArgOrResult(args, null), null)
-                .resultAsync()
+                .thenCompose(JobExecution::resultAsync)
                 .thenApply(r -> SharedComputeUtils.unmarshalArgOrResult(r, null, null));
+    }
+
+    private JobExecution<ComputeJobDataHolder> executeLocally(
+            String jobClassName,
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeLocally(
+                DEFAULT, List.of(), jobClassName, arg, cancellationToken
+        );
+        assertThat(executionFut, willCompleteSuccessfully());
+        return executionFut.join();
+    }
+
+    private JobExecution<ComputeJobDataHolder> executeRemotely(
+            String jobClassName,
+            @Nullable ComputeJobDataHolder arg,
+            @Nullable CancellationToken cancellationToken
+    ) {
+        CompletableFuture<CancellableJobExecution<ComputeJobDataHolder>> executionFut = computeComponent.executeRemotely(
+                DEFAULT, remoteNode, List.of(), jobClassName, arg, cancellationToken
+        );
+        assertThat(executionFut, willCompleteSuccessfully());
+        return executionFut.join();
     }
 
     private CompletableFuture<String> executeRemotely(
@@ -737,7 +759,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     ) {
         return computeComponent.<String, String>executeRemotely(
                 DEFAULT, remoteNode, List.of(), jobClassName, SharedComputeUtils.marshalArgOrResult(args, null), null)
-                .resultAsync()
+                .thenCompose(JobExecution::resultAsync)
                 .thenApply(r -> SharedComputeUtils.unmarshalArgOrResult(r, null, null));
     }
 

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCata
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -43,8 +44,11 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.hamcrest.core.Is;
+import org.hamcrest.core.IsNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -86,7 +90,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     @Test
     public void testZoneAlreadyExistsOnCreate2() {
-        assertThat(handleCreateZoneCommand(true), willCompleteSuccessfully());
+        assertThat(handleCreateZoneCommand(true), willBe(Is.is(false)));
     }
 
     @Test
@@ -98,14 +102,14 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         assertThat(commandHandler.handle(cmd), willThrow(DistributionZoneNotFoundValidationException.class));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24339")
     @Test
     public void testZoneNotFoundOnDrop2() {
         CatalogCommand cmd = DropZoneCommand.builder()
                 .zoneName(ZONE_NAME)
                 .ifExists(true)
                 .build();
-
-        assertThat(commandHandler.handle(cmd), willCompleteSuccessfully());
+        assertThat(commandHandler.handle(cmd), willBe(IsNull.nullValue()));
     }
 
     private CompletableFuture<Boolean> handleCreateZoneCommand(boolean ifNotExists) {
