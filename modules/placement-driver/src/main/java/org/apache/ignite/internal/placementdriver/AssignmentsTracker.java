@@ -254,24 +254,24 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             private List<ReplicationGroupId> learners;
 
             private NodeAssignments() {
-                this.peers = new ArrayList<>();
-                this.learners = new ArrayList<>();
             }
 
-            private void addLearner(ReplicationGroupId peer) {
-                if (learners == null) {
-                    learners = new ArrayList<>();
+            private void addReplicationGroupId(ReplicationGroupId replicationGroupId, boolean isPeer) {
+                List<ReplicationGroupId> peersOrLearners;
+
+                if (isPeer) {
+                    if (peers == null) {
+                        peers = new ArrayList<>();
+                    }
+                    peersOrLearners = peers;
+                } else {
+                    if (learners == null) {
+                        learners = new ArrayList<>();
+                    }
+                    peersOrLearners = learners;
                 }
 
-                learners.add(peer);
-            }
-
-            private void addPeer(ReplicationGroupId peer) {
-                if (peers == null) {
-                    peers = new ArrayList<>();
-                }
-
-                peers.add(peer);
+                peersOrLearners.add(replicationGroupId);
             }
 
             private boolean arePeersEmpty() {
@@ -287,13 +287,9 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
 
         for (Map.Entry<ReplicationGroupId, TokenizedAssignments> assignments : assignmentsMap.entrySet()) {
             for (Assignment assignment : assignments.getValue().nodes()) {
-                NodeAssignments v = assignmentsToLog.computeIfAbsent(assignment.consistentId(), k -> new NodeAssignments());
-
-                if (assignment.isPeer()) {
-                    v.addPeer(assignments.getKey());
-                } else {
-                    v.addLearner(assignments.getKey());
-                }
+                assignmentsToLog
+                        .computeIfAbsent(assignment.consistentId(), k -> new NodeAssignments())
+                        .addReplicationGroupId(assignments.getKey(), assignment.isPeer());
             }
         }
 
@@ -316,6 +312,9 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             sb.append(entry.getKey()).append("=[");
             if (!value.arePeersEmpty()) {
                 sb.append("peers=").append(value.peers);
+                if (!value.areLearnersEmpty()) {
+                    sb.append(", ");
+                }
             }
             if (!value.areLearnersEmpty()) {
                 sb.append("learners=").append(value.learners);
