@@ -19,7 +19,9 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.reverse;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.nio.file.Files;
@@ -31,11 +33,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntSupplier;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -49,13 +53,17 @@ import org.rocksdb.WriteOptions;
  * Shared RocksDB storage instance to be used in {@link TxStateRocksDbStorage}. Exists to make "createTable" operation faster, as well
  * as reducing the amount of resources that would otherwise be used by multiple RocksDB instances, if they existed on per-table basis.
  */
-public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
+public class TxStateRocksDbSharedStorage implements IgniteComponent {
     static {
         RocksDB.loadLibrary();
     }
 
     /** Column family name for transaction states. */
     private static final String TX_STATE_CF = new String(RocksDB.DEFAULT_COLUMN_FAMILY, UTF_8);
+
+    /** Transaction storage flush delay. */
+    private static final int TX_STATE_STORAGE_FLUSH_DELAY = 100;
+    private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
 
     /** Rocks DB instance. */
     private volatile RocksDB db;
@@ -103,6 +111,26 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
      *      long or IO operations.
      * @param threadPool Thread pool for internal operations.
      * @param logSyncer Write-ahead log synchronizer.
+     *
+     * @see RocksDbFlusher
+     */
+    public TxStateRocksDbSharedStorage(
+            Path dbPath,
+            ScheduledExecutorService scheduledExecutor,
+            ExecutorService threadPool,
+            LogSyncer logSyncer
+    ) {
+        this(dbPath, scheduledExecutor, threadPool, logSyncer, TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param dbPath Database path.
+     * @param scheduledExecutor Scheduled executor. Needed only for asynchronous start of scheduled operations without performing blocking,
+     *      long or IO operations.
+     * @param threadPool Thread pool for internal operations.
+     * @param logSyncer Write-ahead log synchronizer.
      * @param flushDelaySupplier Flush delay supplier.
      *
      * @see RocksDbFlusher
@@ -135,17 +163,25 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
         return flusher.awaitFlush(schedule);
     }
 
+    @Override
+    public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        start();
+
+        return nullCompletedFuture();
+    }
+
     /**
      * Starts the storage.
      *
      * @throws IgniteInternalException If failed to create directory or start the RocksDB storage.
      */
-    public void start() {
+    private void start() {
         try {
             Files.createDirectories(dbPath);
 
             flusher = new RocksDbFlusher(
-                    "tx state storage", busyLock,
+                    "tx state storage",
+                    busyLock,
                     scheduledExecutor,
                     threadPool,
                     flushDelaySupplier,
@@ -179,12 +215,22 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
 
             flusher.init(db, cfHandles);
         } catch (Exception e) {
-            throw new IgniteInternalException("Could not create transaction state storage", e);
+            throw new IgniteInternalException(Common.INTERNAL_ERR, "Could not create transaction state storage", e);
         }
     }
 
     @Override
-    public void close() throws Exception {
+    public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        try {
+            close();
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        return nullCompletedFuture();
+    }
+
+    private void close() throws Exception {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
         }
