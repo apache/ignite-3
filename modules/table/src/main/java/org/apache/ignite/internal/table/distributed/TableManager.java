@@ -756,7 +756,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 .thenComposeAsync(
                                         v -> inBusyLockAsync(busyLock, () -> weakStopAndDestroyPartition(
                                                 tablePartitionId,
-                                                parameters.revision())
+                                                parameters.causalityToken())
                                         ),
                                         ioExecutor
                                 );
