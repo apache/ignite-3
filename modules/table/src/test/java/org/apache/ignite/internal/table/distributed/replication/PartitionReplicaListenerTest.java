@@ -236,7 +236,7 @@ import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Cursor;
@@ -363,7 +363,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private final ClockService clockService = new TestClockService(clock);
 
     /** The storage stores transaction states. */
-    private final TestTxStateStorage txStateStorage = new TestTxStateStorage();
+    private final TestTxStatePartitionStorage txStateStorage = new TestTxStatePartitionStorage();
 
     /** Local cluster node. */
     private final ClusterNode localNode = new ClusterNodeImpl(nodeId(1), "node1", NetworkAddress.from("127.0.0.1:127"));

@@ -31,7 +31,10 @@ import io.netty.channel.ChannelOption;
 import io.netty.util.ReferenceCounted;
 import java.net.BindException;
 import java.net.SocketAddress;
+import java.util.BitSet;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -47,6 +50,7 @@ import org.apache.ignite.client.handler.FakeCatalogService;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
+import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -237,7 +241,9 @@ public class TestClientHandlerModule implements IgniteComponent {
                                                 new AlwaysSyncedSchemaSyncService(),
                                                 new TestLowWatermark()
                                         ),
-                                        Runnable::run
+                                        Runnable::run,
+                                        BitSet.valueOf(new long[]{ThreadLocalRandom.current().nextLong()}),
+                                        randomExtensions()
                                 )
                         );
                     }
@@ -261,6 +267,14 @@ public class TestClientHandlerModule implements IgniteComponent {
         }
 
         return ch.closeFuture();
+    }
+
+    private static Map<HandshakeExtension, Object> randomExtensions() {
+        if (ThreadLocalRandom.current().nextBoolean()) {
+            return Map.of();
+        }
+
+        return Map.of(HandshakeExtension.AUTHENTICATION_SECRET, String.valueOf(ThreadLocalRandom.current().nextLong()));
     }
 
     private static class ConnectionDropHandler extends ChannelInboundHandlerAdapter {

@@ -55,6 +55,9 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
     /** Implicit transaction flag. */
     private final boolean implicit;
 
+    /** Transaction timeout. */
+    protected final long timeout;
+
     /**
      * The constructor.
      *
@@ -63,19 +66,22 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
      * @param observableTsTracker Observation timestamp tracker.
      * @param coordinatorId Transaction coordinator inconsistent ID.
      * @param implicit True for an implicit transaction, false for an ordinary one.
+     * @param timeout Transaction timeout in milliseconds.
      */
     public IgniteAbstractTransactionImpl(
             TxManager txManager,
             HybridTimestampTracker observableTsTracker,
             UUID id,
             UUID coordinatorId,
-            boolean implicit
+            boolean implicit,
+            long timeout
     ) {
         this.txManager = txManager;
         this.observableTsTracker = observableTsTracker;
         this.id = id;
         this.coordinatorId = coordinatorId;
         this.implicit = implicit;
+        this.timeout = timeout;
     }
 
     /** {@inheritDoc} */
@@ -144,5 +150,11 @@ public abstract class IgniteAbstractTransactionImpl implements InternalTransacti
         }
 
         return copy;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public long timeout() {
+        return timeout;
     }
 }

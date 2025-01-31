@@ -416,19 +416,22 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns table with given name, or throws {@link TableNotFoundValidationException} if table with given name not exists.
+     * Returns table with given name.
      *
      * @param schema Schema to look up table in.
      * @param name Name of the table of interest.
-     * @return Table with given name. Never null.
-     * @throws TableNotFoundValidationException If table with given name is not exists.
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code TableNotFoundValidationException} for absent table or just
+     *         return {@code null}.
+     * @return Table descriptor for given name or @{code null} in case table is absent and flag shouldThrowIfNotExists set to {@code false}.
+     * @throws TableNotFoundValidationException If table with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
      */
-    public static CatalogTableDescriptor tableOrThrow(CatalogSchemaDescriptor schema, String name) throws TableNotFoundValidationException {
+    public static @Nullable CatalogTableDescriptor table(CatalogSchemaDescriptor schema, String name, boolean shouldThrowIfNotExists)
+            throws TableNotFoundValidationException {
         name = Objects.requireNonNull(name, "tableName");
 
         CatalogTableDescriptor table = schema.table(name);
 
-        if (table == null) {
+        if (table == null && shouldThrowIfNotExists) {
             throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found", schema.name(), name));
         }
 
@@ -453,19 +456,23 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns zone with given name, or throws {@link CatalogValidationException} if zone with given name not exists.
+     * Returns zone with given name.
      *
      * @param catalog Catalog to look up zone in.
      * @param name Name of the zone of interest.
-     * @return Zone with given name. Never null.
-     * @throws DistributionZoneNotFoundValidationException If zone with given name is not exists.
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code DistributionZoneNotFoundValidationException} for
+     *         absent zone or just return {@code null}.
+     * @return Zone descriptor for given name or @{code null} in case zone is absent and flag shouldThrowIfNotExists set to {@code false}.
+     * @throws DistributionZoneNotFoundValidationException If zone with given name is not exists and flag shouldThrowIfNotExists
+     *         set to {@code true}.
      */
-    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws DistributionZoneNotFoundValidationException {
+    public static @Nullable CatalogZoneDescriptor zone(Catalog catalog, String name, boolean shouldThrowIfNotExists)
+            throws DistributionZoneNotFoundValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
 
-        if (zone == null) {
+        if (zone == null && shouldThrowIfNotExists) {
             throw new DistributionZoneNotFoundValidationException(format("Distribution zone with name '{}' not found", name));
         }
 
@@ -482,16 +489,20 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns index descriptor.
+     * Returns index with given name.
      *
      * @param schema Schema to look up index in.
      * @param name Name of the index of interest.
-     * @throws IndexNotFoundValidationException If index does not exist.
+     * @param shouldThrowIfNotExists Flag indicated should be thrown the {@code IndexNotFoundValidationException} for
+     *         absent index or just return {@code null}.
+     * @return Index descriptor for given name or @{code null} in case index is absent and flag shouldThrowIfNotExists set to {@code false}.
+     * @throws IndexNotFoundValidationException If index with given name is not exists and flag shouldThrowIfNotExists set to {@code true}.
      */
-    public static CatalogIndexDescriptor indexOrThrow(CatalogSchemaDescriptor schema, String name) throws IndexNotFoundValidationException {
+    public static @Nullable CatalogIndexDescriptor index(CatalogSchemaDescriptor schema, String name, boolean shouldThrowIfNotExists)
+            throws IndexNotFoundValidationException {
         CatalogIndexDescriptor index = schema.aliveIndex(name);
 
-        if (index == null) {
+        if (index == null && shouldThrowIfNotExists) {
             throw new IndexNotFoundValidationException(format("Index with name '{}.{}' not found", schema.name(), name));
         }
 

@@ -29,6 +29,7 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.internal.compute.task.AntiHijackTaskExecution;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
@@ -55,7 +56,7 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
             @Nullable T arg,
             @Nullable CancellationToken cancellationToken
     ) {
-        return compute.submitAsync(target, descriptor, arg, cancellationToken).thenApply(this::preventThreadHijack);
+        return preventThreadHijack(compute.submitAsync(target, descriptor, arg, cancellationToken).thenApply(this::preventThreadHijack));
     }
 
     @Override
@@ -65,7 +66,7 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
             @Nullable T arg,
             @Nullable CancellationToken cancellationToken
     ) {
-        return compute.submitAsync(target, descriptor, arg, cancellationToken).thenApply(this::preventThreadHijack);
+        return preventThreadHijack(compute.submitAsync(target, descriptor, arg, cancellationToken).thenApply(this::preventThreadHijack));
     }
 
     @Override
@@ -104,6 +105,10 @@ public class AntiHijackIgniteCompute implements IgniteCompute, Wrapper {
             @Nullable CancellationToken cancellationToken
     ) {
         return compute.executeMapReduce(taskDescriptor, arg, cancellationToken);
+    }
+
+    private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
+        return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
     }
 
     private <T, R> JobExecution<R> preventThreadHijack(JobExecution<R> execution) {

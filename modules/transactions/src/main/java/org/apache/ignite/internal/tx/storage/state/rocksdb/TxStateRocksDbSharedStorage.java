@@ -46,7 +46,7 @@ import org.rocksdb.RocksDB;
 import org.rocksdb.WriteOptions;
 
 /**
- * Shared RocksDB storage instance to be used in {@link TxStateRocksDbTableStorage}. Exists to make "createTable" operation faster, as well
+ * Shared RocksDB storage instance to be used in {@link TxStateRocksDbStorage}. Exists to make "createTable" operation faster, as well
  * as reducing the amount of resources that would otherwise be used by multiple RocksDB instances, if they existed on per-table basis.
  */
 public class TxStateRocksDbSharedStorage implements ManuallyCloseable {

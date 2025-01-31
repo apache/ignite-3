@@ -141,8 +141,8 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -217,7 +217,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private volatile MvTableStorage mvTableStorage;
 
-    private volatile TxStateTableStorage txStateTableStorage;
+    private volatile TxStateStorage txStateStorage;
 
     /** Revision updater. */
     private RevisionListenerRegistry revisionUpdater;
@@ -439,13 +439,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(0, tableManager.tables().size());
 
         verify(mvTableStorage, atMost(0)).destroy();
-        verify(txStateTableStorage, atMost(0)).destroy();
+        verify(txStateStorage, atMost(0)).destroy();
         verify(replicaMgr, atMost(0)).stopReplica(any());
 
         assertThat(fireDestroyEvent(), willCompleteSuccessfully());
 
         verify(mvTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
-        verify(txStateTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
+        verify(txStateStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
         verify(replicaMgr, timeout(TimeUnit.SECONDS.toMillis(10)).times(PARTITIONS)).stopReplica(any());
     }
 
@@ -673,12 +673,12 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
                 .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
-        var txStateStorage = mock(TxStateStorage.class);
+        var txStateStorage = mock(TxStatePartitionStorage.class);
         var mvPartitionStorage = mock(MvPartitionStorage.class);
 
         if (isTxStorageUnderRebalance) {
             // Emulate a situation when TX state storage was stopped in a middle of rebalance.
-            when(txStateStorage.lastAppliedIndex()).thenReturn(TxStateStorage.REBALANCE_IN_PROGRESS);
+            when(txStateStorage.lastAppliedIndex()).thenReturn(TxStatePartitionStorage.REBALANCE_IN_PROGRESS);
         } else {
             // Emulate a situation when partition storage was stopped in a middle of rebalance.
             when(mvPartitionStorage.lastAppliedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
@@ -697,8 +697,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             doReturn(mvPartitionStorage).when(mvTableStorage).getMvPartition(anyInt());
             doReturn(nullCompletedFuture()).when(mvTableStorage).clearPartition(anyInt());
         }, (txStateTableStorage) -> {
-            doReturn(txStateStorage).when(txStateTableStorage).getOrCreateTxStateStorage(anyInt());
-            doReturn(txStateStorage).when(txStateTableStorage).getTxStateStorage(anyInt());
+            doReturn(txStateStorage).when(txStateTableStorage).getOrCreatePartitionStorage(anyInt());
+            doReturn(txStateStorage).when(txStateTableStorage).getPartitionStorage(anyInt());
         });
 
         createZone(1, 1);
@@ -815,7 +815,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private TableManager createTableManager(
             CompletableFuture<TableManager> tblManagerFut,
             Consumer<MvTableStorage> tableStorageDecorator,
-            Consumer<TxStateTableStorage> txStateTableStorageDecorator
+            Consumer<TxStateStorage> txStateTableStorageDecorator
     ) {
         var tableManager = new TableManager(
                 NODE_NAME,
@@ -866,15 +866,15 @@ public class TableManagerTest extends IgniteAbstractTest {
             }
 
             @Override
-            protected TxStateTableStorage createTxStateTableStorage(
+            protected TxStateStorage createTxStateTableStorage(
                     CatalogTableDescriptor tableDescriptor,
                     CatalogZoneDescriptor zoneDescriptor
             ) {
-                txStateTableStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
+                txStateStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
 
-                txStateTableStorageDecorator.accept(txStateTableStorage);
+                txStateTableStorageDecorator.accept(txStateStorage);
 
-                return txStateTableStorage;
+                return txStateStorage;
             }
         };
 

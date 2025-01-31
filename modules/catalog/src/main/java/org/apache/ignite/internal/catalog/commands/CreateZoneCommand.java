@@ -121,6 +121,10 @@ public class CreateZoneCommand extends AbstractZoneCommand {
     public List<UpdateEntry> get(UpdateContext updateContext) {
         Catalog catalog = updateContext.catalog();
         if (catalog.zone(zoneName) != null) {
+            if (ifNotExists) {
+                return List.of();
+            }
+
             throw new DistributionZoneExistsValidationException(format("Distribution zone with name '{}' already exists", zoneName));
         }
 
