@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import org.apache.ignite.internal.event.CausalEventParameters;
-import org.apache.ignite.internal.event.EventParameters;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
