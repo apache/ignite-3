@@ -439,5 +439,23 @@ public class ItAlterTableDdlTest extends BaseSqlIntegrationTest {
                 "Invalid default value for column 'VAL2'",
                 () -> sql("ALTER TABLE test ADD COLUMN val2 DECIMAL(3, 2) DEFAULT 333.123")
         );
+
+        // Time
+
+        sql("CREATE TABLE test_time (id INT PRIMARY KEY, val INT)");
+        sql("ALTER TABLE test_time ADD COLUMN val2 TIME(2) DEFAULT '00:00:00.1234'");
+        sql("INSERT INTO test_time VALUES (1, 1, DEFAULT)");
+        assertQuery("SELECT val2 FROM test_time")
+                .returns(LocalTime.of(0, 0, 0, 120_000_000))
+                .check();
+
+        // Timestamp
+
+        sql("CREATE TABLE test_ts (id INT PRIMARY KEY, val INT)");
+        sql("ALTER TABLE test_ts ADD COLUMN val2 TIMESTAMP(2) DEFAULT '2000-01-01 00:00:00.1234'");
+        sql("INSERT INTO test_ts VALUES (1, 1, DEFAULT)");
+        assertQuery("SELECT val2 FROM test_ts")
+                .returns(LocalDateTime.of(2000, 1, 1, 0, 0, 0, 120_000_000))
+                .check();
     }
 }

@@ -36,6 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
@@ -595,6 +597,22 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 "DECIMAL scale 10000000 must be between 0 and 32767 [column=VAL]",
                 () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val DECIMAL(100, 10000000) )")
         );
+
+        // Time
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIME precision 10000000 must be between 0 and 9 [column=VAL]",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val TIME(10000000) )")
+        );
+
+        // Timestamp
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIMESTAMP precision 10000000 must be between 0 and 9 [column=VAL]",
+                () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val TIMESTAMP(10000000) )")
+        );
     }
 
     @Test
@@ -636,6 +654,22 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 "Invalid default value for column 'VAL'",
                 () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val DECIMAL(3, 2) DEFAULT 333.123 )")
         );
+
+        // Time
+
+        sql("CREATE TABLE test_time (id INT PRIMARY KEY, val TIME(2) DEFAULT '00:00:00.1234' )");
+        sql("INSERT INTO test_time VALUES (1, DEFAULT)");
+        assertQuery("SELECT val FROM test_time")
+                .returns(LocalTime.of(0, 0, 0, 120_000_000))
+                .check();
+
+        // Timestamp
+
+        sql("CREATE TABLE test_ts (id INT PRIMARY KEY, val TIMESTAMP(2) DEFAULT '2000-01-01 00:00:00.1234' )");
+        sql("INSERT INTO test_ts VALUES (1, DEFAULT)");
+        assertQuery("SELECT val FROM test_ts")
+                .returns(LocalDateTime.of(2000, 1, 1, 0, 0, 0, 120_000_000))
+                .check();
     }
 
     private static @Nullable CatalogTableDescriptor getTable(IgniteImpl node, String tableName) {

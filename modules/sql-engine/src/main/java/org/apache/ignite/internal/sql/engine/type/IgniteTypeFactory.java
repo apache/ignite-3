@@ -135,12 +135,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
         assert (precision >= 0) || (precision == PRECISION_NOT_SPECIFIED);
 
-        // Ignore timestamps because precision truncation is allowed.
-        if (typeName.getFamily() == SqlTypeFamily.TIMESTAMP) {
-            int maxPrecision = typeSystem.getMaxPrecision(typeName);
-            precision = Math.min(precision, maxPrecision);
-        }
-
         // Does not check precision when typeName is SqlTypeName#NULL.
         RelDataType newType = precision == PRECISION_NOT_SPECIFIED
                 ? new BasicSqlType(typeSystem, typeName)

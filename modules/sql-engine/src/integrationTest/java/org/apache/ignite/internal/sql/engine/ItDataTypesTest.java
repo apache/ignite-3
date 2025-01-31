@@ -825,6 +825,22 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 "DECIMAL scale 100000000 must be between 0 and 32767",
                 () -> sql("SELECT CAST(1 AS DECIMAL(100, 100000000))")
         );
+
+        // Time
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIME precision 100000000 must be between 0 and 9",
+                () -> sql("SELECT CAST('00:00:00' AS TIME(100000000))")
+        );
+
+        // Timestamp
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "TIMESTAMP precision 100000000 must be between 0 and 9",
+                () -> sql("SELECT CAST('2000-01-01 00:00:00' AS TIMESTAMP(100000000))")
+        );
     }
 
     static String asLiteral(Object value, RelDataType type) {

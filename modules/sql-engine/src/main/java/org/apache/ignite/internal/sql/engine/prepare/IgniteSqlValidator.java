@@ -76,6 +76,7 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlTypeNameSpec;
+import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.SqlWithItem;
@@ -546,9 +547,26 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override
     public void validateLiteral(SqlLiteral literal) {
-        if (literal.getTypeName() != SqlTypeName.DECIMAL) {
+        SqlTypeName typeName = literal.getTypeName();
+
+        if (typeName != SqlTypeName.DECIMAL) {
             super.validateLiteral(literal);
         }
+
+        // SqlLiteral createSqlType can not be called on
+        // SqlUnknownLiteral because SELECT TIMESTAMP 'valid-ts' is a SqlUnknownLiteral later converted to timestamp literal
+        if (literal instanceof SqlUnknownLiteral) {
+            return;
+        } else if (literal.getClass() == SqlLiteral.class
+                && !SqlTypeName.CHAR_TYPES.contains(typeName)
+                && !SqlTypeName.INTERVAL_TYPES.contains(typeName)
+                && !SqlTypeName.BINARY_TYPES.contains(typeName)) {
+            // createSqlType can not be called in this case as well.
+            return;
+        }
+
+        RelDataType dataType = literal.createSqlType(typeFactory);
+        validatePrecisionScale(literal, dataType, dataType.getPrecision(), dataType.getScale());
     }
 
     @Override
@@ -955,8 +973,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             int precision,
             int scale
     ) {
-        // TypeFactory sets type's precision to maxPrecision if it exceeds type's maxPrecision
-        // so we need to precision/scale from a type name spec to make validation work.
+        // TypeFactory sets type's precision to maxPrecision if it exceeds type's maxPrecision.
+        // Use precision/scale from type name spec to correct this issue.
         // Negative values are rejected by the parser so we need to check only max values.
 
         SqlTypeName typeName = type.getSqlTypeName();
