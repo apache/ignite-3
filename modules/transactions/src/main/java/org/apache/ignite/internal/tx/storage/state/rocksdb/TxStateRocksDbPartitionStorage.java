@@ -20,7 +20,7 @@ package org.apache.ignite.internal.tx.storage.state.rocksdb;
 import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage.TABLE_PREFIX_SIZE_BYTES;
+import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.TABLE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -69,7 +69,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     private final int partitionId;
 
     /** Transaction state table storage. */
-    private final TxStateRocksDbTableStorage tableStorage;
+    private final TxStateRocksDbStorage tableStorage;
 
     /** Collection of opened RocksDB iterators. */
     private final Set<RocksIterator> iterators = ConcurrentHashMap.newKeySet();
@@ -103,7 +103,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
      */
     TxStateRocksDbPartitionStorage(
             int partitionId,
-            TxStateRocksDbTableStorage tableStorage
+            TxStateRocksDbStorage tableStorage
     ) {
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;

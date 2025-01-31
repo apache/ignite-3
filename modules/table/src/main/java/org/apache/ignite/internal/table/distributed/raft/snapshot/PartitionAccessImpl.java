@@ -45,7 +45,7 @@ import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,7 +55,7 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     private final MvTableStorage mvTableStorage;
 
-    private final TxStateTableStorage txStateTableStorage;
+    private final TxStateStorage txStateStorage;
 
     private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
@@ -76,7 +76,7 @@ public class PartitionAccessImpl implements PartitionAccess {
      *
      * @param partitionKey Partition key.
      * @param mvTableStorage Multi version table storage.
-     * @param txStateTableStorage Table transaction state storage.
+     * @param txStateStorage Table transaction state storage.
      * @param mvGc Garbage collector for multi-versioned storages and their indexes in the background.
      * @param indexUpdateHandler Index update handler.
      * @param gcUpdateHandler Gc update handler.
@@ -87,7 +87,7 @@ public class PartitionAccessImpl implements PartitionAccess {
     public PartitionAccessImpl(
             PartitionKey partitionKey,
             MvTableStorage mvTableStorage,
-            TxStateTableStorage txStateTableStorage,
+            TxStateStorage txStateStorage,
             MvGc mvGc,
             IndexUpdateHandler indexUpdateHandler,
             GcUpdateHandler gcUpdateHandler,
@@ -97,7 +97,7 @@ public class PartitionAccessImpl implements PartitionAccess {
     ) {
         this.partitionKey = partitionKey;
         this.mvTableStorage = mvTableStorage;
-        this.txStateTableStorage = txStateTableStorage;
+        this.txStateStorage = txStateStorage;
         this.mvGc = mvGc;
         this.indexUpdateHandler = indexUpdateHandler;
         this.gcUpdateHandler = gcUpdateHandler;
@@ -318,7 +318,7 @@ public class PartitionAccessImpl implements PartitionAccess {
     private TxStatePartitionStorage getTxStateStorage() {
         int partitionId = partitionId();
 
-        TxStatePartitionStorage txStatePartitionStorage = txStateTableStorage.getPartitionStorage(partitionId);
+        TxStatePartitionStorage txStatePartitionStorage = txStateStorage.getPartitionStorage(partitionId);
 
         assert txStatePartitionStorage != null : IgniteStringFormatter.format("tableId={}, partitionId={}", tableId(), partitionId);
 

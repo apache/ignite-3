@@ -22,13 +22,13 @@ import static org.mockito.Mockito.spy;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Table tx state storage for {@link TestTxStatePartitionStorage}.
  */
-public class TestTxStateTableStorage implements TxStateTableStorage {
+public class TestTxStateStorage implements TxStateStorage {
     private final Map<Integer, TxStatePartitionStorage> storages = new ConcurrentHashMap<>();
 
     @Override public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {

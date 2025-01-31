@@ -87,7 +87,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
@@ -268,7 +268,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new SingleClusterNodeResolver(mock(ClusterNode.class)),
                     txManager,
                     mock(MvTableStorage.class),
-                    mock(TxStateTableStorage.class),
+                    mock(TxStateStorage.class),
                     replicaSvc,
                     clockService,
                     timestampTracker,

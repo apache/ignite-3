@@ -22,9 +22,9 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Transaction state storage for a table.
+ * Transaction state storage for a set of partitions.
  */
-public interface TxStateTableStorage extends ManuallyCloseable {
+public interface TxStateStorage extends ManuallyCloseable {
     /**
      * Gets or creates transaction state storage for partition.
      *

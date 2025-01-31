@@ -165,7 +165,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.NetworkAddress;
@@ -259,7 +259,7 @@ public class Node {
 
     private volatile MvTableStorage mvTableStorage;
 
-    private volatile TxStateTableStorage txStateTableStorage;
+    private volatile TxStateStorage txStateStorage;
 
     @Nullable
     private volatile InvokeInterceptor invokeInterceptor;
@@ -657,13 +657,13 @@ public class Node {
             }
 
             @Override
-            protected TxStateTableStorage createTxStateTableStorage(
+            protected TxStateStorage createTxStateTableStorage(
                     CatalogTableDescriptor tableDescriptor,
                     CatalogZoneDescriptor zoneDescriptor
             ) {
-                txStateTableStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
+                txStateStorage = spy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
 
-                return txStateTableStorage;
+                return txStateStorage;
             }
         };
 

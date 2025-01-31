@@ -60,8 +60,8 @@ import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -108,7 +108,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
     @Test
     void testMinMaxLastAppliedIndex() {
         TestMvTableStorage mvTableStorage = new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT);
-        TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
+        TestTxStateStorage txStateTableStorage = new TestTxStateStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
         TxStatePartitionStorage txStatePartitionStorage = txStateTableStorage.getOrCreatePartitionStorage(TEST_PARTITION_ID);
@@ -147,7 +147,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
     @Test
     void testMinMaxLastAppliedTerm() {
         TestMvTableStorage mvTableStorage = new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT);
-        TestTxStateTableStorage txStateTableStorage = new TestTxStateTableStorage();
+        TestTxStateStorage txStateTableStorage = new TestTxStateStorage();
 
         MvPartitionStorage mvPartitionStorage = createMvPartition(mvTableStorage, TEST_PARTITION_ID);
         TxStatePartitionStorage txStatePartitionStorage = txStateTableStorage.getOrCreatePartitionStorage(TEST_PARTITION_ID);
@@ -287,12 +287,12 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
 
     private static PartitionAccessImpl createPartitionAccessImpl(
             MvTableStorage mvTableStorage,
-            TxStateTableStorage txStateTableStorage
+            TxStateStorage txStateStorage
     ) {
         return new PartitionAccessImpl(
                 testPartitionKey(),
                 mvTableStorage,
-                txStateTableStorage,
+                txStateStorage,
                 mock(MvGc.class),
                 mock(IndexUpdateHandler.class),
                 mock(GcUpdateHandler.class),
@@ -310,7 +310,7 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
         return new PartitionAccessImpl(
                 testPartitionKey(),
                 mvTableStorage,
-                new TestTxStateTableStorage(),
+                new TestTxStateStorage(),
                 mock(MvGc.class),
                 indexUpdateHandler,
                 mock(GcUpdateHandler.class),

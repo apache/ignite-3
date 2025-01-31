@@ -66,12 +66,12 @@ import org.junit.jupiter.api.function.Executable;
 public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbstractTest {
     protected static final int TABLE_ID = 1;
 
-    protected TxStateTableStorage tableStorage;
+    protected TxStateStorage tableStorage;
 
     /**
      * Creates {@link TxStatePartitionStorage} to test.
      */
-    protected abstract TxStateTableStorage createTableStorage();
+    protected abstract TxStateStorage createTableStorage();
 
     @BeforeEach
     protected void beforeTest() {
