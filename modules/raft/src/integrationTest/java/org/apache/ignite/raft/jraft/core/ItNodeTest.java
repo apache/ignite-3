@@ -61,6 +61,7 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -81,6 +82,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -89,6 +91,7 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -166,8 +169,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -2709,19 +2714,24 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             assertEquals(20, fsm.getLogs().size());
     }
 
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21792")
+    @RepeatedTest(value = 2, failureThreshold = 1)
+    @Timeout(value = 25, unit = TimeUnit.SECONDS)
     public void testFollowerStartStopFollowing() throws Exception {
         // start five nodes
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 5);
 
-        cluster = new TestCluster("unitest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
+        cluster = new TestCluster("unittest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
 
         for (TestPeer peer : peers)
             assertTrue(cluster.start(peer));
         Node firstLeader = cluster.waitAndGetLeader();
         assertNotNull(firstLeader);
         cluster.ensureLeader(firstLeader);
+
+        //we don't want any timeouts after the first leader election for this test
+        for (Node nodes : cluster.getNodes()) {
+            nodes.resetElectionTimeoutMs(100_000);
+        }
 
         // apply something
         sendTestTaskAndWait(firstLeader);
@@ -2730,8 +2740,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         List<Node> firstFollowers = cluster.getFollowers();
         assertEquals(4, firstFollowers.size());
         for (Node node : firstFollowers) {
-            assertTrue(
-                waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 1, 5_000));
+            assertWaitForCondition(1, () -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes(),
+                    Duration.of(7, ChronoUnit.SECONDS));
             assertEquals(0, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -2746,8 +2756,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         List<Node> secondFollowers = cluster.getFollowers();
         assertEquals(3, secondFollowers.size());
         for (Node node : secondFollowers) {
-            assertTrue(
-                waitForCondition(() -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes() == 2, 5_000));
+            assertWaitForCondition(2, () -> ((MockStateMachine) node.getOptions().getFsm()).getOnStartFollowingTimes(),
+                    Duration.of(7, ChronoUnit.SECONDS));
             assertEquals(1, ((MockStateMachine) node.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -2764,14 +2774,15 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         for (int i = 0; i < 3; i++) {
             Node follower = thirdFollowers.get(i);
             if (follower.getNodeId().getPeerId().equals(secondLeader.getNodeId().getPeerId())) {
-                assertTrue(
-                    waitForCondition(() -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes() == 2, 5_000));
+                assertWaitForCondition(2, () -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes(),
+                        Duration.of(7, ChronoUnit.SECONDS));
                 assertEquals(1,
                     ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
                 continue;
             }
 
-            assertTrue(waitForCondition(() -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes() == 3, 5_000));
+            assertWaitForCondition(3, () -> ((MockStateMachine) follower.getOptions().getFsm()).getOnStartFollowingTimes(),
+                    Duration.of(7, ChronoUnit.SECONDS));
             assertEquals(2, ((MockStateMachine) follower.getOptions().getFsm()).getOnStopFollowingTimes());
         }
 
@@ -4495,6 +4506,37 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         }
 
         return false;
+    }
+
+    /**
+     * Test if the actual value gets equal to expected within a given timeout. The method will log all values the actual parameter
+     * has taken if the timeout is reached.
+     * @param expected the expected value
+     * @param actual the actual value, this should change over time and therefore a supplier
+     * @param timeout the duration within the actual value should be the same as the expected value
+     * @param <T> the type of expected and actual value
+     * @throws TimeoutException when the duration is reached
+     */
+    @SuppressWarnings("BusyWait")
+    private static <T> void assertWaitForCondition(T expected, Supplier<T> actual, Duration timeout) throws TimeoutException {
+        long stop = System.currentTimeMillis() + timeout.toMillis();
+        HashSet<Object> results = new HashSet<>();
+        while (System.currentTimeMillis() < stop) {
+            T actualVal = actual.get();
+            try {
+                assertEquals(expected, actualVal);
+                return;
+            } catch (Throwable ignored) {
+                //no matching result, save for debug
+                results.add(actualVal);
+            }
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException ignored) {
+            }
+        }
+        throw new TimeoutException(
+                "Timeout reached while waiting for expected result. Expected: " + expected + ", Actual Results: " + results);
     }
 
     /**
