@@ -174,6 +174,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junitpioneer.jupiter.RetryingTest;
 
 /**
  * Integration tests for raft cluster. TODO asch get rid of sleeps wherether possible IGNITE-14832
@@ -2714,7 +2715,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             assertEquals(20, fsm.getLogs().size());
     }
 
-    @RepeatedTest(value = 2, failureThreshold = 1)
+    @RetryingTest(maxAttempts = 2)
     @Timeout(value = 25, unit = TimeUnit.SECONDS)
     public void testFollowerStartStopFollowing() throws Exception {
         // start five nodes
@@ -4535,8 +4536,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             } catch (InterruptedException ignored) {
             }
         }
-        throw new TimeoutException(
-                "Timeout reached while waiting for expected result. Expected: " + expected + ", Actual Results: " + results);
+        fail(String.format("Timeout reached while waiting for expected result. Expected: %s, Actual Results: %s", expected, results));
     }
 
     /**
