@@ -586,7 +586,6 @@ public class Node {
                 metaStorageManager,
                 logicalTopologyService,
                 catalogManager,
-                rebalanceScheduler,
                 systemDistributedConfiguration
         );
 

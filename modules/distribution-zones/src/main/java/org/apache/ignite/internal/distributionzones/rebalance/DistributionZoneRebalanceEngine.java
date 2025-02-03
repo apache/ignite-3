@@ -204,15 +204,16 @@ public class DistributionZoneRebalanceEngine {
 
     private WatchListener createDistributionZonesDataNodesListener() {
         return evt -> IgniteUtils.inBusyLockAsync(busyLock, () -> {
-            Set<Node> dataNodes = parseDataNodes(evt.entryEvent().newEntry().value(), evt.timestamp())
-                    .stream()
-                    .map(NodeWithAttributes::node)
-                    .collect(toSet());
+            Set<NodeWithAttributes> dataNodesWithAttributes = parseDataNodes(evt.entryEvent().newEntry().value(), evt.timestamp());
 
-            if (dataNodes == null) {
+            if (dataNodesWithAttributes == null) {
                 // The zone was removed so data nodes was removed too.
                 return nullCompletedFuture();
             }
+
+            Set<Node> dataNodes = dataNodesWithAttributes.stream()
+                    .map(NodeWithAttributes::node)
+                    .collect(toSet());
 
             int zoneId = extractZoneId(evt.entryEvent().newEntry().key(), DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX
                     .getBytes(StandardCharsets.UTF_8));
