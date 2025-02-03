@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -36,7 +37,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.storage.state.AbstractTxStatePartitionStorageTest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,7 +72,7 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
     @BeforeEach
     protected void beforeTest() {
         sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, mock(LogSyncer.class), () -> 0);
-        sharedStorage.start();
+        assertThat(sharedStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         super.beforeTest();
     }
@@ -82,7 +82,7 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
     protected void afterTest() throws Exception {
         super.afterTest();
 
-        IgniteUtils.closeAllManually(sharedStorage);
+        assertThat(sharedStorage.stopAsync(new ComponentContext()), willCompleteSuccessfully());
     }
 
     @Test

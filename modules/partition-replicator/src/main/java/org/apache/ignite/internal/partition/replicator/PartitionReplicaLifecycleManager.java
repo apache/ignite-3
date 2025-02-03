@@ -147,10 +147,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PartitionReplicaLifecycleManager extends
         AbstractEventProducer<LocalPartitionReplicaEvent, LocalPartitionReplicaEventParameters> implements IgniteComponent {
-    public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
-    public static final boolean ENABLED = getBoolean(FEATURE_FLAG_NAME, false);
+    public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
+    private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
 
     private final CatalogManager catalogMgr;
 
@@ -274,7 +274,7 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        if (!ENABLED) {
+        if (!enabledColocationFeature) {
             return nullCompletedFuture();
         }
 
@@ -1174,7 +1174,7 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
-        if (!ENABLED) {
+        if (!enabledColocationFeature) {
             return nullCompletedFuture();
         }
 

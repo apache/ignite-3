@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET;
@@ -107,7 +108,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
-import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
@@ -351,8 +351,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final LowWatermark lowWatermark;
 
-    private static final boolean SKIP_UPDATES =
-            IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
+    private static final boolean SKIP_UPDATES = getBoolean(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK);
+
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
+    private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
 
     /**
      * The constructor.
@@ -1189,17 +1193,17 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param isPrimary Whether is primary replica.
      * @return Future.
      */
-    private CompletableFuture<Void> processReplicaSafeTimeSyncRequest(Boolean isPrimary) {
+    private CompletableFuture<?> processReplicaSafeTimeSyncRequest(Boolean isPrimary) {
         requireNonNull(isPrimary);
 
         // Disable safe-time sync if the Colocation feature is enabled, safe-time is managed on a different level there.
-        if (!isPrimary || PartitionReplicaLifecycleManager.ENABLED) {
+        if (!isPrimary || enabledColocationFeature) {
             return nullCompletedFuture();
         }
 
         return applyCmdWithExceptionHandling(
                 REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().initiatorTime(clockService.now()).build()
-        ).thenApply(res -> null);
+        );
     }
 
     /**

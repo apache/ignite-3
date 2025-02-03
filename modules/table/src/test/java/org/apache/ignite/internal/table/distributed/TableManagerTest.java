@@ -143,6 +143,7 @@ import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -817,6 +818,13 @@ public class TableManagerTest extends IgniteAbstractTest {
             Consumer<MvTableStorage> tableStorageDecorator,
             Consumer<TxStateStorage> txStateTableStorageDecorator
     ) {
+        var sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                workDir.resolve("tx-state"),
+                scheduledExecutor,
+                partitionOperationsExecutor,
+                logSyncer
+        );
+
         var tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -831,7 +839,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 null,
                 tm,
                 dsm = createDataStorageManager(configRegistry, workDir),
-                workDir,
+                sharedTxStateStorage,
                 msm,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
                 partitionOperationsExecutor,
@@ -875,6 +883,24 @@ public class TableManagerTest extends IgniteAbstractTest {
                 txStateTableStorageDecorator.accept(txStateStorage);
 
                 return txStateStorage;
+            }
+
+            @Override
+            public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+                return sharedTxStateStorage.startAsync(componentContext)
+                        .thenCompose(unused -> super.startAsync(componentContext));
+            }
+
+            @Override
+            public void beforeNodeStop() {
+                super.beforeNodeStop();
+                sharedTxStateStorage.beforeNodeStop();
+            }
+
+            @Override
+            public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+                return super.stopAsync(componentContext)
+                        .thenCompose(unused -> sharedTxStateStorage.stopAsync(componentContext));
             }
         };
 

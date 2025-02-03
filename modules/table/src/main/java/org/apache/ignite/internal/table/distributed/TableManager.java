@@ -48,6 +48,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
@@ -69,7 +70,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -94,7 +94,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.IntSupplier;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -251,22 +250,19 @@ import org.jetbrains.annotations.TestOnly;
  * Table manager.
  */
 public class TableManager implements IgniteTablesInternal, IgniteComponent {
-
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
-
-    /** Name of a transaction state directory. */
-    private static final String TX_STATE_DIR = "tx-state";
-
-    /** Transaction storage flush delay. */
-    private static final int TX_STATE_STORAGE_FLUSH_DELAY = 100;
-    private static final IntSupplier TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER = () -> TX_STATE_STORAGE_FLUSH_DELAY;
 
     /** Replica messages factory. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Table messages factory. */
     private static final PartitionReplicationMessagesFactory TABLE_MESSAGES_FACTORY = new PartitionReplicationMessagesFactory();
+
+    /* Feature flag for zone based collocation track */
+    // TODO IGNITE-22115 remove it
+    private static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
+    private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
 
     private final TopologyService topologyService;
 
@@ -489,7 +485,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ReplicaService replicaSvc,
             TxManager txManager,
             DataStorageManager dataStorageMgr,
-            Path storagePath,
+            TxStateRocksDbSharedStorage txStateRocksDbSharedStorage,
             MetaStorageManager metaStorageMgr,
             SchemaManager schemaManager,
             ExecutorService ioExecutor,
@@ -599,13 +595,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         startVv = new IncrementalVersionedValue<>(registry);
 
-        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
-                storagePath.resolve(TX_STATE_DIR),
-                commonScheduler,
-                ioExecutor,
-                logSyncer,
-                TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
-        );
+        this.sharedTxStateStorage = txStateRocksDbSharedStorage;
 
         fullStateTransferIndexChooser = new FullStateTransferIndexChooser(catalogService, lowWatermark, indexMetaStorage);
 
@@ -646,8 +636,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             long recoveryRevision = recoveryFinishFuture.join().revision();
 
             cleanUpResourcesForDroppedTablesOnRecoveryBusy();
-
-            sharedTxStateStorage.start();
 
             // This future unblocks the process of tables start.
             // All needed storages, like the TxStateRocksDbSharedStorage must be started already.
@@ -698,7 +686,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onZoneReplicaCreated(LocalPartitionReplicaEventParameters parameters) {
-        if (!PartitionReplicaLifecycleManager.ENABLED) {
+        if (!enabledColocationFeature) {
             return falseCompletedFuture();
         }
 
@@ -730,7 +718,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> onZoneReplicaStopped(LocalPartitionReplicaEventParameters parameters) {
-        if (!PartitionReplicaLifecycleManager.ENABLED) {
+        if (!enabledColocationFeature) {
             return falseCompletedFuture();
         }
 
@@ -759,7 +747,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
-        if (!PartitionReplicaLifecycleManager.ENABLED) {
+        if (!enabledColocationFeature) {
             return falseCompletedFuture();
         }
 
@@ -1307,7 +1295,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         public void onConfigurationCommitted(CommittedConfiguration config) {
                             // Disable this method if the Colocation feature is enabled, actual configuration will be propagated
                             // manually by the Zone Raft Listener.
-                            if (!PartitionReplicaLifecycleManager.ENABLED) {
+                            if (!enabledColocationFeature) {
                                 super.onConfigurationCommitted(config);
                             }
                         }
@@ -1557,7 +1545,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             IgniteUtils.closeAllManually(
                     mvGc,
                     fullStateTransferIndexChooser,
-                    sharedTxStateStorage,
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS),
@@ -2954,7 +2941,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             catalogService.catalog(ver).tables().stream()
                     .filter(tbl -> startedTables.add(tbl.id()))
                     .forEach(tableDescriptor -> {
-                        if (PartitionReplicaLifecycleManager.ENABLED) {
+                        if (enabledColocationFeature) {
                             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver0);
                             CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, ver0);
 

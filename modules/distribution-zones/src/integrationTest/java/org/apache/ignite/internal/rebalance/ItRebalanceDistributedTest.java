@@ -247,6 +247,7 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -1114,6 +1115,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final DataStorageManager dataStorageMgr;
 
+        private final TxStateRocksDbSharedStorage sharedTxStateStorage;
+
         private final TableManager tableManager;
 
         private final DistributionZoneManager distributionZoneManager;
@@ -1468,9 +1471,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                     .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
 
-            HybridClockImpl clock = new HybridClockImpl();
-
             MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
+
+            sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                    storagePath.resolve("tx-state"),
+                    threadPoolsManager.commonScheduler(),
+                    threadPoolsManager.tableIoExecutor(),
+                    logStorageFactory
+            );
 
             tableManager = new TableManager(
                     name,
@@ -1486,7 +1494,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     replicaSvc,
                     txManager,
                     dataStorageMgr,
-                    storagePath,
+                    sharedTxStateStorage,
                     metaStorageManager,
                     schemaManager,
                     threadPoolsManager.tableIoExecutor(),
@@ -1608,6 +1616,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     txManager,
                     dataStorageMgr,
                     schemaManager,
+                    sharedTxStateStorage,
                     tableManager,
                     indexManager
             )).thenComposeAsync(componentFuts -> {

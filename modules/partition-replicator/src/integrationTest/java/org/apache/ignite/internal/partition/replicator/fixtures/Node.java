@@ -162,6 +162,7 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.NetworkAddress;
@@ -196,6 +197,8 @@ public class Node {
     private final TxManager txManager;
 
     private final DataStorageManager dataStorageMgr;
+
+    private final TxStateRocksDbSharedStorage sharedTxStateStorage;
 
     public final TableManager tableManager;
 
@@ -595,12 +598,20 @@ public class Node {
                 clockService,
                 placementDriver,
                 schemaSyncService,
-                systemDistributedConfiguration);
+                systemDistributedConfiguration
+        );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
                 .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
 
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
+
+        sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                storagePath.resolve("tx-state"),
+                threadPoolsManager.commonScheduler(),
+                threadPoolsManager.tableIoExecutor(),
+                partitionsLogStorageFactory
+        );
 
         tableManager = new TableManager(
                 name,
@@ -616,7 +627,7 @@ public class Node {
                 replicaSvc,
                 txManager,
                 dataStorageMgr,
-                storagePath,
+                sharedTxStateStorage,
                 metaStorageManager,
                 schemaManager,
                 threadPoolsManager.tableIoExecutor(),
@@ -714,6 +725,7 @@ public class Node {
                 dataStorageMgr,
                 schemaManager,
                 partitionReplicaLifecycleManager,
+                sharedTxStateStorage,
                 tableManager,
                 indexManager
         )).thenComposeAsync(componentFuts -> {
