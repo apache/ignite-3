@@ -473,6 +473,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             PartitionSnapshotMeta meta = snapshotMeta;
 
             RaftGroupConfiguration raftGroupConfig = new RaftGroupConfiguration(
+                    meta.cfgIndex(),
+                    meta.cfgTerm(),
                     meta.peersList(),
                     meta.learnersList(),
                     meta.oldPeersList(),

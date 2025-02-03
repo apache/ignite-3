@@ -237,15 +237,16 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * Saves an arbitrary storage configuration as a byte array.
      *
      * @param configuration Configuration bytes.
-     * @param index Operation's index.
-     * @param term Operation's term.
+     * @param lastAppliedIndex Last applied index.
+     * @param lastAppliedTerm Last applied term.
      */
-    void saveConfiguration(byte[] configuration, long index, long term);
+    void saveConfiguration(byte[] configuration, long lastAppliedIndex, long lastAppliedTerm);
 
     /**
      * Returns configuration bytes saved by {@link #saveConfiguration(byte[], long, long)}.
      *
-     * @return Configuration bytes saved by {@link #saveConfiguration(byte[], long, long)}. {@code null} if it's never been called.
+     * @return Configuration bytes saved by {@link #saveConfiguration(byte[], long, long)}. {@code null} if it's
+     *         never been called.
      */
     byte @Nullable [] getConfiguration();
 

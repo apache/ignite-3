@@ -58,7 +58,6 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
@@ -493,7 +492,11 @@ public class PartitionListener implements RaftGroupListener {
     }
 
     @Override
-    public void onConfigurationCommitted(CommittedConfiguration config) {
+    public void onConfigurationCommitted(
+            RaftGroupConfiguration config,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    ) {
         currentGroupTopology = new HashSet<>(config.peers());
         currentGroupTopology.addAll(config.learners());
 
@@ -509,8 +512,8 @@ public class PartitionListener implements RaftGroupListener {
 
         try {
             storage.runConsistently(locker -> {
-                storage.committedGroupConfiguration(RaftGroupConfiguration.fromCommittedConfiguration(config));
-                storage.lastApplied(config.index(), config.term());
+                storage.committedGroupConfiguration(config);
+                storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
                 updateTrackerIgnoringTrackerClosedException(storageIndexTracker, config.index());
 
                 return null;
