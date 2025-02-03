@@ -19,6 +19,7 @@ package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.FEATURE_FLAG_NAME;
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.PRODUCTION_CLUSTER_CONFIG_STRING;
 
 import java.util.ArrayList;
@@ -41,9 +42,6 @@ import org.openjdk.jmh.annotations.Param;
 public class AbstractColocationBenchmark extends AbstractMultiNodeBenchmark {
     /** Name of shared zone. */
     private static final String SHARED_ZONE_NAME = "shared_zone";
-
-    /** System property that allows to enable/disable colocation feature. */
-    private static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
 
     protected final List<KeyValueView<Tuple, Tuple>> tableViews = new ArrayList<>();
 

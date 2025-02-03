@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.FEATURE_FLAG_NAME;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -149,7 +150,6 @@ public class PartitionReplicaLifecycleManager extends
         AbstractEventProducer<LocalPartitionReplicaEvent, LocalPartitionReplicaEventParameters> implements IgniteComponent {
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
-    public static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
 
     private final CatalogManager catalogMgr;

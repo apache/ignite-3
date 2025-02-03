@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.FEATURE_FLAG_NAME;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.getBoolean;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
@@ -163,7 +164,6 @@ public class InternalTableImpl implements InternalTable {
 
     /* Feature flag for zone based collocation track */
     // TODO IGNITE-22115 remove it
-    private static final String FEATURE_FLAG_NAME = "IGNITE_ZONE_BASED_REPLICATION";
     private final boolean enabledColocationFeature = getBoolean(FEATURE_FLAG_NAME, false);
 
     /** Partitions. */
