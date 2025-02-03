@@ -69,7 +69,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfigura
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -1060,11 +1060,12 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     @Nullable
     private TransactionMeta persistentTxState(IgniteImpl node, UUID txId, String tableName, int partId) {
         return runInExecutor(txStateStorageExecutor, () -> {
-            TxStateStorage txStateStorage = table(node, tableName).internalTable().txStateStorage().getTxStateStorage(partId);
+            TxStatePartitionStorage txStatePartitionStorage = table(node, tableName).internalTable()
+                    .txStateStorage().getPartitionStorage(partId);
 
-            assertNotNull(txStateStorage);
+            assertNotNull(txStatePartitionStorage);
 
-            return txStateStorage.get(txId);
+            return txStatePartitionStorage.get(txId);
         });
     }
 

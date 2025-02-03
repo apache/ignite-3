@@ -246,17 +246,17 @@ public class TestServer implements AutoCloseable {
 
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
-                ignite,
-                bootstrapFactory,
-                shouldDropConnection,
-                responseDelay,
-                clusterService,
-                clusterInfo,
-                metrics,
-                authenticationManager,
-                clock,
-                ignite.placementDriver(),
-                clientConnectorConfiguration)
+                        ignite,
+                        bootstrapFactory,
+                        shouldDropConnection,
+                        responseDelay,
+                        clusterService,
+                        clusterInfo,
+                        metrics,
+                        authenticationManager,
+                        clock,
+                        ignite.placementDriver(),
+                        clientConnectorConfiguration)
                 : new ClientHandlerModule(
                         ignite.queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),

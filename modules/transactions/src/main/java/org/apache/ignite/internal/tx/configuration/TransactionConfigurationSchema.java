@@ -28,23 +28,20 @@ import org.apache.ignite.configuration.validation.Range;
  */
 @Config
 public class TransactionConfigurationSchema {
-    /** Default checking transaction interval. */
-    public static final long DEFAULT_ABANDONED_CHECK_TS = 5_000;
-
     /** How often abandoned transactions are searched for (milliseconds). */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public final long abandonedCheckTs = DEFAULT_ABANDONED_CHECK_TS;
+    public final long abandonedCheckTs = 5_000;
 
-    /** Default transaction timeout (milliseconds). */
+    /** Default timeout for read-only transactions. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public final long timeout = 10_000;
+    public final long readOnlyTimeout = TimeUnit.MINUTES.toMillis(10);
 
-    /** Timeout for implicit transactions (milliseconds). */
+    /** Default timeout for read-write transactions. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public final long implicitTransactionTimeout = 3_000;
+    public final long readWriteTimeout = TimeUnit.SECONDS.toMillis(30);
 
     /** A transaction tries to take lock several times until it throws an exception {@lonk org.apache.ignite.tx.TransactionException}. */
     @Range(min = 0)

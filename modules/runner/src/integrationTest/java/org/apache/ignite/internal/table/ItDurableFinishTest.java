@@ -61,7 +61,7 @@ import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.MismatchingTransactionOutcomeException;
@@ -326,7 +326,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
         TableViewInternal primaryTbl = unwrapTableViewInternal(primaryNode.tables().table(TABLE_NAME));
 
-        TxStateStorage storage = primaryTbl.internalTable().txStateStorage().getTxStateStorage(0);
+        TxStatePartitionStorage storage = primaryTbl.internalTable().txStateStorage().getPartitionStorage(0);
 
         TxMeta txMetaToSet = new TxMeta(
                 ABORTED,

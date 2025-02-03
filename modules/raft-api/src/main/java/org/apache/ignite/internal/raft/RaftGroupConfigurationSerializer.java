@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.internal.raft.RaftGroupConfiguration.UNKNOWN_INDEX;
+import static org.apache.ignite.internal.raft.RaftGroupConfiguration.UNKNOWN_TERM;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +36,14 @@ public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGr
     public static final RaftGroupConfigurationSerializer INSTANCE = new RaftGroupConfigurationSerializer();
 
     @Override
+    protected byte getProtocolVersion() {
+        return 2;
+    }
+
+    @Override
     protected void writeExternalData(RaftGroupConfiguration config, IgniteDataOutput out) throws IOException {
+        out.writeLong(config.index());
+        out.writeLong(config.term());
         writeStringList(config.peers(), out);
         writeStringList(config.learners(), out);
         writeNullableStringList(config.oldPeers(), out);
@@ -57,12 +67,23 @@ public class RaftGroupConfigurationSerializer extends VersionedSerializer<RaftGr
 
     @Override
     protected RaftGroupConfiguration readExternalData(byte protoVer, IgniteDataInput in) throws IOException {
+        long index;
+        long term;
+
+        if (protoVer >= 2) {
+            index = in.readLong();
+            term = in.readLong();
+        } else {
+            index = UNKNOWN_INDEX;
+            term = UNKNOWN_TERM;
+        }
+
         List<String> peers = readStringList(in);
         List<String> learners = readStringList(in);
         List<String> oldPeers = readNullableStringList(in);
         List<String> oldLearners = readNullableStringList(in);
 
-        return new RaftGroupConfiguration(peers, learners, oldPeers, oldLearners);
+        return new RaftGroupConfiguration(index, term, peers, learners, oldPeers, oldLearners);
     }
 
     private static List<String> readStringList(IgniteDataInput in) throws IOException {

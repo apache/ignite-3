@@ -136,6 +136,8 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     @Test
     void convertsCommittedGroupConfigurationOnSave() {
         RaftGroupConfiguration config = new RaftGroupConfiguration(
+                13L,
+                37L,
                 List.of("peer"),
                 List.of("learner"),
                 List.of("old-peer"),

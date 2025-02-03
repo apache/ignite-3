@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.replicator;
 
-import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
@@ -120,6 +119,12 @@ public class ZonePartitionId implements ReplicationGroupId {
 
     @Override
     public int hashCode() {
-        return Objects.hash(zoneId, partId, tableId);
+        int result = 1;
+
+        result = 31 * result + zoneId;
+        result = 31 * result + partId;
+        result = 31 * result + tableId;
+
+        return result;
     }
 }

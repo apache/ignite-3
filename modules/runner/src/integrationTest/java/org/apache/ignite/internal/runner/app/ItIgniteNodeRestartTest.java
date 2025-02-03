@@ -228,6 +228,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -712,6 +713,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
+        var sharedTxStateStorage = new TxStateRocksDbSharedStorage(
+                storagePath.resolve("tx-state"),
+                threadPoolsManager.commonScheduler(),
+                threadPoolsManager.tableIoExecutor(),
+                partitionsLogStorageFactory
+        );
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -726,7 +734,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 replicaService,
                 txManager,
                 dataStorageManager,
-                storagePath,
+                sharedTxStateStorage,
                 metaStorageMgr,
                 schemaManager,
                 threadPoolsManager.tableIoExecutor(),
@@ -851,6 +859,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 indexMetaStorage,
                 schemaManager,
                 distributionZoneManager,
+                sharedTxStateStorage,
                 tableManager,
                 indexManager,
                 qryEngine,

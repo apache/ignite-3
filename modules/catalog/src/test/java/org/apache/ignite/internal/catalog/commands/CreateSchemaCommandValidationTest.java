@@ -29,6 +29,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests to verify validation of {@link CreateSchemaCommand}.
  */
+@SuppressWarnings({"ThrowableNotThrown"})
 public class CreateSchemaCommandValidationTest extends AbstractCommandValidationTest {
 
     @ParameterizedTest(name = "[{index}] ''{argumentsWithNames}''")
@@ -56,6 +57,8 @@ public class CreateSchemaCommandValidationTest extends AbstractCommandValidation
                 () -> builder.build().get(new UpdateContext(catalog)),
                 "Schema with name 'TEST' already exists"
         );
+
+        builder.ifNotExists(true).build().get(new UpdateContext(catalog));
     }
 
     private static Catalog catalogWithSchema(String schemaName) {

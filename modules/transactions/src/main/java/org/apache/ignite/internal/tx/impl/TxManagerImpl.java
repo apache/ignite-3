@@ -416,7 +416,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         if (!readOnly) {
             txStateVolatileStorage.initialize(txId, localNodeId);
 
-            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit);
+            // TODO: RW timeouts will be supported in https://issues.apache.org/jira/browse/IGNITE-24244
+            //  long timeout = options.timeoutMillis() == 0 ? txConfig.readWriteTimeout().value() : options.timeoutMillis();
+            long timeout = 3_000;
+
+            return new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
         } else {
             return beginReadOnlyTransaction(timestampTracker, beginTimestamp, txId, implicit, options);
         }
@@ -447,7 +451,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         try {
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
 
-            var transaction = new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, readTimestamp, txFuture);
+            long timeout = options.timeoutMillis() == 0 ? defaultReadOnlyTransactionTimeoutMillis() : options.timeoutMillis();
+
+            var transaction = new ReadOnlyTransactionImpl(
+                    this, timestampTracker, txId, localNodeId, implicit, timeout, readTimestamp, txFuture
+            );
 
             // Implicit transactions are finished as soon as their operation/query is finished, they cannot be abandoned, so there is
             // no need to register them.
@@ -475,7 +483,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     private long roExpirationPhysicalTimeFor(HybridTimestamp beginTimestamp, InternalTxOptions options) {
-        long effectiveTimeoutMillis = options.timeoutMillis() == 0 ? defaultTransactionTimeoutMillis() : options.timeoutMillis();
+        long effectiveTimeoutMillis = options.timeoutMillis() == 0 ? defaultReadOnlyTransactionTimeoutMillis() : options.timeoutMillis();
         return sumWithSaturation(beginTimestamp.getPhysical(), effectiveTimeoutMillis);
     }
 
@@ -493,8 +501,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         }
     }
 
-    private long defaultTransactionTimeoutMillis() {
-        return txConfig.timeout().value();
+    private long defaultReadOnlyTransactionTimeoutMillis() {
+        return txConfig.readOnlyTimeout().value();
     }
 
     /**

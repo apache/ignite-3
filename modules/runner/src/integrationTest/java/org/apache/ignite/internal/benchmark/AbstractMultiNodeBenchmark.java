@@ -92,8 +92,8 @@ public class AbstractMultiNodeBenchmark {
             // Create a new zone on the cluster's start-up.
             createDistributionZoneOnStartup();
 
-            // Create a table on the cluster's start-up.
-            createTableOnStartup();
+            // Create tables on the cluster's start-up.
+            createTablesOnStartup();
         } catch (Throwable th) {
             nodeTearDown();
 
@@ -110,7 +110,7 @@ public class AbstractMultiNodeBenchmark {
         }
     }
 
-    protected void createTableOnStartup() {
+    protected void createTablesOnStartup() {
         createTable(TABLE_NAME);
     }
 
