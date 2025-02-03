@@ -51,7 +51,6 @@ import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
-import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -69,7 +68,7 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
 
     private final KeyValueStorage storage;
 
-    private final Consumer<CommittedConfiguration> onConfigurationCommitted;
+    private final Consumer<RaftGroupConfiguration> onConfigurationCommitted;
 
     private final RaftGroupConfigurationConverter configurationConverter = new RaftGroupConfigurationConverter();
 
@@ -84,7 +83,7 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
             KeyValueStorage storage,
             HybridClock clock,
             ClusterTimeImpl clusterTime,
-            Consumer<CommittedConfiguration> onConfigurationCommitted
+            Consumer<RaftGroupConfiguration> onConfigurationCommitted
     ) {
         this.storage = storage;
         this.onConfigurationCommitted = onConfigurationCommitted;
@@ -208,10 +207,16 @@ public class MetaStorageListener implements RaftGroupListener, BeforeApplyHandle
     }
 
     @Override
-    public void onConfigurationCommitted(CommittedConfiguration config) {
-        RaftGroupConfiguration configuration = RaftGroupConfiguration.fromCommittedConfiguration(config);
-
-        storage.saveConfiguration(configurationConverter.toBytes(configuration), config.index(), config.term());
+    public void onConfigurationCommitted(
+            RaftGroupConfiguration config,
+            long lastAppliedIndex,
+            long lastAppliedTerm
+    ) {
+        storage.saveConfiguration(
+                configurationConverter.toBytes(config),
+                lastAppliedIndex,
+                lastAppliedTerm
+        );
 
         onConfigurationCommitted.accept(config);
     }

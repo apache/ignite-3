@@ -14,20 +14,20 @@
 # limitations under the License.
 import pytest
 
-import pyignite3
+import pyignite_dbapi
 from tests.util import server_addresses_invalid, server_addresses_basic
 
 
 @pytest.mark.parametrize('address', [server_addresses_basic, server_addresses_basic[0]])
 def test_connection_success(address):
-    conn = pyignite3.connect(address=address, timeout=1)
+    conn = pyignite_dbapi.connect(address=address, timeout=1)
     assert conn is not None
     conn.close()
 
 
 @pytest.mark.parametrize('address', [server_addresses_basic, server_addresses_basic[0]])
 def test_connection_get_cursor(address):
-    with pyignite3.connect(address=address, timeout=1) as conn:
+    with pyignite_dbapi.connect(address=address, timeout=1) as conn:
         assert conn is not None
 
         cursor = conn.cursor()
@@ -37,8 +37,8 @@ def test_connection_get_cursor(address):
 
 @pytest.mark.parametrize('address', [server_addresses_invalid, server_addresses_invalid[0]])
 def test_connection_fail(address):
-    with pytest.raises(pyignite3.OperationalError) as err:
-        pyignite3.connect(address=address, timeout=1)
+    with pytest.raises(pyignite_dbapi.OperationalError) as err:
+        pyignite_dbapi.connect(address=address, timeout=1)
     assert err.match('Failed to establish connection with the host.')
 
 
@@ -54,6 +54,6 @@ ERR_MSG_EMPTY = "No addresses provided to connect"
     ([''], ERR_MSG_EMPTY),
 ])
 def test_connection_wrong_arg(address, err_msg):
-    with pytest.raises(pyignite3.InterfaceError) as err:
-        pyignite3.connect(address=address, timeout=1)
+    with pytest.raises(pyignite_dbapi.InterfaceError) as err:
+        pyignite_dbapi.connect(address=address, timeout=1)
     assert err.match(err_msg)

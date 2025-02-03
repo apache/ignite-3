@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import org.apache.ignite.internal.event.EventParameters;
+import org.apache.ignite.internal.event.CausalEventParameters;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * Parameters for the events about zone partition replicas produced by {@link PartitionReplicaLifecycleManager}.
  */
-public class LocalPartitionReplicaEventParameters implements EventParameters {
+public class LocalPartitionReplicaEventParameters extends CausalEventParameters {
     /** Zone partition id. */
     private final ZonePartitionId zonePartitionId;
 
@@ -31,8 +31,10 @@ public class LocalPartitionReplicaEventParameters implements EventParameters {
      * Constructor.
      *
      * @param zonePartitionId Zone partition id.
+     * @param revision Event's revision.
      */
-    public LocalPartitionReplicaEventParameters(ZonePartitionId zonePartitionId) {
+    public LocalPartitionReplicaEventParameters(ZonePartitionId zonePartitionId, long revision) {
+        super(revision);
         this.zonePartitionId = zonePartitionId;
     }
 

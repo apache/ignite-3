@@ -17,19 +17,10 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import org.apache.ignite.internal.catalog.CatalogCommand;
-
 /**
  * Builder for a {@link CreateSchemaCommand}.
  */
-public interface CreateSchemaCommandBuilder {
-
-    /** Sets schema name. Should not be null or blank. */
-    CreateSchemaCommandBuilder name(String name);
-
+public interface CreateSchemaCommandBuilder extends CreateSystemSchemaCommandBuilder {
     /** Sets a flag indicating whether {@code IF NOT EXISTS} option was specified. */
     CreateSchemaCommandBuilder ifNotExists(boolean value);
-
-    /** Creates new schema command. */
-    CatalogCommand build();
 }

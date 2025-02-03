@@ -59,10 +59,11 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
             UUID id,
             UUID txCoordinatorId,
             boolean implicit,
+            long timeout,
             HybridTimestamp readTimestamp,
             CompletableFuture<Void> txFuture
     ) {
-        super(txManager, observableTsTracker, id, txCoordinatorId, implicit);
+        super(txManager, observableTsTracker, id, txCoordinatorId, implicit, timeout);
 
         this.readTimestamp = readTimestamp;
         this.txFuture = txFuture;

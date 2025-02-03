@@ -83,7 +83,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         requested = rowsCnt;
 
         if (!inLoop) {
-            context().execute(this::push, this::onError);
+            this.execute(this::push);
         }
     }
 
@@ -166,7 +166,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
                 requested = 0;
                 downstream().end();
             } else {
-                context().execute(this::push, this::onError);
+                this.execute(this::push);
             }
         }
     }
@@ -228,30 +228,30 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
             inBuffInner.add(row);
 
             if (inBuffInner.size() == inBufSize) {
-                context().execute(() -> {
+                StorageScanNode.this.execute(() -> {
                     waiting = 0;
                     push();
-                }, StorageScanNode.this::onError);
+                });
             }
         }
 
         /** {@inheritDoc} */
         @Override
         public void onError(Throwable throwable) {
-            context().execute(() -> {
+            StorageScanNode.this.execute(() -> {
                 throw throwable;
-            }, StorageScanNode.this::onError);
+            });
         }
 
         /** {@inheritDoc} */
         @Override
         public void onComplete() {
-            context().execute(() -> {
+            StorageScanNode.this.execute(() -> {
                 activeSubscription = null;
                 waiting = 0;
 
                 push();
-            }, StorageScanNode.this::onError);
+            });
         }
     }
 }

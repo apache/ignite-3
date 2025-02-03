@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import pyignite3
+import pyignite_dbapi
 from tests.util import server_addresses_basic
 
 
@@ -59,11 +59,11 @@ def test_commit_rollback_autocommit_setter(table_name, connection, cursor, drop_
 
 
 def test_commit_rollback_autocommit_connection(table_name, drop_table_cleanup):
-    with pyignite3.connect(address=server_addresses_basic, autocommit=True) as conn:
+    with pyignite_dbapi.connect(address=server_addresses_basic, autocommit=True) as conn:
         with conn.cursor() as cursor:
             create_tx_test_table(cursor, table_name)
 
-    with pyignite3.connect(address=server_addresses_basic, autocommit=False) as conn_tx:
+    with pyignite_dbapi.connect(address=server_addresses_basic, autocommit=False) as conn_tx:
         assert conn_tx.autocommit is False
         with conn_tx.cursor() as cursor:
             cursor.execute(f'insert into {table_name} values (123, 999)')
@@ -71,7 +71,7 @@ def test_commit_rollback_autocommit_connection(table_name, drop_table_cleanup):
 
             cursor.execute(f'update {table_name} set val=777 where id=123')
 
-    with pyignite3.connect(address=server_addresses_basic, autocommit=True) as conn:
+    with pyignite_dbapi.connect(address=server_addresses_basic, autocommit=True) as conn:
         assert conn.autocommit is True
         with conn.cursor() as cursor:
             cursor.execute(f'select val from {table_name} where id=123')

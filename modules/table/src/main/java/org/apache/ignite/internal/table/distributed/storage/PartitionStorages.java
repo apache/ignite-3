@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.storage;
 
 import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 
 /**
  * Partition storages holder.
@@ -26,17 +26,17 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 public class PartitionStorages {
     private final MvPartitionStorage mvPartitionStorage;
 
-    private final TxStateStorage txStateStorage;
+    private final TxStatePartitionStorage txStatePartitionStorage;
 
     /**
      * Constructor.
      *
      * @param mvPartitionStorage Multi-versioned storage.
-     * @param txStateStorage Transaction state storage.
+     * @param txStatePartitionStorage Transaction state storage.
      */
-    public PartitionStorages(MvPartitionStorage mvPartitionStorage, TxStateStorage txStateStorage) {
+    public PartitionStorages(MvPartitionStorage mvPartitionStorage, TxStatePartitionStorage txStatePartitionStorage) {
         this.mvPartitionStorage = mvPartitionStorage;
-        this.txStateStorage = txStateStorage;
+        this.txStatePartitionStorage = txStatePartitionStorage;
     }
 
     /**
@@ -49,7 +49,7 @@ public class PartitionStorages {
     /**
      * Returns transaction state storage.
      */
-    public TxStateStorage getTxStateStorage() {
-        return txStateStorage;
+    public TxStatePartitionStorage getTxStateStorage() {
+        return txStatePartitionStorage;
     }
 }

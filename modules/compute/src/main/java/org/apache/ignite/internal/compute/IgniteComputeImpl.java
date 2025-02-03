@@ -17,14 +17,17 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.compute.ComputeUtils.convertToComputeFuture;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -39,6 +42,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.apache.ignite.compute.AllNodesBroadcastJobTarget;
 import org.apache.ignite.compute.AnyNodeJobTarget;
 import org.apache.ignite.compute.BroadcastExecution;
@@ -129,12 +133,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         if (target instanceof AnyNodeJobTarget) {
             Set<ClusterNode> nodes = ((AnyNodeJobTarget) target).nodes();
 
-            return completedFuture(unmarshalResult(
+            return unmarshalResult(
                     executeAsyncWithFailover(
                             nodes, descriptor.units(), descriptor.jobClassName(), descriptor.options(), argHolder, cancellationToken
                     ),
                     descriptor
-            ));
+            );
         }
 
         if (target instanceof ColocatedJobTarget) {
@@ -147,7 +151,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             if (mapper != null) {
                 jobFut = requiredTable(tableName)
                         .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, mapper)
-                                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                                .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                                         primaryNode,
                                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, mapper),
                                         descriptor.units(),
@@ -170,7 +174,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         ));
             }
 
-            return jobFut.thenApply(execution -> unmarshalResult(execution, descriptor));
+            return unmarshalResult(jobFut, descriptor);
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
@@ -192,41 +196,58 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             AllNodesBroadcastJobTarget allNodesBroadcastTarget = (AllNodesBroadcastJobTarget) target;
             Set<ClusterNode> nodes = allNodesBroadcastTarget.nodes();
 
-            return completedFuture(new BroadcastJobExecutionImpl<>(nodes.stream()
-                    .map(node -> submitForBroadcast(node, descriptor, argHolder, cancellationToken))
-                    .collect(toList()))
-            );
+            return toBroadcastExecution(nodes.stream().map(node -> submitForBroadcast(node, descriptor, argHolder, cancellationToken)));
         } else if (target instanceof TableJobTarget) {
             TableJobTarget tableJobTarget = (TableJobTarget) target;
             return requiredTable(tableJobTarget.tableName())
                     .thenCompose(table -> table.partitionManager().primaryReplicasAsync())
-                    .thenApply(replicas -> new BroadcastJobExecutionImpl<>(
-                            replicas.entrySet().stream()
-                                    .map(entry -> submitForBroadcast(
-                                            entry.getValue(),
-                                            entry.getKey(),
-                                            descriptor,
-                                            argHolder,
-                                            cancellationToken
-                                    ))
-                                    .collect(toList())
-                    ));
+                    .thenCompose(replicas -> toBroadcastExecution(replicas.entrySet().stream()
+                            .map(entry -> submitForBroadcast(
+                                    entry.getValue(),
+                                    entry.getKey(),
+                                    descriptor,
+                                    argHolder,
+                                    cancellationToken
+                            )))
+                    );
         }
 
         throw new IllegalArgumentException("Unsupported job target: " + target);
     }
 
-    private <T, R> JobExecution<R> submitForBroadcast(
+    private static <R> CompletableFuture<BroadcastExecution<R>> toBroadcastExecution(
+            Stream<CompletableFuture<JobExecution<R>>> executionsStream
+    ) {
+        //noinspection unchecked
+        CompletableFuture<JobExecution<R>>[] futures = executionsStream.toArray(CompletableFuture[]::new);
+        // Wait for all the futures but don't fail resulting future, keep individual futures in executions.
+        return allOf(futures).handle((unused, throwable) -> new BroadcastJobExecutionImpl<>(
+                Arrays.stream(futures)
+                        .map(IgniteComputeImpl::mapExecution)
+                        .collect(Collectors.toList())
+        ));
+    }
+
+    private static <T, R> JobExecution<R> mapExecution(CompletableFuture<JobExecution<R>> future) {
+        try {
+            return future.join();
+        } catch (Exception e) {
+            return new FailedExecution<>(unwrapCause(e));
+        }
+    }
+
+    private <T, R> CompletableFuture<JobExecution<R>> submitForBroadcast(
             ClusterNode node,
             JobDescriptor<T, R> descriptor,
             @Nullable ComputeJobDataHolder argHolder,
             @Nullable CancellationToken cancellationToken
     ) {
         ExecutionOptions options = ExecutionOptions.from(descriptor.options());
+
         return submitForBroadcast(node, descriptor, options, argHolder, cancellationToken);
     }
 
-    private <T, R> JobExecution<R> submitForBroadcast(
+    private <T, R> CompletableFuture<JobExecution<R>> submitForBroadcast(
             ClusterNode node,
             @Nullable Partition partition,
             JobDescriptor<T, R> descriptor,
@@ -243,7 +264,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return submitForBroadcast(node, descriptor, options, argHolder, cancellationToken);
     }
 
-    private <T, R> JobExecution<R> submitForBroadcast(
+    private <T, R> CompletableFuture<JobExecution<R>> submitForBroadcast(
             ClusterNode node,
             JobDescriptor<T, R> descriptor,
             ExecutionOptions options,
@@ -251,7 +272,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             @Nullable CancellationToken cancellationToken
     ) {
         if (topologyService.getByConsistentId(node.name()) == null) {
-            return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
+            return failedFuture(new NodeNotFoundException(Set.of(node.name())));
         }
 
         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
@@ -270,12 +291,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         );
     }
 
-    private static <T, R> JobExecution<R> unmarshalResult(JobExecution<ComputeJobDataHolder> execution, JobDescriptor<T, R> descriptor) {
-        return new ResultUnmarshallingJobExecution<>(
+    private static <T, R> CompletableFuture<JobExecution<R>> unmarshalResult(
+            CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFuture,
+            JobDescriptor<T, R> descriptor
+    ) {
+        return executionFuture.thenApply(execution -> new ResultUnmarshallingJobExecution<>(
                 execution,
                 descriptor.resultMarshaller(),
                 descriptor.resultClass()
-        );
+        ));
     }
 
     @Override
@@ -299,7 +323,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @Override
-    public JobExecution<ComputeJobDataHolder> executeAsyncWithFailover(
+    public CompletableFuture<JobExecution<ComputeJobDataHolder>> executeAsyncWithFailover(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -315,7 +339,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         }
         if (candidates.isEmpty()) {
             Set<String> nodeNames = nodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
-            return new FailedExecution<>(new NodeNotFoundException(nodeNames));
+            return failedFuture(new NodeNotFoundException(nodeNames));
         }
 
         ClusterNode targetNode = randomNode(candidates);
@@ -345,8 +369,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return iterator.next();
     }
 
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24184
-    private JobExecution<ComputeJobDataHolder> executeOnOneNodeWithFailover(
+    private CompletableFuture<JobExecution<ComputeJobDataHolder>> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
@@ -356,10 +379,11 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             @Nullable CancellationToken cancellationToken
     ) {
         ExecutionOptions options = ExecutionOptions.from(jobExecutionOptions);
+
         return executeOnOneNodeWithFailover(targetNode, nextWorkerSelector, units, jobClassName, options, arg, cancellationToken);
     }
 
-    private JobExecution<ComputeJobDataHolder> executeOnOneNodeWithFailover(
+    private CompletableFuture<JobExecution<ComputeJobDataHolder>> executeOnOneNodeWithFailover(
             ClusterNode targetNode,
             NextWorkerSelector nextWorkerSelector,
             List<DeploymentUnit> units,
@@ -369,10 +393,12 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             @Nullable CancellationToken cancellationToken
     ) {
         if (isLocal(targetNode)) {
-            return new JobExecutionWrapper<>(computeComponent.executeLocally(options, units, jobClassName, arg, cancellationToken));
+            return convertToComputeFuture(computeComponent.executeLocally(options, units, jobClassName, arg, cancellationToken))
+                    .thenApply(JobExecutionWrapper::new);
         } else {
-            return new JobExecutionWrapper<>(computeComponent.executeRemotelyWithFailover(
-                    targetNode, nextWorkerSelector, units, jobClassName, options, arg, cancellationToken));
+            return convertToComputeFuture(computeComponent.executeRemotelyWithFailover(
+                    targetNode, nextWorkerSelector, units, jobClassName, options, arg, cancellationToken
+            )).thenApply(JobExecutionWrapper::new);
         }
     }
 
@@ -408,7 +434,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             @Nullable CancellationToken cancellationToken
     ) {
         return primaryReplicaForPartitionByTupleKey(table, key)
-                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
                         units, jobClassName, options, arg, cancellationToken
@@ -432,7 +458,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 .build();
 
         return primaryReplicaForPartition(table, partitionId)
-                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         // TODO https://issues.apache.org/jira/browse/IGNITE-24027
                         CompletableFutures::nullCompletedFuture,
@@ -558,16 +584,14 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     @Override
     public CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
         // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
-        JobExecution<ComputeJobDataHolder> jobExecution = executeAsyncWithFailover(
+        return executeAsyncWithFailover(
                 Set.of(node),
                 deploymentUnits,
                 StreamerReceiverJob.class.getName(),
                 JobExecutionOptions.DEFAULT,
                 SharedComputeUtils.marshalArgOrResult(payload, null),
                 null
-        );
-
-        return jobExecution.resultAsync()
+        ).thenCompose(JobExecution::resultAsync)
                 .handle((res, err) -> {
                     if (err != null) {
                         if (err.getCause() instanceof ComputeException) {

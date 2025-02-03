@@ -51,7 +51,7 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         requested = rowsCnt;
 
         if (!inLoop) {
-            context().execute(this::doJoin, this::onError);
+            this.execute(this::doJoin);
         }
     }
 

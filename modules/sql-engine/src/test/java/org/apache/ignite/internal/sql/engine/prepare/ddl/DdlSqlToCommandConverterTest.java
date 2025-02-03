@@ -64,6 +64,7 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.UpdateContext;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
@@ -161,7 +162,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         mockCatalogSchemaAndZone("TEST_ZONE");
 
-        List<UpdateEntry> entries = cmd.get(catalog);
+        List<UpdateEntry> entries = cmd.get(new UpdateContext(catalog));
 
         assertThat(entries.size(), greaterThan(1));
 
@@ -208,7 +209,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         mockCatalogSchemaAndZone("TEST_ZONE");
 
-        List<UpdateEntry> entries = cmd.get(catalog);
+        List<UpdateEntry> entries = cmd.get(new UpdateContext(catalog));
 
         assertThat(entries.size(), greaterThan(1));
 
@@ -248,7 +249,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
 
         mockCatalogSchemaAndZone("TEST_ZONE");
 
-        List<UpdateEntry> entries = cmd.get(catalog);
+        List<UpdateEntry> entries = cmd.get(new UpdateContext(catalog));
 
         assertThat(entries.size(), greaterThan(1));
 

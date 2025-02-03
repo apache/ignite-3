@@ -42,6 +42,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.exec.rel.Node;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -324,7 +325,7 @@ public class ExecutionContext<RowT> implements DataContext {
     }
 
     /**
-     * Executes a query task.
+     * Executes a query task. To execute a task from a {@link Node} use {@link Node#execute(RunnableX)} instead.
      *
      * @param task Query task.
      */

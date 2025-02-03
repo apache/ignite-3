@@ -325,7 +325,6 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
     public void doNotAllowFunctionsInNonPkColumns() {
         // SQL Standard 2016 feature E141-07 - Basic integrity constraints. Column defaults
         assertThrowsSqlException(
@@ -341,13 +340,51 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         if (DEFINITION_SCHEMA.equals(schema) || INFORMATION_SCHEMA.equals(schema)) {
             IgniteImpl igniteImpl = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-            IgniteTestUtils.await(igniteImpl.catalogManager().execute(CreateSchemaCommand.builder().name(schema).build()));
+            IgniteTestUtils.await(igniteImpl.catalogManager().execute(CreateSchemaCommand.systemSchemaBuilder().name(schema).build()));
         }
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Operations with system schemas are not allowed",
                 () -> sql(format("CREATE TABLE {}.SYS_TABLE (NAME VARCHAR PRIMARY KEY, SIZE BIGINT)", schema.toLowerCase())));
+    }
+
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    public void testCreateSystemSchemas(String schema) {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                format("Reserved system schema with name '{}' can't be created.", schema),
+                () -> sql(format("CREATE SCHEMA {}", schema.toLowerCase())));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                format("Reserved system schema with name '{}' can't be created.", schema),
+                () -> sql(format("CREATE SCHEMA {}", schema)));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                format("Reserved system schema with name '{}' can't be created.", schema),
+                () -> sql(format("CREATE SCHEMA \"{}\"", schema)));
+    }
+
+    @ParameterizedTest
+    @MethodSource("reservedSchemaNames")
+    public void testDropSystemSchemas(String schema) {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                format("System schema can't be dropped [name={}]", schema),
+                () -> sql(format("DROP SCHEMA {}", schema.toLowerCase())));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                format("System schema can't be dropped [name={}]", schema),
+                () -> sql(format("DROP SCHEMA {}", schema)));
+
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                format("System schema can't be dropped [name={}]", schema),
+                () -> sql(format("DROP SCHEMA \"{}\"", schema)));
     }
 
     private static Stream<Arguments> reservedSchemaNames() {

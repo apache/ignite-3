@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public interface WriteCommand extends Command {
     /**
-     * Holds request's initiator timestamp.
+     * Holds request's initiator timestamp. TODO IGNITE-24143 Move to SafeTimePropagatingCommand.
      *
      * @return The timestamp.
      */
@@ -34,9 +34,11 @@ public interface WriteCommand extends Command {
     }
 
     /**
-     * This is called before a command is submitted to replication pipeline.
+     * Gets safe timestamp. TODO IGNITE-24143 Move to SafeTimePropagatingCommand.
      *
-     * @param safeTs Safe timestamp.
+     * @return The timestamp.
      */
-    default void patch(HybridTimestamp safeTs) {}
+    default @Nullable HybridTimestamp safeTime() {
+        return null;
+    }
 }

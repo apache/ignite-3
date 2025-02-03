@@ -19,6 +19,7 @@
 #include <ignite/odbc/sql_connection.h>
 #include <ignite/odbc/sql_statement.h>
 
+#include "module.h"
 #include "utils.h"
 #include "py_connection.h"
 #include "py_cursor.h"

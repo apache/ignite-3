@@ -55,7 +55,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
@@ -476,7 +476,7 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
         throw new IgniteInternalException(new OperationNotSupportedException());
     }
 
-    @Override public TxStateTableStorage txStateStorage() {
+    @Override public TxStateStorage txStateStorage() {
         return null;
     }
 

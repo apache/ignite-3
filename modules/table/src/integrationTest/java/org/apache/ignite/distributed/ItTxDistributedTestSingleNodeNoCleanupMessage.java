@@ -67,7 +67,7 @@ import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.Lazy;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -166,7 +166,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
                     ClockService clockService,
                     PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
-                    TxStateStorage txStateStorage,
+                    TxStatePartitionStorage txStatePartitionStorage,
                     TransactionStateResolver transactionStateResolver,
                     StorageUpdateHandler storageUpdateHandler,
                     ValidationSchemasSource validationSchemasSource,
@@ -191,7 +191,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         secondaryIndexStorages,
                         clockService,
                         safeTime,
-                        txStateStorage,
+                        txStatePartitionStorage,
                         transactionStateResolver,
                         storageUpdateHandler,
                         validationSchemasSource,

@@ -258,12 +258,12 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                 assert nullOrEmpty(leftInBuf);
                 assert nullOrEmpty(rightInBuf);
 
-                context().execute(() -> {
+                this.execute(() -> {
                     checkState();
 
                     state = State.FILLING_LEFT;
                     leftSource().request(waitingLeft = leftInBufferSize);
-                }, this::onError);
+                });
 
                 break;
             case IDLE:
@@ -272,11 +272,11 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                 assert waitingRight == -1 || waitingRight == 0 && rightInBuf.size() == rightInBufferSize;
                 assert waitingLeft == -1 || waitingLeft == 0 && leftInBuf.size() == leftInBufferSize;
 
-                context().execute(() -> {
+                this.execute(() -> {
                     checkState();
 
                     join();
-                }, this::onError);
+                });
 
                 break;
 

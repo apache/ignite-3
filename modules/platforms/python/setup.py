@@ -14,18 +14,16 @@
 # limitations under the License.
 import os
 import platform
-import re
 import subprocess
 import setuptools
 import sys
 import multiprocessing
-import pkgutil
 from pprint import pprint
 from setuptools.command.build_ext import build_ext
 from setuptools.extension import Extension
 
-PACKAGE_NAME = 'pyignite3'
-EXTENSION_NAME = 'pyignite3._pyignite3_extension'
+PACKAGE_NAME = 'pyignite_dbapi'
+EXTENSION_NAME = 'pyignite_dbapi._pyignite_dbapi_extension'
 
 
 def is_a_requirement(req_line):
@@ -131,7 +129,7 @@ class CMakeBuild(build_ext):
 
 def run_setup():
     setuptools.setup(
-        name=PACKAGE_NAME,
+        name=PACKAGE_NAME.replace('_', '-'),
         version=version,
         python_requires='>=3.8',
         author='The Apache Software Foundation',

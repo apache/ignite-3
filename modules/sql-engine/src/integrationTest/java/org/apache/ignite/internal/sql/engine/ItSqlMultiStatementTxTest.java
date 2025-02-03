@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -354,13 +355,13 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     void transactionControlStatementFailsWithExternalTransaction() {
         InternalTransaction tx1 = (InternalTransaction) igniteTx().begin();
         assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript(tx1, null, "COMMIT"));
-        assertEquals(1, txManager().pending());
-        tx1.rollback();
+        assertEquals(0, txManager().pending());
+        assertEquals(TxState.ABORTED, tx1.state());
 
         InternalTransaction tx2 = (InternalTransaction) igniteTx().begin();
         assertThrowsExactly(TxControlInsideExternalTxNotSupportedException.class, () -> runScript(tx2, null, "START TRANSACTION"));
-        assertEquals(1, txManager().pending());
-        tx2.rollback();
+        assertEquals(0, txManager().pending());
+        assertEquals(TxState.ABORTED, tx2.state());
 
         verifyFinishedTxCount(2);
     }

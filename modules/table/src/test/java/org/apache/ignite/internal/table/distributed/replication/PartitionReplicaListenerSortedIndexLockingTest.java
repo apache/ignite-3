@@ -114,7 +114,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
-import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Lazy;
@@ -235,7 +235,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 () -> Map.of(),
                 CLOCK_SERVICE,
                 safeTime,
-                new TestTxStateStorage(),
+                new TestTxStatePartitionStorage(),
                 mock(TransactionStateResolver.class),
                 new StorageUpdateHandler(
                         PART_ID,

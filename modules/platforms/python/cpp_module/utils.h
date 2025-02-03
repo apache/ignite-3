@@ -27,9 +27,6 @@
 
 #include <Python.h>
 
-#define MODULE_NAME "pyignite3"
-#define EXT_MODULE_NAME "_pyignite3_extension"
-
 #define PY_ASSERT(cond, err)                                \
     do {                                                    \
         if (!(cond)) {                                      \
@@ -249,57 +246,57 @@ PyObject* py_get_module_programming_error_class();
 PyObject* py_get_module_not_supported_error_class();
 
 /**
- * Create a new instance of pyignite3.UUID from an array of bytes.
+ * Create a new instance of pyignite_dbapi.UUID from an array of bytes.
  *
  * @param bytes A buffer containing a UUID.
- * @return A new instance of pyignite3.UUID.
+ * @return A new instance of pyignite_dbapi.UUID.
  */
 PyObject* py_create_uuid(ignite::bytes_view bytes);
 
 /**
- * Create a new instance of pyignite3.DATE from an ignite_date.
+ * Create a new instance of pyignite_dbapi.DATE from an ignite_date.
  *
  * @param value Date.
- * @return A new instance of pyignite3.DATE.
+ * @return A new instance of pyignite_dbapi.DATE.
  */
 PyObject* py_create_date(const ignite::ignite_date &value);
 
 /**
- * Create a new instance of pyignite3.TIME from an ignite_date.
+ * Create a new instance of pyignite_dbapi.TIME from an ignite_date.
  *
  * @param value Time.
- * @return A new instance of pyignite3.TIME.
+ * @return A new instance of pyignite_dbapi.TIME.
  */
 PyObject* py_create_time(const ignite::ignite_time &value);
 
 /**
- * Create a new instance of pyignite3.DATETIME from an ignite_date.
+ * Create a new instance of pyignite_dbapi.DATETIME from an ignite_date.
  *
  * @param value Date-Time.
- * @return A new instance of pyignite3.DATETIME.
+ * @return A new instance of pyignite_dbapi.DATETIME.
  */
 PyObject* py_create_datetime(const ignite::ignite_date_time &value);
 
 /**
- * Create a new instance of pyignite3.DATETIME from an ignite_timestamp.
+ * Create a new instance of pyignite_dbapi.DATETIME from an ignite_timestamp.
  *
  * @param value Timestamp.
- * @return A new instance of pyignite3.DATETIME.
+ * @return A new instance of pyignite_dbapi.DATETIME.
  */
 PyObject* py_create_datetime(const ignite::ignite_timestamp &value);
 
 /**
- * Create a new instance of pyignite3.NUMBER from a string.
+ * Create a new instance of pyignite_dbapi.NUMBER from a string.
  *
  * @param value String representation of the decimal value.
- * @return A new instance of pyignite3.NUMBER.
+ * @return A new instance of pyignite_dbapi.NUMBER.
  */
 PyObject* py_create_number(std::string_view value);
 
 /**
- * Create a new instance of pyignite3.DURATION from an ignite_duration.
+ * Create a new instance of pyignite_dbapi.DURATION from an ignite_duration.
  *
  * @param value ignite_duration.
- * @return A new instance of pyignite3.DURATION.
+ * @return A new instance of pyignite_dbapi.DURATION.
  */
 PyObject* py_create_timedelta(const ignite::ignite_duration &value);

@@ -107,7 +107,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         if (waiting == 0) {
             source().request(waiting = inBufSize);
         } else if (!inLoop) {
-            context().execute(this::flush, this::onError);
+            this.execute(this::flush);
         }
     }
 
@@ -191,7 +191,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
                 if (processed >= inBufSize && requested > 0) {
                     // allow others to do their job
-                    context().execute(this::flush, this::onError);
+                    this.execute(this::flush);
 
                     return;
                 }

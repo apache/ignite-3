@@ -35,6 +35,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogApplyResult;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
@@ -355,7 +356,7 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     }
 
     private int createTable(String defaultZoneName) throws Exception {
-        CompletableFuture<Integer> tableFuture = catalogManager.execute(CreateTableCommand.builder()
+        CompletableFuture<CatalogApplyResult> tableFuture = catalogManager.execute(CreateTableCommand.builder()
                 .tableName(TABLE_NAME)
                 .schemaName(SCHEMA_NAME)
                 .zone(defaultZoneName)
@@ -366,7 +367,7 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
 
         assertThat(tableFuture, willCompleteSuccessfully());
 
-        int catalogVersion = tableFuture.get();
+        int catalogVersion = tableFuture.get().getCatalogVersion();
 
         Catalog catalog = catalogManager.catalog(catalogVersion);
         assertNotNull(catalog);
@@ -378,7 +379,7 @@ class RebalanceMinimumRequiredTimeProviderImplTest extends BaseDistributionZoneM
     }
 
     private void dropTable(String tableName) {
-        CompletableFuture<Integer> future = catalogManager.execute(DropTableCommand.builder()
+        CompletableFuture<CatalogApplyResult> future = catalogManager.execute(DropTableCommand.builder()
                 .tableName(tableName)
                 .schemaName(SCHEMA_NAME)
                 .build()

@@ -34,7 +34,7 @@ import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.network.ClusterNode;
@@ -483,7 +483,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return Transaction states' storage.
      */
-    TxStateTableStorage txStateStorage();
+    TxStateStorage txStateStorage();
 
     // TODO: IGNITE-14488. Add invoke() methods.
 
