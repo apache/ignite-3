@@ -78,9 +78,13 @@ class CatalogManagerCompactionFacade {
      * @return Catalog revision or {@code null}.
      */
     @Nullable Catalog catalogPriorToVersionAtTsNullable(long timestamp) {
-        int catalogVer = catalogManager.activeCatalogVersion(timestamp);
+        try {
+            int catalogVer = catalogManager.activeCatalogVersion(timestamp);
 
-        return catalogManager.earliestCatalogVersion() > catalogVer - 1 ? null : catalogManager.catalog(catalogVer - 1);
+            return catalogManager.catalog(catalogVer - 1);
+        } catch (CatalogNotFoundException ignore) {
+            return null;
+        }
     }
 
     /**
@@ -90,9 +94,13 @@ class CatalogManagerCompactionFacade {
      * @return Catalog revision or {@code null} if such version of the catalog doesn't exist.
      */
     @Nullable Catalog catalogAtTsNullable(long timestamp) {
-        int catalogVer = catalogManager.activeCatalogVersion(timestamp);
+        try {
+            int catalogVer = catalogManager.activeCatalogVersion(timestamp);
 
-        return catalogManager.earliestCatalogVersion() > catalogVer ? null : catalogManager.catalog(catalogVer);
+            return catalogManager.catalog(catalogVer);
+        } catch (CatalogNotFoundException ignore) {
+            return null;
+        }
     }
 
     CompletableFuture<Boolean> compactCatalog(int version) {
