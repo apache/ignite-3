@@ -23,6 +23,8 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -74,7 +76,6 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     /** Pending assignment Meta storage watch listener. */
     private final WatchListener pendingAssignmentsListener;
 
-
     /**
      * The constructor.
      *
@@ -102,15 +103,14 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             handleRecoveryAssignments(recoveryRevisions, STABLE_ASSIGNMENTS_PREFIX_BYTES, groupStableAssignments);
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                LOG.error("Cannot do recovery", ex);
+                LOG.error("Failed to start assignment tracker due to recovery error", ex);
+            } else if (LOG.isInfoEnabled()) {
+                LOG.info(
+                        "Assignment cache initialized for placement driver [stableAssignments=[{}], pendingAssignments=[{}]]",
+                        prepareAssignmentsForLogging(groupStableAssignments),
+                        prepareAssignmentsForLogging(groupPendingAssignments));
             }
         });
-
-        LOG.info(
-                "Assignment cache initialized for placement driver [groupStableAssignments={}, groupPendingAssignments={}]",
-                groupStableAssignments,
-                groupPendingAssignments
-        );
     }
 
     /**
@@ -241,4 +241,87 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
                 .collect(Collectors.joining(","));
     }
 
+    /**
+     * Prepares assignments for logging using the following structure:
+     * consistentId=[peers=[1_part_1, 1_part_2], learners=[2_part_0]].
+     *
+     * @param assignmentsMap assignments to be logged.
+     * @return String representation of assignments.
+     */
+    private static String prepareAssignmentsForLogging(Map<ReplicationGroupId, TokenizedAssignments> assignmentsMap) {
+        class NodeAssignments {
+            private List<ReplicationGroupId> peers;
+            private List<ReplicationGroupId> learners;
+
+            private NodeAssignments() {
+            }
+
+            private void addReplicationGroupId(ReplicationGroupId replicationGroupId, boolean isPeer) {
+                List<ReplicationGroupId> peersOrLearners;
+
+                if (isPeer) {
+                    if (peers == null) {
+                        peers = new ArrayList<>();
+                    }
+                    peersOrLearners = peers;
+                } else {
+                    if (learners == null) {
+                        learners = new ArrayList<>();
+                    }
+                    peersOrLearners = learners;
+                }
+
+                peersOrLearners.add(replicationGroupId);
+            }
+
+            private boolean arePeersEmpty() {
+                return peers == null || peers.isEmpty();
+            }
+
+            private boolean areLearnersEmpty() {
+                return learners == null || learners.isEmpty();
+            }
+        }
+
+        Map<String, NodeAssignments> assignmentsToLog = new HashMap<>();
+
+        for (Map.Entry<ReplicationGroupId, TokenizedAssignments> assignments : assignmentsMap.entrySet()) {
+            for (Assignment assignment : assignments.getValue().nodes()) {
+                assignmentsToLog
+                        .computeIfAbsent(assignment.consistentId(), k -> new NodeAssignments())
+                        .addReplicationGroupId(assignments.getKey(), assignment.isPeer());
+            }
+        }
+
+        boolean first = true;
+        StringBuilder sb = new StringBuilder();
+
+        for (Map.Entry<String, NodeAssignments> entry : assignmentsToLog.entrySet()) {
+            NodeAssignments value = entry.getValue();
+
+            if (value.arePeersEmpty() && value.areLearnersEmpty()) {
+                continue;
+            }
+
+            if (first) {
+                first = false;
+            } else {
+                sb.append(", ");
+            }
+
+            sb.append(entry.getKey()).append("=[");
+            if (!value.arePeersEmpty()) {
+                sb.append("peers=").append(value.peers);
+                if (!value.areLearnersEmpty()) {
+                    sb.append(", ");
+                }
+            }
+            if (!value.areLearnersEmpty()) {
+                sb.append("learners=").append(value.learners);
+            }
+            sb.append(']');
+        }
+
+        return sb.toString();
+    }
 }
