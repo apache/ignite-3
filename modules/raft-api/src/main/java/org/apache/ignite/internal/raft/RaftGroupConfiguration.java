@@ -66,7 +66,7 @@ public class RaftGroupConfiguration implements Serializable {
     }
 
     /**
-     * Returns RAFT index corresponding to this configuration entry. Always positive.
+     * Returns RAFT index corresponding to this configuration entry.
      *
      * @return RAFT index.
      */
@@ -75,7 +75,7 @@ public class RaftGroupConfiguration implements Serializable {
     }
 
     /**
-     * Returns RAFT term corresponding to this configuration entry. Always positive.
+     * Returns RAFT term corresponding to this configuration entry.
      *
      * @return RAFT term.
      */
