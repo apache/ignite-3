@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -322,6 +323,9 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
         // And the same execution object points to the new job
         // TODO https://issues.apache.org/jira/browse/IGNITE-24353
         // assertThat(execution.node().name(), equalTo(failoverNodeName));
+
+        InteractiveJobs.all().finishReturnPartitionNumber();
+        assertThat(execution.resultAsync(), willBe("0"));
     }
 
     @Test

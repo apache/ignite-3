@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -152,6 +153,11 @@ public final class InteractiveJobs {
         RETURN_WORKER_NAME,
 
         /**
+         * Ask job to complete and return partition number.
+         */
+        RETURN_PARTITION_ID,
+
+        /**
          * Signal to the job to continue running and send current worker name to the response channel.
          */
         GET_WORKER_NAME
@@ -252,6 +258,8 @@ public final class InteractiveJobs {
                             return completedFuture("Done");
                         case RETURN_WORKER_NAME:
                             return completedFuture(workerNodeName);
+                        case RETURN_PARTITION_ID:
+                            return completedFuture(Integer.toString(((HashPartition) context.partition()).partitionId()));
                         case GET_WORKER_NAME:
                             NODE_CHANNELS.get(workerNodeName).add(workerNodeName);
                             break;
@@ -358,6 +366,13 @@ public final class InteractiveJobs {
          */
         public void finishReturnWorkerNames() {
             sendTerminalSignal(Signal.RETURN_WORKER_NAME);
+        }
+
+        /**
+         * Finishes all {@link InteractiveJob}s by returning partition number.
+         */
+        public void finishReturnPartitionNumber() {
+            sendTerminalSignal(Signal.RETURN_PARTITION_ID);
         }
 
         /**
